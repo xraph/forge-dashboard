@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest"
-import { IntentRegistry } from "../src/registry"
+import { IntentRegistry, resolveCollisionPolicy } from "../src/registry"
 
 function Stub() {
   return null
@@ -39,14 +39,20 @@ describe("IntentRegistry", () => {
     const reg = new IntentRegistry()
 
     expect(() =>
-      reg.registerNamespaced("billing", { "atom.button": Stub }),
+      reg.registerNamespaced("billing", { "atom.button": Stub })
     ).toThrow(/namespace/i)
   })
 
   it("refuses a contributor name that is empty", () => {
     const reg = new IntentRegistry()
 
-    expect(() => reg.registerNamespaced("", { "x.y": Stub })).toThrow()
+    // Matched on the guard's own wording, not a bare toThrow. With the guard
+    // removed the prefix becomes "." and the namespace check throws instead,
+    // and a bare toThrow cannot tell those two errors apart - so the test
+    // would keep passing with the thing it exists to protect deleted.
+    expect(() => reg.registerNamespaced("", { "x.y": Stub })).toThrow(
+      /requires a contributor name/
+    )
   })
 
   // A prefix match must respect the dot separator, so "billingx" cannot
@@ -55,7 +61,7 @@ describe("IntentRegistry", () => {
     const reg = new IntentRegistry()
 
     expect(() =>
-      reg.registerNamespaced("billing", { "billingx.thing": Stub }),
+      reg.registerNamespaced("billing", { "billingx.thing": Stub })
     ).toThrow(/namespace/i)
   })
 })
@@ -108,7 +114,7 @@ describe("IntentRegistry collision policy", () => {
     reg.registerNamespaced("billing", { [INTENT]: Stub })
 
     expect(() =>
-      reg.registerNamespaced("billing", { [INTENT]: StubTwo }),
+      reg.registerNamespaced("billing", { [INTENT]: StubTwo })
     ).not.toThrow()
 
     expect(reg.resolve(INTENT)).toBe(StubTwo)
@@ -122,5 +128,121 @@ describe("IntentRegistry collision policy", () => {
     reg.registerNamespaced("billing", { [INTENT]: Stub })
 
     expect(warn).not.toHaveBeenCalled()
+  })
+})
+
+// register() installs core intents. Namespace enforcement alone does not
+// protect them: a contributor legitimately named "page" passes the prefix
+// check for "page.shell". Ownership is what refuses it.
+describe("IntentRegistry core intent protection", () => {
+  it("refuses a contributor claiming a core intent inside its own namespace, under the throw policy", () => {
+    const reg = new IntentRegistry({ onCollision: "throw" })
+    reg.register("page.shell", Stub)
+
+    let thrown: unknown
+    try {
+      reg.registerNamespaced("page", { "page.shell": StubTwo })
+    } catch (err) {
+      thrown = err
+    }
+
+    expect(thrown).toBeInstanceOf(Error)
+    expect((thrown as Error).message).toMatch(/core intent/)
+    expect((thrown as Error).message).toContain("page.shell")
+  })
+
+  it("skips a contributor claiming a core intent under the warn policy, and the core component still resolves", () => {
+    const warn = vi.fn()
+    const reg = new IntentRegistry({ onCollision: "warn", warn })
+    reg.register("page.shell", Stub)
+
+    reg.registerNamespaced("page", { "page.shell": StubTwo })
+
+    expect(reg.resolve("page.shell")).toBe(Stub)
+    expect(warn).toHaveBeenCalledTimes(1)
+    expect(warn.mock.calls[0][0]).toMatch(/core intent/)
+  })
+
+  it("still lets a contributor register its own non-core intents in a core-named namespace", () => {
+    const reg = new IntentRegistry({ onCollision: "throw" })
+    reg.register("page.shell", Stub)
+
+    reg.registerNamespaced("page", { "page.settings": StubTwo })
+
+    expect(reg.resolve("page.shell")).toBe(Stub)
+    expect(reg.resolve("page.settings")).toBe(StubTwo)
+  })
+})
+
+// The one function whose behaviour differs between test and production. It
+// decides whether a mispackaged extension takes a production dashboard down
+// at startup, so it is tested directly rather than through the constructor.
+describe("resolveCollisionPolicy", () => {
+  it("throws loudly in development", () => {
+    expect(resolveCollisionPolicy({ DEV: true })).toBe("throw")
+  })
+
+  it("warns in production", () => {
+    expect(resolveCollisionPolicy({ DEV: false })).toBe("warn")
+  })
+
+  it("warns when there is no env at all, such as a server render", () => {
+    expect(resolveCollisionPolicy(undefined)).toBe("warn")
+  })
+
+  it("warns when an env exists but says nothing about DEV", () => {
+    expect(resolveCollisionPolicy({})).toBe("warn")
+  })
+})
+
+describe("IntentRegistry subscriptions", () => {
+  it("notifies subscribers and bumps the version when a core intent is registered", () => {
+    const reg = new IntentRegistry()
+    const listener = vi.fn()
+    reg.subscribe(listener)
+    const before = reg.getVersion()
+
+    reg.register("atom.button", Stub)
+
+    expect(listener).toHaveBeenCalledTimes(1)
+    expect(reg.getVersion()).toBeGreaterThan(before)
+  })
+
+  it("notifies once per registerNamespaced call, not once per intent", () => {
+    const reg = new IntentRegistry()
+    const listener = vi.fn()
+    reg.subscribe(listener)
+
+    reg.registerNamespaced("billing", {
+      "billing.one": Stub,
+      "billing.two": StubTwo,
+    })
+
+    expect(listener).toHaveBeenCalledTimes(1)
+  })
+
+  it("does not notify when every registration is skipped as a collision", () => {
+    const warn = vi.fn()
+    const reg = new IntentRegistry({ onCollision: "warn", warn })
+    reg.registerNamespaced("billing", { [INTENT]: Stub })
+    const listener = vi.fn()
+    reg.subscribe(listener)
+    const before = reg.getVersion()
+
+    reg.registerNamespaced("billing.reports", { [INTENT]: StubTwo })
+
+    expect(listener).not.toHaveBeenCalled()
+    expect(reg.getVersion()).toBe(before)
+  })
+
+  it("stops notifying after unsubscribe", () => {
+    const reg = new IntentRegistry()
+    const listener = vi.fn()
+    const unsubscribe = reg.subscribe(listener)
+
+    unsubscribe()
+    reg.register("atom.button", Stub)
+
+    expect(listener).not.toHaveBeenCalled()
   })
 })

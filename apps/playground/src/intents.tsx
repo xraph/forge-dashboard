@@ -12,11 +12,13 @@ import {
 // Measured at 1,008KB raw on its own, because data-table pulls recharts for
 // its row drawer. It must never enter the eager chunk. Same for the chart.
 const DataTable = lazy(async () => ({
-  default: (await import("@forge/dashboard-kit/components/data-table")).DataTable,
+  default: (await import("@forge/dashboard-kit/components/data-table"))
+    .DataTable,
 }))
 const ChartAreaInteractive = lazy(async () => ({
-  default: (await import("@forge/dashboard-kit/components/chart-area-interactive"))
-    .ChartAreaInteractive,
+  default: (
+    await import("@forge/dashboard-kit/components/chart-area-interactive")
+  ).ChartAreaInteractive,
 }))
 
 function PageShell({ slots }: IntentComponentProps) {
@@ -39,15 +41,19 @@ function DashboardStats() {
 
 function OrganismChart() {
   return (
-    <Suspense fallback={<div className="h-64 animate-pulse rounded-md bg-muted" />}>
+    <Suspense
+      fallback={<div className="h-64 animate-pulse rounded-md bg-muted" />}
+    >
       <ChartAreaInteractive />
     </Suspense>
   )
 }
 
-function OrganismDataGrid({ props }: IntentComponentProps<unknown, { rows?: unknown }>) {
+function OrganismDataGrid({ props }: IntentComponentProps<{ rows?: unknown }>) {
   return (
-    <Suspense fallback={<div className="h-96 animate-pulse rounded-md bg-muted" />}>
+    <Suspense
+      fallback={<div className="h-96 animate-pulse rounded-md bg-muted" />}
+    >
       <DataTable data={(props.rows ?? []) as never} />
     </Suspense>
   )

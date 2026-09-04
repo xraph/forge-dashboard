@@ -17,7 +17,7 @@ export interface DashboardConfigInput extends Partial<DashboardConfig> {
   basePath: string
 }
 
-interface InjectedConfig extends Partial<DashboardConfig> {}
+type InjectedConfig = Partial<DashboardConfig>
 
 declare global {
   interface Window {
@@ -60,7 +60,9 @@ export function ForgeDashboardProvider({
   children: ReactNode
 }) {
   const value = useMemo(() => resolve(config), [config])
-  return <ConfigContext.Provider value={value}>{children}</ConfigContext.Provider>
+  return (
+    <ConfigContext.Provider value={value}>{children}</ConfigContext.Provider>
+  )
 }
 
 export function useDashboardConfig(): DashboardConfig {
@@ -68,7 +70,7 @@ export function useDashboardConfig(): DashboardConfig {
   if (!cfg) {
     throw new Error(
       "useDashboardConfig was called outside a ForgeDashboardProvider. " +
-        "Wrap the dashboard in <ForgeDashboardProvider config={{ basePath }}>.",
+        "Wrap the dashboard in <ForgeDashboardProvider config={{ basePath }}>."
     )
   }
   return cfg

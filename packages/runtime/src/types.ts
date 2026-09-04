@@ -27,6 +27,10 @@ export interface GraphNode {
   route?: string
   nav?: NavConfig
   root?: boolean
+  // A fetch descriptor: the intent of a data operation and its params. It
+  // mirrors the Go contract and is part of the wire shape, but nothing
+  // consumes it yet - there is no fetch layer in W1. W2 adds one, and only
+  // then does this reach an intent component.
   data?: { intent: string; params?: Record<string, unknown> }
   props?: Record<string, unknown>
   slots?: Record<string, GraphNode[]>
@@ -38,16 +42,15 @@ export interface GraphNode {
   protocol?: string
 }
 
-export interface IntentComponentProps<
-  TData = unknown,
-  TProps = Record<string, unknown>,
-> {
+// No `data` here, deliberately. GraphNode.data is a fetch descriptor and
+// nothing fetches it yet, so a `data` prop on this interface would promise
+// every intent component something the renderer has never once supplied.
+export interface IntentComponentProps<TProps = Record<string, unknown>> {
   node: GraphNode
-  data?: TData
   props: TProps
   slots: Record<string, GraphNode[]>
 }
 
 export type IntentComponent = ComponentType<
-  IntentComponentProps<unknown, Record<string, unknown>>
+  IntentComponentProps<Record<string, unknown>>
 >

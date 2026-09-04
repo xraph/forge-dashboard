@@ -18,7 +18,7 @@ describe("config provider", () => {
         config={{ basePath: "/admin", contractBase: "/admin/api/v1" }}
       >
         <ShowBase />
-      </ForgeDashboardProvider>,
+      </ForgeDashboardProvider>
     )
 
     expect(screen.getByTestId("base").textContent).toBe("/admin/api/v1")
@@ -28,7 +28,7 @@ describe("config provider", () => {
     render(
       <ForgeDashboardProvider config={{ basePath: "/ops" }}>
         <ShowBase />
-      </ForgeDashboardProvider>,
+      </ForgeDashboardProvider>
     )
 
     expect(screen.getByTestId("base").textContent).toBe("/ops/api/dashboard/v1")
@@ -64,7 +64,7 @@ describe("config provider", () => {
     render(
       <ForgeDashboardProvider config={{ basePath: "/ops" }}>
         <ShowAll />
-      </ForgeDashboardProvider>,
+      </ForgeDashboardProvider>
     )
 
     expect(JSON.parse(screen.getByTestId("all").textContent!)).toEqual({

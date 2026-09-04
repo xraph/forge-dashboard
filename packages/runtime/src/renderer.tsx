@@ -1,6 +1,11 @@
-import { createContext, useContext } from "react"
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useSyncExternalStore,
+} from "react"
 import type { ReactNode } from "react"
-import { UnknownIntent } from "./fallbacks"
+import { IntentErrorBoundary, UnknownIntent } from "./fallbacks"
 import type { IntentRegistry } from "./registry"
 import type { GraphNode } from "./types"
 
@@ -14,16 +19,35 @@ export function RegistryProvider({
   children: ReactNode
 }) {
   return (
-    <RegistryContext.Provider value={registry}>{children}</RegistryContext.Provider>
+    <RegistryContext.Provider value={registry}>
+      {children}
+    </RegistryContext.Provider>
   )
 }
 
 export function useRegistry(): IntentRegistry {
   const reg = useContext(RegistryContext)
+
+  const subscribe = useCallback(
+    (onChange: () => void) => (reg ? reg.subscribe(onChange) : () => {}),
+    [reg]
+  )
+  const getSnapshot = useCallback(() => (reg ? reg.getVersion() : 0), [reg])
+
+  // Re-render this subtree when an intent is registered after mount. Without
+  // this, a contributor module that loads late would never appear: the
+  // registry is mutable and its identity never changes, so React cannot see it.
+  //
+  // The hooks run before the throw below, unconditionally, because a hook that
+  // only sometimes runs breaks the rules of hooks. The third argument is the
+  // server snapshot, required for SSR; the same getter is correct here because
+  // a version counter is not browser-specific.
+  useSyncExternalStore(subscribe, getSnapshot, getSnapshot)
+
   if (!reg) {
     throw new Error(
       "useRegistry was called outside a RegistryProvider. " +
-        "Wrap the dashboard in <RegistryProvider registry={...}>.",
+        "Wrap the dashboard in <RegistryProvider registry={...}>."
     )
   }
   return reg
@@ -38,12 +62,21 @@ export function GraphRenderer({ node }: { node: GraphNode }) {
     return <UnknownIntent intent={node.intent} />
   }
 
+  // One boundary per node, keyed on the intent so swapping the intent gives
+  // the replacement a clean boundary rather than inheriting a failed one.
   return (
-    <Component
-      node={node}
-      props={node.props ?? {}}
-      slots={node.slots ?? {}}
-    />
+    <IntentErrorBoundary key={node.intent} intent={node.intent}>
+      {/* Resolving the component at render time is the whole mechanism this
+          package exists for: the server names an intent and the registry
+          answers with a component. The rule reads that as a component
+          defined inline, which it is not. */}
+      {/* eslint-disable-next-line react-hooks/static-components */}
+      <Component
+        node={node}
+        props={node.props ?? {}}
+        slots={node.slots ?? {}}
+      />
+    </IntentErrorBoundary>
   )
 }
 
