@@ -27,7 +27,14 @@ function PageShell({ slots }: IntentComponentProps) {
       <AppSidebar variant="inset" />
       <SidebarInset>
         <SiteHeader />
-        <div className="flex flex-1 flex-col gap-4 p-4">
+        {/*
+          `@container/main` is load-bearing, not decoration. dashboard-01's
+          SectionCards sizes itself with container queries scoped to a container
+          named `main` (@xl/main:grid-cols-2, @5xl/main:grid-cols-4). Without
+          this declaration those variants never match and the cards stack in a
+          single column at every width.
+        */}
+        <div className="@container/main flex flex-1 flex-col gap-4 p-4">
           <SlotRenderer slot="main" slots={slots} />
         </div>
       </SidebarInset>
