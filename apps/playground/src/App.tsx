@@ -1,19 +1,25 @@
-import { Button } from "@forge/dashboard-kit/components/button"
+import { AppSidebar } from "@forge/dashboard-kit/components/app-sidebar"
+import { ChartAreaInteractive } from "@forge/dashboard-kit/components/chart-area-interactive"
+import { DataTable } from "@forge/dashboard-kit/components/data-table"
+import { SectionCards } from "@forge/dashboard-kit/components/section-cards"
+import { SiteHeader } from "@forge/dashboard-kit/components/site-header"
+import { SidebarInset, SidebarProvider } from "@forge/dashboard-kit/components/sidebar"
+import data from "@forge/dashboard-kit/app/dashboard/data.json"
 
 export function App() {
   return (
-    <div className="flex min-h-svh p-6">
-      <div className="flex max-w-md min-w-0 flex-col gap-4 text-sm leading-loose">
-        <div>
-          <h1 className="font-medium">Project ready!</h1>
-          <p>You may now add components and start building.</p>
-          <p>We&apos;ve already added the button component for you.</p>
-          <Button className="mt-2">Button</Button>
+    <SidebarProvider>
+      <AppSidebar variant="inset" />
+      <SidebarInset>
+        <SiteHeader />
+        <div className="flex flex-1 flex-col gap-4 p-4">
+          <SectionCards />
+          <ChartAreaInteractive />
+          <DataTable data={data} />
         </div>
-        <div className="text-muted-foreground font-mono text-xs">
-          (Press <kbd>d</kbd> to toggle dark mode)
-        </div>
-      </div>
-    </div>
+      </SidebarInset>
+    </SidebarProvider>
   )
 }
+
+export default App
