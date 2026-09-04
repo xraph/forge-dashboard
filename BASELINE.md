@@ -26,7 +26,7 @@ Six JS chunks are emitted, where before there was one:
 
 | chunk | raw | gzip | loaded |
 |---|---|---|---|
-| entry chunk | 292.43 KB | 88.85 KB | eager, static from `index.html` |
+| entry chunk | 293.51 KB | 89.15 KB | eager, static from `index.html` |
 | rolldown-runtime chunk | 0.71 KB | 0.42 KB | eager, statically imported by the entry |
 | Base UI hook chunk (`useRegisterFieldControl`) | 138.93 KB | 48.29 KB | eager, statically imported by the entry |
 | chart chunk (`chart-area-interactive`) | 11.92 KB | 3.73 KB | lazy, `organism.chart` |
@@ -47,7 +47,7 @@ stays lazy despite being bigger than every other chunk on its own.
 
 | composition | raw | gzip |
 |---|---|---|
-| eager entry (entry + rolldown-runtime + Base UI hook chunk) | 432.07 KB | 137.56 KB |
+| eager entry (entry + rolldown-runtime + Base UI hook chunk) | 433.15 KB | 137.86 KB |
 
 That eager total is well under the 1,065 KB / 322 KB gzip single-chunk
 baseline above.
@@ -55,9 +55,9 @@ baseline above.
 ### What the split did and did not do
 
 The eager entry is what the budget governs, and it dropped from 322 KB gzip
-to ~137.56 KB. Total bytes did not drop. The default graph in `App.tsx`
+to ~137.86 KB. Total bytes did not drop. The default graph in `App.tsx`
 renders both heavy blocks on the first screen, so both lazy chunks fetch
-immediately and the first view now costs about 1,075.31 KB raw / 329.42 KB
+immediately and the first view now costs about 1,076.39 KB raw / 329.73 KB
 gzip across all six chunks, marginally more than the single 1,065 KB / 322 KB
 chunk, because compression is worse across chunk boundaries and Vite does not
 modulepreload dynamic-import dependencies, so the two heavy chunks arrive as
@@ -66,3 +66,12 @@ bought is time to first paint and a bounded eager budget: the sidebar, header
 and stat cards paint without waiting on recharts, TanStack Table or four
 @dnd-kit packages. A route that does not render `organism.chart` or
 `organism.data-grid` pays nothing for them at all.
+
+### Re-measured after the W1 review fixes
+
+The eager entry moved from 432.07 KB / 137.56 KB gzip to 433.15 KB /
+137.86 KB gzip, up 1.08 KB raw and 0.30 KB gzip. That is the intent error
+boundary, the `useSyncExternalStore` subscription in `useRegistry`, and the
+listener set on the registry. The split itself is unchanged: the entry chunk
+still statically imports only the rolldown-runtime and Base UI hook chunks,
+and `CompositeRoot` still appears in the entry only inside `__vite__mapDeps`.
