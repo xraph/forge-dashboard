@@ -107,4 +107,19 @@ describe("GraphRenderer", () => {
       /RegistryProvider/,
     )
   })
+
+  it("gives an intent component empty objects, not undefined, when the node has neither", () => {
+    const seen: { props?: unknown; slots?: unknown } = {}
+    function Probe({ props, slots }: IntentComponentProps) {
+      seen.props = props
+      seen.slots = slots
+      return null
+    }
+    const reg = new IntentRegistry().register("atom.bare", Probe)
+
+    render(withRegistry(reg, { intent: "atom.bare" }))
+
+    expect(seen.props).toEqual({})
+    expect(seen.slots).toEqual({})
+  })
 })
