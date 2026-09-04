@@ -19,4 +19,13 @@ export default defineConfig([
       globals: globals.browser,
     },
   },
+  {
+    // Vendored from the shadcn registry. We do not hand-edit these files, so
+    // holding them to our own fast-refresh rule only produces noise we cannot
+    // act on without diverging from upstream.
+    files: ['src/components/**'],
+    rules: {
+      'react-refresh/only-export-components': 'off',
+    },
+  },
 ])

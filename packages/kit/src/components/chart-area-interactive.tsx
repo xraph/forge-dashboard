@@ -146,6 +146,10 @@ export function ChartAreaInteractive() {
 
   React.useEffect(() => {
     if (isMobile) {
+      // Vendored from the shadcn registry. Rewriting upstream component logic
+      // here would put us on a private fork of every future update, so the
+      // rule is silenced at the one line it fires on instead.
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setTimeRange("7d")
     }
   }, [isMobile])

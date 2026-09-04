@@ -1,0 +1,41 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    name: typecheck, lint, test, build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # Pinned to the version in the root package.json "packageManager" field.
+      # Keep the two in step or the lockfile check below stops meaning anything.
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.21.0
+
+      # Node 24. The toolchain here (Vite 8, ESLint 10, TypeScript 6) is
+      # already past what Node 20 was built for, and 24 is what the repo is
+      # developed on, so CI runs the same runtime rather than an older one
+      # that only the engines field still allows.
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
+      - run: pnpm typecheck
+
+      - run: pnpm lint
+
+      - run: pnpm test
+
+      - run: pnpm build
