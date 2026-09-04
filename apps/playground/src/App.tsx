@@ -1,4 +1,4 @@
-import { Button } from "@workspace/ui/components/button"
+import { Button } from "@forge/dashboard-kit/components/button"
 
 export function App() {
   return (

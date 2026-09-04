@@ -11,11 +11,11 @@
   },
   "iconLibrary": "lucide",
   "aliases": {
-    "components": "@workspace/ui/components",
-    "utils": "@workspace/ui/lib/utils",
-    "hooks": "@workspace/ui/hooks",
-    "lib": "@workspace/ui/lib",
-    "ui": "@workspace/ui/components"
+    "components": "@forge/dashboard-kit/components",
+    "utils": "@forge/dashboard-kit/lib/utils",
+    "hooks": "@forge/dashboard-kit/hooks",
+    "lib": "@forge/dashboard-kit/lib",
+    "ui": "@forge/dashboard-kit/components"
   },
   "rtl": false,
   "menuColor": "default",

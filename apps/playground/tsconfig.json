@@ -7,7 +7,7 @@
   "compilerOptions": {
     "paths": {
       "@/*": ["./src/*"],
-      "@workspace/ui/*": ["../../packages/ui/src/*"]
+      "@forge/dashboard-kit/*": ["../../packages/kit/src/*"]
     }
   }
 }
