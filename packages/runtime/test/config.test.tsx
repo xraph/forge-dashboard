@@ -55,6 +55,29 @@ describe("config provider", () => {
     }
   })
 
+  it("derives every field from basePath when only basePath is given", () => {
+    function ShowAll() {
+      const cfg = useDashboardConfig()
+      return <span data-testid="all">{JSON.stringify(cfg)}</span>
+    }
+
+    render(
+      <ForgeDashboardProvider config={{ basePath: "/ops" }}>
+        <ShowAll />
+      </ForgeDashboardProvider>,
+    )
+
+    expect(JSON.parse(screen.getByTestId("all").textContent!)).toEqual({
+      basePath: "/ops",
+      contractBase: "/ops/api/dashboard/v1",
+      streamBase: "/ops/api/dashboard/v1/stream",
+      authEnabled: false,
+      loginPath: "/ops/login",
+      loginOp: "auth.login",
+      loginContributor: "auth",
+    })
+  })
+
   it("configFromWindow reads the injected global when present", () => {
     // No @ts-expect-error needed here: src/config.tsx augments the global
     // Window interface with an optional __FORGE_DASHBOARD__, so this access

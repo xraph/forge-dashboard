@@ -26,6 +26,9 @@ importers:
       '@forge/dashboard-kit':
         specifier: workspace:*
         version: link:../../packages/kit
+      '@forge/dashboard-runtime':
+        specifier: workspace:*
+        version: link:../../packages/runtime
       lucide-react:
         specifier: ^1.40.0
         version: 1.40.0(react@19.2.8)

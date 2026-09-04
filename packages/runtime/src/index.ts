@@ -1,3 +1,5 @@
 export * from "./types"
 export * from "./registry"
 export * from "./config"
+export * from "./renderer"
+export * from "./fallbacks"
