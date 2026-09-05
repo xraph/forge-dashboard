@@ -57,7 +57,6 @@ describe("useQuery", () => {
     const client: ScopedClientT = {
       extension: "billing",
       query: queryMock,
-      command: vi.fn(),
     }
 
     const wrapper = ({ children }: { children: ReactNode }) => (
@@ -111,7 +110,6 @@ describe("useQuery", () => {
     const client: ScopedClientT = {
       extension: "billing",
       query: queryMock,
-      command: vi.fn(),
     }
     const wrapper = ({ children }: { children: ReactNode }) => (
       <PluginProvider client={client}>{children}</PluginProvider>

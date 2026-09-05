@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from "vitest"
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 import { ContractError, createScopedClient } from "../src/client"
 
 const BASE = "/dashboard/api/dashboard/v1"
@@ -14,6 +14,10 @@ function mockFetch(body: unknown, status = 200) {
 describe("createScopedClient", () => {
   beforeEach(() => {
     vi.restoreAllMocks()
+  })
+
+  afterEach(() => {
+    vi.unstubAllGlobals()
   })
 
   it("sends the contributor it was scoped to, not one the caller supplies", async () => {
@@ -51,6 +55,34 @@ describe("createScopedClient", () => {
     await expect(client.query("x.y")).rejects.toMatchObject({ code: "NOT_FOUND" })
   })
 
+  // What this pins is narrow and worth stating exactly: the default fetchImpl
+  // invokes the global fetch *as a method of globalThis*, so it always has a
+  // receiver. It does not prove a browser would have thrown without one -
+  // neither jsdom nor undici enforces that, so the stub below does the
+  // enforcing, and it is stricter than any real environment. The white-box
+  // fact is the one the fix is about: `fetchImpl = fetch` calls with an
+  // undefined receiver and fails here, the wrapper does not.
+  it("calls the global fetch with a receiver when no fetchImpl is passed", async () => {
+    const seen: unknown[] = []
+    function receiverChecked(this: unknown, ...args: unknown[]) {
+      if (this !== globalThis) {
+        throw new TypeError("Illegal invocation")
+      }
+      seen.push(args[0])
+      return Promise.resolve({
+        ok: true,
+        status: 200,
+        json: async () => ({ ok: true, envelope: "v1", data: { n: 3 } }),
+      })
+    }
+    vi.stubGlobal("fetch", receiverChecked)
+
+    const client = createScopedClient(BASE, "billing")
+
+    await expect(client.query("x.y")).resolves.toEqual({ n: 3 })
+    expect(seen).toEqual([BASE])
+  })
+
   // A transport failure and a contract-level error are different things and the
   // caller has to be able to tell them apart.
   it("throws with a TRANSPORT code when the response is not ok", async () => {
@@ -58,14 +90,5 @@ describe("createScopedClient", () => {
     const client = createScopedClient(BASE, "billing", fetchMock)
 
     await expect(client.query("x.y")).rejects.toMatchObject({ code: "TRANSPORT" })
-  })
-
-  it("sends kind command for commands", async () => {
-    const fetchMock = mockFetch({ ok: true, envelope: "v1", kind: "command", data: null })
-    const client = createScopedClient(BASE, "billing", fetchMock)
-
-    await client.command("invoice.void", { id: "1" })
-
-    expect(JSON.parse(fetchMock.mock.calls[0][1].body).kind).toBe("command")
   })
 })

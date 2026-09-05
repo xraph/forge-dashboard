@@ -4,8 +4,6 @@ import type { ComponentType } from "react"
 export interface PluginNavItem {
   label: string
   to: string
-  /** Icon name resolved by the host against lucide. */
-  icon?: string
   /** Lower sorts earlier within this plugin's own group. */
   priority?: number
 }

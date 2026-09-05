@@ -159,11 +159,28 @@ export function PluginHost({ plugins, fetchImpl }: PluginHostProps) {
 
   const ready = resolved.filter((r) => r.pluginState.kind === "ready")
 
-  const nav: PluginNavItem[] = ready
-    .flatMap((r) => r.plugin.nav)
-    .sort((a, b) => (a.priority ?? 0) - (b.priority ?? 0))
+  // priority orders a plugin's items among its own, and nothing more. Sorting
+  // the flattened list instead would let one plugin's priority push another
+  // plugin's entry around, which is not what the field means and not the
+  // cross-plugin order we settled on: plugins keep installation order.
+  const nav: { plugin: ForgePlugin; item: PluginNavItem }[] = ready.flatMap(
+    ({ plugin }) =>
+      [...plugin.nav]
+        .sort((a, b) => (a.priority ?? 0) - (b.priority ?? 0))
+        .map((item) => ({ plugin, item }))
+  )
 
-  const home = nav[0]?.to ?? ready[0]?.plugin.routes[0]?.path
+  const home = nav[0]?.item.to ?? ready[0]?.plugin.routes[0]?.path
+
+  // A plugin is free to own the dashboard root, and when one does the host
+  // must not also emit a redirect off it. Today that redirect loses anyway,
+  // but only by accident: react-router breaks a tie between two routes of
+  // equal specificity on declaration order, and the redirect happens to be
+  // declared last. Turn the route table around and "/" starts bouncing. Say
+  // it here instead of leaning on where the JSX happens to sit.
+  const rootIsClaimed = ready.some(({ plugin }) =>
+    plugin.routes.some((route) => route.path === "/")
+  )
 
   return (
     <HostShell>
@@ -173,9 +190,9 @@ export function PluginHost({ plugins, fetchImpl }: PluginHostProps) {
         // offers no injection point. Contributed nav moving into the sidebar
         // proper is a kit change, not a host change.
         <nav aria-label="Plugin pages" className="flex flex-wrap gap-2">
-          {nav.map((item) => (
+          {nav.map(({ plugin, item }) => (
             <Link
-              key={item.to}
+              key={`${plugin.extension}:${item.to}`}
               to={item.to}
               className="rounded-md border px-3 py-1.5 text-sm hover:bg-accent"
             >
@@ -245,7 +262,9 @@ export function PluginHost({ plugins, fetchImpl }: PluginHostProps) {
               )
             })
           )}
-          {home && <Route path="/" element={<Navigate to={home} replace />} />}
+          {home && !rootIsClaimed && (
+            <Route path="/" element={<Navigate to={home} replace />} />
+          )}
         </Routes>
       )}
     </HostShell>

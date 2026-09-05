@@ -27,7 +27,11 @@ export class ContractError extends Error {
 export interface ScopedClient {
   readonly extension: string
   query<T = unknown>(intent: string, params?: Record<string, unknown>): Promise<T>
-  command<T = unknown>(intent: string, payload?: unknown): Promise<T>
+  // No command() yet. The server rejects every command envelope that carries
+  // no CSRF token and no idempotency key, and it does that check before it
+  // looks at whether contract security is even enabled, so a command sent
+  // without both fields cannot succeed against any Forge server. Commands
+  // land in W3, together with the first thing that actually sends one.
 }
 
 type FetchLike = typeof fetch
@@ -42,12 +46,19 @@ type FetchLike = typeof fetch
 export function createScopedClient(
   contractBase: string,
   extension: string,
-  fetchImpl: FetchLike = fetch,
+  // Called as a method of globalThis, never passed bare. A browser's `fetch`
+  // wants the global as its receiver, and `fetchImpl = fetch` hands it none:
+  // that is the "Illegal invocation" shape. The host always passes a bound
+  // fetch so nothing in this repo hits it, but this package is published and
+  // callers who omit the argument will exist. Resolving through globalThis at
+  // call time also means a fetch installed after the client was built (a
+  // polyfill, a test stub) is the one that runs.
+  fetchImpl: FetchLike = (...args) => globalThis.fetch(...args),
 ): ScopedClient {
   async function send<T>(
-    kind: "query" | "command",
+    kind: "query",
     intent: string,
-    body: { params?: Record<string, unknown>; payload?: unknown },
+    body: { params?: Record<string, unknown> },
   ): Promise<T> {
     const req: ContractEnvelopeRequest = {
       envelope: "v1",
@@ -88,6 +99,5 @@ export function createScopedClient(
   return {
     extension,
     query: (intent, params) => send("query", intent, { params }),
-    command: (intent, payload) => send("command", intent, { payload }),
   }
 }

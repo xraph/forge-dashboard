@@ -77,6 +77,28 @@ describe("resolvePluginState", () => {
     expect(state).toEqual({ kind: "setup", message: "connect a Stripe account" })
   })
 
+  // The intersection of the two failing states, and the only case that pins
+  // their order. Every other case here sets one of them and leaves the other
+  // clean, so swapping the two blocks in resolve.ts leaves them all green.
+  // An out-of-range extension cannot be trusted to render its own setup
+  // screen, so mismatch has to win.
+  it("reports mismatch, not setup, when the contributor is both out of range and unconfigured", () => {
+    const caps = capabilities([
+      {
+        name: "billing",
+        envelopes: ["v1"],
+        configured: false,
+        version: "1.9.0",
+        message: "connect a Stripe account",
+      },
+    ])
+
+    const state = resolvePluginState(plugin({ extension: "billing", requires: "^2.0.0" }), caps)
+
+    expect(state.kind).toBe("mismatch")
+    expect(state).toEqual({ kind: "mismatch", required: "^2.0.0", reported: "1.9.0" })
+  })
+
   it("is ready when the version is fine and the contributor is configured", () => {
     const caps = capabilities([
       { name: "billing", envelopes: ["v1"], configured: true, version: "2.1.0" },

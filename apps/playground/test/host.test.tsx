@@ -271,6 +271,122 @@ describe("PluginHost", () => {
     expect(screen.queryByText("overview page body")).toBeNull()
   })
 
+  // MINOR 5's regression. priority is documented as ordering a plugin's items
+  // within its own group, and cross-plugin nav order is installation order.
+  // Sorting the flattened list broke both, and only looked right because
+  // Array.prototype.sort is stable and every priority defaults to 0. These
+  // two plugins interleave under a global sort: alpha's 10 would fall behind
+  // beta's 1.
+  it("sorts nav within each plugin and keeps plugins in installation order", async () => {
+    const fetchImpl = capabilitiesFetch([
+      { name: "alpha", envelopes: ["v1"], configured: true },
+      { name: "beta", envelopes: ["v1"], configured: true },
+    ])
+    const alpha = definePlugin({
+      extension: "alpha",
+      nav: [
+        { label: "Alpha Second", to: "/alpha/second", priority: 10 },
+        { label: "Alpha First", to: "/alpha/first", priority: 5 },
+      ],
+      routes: [{ path: "/alpha/first", element: () => <p>alpha page</p> }],
+    })
+    const beta = definePlugin({
+      extension: "beta",
+      nav: [
+        { label: "Beta Second", to: "/beta/second", priority: 3 },
+        { label: "Beta First", to: "/beta/first", priority: 1 },
+      ],
+      routes: [{ path: "/beta/first", element: () => <p>beta page</p> }],
+    })
+
+    renderHost([alpha, beta], fetchImpl, "/alpha/first")
+
+    await screen.findByText("alpha page")
+    const links = screen
+      .getAllByRole("link")
+      .map((el) => el.textContent)
+      .filter((t) => t?.startsWith("Alpha") || t?.startsWith("Beta"))
+
+    expect(links).toEqual([
+      "Alpha First",
+      "Alpha Second",
+      "Beta First",
+      "Beta Second",
+    ])
+  })
+
+  // MINOR 6's regression. Keying on item.to alone collides the moment two
+  // plugins contribute the same path, which is not exotic: /settings is the
+  // obvious one. React reports that on console.error and then renders one of
+  // the two, so nothing else here would notice.
+  it("keys nav on extension and path, so two plugins can contribute the same path", async () => {
+    const errors: unknown[][] = []
+    const spy = vi
+      .spyOn(console, "error")
+      .mockImplementation((...args: unknown[]) => {
+        errors.push(args)
+      })
+
+    const fetchImpl = capabilitiesFetch([
+      { name: "alpha", envelopes: ["v1"], configured: true },
+      { name: "beta", envelopes: ["v1"], configured: true },
+    ])
+    const alpha = definePlugin({
+      extension: "alpha",
+      nav: [{ label: "Alpha Settings", to: "/settings" }],
+      routes: [{ path: "/alpha", element: () => <p>alpha page</p> }],
+    })
+    const beta = definePlugin({
+      extension: "beta",
+      nav: [{ label: "Beta Settings", to: "/settings" }],
+      routes: [{ path: "/beta", element: () => <p>beta page</p> }],
+    })
+
+    renderHost([alpha, beta], fetchImpl, "/alpha")
+
+    await screen.findByText("alpha page")
+
+    expect(screen.getByRole("link", { name: "Alpha Settings" })).toBeTruthy()
+    expect(screen.getByRole("link", { name: "Beta Settings" })).toBeTruthy()
+
+    const duplicateKey = errors.some((args) =>
+      args.some((a) => String(a).includes("same key"))
+    )
+    spy.mockRestore()
+    expect(duplicateKey).toBe(false)
+  })
+
+  // MINOR 7. Read the comment on rootIsClaimed first: this does NOT
+  // discriminate that guard, and it is labelled so nobody later mistakes it
+  // for a test that does. Dropping the guard leaves this green, because
+  // react-router already breaks the "/" tie on declaration order and the
+  // redirect is declared last. What it does pin, and nothing pinned before,
+  // is the behaviour itself: a plugin may own the root and its page renders
+  // there. If the route table is ever reordered, this catches it.
+  it("lets a plugin own the root path instead of redirecting away from it", async () => {
+    const fetchImpl = capabilitiesFetch([
+      { name: "alpha", envelopes: ["v1"], configured: true },
+      { name: "beta", envelopes: ["v1"], configured: true },
+    ])
+    // beta is listed first and has a nav entry, so the old unconditional
+    // redirect would have sent "/" to /beta and never rendered alpha's page.
+    const beta = definePlugin({
+      extension: "beta",
+      nav: [{ label: "Beta", to: "/beta" }],
+      routes: [{ path: "/beta", element: () => <p>beta page</p> }],
+    })
+    const alpha = definePlugin({
+      extension: "alpha",
+      nav: [{ label: "Alpha Home", to: "/" }],
+      routes: [{ path: "/", element: () => <p>alpha root page</p> }],
+    })
+
+    renderHost([beta, alpha], fetchImpl, "/")
+
+    expect(await screen.findByText("alpha root page")).toBeTruthy()
+    expect(screen.queryByText("beta page")).toBeNull()
+  })
+
   // ITEM 4's regression. "A plugin cannot address another extension's
   // handlers" is a requirement, and until now nothing at the host layer drove
   // a plugin query at all, so the host could have handed every plugin the
