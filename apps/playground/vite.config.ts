@@ -11,4 +11,12 @@ export default defineConfig({
       "@": path.resolve(__dirname, "./src"),
     },
   },
+  server: {
+    // The contract lives under /dashboard on the Go server. Proxying it here
+    // keeps every request same-origin, so there is no CORS to configure and
+    // no cookie to mark SameSite=None just to make the playground work.
+    proxy: {
+      "/dashboard": { target: "http://localhost:8099", changeOrigin: true },
+    },
+  },
 })

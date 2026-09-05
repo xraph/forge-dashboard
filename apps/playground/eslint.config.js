@@ -29,4 +29,15 @@ export default defineConfig([
       'react-refresh/only-export-components': 'off',
     },
   },
+  {
+    // A plugin module declares its page components and the definePlugin object
+    // that points routes at them. Splitting the two would put the route table
+    // in one file and the pages it names in another, which is exactly the
+    // seam a plugin exists to remove. Fast refresh loses the module boundary
+    // here; every plugin has this shape, so the rule cannot hold either.
+    files: ['src/plugins/**/*.{ts,tsx}'],
+    rules: {
+      'react-refresh/only-export-components': 'off',
+    },
+  },
 ])

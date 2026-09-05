@@ -1,40 +1,28 @@
-import {
-  ForgeDashboardProvider,
-  GraphRenderer,
-  RegistryProvider,
-} from "@forge/dashboard-runtime"
-import type { GraphNode } from "@forge/dashboard-runtime"
+import { BrowserRouter } from "react-router"
+import { ForgeDashboardProvider } from "@forge/dashboard-runtime"
 import { TooltipProvider } from "@forge/dashboard-kit/components/tooltip"
-import data from "@forge/dashboard-kit/app/dashboard/data.json"
-import { buildIntentRegistry } from "./intents"
+import { PluginHost } from "./host/PluginHost"
+import { coreDemoPlugin } from "./plugins/core-demo"
 
-// W1 renders a graph literal. W2 replaces this with a real contract response.
-const graph: GraphNode = {
-  intent: "page.shell",
-  title: "Overview",
-  slots: {
-    main: [
-      { intent: "dashboard.stat" },
-      { intent: "organism.chart" },
-      { intent: "organism.data-grid", props: { rows: data } },
-    ],
-  },
-}
-
-// Hoisted beside the registry: ForgeDashboardProvider memoizes on config
+// Hoisted beside the plugin list: ForgeDashboardProvider memoizes on config
 // identity, so an inline object literal here would re-derive the config and
-// cascade a re-render to every consumer on each render of App.
+// cascade a re-render to every consumer on each render of App. PluginHost
+// memoizes its scoped clients on the plugin array the same way.
+//
+// basePath is the contract's prefix, not the router's. The SPA serves its own
+// routes from "/", and Vite proxies everything under "/dashboard" to the Go
+// server, so the two never collide.
 const config = { basePath: "/dashboard" }
-const registry = buildIntentRegistry()
+const plugins = [coreDemoPlugin]
 
 export function App() {
   return (
     <ForgeDashboardProvider config={config}>
-      <RegistryProvider registry={registry}>
-        <TooltipProvider>
-          <GraphRenderer node={graph} />
-        </TooltipProvider>
-      </RegistryProvider>
+      <TooltipProvider>
+        <BrowserRouter>
+          <PluginHost plugins={plugins} />
+        </BrowserRouter>
+      </TooltipProvider>
     </ForgeDashboardProvider>
   )
 }
