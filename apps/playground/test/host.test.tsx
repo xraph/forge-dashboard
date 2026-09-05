@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from "vitest"
 import { render, screen } from "@testing-library/react"
 import { MemoryRouter } from "react-router"
 import { ForgeDashboardProvider } from "@forge/dashboard-runtime"
-import { definePlugin } from "@forge/dashboard-plugin"
+import { definePlugin, useQuery } from "@forge/dashboard-plugin"
 import type {
   Capabilities,
   ContributorCapability,
@@ -58,6 +58,32 @@ function demoPlugin(overrides: Partial<PluginInput> = {}): ForgePlugin {
     nav: [{ label: "Overview", to: "/overview" }],
     routes: [{ path: "/overview", element: () => <p>overview page body</p> }],
     ...overrides,
+  })
+}
+
+/**
+ * A plugin whose page issues one query and prints the contributor name the
+ * server saw on the wire.
+ */
+function queryingPlugin(
+  extension: string,
+  path: string,
+  label: string
+): ForgePlugin {
+  function Page() {
+    const { data, loading } = useQuery<{ seen: string }>("ping")
+    if (loading) return <p>{label} loading</p>
+    return (
+      <p>
+        {label} says {data?.seen}
+      </p>
+    )
+  }
+
+  return definePlugin({
+    extension,
+    nav: [{ label, to: path }],
+    routes: [{ path, element: Page }],
   })
 }
 
@@ -149,6 +175,38 @@ describe("PluginHost", () => {
     expect(
       await screen.findByText("no storage backend configured")
     ).toBeTruthy()
+    expect(screen.queryByText("overview page body")).toBeNull()
+    expect(screen.queryByRole("link", { name: "Overview" })).toBeNull()
+  })
+
+  // ITEM 1's regression. plugin.setup is third-party code, and until the
+  // boundary was put around it a throw there escaped HostShell and took the
+  // whole dashboard with it. No earlier test could catch that: the setup
+  // component the other tests supply cannot throw.
+  it("contains a throwing setup component instead of blanking the dashboard", async () => {
+    const fetchImpl = capabilitiesFetch([
+      { name: "core-contract", envelopes: ["v1"], configured: false },
+      { name: "other-extension", envelopes: ["v1"], configured: true },
+    ])
+    const exploding = demoPlugin({
+      setup: () => {
+        throw new Error("setup component blew up")
+      },
+    })
+    const survivor = definePlugin({
+      extension: "other-extension",
+      nav: [{ label: "Other", to: "/other" }],
+      routes: [{ path: "/other", element: () => <p>other page body</p> }],
+    })
+
+    renderHost([exploding, survivor], fetchImpl, "/other")
+
+    // The other plugin's page still renders, which is the whole claim: one
+    // plugin throwing takes down its own box, not the dashboard.
+    expect(await screen.findByText("other page body")).toBeTruthy()
+    expect(screen.getByRole("link", { name: "Other" })).toBeTruthy()
+    // And the throw left a visible marker rather than an empty gap.
+    expect(screen.getByText(/failed to render: core-contract/)).toBeTruthy()
   })
 
   it("renders nothing at all for a plugin whose contributor is absent", async () => {
@@ -196,5 +254,64 @@ describe("PluginHost", () => {
     const alert = await screen.findByRole("alert")
     expect(alert.textContent).toContain("502")
     expect(screen.queryByText("overview page body")).toBeNull()
+  })
+
+  // ITEM 5's regression. A 200 whose body parses but is not a capabilities
+  // document used to reach resolvePluginState and throw inside the host's own
+  // render, which no boundary covers.
+  it("shows an error state when a 200 response is not a capabilities document", async () => {
+    const fetchImpl = vi.fn(async () =>
+      jsonOk({ shellEnvelopes: ["v1"] })
+    ) as unknown as typeof fetch
+
+    renderHost([demoPlugin()], fetchImpl)
+
+    const alert = await screen.findByRole("alert")
+    expect(alert.textContent).toContain("contributors")
+    expect(screen.queryByText("overview page body")).toBeNull()
+  })
+
+  // ITEM 4's regression. "A plugin cannot address another extension's
+  // handlers" is a requirement, and until now nothing at the host layer drove
+  // a plugin query at all, so the host could have handed every plugin the
+  // same client and every test would still have passed.
+  it("binds each plugin's client to its own extension, never another's", async () => {
+    const sent: { contributor: string; intent: string }[] = []
+    const fetchImpl = vi.fn(
+      async (input: RequestInfo | URL, init?: RequestInit) => {
+        const url = String(input)
+        if (url.endsWith("/capabilities")) {
+          const caps: Capabilities = {
+            shellEnvelopes: ["v1"],
+            contributors: [
+              { name: "alpha", envelopes: ["v1"], configured: true },
+              { name: "beta", envelopes: ["v1"], configured: true },
+            ],
+          }
+          return jsonOk(caps)
+        }
+        const body = JSON.parse(String(init?.body)) as {
+          contributor: string
+          intent: string
+        }
+        sent.push(body)
+        // Echoing the contributor back is what makes the page's own text a
+        // statement about the wire, not about the plugin's local knowledge.
+        return jsonOk({ ok: true, data: { seen: body.contributor } })
+      }
+    ) as unknown as typeof fetch
+
+    const alpha = queryingPlugin("alpha", "/alpha", "Alpha")
+    const beta = queryingPlugin("beta", "/beta", "Beta")
+
+    const first = renderHost([alpha, beta], fetchImpl, "/alpha")
+    expect(await screen.findByText("Alpha says alpha")).toBeTruthy()
+    first.unmount()
+
+    renderHost([alpha, beta], fetchImpl, "/beta")
+    expect(await screen.findByText("Beta says beta")).toBeTruthy()
+
+    expect(sent.map((r) => r.intent)).toEqual(["ping", "ping"])
+    expect(sent.map((r) => r.contributor)).toEqual(["alpha", "beta"])
   })
 })

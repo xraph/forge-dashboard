@@ -91,6 +91,13 @@ export function PluginHost({ plugins, fetchImpl }: PluginHostProps) {
           throw new Error(`capabilities request failed with HTTP ${res.status}`)
         }
         const capabilities = (await res.json()) as Capabilities
+        // A 200 whose body parses but is not a capabilities document would
+        // otherwise reach resolvePluginState and throw during the host's own
+        // render, which is outside every boundary and blanks the page. Fold
+        // it into the same failure the transport errors take.
+        if (!Array.isArray(capabilities?.contributors)) {
+          throw new Error("capabilities response carried no contributors array")
+        }
         if (!cancelled) setState({ status: "ready", capabilities })
       } catch (error) {
         if (!cancelled) {
@@ -190,7 +197,20 @@ export function PluginHost({ plugins, fetchImpl }: PluginHostProps) {
         }
         if (pluginState.kind === "setup") {
           const Setup = plugin.setup ?? SetupPanel
-          return <Setup key={plugin.extension} message={pluginState.message} />
+          return (
+            // plugin.setup is third-party code exactly as a route element is,
+            // so it gets the same containment. Without this a plugin whose
+            // setup screen throws takes the whole dashboard down, which is
+            // the one failure the boundary exists to prevent. The host-owned
+            // SetupPanel does not need it, but this branch cannot tell which
+            // of the two it is holding without pretending to know.
+            <PluginErrorBoundary
+              key={plugin.extension}
+              intent={plugin.extension}
+            >
+              <Setup message={pluginState.message} />
+            </PluginErrorBoundary>
+          )
         }
         return null
       })}
