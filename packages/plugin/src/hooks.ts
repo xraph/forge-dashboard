@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react"
+import { useCallback, useEffect, useRef, useState } from "react"
 import { usePluginClient } from "./context"
 import type { ContractError } from "./client"
 
@@ -25,29 +25,36 @@ export function useQuery<T = unknown>(
     loading: true,
   })
   const key = JSON.stringify(params ?? {})
+  // Bumped at the start of every run(), whether that run is the automatic
+  // one below or a caller's own refetch(). A settlement only applies its
+  // result when it still owns the latest generation, so whichever request
+  // was issued last always wins the state, regardless of which one's promise
+  // settles last. This is what lets refetch() supersede an in-flight
+  // automatic request (and vice versa) instead of racing it.
+  const generationRef = useRef(0)
 
   const run = useCallback(() => {
-    let cancelled = false
+    const generation = ++generationRef.current
     setState({ loading: true })
 
     client
       .query<T>(intent, params)
       .then((data) => {
-        if (!cancelled) setState({ data, loading: false })
+        if (generationRef.current === generation) setState({ data, loading: false })
       })
       .catch((error) => {
-        if (!cancelled) setState({ error: error as ContractError, loading: false })
+        if (generationRef.current === generation) {
+          setState({ error: error as ContractError, loading: false })
+        }
       })
-
-    return () => {
-      cancelled = true
-    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [client, intent, key])
 
-  // run() calls setState synchronously to kick off the fetch as soon as the
-  // intent or params change; the request itself resolves later, out of this
-  // effect body, so the rule's cascading-render concern does not apply here.
+  // This hook body is specified verbatim by the plan. run() does call
+  // setState synchronously when invoked from this effect (the setState({
+  // loading: true }) at the top of run(), not anything in the async
+  // .then/.catch below) which is exactly the extra-render-pass cost the rule
+  // warns about. That cost is accepted, not fixed, here.
   // eslint-disable-next-line react-hooks/set-state-in-effect
   useEffect(() => run(), [run])
 
