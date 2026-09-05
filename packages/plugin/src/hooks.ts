@@ -54,9 +54,18 @@ export function useQuery<T = unknown>(
   // setState synchronously when invoked from this effect (the setState({
   // loading: true }) at the top of run(), not anything in the async
   // .then/.catch below) which is exactly the extra-render-pass cost the rule
-  // warns about. That cost is accepted, not fixed, here.
-  // eslint-disable-next-line react-hooks/set-state-in-effect
-  useEffect(() => run(), [run])
+  // warns about. That cost is accepted, not fixed, here. The cleanup below
+  // bumps the same generation counter run() uses, so on unmount (or before a
+  // dependency change reruns this effect) any request still in flight loses
+  // its claim on the latest generation and its settlement becomes a no-op,
+  // the same way a newer run() or refetch() supersedes it.
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    run()
+    return () => {
+      generationRef.current += 1
+    }
+  }, [run])
 
   return { ...state, refetch: run }
 }
