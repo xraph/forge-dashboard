@@ -20,13 +20,54 @@ import {
 } from "@forge-go/dashboard-kit/components/sidebar"
 import { EllipsisVerticalIcon, CircleUserRoundIcon, CreditCardIcon, BellIcon, LogOutIcon } from "lucide-react"
 
+/**
+ * Initials for the avatar fallback, derived from the name rather than
+ * hardcoded. The shadcn template shipped a literal "CN" here, which is the
+ * template author's initials and wrong for every user of this library.
+ */
+function initials(name: string): string {
+  const parts = name.trim().split(/\s+/).filter(Boolean)
+  if (parts.length === 0) return "?"
+  return parts
+    .slice(0, 2)
+    .map((part) => part[0]!.toUpperCase())
+    .join("")
+}
+
+/**
+ * The avatar, which renders an image only when there is one to render.
+ *
+ * `avatar` is optional and an absent one draws the fallback, no request made.
+ * This is not a cosmetic default: an <AvatarImage> with an empty or missing
+ * src still puts a request on the wire, and this component ships in a library
+ * whose consumers mount it under a path it cannot predict, so any URL it
+ * invents itself is a 404 waiting to happen at somebody else's base path.
+ * Pass an absolute URL, or one your own server resolves.
+ */
+function UserAvatar({
+  user,
+  className,
+}: {
+  user: { name: string; avatar?: string }
+  className?: string
+}) {
+  return (
+    <Avatar className={className}>
+      {user.avatar ? <AvatarImage src={user.avatar} alt={user.name} /> : null}
+      <AvatarFallback className="rounded-lg">
+        {initials(user.name)}
+      </AvatarFallback>
+    </Avatar>
+  )
+}
+
 export function NavUser({
   user,
 }: {
   user: {
     name: string
     email: string
-    avatar: string
+    avatar?: string
   }
 }) {
   const { isMobile } = useSidebar()
@@ -39,10 +80,7 @@ export function NavUser({
               <SidebarMenuButton size="lg" className="aria-expanded:bg-muted" />
             }
           >
-            <Avatar className="size-8 rounded-lg grayscale">
-              <AvatarImage src={user.avatar} alt={user.name} />
-              <AvatarFallback className="rounded-lg">CN</AvatarFallback>
-            </Avatar>
+            <UserAvatar user={user} className="size-8 rounded-lg grayscale" />
             <div className="grid flex-1 text-left text-sm leading-tight">
               <span className="truncate font-medium">{user.name}</span>
               <span className="truncate text-xs text-foreground/70">
@@ -60,10 +98,7 @@ export function NavUser({
             <DropdownMenuGroup>
               <DropdownMenuLabel className="p-0 font-normal">
                 <div className="flex items-center gap-2 px-1 py-1.5 text-left text-sm">
-                  <Avatar className="size-8">
-                    <AvatarImage src={user.avatar} alt={user.name} />
-                    <AvatarFallback className="rounded-lg">CN</AvatarFallback>
-                  </Avatar>
+                  <UserAvatar user={user} className="size-8" />
                   <div className="grid flex-1 text-left text-sm leading-tight">
                     <span className="truncate font-medium">{user.name}</span>
                     <span className="truncate text-xs text-muted-foreground">

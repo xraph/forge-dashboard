@@ -16,10 +16,20 @@ import {
 import { LayoutDashboardIcon, ListIcon, ChartBarIcon, FolderIcon, UsersIcon, CameraIcon, FileTextIcon, Settings2Icon, CircleHelpIcon, SearchIcon, DatabaseIcon, FileChartColumnIcon, FileIcon, CommandIcon } from "lucide-react"
 
 const data = {
+  // A neutral placeholder, not a person. The shadcn dashboard-01 template
+  // shipped its author's handle and an avatar at "/avatars/shadcn.jpg", and
+  // that path is absolute, so it resolved at the site root and 404'd on every
+  // page load once the dashboard was mounted under a prefix. No avatar is set
+  // here at all now: NavUser draws initials when there is none, and this
+  // component cannot know a URL that resolves under a consumer's base path.
+  // example.com is reserved for exactly this by RFC 2606.
+  //
+  // The sidebar footer shows this on every dashboard, so it is a default
+  // waiting for a real identity rather than a good answer. Wiring it to the
+  // signed-in user needs an auth source the kit does not have yet.
   user: {
-    name: "shadcn",
-    email: "m@example.com",
-    avatar: "/avatars/shadcn.jpg",
+    name: "Dashboard user",
+    email: "user@example.com",
   },
   navMain: [
     {
