@@ -43,13 +43,44 @@ Lazy refresh before the first command, then cache on the client instance:
       await this.refreshCSRF()
     }
 
-Envelope fields, set only for commands:
+The idempotency key is generated once per logical command. That happens at the
+public `command()` entry point, not inside the per-attempt envelope build:
+
+    async command<T = unknown>(
+      contributor: string,
+      intent: string,
+      payload?: unknown,
+      opts: { idempotencyKey?: string } = {},
+    ): Promise<T> {
+      return this.send<T>({
+        kind: "command",
+        contributor,
+        intent,
+        payload,
+        idempotencyKey: opts.idempotencyKey ?? crypto.randomUUID(),
+      });
+    }
+
+That resolved value then flows unchanged into every envelope built for that
+command, including the CSRF-retry envelope, which is a second HTTP request for
+the same logical command. The per-attempt envelope build just reads it back;
+it does not generate it:
 
     csrf: input.kind === "command" ? this.csrfToken ?? undefined : undefined,
-    idempotencyKey: input.idempotencyKey ?? crypto.randomUUID(),
+    idempotencyKey: input.idempotencyKey,
+
+This split is deliberate, and it is what makes the retry safe. Regenerate the
+key inside the per-attempt build instead, and a CSRF-refresh retry mints a
+second, different idempotency key for what the server should see as one
+command attempt. That defeats the entire reason to have one. Implement this
+handshake by computing the `?? crypto.randomUUID()` fallback exactly once,
+where the command is entered, and thread that single value unchanged through
+every attempt, however many times the envelope itself gets rebuilt.
 
 The shell also retried once on a 401 after refreshing the token, which is worth
-copying: a cached token outlives its TTL silently otherwise.
+copying: a cached token outlives its TTL silently otherwise. The retry is
+capped at one attempt by a boolean flag threaded through the retry call, so a
+second 401 in a row is a genuine failure, not a silent loop.
 
 ## Why this is not implemented in `@forge/dashboard-plugin` yet
 
