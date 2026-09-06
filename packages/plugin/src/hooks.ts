@@ -12,9 +12,10 @@ export interface QueryState<T> {
 /**
  * Reads one query intent from this plugin's own extension.
  *
- * Deliberately minimal. This is not a cache and does not deduplicate; W3 can
- * put react-query behind the same signature once there is a second consumer to
- * tell us what the caching policy should be.
+ * Deliberately minimal. This is not a cache and does not deduplicate. Putting
+ * react-query behind the same signature is possible later, and the trigger is
+ * a second consumer telling us what the caching policy should be, not a
+ * particular wave. (This comment used to say W3. W3 shipped without it.)
  */
 export function useQuery<T = unknown>(
   intent: string,

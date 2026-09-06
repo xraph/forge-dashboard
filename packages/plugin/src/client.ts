@@ -30,8 +30,14 @@ export interface ScopedClient {
   // No command() yet. The server rejects every command envelope that carries
   // no CSRF token and no idempotency key, and it does that check before it
   // looks at whether contract security is even enabled, so a command sent
-  // without both fields cannot succeed against any Forge server. Commands
-  // land in W3, together with the first thing that actually sends one.
+  // without both fields cannot succeed against any Forge server.
+  //
+  // It lands with the first real consumer and not before. No wave number here
+  // on purpose: the last one said W3, the plan moved, and the comment did not.
+  // The rule is the consumer, not the calendar. Before you add it, read
+  // ../docs/command-handshake.md, which has the whole handshake including the
+  // one non-obvious part, that the idempotency key is minted once per logical
+  // command and threaded unchanged through the CSRF-refresh retry.
 }
 
 type FetchLike = typeof fetch
