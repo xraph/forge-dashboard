@@ -1,93 +1,34 @@
-# The command envelope handshake
+# What the server demands of a command
 
-Recorded 2026-09-05, during W3, immediately before `extensions/dashboard/contract/shell/`
-was deleted. That package held the only working implementation of this handshake.
+The client half of this handshake is implemented, in `../src/client.ts`. Read
+`createScopedClient` there: the CSRF fetch, the cache, the single-attempt retry
+and the one thing worth being careful about (the idempotency key is minted at
+the `command()` entry point and threaded unchanged through every attempt) all
+carry their reasoning in doc comments beside the code that does the work.
 
-## The requirement
+This file used to carry that description too, written in W3 when the only
+working implementation was being deleted and there was nowhere else for it to
+live. There is somewhere else now. What is left here is the half that lives in
+the other repo, which this one cannot see and a reader of `client.ts` would
+otherwise have to take on faith.
+
+## The rules, and where they are enforced
 
 `extensions/dashboard/contract/transport/http.go` rejects every `kind: command`
-envelope missing either field:
+envelope whose `idempotencyKey` or `csrf` is empty, with 400 and
+`CodeBadRequest`. That check runs **before** the CSRF manager is consulted, so
+it fires whether or not contract security is enabled. Deliberate: a command
+with no idempotency key is unsafe to retry either way.
 
-    if req.Kind == contract.KindCommand {
-        if req.IdempotencyKey == "" || req.CSRF == "" {
-            writeError(w, http.StatusBadRequest, &contract.Error{
-                Code: contract.CodeBadRequest,
-                Message: "command requires csrf and idempotencyKey"})
-            return
-        }
-        if h.csrfMgr != nil && !h.csrfMgr.ValidateToken(req.CSRF) { ... }
-    }
+A token that fails to validate gets **403 with code `UNAUTHENTICATED`**, from
+the same function. Not 401. 401 comes from `extensions/dashboard/auth`, one
+layer out, and means the session is gone, which a fresh CSRF token will not
+fix. The retry in `client.ts` covers both, and only those: any other 403 is a
+real denial.
 
-The presence check runs BEFORE the CSRF manager is consulted, so it fires whether or
-not `EnableCSRF` is set. This is deliberate, not a bug: a command without an
-idempotency key is unsafe to retry regardless of whether CSRF is enforced.
-
-## The client side, as the deleted shell implemented it
-
-Token fetch — `GET {contractBase}/csrf` returns `{ "token": string }`. The handler is
-`extensions/dashboard/contract/transport/csrf.go`, `NewCSRFTokenHandler`, and it
-survives W3.
-
-    private async refreshCSRF(): Promise<void> {
-      const res = await this.fetcher(this.resolveURL(`${this.baseURL}/csrf`), {
-        credentials: "include",
-      })
-      if (!res.ok) { this.csrfToken = null; return }
-      const body = (await res.json()) as { token: string }
-      this.csrfToken = body.token
-    }
-
-Lazy refresh before the first command, then cache on the client instance:
-
-    if (input.kind === "command" && !this.csrfToken) {
-      await this.refreshCSRF()
-    }
-
-The idempotency key is generated once per logical command. That happens at the
-public `command()` entry point, not inside the per-attempt envelope build:
-
-    async command<T = unknown>(
-      contributor: string,
-      intent: string,
-      payload?: unknown,
-      opts: { idempotencyKey?: string } = {},
-    ): Promise<T> {
-      return this.send<T>({
-        kind: "command",
-        contributor,
-        intent,
-        payload,
-        idempotencyKey: opts.idempotencyKey ?? crypto.randomUUID(),
-      });
-    }
-
-That resolved value then flows unchanged into every envelope built for that
-command, including the CSRF-retry envelope, which is a second HTTP request for
-the same logical command. The per-attempt envelope build just reads it back;
-it does not generate it:
-
-    csrf: input.kind === "command" ? this.csrfToken ?? undefined : undefined,
-    idempotencyKey: input.idempotencyKey,
-
-This split is deliberate, and it is what makes the retry safe. Regenerate the
-key inside the per-attempt build instead, and a CSRF-refresh retry mints a
-second, different idempotency key for what the server should see as one
-command attempt. That defeats the entire reason to have one. Implement this
-handshake by computing the `?? crypto.randomUUID()` fallback exactly once,
-where the command is entered, and thread that single value unchanged through
-every attempt, however many times the envelope itself gets rebuilt.
-
-The shell also retried once on a 401 after refreshing the token, which is worth
-copying: a cached token outlives its TTL silently otherwise. The retry is
-capped at one attempt by a boolean flag threaded through the retry call, so a
-second 401 in a row is a genuine failure, not a silent loop.
-
-## Why this is not implemented in `@forge-go/dashboard-plugin` yet
-
-W2 shipped `ScopedClient.command` without any of the above, so it failed 100% of the
-time against a real server while its unit test passed against a mocked fetch. The
-final review caught it and the method was removed rather than half-fixed, on the
-spec's rule that API without a working consumer is what this rewrite exists to stop.
-
-W5 builds authsome's login UI. Login is a command. That is the first genuine
-consumer, and the hook lands with it — not before.
+`GET {contractBase}/csrf` returns `{ "token": string, "expiresAt": string }`
+from `contract/transport/csrf.go`. `extension.go` mounts it only when
+`EnableContractSecurity` is on and a CSRF manager exists (both default true),
+with a 12h TTL. Where it is off the endpoint 404s, `refreshCSRF` gives up
+quietly, and the command then fails on the transport's own presence check with
+the server's own message.
