@@ -71,11 +71,34 @@ describe("config provider", () => {
       basePath: "/ops",
       contractBase: "/ops/api/dashboard/v1",
       streamBase: "/ops/api/dashboard/v1/stream",
+      shellBase: "/",
       authEnabled: false,
       loginPath: "/ops/login",
       loginOp: "auth.login",
       loginContributor: "auth",
     })
+  })
+
+  // shellBase is the one field that is NOT derived from basePath, and the
+  // pair below is what says so. The shell is served at {basePath}/ui, but
+  // only the server knows that; a client that appended "/ui" itself would
+  // break `pnpm dev` (root-served) and every externally hosted build, and
+  // would drift the moment the Go side moved the mount.
+  it("passes an injected shellBase through untouched", () => {
+    function ShowShellBase() {
+      const cfg = useDashboardConfig()
+      return <span data-testid="shell">{cfg.shellBase}</span>
+    }
+
+    render(
+      <ForgeDashboardProvider
+        config={{ basePath: "/ops", shellBase: "/ops/ui" }}
+      >
+        <ShowShellBase />
+      </ForgeDashboardProvider>
+    )
+
+    expect(screen.getByTestId("shell").textContent).toBe("/ops/ui")
   })
 
   it("configFromWindow reads the injected global when present", () => {

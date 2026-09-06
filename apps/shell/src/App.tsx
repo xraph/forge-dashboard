@@ -1,5 +1,10 @@
+import type { ReactNode } from "react"
 import { BrowserRouter } from "react-router"
-import { ForgeDashboardProvider, configFromWindow } from "@forge-go/dashboard-runtime"
+import {
+  ForgeDashboardProvider,
+  configFromWindow,
+  useDashboardConfig,
+} from "@forge-go/dashboard-runtime"
 import { TooltipProvider } from "@forge-go/dashboard-kit/components/tooltip"
 import { PluginHost } from "./host/PluginHost"
 import { corePlugin } from "./plugins/core"
@@ -12,21 +17,40 @@ import { corePlugin } from "./plugins/core"
 // identity, so an inline object literal here would re-derive the config and
 // cascade a re-render to every consumer on each render of App. PluginHost
 // memoizes its scoped clients on the plugin array the same way.
-//
-// basePath is the contract's prefix, not the router's. The SPA serves its own
-// routes from "/", and Vite proxies everything under "/dashboard" to the Go
-// server, so the two never collide.
 const injected = configFromWindow()
 const config = { basePath: injected.basePath ?? "/dashboard", ...injected }
 const plugins = [corePlugin]
+
+/**
+ * The router, mounted at the prefix the shell is actually served from.
+ *
+ * basePath is the contract's prefix and is the wrong value here: the contract
+ * answers at {basePath}/api/dashboard/v1, but the shell's HTML answers at
+ * {basePath}/ui. shellBase is that second prefix, computed by the Go handler
+ * and injected alongside the rest of the bootstrap.
+ *
+ * Without a basename the router reads the whole path as a route. At
+ * /dashboard/ui the core plugin's "/overview" matches nothing, so <Routes>
+ * renders an empty content pane under a sidebar that looks fine, and the nav
+ * link resolves to /overview at the site root -- outside the mount, which
+ * appears to work right up until the first refresh or shared deep link.
+ *
+ * It reads the resolved config from context rather than the injected object
+ * above so the default lands in one place, in resolve(). `pnpm dev` and an
+ * externally hosted build get "/", which is the no-basename behaviour.
+ */
+function ShellRouter({ children }: { children: ReactNode }) {
+  const { shellBase } = useDashboardConfig()
+  return <BrowserRouter basename={shellBase}>{children}</BrowserRouter>
+}
 
 export function App() {
   return (
     <ForgeDashboardProvider config={config}>
       <TooltipProvider>
-        <BrowserRouter>
+        <ShellRouter>
           <PluginHost plugins={plugins} />
-        </BrowserRouter>
+        </ShellRouter>
       </TooltipProvider>
     </ForgeDashboardProvider>
   )

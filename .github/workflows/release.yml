@@ -10,11 +10,13 @@ name: Release Dashboard Shell
 # ID, or the fetch breaks.
 #
 # This pipeline exists because the old design committed the built dashboard
-# into the Go repo: `//go:embed all:dist` pulled in whatever sat in that
+# into the Go repo, where `//go:embed all:dist` pulled in whatever sat in that
 # directory, which came to 11MB in every binary that imported the extension,
 # 6MB of it sourcemaps. That commit-the-build approach is gone. Nothing
 # built is ever committed to the forge repo now -- this tarball is fetched
-# at release time and never checked in.
+# at release time and never checked in. The Go side embeds with a plain
+# `//go:embed dist` today, and the dropped `all:` is load-bearing: it is what
+# keeps the fetch script's own dotfile marker out of the binary.
 
 on:
   push:
@@ -81,13 +83,16 @@ jobs:
 
           # `-C apps/shell/dist .` cds into the build output before taping it
           # up, so paths inside the archive start at index.html and assets/,
-          # not at dist/index.html. This is deliberate: Task 4's Go side
-          # does `//go:embed all:dist` on a fixed directory and unpacks this
-          # tarball straight over it. An extra dist/ level in here does not
-          # fail that build -- it just makes every asset in the embedded
-          # tree 404 at runtime, which is a far worse failure mode than a
-          # build error. Do not "simplify" this to
-          # `tar -czf "$NAME" apps/shell/dist`.
+          # not at dist/index.html. This is deliberate: the Go side does
+          # `//go:embed dist` on a fixed directory and unpacks this tarball
+          # straight over it. An extra dist/ level in here does not fail that
+          # build -- it just makes every asset in the embedded tree 404 at
+          # runtime, which is a far worse failure mode than a build error. Do
+          # not "simplify" this to `tar -czf "$NAME" apps/shell/dist`.
+          #
+          # Plain `dist`, not `all:dist`. The Go repo's fetch script leaves a
+          # provenance dotfile in that directory, and the default //go:embed
+          # rules skip dotfiles; `all:` would sweep it into every binary.
           #
           # --exclude='*.map' keeps sourcemaps out of the archive even
           # though the build produces none today (verified below and in the
