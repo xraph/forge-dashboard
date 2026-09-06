@@ -1,10 +1,7 @@
 import { useEffect, useMemo, useState } from "react"
 import type { ReactNode } from "react"
 import { Link, Navigate, Route, Routes } from "react-router"
-import {
-  IntentErrorBoundary as PluginErrorBoundary,
-  useDashboardConfig,
-} from "@forge/dashboard-runtime"
+import { PluginErrorBoundary, useDashboardConfig } from "@forge/dashboard-runtime"
 import {
   createScopedClient,
   MismatchPanel,
@@ -223,7 +220,7 @@ export function PluginHost({ plugins, fetchImpl }: PluginHostProps) {
             // of the two it is holding without pretending to know.
             <PluginErrorBoundary
               key={plugin.extension}
-              intent={plugin.extension}
+              plugin={plugin.extension}
             >
               <Setup message={pluginState.message} />
             </PluginErrorBoundary>
@@ -248,11 +245,10 @@ export function PluginHost({ plugins, fetchImpl }: PluginHostProps) {
                   key={`${plugin.extension}:${route.path}`}
                   path={route.path}
                   element={
-                    // The boundary's prop is named `intent` because it is shared
-                    // with the W1 intent renderer. Here the unit it isolates is
-                    // one plugin: a third-party bundle throwing during render
-                    // must take down its own page, not the dashboard.
-                    <PluginErrorBoundary intent={plugin.extension}>
+                    // The unit this isolates is one plugin: a third-party
+                    // bundle throwing during render must take down its own
+                    // page, not the dashboard.
+                    <PluginErrorBoundary plugin={plugin.extension}>
                       <PluginProvider client={clients.get(plugin.extension)!}>
                         <Page />
                       </PluginProvider>
