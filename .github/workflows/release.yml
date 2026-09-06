@@ -1,0 +1,127 @@
+name: Release Dashboard Shell
+
+# Builds apps/shell, packs its dist/ output into a versioned tarball, and
+# attaches that tarball to a GitHub release.
+#
+# Forge's release CI (a separate task, in a separate repo) fetches this
+# tarball by constructing its URL from a version string alone --
+# forge-dashboard-shell-v<version>.tar.gz -- with no lookup against this
+# repo. Nothing here may make that name depend on a commit hash or a build
+# ID, or the fetch breaks.
+#
+# This pipeline exists because the old design committed the built dashboard
+# into the Go repo: `//go:embed all:dist` pulled in whatever sat in that
+# directory, which came to 11MB in every binary that imported the extension,
+# 6MB of it sourcemaps. That commit-the-build approach is gone. Nothing
+# built is ever committed to the forge repo now -- this tarball is fetched
+# at release time and never checked in.
+
+on:
+  push:
+    tags:
+      - 'v*.*.*'
+
+  # Rehearsal. Defaults to a dry run so the pipeline can be exercised without
+  # touching releases; flip the input when publishing from a branch is
+  # genuinely what's wanted. Modeled on the same default in npm-publish.yml.
+  workflow_dispatch:
+    inputs:
+      dry-run:
+        description: 'Build and pack without publishing a release'
+        type: boolean
+        default: true
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    name: Build, pack, and release
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # Pinned to the version in the root package.json "packageManager"
+      # field, same as ci.yml. Keep the two in step or the lockfile check
+      # on `pnpm install --frozen-lockfile` below stops meaning anything.
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.21.0
+
+      # Node 24, matching ci.yml: the toolchain here (Vite 8, ESLint 10,
+      # TypeScript 6) is already past what Node 20 was built for.
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
+      - run: pnpm --filter @forge-go/dashboard-shell build
+
+      - name: Resolve version
+        id: version
+        run: |
+          set -euo pipefail
+          if [ "${{ github.event_name }}" = "push" ]; then
+            echo "value=${GITHUB_REF_NAME#v}" >> "$GITHUB_OUTPUT"
+          else
+            # Rehearsal off a tag: stamp whatever apps/shell/package.json
+            # currently says rather than requiring an input for it.
+            echo "value=$(node -p "require('./apps/shell/package.json').version")" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Pack tarball
+        id: pack
+        env:
+          VERSION: ${{ steps.version.outputs.value }}
+        run: |
+          set -euo pipefail
+          NAME="forge-dashboard-shell-v${VERSION}.tar.gz"
+
+          # `-C apps/shell/dist .` cds into the build output before taping it
+          # up, so paths inside the archive start at index.html and assets/,
+          # not at dist/index.html. This is deliberate: Task 4's Go side
+          # does `//go:embed all:dist` on a fixed directory and unpacks this
+          # tarball straight over it. An extra dist/ level in here does not
+          # fail that build -- it just makes every asset in the embedded
+          # tree 404 at runtime, which is a far worse failure mode than a
+          # build error. Do not "simplify" this to
+          # `tar -czf "$NAME" apps/shell/dist`.
+          #
+          # --exclude='*.map' keeps sourcemaps out of the archive even
+          # though the build produces none today (verified below and in the
+          # local build: dist/ comes out with zero .map files). The 11MB
+          # embed problem this pipeline replaces was 6MB sourcemaps, and
+          # this flag is what keeps them out if the build config ever
+          # starts emitting them again.
+          tar -czf "$NAME" --exclude='*.map' -C apps/shell/dist .
+
+          echo "name=$NAME" >> "$GITHUB_OUTPUT"
+
+      - name: Verify archive layout
+        run: |
+          set -euo pipefail
+          FILE="${{ steps.pack.outputs.name }}"
+
+          if ! tar -tzf "$FILE" | grep -qx './index.html'; then
+            echo "::error::index.html is not at the archive root -- check for an extra dist/ wrapper"
+            exit 1
+          fi
+
+          if tar -tzf "$FILE" | grep -q '\.map$'; then
+            echo "::error::sourcemap(s) present in the archive despite --exclude"
+            exit 1
+          fi
+
+      # Only a tag push, or an explicit opt-out of dry-run on manual
+      # dispatch, actually publishes. Plain workflow_dispatch runs stop here
+      # having proven the build and the pack, without touching releases.
+      - name: Attach to GitHub release
+        if: github.event_name == 'push' || inputs.dry-run == false
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v${{ steps.version.outputs.value }}
+          files: ${{ steps.pack.outputs.name }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
