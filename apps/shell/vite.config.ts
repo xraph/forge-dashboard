@@ -13,8 +13,10 @@ export default defineConfig({
   // a deployment on any other path then 404s every script it asks for.
   // Relative base fixes the chunks: the preload resolver becomes
   // importer-relative. It does NOT fix index.html -- the Go handler rewrites
-  // "./assets/ to an absolute URL on the way out. See
-  // packages/plugin/docs/shell-html-bootstrap.md.
+  // "./assets/ to an absolute URL on the way out, in
+  // extensions/dashboard/shell_handlers.go over in the forge repo. See
+  // packages/plugin/docs/shell-html-bootstrap.md for why this cannot move into
+  // the bootstrap script.
   base: "./",
   resolve: {
     alias: {
