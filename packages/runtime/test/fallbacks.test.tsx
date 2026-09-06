@@ -14,6 +14,10 @@ describe("intent error boundary", () => {
         <IntentErrorBoundary intent="atom.boom">
           <Exploding />
         </IntentErrorBoundary>
+        {/* A bare sibling, not a second boundary: with GraphRenderer gone,
+            nothing wraps every intent in its own boundary automatically. The
+            contract under test is unchanged either way - throw contained,
+            sibling survives - so a plain element proves it just as well. */}
         <span>still here</span>
       </main>
     )
