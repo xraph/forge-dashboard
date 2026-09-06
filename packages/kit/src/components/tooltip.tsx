@@ -2,7 +2,7 @@
 
 import { Tooltip as TooltipPrimitive } from "@base-ui/react/tooltip"
 
-import { cn } from "@forge/dashboard-kit/lib/utils"
+import { cn } from "@forge-go/dashboard-kit/lib/utils"
 
 function TooltipProvider({
   delay = 0,

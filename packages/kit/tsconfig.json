@@ -9,7 +9,7 @@
     "strict": true,
     "noEmit": true,
     "paths": {
-      "@forge/dashboard-kit/*": ["./src/*"]
+      "@forge-go/dashboard-kit/*": ["./src/*"]
     }
   },
   "include": ["."],

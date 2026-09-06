@@ -1,6 +1,6 @@
 "use client"
 
-import { Badge } from "@forge/dashboard-kit/components/badge"
+import { Badge } from "@forge-go/dashboard-kit/components/badge"
 import {
   Card,
   CardAction,
@@ -8,7 +8,7 @@ import {
   CardFooter,
   CardHeader,
   CardTitle,
-} from "@forge/dashboard-kit/components/card"
+} from "@forge-go/dashboard-kit/components/card"
 import { TrendingUpIcon, TrendingDownIcon } from "lucide-react"
 
 export function SectionCards() {

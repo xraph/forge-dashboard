@@ -1,9 +1,9 @@
 import * as React from "react"
 
-import { NavDocuments } from "@forge/dashboard-kit/components/nav-documents"
-import { NavMain } from "@forge/dashboard-kit/components/nav-main"
-import { NavSecondary } from "@forge/dashboard-kit/components/nav-secondary"
-import { NavUser } from "@forge/dashboard-kit/components/nav-user"
+import { NavDocuments } from "@forge-go/dashboard-kit/components/nav-documents"
+import { NavMain } from "@forge-go/dashboard-kit/components/nav-main"
+import { NavSecondary } from "@forge-go/dashboard-kit/components/nav-secondary"
+import { NavUser } from "@forge-go/dashboard-kit/components/nav-user"
 import {
   Sidebar,
   SidebarContent,
@@ -12,7 +12,7 @@ import {
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
-} from "@forge/dashboard-kit/components/sidebar"
+} from "@forge-go/dashboard-kit/components/sidebar"
 import { LayoutDashboardIcon, ListIcon, ChartBarIcon, FolderIcon, UsersIcon, CameraIcon, FileTextIcon, Settings2Icon, CircleHelpIcon, SearchIcon, DatabaseIcon, FileChartColumnIcon, FileIcon, CommandIcon } from "lucide-react"
 
 const data = {

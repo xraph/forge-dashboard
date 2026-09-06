@@ -8,7 +8,7 @@
   "compilerOptions": {
     "paths": {
       "@/*": ["./src/*"],
-      "@forge/dashboard-kit/*": ["../../packages/kit/src/*"]
+      "@forge-go/dashboard-kit/*": ["../../packages/kit/src/*"]
     }
   }
 }

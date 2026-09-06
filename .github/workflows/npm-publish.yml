@@ -1,0 +1,106 @@
+name: Publish NPM Packages
+
+# Publishes the three dashboard packages under packages/{kit,runtime,plugin}
+# as @forge-go/dashboard-{kit,runtime,plugin}.
+#
+# Modeled on the forge repo's workflow of the same name
+# (xraph/forge/.github/workflows/npm-publish.yml), whose own header records
+# that its predecessor failed all 12 of its runs without ever publishing
+# anything -- that is why every @forge-go/* package still 404s on the
+# registry. This file exists so that history does not repeat for the
+# dashboard packages: the prepare job below, the tag/dispatch trigger shape,
+# and the dry-run default are all copied from that lesson, not reinvented.
+#
+# Publish order: kit, runtime, plugin. Unlike the forge repo's client-core
+# (which every other client package peer-depends on and builds against),
+# none of these three packages currently depends on either of the others --
+# each publishes its own TypeScript source directly (see packages/*/package.json
+# "exports"; W4 Task 2 decided against a compiled dist build for any of the
+# three, see task-2-report.md). So this order is not load-bearing today. It
+# is kept anyway, matching the order Task 2's brief specified, so that if a
+# later task adds a real dependency between them (the most likely direction
+# is `plugin` growing a dependency on `kit` for its panel UI) or a compiled
+# build, the list here does not also need to be re-derived by whoever adds it.
+
+on:
+  # A real publish happens only here, on a version tag.
+  push:
+    tags:
+      - 'v[0-9]+.[0-9]+.[0-9]+'
+
+  # Rehearsal. Defaults to a dry run so this can be exercised safely; flip the
+  # input to publish from a branch when that is genuinely what you want.
+  workflow_dispatch:
+    inputs:
+      dry-run:
+        description: 'Pack and validate without publishing'
+        type: boolean
+        default: true
+      version:
+        description: 'Version to stamp (without a leading v). Empty keeps each package.json version.'
+        type: string
+        default: ''
+
+permissions:
+  contents: read
+
+jobs:
+  # Resolves the version and whether this is a real publish.
+  #
+  # This job exists because the expression language has no string-replace: the
+  # leading v cannot be stripped from a tag name inline, and the reusable
+  # workflow rejects a version carrying one rather than guessing what was meant.
+  prepare:
+    name: Resolve version
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.resolve.outputs.version }}
+      dry-run: ${{ steps.resolve.outputs.dry_run }}
+    steps:
+      - name: Resolve
+        id: resolve
+        shell: bash
+        env:
+          EVENT: ${{ github.event_name }}
+          REF_NAME: ${{ github.ref_name }}
+          INPUT_VERSION: ${{ inputs.version }}
+          INPUT_DRY_RUN: ${{ inputs.dry-run }}
+        run: |
+          set -euo pipefail
+
+          if [ "$EVENT" = "push" ]; then
+            version="${REF_NAME#v}"
+            dry_run=false
+          else
+            version="${INPUT_VERSION#v}"
+            dry_run="${INPUT_DRY_RUN:-true}"
+          fi
+
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          echo "dry_run=$dry_run" >> "$GITHUB_OUTPUT"
+
+          if [ "$dry_run" = "true" ]; then
+            echo "Dry run at version '${version:-<package.json>}'." >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "Publishing version '${version:-<package.json>}'." >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+  publish:
+    name: Publish
+    needs: prepare
+    uses: xraph/workflows/.github/workflows/npm-publish.yml@v1
+    with:
+      # kit, runtime, plugin -- see the header comment for why this order is
+      # kept even though none of the three currently depends on another.
+      packages: >-
+        ["packages/kit",
+         "packages/runtime",
+         "packages/plugin"]
+
+      version: ${{ needs.prepare.outputs.version }}
+      dry-run: ${{ needs.prepare.outputs.dry-run == 'true' }}
+
+      # Node 24, matching the rest of this repo's CI (see .github/workflows/ci.yml).
+      node-version: '24'
+    secrets:
+      NPM_TOKEN: ${{ secrets.NPM_TOKEN }}

@@ -82,7 +82,7 @@ copying: a cached token outlives its TTL silently otherwise. The retry is
 capped at one attempt by a boolean flag threaded through the retry call, so a
 second 401 in a row is a genuine failure, not a silent loop.
 
-## Why this is not implemented in `@forge/dashboard-plugin` yet
+## Why this is not implemented in `@forge-go/dashboard-plugin` yet
 
 W2 shipped `ScopedClient.command` without any of the above, so it failed 100% of the
 time against a real server while its unit test passed against a mocked fetch. The

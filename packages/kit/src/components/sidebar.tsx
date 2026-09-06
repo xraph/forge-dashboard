@@ -5,24 +5,24 @@ import { mergeProps } from "@base-ui/react/merge-props"
 import { useRender } from "@base-ui/react/use-render"
 import { cva, type VariantProps } from "class-variance-authority"
 
-import { useIsMobile } from "@forge/dashboard-kit/hooks/use-mobile"
-import { cn } from "@forge/dashboard-kit/lib/utils"
-import { Button } from "@forge/dashboard-kit/components/button"
-import { Input } from "@forge/dashboard-kit/components/input"
-import { Separator } from "@forge/dashboard-kit/components/separator"
+import { useIsMobile } from "@forge-go/dashboard-kit/hooks/use-mobile"
+import { cn } from "@forge-go/dashboard-kit/lib/utils"
+import { Button } from "@forge-go/dashboard-kit/components/button"
+import { Input } from "@forge-go/dashboard-kit/components/input"
+import { Separator } from "@forge-go/dashboard-kit/components/separator"
 import {
   Sheet,
   SheetContent,
   SheetDescription,
   SheetHeader,
   SheetTitle,
-} from "@forge/dashboard-kit/components/sheet"
-import { Skeleton } from "@forge/dashboard-kit/components/skeleton"
+} from "@forge-go/dashboard-kit/components/sheet"
+import { Skeleton } from "@forge-go/dashboard-kit/components/skeleton"
 import {
   Tooltip,
   TooltipContent,
   TooltipTrigger,
-} from "@forge/dashboard-kit/components/tooltip"
+} from "@forge-go/dashboard-kit/components/tooltip"
 import { PanelLeftIcon } from "lucide-react"
 
 const SIDEBAR_COOKIE_NAME = "sidebar_state"

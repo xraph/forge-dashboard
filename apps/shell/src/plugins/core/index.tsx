@@ -1,11 +1,11 @@
-import { definePlugin, useQuery } from "@forge/dashboard-plugin"
+import { definePlugin, useQuery } from "@forge-go/dashboard-plugin"
 import {
   Card,
   CardContent,
   CardDescription,
   CardHeader,
   CardTitle,
-} from "@forge/dashboard-kit/components/card"
+} from "@forge-go/dashboard-kit/components/card"
 
 /**
  * The fields the dashboard extension's `overview` query actually returns.

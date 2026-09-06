@@ -12,9 +12,9 @@
     "preview": "vite preview"
   },
   "dependencies": {
-    "@forge/dashboard-kit": "workspace:*",
-    "@forge/dashboard-plugin": "workspace:*",
-    "@forge/dashboard-runtime": "workspace:*",
+    "@forge-go/dashboard-kit": "workspace:*",
+    "@forge-go/dashboard-plugin": "workspace:*",
+    "@forge-go/dashboard-runtime": "workspace:*",
     "lucide-react": "^1.40.0",
     "react": "^19.2.6",
     "react-dom": "^19.2.6",

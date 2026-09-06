@@ -1,8 +1,8 @@
 import * as React from "react"
 import { Dialog as SheetPrimitive } from "@base-ui/react/dialog"
 
-import { cn } from "@forge/dashboard-kit/lib/utils"
-import { Button } from "@forge/dashboard-kit/components/button"
+import { cn } from "@forge-go/dashboard-kit/lib/utils"
+import { Button } from "@forge-go/dashboard-kit/components/button"
 import { XIcon } from "lucide-react"
 
 function Sheet({ ...props }: SheetPrimitive.Root.Props) {

@@ -1,6 +1,6 @@
 import { BrowserRouter } from "react-router"
-import { ForgeDashboardProvider } from "@forge/dashboard-runtime"
-import { TooltipProvider } from "@forge/dashboard-kit/components/tooltip"
+import { ForgeDashboardProvider } from "@forge-go/dashboard-runtime"
+import { TooltipProvider } from "@forge-go/dashboard-kit/components/tooltip"
 import { PluginHost } from "./host/PluginHost"
 import { coreDemoPlugin } from "./plugins/core-demo"
 

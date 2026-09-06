@@ -1,6 +1,6 @@
 import * as React from "react"
 
-import { cn } from "@forge/dashboard-kit/lib/utils"
+import { cn } from "@forge-go/dashboard-kit/lib/utils"
 
 function Card({
   className,

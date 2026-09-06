@@ -8,7 +8,7 @@ import {
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
-} from "@forge/dashboard-kit/components/sidebar"
+} from "@forge-go/dashboard-kit/components/sidebar"
 
 export function NavSecondary({
   items,

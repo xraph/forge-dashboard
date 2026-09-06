@@ -14,8 +14,8 @@
     "components": "@/components",
     "hooks": "@/hooks",
     "lib": "@/lib",
-    "utils": "@forge/dashboard-kit/lib/utils",
-    "ui": "@forge/dashboard-kit/components"
+    "utils": "@forge-go/dashboard-kit/lib/utils",
+    "ui": "@forge-go/dashboard-kit/components"
   },
   "rtl": false,
   "menuColor": "default",

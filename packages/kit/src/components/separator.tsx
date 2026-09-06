@@ -1,6 +1,6 @@
 import { Separator as SeparatorPrimitive } from "@base-ui/react/separator"
 
-import { cn } from "@forge/dashboard-kit/lib/utils"
+import { cn } from "@forge-go/dashboard-kit/lib/utils"
 
 function Separator({
   className,

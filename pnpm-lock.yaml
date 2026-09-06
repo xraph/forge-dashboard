@@ -23,13 +23,13 @@ importers:
 
   apps/playground:
     dependencies:
-      '@forge/dashboard-kit':
+      '@forge-go/dashboard-kit':
         specifier: workspace:*
         version: link:../../packages/kit
-      '@forge/dashboard-plugin':
+      '@forge-go/dashboard-plugin':
         specifier: workspace:*
         version: link:../../packages/plugin
-      '@forge/dashboard-runtime':
+      '@forge-go/dashboard-runtime':
         specifier: workspace:*
         version: link:../../packages/runtime
       lucide-react:
@@ -96,13 +96,13 @@ importers:
 
   apps/shell:
     dependencies:
-      '@forge/dashboard-kit':
+      '@forge-go/dashboard-kit':
         specifier: workspace:*
         version: link:../../packages/kit
-      '@forge/dashboard-plugin':
+      '@forge-go/dashboard-plugin':
         specifier: workspace:*
         version: link:../../packages/plugin
-      '@forge/dashboard-runtime':
+      '@forge-go/dashboard-runtime':
         specifier: workspace:*
         version: link:../../packages/runtime
       lucide-react:

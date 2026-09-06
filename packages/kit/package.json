@@ -1,8 +1,11 @@
 {
-  "name": "@forge/dashboard-kit",
+  "name": "@forge-go/dashboard-kit",
   "version": "0.0.0",
   "type": "module",
-  "private": true,
+  "files": ["dist", "src"],
+  "publishConfig": {
+    "access": "public"
+  },
   "scripts": {
     "lint": "eslint",
     "format": "prettier --write \"**/*.{ts,tsx}\"",

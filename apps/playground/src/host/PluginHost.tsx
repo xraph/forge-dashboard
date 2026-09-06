@@ -1,27 +1,27 @@
 import { useEffect, useMemo, useState } from "react"
 import type { ReactNode } from "react"
 import { Link, Navigate, Route, Routes } from "react-router"
-import { PluginErrorBoundary, useDashboardConfig } from "@forge/dashboard-runtime"
+import { PluginErrorBoundary, useDashboardConfig } from "@forge-go/dashboard-runtime"
 import {
   createScopedClient,
   MismatchPanel,
   PluginProvider,
   resolvePluginState,
   SetupPanel,
-} from "@forge/dashboard-plugin"
+} from "@forge-go/dashboard-plugin"
 import type {
   Capabilities,
   ForgePlugin,
   PluginNavItem,
   PluginState,
   ScopedClient,
-} from "@forge/dashboard-plugin"
-import { AppSidebar } from "@forge/dashboard-kit/components/app-sidebar"
-import { SiteHeader } from "@forge/dashboard-kit/components/site-header"
+} from "@forge-go/dashboard-plugin"
+import { AppSidebar } from "@forge-go/dashboard-kit/components/app-sidebar"
+import { SiteHeader } from "@forge-go/dashboard-kit/components/site-header"
 import {
   SidebarInset,
   SidebarProvider,
-} from "@forge/dashboard-kit/components/sidebar"
+} from "@forge-go/dashboard-kit/components/sidebar"
 
 /**
  * The chrome every host state renders inside: sidebar, header, and the content

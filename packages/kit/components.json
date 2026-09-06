@@ -11,11 +11,11 @@
   },
   "iconLibrary": "lucide",
   "aliases": {
-    "components": "@forge/dashboard-kit/components",
-    "utils": "@forge/dashboard-kit/lib/utils",
-    "hooks": "@forge/dashboard-kit/hooks",
-    "lib": "@forge/dashboard-kit/lib",
-    "ui": "@forge/dashboard-kit/components"
+    "components": "@forge-go/dashboard-kit/components",
+    "utils": "@forge-go/dashboard-kit/lib/utils",
+    "hooks": "@forge-go/dashboard-kit/hooks",
+    "lib": "@forge-go/dashboard-kit/lib",
+    "ui": "@forge-go/dashboard-kit/components"
   },
   "rtl": false,
   "menuColor": "default",

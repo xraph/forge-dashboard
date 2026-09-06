@@ -1,14 +1,14 @@
 import { describe, expect, it, vi } from "vitest"
 import { render, screen } from "@testing-library/react"
 import { MemoryRouter } from "react-router"
-import { ForgeDashboardProvider } from "@forge/dashboard-runtime"
-import { definePlugin, useQuery } from "@forge/dashboard-plugin"
+import { ForgeDashboardProvider } from "@forge-go/dashboard-runtime"
+import { definePlugin, useQuery } from "@forge-go/dashboard-plugin"
 import type {
   Capabilities,
   ContributorCapability,
   ForgePlugin,
   PluginInput,
-} from "@forge/dashboard-plugin"
+} from "@forge-go/dashboard-plugin"
 import { PluginHost } from "../src/host/PluginHost"
 
 // jsdom ships no matchMedia, and the kit's sidebar reads it through

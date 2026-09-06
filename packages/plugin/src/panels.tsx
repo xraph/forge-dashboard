@@ -6,7 +6,7 @@
  * straight through.
  *
  * Styled with plain Tailwind utility classes rather than the component
- * library: this package stays free of @forge/dashboard-kit, matching the
+ * library: this package stays free of @forge-go/dashboard-kit, matching the
  * house pattern in packages/runtime/src/fallbacks.tsx. The classes resolve
  * against the kit's tokens once the host loads its stylesheet.
  */

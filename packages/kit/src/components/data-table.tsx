@@ -40,16 +40,16 @@ import { Area, AreaChart, CartesianGrid, XAxis } from "recharts"
 import { toast } from "sonner"
 import { z } from "zod"
 
-import { useIsMobile } from "@forge/dashboard-kit/hooks/use-mobile"
-import { Badge } from "@forge/dashboard-kit/components/badge"
-import { Button } from "@forge/dashboard-kit/components/button"
+import { useIsMobile } from "@forge-go/dashboard-kit/hooks/use-mobile"
+import { Badge } from "@forge-go/dashboard-kit/components/badge"
+import { Button } from "@forge-go/dashboard-kit/components/button"
 import {
   ChartContainer,
   ChartTooltip,
   ChartTooltipContent,
   type ChartConfig,
-} from "@forge/dashboard-kit/components/chart"
-import { Checkbox } from "@forge/dashboard-kit/components/checkbox"
+} from "@forge-go/dashboard-kit/components/chart"
+import { Checkbox } from "@forge-go/dashboard-kit/components/checkbox"
 import {
   Drawer,
   DrawerClose,
@@ -59,7 +59,7 @@ import {
   DrawerHeader,
   DrawerTitle,
   DrawerTrigger,
-} from "@forge/dashboard-kit/components/drawer"
+} from "@forge-go/dashboard-kit/components/drawer"
 import {
   DropdownMenu,
   DropdownMenuCheckboxItem,
@@ -67,9 +67,9 @@ import {
   DropdownMenuItem,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
-} from "@forge/dashboard-kit/components/dropdown-menu"
-import { Input } from "@forge/dashboard-kit/components/input"
-import { Label } from "@forge/dashboard-kit/components/label"
+} from "@forge-go/dashboard-kit/components/dropdown-menu"
+import { Input } from "@forge-go/dashboard-kit/components/input"
+import { Label } from "@forge-go/dashboard-kit/components/label"
 import {
   Select,
   SelectContent,
@@ -77,8 +77,8 @@ import {
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "@forge/dashboard-kit/components/select"
-import { Separator } from "@forge/dashboard-kit/components/separator"
+} from "@forge-go/dashboard-kit/components/select"
+import { Separator } from "@forge-go/dashboard-kit/components/separator"
 import {
   Table,
   TableBody,
@@ -86,13 +86,13 @@ import {
   TableHead,
   TableHeader,
   TableRow,
-} from "@forge/dashboard-kit/components/table"
+} from "@forge-go/dashboard-kit/components/table"
 import {
   Tabs,
   TabsContent,
   TabsList,
   TabsTrigger,
-} from "@forge/dashboard-kit/components/tabs"
+} from "@forge-go/dashboard-kit/components/tabs"
 import { GripVerticalIcon, CircleCheckIcon, LoaderIcon, EllipsisVerticalIcon, Columns3Icon, ChevronDownIcon, PlusIcon, ChevronsLeftIcon, ChevronLeftIcon, ChevronRightIcon, ChevronsRightIcon, TrendingUpIcon } from "lucide-react"
 
 // New in v9: declare the features this table uses — anything you don't

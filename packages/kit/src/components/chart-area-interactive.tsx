@@ -3,7 +3,7 @@
 import * as React from "react"
 import { Area, AreaChart, CartesianGrid, XAxis } from "recharts"
 
-import { useIsMobile } from "@forge/dashboard-kit/hooks/use-mobile"
+import { useIsMobile } from "@forge-go/dashboard-kit/hooks/use-mobile"
 import {
   Card,
   CardAction,
@@ -11,24 +11,24 @@ import {
   CardDescription,
   CardHeader,
   CardTitle,
-} from "@forge/dashboard-kit/components/card"
+} from "@forge-go/dashboard-kit/components/card"
 import {
   ChartContainer,
   ChartTooltip,
   ChartTooltipContent,
   type ChartConfig,
-} from "@forge/dashboard-kit/components/chart"
+} from "@forge-go/dashboard-kit/components/chart"
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "@forge/dashboard-kit/components/select"
+} from "@forge-go/dashboard-kit/components/select"
 import {
   ToggleGroup,
   ToggleGroupItem,
-} from "@forge/dashboard-kit/components/toggle-group"
+} from "@forge-go/dashboard-kit/components/toggle-group"
 
 export const description = "An interactive area chart"
 

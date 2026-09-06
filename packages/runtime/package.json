@@ -1,8 +1,11 @@
 {
-  "name": "@forge/dashboard-runtime",
+  "name": "@forge-go/dashboard-runtime",
   "version": "0.0.0",
   "type": "module",
-  "private": true,
+  "files": ["dist", "src"],
+  "publishConfig": {
+    "access": "public"
+  },
   "scripts": {
     "test": "vitest run",
     "lint": "eslint",

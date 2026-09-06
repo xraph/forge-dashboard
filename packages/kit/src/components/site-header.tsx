@@ -1,5 +1,5 @@
-import { Separator } from "@forge/dashboard-kit/components/separator"
-import { SidebarTrigger } from "@forge/dashboard-kit/components/sidebar"
+import { Separator } from "@forge-go/dashboard-kit/components/separator"
+import { SidebarTrigger } from "@forge-go/dashboard-kit/components/sidebar"
 
 export function SiteHeader() {
   return (
