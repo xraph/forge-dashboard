@@ -24,13 +24,18 @@ import { EllipsisVerticalIcon, CircleUserRoundIcon, CreditCardIcon, BellIcon, Lo
  * Initials for the avatar fallback, derived from the name rather than
  * hardcoded. The shadcn template shipped a literal "CN" here, which is the
  * template author's initials and wrong for every user of this library.
+ *
+ * `[...part][0]` and not `part[0]`: string indexing returns a UTF-16 code
+ * unit, so a name whose first character is astral yields half a surrogate
+ * pair and renders as the replacement glyph. Spreading iterates by code
+ * point. Names are the last place to assume one character is one unit.
  */
 function initials(name: string): string {
   const parts = name.trim().split(/\s+/).filter(Boolean)
   if (parts.length === 0) return "?"
   return parts
     .slice(0, 2)
-    .map((part) => part[0]!.toUpperCase())
+    .map((part) => [...part][0]!.toUpperCase())
     .join("")
 }
 
