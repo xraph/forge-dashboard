@@ -79,6 +79,47 @@ interface SendInput {
 }
 
 /**
+ * Bumped by every fallback key. Module scope, not client scope, so two clients
+ * in the same document cannot mint the same key in the same millisecond.
+ */
+let fallbackSequence = 0
+
+/**
+ * Mints one idempotency key.
+ *
+ * `crypto.randomUUID` exists **only in a secure context**. A Forge dashboard
+ * served over plain http to anything but localhost has no secure context, and
+ * that is an ordinary internal-network deployment, not an exotic one - nothing
+ * in the dashboard's config assumes TLS. Call `crypto.randomUUID()` directly
+ * there and every command throws a TypeError naming nothing useful, before a
+ * request ever leaves the browser.
+ *
+ * So the fallback below is not dead code and must not be deleted. It is what
+ * makes commands work off TLS at all.
+ *
+ * The fallback is deliberately not cryptographic. This key is a deduplication
+ * handle, not a secret: the server compares it for equality and nothing more,
+ * and it travels in a body the caller composed anyway. `crypto.getRandomValues`
+ * would work here (it is not secure-context gated) but buys nothing a
+ * timestamp, a process-wide counter and a random suffix do not already give,
+ * at the cost of a third branch nobody exercises. The counter is what makes
+ * collision impossible within a page rather than merely unlikely.
+ */
+function newIdempotencyKey(): string {
+  // Read through globalThis at call time rather than closing over it, so a
+  // test (or a polyfill installed late) sees the environment it expects.
+  const c: Crypto | undefined = globalThis.crypto
+  if (typeof c?.randomUUID === "function") return c.randomUUID()
+
+  fallbackSequence += 1
+  // Prefixed, and deliberately not UUID-shaped, so nobody downstream parses it
+  // as one.
+  return `ik-${Date.now().toString(36)}-${fallbackSequence.toString(36)}-${Math.random()
+    .toString(36)
+    .slice(2, 12)}`
+}
+
+/**
  * Builds a client permanently bound to one extension.
  *
  * The contributor field is closed over, never a parameter. A plugin therefore
@@ -213,12 +254,12 @@ export function createScopedClient(
           // Resolved here, once, and nowhere else. Everything downstream reads
           // this value back; the envelope build does not mint one of its own.
           //
-          // Put the `?? crypto.randomUUID()` inside the per-attempt build
+          // Put the `?? newIdempotencyKey()` inside the per-attempt build
           // instead and the CSRF-refresh retry above mints a second, different
           // key for what the server has to see as one command. That is the
           // whole reason to carry a key at all, so this line is load-bearing
           // and it is load-bearing *here*.
-          idempotencyKey: opts.idempotencyKey ?? crypto.randomUUID(),
+          idempotencyKey: opts.idempotencyKey ?? newIdempotencyKey(),
         },
         true,
       ),

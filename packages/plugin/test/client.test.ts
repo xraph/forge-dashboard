@@ -128,7 +128,9 @@ function stub({ status = 200, body = {} }: StubResponse) {
  * refresh is what lets a test prove the retry carried a *new* token while
  * keeping the *same* idempotency key.
  */
-function harness(options: { tokens?: string[]; contract?: StubResponse[] } = {}) {
+function harness(
+  options: { tokens?: string[]; contract?: StubResponse[]; csrf?: StubResponse[] } = {},
+) {
   const tokens = options.tokens ?? ["tok-1", "tok-2", "tok-3"]
   const contract = options.contract ?? [{ body: OK_BODY }]
   // A client that retries without a cap loops forever against a stub that
@@ -142,12 +144,21 @@ function harness(options: { tokens?: string[]; contract?: StubResponse[] } = {})
   const csrfURLs: string[] = []
   const sent: SentEnvelope[] = []
   let tokenIndex = 0
+  let csrfIndex = 0
   let contractIndex = 0
 
   const fetchMock = vi.fn(async (url: string, init?: RequestInit) => {
     if (String(url).endsWith("/csrf")) {
       csrfURLs.push(String(url))
       csrfInits.push(init)
+      // `csrf` scripts the token endpoint itself, for the tests about what
+      // happens when it is down or answers without a token. Left unset, it
+      // just mints the next token in `tokens`.
+      if (options.csrf) {
+        const scripted = options.csrf[Math.min(csrfIndex, options.csrf.length - 1)]
+        csrfIndex += 1
+        return stub(scripted)
+      }
       const token = tokens[Math.min(tokenIndex, tokens.length - 1)]
       tokenIndex += 1
       return stub({ body: { token, expiresAt: "2026-09-06T12:00:00Z" } })
@@ -171,6 +182,11 @@ function harness(options: { tokens?: string[]; contract?: StubResponse[] } = {})
 }
 
 describe("ScopedClient.command", () => {
+  // One test replaces globalThis.crypto to reach the no-secure-context path.
+  afterEach(() => {
+    vi.unstubAllGlobals()
+  })
+
   it("sends kind command, the scoped contributor, an idempotency key and a csrf token", async () => {
     const h = harness()
     const client = createScopedClient(BASE, "billing", h.fetchImpl)
@@ -275,6 +291,79 @@ describe("ScopedClient.command", () => {
     expect(h.sent).toHaveLength(2)
     expect(h.sent[1].idempotencyKey).toBe(h.sent[0].idempotencyKey)
     expect(h.sent[1].csrf).toBe("tok-2")
+  })
+
+  // A dashboard served over plain http to any host but localhost has no secure
+  // context, and `crypto.randomUUID` does not exist there. Calling it anyway
+  // throws a TypeError before a request leaves the browser, which would make
+  // every command fail totally on an ordinary internal-network deployment.
+  // Stubbing the global away is exactly that environment.
+  it("still mints a usable key where crypto.randomUUID does not exist", async () => {
+    vi.stubGlobal("crypto", {})
+    const h = harness({
+      contract: [{ status: 401, body: rejection("UNAUTHENTICATED") }, { body: OK_BODY }],
+    })
+    const client = createScopedClient(BASE, "billing", h.fetchImpl)
+
+    await expect(client.command("session.login")).resolves.toEqual({ done: true })
+
+    const key = h.sent[0].idempotencyKey
+    expect(typeof key).toBe("string")
+    expect(String(key).length).toBeGreaterThan(16)
+    // And it is still one key for one logical command, retry included.
+    expect(h.sent[1].idempotencyKey).toBe(key)
+  })
+
+  it("mints a distinct fallback key per command, even within one millisecond", async () => {
+    vi.stubGlobal("crypto", {})
+    const h = harness()
+    const client = createScopedClient(BASE, "billing", h.fetchImpl)
+
+    await Promise.all([client.command("a"), client.command("b"), client.command("c")])
+
+    const keys = h.sent.map((e) => e.idempotencyKey)
+    expect(new Set(keys).size).toBe(3)
+  })
+
+  // The token endpoint being down is the one branch both the doc comment and
+  // the retired note described at length and nothing verified. Two halves:
+  // the failure is quiet, and it is not permanent.
+  it("gives up quietly when /csrf fails, and fetches again on the next command", async () => {
+    const h = harness({
+      csrf: [{ status: 503, body: {} }, { body: { token: "tok-late" } }],
+      contract: [
+        { status: 400, body: rejection("BAD_REQUEST", "command requires csrf and idempotencyKey") },
+        { body: OK_BODY },
+      ],
+    })
+    const client = createScopedClient(BASE, "billing", h.fetchImpl)
+
+    // Quiet: the command goes out tokenless and fails on the server's own
+    // terms. No error about a token fetch the caller never made.
+    await expect(client.command("session.login")).rejects.toMatchObject({ code: "TRANSPORT" })
+    expect(h.csrfURLs).toHaveLength(1)
+    expect(h.sent).toHaveLength(1)
+    expect(h.sent[0]).not.toHaveProperty("csrf")
+
+    // Not permanent: the null token means the next command tries the fetch
+    // again rather than the client staying tokenless for its whole life.
+    await expect(client.command("session.retry")).resolves.toEqual({ done: true })
+    expect(h.csrfURLs).toHaveLength(2)
+    expect(h.sent[1].csrf).toBe("tok-late")
+  })
+
+  it("treats a 200 from /csrf carrying no token as no token at all", async () => {
+    const h = harness({
+      csrf: [{ body: { expiresAt: "2026-09-06T12:00:00Z" } }, { body: { token: "tok-late" } }],
+      contract: [{ status: 400, body: rejection("BAD_REQUEST") }, { body: OK_BODY }],
+    })
+    const client = createScopedClient(BASE, "billing", h.fetchImpl)
+
+    await expect(client.command("session.login")).rejects.toMatchObject({ code: "TRANSPORT" })
+    expect(h.sent[0]).not.toHaveProperty("csrf")
+
+    await expect(client.command("session.retry")).resolves.toEqual({ done: true })
+    expect(h.sent[1].csrf).toBe("tok-late")
   })
 
   // ...and the 403 that must not be retried. A denied permission is denied

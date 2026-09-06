@@ -116,6 +116,12 @@ export function useCommand<T = unknown>(intent: string): CommandState<T> {
   // No dependencies: this runs only on unmount. Any command still in flight
   // then loses its claim on the latest generation, so its settlement becomes a
   // no-op instead of a setState aimed at a fiber that is gone.
+  //
+  // useQuery's equivalent cleanup has `[run]` deps, and the divergence is
+  // deliberate. There, a dependency change reruns the effect, which reissues
+  // the request, so the cleanup must supersede the old one. Here nothing
+  // reissues on a dependency change - only an event handler starts a command -
+  // so unmount is the only moment a supersede is owed.
   useEffect(
     () => () => {
       generationRef.current += 1
