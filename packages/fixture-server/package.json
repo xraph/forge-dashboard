@@ -1,0 +1,14 @@
+{
+  "name": "@forge-go/fixture-server",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Development fixture, not a shipped package. A local stand-in for the dashboard contract envelope (streaming-contract + auth) that Tasks 3, 4 and 5 develop plugins against.",
+  "scripts": {
+    "start": "node server.mjs",
+    "dev": "node server.mjs"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}
