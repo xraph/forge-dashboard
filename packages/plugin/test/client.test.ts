@@ -131,6 +131,13 @@ function stub({ status = 200, body = {} }: StubResponse) {
 function harness(options: { tokens?: string[]; contract?: StubResponse[] } = {}) {
   const tokens = options.tokens ?? ["tok-1", "tok-2", "tok-3"]
   const contract = options.contract ?? [{ body: OK_BODY }]
+  // A client that retries without a cap loops forever against a stub that
+  // keeps rejecting, and an unbounded async loop does not fail a test - it
+  // eats the heap until the worker is killed, taking every other test in the
+  // file with it and reporting nothing about which assertion was wrong. This
+  // budget turns that into an ordinary assertion failure in the one test that
+  // cares. Four is generous: no command should ever cost more than two.
+  const budget = 4
   const csrfInits: (RequestInit | undefined)[] = []
   const csrfURLs: string[] = []
   const sent: SentEnvelope[] = []
@@ -144,6 +151,9 @@ function harness(options: { tokens?: string[]; contract?: StubResponse[] } = {})
       const token = tokens[Math.min(tokenIndex, tokens.length - 1)]
       tokenIndex += 1
       return stub({ body: { token, expiresAt: "2026-09-06T12:00:00Z" } })
+    }
+    if (sent.length >= budget) {
+      throw new Error(`fetch budget of ${budget} contract calls exhausted: the client is looping`)
     }
     sent.push(JSON.parse(String(init?.body)) as SentEnvelope)
     const next = contract[Math.min(contractIndex, contract.length - 1)]
