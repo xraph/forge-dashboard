@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest"
-import { render, screen } from "@testing-library/react"
+import { fireEvent, render, screen } from "@testing-library/react"
 import { MemoryRouter } from "react-router"
 import { ForgeDashboardProvider } from "@forge-go/dashboard-runtime"
 import { definePlugin, useQuery } from "@forge-go/dashboard-plugin"
@@ -429,5 +429,199 @@ describe("PluginHost", () => {
 
     expect(sent.map((r) => r.intent)).toEqual(["ping", "ping"])
     expect(sent.map((r) => r.contributor)).toEqual(["alpha", "beta"])
+  })
+
+  // W5's integration case, and the first time this host has been asked to hold
+  // three plugins at once. Everything before it ran with one or two, all of
+  // them in the same state.
+  //
+  // The three states are the three the resolver can reach from a real
+  // capabilities document: ready, unconfigured, and absent. Absent is the one
+  // worth having in the fixture even though it asserts an absence -- a
+  // contributor the server never mentions is what a shell sees whenever it was
+  // built with a plugin the deployment does not run, which is the normal case
+  // for a first-party set compiled in unconditionally.
+  it("resolves three plugins in three different states at once", async () => {
+    const fetchImpl = capabilitiesFetch([
+      { name: "ready-ext", envelopes: ["v1"], configured: true },
+      {
+        name: "setup-ext",
+        envelopes: ["v1"],
+        configured: false,
+        message: "setup-ext has no backend configured",
+      },
+      // absent-ext is deliberately not here.
+    ])
+    const readyPlugin = definePlugin({
+      extension: "ready-ext",
+      nav: [
+        { label: "Ready Two", to: "/ready/two", priority: 20 },
+        { label: "Ready One", to: "/ready/one", priority: 10 },
+      ],
+      routes: [{ path: "/ready/one", element: () => <p>ready page body</p> }],
+    })
+    const setupPlugin = definePlugin({
+      extension: "setup-ext",
+      nav: [{ label: "Setup Nav", to: "/setup" }],
+      routes: [{ path: "/setup", element: () => <p>setup page body</p> }],
+    })
+    const absentPlugin = definePlugin({
+      extension: "absent-ext",
+      nav: [{ label: "Absent Nav", to: "/absent" }],
+      routes: [{ path: "/absent", element: () => <p>absent page body</p> }],
+    })
+
+    renderHost(
+      [readyPlugin, setupPlugin, absentPlugin],
+      fetchImpl,
+      "/ready/one"
+    )
+
+    expect(await screen.findByText("ready page body")).toBeTruthy()
+
+    // Nav carries the ready plugin's entries and nobody else's, sorted within
+    // that plugin by priority.
+    const nav = screen.getByRole("navigation", { name: "Plugin pages" })
+    expect(
+      Array.from(nav.querySelectorAll("a")).map((a) => a.textContent)
+    ).toEqual(["Ready One", "Ready Two"])
+
+    // The unconfigured plugin is visible as a panel, not as nav or a page.
+    expect(screen.getByText("setup-ext has no backend configured")).toBeTruthy()
+    expect(screen.queryByText("setup page body")).toBeNull()
+
+    // The absent plugin is silent in every direction: no nav, no page, and no
+    // panel explaining itself.
+    expect(screen.queryByText("Absent Nav")).toBeNull()
+    expect(screen.queryByText("absent page body")).toBeNull()
+    expect(screen.queryByText(/absent-ext/)).toBeNull()
+  })
+
+  // The error boundary's whole purpose, finally exercised with real
+  // neighbours. Until now one plugin threw and one plugin watched; the setup
+  // path had that test and the route path had none at all.
+  //
+  // Only one route element mounts at a time, so "the other two still render"
+  // is asserted three ways: the unconfigured plugin's panel is still on the
+  // page, the healthy plugin's nav entry is still on the page, and -- the part
+  // that a static assertion cannot reach -- following that nav entry still
+  // mounts the healthy plugin's page. A throw that had poisoned the host or
+  // the router would survive the first two and fail the third.
+  //
+  // The click-through is also this file's regression for the bug that
+  // integration found: the boundary latches failed:true and <Routes> renders
+  // it at one tree position, so without a key React kept the crashed instance
+  // and every later navigation showed "failed to render", naming whichever
+  // healthy plugin you had just opened. Two plugins were enough to have caught
+  // that and nobody had two.
+  //
+  // DISCRIMINATOR A: delete the <PluginErrorBoundary> wrapper from the route
+  // element in PluginHost and this test goes red, because the throw escapes
+  // into HostShell's render and React unmounts the tree.
+  // DISCRIMINATOR B: keep the wrapper and delete its key, and it goes red on
+  // the click-through instead.
+  it("contains a throwing route so its two neighbours keep rendering", async () => {
+    const spy = vi.spyOn(console, "error").mockImplementation(() => {})
+
+    const fetchImpl = capabilitiesFetch([
+      { name: "boom-ext", envelopes: ["v1"], configured: true },
+      { name: "steady-ext", envelopes: ["v1"], configured: true },
+      {
+        name: "needy-ext",
+        envelopes: ["v1"],
+        configured: false,
+        message: "needy-ext has no backend configured",
+      },
+    ])
+    const boom = definePlugin({
+      extension: "boom-ext",
+      nav: [{ label: "Boom", to: "/boom" }],
+      routes: [
+        {
+          path: "/boom",
+          element: () => {
+            throw new Error("route element blew up")
+          },
+        },
+      ],
+    })
+    const steady = definePlugin({
+      extension: "steady-ext",
+      nav: [{ label: "Steady", to: "/steady" }],
+      routes: [{ path: "/steady", element: () => <p>steady page body</p> }],
+    })
+    const needy = definePlugin({
+      extension: "needy-ext",
+      nav: [{ label: "Needy", to: "/needy" }],
+      routes: [{ path: "/needy", element: () => <p>needy page body</p> }],
+    })
+
+    renderHost([boom, steady, needy], fetchImpl, "/boom")
+
+    // The throw is contained and leaves a marker rather than an empty gap.
+    expect(await screen.findByText(/failed to render: boom-ext/)).toBeTruthy()
+
+    // Neighbour one: the unconfigured plugin's panel is untouched.
+    expect(screen.getByText("needy-ext has no backend configured")).toBeTruthy()
+
+    // Neighbour two: still in nav, and still reachable. Clicking through is
+    // the assertion that matters -- it proves the router and the host survived
+    // the throw, not just that some markup rendered before it happened.
+    const link = screen.getByRole("link", { name: "Steady" })
+    fireEvent.click(link)
+    expect(await screen.findByText("steady page body")).toBeTruthy()
+
+    spy.mockRestore()
+  })
+
+  // Two plugins claiming the same route path. Nothing rejects this today and
+  // nothing warns about it: react-router scores the two identically and breaks
+  // the tie on declaration order, which the host derives from the order of the
+  // plugins array. The first plugin listed wins and the second one's page is
+  // unreachable, while both nav entries stay clickable.
+  //
+  // Pinned as the behaviour it is, not as the behaviour anyone chose. If a
+  // later change makes collisions loud, or hands the win to the last plugin
+  // instead of the first, this is the test that will say so.
+  it("gives a colliding route path to the first plugin in the array, silently", async () => {
+    const messages: string[] = []
+    const errorSpy = vi
+      .spyOn(console, "error")
+      .mockImplementation((...args: unknown[]) => {
+        messages.push(args.map(String).join(" "))
+      })
+    const warnSpy = vi
+      .spyOn(console, "warn")
+      .mockImplementation((...args: unknown[]) => {
+        messages.push(args.map(String).join(" "))
+      })
+
+    const fetchImpl = capabilitiesFetch([
+      { name: "alpha", envelopes: ["v1"], configured: true },
+      { name: "beta", envelopes: ["v1"], configured: true },
+    ])
+    const alpha = definePlugin({
+      extension: "alpha",
+      nav: [{ label: "Alpha Shared", to: "/shared" }],
+      routes: [{ path: "/shared", element: () => <p>alpha owns it</p> }],
+    })
+    const beta = definePlugin({
+      extension: "beta",
+      nav: [{ label: "Beta Shared", to: "/shared" }],
+      routes: [{ path: "/shared", element: () => <p>beta owns it</p> }],
+    })
+
+    renderHost([alpha, beta], fetchImpl, "/shared")
+
+    expect(await screen.findByText("alpha owns it")).toBeTruthy()
+    expect(screen.queryByText("beta owns it")).toBeNull()
+    // beta's nav entry is still there, pointing at a page it does not get.
+    expect(screen.getByRole("link", { name: "Beta Shared" })).toBeTruthy()
+
+    errorSpy.mockRestore()
+    warnSpy.mockRestore()
+    // Silent: no duplicate-key complaint from React, no route warning from
+    // react-router, nothing from the host.
+    expect(messages).toEqual([])
   })
 })

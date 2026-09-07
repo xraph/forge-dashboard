@@ -6,6 +6,8 @@ import {
   useDashboardConfig,
 } from "@forge-go/dashboard-runtime"
 import { TooltipProvider } from "@forge-go/dashboard-kit/components/tooltip"
+import authsomePlugin from "@forge-go/dashboard-plugin-authsome"
+import streamingPlugin from "@forge-go/dashboard-plugin-streaming"
 import { PluginHost } from "./host/PluginHost"
 import { corePlugin } from "./plugins/core"
 
@@ -19,7 +21,12 @@ import { corePlugin } from "./plugins/core"
 // memoizes its scoped clients on the plugin array the same way.
 const injected = configFromWindow()
 const config = { basePath: injected.basePath ?? "/dashboard", ...injected }
-const plugins = [corePlugin]
+
+// Order here is the cross-plugin nav order: priority sorts a plugin's own
+// entries and nothing more, so the array decides which plugin's group comes
+// first. core is the shell's own overview and leads; streaming and authsome
+// follow in the order they were built.
+const plugins = [corePlugin, streamingPlugin, authsomePlugin]
 
 /**
  * The router, mounted at the prefix the shell is actually served from.

@@ -1,6 +1,9 @@
 import { afterEach, beforeAll, describe, expect, it, vi } from "vitest"
 import { render, screen } from "@testing-library/react"
-import type { Capabilities } from "@forge-go/dashboard-plugin"
+import type {
+  Capabilities,
+  ContributorCapability,
+} from "@forge-go/dashboard-plugin"
 
 // jsdom ships no matchMedia, and the kit's sidebar reads it through
 // useIsMobile on every mount.
@@ -37,17 +40,25 @@ function jsonOk(body: unknown): Response {
   return { ok: true, status: 200, json: async () => body } as Response
 }
 
-/** Answers capabilities and the core plugin's one query, refuses the rest. */
-function serverFetch(): typeof fetch {
+/**
+ * Answers capabilities and the core plugin's one query, refuses the rest.
+ *
+ * Only core-contract is reported, so the streaming and authsome plugins the
+ * shell now compiles in resolve to hidden. That is the deployment these two
+ * tests are about -- a server running the dashboard extension and nothing
+ * else -- and it is worth keeping as the default fixture: the first-party set
+ * is compiled in unconditionally, so "the plugin is absent" is the common
+ * case, not the exotic one.
+ */
+function serverFetch(
+  contributors: ContributorCapability[] = [
+    { name: "core-contract", envelopes: ["v1"], configured: true },
+  ]
+): typeof fetch {
   return vi.fn(async (input: RequestInfo | URL) => {
     const url = String(input)
     if (url.endsWith("/capabilities")) {
-      const caps: Capabilities = {
-        shellEnvelopes: ["v1"],
-        contributors: [
-          { name: "core-contract", envelopes: ["v1"], configured: true },
-        ],
-      }
+      const caps: Capabilities = { shellEnvelopes: ["v1"], contributors }
       return jsonOk(caps)
     }
     if (url === CONTRACT_BASE) {
@@ -113,5 +124,54 @@ describe("App at a non-default mount", () => {
     // read "/overview" -- absolute from the site root, outside the dashboard
     // mount, so it 404s from the Go app on refresh or on a shared link.
     expect(link.getAttribute("href")).toBe("/dashboard/ui/overview")
+  })
+
+  /**
+   * The shell wires three plugins, and the only place that is true is App.tsx.
+   * host.test.tsx builds its own plugins, so it would stay green if the array
+   * in App.tsx were emptied tomorrow.
+   *
+   * The three join keys are the assertion underneath the labels. They are Go
+   * contributor names, not package names -- "streaming-contract" and "auth" --
+   * and getting one wrong resolves that plugin to hidden with nothing logged.
+   * A capabilities document naming all three is the only fixture that can tell
+   * the difference between a plugin that is wired and a plugin that is silent.
+   */
+  it("compiles in all three plugins and lays their nav out in array order", async () => {
+    vi.stubGlobal(
+      "fetch",
+      serverFetch([
+        { name: "core-contract", envelopes: ["v1"], configured: true },
+        { name: "streaming-contract", envelopes: ["v1"], configured: true },
+        { name: "auth", envelopes: ["v1"], configured: true },
+      ])
+    )
+
+    render(<App />)
+
+    const nav = await screen.findByRole("navigation", { name: "Plugin pages" })
+    const links = Array.from(nav.querySelectorAll("a"))
+
+    // priority orders each plugin's own entries; the plugins array orders the
+    // groups. core first, then streaming, then authsome.
+    expect(links.map((a) => a.textContent)).toEqual([
+      "Overview",
+      "Streaming",
+      "Rooms",
+      "Connections",
+      "Sign in",
+      "Users",
+      "Sessions",
+    ])
+    // And every one of them resolves inside the mount, not at the site root.
+    expect(links.map((a) => a.getAttribute("href"))).toEqual([
+      "/dashboard/ui/overview",
+      "/dashboard/ui/streaming",
+      "/dashboard/ui/streaming/rooms",
+      "/dashboard/ui/streaming/connections",
+      "/dashboard/ui/auth/login",
+      "/dashboard/ui/auth/users",
+      "/dashboard/ui/auth/sessions",
+    ])
   })
 })

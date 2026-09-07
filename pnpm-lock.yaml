@@ -102,6 +102,12 @@ importers:
       '@forge-go/dashboard-plugin':
         specifier: workspace:*
         version: link:../../packages/plugin
+      '@forge-go/dashboard-plugin-authsome':
+        specifier: workspace:*
+        version: link:../../packages/plugin-authsome
+      '@forge-go/dashboard-plugin-streaming':
+        specifier: workspace:*
+        version: link:../../packages/plugin-streaming
       '@forge-go/dashboard-runtime':
         specifier: workspace:*
         version: link:../../packages/runtime

@@ -14,6 +14,8 @@
   "dependencies": {
     "@forge-go/dashboard-kit": "workspace:*",
     "@forge-go/dashboard-plugin": "workspace:*",
+    "@forge-go/dashboard-plugin-authsome": "workspace:*",
+    "@forge-go/dashboard-plugin-streaming": "workspace:*",
     "@forge-go/dashboard-runtime": "workspace:*",
     "lucide-react": "^1.40.0",
     "react": "^19.2.6",

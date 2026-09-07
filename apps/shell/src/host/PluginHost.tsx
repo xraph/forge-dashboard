@@ -1,7 +1,10 @@
 import { useEffect, useMemo, useState } from "react"
 import type { ReactNode } from "react"
 import { Link, Navigate, Route, Routes } from "react-router"
-import { PluginErrorBoundary, useDashboardConfig } from "@forge-go/dashboard-runtime"
+import {
+  PluginErrorBoundary,
+  useDashboardConfig,
+} from "@forge-go/dashboard-runtime"
 import {
   createScopedClient,
   MismatchPanel,
@@ -248,7 +251,24 @@ export function PluginHost({ plugins, fetchImpl }: PluginHostProps) {
                     // The unit this isolates is one plugin: a third-party
                     // bundle throwing during render must take down its own
                     // page, not the dashboard.
-                    <PluginErrorBoundary plugin={plugin.extension}>
+                    //
+                    // The key is load-bearing and is not the same key as the
+                    // one on <Route>. <Routes> renders exactly one element
+                    // here, so without a key React sees PluginErrorBoundary at
+                    // the same position on every navigation and keeps the
+                    // instance -- along with the latched failed:true a
+                    // previous page put there. One plugin throwing then paints
+                    // "failed to render" over every page you navigate to next,
+                    // naming whichever plugin you just opened, until a full
+                    // reload. That inverts the boundary: instead of one plugin
+                    // taking down its own page, one plugin takes down the
+                    // dashboard by a slower route. Keying per route makes each
+                    // navigation a remount, which is the only way a class
+                    // boundary clears itself.
+                    <PluginErrorBoundary
+                      key={`${plugin.extension}:${route.path}`}
+                      plugin={plugin.extension}
+                    >
                       <PluginProvider client={clients.get(plugin.extension)!}>
                         <Page />
                       </PluginProvider>
