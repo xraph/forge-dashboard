@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest"
 import { fireEvent, render, screen } from "@testing-library/react"
-import { MemoryRouter } from "react-router"
+import { MemoryRouter, useParams } from "react-router"
 import { ForgeDashboardProvider } from "@forge-go/dashboard-runtime"
 import { definePlugin, useQuery } from "@forge-go/dashboard-plugin"
 import type {
@@ -570,6 +570,52 @@ describe("PluginHost", () => {
     const link = screen.getByRole("link", { name: "Steady" })
     fireEvent.click(link)
     expect(await screen.findByText("steady page body")).toBeTruthy()
+
+    spy.mockRestore()
+  })
+
+  // ITEM 1's regression. The boundary above is keyed
+  // `${plugin.extension}:${route.path}`, and route.path is the pattern
+  // (`/users/:id`), not the resolved location. Every id served by that one
+  // route shares a single <Route> element and therefore a single boundary
+  // instance, so a throw on one id latches "failed to render" for every id
+  // that follows -- the same bug the route-vs-route test above already
+  // covers one level up, just one level down at the param level.
+  //
+  // DISCRIMINATOR: keying on route.path (the pattern) instead of the
+  // resolved pathname leaves this red, because navigating from /users/1 to
+  // /users/2 does not change the key and React keeps the crashed instance.
+  it("contains a throwing param route on one id without latching the next id", async () => {
+    const spy = vi.spyOn(console, "error").mockImplementation(() => {})
+
+    const fetchImpl = capabilitiesFetch([
+      { name: "detail-ext", envelopes: ["v1"], configured: true },
+    ])
+    function Detail() {
+      const { id } = useParams()
+      if (id === "1") {
+        throw new Error("user 1 blew up")
+      }
+      return <p>user detail: {id}</p>
+    }
+    const detail = definePlugin({
+      extension: "detail-ext",
+      nav: [
+        { label: "User 1", to: "/users/1" },
+        { label: "User 2", to: "/users/2" },
+      ],
+      routes: [{ path: "/users/:id", element: Detail }],
+    })
+
+    renderHost([detail], fetchImpl, "/users/1")
+
+    expect(await screen.findByText(/failed to render: detail-ext/)).toBeTruthy()
+
+    const link = screen.getByRole("link", { name: "User 2" })
+    fireEvent.click(link)
+
+    expect(await screen.findByText("user detail: 2")).toBeTruthy()
+    expect(screen.queryByText(/failed to render/)).toBeNull()
 
     spy.mockRestore()
   })

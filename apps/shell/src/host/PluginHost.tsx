@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react"
 import type { ReactNode } from "react"
-import { Link, Navigate, Route, Routes } from "react-router"
+import { Link, Navigate, Route, Routes, useLocation } from "react-router"
 import {
   PluginErrorBoundary,
   useDashboardConfig,
@@ -69,6 +69,7 @@ type CapabilitiesState =
 
 export function PluginHost({ plugins, fetchImpl }: PluginHostProps) {
   const { contractBase } = useDashboardConfig()
+  const { pathname } = useLocation()
   const [state, setState] = useState<CapabilitiesState>({ status: "loading" })
 
   // Bound on purpose: an unbound `fetch` called as a plain function throws
@@ -265,8 +266,18 @@ export function PluginHost({ plugins, fetchImpl }: PluginHostProps) {
                     // dashboard by a slower route. Keying per route makes each
                     // navigation a remount, which is the only way a class
                     // boundary clears itself.
+                    //
+                    // Keyed on the resolved pathname, not route.path. route.path
+                    // is the pattern (`/users/:id`), and every id that pattern
+                    // matches shares one <Route> element and therefore one
+                    // boundary instance -- a throw on one id would latch the
+                    // fallback for every other id served by the same route.
+                    // The extension stays in the key: two plugins only land on
+                    // the same pathname if they collided on the route, and a
+                    // collision is exactly the case where they should not
+                    // share a boundary instance.
                     <PluginErrorBoundary
-                      key={`${plugin.extension}:${route.path}`}
+                      key={`${plugin.extension}:${pathname}`}
                       plugin={plugin.extension}
                     >
                       <PluginProvider client={clients.get(plugin.extension)!}>
