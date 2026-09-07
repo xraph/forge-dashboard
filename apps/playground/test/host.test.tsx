@@ -90,7 +90,7 @@ function queryingPlugin(
 function renderHost(
   plugins: ForgePlugin[],
   fetchImpl: typeof fetch,
-  route = "/overview"
+  route = "/@core/overview"
 ) {
   return render(
     <MemoryRouter initialEntries={[route]}>
@@ -107,6 +107,10 @@ describe("PluginHost", () => {
       { name: "core-contract", envelopes: ["v1"], configured: true },
     ])
 
+    // core-contract has no explicit `namespace`, so it derives to "core" (the
+    // "-contract" suffix stripped). renderHost's default route is
+    // "/@core/overview" for exactly this reason -- no explicit third
+    // argument needed here.
     renderHost([demoPlugin()], fetchImpl)
 
     expect(await screen.findByText("overview page body")).toBeTruthy()
@@ -183,6 +187,13 @@ describe("PluginHost", () => {
   // boundary was put around it a throw there escaped HostShell and took the
   // whole dashboard with it. No earlier test could catch that: the setup
   // component the other tests supply cannot throw.
+  //
+  // Namespacing changes what "still renders" can mean here. A non-ready
+  // plugin's panel now renders only inside its own active scope, not stacked
+  // above every page (that stacking block is exactly what this task deletes).
+  // So this asserts the throw is contained when its scope IS active -- the
+  // marker replaces the panel, HostShell keeps rendering around it -- and a
+  // separate render proves the healthy plugin's own scope is untouched by it.
   it("contains a throwing setup component instead of blanking the dashboard", async () => {
     const fetchImpl = capabilitiesFetch([
       { name: "core-contract", envelopes: ["v1"], configured: false },
@@ -199,14 +210,18 @@ describe("PluginHost", () => {
       routes: [{ path: "/other", element: () => <p>other page body</p> }],
     })
 
-    renderHost([exploding, survivor], fetchImpl, "/other")
+    // core-contract's scope is the default route (see renderHost).
+    renderHost([exploding, survivor], fetchImpl)
 
-    // The other plugin's page still renders, which is the whole claim: one
-    // plugin throwing takes down its own box, not the dashboard.
+    // The throw left a visible marker rather than blanking HostShell.
+    expect(await screen.findByText(/failed to render: core-contract/)).toBeTruthy()
+
+    // The healthy plugin's own scope survives independently: it never shared
+    // a render with the crashing one, but a throw in one plugin's setup
+    // screen must never poison another plugin's scope either.
+    renderHost([exploding, survivor], fetchImpl, "/@other-extension/other")
     expect(await screen.findByText("other page body")).toBeTruthy()
     expect(screen.getByRole("link", { name: "Other" })).toBeTruthy()
-    // And the throw left a visible marker rather than an empty gap.
-    expect(screen.getByText(/failed to render: core-contract/)).toBeTruthy()
   })
 
   it("renders nothing at all for a plugin whose contributor is absent", async () => {
@@ -271,13 +286,15 @@ describe("PluginHost", () => {
     expect(screen.queryByText("overview page body")).toBeNull()
   })
 
-  // MINOR 5's regression. priority is documented as ordering a plugin's items
-  // within its own group, and cross-plugin nav order is installation order.
-  // Sorting the flattened list broke both, and only looked right because
-  // Array.prototype.sort is stable and every priority defaults to 0. These
-  // two plugins interleave under a global sort: alpha's 10 would fall behind
-  // beta's 1.
-  it("sorts nav within each plugin and keeps plugins in installation order", async () => {
+  // MINOR 5's regression, updated for namespacing. priority is documented as
+  // ordering a plugin's items within its own group. It used to also matter
+  // that cross-plugin order followed installation order, but only one
+  // plugin's nav is on screen at a time now -- the sidebar shows the active
+  // scope's group and nothing else -- so "keeps plugins in installation
+  // order" is no longer an observable claim about simultaneous nav. What
+  // still is: each plugin sorts its own items by priority regardless of
+  // which one happens to be active, checked here for both.
+  it("sorts nav within each plugin by priority", async () => {
     const fetchImpl = capabilitiesFetch([
       { name: "alpha", envelopes: ["v1"], configured: true },
       { name: "beta", envelopes: ["v1"], configured: true },
@@ -285,95 +302,76 @@ describe("PluginHost", () => {
     const alpha = definePlugin({
       extension: "alpha",
       nav: [
-        { label: "Alpha Second", to: "/alpha/second", priority: 10 },
-        { label: "Alpha First", to: "/alpha/first", priority: 5 },
+        { label: "Alpha Second", to: "/second", priority: 10 },
+        { label: "Alpha First", to: "/first", priority: 5 },
       ],
-      routes: [{ path: "/alpha/first", element: () => <p>alpha page</p> }],
+      routes: [{ path: "/first", element: () => <p>alpha page</p> }],
     })
     const beta = definePlugin({
       extension: "beta",
       nav: [
-        { label: "Beta Second", to: "/beta/second", priority: 3 },
-        { label: "Beta First", to: "/beta/first", priority: 1 },
+        { label: "Beta Second", to: "/second", priority: 3 },
+        { label: "Beta First", to: "/first", priority: 1 },
       ],
-      routes: [{ path: "/beta/first", element: () => <p>beta page</p> }],
+      routes: [{ path: "/first", element: () => <p>beta page</p> }],
     })
 
-    renderHost([alpha, beta], fetchImpl, "/alpha/first")
-
+    const alphaRender = renderHost([alpha, beta], fetchImpl, "/@alpha/first")
     await screen.findByText("alpha page")
-    const links = screen
-      .getAllByRole("link")
-      .map((el) => el.textContent)
-      .filter((t) => t?.startsWith("Alpha") || t?.startsWith("Beta"))
+    expect(
+      screen
+        .getAllByRole("link")
+        .map((el) => el.textContent)
+        .filter((t) => t?.startsWith("Alpha") || t?.startsWith("Beta"))
+    ).toEqual(["Alpha First", "Alpha Second"])
+    alphaRender.unmount()
 
-    expect(links).toEqual([
-      "Alpha First",
-      "Alpha Second",
-      "Beta First",
-      "Beta Second",
-    ])
+    renderHost([alpha, beta], fetchImpl, "/@beta/first")
+    await screen.findByText("beta page")
+    expect(
+      screen
+        .getAllByRole("link")
+        .map((el) => el.textContent)
+        .filter((t) => t?.startsWith("Alpha") || t?.startsWith("Beta"))
+    ).toEqual(["Beta First", "Beta Second"])
   })
 
-  // MINOR 6's regression. Keying on item.to alone collides the moment two
-  // plugins contribute the same path, which is not exotic: /settings is the
-  // obvious one. React reports that on console.error and then renders one of
-  // the two, so nothing else here would notice.
-  it("keys nav on extension and path, so two plugins can contribute the same path", async () => {
-    const errors: unknown[][] = []
-    const spy = vi
-      .spyOn(console, "error")
-      .mockImplementation((...args: unknown[]) => {
-        errors.push(args)
-      })
-
+  // MINOR 6's regression is gone, not just narrowed. It guarded against two
+  // *different* plugins contributing the same nav path colliding in one flat
+  // list keyed on item.to alone. That flat list no longer exists -- only the
+  // active scope's own nav renders -- so a cross-plugin collision on the
+  // rendered nav is structurally unreachable now, with nothing left for a
+  // test at this layer to pin.
+  //
+  // What is NOT retested here: `packages/kit`'s NavTree keys each item on its
+  // own `href` (`SidebarMenuItem key={item.href}`), so two items *within one
+  // plugin's own nav* that both resolve to the same href still produce a
+  // real React duplicate-key warning today -- confirmed by hand while
+  // updating this file, not fixed here. NavTree belongs to a different task
+  // and is outside this task's file list, and a single plugin declaring two
+  // nav entries pointing at the same target is a much narrower edge case than
+  // the cross-plugin collision this test used to guard. Flagged rather than
+  // silently dropped.
+  //
+  // MINOR 7, superseded. The old rootIsClaimed guard existed because a
+  // plugin could declare a literal "/" route and the host's own redirect had
+  // to step aside for it. Namespacing removes that possibility outright: a
+  // plugin's "/" is scopePath-ed to "/@<namespace>", never to the site root,
+  // so no plugin route can ever match "/" again and the guard the old test
+  // pinned is unreachable code that this task deletes. What replaces it: the
+  // site root always redirects to `home`, which is the first *ready*
+  // plugin's own home, in plugin array order.
+  it("redirects the site root to the first ready plugin's home, in array order", async () => {
     const fetchImpl = capabilitiesFetch([
       { name: "alpha", envelopes: ["v1"], configured: true },
       { name: "beta", envelopes: ["v1"], configured: true },
     ])
-    const alpha = definePlugin({
-      extension: "alpha",
-      nav: [{ label: "Alpha Settings", to: "/settings" }],
-      routes: [{ path: "/alpha", element: () => <p>alpha page</p> }],
-    })
+    // beta is listed first: home must come from beta, not alpha, proving the
+    // array (not declaration order inside one plugin) decides it.
     const beta = definePlugin({
       extension: "beta",
-      nav: [{ label: "Beta Settings", to: "/settings" }],
-      routes: [{ path: "/beta", element: () => <p>beta page</p> }],
-    })
-
-    renderHost([alpha, beta], fetchImpl, "/alpha")
-
-    await screen.findByText("alpha page")
-
-    expect(screen.getByRole("link", { name: "Alpha Settings" })).toBeTruthy()
-    expect(screen.getByRole("link", { name: "Beta Settings" })).toBeTruthy()
-
-    const duplicateKey = errors.some((args) =>
-      args.some((a) => String(a).includes("same key"))
-    )
-    spy.mockRestore()
-    expect(duplicateKey).toBe(false)
-  })
-
-  // MINOR 7. Read the comment on rootIsClaimed first: this does NOT
-  // discriminate that guard, and it is labelled so nobody later mistakes it
-  // for a test that does. Dropping the guard leaves this green, because
-  // react-router already breaks the "/" tie on declaration order and the
-  // redirect is declared last. What it does pin, and nothing pinned before,
-  // is the behaviour itself: a plugin may own the root and its page renders
-  // there. If the route table is ever reordered, this catches it.
-  it("lets a plugin own the root path instead of redirecting away from it", async () => {
-    const fetchImpl = capabilitiesFetch([
-      { name: "alpha", envelopes: ["v1"], configured: true },
-      { name: "beta", envelopes: ["v1"], configured: true },
-    ])
-    // beta is listed first and has a nav entry, so the old unconditional
-    // redirect would have sent "/" to /beta and never rendered alpha's page.
-    const beta = definePlugin({
-      extension: "beta",
-      nav: [{ label: "Beta", to: "/beta" }],
-      routes: [{ path: "/beta", element: () => <p>beta page</p> }],
+      nav: [{ label: "Beta", to: "/" }],
+      routes: [{ path: "/", element: () => <p>beta page</p> }],
     })
     const alpha = definePlugin({
       extension: "alpha",
@@ -383,8 +381,8 @@ describe("PluginHost", () => {
 
     renderHost([beta, alpha], fetchImpl, "/")
 
-    expect(await screen.findByText("alpha root page")).toBeTruthy()
-    expect(screen.queryByText("beta page")).toBeNull()
+    expect(await screen.findByText("beta page")).toBeTruthy()
+    expect(screen.queryByText("alpha root page")).toBeNull()
   })
 
   // ITEM 4's regression. "A plugin cannot address another extension's
@@ -417,14 +415,14 @@ describe("PluginHost", () => {
       }
     ) as unknown as typeof fetch
 
-    const alpha = queryingPlugin("alpha", "/alpha", "Alpha")
-    const beta = queryingPlugin("beta", "/beta", "Beta")
+    const alpha = queryingPlugin("alpha", "/", "Alpha")
+    const beta = queryingPlugin("beta", "/", "Beta")
 
-    const first = renderHost([alpha, beta], fetchImpl, "/alpha")
+    const first = renderHost([alpha, beta], fetchImpl, "/@alpha")
     expect(await screen.findByText("Alpha says alpha")).toBeTruthy()
     first.unmount()
 
-    renderHost([alpha, beta], fetchImpl, "/beta")
+    renderHost([alpha, beta], fetchImpl, "/@beta")
     expect(await screen.findByText("Beta says beta")).toBeTruthy()
 
     expect(sent.map((r) => r.intent)).toEqual(["ping", "ping"])
