@@ -14,6 +14,15 @@ export function definePlugin(input: PluginInput): ForgePlugin {
     )
   }
 
+  if (
+    input.namespace !== undefined &&
+    !/^[a-z0-9][a-z0-9-]*$/i.test(input.namespace)
+  ) {
+    throw new Error(
+      `definePlugin: namespace "${input.namespace}" must be a single URL segment of letters, digits and dashes (plugin "${input.extension}")`,
+    )
+  }
+
   for (const route of input.routes) {
     if (!route.path.startsWith("/")) {
       throw new Error(

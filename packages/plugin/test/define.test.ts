@@ -42,4 +42,46 @@ describe("definePlugin", () => {
 
     expect(p.requires).toBeUndefined()
   })
+
+  it("keeps an explicit namespace", () => {
+    const p = definePlugin({
+      extension: "streaming-contract",
+      namespace: "streaming",
+      routes: [{ path: "/rooms", element: Stub }],
+    })
+
+    expect(p.namespace).toBe("streaming")
+  })
+
+  it("rejects a namespace containing a slash", () => {
+    expect(() =>
+      definePlugin({
+        extension: "auth",
+        namespace: "auth/sso",
+        routes: [],
+      }),
+    ).toThrow(/namespace/)
+  })
+
+  it("rejects a namespace containing the sigil", () => {
+    expect(() =>
+      definePlugin({ extension: "auth", namespace: "@auth", routes: [] }),
+    ).toThrow(/namespace/)
+  })
+
+  it("accepts nav items carrying children", () => {
+    const p = definePlugin({
+      extension: "streaming-contract",
+      nav: [
+        {
+          label: "Rooms",
+          to: "/rooms",
+          children: [{ label: "Active", to: "/rooms/active" }],
+        },
+      ],
+      routes: [],
+    })
+
+    expect(p.nav[0]!.children).toHaveLength(1)
+  })
 })
