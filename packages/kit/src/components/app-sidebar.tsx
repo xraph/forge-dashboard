@@ -1,211 +1,77 @@
 import * as React from "react"
+import type { ReactElement, ReactNode } from "react"
 
-import { NavDocuments } from "@forge-go/dashboard-kit/components/nav-documents"
-import { NavMain } from "@forge-go/dashboard-kit/components/nav-main"
-import { NavSecondary } from "@forge-go/dashboard-kit/components/nav-secondary"
+import { NavTree } from "@forge-go/dashboard-kit/components/nav-tree"
+import type { NavGroup, NavNode } from "@forge-go/dashboard-kit/components/nav-tree"
 import { NavUser } from "@forge-go/dashboard-kit/components/nav-user"
+import { ScopeSwitcher } from "@forge-go/dashboard-kit/components/scope-switcher"
+import type { ScopeOption } from "@forge-go/dashboard-kit/components/scope-switcher"
 import {
   Sidebar,
   SidebarContent,
   SidebarFooter,
   SidebarHeader,
-  SidebarMenu,
-  SidebarMenuButton,
-  SidebarMenuItem,
 } from "@forge-go/dashboard-kit/components/sidebar"
-import { LayoutDashboardIcon, ListIcon, ChartBarIcon, FolderIcon, UsersIcon, CameraIcon, FileTextIcon, Settings2Icon, CircleHelpIcon, SearchIcon, DatabaseIcon, FileChartColumnIcon, FileIcon, CommandIcon } from "lucide-react"
 
-const data = {
-  // A neutral placeholder, not a person. The shadcn dashboard-01 template
-  // shipped its author's handle and an avatar at "/avatars/shadcn.jpg", and
-  // that path is absolute, so it resolved at the site root and 404'd on every
-  // page load once the dashboard was mounted under a prefix. No avatar is set
-  // here at all now: NavUser draws initials when there is none, and this
-  // component cannot know a URL that resolves under a consumer's base path.
-  // example.com is reserved for exactly this by RFC 2606.
-  //
-  // The sidebar footer shows this on every dashboard, so it is a default
-  // waiting for a real identity rather than a good answer. Wiring it to the
-  // signed-in user needs an auth source the kit does not have yet.
-  user: {
-    name: "Dashboard user",
-    email: "user@example.com",
-  },
-  navMain: [
-    {
-      title: "Dashboard",
-      url: "#",
-      icon: (
-        <LayoutDashboardIcon
-        />
-      ),
-    },
-    {
-      title: "Lifecycle",
-      url: "#",
-      icon: (
-        <ListIcon
-        />
-      ),
-    },
-    {
-      title: "Analytics",
-      url: "#",
-      icon: (
-        <ChartBarIcon
-        />
-      ),
-    },
-    {
-      title: "Projects",
-      url: "#",
-      icon: (
-        <FolderIcon
-        />
-      ),
-    },
-    {
-      title: "Team",
-      url: "#",
-      icon: (
-        <UsersIcon
-        />
-      ),
-    },
-  ],
-  navClouds: [
-    {
-      title: "Capture",
-      icon: (
-        <CameraIcon
-        />
-      ),
-      isActive: true,
-      url: "#",
-      items: [
-        {
-          title: "Active Proposals",
-          url: "#",
-        },
-        {
-          title: "Archived",
-          url: "#",
-        },
-      ],
-    },
-    {
-      title: "Proposal",
-      icon: (
-        <FileTextIcon
-        />
-      ),
-      url: "#",
-      items: [
-        {
-          title: "Active Proposals",
-          url: "#",
-        },
-        {
-          title: "Archived",
-          url: "#",
-        },
-      ],
-    },
-    {
-      title: "Prompts",
-      icon: (
-        <FileTextIcon
-        />
-      ),
-      url: "#",
-      items: [
-        {
-          title: "Active Proposals",
-          url: "#",
-        },
-        {
-          title: "Archived",
-          url: "#",
-        },
-      ],
-    },
-  ],
-  navSecondary: [
-    {
-      title: "Settings",
-      url: "#",
-      icon: (
-        <Settings2Icon
-        />
-      ),
-    },
-    {
-      title: "Get Help",
-      url: "#",
-      icon: (
-        <CircleHelpIcon
-        />
-      ),
-    },
-    {
-      title: "Search",
-      url: "#",
-      icon: (
-        <SearchIcon
-        />
-      ),
-    },
-  ],
-  documents: [
-    {
-      name: "Data Library",
-      url: "#",
-      icon: (
-        <DatabaseIcon
-        />
-      ),
-    },
-    {
-      name: "Reports",
-      url: "#",
-      icon: (
-        <FileChartColumnIcon
-        />
-      ),
-    },
-    {
-      name: "Word Assistant",
-      url: "#",
-      icon: (
-        <FileIcon
-        />
-      ),
-    },
-  ],
+export interface AppSidebarProps
+  extends React.ComponentProps<typeof Sidebar> {
+  scopes: ScopeOption[]
+  activeScopeId?: string
+  onScopeSelect: (id: string) => void
+  groups: NavGroup[]
+  currentPath: string
+  search?: string
+  renderLink: (node: NavNode, href: string) => ReactElement
+  /**
+   * Rendered under the switcher. Reserved for the per-scope context selectors
+   * (organisation, app, environment), which are a later wave. Nothing passes
+   * it today.
+   */
+  header?: ReactNode
+  user: { name: string; email: string; avatar?: string }
 }
-export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
+
+/**
+ * The dashboard sidebar.
+ *
+ * Every item it draws arrives as a prop. The previous version held a `data`
+ * object lifted from the shadcn dashboard-01 template, so the sidebar showed
+ * twelve entries that belonged to a demo and pointed at "#", while real
+ * contributed navigation rendered as a row of pills above the content because
+ * there was no way in here.
+ */
+export function AppSidebar({
+  scopes,
+  activeScopeId,
+  onScopeSelect,
+  groups,
+  currentPath,
+  search,
+  renderLink,
+  header,
+  user,
+  ...props
+}: AppSidebarProps) {
   return (
     <Sidebar collapsible="offcanvas" {...props}>
       <SidebarHeader>
-        <SidebarMenu>
-          <SidebarMenuItem>
-            <SidebarMenuButton
-              className="data-[slot=sidebar-menu-button]:p-1.5!"
-              render={<a href="#" />}
-            >
-              <CommandIcon className="size-5!" />
-              <span className="text-base font-semibold">Acme Inc.</span>
-            </SidebarMenuButton>
-          </SidebarMenuItem>
-        </SidebarMenu>
+        <ScopeSwitcher
+          scopes={scopes}
+          activeId={activeScopeId}
+          onSelect={onScopeSelect}
+        />
+        {header}
       </SidebarHeader>
       <SidebarContent>
-        <NavMain items={data.navMain} />
-        <NavDocuments items={data.documents} />
-        <NavSecondary items={data.navSecondary} className="mt-auto" />
+        <NavTree
+          groups={groups}
+          currentPath={currentPath}
+          search={search}
+          renderLink={renderLink}
+        />
       </SidebarContent>
       <SidebarFooter>
-        <NavUser user={data.user} />
+        <NavUser user={user} />
       </SidebarFooter>
     </Sidebar>
   )
