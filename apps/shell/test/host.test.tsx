@@ -90,7 +90,7 @@ function queryingPlugin(
 function renderHost(
   plugins: ForgePlugin[],
   fetchImpl: typeof fetch,
-  route = "/overview"
+  route = "/@core/overview"
 ) {
   return render(
     <MemoryRouter initialEntries={[route]}>
@@ -108,9 +108,10 @@ describe("PluginHost", () => {
     ])
 
     // core-contract has no explicit `namespace`, so it derives to "core" (the
-    // "-contract" suffix stripped). Every plugin route is scoped now, so the
-    // page only matches under its own "@core" mount.
-    renderHost([demoPlugin()], fetchImpl, "/@core/overview")
+    // "-contract" suffix stripped). renderHost's default route is
+    // "/@core/overview" for exactly this reason -- no explicit third
+    // argument needed here.
+    renderHost([demoPlugin()], fetchImpl)
 
     expect(await screen.findByText("overview page body")).toBeTruthy()
     expect(screen.getByRole("link", { name: "Overview" })).toBeTruthy()
@@ -209,7 +210,8 @@ describe("PluginHost", () => {
       routes: [{ path: "/other", element: () => <p>other page body</p> }],
     })
 
-    renderHost([exploding, survivor], fetchImpl, "/@core/overview")
+    // core-contract's scope is the default route (see renderHost).
+    renderHost([exploding, survivor], fetchImpl)
 
     // The throw left a visible marker rather than blanking HostShell.
     expect(await screen.findByText(/failed to render: core-contract/)).toBeTruthy()
@@ -382,6 +384,50 @@ describe("PluginHost", () => {
     expect(await screen.findByText("beta page")).toBeTruthy()
     expect(screen.queryByText("alpha root page")).toBeNull()
   })
+
+  // Review finding (Minor 3, w8-scoped-sidebar Task 7). `home` used to read
+  // `plugin.nav[0]` directly -- declaration order -- while the sidebar right
+  // beside it renders the plugin's nav sorted by priority. A plugin whose
+  // nav is not already written in priority order would silently redirect
+  // the site root to an item that is not the one the sidebar shows first.
+  // "Second" is declared before "First" here specifically to catch that: if
+  // `home` ever reads nav[0] again instead of the priority-sorted list, this
+  // goes red.
+  it("redirects the site root to the priority-sorted first item, not the first declared one", async () => {
+    const fetchImpl = capabilitiesFetch([
+      { name: "home-ext", envelopes: ["v1"], configured: true },
+    ])
+    const plugin = definePlugin({
+      extension: "home-ext",
+      nav: [
+        { label: "Second", to: "/second", priority: 20 },
+        { label: "First", to: "/first", priority: 10 },
+      ],
+      routes: [
+        { path: "/first", element: () => <p>first page</p> },
+        { path: "/second", element: () => <p>second page</p> },
+      ],
+    })
+
+    renderHost([plugin], fetchImpl, "/")
+
+    expect(await screen.findByText("first page")).toBeTruthy()
+    expect(screen.queryByText("second page")).toBeNull()
+  })
+
+  // Same review finding, the other call site: `selectScope` -- reached by
+  // picking a different scope from the ScopeSwitcher -- had the identical
+  // nav[0] bug, fixed the same way. Not separately pinned here: driving it
+  // for real means opening base-ui's dropdown under jsdom, which
+  // packages/kit's own scope-switcher tests document at 15-52s per
+  // interaction (vi.setConfig to a 120s testTimeout there). A first attempt
+  // at that test in this file ran past even a 60s budget. `selectScope` and
+  // `home` now share one `sortByPriority` helper in PluginHost.tsx, so a
+  // regression to the sort itself is still caught by the "site root" test
+  // above; what would slip through is a future change that touches only the
+  // `selectScope` call site. Judged not worth a two-minute, flake-prone test
+  // for a review finding rated "minor" with no shipped plugin affected.
+  // Flagged here rather than silently skipped.
 
   // ITEM 4's regression. "A plugin cannot address another extension's
   // handlers" is a requirement, and until now nothing at the host layer drove

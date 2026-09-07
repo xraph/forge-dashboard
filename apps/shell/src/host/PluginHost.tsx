@@ -79,6 +79,14 @@ type CapabilitiesState =
   | { status: "ready"; capabilities: Capabilities }
   | { status: "error"; message: string }
 
+// The order the sidebar actually shows a scope's nav in. `home` and
+// `selectScope` both need "the item a scope displays first," and that is
+// this order's [0], not declaration order -- a plugin whose nav is not
+// already sorted must still land you on the item the sidebar shows first.
+function sortByPriority<T extends { priority?: number }>(items: T[]): T[] {
+  return [...items].sort((a, b) => (a.priority ?? 0) - (b.priority ?? 0))
+}
+
 export function PluginHost({ plugins, fetchImpl }: PluginHostProps) {
   const { contractBase } = useDashboardConfig()
   const { pathname, search } = useLocation()
@@ -178,18 +186,16 @@ export function PluginHost({ plugins, fetchImpl }: PluginHostProps) {
     activeScope && activeScope.state.kind === "ready"
       ? [
           {
-            items: [...activeScope.plugin.nav]
-              .sort((a, b) => (a.priority ?? 0) - (b.priority ?? 0))
-              .map((item) => ({
-                label: item.label,
-                href: scopePath(activeScope.namespace, item.to),
-                icon: item.icon,
-                children: item.children?.map((child) => ({
-                  label: child.label,
-                  href: scopePath(activeScope.namespace, child.to),
-                  icon: child.icon,
-                })),
+            items: sortByPriority(activeScope.plugin.nav).map((item) => ({
+              label: item.label,
+              href: scopePath(activeScope.namespace, item.to),
+              icon: item.icon,
+              children: item.children?.map((child) => ({
+                label: child.label,
+                href: scopePath(activeScope.namespace, child.to),
+                icon: child.icon,
               })),
+            })),
           },
         ]
       : []
@@ -200,7 +206,7 @@ export function PluginHost({ plugins, fetchImpl }: PluginHostProps) {
   const selectScope = (id: string) => {
     const target = scopes.find((scope) => scope.id === id)
     if (!target) return
-    const first = target.plugin.nav[0]
+    const first = sortByPriority(target.plugin.nav)[0]
     navigate(
       `${scopePath(target.namespace, first ? first.to : "/")}${search}`,
     )
@@ -249,7 +255,9 @@ export function PluginHost({ plugins, fetchImpl }: PluginHostProps) {
   const home = first
     ? scopePath(
         namespaceOf(first.plugin),
-        first.plugin.nav[0]?.to ?? first.plugin.routes[0]?.path ?? "/",
+        sortByPriority(first.plugin.nav)[0]?.to ??
+          first.plugin.routes[0]?.path ??
+          "/",
       )
     : undefined
 
