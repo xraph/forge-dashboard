@@ -10,7 +10,8 @@ import {
 import { Skeleton } from "@forge-go/dashboard-kit/components/skeleton"
 
 /**
- * Renders the three states every read in this plugin can be in.
+ * Renders the four states every read in this plugin can be in: loading, error,
+ * settled with no data, and settled with data.
  *
  * This is a deliberate copy of `packages/plugin-streaming`'s component of the
  * same name rather than a shared module. Two plugins is not yet evidence of a
@@ -25,6 +26,11 @@ import { Skeleton } from "@forge-go/dashboard-kit/components/skeleton"
  * invent its own idea of what loading looks like, and - the part that matters -
  * so none of them can render nothing. A page that draws a blank pane while a
  * request is in flight is indistinguishable from a page that is broken.
+ *
+ * The fourth state, "settled with no error and no data", is not reachable
+ * through `useQuery` against a contract that answers the envelope correctly.
+ * It is rendered as a visible message anyway rather than `null`, for the same
+ * reason: if it ever does happen, it should say so.
  */
 export function QueryView<T>({
   title,

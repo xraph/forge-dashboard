@@ -10,7 +10,8 @@ import {
 import { Skeleton } from "@forge-go/dashboard-kit/components/skeleton"
 
 /**
- * Renders the three states every read in this plugin can be in.
+ * Renders the four states every read in this plugin can be in: loading, error,
+ * settled with no data, and settled with data.
  *
  * Every page routes its `useQuery` result through here so none of them can
  * invent its own idea of what loading looks like, and - the part that matters -
@@ -103,6 +104,15 @@ export function EmptyState({ message }: { message: string }) {
  * A timestamp the contract sends as RFC 3339. Anything unparseable is printed
  * as it arrived rather than as "Invalid Date", which tells you nothing about
  * what the server actually sent.
+ *
+ * No empty-string branch here, unlike authsome's copy of this function, and
+ * the divergence is deliberate rather than drift. Every timestamp streaming
+ * reads is a Go `time.Time` in `extensions/streaming/contract/types.go` with
+ * no `omitempty`, so it always marshals to a full RFC 3339 string - a zero
+ * value arrives as "0001-01-01T00:00:00Z", never as "". Authsome sends `""`
+ * for "never happened" (`banExpiresAt` on an unbanned user) and needs the
+ * branch. Add one here and it would be a guard against a value this contract
+ * cannot produce.
  */
 export function formatTimestamp(value: string): string {
   const parsed = new Date(value)

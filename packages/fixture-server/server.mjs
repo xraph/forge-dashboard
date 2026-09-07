@@ -838,7 +838,13 @@ const server = createServer(async (req, res) => {
   }
 })
 
-server.listen(PORT, () => {
+// Loopback, explicitly. Omit the host and node:http binds every interface,
+// which puts a server that reflects the request origin with
+// `Access-Control-Allow-Credentials: true` and exposes a mutating
+// `_fixture/reset` on whatever network the machine is on. The blast radius is
+// seeded fake data, so this is housekeeping rather than a security fix - but
+// the log line below already said localhost, and now it is true.
+server.listen(PORT, "127.0.0.1", () => {
   console.log(`[fixture-server] development fixture, not a shipped package`)
   console.log(`[fixture-server] listening on http://localhost:${PORT}`)
   console.log(`[fixture-server] contract base: http://localhost:${PORT}${BASE_PATH}`)

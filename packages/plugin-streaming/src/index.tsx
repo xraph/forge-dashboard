@@ -19,10 +19,10 @@ export { StreamingConnectionsPage, StreamingOverviewPage, StreamingRoomsPage }
  * server never mentioned is a normal thing for a shell to encounter. The
  * dashboard just quietly has one fewer page than you wrote.
  *
- * No `requires` range. The extension does not report a version yet, and a
- * range against a contributor that answers no version resolves to `mismatch`,
- * which would hide the plugin behind a panel about a version skew that is not
- * happening.
+ * No `requires` range. The extension does not report a version yet, and
+ * `resolvePluginState` skips the range check entirely when the contributor
+ * answers no version, so a range here would be a claim nothing ever verifies:
+ * it would read as a guarantee and enforce nothing.
  *
  * Read-only, deliberately. The contract declares five commands
  * (`rooms.create`, `rooms.delete`, `rooms.send-message`, `presence.set`,

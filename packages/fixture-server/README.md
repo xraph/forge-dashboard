@@ -18,7 +18,13 @@ pnpm --filter @forge-go/fixture-server dev
 node server.mjs
 ```
 
-It listens on `http://localhost:4310` by default and answers the contract
+Root `pnpm dev` also boots it. It lives in `packages/`, so its `dev` script is
+picked up by the workspace's persistent `dev` task in `turbo.json` along with
+every other package's. That's expected, not a misconfiguration: if you don't
+want it running, filter your dev command to the app you care about.
+
+It binds loopback only (`127.0.0.1`) and listens on `http://localhost:4310` by
+default and answers the contract
 envelope at `http://localhost:4310/dashboard/api/dashboard/v1`, matching the
 default `contractBase` the shell derives from `basePath` (see
 `packages/runtime/src/config.tsx`). Point a plugin's dev harness at that base
@@ -73,6 +79,22 @@ Env vars:
   `packages/plugin/src/resolve.ts` depends on telling `false` apart from
   absent.
 - `GET {base}/csrf` — `{token, expiresAt}`.
+
+**The status a handler error comes back as is the sharpest divergence here,
+and the fixture is the one that's right.** A handler that throws returns at
+its own status: 404 `NOT_FOUND` for a `FixtureError` (an unknown room, user or
+session), 400 `BAD_REQUEST` for anything else. The real transport does not do
+that. `contract/transport/http.go` answers **every** error out of `Dispatch`
+with `writeError(w, http.StatusInternalServerError, ...)` — HTTP 500, carrying
+the handler's own code in the body, whatever that code is. Task 6 confirmed it
+against a live server. Fixing it on the Go side is out of scope for this wave.
+
+So anything status-sensitive written against this fixture passes here and
+breaks against the server: assert on `error.code` from the body, never on the
+HTTP status, and don't branch on 404 vs 400 vs 500 in plugin code. Only the
+pre-dispatch rejections below (missing csrf, bad token, `__forbidden`) carry a
+status both sides agree on, because the real transport writes those before it
+reaches a handler too.
 
 The one rule that makes this fixture worth having: **a command missing
 `csrf` or `idempotencyKey` is rejected with 400 `BAD_REQUEST`, before the
