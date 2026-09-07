@@ -109,12 +109,22 @@ jobs:
           set -euo pipefail
           FILE="${{ steps.pack.outputs.name }}"
 
-          if ! tar -tzf "$FILE" | grep -qx './index.html'; then
+          # Materialize the listing once instead of piping tar straight into
+          # grep -q. grep -q exits on its first match and closes the pipe;
+          # tar's next write then gets SIGPIPE/EPIPE and exits non-zero even
+          # though it did nothing wrong. Under `set -o pipefail` that failure
+          # outranks grep's exit code, so both checks below would read a
+          # correct archive as broken (and, worse, silently fail to detect a
+          # bad one) if tar were still writing into a pipe. Capturing the
+          # listing into a variable first removes tar from the pipe entirely.
+          LIST="$(tar -tzf "$FILE")"
+
+          if ! printf '%s\n' "$LIST" | grep -qx './index.html'; then
             echo "::error::index.html is not at the archive root -- check for an extra dist/ wrapper"
             exit 1
           fi
 
-          if tar -tzf "$FILE" | grep -q '\.map$'; then
+          if printf '%s\n' "$LIST" | grep -q '\.map$'; then
             echo "::error::sourcemap(s) present in the archive despite --exclude"
             exit 1
           fi
