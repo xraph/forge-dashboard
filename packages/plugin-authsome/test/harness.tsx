@@ -127,12 +127,28 @@ export interface ContractHarness {
  * `execute` was called would prove nothing about either field.
  *
  * `respond` sees each parsed envelope and returns `{ data }` for a success or
- * `{ error }` for the `ok: false` envelope a contract-level failure produces.
+ * `{ error }` for a failure. A failure goes back as a **non-2xx** response
+ * carrying the error envelope, because that is the only way the Go transport
+ * can report one: `writeOK` hardcodes `ok: true`, and the `ok: false` body is
+ * written solely by `writeError`, which always sets a non-2xx status. HTTP 200
+ * with `ok: false` does not occur against this server, so modelling it here
+ * would exercise a branch of the client that production never reaches.
+ *
+ * The default status is 500 because every error out of `Dispatch` comes back
+ * `500`, whatever code it carries - confirmed against a live server in Task 6.
+ * Pass `status` to model one of the transport's pre-dispatch rejections
+ * instead (400 for a malformed envelope or a missing csrf/idempotency pair,
+ * 403 for a permission denial or an invalid csrf token, 404 for an intent that
+ * is not registered). Note that 401, or 403 with code `UNAUTHENTICATED`, is
+ * the stale-csrf signal the client retries once on, so reach for those only
+ * when the retry is what you are testing.
  */
 export function contractHarness(
   respond: (
     req: ContractEnvelopeRequest
-  ) => { data: unknown } | { error: { code: string; message: string } },
+  ) =>
+    | { data: unknown }
+    | { error: { code: string; message: string }; status?: number },
   opts: { csrfToken?: string; base?: string } = {}
 ): ContractHarness {
   const base = opts.base ?? "/dashboard/api/dashboard/v1"
@@ -164,9 +180,10 @@ export function contractHarness(
     const result = respond(req)
 
     if ("error" in result) {
+      const status = result.status ?? 500
       return {
-        ok: true,
-        status: 200,
+        ok: false,
+        status,
         json: async () => ({
           ok: false,
           envelope: "v1",

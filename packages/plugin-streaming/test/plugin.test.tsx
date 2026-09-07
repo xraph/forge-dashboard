@@ -1,7 +1,27 @@
 import { describe, expect, it } from "vitest"
 import { screen } from "@testing-library/react"
+import { resolvePluginState } from "@forge-go/dashboard-plugin"
+import type { Capabilities } from "@forge-go/dashboard-plugin"
 import streamingPlugin, { streamingPlugin as named } from "../src/index"
 import { renderPage, stubClient } from "./harness"
+
+/**
+ * A capabilities document shaped like the one the Go host answers, carrying
+ * whichever contributors a test wants to exist.
+ */
+function capabilities(
+  ...contributors: { name: string; configured?: boolean; message?: string }[]
+): Capabilities {
+  return {
+    shellEnvelopes: ["v1"],
+    contributors: contributors.map((c) => ({
+      name: c.name,
+      envelopes: ["v1"],
+      configured: c.configured ?? true,
+      ...(c.message ? { message: c.message } : {}),
+    })),
+  }
+}
 
 describe("streamingPlugin", () => {
   it("is the default export as well as a named one", () => {
@@ -9,13 +29,50 @@ describe("streamingPlugin", () => {
   })
 
   /**
-   * The join key. "streaming" is the extension's own name and the wrong value
-   * here; the contributor in the manifest is "streaming-contract". Getting
-   * this wrong resolves to `hidden`, which renders nothing and reports
-   * nothing, so nothing else in this suite would catch it.
+   * The join key, checked the only way that means anything.
+   *
+   * Comparing `plugin.extension` to the literal "streaming-contract" would
+   * compare the source line to itself: rename the constant and the test
+   * renames with it. What matters is what the host does with the name, so
+   * this resolves the plugin against a capabilities response carrying the
+   * contributor the extension really registers (from
+   * `extensions/streaming/contract/manifest.yaml`). The key is otherwise
+   * covered only from a third package, `apps/shell/test/app.test.tsx`, so
+   * without this the suite would stay green with the name wrong.
    */
-  it("names the Go contributor, not the extension", () => {
-    expect(streamingPlugin.extension).toBe("streaming-contract")
+  it("resolves to ready against a host reporting streaming's contributor", () => {
+    expect(
+      resolvePluginState(
+        streamingPlugin,
+        capabilities({ name: "streaming-contract" })
+      )
+    ).toEqual({ kind: "ready" })
+  })
+
+  it("is hidden when the host reports the extension name but not the contributor", () => {
+    // "streaming" is the extension's own name and the tempting wrong value.
+    // A host reporting it under that name is still not reporting
+    // `streaming-contract`, and the plugin must vanish rather than render
+    // against a contributor that is not there: no routes, no nav, no log.
+    expect(
+      resolvePluginState(streamingPlugin, capabilities({ name: "streaming" }))
+    ).toEqual({ kind: "hidden" })
+  })
+
+  it("asks for setup when the contributor is present but unconfigured", () => {
+    expect(
+      resolvePluginState(
+        streamingPlugin,
+        capabilities({
+          name: "streaming-contract",
+          configured: false,
+          message: "Enable the streaming extension to continue",
+        })
+      )
+    ).toEqual({
+      kind: "setup",
+      message: "Enable the streaming extension to continue",
+    })
   })
 
   it("declares no requires range, so the version check is skipped", () => {

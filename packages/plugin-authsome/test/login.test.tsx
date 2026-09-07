@@ -161,8 +161,11 @@ describe("AuthLoginPage", () => {
     expect(alert.textContent).toContain("Sign in failed")
 
     // Still on the form, and the failure was not retried. A contract-level
-    // rejection arrives as an `ok: false` envelope over HTTP 200, so the
-    // client's stale-token retry must not fire on it.
+    // rejection arrives the only way this transport can send one: a non-2xx
+    // response carrying the `ok: false` error envelope, HTTP 500 here because
+    // that is what every dispatch error comes back as. The client's stale-csrf
+    // retry keys on 401, or 403 with code `UNAUTHENTICATED`, so it must not
+    // fire on this one - an `UNAUTHENTICATED` code alone is not enough.
     expect(screen.getByLabelText("Email")).toBeDefined()
     expect(
       harness.requests.filter((r) => r.intent === "auth.login")

@@ -23,13 +23,7 @@
     "noFallthroughCasesInSwitch": true,
     "paths": {
       "@/*": ["./src/*"],
-      "@forge-go/dashboard-kit/*": ["../../packages/kit/src/*"],
-      "@forge-go/dashboard-plugin-streaming/*": [
-        "../../packages/plugin-streaming/src/*"
-      ],
-      "@forge-go/dashboard-plugin-authsome/*": [
-        "../../packages/plugin-authsome/src/*"
-      ]
+      "@forge-go/dashboard-kit/*": ["../../packages/kit/src/*"]
     }
   },
   "include": ["src"]
