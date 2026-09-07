@@ -1,25 +1,31 @@
 import { useEffect, useMemo, useState } from "react"
 import type { ReactNode } from "react"
-import { Link, Navigate, Route, Routes, useLocation } from "react-router"
+import type * as React from "react"
+import { Link, Navigate, Route, Routes, useLocation, useNavigate } from "react-router"
 import {
   PluginErrorBoundary,
   useDashboardConfig,
 } from "@forge-go/dashboard-runtime"
 import {
   createScopedClient,
+  labelOf,
   MismatchPanel,
+  namespaceOf,
   PluginProvider,
+  resolveActiveScope,
   resolvePluginState,
+  scopePath,
   SetupPanel,
 } from "@forge-go/dashboard-plugin"
 import type {
   Capabilities,
   ForgePlugin,
-  PluginNavItem,
-  PluginState,
+  Scope,
   ScopedClient,
 } from "@forge-go/dashboard-plugin"
 import { AppSidebar } from "@forge-go/dashboard-kit/components/app-sidebar"
+import type { NavGroup, NavNode } from "@forge-go/dashboard-kit/components/nav-tree"
+import type { ScopeOption } from "@forge-go/dashboard-kit/components/scope-switcher"
 import { SiteHeader } from "@forge-go/dashboard-kit/components/site-header"
 import {
   SidebarInset,
@@ -31,10 +37,16 @@ import {
  * container. Loading, error and the resolved plugins all go through here, so
  * none of them can produce a bare page.
  */
-function HostShell({ children }: { children: ReactNode }) {
+function HostShell({
+  children,
+  sidebar,
+}: {
+  children: ReactNode
+  sidebar: React.ComponentProps<typeof AppSidebar>
+}) {
   return (
     <SidebarProvider>
-      <AppSidebar variant="inset" />
+      <AppSidebar variant="inset" {...sidebar} />
       <SidebarInset>
         <SiteHeader />
         {/*
@@ -69,7 +81,8 @@ type CapabilitiesState =
 
 export function PluginHost({ plugins, fetchImpl }: PluginHostProps) {
   const { contractBase } = useDashboardConfig()
-  const { pathname } = useLocation()
+  const { pathname, search } = useLocation()
+  const navigate = useNavigate()
   const [state, setState] = useState<CapabilitiesState>({ status: "loading" })
 
   // Bound on purpose: an unbound `fetch` called as a plain function throws
@@ -129,9 +142,84 @@ export function PluginHost({ plugins, fetchImpl }: PluginHostProps) {
     return byExtension
   }, [plugins, contractBase, doFetch])
 
+  // Every state renders the sidebar, so scopes are built before the early
+  // returns. Before capabilities land there are none, and the switcher shows
+  // its fallback rather than a half-built list.
+  const scopes: Scope[] =
+    state.status === "ready"
+      ? plugins
+          .map((plugin) => ({
+            id: plugin.extension,
+            namespace: namespaceOf(plugin),
+            label: labelOf(plugin),
+            icon: plugin.icon,
+            plugin,
+            state: resolvePluginState(plugin, state.capabilities),
+          }))
+          .filter((scope) => scope.state.kind !== "hidden")
+      : []
+
+  const activeScope = resolveActiveScope(pathname, scopes)
+
+  const scopeOptions: ScopeOption[] = scopes.map((scope) => ({
+    id: scope.id,
+    label: scope.label,
+    namespace: scope.namespace,
+    icon: scope.icon,
+    badge: scope.state.kind === "ready" ? undefined : scope.state.kind,
+  }))
+
+  // Only the active scope's nav is shown. priority orders a plugin's items
+  // among its own and nothing more. No group label here: the switcher above
+  // already names the active scope both by its label and its "@namespace"
+  // caption, and repeating either one as a section heading only duplicates
+  // text a screen reader (and a test) would otherwise find once.
+  const groups: NavGroup[] =
+    activeScope && activeScope.state.kind === "ready"
+      ? [
+          {
+            items: [...activeScope.plugin.nav]
+              .sort((a, b) => (a.priority ?? 0) - (b.priority ?? 0))
+              .map((item) => ({
+                label: item.label,
+                href: scopePath(activeScope.namespace, item.to),
+                icon: item.icon,
+                children: item.children?.map((child) => ({
+                  label: child.label,
+                  href: scopePath(activeScope.namespace, child.to),
+                  icon: child.icon,
+                })),
+              })),
+          },
+        ]
+      : []
+
+  // Switching scope is a navigation, never a state write. A scope with no nav
+  // (one that needs setup) goes to its bare namespace root, where its panel
+  // renders. Search is carried over so context survives the switch.
+  const selectScope = (id: string) => {
+    const target = scopes.find((scope) => scope.id === id)
+    if (!target) return
+    const first = target.plugin.nav[0]
+    navigate(
+      `${scopePath(target.namespace, first ? first.to : "/")}${search}`,
+    )
+  }
+
+  const sidebar = {
+    scopes: scopeOptions,
+    activeScopeId: activeScope?.id,
+    onScopeSelect: selectScope,
+    groups,
+    currentPath: pathname,
+    search,
+    renderLink: (_node: NavNode, href: string) => <Link to={href} />,
+    user: { name: "Dashboard user", email: "user@example.com" },
+  } satisfies React.ComponentProps<typeof AppSidebar>
+
   if (state.status === "loading") {
     return (
-      <HostShell>
+      <HostShell sidebar={sidebar}>
         <p role="status" className="text-sm text-muted-foreground">
           Loading dashboard capabilities…
         </p>
@@ -141,7 +229,7 @@ export function PluginHost({ plugins, fetchImpl }: PluginHostProps) {
 
   if (state.status === "error") {
     return (
-      <HostShell>
+      <HostShell sidebar={sidebar}>
         <div
           role="alert"
           className="rounded-md border border-destructive/50 px-3 py-2 text-sm text-destructive"
@@ -152,86 +240,35 @@ export function PluginHost({ plugins, fetchImpl }: PluginHostProps) {
     )
   }
 
-  const resolved: { plugin: ForgePlugin; pluginState: PluginState }[] =
-    plugins.map((plugin) => ({
-      plugin,
-      pluginState: resolvePluginState(plugin, state.capabilities),
-    }))
+  const ready = scopes.filter((scope) => scope.state.kind === "ready")
 
-  const ready = resolved.filter((r) => r.pluginState.kind === "ready")
-
-  // priority orders a plugin's items among its own, and nothing more. Sorting
-  // the flattened list instead would let one plugin's priority push another
-  // plugin's entry around, which is not what the field means and not the
-  // cross-plugin order we settled on: plugins keep installation order.
-  const nav: { plugin: ForgePlugin; item: PluginNavItem }[] = ready.flatMap(
-    ({ plugin }) =>
-      [...plugin.nav]
-        .sort((a, b) => (a.priority ?? 0) - (b.priority ?? 0))
-        .map((item) => ({ plugin, item }))
-  )
-
-  const home = nav[0]?.item.to ?? ready[0]?.plugin.routes[0]?.path
-
-  // A plugin is free to own the dashboard root, and when one does the host
-  // must not also emit a redirect off it. Today that redirect loses anyway,
-  // but only by accident: react-router breaks a tie between two routes of
-  // equal specificity on declaration order, and the redirect happens to be
-  // declared last. Turn the route table around and "/" starts bouncing. Say
-  // it here instead of leaning on where the JSX happens to sit.
-  const rootIsClaimed = ready.some(({ plugin }) =>
-    plugin.routes.some((route) => route.path === "/")
-  )
+  // No plugin can claim "/" any more: every route is mounted under a
+  // namespace, so the root is always the host's to redirect from. That
+  // deletes the rootIsClaimed guard the flat scheme needed.
+  const first = ready[0]
+  const home = first
+    ? scopePath(
+        namespaceOf(first.plugin),
+        first.plugin.nav[0]?.to ?? first.plugin.routes[0]?.path ?? "/",
+      )
+    : undefined
 
   return (
-    <HostShell>
-      {nav.length > 0 && (
-        // Plugin nav lives here rather than in the sidebar because AppSidebar
-        // is dashboard-01's fixed chrome: it hardcodes its own items and
-        // offers no injection point. Contributed nav moving into the sidebar
-        // proper is a kit change, not a host change.
-        <nav aria-label="Plugin pages" className="flex flex-wrap gap-2">
-          {nav.map(({ plugin, item }) => (
-            <Link
-              key={`${plugin.extension}:${item.to}`}
-              to={item.to}
-              className="rounded-md border px-3 py-1.5 text-sm hover:bg-accent"
-            >
-              {item.label}
-            </Link>
-          ))}
-        </nav>
+    <HostShell sidebar={sidebar}>
+      {activeScope && activeScope.state.kind === "mismatch" && (
+        <MismatchPanel
+          required={activeScope.state.required}
+          reported={activeScope.state.reported}
+        />
       )}
-
-      {resolved.map(({ plugin, pluginState }) => {
-        if (pluginState.kind === "mismatch") {
-          return (
-            <MismatchPanel
-              key={plugin.extension}
-              required={pluginState.required}
-              reported={pluginState.reported}
-            />
-          )
-        }
-        if (pluginState.kind === "setup") {
-          const Setup = plugin.setup ?? SetupPanel
-          return (
-            // plugin.setup is third-party code exactly as a route element is,
-            // so it gets the same containment. Without this a plugin whose
-            // setup screen throws takes the whole dashboard down, which is
-            // the one failure the boundary exists to prevent. The host-owned
-            // SetupPanel does not need it, but this branch cannot tell which
-            // of the two it is holding without pretending to know.
-            <PluginErrorBoundary
-              key={plugin.extension}
-              plugin={plugin.extension}
-            >
-              <Setup message={pluginState.message} />
-            </PluginErrorBoundary>
-          )
-        }
-        return null
-      })}
+      {activeScope && activeScope.state.kind === "setup" && (
+        <PluginErrorBoundary key={activeScope.id} plugin={activeScope.id}>
+          {(() => {
+            const Setup = activeScope.plugin.setup ?? SetupPanel
+            return <Setup message={activeScope.state.message} />
+          })()}
+        </PluginErrorBoundary>
+      )}
 
       {/*
         No route table at all when nothing is ready, rather than an empty one.
@@ -241,13 +278,14 @@ export function PluginHost({ plugins, fetchImpl }: PluginHostProps) {
       */}
       {ready.length > 0 && (
         <Routes>
-          {ready.flatMap(({ plugin }) =>
-            plugin.routes.map((route) => {
+          {ready.flatMap(({ plugin }) => {
+            const namespace = namespaceOf(plugin)
+            return plugin.routes.map((route) => {
               const Page = route.element
               return (
                 <Route
                   key={`${plugin.extension}:${route.path}`}
-                  path={route.path}
+                  path={scopePath(namespace, route.path)}
                   element={
                     // The unit this isolates is one plugin: a third-party
                     // bundle throwing during render must take down its own
@@ -272,10 +310,11 @@ export function PluginHost({ plugins, fetchImpl }: PluginHostProps) {
                     // matches shares one <Route> element and therefore one
                     // boundary instance -- a throw on one id would latch the
                     // fallback for every other id served by the same route.
-                    // The extension stays in the key: two plugins only land on
-                    // the same pathname if they collided on the route, and a
-                    // collision is exactly the case where they should not
-                    // share a boundary instance.
+                    // The extension stays in the key too, as defense in depth:
+                    // every route is now mounted under its own "@namespace" via
+                    // scopePath, so two plugins can no longer resolve to the
+                    // same pathname at all, but the key does not depend on that
+                    // guarantee holding to stay correct.
                     <PluginErrorBoundary
                       key={`${plugin.extension}:${pathname}`}
                       plugin={plugin.extension}
@@ -288,10 +327,8 @@ export function PluginHost({ plugins, fetchImpl }: PluginHostProps) {
                 />
               )
             })
-          )}
-          {home && !rootIsClaimed && (
-            <Route path="/" element={<Navigate to={home} replace />} />
-          )}
+          })}
+          {home && <Route path="/" element={<Navigate to={home} replace />} />}
         </Routes>
       )}
     </HostShell>

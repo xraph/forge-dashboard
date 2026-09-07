@@ -107,7 +107,10 @@ describe("PluginHost", () => {
       { name: "core-contract", envelopes: ["v1"], configured: true },
     ])
 
-    renderHost([demoPlugin()], fetchImpl)
+    // core-contract has no explicit `namespace`, so it derives to "core" (the
+    // "-contract" suffix stripped). Every plugin route is scoped now, so the
+    // page only matches under its own "@core" mount.
+    renderHost([demoPlugin()], fetchImpl, "/@core/overview")
 
     expect(await screen.findByText("overview page body")).toBeTruthy()
     expect(screen.getByRole("link", { name: "Overview" })).toBeTruthy()
@@ -183,6 +186,13 @@ describe("PluginHost", () => {
   // boundary was put around it a throw there escaped HostShell and took the
   // whole dashboard with it. No earlier test could catch that: the setup
   // component the other tests supply cannot throw.
+  //
+  // Namespacing changes what "still renders" can mean here. A non-ready
+  // plugin's panel now renders only inside its own active scope, not stacked
+  // above every page (that stacking block is exactly what this task deletes).
+  // So this asserts the throw is contained when its scope IS active -- the
+  // marker replaces the panel, HostShell keeps rendering around it -- and a
+  // separate render proves the healthy plugin's own scope is untouched by it.
   it("contains a throwing setup component instead of blanking the dashboard", async () => {
     const fetchImpl = capabilitiesFetch([
       { name: "core-contract", envelopes: ["v1"], configured: false },
@@ -199,14 +209,17 @@ describe("PluginHost", () => {
       routes: [{ path: "/other", element: () => <p>other page body</p> }],
     })
 
-    renderHost([exploding, survivor], fetchImpl, "/other")
+    renderHost([exploding, survivor], fetchImpl, "/@core/overview")
 
-    // The other plugin's page still renders, which is the whole claim: one
-    // plugin throwing takes down its own box, not the dashboard.
+    // The throw left a visible marker rather than blanking HostShell.
+    expect(await screen.findByText(/failed to render: core-contract/)).toBeTruthy()
+
+    // The healthy plugin's own scope survives independently: it never shared
+    // a render with the crashing one, but a throw in one plugin's setup
+    // screen must never poison another plugin's scope either.
+    renderHost([exploding, survivor], fetchImpl, "/@other-extension/other")
     expect(await screen.findByText("other page body")).toBeTruthy()
     expect(screen.getByRole("link", { name: "Other" })).toBeTruthy()
-    // And the throw left a visible marker rather than an empty gap.
-    expect(screen.getByText(/failed to render: core-contract/)).toBeTruthy()
   })
 
   it("renders nothing at all for a plugin whose contributor is absent", async () => {
@@ -271,13 +284,15 @@ describe("PluginHost", () => {
     expect(screen.queryByText("overview page body")).toBeNull()
   })
 
-  // MINOR 5's regression. priority is documented as ordering a plugin's items
-  // within its own group, and cross-plugin nav order is installation order.
-  // Sorting the flattened list broke both, and only looked right because
-  // Array.prototype.sort is stable and every priority defaults to 0. These
-  // two plugins interleave under a global sort: alpha's 10 would fall behind
-  // beta's 1.
-  it("sorts nav within each plugin and keeps plugins in installation order", async () => {
+  // MINOR 5's regression, updated for namespacing. priority is documented as
+  // ordering a plugin's items within its own group. It used to also matter
+  // that cross-plugin order followed installation order, but only one
+  // plugin's nav is on screen at a time now -- the sidebar shows the active
+  // scope's group and nothing else -- so "keeps plugins in installation
+  // order" is no longer an observable claim about simultaneous nav. What
+  // still is: each plugin sorts its own items by priority regardless of
+  // which one happens to be active, checked here for both.
+  it("sorts nav within each plugin by priority", async () => {
     const fetchImpl = capabilitiesFetch([
       { name: "alpha", envelopes: ["v1"], configured: true },
       { name: "beta", envelopes: ["v1"], configured: true },
@@ -285,95 +300,76 @@ describe("PluginHost", () => {
     const alpha = definePlugin({
       extension: "alpha",
       nav: [
-        { label: "Alpha Second", to: "/alpha/second", priority: 10 },
-        { label: "Alpha First", to: "/alpha/first", priority: 5 },
+        { label: "Alpha Second", to: "/second", priority: 10 },
+        { label: "Alpha First", to: "/first", priority: 5 },
       ],
-      routes: [{ path: "/alpha/first", element: () => <p>alpha page</p> }],
+      routes: [{ path: "/first", element: () => <p>alpha page</p> }],
     })
     const beta = definePlugin({
       extension: "beta",
       nav: [
-        { label: "Beta Second", to: "/beta/second", priority: 3 },
-        { label: "Beta First", to: "/beta/first", priority: 1 },
+        { label: "Beta Second", to: "/second", priority: 3 },
+        { label: "Beta First", to: "/first", priority: 1 },
       ],
-      routes: [{ path: "/beta/first", element: () => <p>beta page</p> }],
+      routes: [{ path: "/first", element: () => <p>beta page</p> }],
     })
 
-    renderHost([alpha, beta], fetchImpl, "/alpha/first")
-
+    const alphaRender = renderHost([alpha, beta], fetchImpl, "/@alpha/first")
     await screen.findByText("alpha page")
-    const links = screen
-      .getAllByRole("link")
-      .map((el) => el.textContent)
-      .filter((t) => t?.startsWith("Alpha") || t?.startsWith("Beta"))
+    expect(
+      screen
+        .getAllByRole("link")
+        .map((el) => el.textContent)
+        .filter((t) => t?.startsWith("Alpha") || t?.startsWith("Beta"))
+    ).toEqual(["Alpha First", "Alpha Second"])
+    alphaRender.unmount()
 
-    expect(links).toEqual([
-      "Alpha First",
-      "Alpha Second",
-      "Beta First",
-      "Beta Second",
-    ])
+    renderHost([alpha, beta], fetchImpl, "/@beta/first")
+    await screen.findByText("beta page")
+    expect(
+      screen
+        .getAllByRole("link")
+        .map((el) => el.textContent)
+        .filter((t) => t?.startsWith("Alpha") || t?.startsWith("Beta"))
+    ).toEqual(["Beta First", "Beta Second"])
   })
 
-  // MINOR 6's regression. Keying on item.to alone collides the moment two
-  // plugins contribute the same path, which is not exotic: /settings is the
-  // obvious one. React reports that on console.error and then renders one of
-  // the two, so nothing else here would notice.
-  it("keys nav on extension and path, so two plugins can contribute the same path", async () => {
-    const errors: unknown[][] = []
-    const spy = vi
-      .spyOn(console, "error")
-      .mockImplementation((...args: unknown[]) => {
-        errors.push(args)
-      })
-
+  // MINOR 6's regression is gone, not just narrowed. It guarded against two
+  // *different* plugins contributing the same nav path colliding in one flat
+  // list keyed on item.to alone. That flat list no longer exists -- only the
+  // active scope's own nav renders -- so a cross-plugin collision on the
+  // rendered nav is structurally unreachable now, with nothing left for a
+  // test at this layer to pin.
+  //
+  // What is NOT retested here: `packages/kit`'s NavTree keys each item on its
+  // own `href` (`SidebarMenuItem key={item.href}`), so two items *within one
+  // plugin's own nav* that both resolve to the same href still produce a
+  // real React duplicate-key warning today -- confirmed by hand while
+  // updating this file, not fixed here. NavTree belongs to Tasks 4/6, is
+  // outside this task's file list, and a single plugin declaring two nav
+  // entries pointing at the same target is a much narrower edge case than
+  // the cross-plugin collision this test used to guard. Flagged rather than
+  // silently dropped.
+  //
+  // MINOR 7, superseded. The old rootIsClaimed guard existed because a
+  // plugin could declare a literal "/" route and the host's own redirect had
+  // to step aside for it. Namespacing removes that possibility outright: a
+  // plugin's "/" is scopePath-ed to "/@<namespace>", never to the site root,
+  // so no plugin route can ever match "/" again and the guard the old test
+  // pinned is unreachable code that Task 7 deletes. What replaces it: the
+  // site root always redirects to `home`, which is the first *ready*
+  // plugin's own home, in plugin array order.
+  it("redirects the site root to the first ready plugin's home, in array order", async () => {
     const fetchImpl = capabilitiesFetch([
       { name: "alpha", envelopes: ["v1"], configured: true },
       { name: "beta", envelopes: ["v1"], configured: true },
     ])
-    const alpha = definePlugin({
-      extension: "alpha",
-      nav: [{ label: "Alpha Settings", to: "/settings" }],
-      routes: [{ path: "/alpha", element: () => <p>alpha page</p> }],
-    })
+    // beta is listed first: home must come from beta, not alpha, proving the
+    // array (not declaration order inside one plugin) decides it.
     const beta = definePlugin({
       extension: "beta",
-      nav: [{ label: "Beta Settings", to: "/settings" }],
-      routes: [{ path: "/beta", element: () => <p>beta page</p> }],
-    })
-
-    renderHost([alpha, beta], fetchImpl, "/alpha")
-
-    await screen.findByText("alpha page")
-
-    expect(screen.getByRole("link", { name: "Alpha Settings" })).toBeTruthy()
-    expect(screen.getByRole("link", { name: "Beta Settings" })).toBeTruthy()
-
-    const duplicateKey = errors.some((args) =>
-      args.some((a) => String(a).includes("same key"))
-    )
-    spy.mockRestore()
-    expect(duplicateKey).toBe(false)
-  })
-
-  // MINOR 7. Read the comment on rootIsClaimed first: this does NOT
-  // discriminate that guard, and it is labelled so nobody later mistakes it
-  // for a test that does. Dropping the guard leaves this green, because
-  // react-router already breaks the "/" tie on declaration order and the
-  // redirect is declared last. What it does pin, and nothing pinned before,
-  // is the behaviour itself: a plugin may own the root and its page renders
-  // there. If the route table is ever reordered, this catches it.
-  it("lets a plugin own the root path instead of redirecting away from it", async () => {
-    const fetchImpl = capabilitiesFetch([
-      { name: "alpha", envelopes: ["v1"], configured: true },
-      { name: "beta", envelopes: ["v1"], configured: true },
-    ])
-    // beta is listed first and has a nav entry, so the old unconditional
-    // redirect would have sent "/" to /beta and never rendered alpha's page.
-    const beta = definePlugin({
-      extension: "beta",
-      nav: [{ label: "Beta", to: "/beta" }],
-      routes: [{ path: "/beta", element: () => <p>beta page</p> }],
+      nav: [{ label: "Beta", to: "/" }],
+      routes: [{ path: "/", element: () => <p>beta page</p> }],
     })
     const alpha = definePlugin({
       extension: "alpha",
@@ -383,8 +379,8 @@ describe("PluginHost", () => {
 
     renderHost([beta, alpha], fetchImpl, "/")
 
-    expect(await screen.findByText("alpha root page")).toBeTruthy()
-    expect(screen.queryByText("beta page")).toBeNull()
+    expect(await screen.findByText("beta page")).toBeTruthy()
+    expect(screen.queryByText("alpha root page")).toBeNull()
   })
 
   // ITEM 4's regression. "A plugin cannot address another extension's
@@ -417,14 +413,14 @@ describe("PluginHost", () => {
       }
     ) as unknown as typeof fetch
 
-    const alpha = queryingPlugin("alpha", "/alpha", "Alpha")
-    const beta = queryingPlugin("beta", "/beta", "Beta")
+    const alpha = queryingPlugin("alpha", "/", "Alpha")
+    const beta = queryingPlugin("beta", "/", "Beta")
 
-    const first = renderHost([alpha, beta], fetchImpl, "/alpha")
+    const first = renderHost([alpha, beta], fetchImpl, "/@alpha")
     expect(await screen.findByText("Alpha says alpha")).toBeTruthy()
     first.unmount()
 
-    renderHost([alpha, beta], fetchImpl, "/beta")
+    renderHost([alpha, beta], fetchImpl, "/@beta")
     expect(await screen.findByText("Beta says beta")).toBeTruthy()
 
     expect(sent.map((r) => r.intent)).toEqual(["ping", "ping"])
@@ -441,7 +437,14 @@ describe("PluginHost", () => {
   // contributor the server never mentions is what a shell sees whenever it was
   // built with a plugin the deployment does not run, which is the normal case
   // for a first-party set compiled in unconditionally.
-  it("resolves three plugins in three different states at once", async () => {
+  //
+  // Updated for namespacing: a non-ready plugin's panel now renders only
+  // inside its own active scope rather than stacking above every page, so
+  // "ready" and "setup" can no longer both be asserted from one render. Two
+  // renders cover it instead -- the ready scope active, then the setup scope
+  // active -- and the absent plugin's total silence is checked in both,
+  // because "absent" does not depend on which scope is active.
+  it("resolves three plugins in three different states, one active scope at a time", async () => {
     const fetchImpl = capabilitiesFetch([
       { name: "ready-ext", envelopes: ["v1"], configured: true },
       {
@@ -455,43 +458,70 @@ describe("PluginHost", () => {
     const readyPlugin = definePlugin({
       extension: "ready-ext",
       nav: [
-        { label: "Ready Two", to: "/ready/two", priority: 20 },
-        { label: "Ready One", to: "/ready/one", priority: 10 },
+        { label: "Ready Two", to: "/two", priority: 20 },
+        { label: "Ready One", to: "/one", priority: 10 },
       ],
-      routes: [{ path: "/ready/one", element: () => <p>ready page body</p> }],
+      routes: [{ path: "/one", element: () => <p>ready page body</p> }],
     })
     const setupPlugin = definePlugin({
       extension: "setup-ext",
-      nav: [{ label: "Setup Nav", to: "/setup" }],
-      routes: [{ path: "/setup", element: () => <p>setup page body</p> }],
+      nav: [{ label: "Setup Nav", to: "/" }],
+      routes: [{ path: "/", element: () => <p>setup page body</p> }],
     })
     const absentPlugin = definePlugin({
       extension: "absent-ext",
-      nav: [{ label: "Absent Nav", to: "/absent" }],
-      routes: [{ path: "/absent", element: () => <p>absent page body</p> }],
+      nav: [{ label: "Absent Nav", to: "/" }],
+      routes: [{ path: "/", element: () => <p>absent page body</p> }],
     })
 
-    renderHost(
+    const ready = renderHost(
       [readyPlugin, setupPlugin, absentPlugin],
       fetchImpl,
-      "/ready/one"
+      "/@ready-ext/one"
     )
 
     expect(await screen.findByText("ready page body")).toBeTruthy()
 
-    // Nav carries the ready plugin's entries and nobody else's, sorted within
-    // that plugin by priority.
-    const nav = screen.getByRole("navigation", { name: "Plugin pages" })
+    // Nav carries the active (ready) plugin's entries and nobody else's,
+    // sorted within that plugin by priority.
     expect(
-      Array.from(nav.querySelectorAll("a")).map((a) => a.textContent)
+      screen
+        .getAllByRole("link")
+        .map((el) => el.textContent)
+        .filter((t) => t?.startsWith("Ready"))
     ).toEqual(["Ready One", "Ready Two"])
 
-    // The unconfigured plugin is visible as a panel, not as nav or a page.
-    expect(screen.getByText("setup-ext has no backend configured")).toBeTruthy()
+    // The unconfigured plugin is not this scope, so neither its panel nor
+    // its nav appears here.
+    expect(screen.queryByText("setup-ext has no backend configured")).toBeNull()
     expect(screen.queryByText("setup page body")).toBeNull()
+    expect(screen.queryByText("Setup Nav")).toBeNull()
 
     // The absent plugin is silent in every direction: no nav, no page, and no
     // panel explaining itself.
+    expect(screen.queryByText("Absent Nav")).toBeNull()
+    expect(screen.queryByText("absent page body")).toBeNull()
+    expect(screen.queryByText(/absent-ext/)).toBeNull()
+
+    ready.unmount()
+
+    renderHost(
+      [readyPlugin, setupPlugin, absentPlugin],
+      fetchImpl,
+      "/@setup-ext"
+    )
+
+    // Now the unconfigured plugin's own scope is active: its panel shows,
+    // and the ready plugin's page and nav are gone because they belong to a
+    // different scope.
+    expect(
+      await screen.findByText("setup-ext has no backend configured")
+    ).toBeTruthy()
+    expect(screen.queryByText("ready page body")).toBeNull()
+    expect(screen.queryByText("Ready One")).toBeNull()
+    expect(screen.queryByText("setup page body")).toBeNull()
+
+    // Absent is still silent.
     expect(screen.queryByText("Absent Nav")).toBeNull()
     expect(screen.queryByText("absent page body")).toBeNull()
     expect(screen.queryByText(/absent-ext/)).toBeNull()
@@ -501,26 +531,23 @@ describe("PluginHost", () => {
   // neighbours. Until now one plugin threw and one plugin watched; the setup
   // path had that test and the route path had none at all.
   //
-  // Only one route element mounts at a time, so "the other two still render"
-  // is asserted three ways: the unconfigured plugin's panel is still on the
-  // page, the healthy plugin's nav entry is still on the page, and -- the part
-  // that a static assertion cannot reach -- following that nav entry still
-  // mounts the healthy plugin's page. A throw that had poisoned the host or
-  // the router would survive the first two and fail the third.
+  // Namespacing removes the mechanism the old version of this test used to
+  // prove isolation: nav no longer holds a cross-plugin link to click
+  // through, because only the active scope's own nav renders (that stacked
+  // "all plugins at once" nav is exactly what this task deletes). So each
+  // neighbour is checked as its own active scope instead of three states
+  // sharing one render. This still proves the same three things the old
+  // comment named: the throw is contained (a marker, not a blank page), a
+  // panel-only neighbour is unaffected, and a page-only neighbour is
+  // unaffected -- just via three renders instead of one render plus a click.
   //
-  // The click-through is also this file's regression for the bug that
-  // integration found: the boundary latches failed:true and <Routes> renders
-  // it at one tree position, so without a key React kept the crashed instance
-  // and every later navigation showed "failed to render", naming whichever
-  // healthy plugin you had just opened. Two plugins were enough to have caught
-  // that and nobody had two.
-  //
-  // DISCRIMINATOR A: delete the <PluginErrorBoundary> wrapper from the route
-  // element in PluginHost and this test goes red, because the throw escapes
-  // into HostShell's render and React unmounts the tree.
-  // DISCRIMINATOR B: keep the wrapper and delete its key, and it goes red on
-  // the click-through instead.
-  it("contains a throwing route so its two neighbours keep rendering", async () => {
+  // The click-through DISCRIMINATOR this test used to carry (delete the
+  // boundary's key and a stale "failed to render" latches onto the next
+  // plugin you open) still has a live regression test: "contains a throwing
+  // param route on one id without latching the next id", below, which
+  // navigates within a single scope and therefore still exercises a real
+  // client-side <Routes> switch inside one mount.
+  it("contains a throwing route without taking its neighbours down with it", async () => {
     const spy = vi.spyOn(console, "error").mockImplementation(() => {})
 
     const fetchImpl = capabilitiesFetch([
@@ -552,24 +579,30 @@ describe("PluginHost", () => {
     })
     const needy = definePlugin({
       extension: "needy-ext",
-      nav: [{ label: "Needy", to: "/needy" }],
-      routes: [{ path: "/needy", element: () => <p>needy page body</p> }],
+      nav: [{ label: "Needy", to: "/" }],
+      routes: [{ path: "/", element: () => <p>needy page body</p> }],
     })
-
-    renderHost([boom, steady, needy], fetchImpl, "/boom")
+    const plugins = [boom, steady, needy]
 
     // The throw is contained and leaves a marker rather than an empty gap.
+    const boomRender = renderHost(plugins, fetchImpl, "/@boom-ext/boom")
     expect(await screen.findByText(/failed to render: boom-ext/)).toBeTruthy()
+    boomRender.unmount()
 
-    // Neighbour one: the unconfigured plugin's panel is untouched.
-    expect(screen.getByText("needy-ext has no backend configured")).toBeTruthy()
+    // The panel-only neighbour is unaffected: its own scope still shows its
+    // setup panel, not any trace of boom's crash.
+    const needyRender = renderHost(plugins, fetchImpl, "/@needy-ext")
+    expect(
+      await screen.findByText("needy-ext has no backend configured")
+    ).toBeTruthy()
+    expect(screen.queryByText(/failed to render/)).toBeNull()
+    needyRender.unmount()
 
-    // Neighbour two: still in nav, and still reachable. Clicking through is
-    // the assertion that matters -- it proves the router and the host survived
-    // the throw, not just that some markup rendered before it happened.
-    const link = screen.getByRole("link", { name: "Steady" })
-    fireEvent.click(link)
+    // The page-only neighbour is unaffected: its own scope still renders its
+    // page normally.
+    renderHost(plugins, fetchImpl, "/@steady-ext/steady")
     expect(await screen.findByText("steady page body")).toBeTruthy()
+    expect(screen.queryByText(/failed to render/)).toBeNull()
 
     spy.mockRestore()
   })
@@ -607,7 +640,7 @@ describe("PluginHost", () => {
       routes: [{ path: "/users/:id", element: Detail }],
     })
 
-    renderHost([detail], fetchImpl, "/users/1")
+    renderHost([detail], fetchImpl, "/@detail-ext/users/1")
 
     expect(await screen.findByText(/failed to render: detail-ext/)).toBeTruthy()
 
@@ -620,16 +653,15 @@ describe("PluginHost", () => {
     spy.mockRestore()
   })
 
-  // Two plugins claiming the same route path. Nothing rejects this today and
-  // nothing warns about it: react-router scores the two identically and breaks
-  // the tie on declaration order, which the host derives from the order of the
-  // plugins array. The first plugin listed wins and the second one's page is
-  // unreachable, while both nav entries stay clickable.
-  //
-  // Pinned as the behaviour it is, not as the behaviour anyone chose. If a
-  // later change makes collisions loud, or hands the win to the last plugin
-  // instead of the first, this is the test that will say so.
-  it("gives a colliding route path to the first plugin in the array, silently", async () => {
+  // Superseded by namespacing. Two plugins used to be able to declare the
+  // literal same route path and silently collide, with the first one in the
+  // plugins array winning and the second one's page becoming unreachable.
+  // That is exactly the failure mode namespacing removes: every plugin's
+  // routes are mounted under its own "@namespace", so the same relative path
+  // declared by two different plugins never collides at all -- each is
+  // reachable at its own scoped URL. Pinned as the replacement behaviour: no
+  // collision, no silent winner, both pages render at their own address.
+  it("mounts two plugins' identical relative path independently, with no collision", async () => {
     const messages: string[] = []
     const errorSpy = vi
       .spyOn(console, "error")
@@ -656,18 +688,84 @@ describe("PluginHost", () => {
       nav: [{ label: "Beta Shared", to: "/shared" }],
       routes: [{ path: "/shared", element: () => <p>beta owns it</p> }],
     })
+    const plugins = [alpha, beta]
 
-    renderHost([alpha, beta], fetchImpl, "/shared")
-
+    const alphaRender = renderHost(plugins, fetchImpl, "/@alpha/shared")
     expect(await screen.findByText("alpha owns it")).toBeTruthy()
     expect(screen.queryByText("beta owns it")).toBeNull()
-    // beta's nav entry is still there, pointing at a page it does not get.
-    expect(screen.getByRole("link", { name: "Beta Shared" })).toBeTruthy()
+    alphaRender.unmount()
+
+    renderHost(plugins, fetchImpl, "/@beta/shared")
+    expect(await screen.findByText("beta owns it")).toBeTruthy()
+    expect(screen.queryByText("alpha owns it")).toBeNull()
 
     errorSpy.mockRestore()
     warnSpy.mockRestore()
-    // Silent: no duplicate-key complaint from React, no route warning from
-    // react-router, nothing from the host.
+    // Silent in the sense that matters now: no duplicate-key complaint from
+    // React, no route warning from react-router, nothing from the host --
+    // because there was never a collision to warn about.
     expect(messages).toEqual([])
+  })
+})
+
+describe("scoped routing", () => {
+  it("resolves a deep plugin URL to its own scope", async () => {
+    const fetchImpl = capabilitiesFetch([
+      { name: "streaming-contract", envelopes: ["v1"], configured: true },
+    ])
+
+    render(
+      <ForgeDashboardProvider config={config}>
+        <MemoryRouter initialEntries={["/@streaming/rooms"]}>
+          <PluginHost
+            plugins={[
+              definePlugin({
+                extension: "streaming-contract",
+                label: "Streaming",
+                nav: [
+                  { label: "Overview", to: "/" },
+                  { label: "Rooms", to: "/rooms" },
+                ],
+                routes: [
+                  { path: "/", element: () => <p>streaming home</p> },
+                  { path: "/rooms", element: () => <p>rooms page</p> },
+                ],
+              }),
+            ]}
+            fetchImpl={fetchImpl}
+          />
+        </MemoryRouter>
+      </ForgeDashboardProvider>,
+    )
+
+    expect(await screen.findByText("rooms page")).toBeTruthy()
+    expect(screen.getByText("Streaming")).toBeTruthy()
+    expect(screen.getByText("@streaming")).toBeTruthy()
+  })
+
+  it("renders no pill nav above the content", async () => {
+    const fetchImpl = capabilitiesFetch([
+      { name: "streaming-contract", envelopes: ["v1"], configured: true },
+    ])
+
+    render(
+      <ForgeDashboardProvider config={config}>
+        <MemoryRouter initialEntries={["/@streaming/rooms"]}>
+          <PluginHost
+            plugins={[
+              definePlugin({
+                extension: "streaming-contract",
+                nav: [{ label: "Rooms", to: "/rooms" }],
+                routes: [{ path: "/rooms", element: () => <p>rooms page</p> }],
+              }),
+            ]}
+            fetchImpl={fetchImpl}
+          />
+        </MemoryRouter>
+      </ForgeDashboardProvider>,
+    )
+
+    await screen.findByText("rooms page")
+    expect(screen.queryByLabelText("Plugin pages")).toBeNull()
   })
 })

@@ -54,15 +54,17 @@ export { AuthLoginPage, AuthSessionsPage, AuthUsersPage }
  */
 export const authsomePlugin = definePlugin({
   extension: "auth",
+  namespace: "auth",
+  label: "Auth",
   nav: [
-    { label: "Sign in", to: "/auth/login", priority: 10 },
-    { label: "Users", to: "/auth/users", priority: 20 },
-    { label: "Sessions", to: "/auth/sessions", priority: 30 },
+    { label: "Sign in", to: "/login", priority: 10 },
+    { label: "Users", to: "/users", priority: 20 },
+    { label: "Sessions", to: "/sessions", priority: 30 },
   ],
   routes: [
-    { path: "/auth/login", element: AuthLoginPage },
-    { path: "/auth/users", element: AuthUsersPage },
-    { path: "/auth/sessions", element: AuthSessionsPage },
+    { path: "/login", element: AuthLoginPage },
+    { path: "/users", element: AuthUsersPage },
+    { path: "/sessions", element: AuthSessionsPage },
   ],
 })
 

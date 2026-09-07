@@ -99,6 +99,8 @@ function OverviewPage() {
  */
 export const corePlugin = definePlugin({
   extension: "core-contract",
+  namespace: "system",
+  label: "System",
   nav: [{ label: "Overview", to: "/overview" }],
   routes: [{ path: "/overview", element: OverviewPage }],
 })

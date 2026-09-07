@@ -121,9 +121,12 @@ describe("App at a non-default mount", () => {
 
     const link = await screen.findByRole("link", { name: "Overview" })
     // The exact probe run against the built artifact in the browser: the href
-    // read "/overview" -- absolute from the site root, outside the dashboard
-    // mount, so it 404s from the Go app on refresh or on a shared link.
-    expect(link.getAttribute("href")).toBe("/dashboard/ui/overview")
+    // used to read "/overview" -- absolute from the site root, outside the
+    // dashboard mount, so it 404s from the Go app on refresh or on a shared
+    // link. It is now scoped under the core plugin's namespace ("system",
+    // set explicitly because "core-contract" would otherwise derive to
+    // "core") as well as under the mount.
+    expect(link.getAttribute("href")).toBe("/dashboard/ui/@system/overview")
   })
 
   /**
@@ -136,8 +139,14 @@ describe("App at a non-default mount", () => {
    * and getting one wrong resolves that plugin to hidden with nothing logged.
    * A capabilities document naming all three is the only fixture that can tell
    * the difference between a plugin that is wired and a plugin that is silent.
+   *
+   * Namespacing changes how this has to be checked. There is no more pill nav
+   * holding every plugin's links at once -- the sidebar shows only the active
+   * scope's own group -- so "all three are wired" is now three visits, one
+   * per scope, each confirming that scope's own nav renders with hrefs scoped
+   * under both its namespace and the shellBase mount.
    */
-  it("compiles in all three plugins and lays their nav out in array order", async () => {
+  it("compiles in all three plugins, each reachable at its own @namespace", async () => {
     vi.stubGlobal(
       "fetch",
       serverFetch([
@@ -147,31 +156,44 @@ describe("App at a non-default mount", () => {
       ])
     )
 
-    render(<App />)
+    // core is first in the plugins array, so the site root redirects to its
+    // scope by default -- no explicit navigation needed for it.
+    const core = render(<App />)
+    const overviewLink = await screen.findByRole("link", { name: "Overview" })
+    expect(overviewLink.getAttribute("href")).toBe(
+      "/dashboard/ui/@system/overview"
+    )
+    core.unmount()
 
-    const nav = await screen.findByRole("navigation", { name: "Plugin pages" })
-    const links = Array.from(nav.querySelectorAll("a"))
-
-    // priority orders each plugin's own entries; the plugins array orders the
-    // groups. core first, then streaming, then authsome.
+    window.history.replaceState({}, "", `${SHELL_BASE}/@streaming`)
+    const streaming = render(<App />)
+    await screen.findByRole("link", { name: "Overview" })
+    let links = screen.getAllByRole("link")
     expect(links.map((a) => a.textContent)).toEqual([
       "Overview",
-      "Streaming",
       "Rooms",
       "Connections",
+    ])
+    expect(links.map((a) => a.getAttribute("href"))).toEqual([
+      "/dashboard/ui/@streaming",
+      "/dashboard/ui/@streaming/rooms",
+      "/dashboard/ui/@streaming/connections",
+    ])
+    streaming.unmount()
+
+    window.history.replaceState({}, "", `${SHELL_BASE}/@auth/login`)
+    render(<App />)
+    await screen.findByRole("link", { name: "Sign in" })
+    links = screen.getAllByRole("link")
+    expect(links.map((a) => a.textContent)).toEqual([
       "Sign in",
       "Users",
       "Sessions",
     ])
-    // And every one of them resolves inside the mount, not at the site root.
     expect(links.map((a) => a.getAttribute("href"))).toEqual([
-      "/dashboard/ui/overview",
-      "/dashboard/ui/streaming",
-      "/dashboard/ui/streaming/rooms",
-      "/dashboard/ui/streaming/connections",
-      "/dashboard/ui/auth/login",
-      "/dashboard/ui/auth/users",
-      "/dashboard/ui/auth/sessions",
+      "/dashboard/ui/@auth/login",
+      "/dashboard/ui/@auth/users",
+      "/dashboard/ui/@auth/sessions",
     ])
   })
 })

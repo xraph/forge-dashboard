@@ -32,15 +32,17 @@ export { StreamingConnectionsPage, StreamingOverviewPage, StreamingRoomsPage }
  */
 export const streamingPlugin = definePlugin({
   extension: "streaming-contract",
+  namespace: "streaming",
+  label: "Streaming",
   nav: [
-    { label: "Streaming", to: "/streaming", priority: 10 },
-    { label: "Rooms", to: "/streaming/rooms", priority: 20 },
-    { label: "Connections", to: "/streaming/connections", priority: 30 },
+    { label: "Overview", to: "/", priority: 10 },
+    { label: "Rooms", to: "/rooms", priority: 20 },
+    { label: "Connections", to: "/connections", priority: 30 },
   ],
   routes: [
-    { path: "/streaming", element: StreamingOverviewPage },
-    { path: "/streaming/rooms", element: StreamingRoomsPage },
-    { path: "/streaming/connections", element: StreamingConnectionsPage },
+    { path: "/", element: StreamingOverviewPage },
+    { path: "/rooms", element: StreamingRoomsPage },
+    { path: "/connections", element: StreamingConnectionsPage },
   ],
 })
 
