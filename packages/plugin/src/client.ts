@@ -173,14 +173,37 @@ export function createScopedClient(
    * exists for. A 403 carrying any other code (PERMISSION_DENIED, say) is a
    * real denial: retrying it just denies twice and logs a second attempt at
    * something the caller is not allowed to do.
+   *
+   * Takes the already-parsed body rather than the `Response` itself. A
+   * `Response` body can only be read once, and `send` below needs that same
+   * parse for the error it throws when this says no - so the parse happens
+   * once, in `send`, and both the retry decision and the throw read back the
+   * one result.
    */
-  async function isStaleTokenRejection(res: Response): Promise<boolean> {
-    if (res.status === 401) return true
-    if (res.status !== 403) return false
-    const body = (await res.json().catch(() => null)) as {
-      error?: { code?: string }
-    } | null
+  function isStaleTokenRejection(
+    status: number,
+    body: { error?: { code?: string } } | null,
+  ): boolean {
+    if (status === 401) return true
+    if (status !== 403) return false
     return body?.error?.code === "UNAUTHENTICATED"
+  }
+
+  /**
+   * Reads a non-ok response's body once, as the shape the error envelope
+   * takes on the wire (`{ error: { code, message } }`). Returns null for
+   * anything that isn't that: no body at all (the bare 403 the auth
+   * middleware sends - Task 1 - or a stub with no `json` behaviour), a
+   * proxy's HTML error page, or a body that parses but carries no error
+   * field. Callers treat null the same as "no code, no message" and fall
+   * back accordingly - this never throws.
+   */
+  async function parseErrorBody(
+    res: Response,
+  ): Promise<{ error?: { code?: string; message?: string } } | null> {
+    return (await res.json().catch(() => null)) as {
+      error?: { code?: string; message?: string }
+    } | null
   }
 
   async function send<T>(input: SendInput, mayRetry: boolean): Promise<T> {
@@ -212,7 +235,12 @@ export function createScopedClient(
     })
 
     if (!res.ok) {
-      if (input.kind === "command" && mayRetry && (await isStaleTokenRejection(res))) {
+      // Read once. Both the stale-token decision below and the throw at the
+      // end of this branch need it; a second `res.json()` call here would
+      // throw on an already-consumed body.
+      const body = await parseErrorBody(res)
+
+      if (input.kind === "command" && mayRetry && isStaleTokenRejection(res.status, body)) {
         // A cached token outlives its TTL silently otherwise: nothing tells
         // the client the token went stale until a command is rejected for it.
         await refreshCSRF()
@@ -222,6 +250,19 @@ export function createScopedClient(
         // identical across both attempts: the server sees one command that
         // took two tries, not two commands.
         return send<T>(input, false)
+      }
+
+      // The Go transport sends the same envelope shape on a non-ok response
+      // as it does on a 200 that failed at the contract layer (the `!envelope
+      // .ok` branch below) - `{error: {code, message}}`. Surface that when
+      // it's there, exactly as that branch does, so a handler-level failure
+      // (BAD_REQUEST, NOT_FOUND, a login rejection) reads as itself instead
+      // of as an undifferentiated transport error. Fall back to TRANSPORT
+      // when there's no code to surface: no body (a bare 403 from the auth
+      // middleware, Task 1), an unparseable one (a proxy's HTML 502 page), or
+      // a parsed body with no `error.code`.
+      if (body?.error?.code) {
+        throw new ContractError(body.error.code, body.error.message ?? "contract request failed")
       }
       throw new ContractError("TRANSPORT", `contract request failed with HTTP ${res.status}`)
     }

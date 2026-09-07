@@ -85,8 +85,59 @@ describe("createScopedClient", () => {
 
   // A transport failure and a contract-level error are different things and the
   // caller has to be able to tell them apart.
-  it("throws with a TRANSPORT code when the response is not ok", async () => {
+  it("throws with a TRANSPORT code when the response is not ok and carries no error code", async () => {
     const fetchMock = mockFetch({}, 500)
+    const client = createScopedClient(BASE, "billing", fetchMock)
+
+    await expect(client.query("x.y")).rejects.toMatchObject({ code: "TRANSPORT" })
+  })
+
+  // The defect this file was fixed for: the Go transport answers a
+  // handler-level failure with a non-2xx status but the same error envelope a
+  // 200 carries in its `!envelope.ok` branch. Discarding the body meant every
+  // one of these came back as an undifferentiated "HTTP 500" instead of the
+  // real code and message.
+  it("throws with the server's code and message when a non-ok response carries an error envelope", async () => {
+    const fetchMock = mockFetch(
+      { ok: false, envelope: "v1", error: { code: "NOT_FOUND", message: "no such room" } },
+      500,
+    )
+    const client = createScopedClient(BASE, "billing", fetchMock)
+
+    await expect(client.query("rooms.delete", { id: "nope" })).rejects.toMatchObject({
+      code: "NOT_FOUND",
+      message: "no such room",
+    })
+  })
+
+  // A `Response` whose body is empty (no content at all) rejects `res.json()`
+  // rather than resolving to something with no `error` field - this is the
+  // bare 403 the auth middleware sends (Task 1), and any other endpoint that
+  // answers non-ok with nothing readable as JSON.
+  it("falls back to TRANSPORT when the non-ok response has no body", async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: false,
+      status: 403,
+      json: async () => {
+        throw new SyntaxError("Unexpected end of JSON input")
+      },
+    })
+    const client = createScopedClient(BASE, "billing", fetchMock)
+
+    await expect(client.query("x.y")).rejects.toMatchObject({ code: "TRANSPORT" })
+  })
+
+  // A proxy's 502 with an HTML body must not turn into an exception about
+  // JSON parsing - it should fall back to the same TRANSPORT error a status
+  // with no body at all gets.
+  it("falls back to TRANSPORT when the non-ok response body is not valid JSON", async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: false,
+      status: 502,
+      json: async () => {
+        throw new SyntaxError("Unexpected token < in JSON at position 0")
+      },
+    })
     const client = createScopedClient(BASE, "billing", fetchMock)
 
     await expect(client.query("x.y")).rejects.toMatchObject({ code: "TRANSPORT" })
@@ -339,8 +390,12 @@ describe("ScopedClient.command", () => {
     const client = createScopedClient(BASE, "billing", h.fetchImpl)
 
     // Quiet: the command goes out tokenless and fails on the server's own
-    // terms. No error about a token fetch the caller never made.
-    await expect(client.command("session.login")).rejects.toMatchObject({ code: "TRANSPORT" })
+    // terms - its own code and message, not a transport error about a token
+    // fetch the caller never made.
+    await expect(client.command("session.login")).rejects.toMatchObject({
+      code: "BAD_REQUEST",
+      message: "command requires csrf and idempotencyKey",
+    })
     expect(h.csrfURLs).toHaveLength(1)
     expect(h.sent).toHaveLength(1)
     expect(h.sent[0]).not.toHaveProperty("csrf")
@@ -359,7 +414,7 @@ describe("ScopedClient.command", () => {
     })
     const client = createScopedClient(BASE, "billing", h.fetchImpl)
 
-    await expect(client.command("session.login")).rejects.toMatchObject({ code: "TRANSPORT" })
+    await expect(client.command("session.login")).rejects.toMatchObject({ code: "BAD_REQUEST" })
     expect(h.sent[0]).not.toHaveProperty("csrf")
 
     await expect(client.command("session.retry")).resolves.toEqual({ done: true })
