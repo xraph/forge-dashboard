@@ -87,6 +87,7 @@ export function NavTree({
                             isActive={child.href === currentPath}
                             render={renderLink(child, href(child))}
                           >
+                            {child.icon}
                             <span>{child.label}</span>
                           </SidebarMenuSubButton>
                         </SidebarMenuSubItem>

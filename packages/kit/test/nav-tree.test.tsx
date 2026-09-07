@@ -23,7 +23,13 @@ const groups: NavGroup[] = [
       {
         label: "Rooms",
         href: "/@streaming/rooms",
-        children: [{ label: "Active", href: "/@streaming/rooms/active" }],
+        children: [
+          {
+            label: "Active",
+            href: "/@streaming/rooms/active",
+            icon: <span data-testid="active-icon" />,
+          },
+        ],
       },
     ],
   },
@@ -36,7 +42,7 @@ function renderTree(currentPath: string, search?: string) {
         groups={groups}
         currentPath={currentPath}
         search={search}
-        renderLink={(node, href) => <a href={href}>{node.label}</a>}
+        renderLink={(_node, href) => <a href={href} />}
       />
     </SidebarProvider>,
   )
@@ -69,6 +75,11 @@ describe("NavTree", () => {
     expect(screen.getByText("Active").closest("a")!.getAttribute("href")).toBe(
       "/@streaming/rooms/active?ctx.env=production",
     )
+  })
+
+  it("renders a child's icon", () => {
+    renderTree("/@streaming")
+    expect(screen.getByTestId("active-icon")).toBeTruthy()
   })
 
   it("renders no href suffix when there is no search string", () => {
