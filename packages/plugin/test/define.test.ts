@@ -84,4 +84,53 @@ describe("definePlugin", () => {
 
     expect(p.nav[0]!.children).toHaveLength(1)
   })
+
+  it("refuses a nav item whose `to` does not start with a slash", () => {
+    expect(() =>
+      definePlugin({
+        extension: "streaming-contract",
+        nav: [{ label: "Rooms", to: "rooms" }],
+        routes: [],
+      }),
+    ).toThrow(/rooms/)
+  })
+
+  it("refuses a nested nav child whose `to` does not start with a slash", () => {
+    expect(() =>
+      definePlugin({
+        extension: "streaming-contract",
+        nav: [
+          {
+            label: "Rooms",
+            to: "/rooms",
+            children: [{ label: "Active", to: "rooms/active" }],
+          },
+        ],
+        routes: [],
+      }),
+    ).toThrow(/rooms\/active/)
+  })
+
+  it("accepts valid nested nav without throwing", () => {
+    expect(() =>
+      definePlugin({
+        extension: "streaming-contract",
+        nav: [
+          {
+            label: "Rooms",
+            to: "/rooms",
+            children: [
+              { label: "Active", to: "/rooms/active" },
+              {
+                label: "Archived",
+                to: "/rooms/archived",
+                children: [{ label: "2025", to: "/rooms/archived/2025" }],
+              },
+            ],
+          },
+        ],
+        routes: [],
+      }),
+    ).not.toThrow()
+  })
 })

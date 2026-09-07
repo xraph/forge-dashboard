@@ -1,4 +1,23 @@
-import type { ForgePlugin, PluginInput } from "./types"
+import type { ForgePlugin, PluginInput, PluginNavItem } from "./types"
+
+/**
+ * Walks a nav tree (and every level of `children`) checking that each `to`
+ * is scope-relative. Recursive because a bad leading slash three levels deep
+ * is exactly as fatal as one at the top: `scopePath` concatenates blindly at
+ * every depth.
+ */
+function validateNav(items: PluginNavItem[], extension: string): void {
+  for (const item of items) {
+    if (!item.to.startsWith("/")) {
+      throw new Error(
+        `definePlugin: nav item "to" value "${item.to}" must start with "/" (plugin "${extension}")`,
+      )
+    }
+    if (item.children) {
+      validateNav(item.children, extension)
+    }
+  }
+}
 
 /**
  * Declares a dashboard plugin.
@@ -29,6 +48,10 @@ export function definePlugin(input: PluginInput): ForgePlugin {
         `definePlugin: route path "${route.path}" must start with "/" (plugin "${input.extension}")`,
       )
     }
+  }
+
+  if (input.nav) {
+    validateNav(input.nav, input.extension)
   }
 
   return { ...input, nav: input.nav ?? [] }
