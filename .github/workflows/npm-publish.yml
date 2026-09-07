@@ -1,8 +1,8 @@
 name: Publish NPM Packages
 
-# Publishes the five dashboard packages under
-# packages/{kit,runtime,plugin,plugin-authsome,plugin-streaming} as
-# @forge-go/dashboard-{kit,runtime,plugin,plugin-authsome,plugin-streaming}.
+# Publishes the three dashboard packages under
+# packages/{kit,runtime,plugin} as
+# @forge-go/dashboard-{kit,runtime,plugin}.
 #
 # Modeled on the forge repo's workflow of the same name
 # (xraph/forge/.github/workflows/npm-publish.yml), whose own header records
@@ -13,27 +13,51 @@ name: Publish NPM Packages
 # and the dry-run default are all copied from that lesson, not reinvented.
 #
 # build-script is set to '' below, overriding the reusable workflow's
-# default of 'build'. None of the five packages has a build script -- each
+# default of 'build'. None of the three packages has a build script -- each
 # publishes its own TypeScript source directly (see packages/*/package.json
-# "exports"; W4 Task 2 decided against a compiled dist build for any of the
-# five, see task-2-report.md) -- so there is nothing to build, and the
-# reusable workflow treats an empty value as "skip the build" rather than
-# running some other script under a label that would misdescribe it. Without
-# this override every run dies inside the reusable workflow's publish loop,
-# under `set -euo pipefail`, the moment it reaches `npm run build` for `kit`.
+# "exports"; W4 Task 2 decided against a compiled dist build for any of them,
+# see task-2-report.md) -- so there is nothing to build, and the reusable
+# workflow treats an empty value as "skip the build" rather than running
+# some other script under a label that would misdescribe it. Without this
+# override every run dies inside the reusable workflow's publish loop, under
+# `set -euo pipefail`, the moment it reaches `npm run build` for `kit`.
 #
-# Publish order: kit, runtime, plugin, then plugin-authsome and
-# plugin-streaming. Order is load-bearing now, unlike when this file listed
-# only the first three: plugin-authsome and plugin-streaming peer-depend on
-# @forge-go/dashboard-kit and @forge-go/dashboard-plugin (W5), and the
+# packages/plugin-authsome and packages/plugin-streaming are deliberately
+# NOT in this list. They were added in a prior commit on this branch, then
+# removed here once publishing them turned out to be blocked, not merely
+# unordered. Both carry "@forge-go/dashboard-kit": "workspace:*" and
+# "@forge-go/dashboard-plugin": "workspace:*" in devDependencies (correctly
+# -- that's what lets them build against the monorepo locally), but this
+# repo's root package.json has no `workspaces` field; it uses pnpm's
+# pnpm-workspace.yaml instead. The reusable workflow below runs a plain
+# `npm install` inside each package directory before anything else, and
+# plain npm has no workspace context here, so it cannot resolve the
+# `workspace:` protocol and fails immediately, before any network call:
+#
+#   npm error code EUNSUPPORTEDPROTOCOL
+#   npm error Unsupported URL Type "workspace:": workspace:*
+#
+# kit, runtime, and plugin have zero `workspace:` references anywhere in
+# their manifests, so they don't hit this and publish cleanly. Re-adding the
+# two plugins here requires deciding how to resolve that devDependency first
+# (drop it, point it at a real registry range once kit/plugin exist there,
+# add a root `workspaces` field and accept whatever that changes for
+# everyone else's install, or something else) -- that decision has not been
+# made, so don't re-add them without making it. See task-3-report.md's fix
+# round for the full writeup, including two independent reproductions of the
+# failure.
+#
+# Publish order: kit, runtime, plugin. The three of them do not depend on
+# one another, so their relative order is free. If plugin-authsome and
+# plugin-streaming are ever added back, they peer-depend on
+# @forge-go/dashboard-kit and @forge-go/dashboard-plugin (W5) and the
 # reusable workflow publishes this array as one sequential loop in a single
 # job, each package's `npm install` resolving against the registry before
 # the next package runs (see that workflow's own header on why it is a loop
-# and not a matrix). Publishing a plugin before its peers exist on the
-# registry would leave it durably unresolvable, since npm does not allow
-# republishing over a version once it is out. Kit and runtime and plugin
-# still do not depend on one another, so their relative order among
-# themselves remains free; the two plugins must come after both.
+# and not a matrix) -- so they would need to come after both kit and plugin,
+# for the same reason recorded here previously: publishing a plugin before
+# its peers exist on the registry would leave it durably unresolvable, since
+# npm does not allow republishing over a version once it is out.
 
 on:
   # A real publish happens only here, on a version tag.
@@ -103,23 +127,22 @@ jobs:
     needs: prepare
     uses: xraph/workflows/.github/workflows/npm-publish.yml@v1
     with:
-      # kit, runtime, plugin, plugin-authsome, plugin-streaming -- this order
-      # is load-bearing. See the header comment: the two plugins peer-depend
-      # on kit and plugin, so they must publish after both.
+      # kit, runtime, plugin only. packages/plugin-authsome and
+      # packages/plugin-streaming are deliberately excluded -- see the header
+      # comment for why (workspace:* devDependencies that plain `npm install`
+      # cannot resolve in this pnpm-workspace repo) before adding them back.
       packages: >-
         ["packages/kit",
          "packages/runtime",
-         "packages/plugin",
-         "packages/plugin-authsome",
-         "packages/plugin-streaming"]
+         "packages/plugin"]
 
       version: ${{ needs.prepare.outputs.version }}
       dry-run: ${{ needs.prepare.outputs.dry-run == 'true' }}
 
-      # None of the five packages has a build script; they publish raw
+      # None of the three packages has a build script; they publish raw
       # TypeScript source. Empty tells the reusable workflow to skip the
       # build step rather than default to running `npm run build`, which
-      # does not exist in any of the five and would fail the job before it
+      # does not exist in any of the three and would fail the job before it
       # reaches `npm publish`. See the header comment.
       build-script: ''
 
