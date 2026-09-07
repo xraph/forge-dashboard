@@ -142,6 +142,41 @@ describe("createScopedClient", () => {
 
     await expect(client.query("x.y")).rejects.toMatchObject({ code: "TRANSPORT" })
   })
+
+  // The same hazard on the other branch of the same `if`. A reverse proxy or
+  // an SSO interstitial can answer 200 with an HTML body, and an unguarded
+  // `res.json()` on the success path throws a raw SyntaxError that `hooks.ts`
+  // casts to a ContractError with no code - the page renders "undefined:
+  // Unexpected token '<'", which reads as a crash.
+  it("falls back to TRANSPORT when an ok response body is not valid JSON", async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: async () => {
+        throw new SyntaxError("Unexpected token '<', \"<html>\"... is not valid JSON")
+      },
+    })
+    const client = createScopedClient(BASE, "billing", fetchMock)
+
+    const err = await client.query("x.y").catch((e: unknown) => e)
+    expect(err).toBeInstanceOf(ContractError)
+    expect(err).not.toBeInstanceOf(SyntaxError)
+    expect(err).toMatchObject({ code: "TRANSPORT" })
+  })
+
+  // `parseErrorBody` documents this case, so it has to hold: a response object
+  // with no `json` at all must not throw a TypeError out of the call itself,
+  // before the `.catch` is attached. The two tests above use stubs whose
+  // `json` rejects, which is a different case and already worked.
+  it("falls back to TRANSPORT when a non-ok response has no json method at all", async () => {
+    const fetchMock = vi.fn().mockResolvedValue({ ok: false, status: 502 })
+    const client = createScopedClient(BASE, "billing", fetchMock)
+
+    const err = await client.query("x.y").catch((e: unknown) => e)
+    expect(err).toBeInstanceOf(ContractError)
+    expect(err).not.toBeInstanceOf(TypeError)
+    expect(err).toMatchObject({ code: "TRANSPORT" })
+  })
 })
 
 // ---------------------------------------------------------------------------

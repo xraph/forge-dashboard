@@ -193,15 +193,18 @@ export function createScopedClient(
    * Reads a non-ok response's body once, as the shape the error envelope
    * takes on the wire (`{ error: { code, message } }`). Returns null for
    * anything that isn't that: no body at all (the bare 403 the auth
-   * middleware sends - Task 1 - or a stub with no `json` behaviour), a
-   * proxy's HTML error page, or a body that parses but carries no error
-   * field. Callers treat null the same as "no code, no message" and fall
-   * back accordingly - this never throws.
+   * middleware sends - Task 1), a proxy's HTML error page, or a body that
+   * parses but carries no error field. Callers treat null the same as "no
+   * code, no message" and fall back accordingly - this never throws.
+   *
+   * Both `?.` matter. A stub with no `json` behaviour at all would otherwise
+   * throw a `TypeError` out of the call itself, before `.catch` is attached,
+   * and a raw `TypeError` would escape `send` past every handler below.
    */
   async function parseErrorBody(
     res: Response,
   ): Promise<{ error?: { code?: string; message?: string } } | null> {
-    return (await res.json().catch(() => null)) as {
+    return ((await res.json?.()?.catch(() => null)) ?? null) as {
       error?: { code?: string; message?: string }
     } | null
   }
@@ -267,10 +270,23 @@ export function createScopedClient(
       throw new ContractError("TRANSPORT", `contract request failed with HTTP ${res.status}`)
     }
 
-    const envelope = (await res.json()) as {
+    // A 2xx is not a promise of JSON. A reverse proxy or an SSO interstitial
+    // answering 200 with an HTML body would throw a raw SyntaxError here, and
+    // `hooks.ts` casts whatever `send` throws straight to ContractError, so
+    // both plugins would render "undefined: Unexpected token '<'" - the "reads
+    // as a crash" outcome the non-ok branch above exists to prevent, surviving
+    // on the other branch of the same `if`. Same TRANSPORT error, same reason.
+    const envelope = ((await res.json?.()?.catch(() => null)) ?? null) as {
       ok: boolean
       data?: T
       error?: { code: string; message: string }
+    } | null
+
+    if (!envelope) {
+      throw new ContractError(
+        "TRANSPORT",
+        `contract response was not JSON (HTTP ${res.status})`,
+      )
     }
 
     if (!envelope.ok) {
