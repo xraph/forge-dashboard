@@ -8,10 +8,6 @@ import {
 } from "../src/scope"
 import type { Scope } from "../src/scope"
 
-function Stub() {
-  return null
-}
-
 function scope(extension: string, namespace?: string): Scope {
   const plugin = definePlugin({ extension, namespace, routes: [] })
   return {
