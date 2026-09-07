@@ -6,15 +6,22 @@ import { ScopeSwitcher } from "../src/components/scope-switcher"
 import type { ScopeOption } from "../src/components/scope-switcher"
 
 /**
- * Raised from the vitest defaults (5s test / 10s hook) because opening a
- * base-ui Menu under jsdom is measured to take anywhere from under a second
- * to ~90s wall-clock in this environment before its floating-ui positioning
- * settles: jsdom has no ResizeObserver/IntersectionObserver, and reproduced
- * with a bare DropdownMenu outside ScopeSwitcher entirely, so it is not
- * something this component's code controls. See task-5-report.md for the
- * measurements. This does not touch what any test asserts.
+ * A deterministic fix was attempted first: ./setup.ts stubs a fixed non-zero
+ * `getBoundingClientRect` plus no-op `ResizeObserver`/`IntersectionObserver`,
+ * on the theory that base-ui's floating-ui positioning was spinning on
+ * jsdom's degenerate all-zero layout. That stub is real and stays (it turns
+ * a bare DropdownMenu's open-to-idle gap from up to ~90s down to a bounded
+ * ~10-50s), but it did not eliminate the stall: two full back-to-back runs
+ * of this file with the stub active measured "lists every scope once
+ * opened" at ~15.6-15.9s, "shows a badge on a scope that is not ready" at
+ * ~39-45s, and "calls onSelect with the chosen scope id" at ~48-52s. A CPU
+ * profile and a microtask-turn probe (see task-5-report.md) show this is a
+ * small number of expensive synchronous chunks, not a tight infinite loop,
+ * but its exact source inside base-ui/floating-ui was not identified in the
+ * time available. Raised well past 2x the worst of those measurements so
+ * the suite is stable rather than racing the default 5s/10s.
  */
-vi.setConfig({ testTimeout: 30000, hookTimeout: 30000 })
+vi.setConfig({ testTimeout: 120000, hookTimeout: 60000 })
 
 window.matchMedia ??= ((query: string) => ({
   matches: false,
