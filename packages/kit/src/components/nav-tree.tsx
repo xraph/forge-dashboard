@@ -60,6 +60,14 @@ export function NavTree({
 }: NavTreeProps) {
   const href = (node: NavNode) => `${node.href}${search}`
 
+  // Keys pair the position with the href rather than using the href alone.
+  // Nothing stops one plugin from pointing two labels at the same `to`, and
+  // the host maps every entry through scopePath, so two siblings can share an
+  // href exactly. The href alone then repeats and React reconciles the wrong
+  // row. Position alone would be unique too, but it unpins a row from its
+  // destination, which matters once sub-plugin entries are merged into a
+  // group and the list changes shape between renders.
+
   return (
     <>
       {groups.map((group, index) => (
@@ -69,8 +77,8 @@ export function NavTree({
           ) : null}
           <SidebarGroupContent>
             <SidebarMenu>
-              {group.items.map((item) => (
-                <SidebarMenuItem key={item.href}>
+              {group.items.map((item, itemIndex) => (
+                <SidebarMenuItem key={`${itemIndex}:${item.href}`}>
                   <SidebarMenuButton
                     tooltip={item.label}
                     isActive={item.href === currentPath}
@@ -81,8 +89,8 @@ export function NavTree({
                   </SidebarMenuButton>
                   {item.children?.length ? (
                     <SidebarMenuSub>
-                      {item.children.map((child) => (
-                        <SidebarMenuSubItem key={child.href}>
+                      {item.children.map((child, childIndex) => (
+                        <SidebarMenuSubItem key={`${childIndex}:${child.href}`}>
                           <SidebarMenuSubButton
                             isActive={child.href === currentPath}
                             render={renderLink(child, href(child))}

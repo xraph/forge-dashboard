@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest"
+import { describe, expect, it, vi } from "vitest"
 import { render, screen } from "@testing-library/react"
 import { SidebarProvider } from "../src/components/sidebar"
 import { NavTree } from "../src/components/nav-tree"
@@ -87,5 +87,76 @@ describe("NavTree", () => {
     expect(screen.getByText("Overview").closest("a")!.getAttribute("href")).toBe(
       "/@streaming",
     )
+  })
+})
+
+// A single plugin may reasonably declare two labels for one destination, and
+// nothing in definePlugin rejects it. Both entries then map through
+// scopePath() to the same href, so keying a row on its href alone hands React
+// two siblings with one key.
+const duplicateGroups: NavGroup[] = [
+  {
+    label: "@streaming",
+    items: [
+      { label: "Overview", href: "/@streaming" },
+      { label: "Rooms", href: "/@streaming/rooms" },
+      { label: "Live rooms", href: "/@streaming/rooms" },
+      {
+        label: "Archive",
+        href: "/@streaming/archive",
+        children: [
+          { label: "Recent", href: "/@streaming/archive/all" },
+          { label: "Everything", href: "/@streaming/archive/all" },
+        ],
+      },
+    ],
+  },
+]
+
+function renderDuplicates(currentPath: string) {
+  const messages: string[] = []
+  const spy = vi
+    .spyOn(console, "error")
+    .mockImplementation((...args: unknown[]) => {
+      messages.push(args.map(String).join(" "))
+    })
+  try {
+    render(
+      <SidebarProvider>
+        <NavTree
+          groups={duplicateGroups}
+          currentPath={currentPath}
+          renderLink={(_node, href) => <a href={href} />}
+        />
+      </SidebarProvider>,
+    )
+  } finally {
+    spy.mockRestore()
+  }
+  return messages.join("\n")
+}
+
+describe("NavTree with two items sharing an href", () => {
+  it("logs no duplicate-key warning for sibling items", () => {
+    expect(renderDuplicates("/@streaming")).not.toContain("the same key")
+  })
+
+  it("logs no duplicate-key warning for sibling children", () => {
+    expect(renderDuplicates("/@streaming/archive")).not.toContain(
+      "the same key",
+    )
+  })
+
+  it("renders both items that share an href", () => {
+    renderDuplicates("/@streaming")
+    expect(screen.getByText("Rooms")).toBeTruthy()
+    expect(screen.getByText("Live rooms")).toBeTruthy()
+  })
+
+  it("marks only the item matching currentPath, not its href twin", () => {
+    renderDuplicates("/@streaming")
+    expect(screen.getByText("Overview").closest("[data-active]")).toBeTruthy()
+    expect(screen.getByText("Rooms").closest("[data-active]")).toBeNull()
+    expect(screen.getByText("Live rooms").closest("[data-active]")).toBeNull()
   })
 })
