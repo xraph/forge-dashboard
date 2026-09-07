@@ -308,6 +308,45 @@ function seedAuthState() {
 let auth = seedAuthState()
 
 // ---------------------------------------------------------------------------
+// Idempotency store — mirrors the default wiring in
+// extensions/dashboard/extension.go:365
+// (`dispatcher.WithIdempotencyStore(adaptIdempotencyStore(idempotency.NewInMemoryStore()))`)
+// and the dedup rule in contract/dispatcher/dispatcher.go.
+// ---------------------------------------------------------------------------
+
+const IDEMPOTENCY_TTL_MS = 24 * 60 * 60 * 1000 // 24h, hardcoded, matching the Go store
+
+/** key -> { data, meta, expiresAt } */
+const idempotencyStore = new Map()
+
+/**
+ * Dedup applies only to kind === "command", only when a store exists (it
+ * always does here) and the key is non-empty — queries never dedup. The
+ * lookup key is the idempotency key plus an identity string, where identity
+ * is `principalIdentity(p, intent)` = `user.Subject + ":" + intent`. This
+ * fixture has no principal, so identity is `":" + intent`, and the full key
+ * is `idempotencyKey + identity`. Note what's folded in: the intent, not the
+ * contributor — matching that oddity is the point.
+ */
+function idempotencyStoreKey(idempotencyKey, intent) {
+  return `${idempotencyKey}:${intent}`
+}
+
+function idempotencyLookup(key) {
+  const entry = idempotencyStore.get(key)
+  if (!entry) return undefined
+  if (Date.now() > entry.expiresAt) {
+    idempotencyStore.delete(key)
+    return undefined
+  }
+  return entry
+}
+
+function idempotencyStorePut(key, data, meta) {
+  idempotencyStore.set(key, { data, meta, expiresAt: Date.now() + IDEMPOTENCY_TTL_MS })
+}
+
+// ---------------------------------------------------------------------------
 // Streaming-contract intents (nine queries, no commands this wave)
 // ---------------------------------------------------------------------------
 
@@ -640,9 +679,10 @@ async function handleContractRequest(req, res) {
     return sendError(res, 400, CODE.UNSUPPORTED_VERSION, `envelope ${envelope} unsupported`)
   }
   if (kind !== "query" && kind !== "command") {
-    // Real server also accepts kind=graph; this fixture doesn't model the
-    // server-driven graph surface dashboard v2 removed. Plugins in this wave
-    // only need query/command.
+    // validateKind (contract/transport/http.go) also accepts kind=subscribe,
+    // for SSE streaming; this fixture doesn't model it because no intent
+    // either plugin consumes this wave needs it. It does NOT accept
+    // kind=graph — that was the server-driven-UI surface W3 deleted.
     return sendError(res, 400, CODE.BAD_REQUEST, `unknown kind ${kind}`)
   }
 
@@ -671,6 +711,18 @@ async function handleContractRequest(req, res) {
     }
   }
 
+  // Idempotency dedup: command-only, and only once a key is actually
+  // present. A hit returns the cached data/meta verbatim without re-running
+  // the handler — see the idempotency-store block above for the exact key.
+  let idemKey
+  if (kind === "command" && idempotencyKey) {
+    idemKey = idempotencyStoreKey(idempotencyKey, intent)
+    const cached = idempotencyLookup(idemKey)
+    if (cached) {
+      return sendJSON(res, 200, { ok: true, envelope: "v1", kind, data: cached.data, meta: cached.meta })
+    }
+  }
+
   const input = kind === "command" ? payload : params
 
   // Fixture-only authorisation hook: a command or query whose params/payload
@@ -693,6 +745,12 @@ async function handleContractRequest(req, res) {
 
   const meta = {}
   if (def.invalidates?.length) meta.invalidates = def.invalidates
+
+  // Only successful dispatches are cached: the handler above already
+  // returned early on error (FixtureError or otherwise), so reaching here
+  // means success. A failed command never poisons the key, and a retry of
+  // it runs fresh.
+  if (idemKey) idempotencyStorePut(idemKey, data, meta)
 
   return sendJSON(res, 200, { ok: true, envelope: "v1", kind, data, meta })
 }
@@ -734,6 +792,7 @@ function handleReset(res) {
   streaming = seedStreamingState()
   auth = seedAuthState()
   csrfTokens.clear()
+  idempotencyStore.clear()
   return sendJSON(res, 200, { ok: true })
 }
 

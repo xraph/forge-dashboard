@@ -24,6 +24,35 @@ default `contractBase` the shell derives from `basePath` (see
 `packages/runtime/src/config.tsx`). Point a plugin's dev harness at that base
 directly, or proxy `/dashboard` to port 4310 from your app's dev server.
 
+### Pointing a dev harness at it
+
+There is no Go SPA handler here, so nothing injects `window.__FORGE_DASHBOARD__`
+the way `extensions/dashboard/shell_handlers.go` does for the real shell.
+`packages/runtime/src/config.tsx`'s `configFromWindow()` reads that global, and
+a plugin dev harness running on its own (a bare Vite dev server, not the
+playground) has to set it itself, before the app mounts:
+
+```ts
+// main.tsx, before rendering ForgeDashboardProvider
+window.__FORGE_DASHBOARD__ = {
+  basePath: "/dashboard",
+  contractBase: "http://localhost:4310/dashboard/api/dashboard/v1",
+}
+```
+
+Set only `basePath` and `contractBase`. Per
+`packages/plugin/docs/shell-html-bootstrap.md`, those two plus `shellBase`,
+`authEnabled` and `loginPath` are what the real Go side sets; everything else
+on `DashboardConfig` (`streamBase`, `loginOp`, `loginContributor`) is defaulted
+client-side from `basePath`, and a fixture harness has no reason to override
+any of it.
+
+If you'd rather proxy instead of pointing at an absolute URL, proxy
+`/dashboard` to port 4310 from your harness's own dev server (the way
+`apps/playground`'s Vite config proxies to a real Go server) and set only
+`basePath: "/dashboard"` — `contractBase` then defaults to
+`${basePath}/api/dashboard/v1`, which resolves through the proxy, same-origin.
+
 Env vars:
 
 | Var | Default | Purpose |
@@ -53,6 +82,25 @@ or stale token gets **403 `UNAUTHENTICATED`**, not 401; that's the pair
 Task 1's refresh-and-retry fires on. A modelled authorisation failure (see
 `__forbidden` below) uses 403 `PERMISSION_DENIED`, which must never be
 retried.
+
+`client.ts` also retries on a bare 401, but that comes from the outer session
+auth middleware in the real deployment, not from `contract/transport`. Nothing
+in this fixture returns 401 — that's correct scoping, not a gap, so don't go
+looking for a 401 case here; there isn't one to model.
+
+### Idempotency
+
+A command's `idempotencyKey` is deduped, matching
+`extensions/dashboard/extension.go:365`'s default wiring of
+`dispatcher.WithIdempotencyStore` over `contract/dispatcher/dispatcher.go`'s
+rule: dedup applies only to `kind === "command"` with a non-empty key —
+queries never dedup. The lookup key folds in the **intent**, not the
+contributor (matching the real oddity, so the same key on two different
+intents does not collide). Only a **successful** dispatch is cached; an
+error is never stored, so retrying a failed command runs fresh. A cache hit
+returns the stored `data`/`meta` verbatim without re-running the handler.
+TTL is 24h, hardcoded, held in an in-memory `Map` — no persistence, nothing
+beyond replay.
 
 ## Intents served
 
