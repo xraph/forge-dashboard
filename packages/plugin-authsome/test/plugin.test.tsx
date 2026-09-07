@@ -74,10 +74,15 @@ describe("authsomePlugin", () => {
     expect(authsomePlugin.requires).toBeUndefined()
   })
 
+  // Paths are relative to the plugin's own "@auth" mount now (Task 7 of the
+  // w8-scoped-sidebar plan), not absolute from the site root: the host
+  // applies the "/@auth" prefix itself via scopePath, so a route declared
+  // here as "/auth/login" would double-prefix to "/@auth/auth/login" and
+  // never match.
   it("gives every route a nav entry pointing at it", () => {
     const paths = authsomePlugin.routes.map((r) => r.path).sort()
     const targets = authsomePlugin.nav.map((n) => n.to).sort()
-    expect(paths).toEqual(["/auth/login", "/auth/sessions", "/auth/users"])
+    expect(paths).toEqual(["/login", "/sessions", "/users"])
     expect(targets).toEqual(paths)
   })
 
@@ -115,9 +120,9 @@ describe("authsomePlugin", () => {
     }
 
     const expected: Record<string, string> = {
-      "/auth/login": "Forge Fixture",
-      "/auth/users": "ada@example.com",
-      "/auth/sessions": "ses_1",
+      "/login": "Forge Fixture",
+      "/users": "ada@example.com",
+      "/sessions": "ses_1",
     }
 
     for (const route of authsomePlugin.routes) {

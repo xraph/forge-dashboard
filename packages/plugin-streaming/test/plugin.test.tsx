@@ -79,14 +79,15 @@ describe("streamingPlugin", () => {
     expect(streamingPlugin.requires).toBeUndefined()
   })
 
+  // Paths are relative to the plugin's own "@streaming" mount now (Task 7 of
+  // the w8-scoped-sidebar plan), not absolute from the site root: the host
+  // applies the "/@streaming" prefix itself via scopePath, so a route
+  // declared here as "/streaming/rooms" would double-prefix to
+  // "/@streaming/streaming/rooms" and never match.
   it("gives every route a nav entry pointing at it", () => {
     const paths = streamingPlugin.routes.map((r) => r.path).sort()
     const targets = streamingPlugin.nav.map((n) => n.to).sort()
-    expect(paths).toEqual([
-      "/streaming",
-      "/streaming/connections",
-      "/streaming/rooms",
-    ])
+    expect(paths).toEqual(["/", "/connections", "/rooms"])
     expect(targets).toEqual(paths)
   })
 
@@ -133,9 +134,9 @@ describe("streamingPlugin", () => {
     }
 
     const expected: Record<string, string> = {
-      "/streaming": "7",
-      "/streaming/rooms": "General",
-      "/streaming/connections": "conn_1",
+      "/": "7",
+      "/rooms": "General",
+      "/connections": "conn_1",
     }
 
     for (const route of streamingPlugin.routes) {
