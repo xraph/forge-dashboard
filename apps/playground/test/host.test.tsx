@@ -385,6 +385,41 @@ describe("PluginHost", () => {
     expect(screen.queryByText("alpha root page")).toBeNull()
   })
 
+  // Review finding (Minor 3, w8-scoped-sidebar Task 7, ported here because the
+  // shell and playground hosts are deliberately kept as diverging duplicates
+  // and each needs its own guard against the same regression). `home` used to
+  // read `plugin.nav[0]` directly -- declaration order -- while the sidebar
+  // right beside it renders the plugin's nav sorted by priority. A plugin
+  // whose nav is not already written in priority order would silently
+  // redirect the site root to an item that is not the one the sidebar shows
+  // first. "Second" is declared before "First" here specifically to catch
+  // that: if `home` ever reads nav[0] again instead of the priority-sorted
+  // list, this goes red. The test just above only exercises which *plugin*
+  // wins by array order, using single-nav-item plugins, so it never reaches
+  // `home`'s internal `sortByPriority(first.plugin.nav)[0]` step -- this one
+  // does.
+  it("redirects the site root to the priority-sorted first item, not the first declared one", async () => {
+    const fetchImpl = capabilitiesFetch([
+      { name: "home-ext", envelopes: ["v1"], configured: true },
+    ])
+    const plugin = definePlugin({
+      extension: "home-ext",
+      nav: [
+        { label: "Second", to: "/second", priority: 20 },
+        { label: "First", to: "/first", priority: 10 },
+      ],
+      routes: [
+        { path: "/first", element: () => <p>first page</p> },
+        { path: "/second", element: () => <p>second page</p> },
+      ],
+    })
+
+    renderHost([plugin], fetchImpl, "/")
+
+    expect(await screen.findByText("first page")).toBeTruthy()
+    expect(screen.queryByText("second page")).toBeNull()
+  })
+
   // ITEM 4's regression. "A plugin cannot address another extension's
   // handlers" is a requirement, and until now nothing at the host layer drove
   // a plugin query at all, so the host could have handed every plugin the
