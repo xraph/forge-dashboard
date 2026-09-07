@@ -224,6 +224,35 @@ describe("AuthLoginPage", () => {
     expect(intents).toEqual(["auth.config", "auth.login", "auth.logout"])
   })
 
+  /**
+   * The credential-hygiene defect from fix round 1: `LoginForm` never
+   * unmounts across a sign-in/sign-out cycle, so clearing `subject` alone
+   * left `email` and `password` sitting in state, and the next visit to the
+   * form re-rendered the password box with the previous operator's password
+   * still in it. On a shared terminal that is the next person inheriting the
+   * last person's password.
+   */
+  it("clears the email and password fields on sign-out", async () => {
+    const { client } = stubClient(
+      { "auth.config": CONFIG },
+      {
+        "auth.login": { ok: true, subject: "usr_1" },
+        "auth.logout": { ok: true },
+      }
+    )
+
+    renderPage(AuthLoginPage, client)
+    await signIn("ada@example.com", "hunter2")
+    expect(await screen.findByText("usr_1")).toBeDefined()
+
+    fireEvent.click(screen.getByRole("button", { name: "Sign out" }))
+
+    const email = (await screen.findByLabelText("Email")) as HTMLInputElement
+    const password = screen.getByLabelText("Password") as HTMLInputElement
+    expect(email.value).toBe("")
+    expect(password.value).toBe("")
+  })
+
   it("stays signed in when the sign-out command fails", async () => {
     const { client } = stubClient(
       { "auth.config": CONFIG },

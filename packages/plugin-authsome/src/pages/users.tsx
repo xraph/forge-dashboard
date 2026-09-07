@@ -98,7 +98,7 @@ function UserDetail({ id }: { id: string }) {
               <dt className="text-muted-foreground">Name</dt>
               <dd>
                 {user.displayName ||
-                  `${user.firstName} ${user.lastName}`.trim() ||
+                  [user.firstName, user.lastName].filter(Boolean).join(" ") ||
                   user.username}
               </dd>
               <dt className="text-muted-foreground">Email</dt>
@@ -198,8 +198,9 @@ export function AuthUsersPage() {
                   <TableRow key={user.id}>
                     <TableCell className="font-medium">{user.email}</TableCell>
                     <TableCell>
-                      {`${user.firstName} ${user.lastName}`.trim() ||
-                        user.username}
+                      {[user.firstName, user.lastName]
+                        .filter(Boolean)
+                        .join(" ") || user.username}
                     </TableCell>
                     <TableCell className="font-mono text-xs">
                       {user.id}

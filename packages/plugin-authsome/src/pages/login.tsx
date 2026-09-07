@@ -1,4 +1,4 @@
-import { useState } from "react"
+import { useId, useState } from "react"
 import type { FormEvent } from "react"
 import { useCommand, useQuery } from "@forge-go/dashboard-plugin"
 import { buttonVariants } from "@forge-go/dashboard-kit/components/button"
@@ -114,8 +114,23 @@ function LoginForm({ config }: { config: AuthConfig }) {
   const [subject, setSubject] = useState<string | null>(null)
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
+  const emailId = useId()
+  const passwordId = useId()
 
   const providers = config.socialProviders ?? []
+
+  // LoginForm never unmounts across a sign-in/sign-out cycle (see the
+  // module doc above), so clearing `subject` alone leaves whatever was typed
+  // still sitting in state. The password box would then re-render on the
+  // next visit pre-filled with the previous operator's password - the exact
+  // thing a shared terminal must not do. The email is cleared for the same
+  // reason, even though it is not a credential: a sign-out should hand back
+  // a genuinely blank form.
+  function handleSignOut() {
+    setSubject(null)
+    setEmail("")
+    setPassword("")
+  }
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     // Without this the browser navigates away on submit and the command never
@@ -133,7 +148,7 @@ function LoginForm({ config }: { config: AuthConfig }) {
   }
 
   if (subject) {
-    return <SignedIn subject={subject} onSignOut={() => setSubject(null)} />
+    return <SignedIn subject={subject} onSignOut={handleSignOut} />
   }
 
   return (
@@ -152,9 +167,9 @@ function LoginForm({ config }: { config: AuthConfig }) {
         {config.passwordEnabled && (
           <form onSubmit={handleSubmit} className="flex flex-col gap-3">
             <div className="flex flex-col gap-1.5">
-              <Label htmlFor="authsome-email">Email</Label>
+              <Label htmlFor={emailId}>Email</Label>
               <Input
-                id="authsome-email"
+                id={emailId}
                 name="email"
                 type="email"
                 autoComplete="username"
@@ -163,9 +178,9 @@ function LoginForm({ config }: { config: AuthConfig }) {
               />
             </div>
             <div className="flex flex-col gap-1.5">
-              <Label htmlFor="authsome-password">Password</Label>
+              <Label htmlFor={passwordId}>Password</Label>
               <Input
-                id="authsome-password"
+                id={passwordId}
                 name="password"
                 type="password"
                 autoComplete="current-password"
