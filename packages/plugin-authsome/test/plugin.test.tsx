@@ -82,8 +82,16 @@ describe("authsomePlugin", () => {
   it("gives every route a nav entry pointing at it", () => {
     const paths = authsomePlugin.routes.map((r) => r.path).sort()
     const targets = authsomePlugin.nav.map((n) => n.to).sort()
-    expect(paths).toEqual(["/login", "/sessions", "/users"])
+    expect(paths).toEqual(["/sessions", "/users"])
     expect(targets).toEqual(paths)
+  })
+
+  // Sign-in is no longer a route: the host renders the gate in its place
+  // before any route table exists, so `/login` has nothing to mean here.
+  it("declares the gate rather than a sign-in page", () => {
+    expect(authsomePlugin.auth?.gate).toBeDefined()
+    expect(authsomePlugin.nav.map((item) => item.to)).not.toContain("/login")
+    expect(authsomePlugin.routes.map((route) => route.path)).not.toContain("/login")
   })
 
   it("mounts each route's element, and each one reads its own intent", async () => {
@@ -120,7 +128,6 @@ describe("authsomePlugin", () => {
     }
 
     const expected: Record<string, string> = {
-      "/login": "Forge Fixture",
       "/users": "ada@example.com",
       "/sessions": "ses_1",
     }

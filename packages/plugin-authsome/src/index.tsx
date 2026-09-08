@@ -1,10 +1,10 @@
 import { definePlugin } from "@forge-go/dashboard-plugin"
 import {
   ClockIcon,
-  DoorOpenIcon,
   ShieldIcon,
   UsersIcon,
 } from "@forge-go/dashboard-kit/icons"
+import { AuthGate } from "./gate"
 import { AuthLoginPage } from "./pages/login"
 import { AuthSessionsPage } from "./pages/sessions"
 import { AuthUsersPage } from "./pages/users"
@@ -26,7 +26,7 @@ export type {
   SessionSummary,
   SessionsList,
 } from "./pages/sessions"
-export { AuthLoginPage, AuthSessionsPage, AuthUsersPage }
+export { AuthGate, AuthLoginPage, AuthSessionsPage, AuthUsersPage }
 
 /**
  * The first-party UI for authsome.
@@ -63,13 +63,15 @@ export const authsomePlugin = definePlugin({
   namespace: "auth",
   label: "Auth",
   icon: <ShieldIcon />,
+  // Sign-in is no longer a page. The host renders `gate` in place of the
+  // whole shell when nobody is signed in, so a "Sign in" row sitting between
+  // Users and Sessions for somebody already signed in has nothing to mean.
+  auth: { gate: AuthGate, signOutIntent: "auth.logout" },
   nav: [
-    { label: "Sign in", to: "/login", priority: 10, icon: <DoorOpenIcon /> },
     { label: "Users", to: "/users", priority: 20, icon: <UsersIcon /> },
     { label: "Sessions", to: "/sessions", priority: 30, icon: <ClockIcon /> },
   ],
   routes: [
-    { path: "/login", element: AuthLoginPage },
     { path: "/users", element: AuthUsersPage },
     { path: "/sessions", element: AuthSessionsPage },
   ],

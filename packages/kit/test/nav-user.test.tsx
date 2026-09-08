@@ -1,5 +1,5 @@
 // packages/kit/test/nav-user.test.tsx
-import { describe, expect, it } from "vitest"
+import { describe, expect, it, vi } from "vitest"
 import { fireEvent, render, screen } from "@testing-library/react"
 import { SidebarProvider } from "../src/components/sidebar"
 import { NavUser } from "../src/components/nav-user"
@@ -26,32 +26,46 @@ window.matchMedia ??= ((query: string) => ({
 
 const user = { name: "Ada Lovelace", email: "ada@example.com" }
 
-function setup() {
-  render(
+function renderNavUser(overrides: Partial<React.ComponentProps<typeof NavUser>> = {}) {
+  return render(
     <SidebarProvider>
-      <NavUser user={user} />
+      <NavUser user={user} {...overrides} />
     </SidebarProvider>,
   )
 }
 
 describe("NavUser", () => {
   it("shows the user's name and email on the trigger", () => {
-    setup()
+    renderNavUser()
     expect(screen.getByText("Ada Lovelace")).toBeTruthy()
     expect(screen.getByText("ada@example.com")).toBeTruthy()
   })
 
   it("derives the avatar fallback from the name", () => {
-    setup()
+    renderNavUser()
     expect(screen.getByText("AL")).toBeTruthy()
   })
 
   it("lists the account actions once opened", () => {
-    setup()
+    renderNavUser({ onSignOut: () => {} })
     fireEvent.click(screen.getByRole("button", { name: /Ada Lovelace/ }))
 
     for (const label of ["Account", "Billing", "Notifications", "Log out"]) {
       expect(screen.getByRole("menuitem", { name: label })).toBeTruthy()
     }
+  })
+
+  it("renders no sign-out item without a handler", () => {
+    renderNavUser()
+    fireEvent.click(screen.getByRole("button"))
+    expect(screen.queryByText("Log out")).toBeNull()
+  })
+
+  it("calls the handler when sign-out is chosen", () => {
+    const onSignOut = vi.fn()
+    renderNavUser({ onSignOut })
+    fireEvent.click(screen.getByRole("button"))
+    fireEvent.click(screen.getByText("Log out"))
+    expect(onSignOut).toHaveBeenCalledTimes(1)
   })
 })

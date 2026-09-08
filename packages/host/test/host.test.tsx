@@ -1441,4 +1441,53 @@ describe("PluginHost auth gate", () => {
     expect(principalCalls).toBe(1)
     expect(capabilityCalls).toBe(1)
   })
+
+  it("sends the provider's sign-out command and re-reads the session", async () => {
+    const sent: string[] = []
+    let principalCalls = 0
+    const fetchImpl = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input)
+      if (url.endsWith("/principal")) {
+        principalCalls += 1
+        return {
+          ok: true,
+          status: 200,
+          json: async () => ({ authenticated: true, subject: "u1", email: "a@b.c" }),
+        } as Response
+      }
+      if (url.endsWith("/capabilities")) {
+        return jsonOk({
+          shellEnvelopes: ["v1"],
+          contributors: [
+            { name: "core-contract", envelopes: ["v1"], configured: true },
+            { name: "auth", envelopes: ["v1"], configured: true },
+          ],
+        })
+      }
+      if (url.endsWith("/csrf")) {
+        return jsonOk({ token: "t", expiresAt: "2999-01-01T00:00:00Z" })
+      }
+      const body = JSON.parse(String(init?.body ?? "{}")) as { intent?: string }
+      if (body.intent) sent.push(body.intent)
+      return jsonOk({ ok: true, data: { ok: true } })
+    }) as unknown as typeof fetch
+
+    const plugin = definePlugin({
+      extension: "auth",
+      namespace: "auth",
+      auth: { gate: () => <p>gate body</p>, signOutIntent: "auth.logout" },
+      nav: [],
+      routes: [],
+    })
+
+    renderHost([rootPlugin(), plugin], fetchImpl, "/overview")
+    await screen.findByText("root overview body")
+    const before = principalCalls
+
+    fireEvent.click(screen.getByRole("button", { name: /u1/ }))
+    fireEvent.click(screen.getByText("Log out"))
+
+    await waitFor(() => expect(sent).toContain("auth.logout"))
+    await waitFor(() => expect(principalCalls).toBeGreaterThan(before))
+  })
 })

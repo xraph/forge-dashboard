@@ -321,6 +321,28 @@ export function PluginHost({ plugins, fetchImpl }: PluginHostProps) {
     navigate(`${mountPath(target.plugin, first ? first.to : "/")}${search}`)
   }
 
+  // Sign-out is the provider's command, sent through the provider's own
+  // client, and this host never learns what it does. `signOutIntent` is a
+  // string the plugin handed over; refreshing afterwards is what puts the
+  // gate back up, because /principal is the only thing that decides that.
+  const authProvider = resolveAuthProvider(plugins)
+  const signOutIntent = authProvider?.auth?.signOutIntent
+  const onSignOut =
+    authProvider && signOutIntent
+      ? () => {
+          void clients
+            .get(authProvider.extension)
+            ?.command(signOutIntent)
+            .catch(() => {
+              // A failed sign-out still has to re-read the session: the
+              // cookie may well be gone even though the response never
+              // arrived, and leaving the old footer up would claim you are
+              // still signed in.
+            })
+            .finally(() => session.refresh())
+        }
+      : undefined
+
   const sidebar = {
     back,
     scopes: scopeOptions,
@@ -337,6 +359,7 @@ export function PluginHost({ plugins, fetchImpl }: PluginHostProps) {
             email: session.state.principal.email ?? "",
           }
         : { name: "Dashboard user", email: "" },
+    onSignOut,
   } satisfies React.ComponentProps<typeof AppSidebar>
 
   // The gate goes here, before anything builds a route table or a sidebar.

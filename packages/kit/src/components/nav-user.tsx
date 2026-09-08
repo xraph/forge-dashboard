@@ -68,12 +68,19 @@ function UserAvatar({
 
 export function NavUser({
   user,
+  onSignOut,
 }: {
   user: {
     name: string
     email: string
     avatar?: string
   }
+  /**
+   * Runs when the sign-out item is chosen. Omit it and no sign-out item
+   * renders: the dashboard may have no auth provider, and a menu item that
+   * looks clickable and does nothing is worse than one that is not there.
+   */
+  onSignOut?: () => void
 }) {
   const { isMobile } = useSidebar()
   return (
@@ -131,12 +138,16 @@ export function NavUser({
                 Notifications
               </DropdownMenuItem>
             </DropdownMenuGroup>
-            <DropdownMenuSeparator />
-            <DropdownMenuItem>
-              <LogOutIcon
-              />
-              Log out
-            </DropdownMenuItem>
+            {onSignOut ? (
+              <>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem onClick={onSignOut}>
+                  <LogOutIcon
+                  />
+                  Log out
+                </DropdownMenuItem>
+              </>
+            ) : null}
           </DropdownMenuContent>
         </DropdownMenu>
       </SidebarMenuItem>

@@ -43,6 +43,7 @@ export interface AppSidebarProps
    */
   header?: ReactNode
   user: { name: string; email: string; avatar?: string }
+  onSignOut?: () => void
 }
 
 /**
@@ -65,6 +66,7 @@ export function AppSidebar({
   renderLink,
   header,
   user,
+  onSignOut,
   ...props
 }: AppSidebarProps) {
   return (
@@ -100,7 +102,7 @@ export function AppSidebar({
         />
       </SidebarContent>
       <SidebarFooter>
-        <NavUser user={user} />
+        <NavUser user={user} onSignOut={onSignOut} />
       </SidebarFooter>
     </Sidebar>
   )
