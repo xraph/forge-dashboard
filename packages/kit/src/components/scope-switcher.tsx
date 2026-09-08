@@ -13,7 +13,7 @@ import {
   SidebarMenuButton,
   SidebarMenuItem,
 } from "@forge-go/dashboard-kit/components/sidebar"
-import { ChevronsUpDownIcon } from "lucide-react"
+import { ChevronsUpDownIcon, CheckIcon } from "lucide-react"
 
 /** One selectable scope. Presentational: no plugin, no router, no capabilities. */
 export interface ScopeOption {
@@ -81,25 +81,35 @@ export function ScopeSwitcher({
                 Scopes
               </DropdownMenuLabel>
             </DropdownMenuGroup>
-            {scopes.map((scope) => (
-              <DropdownMenuItem
-                key={scope.id}
-                onClick={() => onSelect(scope.id)}
-              >
-                {scope.icon}
-                <div className="grid flex-1 leading-tight">
-                  <span className="truncate">{scope.label}</span>
-                  <span className="truncate text-xs text-muted-foreground">
-                    @{scope.namespace}
-                  </span>
-                </div>
-                {scope.badge ? (
-                  <span className="ml-auto rounded-full border px-2 text-[10px] uppercase">
-                    {scope.badge}
-                  </span>
-                ) : null}
-              </DropdownMenuItem>
-            ))}
+            {scopes.map((scope) => {
+              const isActive = scope.id === activeId
+              return (
+                <DropdownMenuItem
+                  key={scope.id}
+                  onClick={() => onSelect(scope.id)}
+                  data-active={isActive || undefined}
+                  aria-current={isActive ? "true" : undefined}
+                >
+                  {scope.icon}
+                  <div className="grid flex-1 leading-tight">
+                    <span className="truncate">{scope.label}</span>
+                    <span className="truncate text-xs text-muted-foreground">
+                      @{scope.namespace}
+                    </span>
+                  </div>
+                  <div className="ml-auto flex items-center gap-1.5">
+                    {isActive ? (
+                      <CheckIcon className="size-4" aria-hidden="true" />
+                    ) : null}
+                    {scope.badge ? (
+                      <span className="rounded-full border px-2 text-[10px] uppercase">
+                        {scope.badge}
+                      </span>
+                    ) : null}
+                  </div>
+                </DropdownMenuItem>
+              )
+            })}
           </DropdownMenuContent>
         </DropdownMenu>
       </SidebarMenuItem>

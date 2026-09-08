@@ -85,4 +85,17 @@ describe("ScopeSwitcher", () => {
     fireEvent.click(screen.getByText("System"))
     expect(onSelect).toHaveBeenCalledWith("core-contract")
   })
+
+  it("marks the active scope inside the opened dropdown", () => {
+    setup("auth")
+    fireEvent.click(screen.getByRole("button", { name: /Auth/ }))
+
+    // "Auth" appears twice: once in the trigger, once in the menu list. The
+    // menu item is the one with a menuitem role.
+    const activeItem = screen.getByRole("menuitem", { name: /Auth/ })
+    const inactiveItem = screen.getByRole("menuitem", { name: /System/ })
+
+    expect(activeItem.getAttribute("data-active")).not.toBeNull()
+    expect(inactiveItem.getAttribute("data-active")).toBeNull()
+  })
 })
