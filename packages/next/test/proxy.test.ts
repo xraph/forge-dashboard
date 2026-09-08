@@ -174,6 +174,8 @@ describe("createForgeProxy", () => {
           "X-Forwarded-For": "1.2.3.4",
           "X-Forwarded-Host": "evil.example",
           "X-Real-IP": "1.2.3.4",
+          Trailer: "X-Checksum",
+          "Proxy-Authorization": "Basic evil",
         },
       }),
       ctx(["x"])
@@ -186,6 +188,8 @@ describe("createForgeProxy", () => {
     expect(called.headers.get("x-forwarded-for")).toBeNull()
     expect(called.headers.get("x-forwarded-host")).toBeNull()
     expect(called.headers.get("x-real-ip")).toBeNull()
+    expect(called.headers.get("trailer")).toBeNull()
+    expect(called.headers.get("proxy-authorization")).toBeNull()
   })
 
   it("returns a clean 502 instead of throwing when the upstream fetch rejects", async () => {
@@ -248,6 +252,38 @@ describe("createForgeProxy", () => {
       ctx(["x"])
     )
     expect(res.headers.get("cache-control")).toBe("no-store")
+  })
+
+  it("does not disclose the target host via an upstream Location header", async () => {
+    // A 201 Created from a POST typically carries an absolute Location for
+    // the new resource. Forwarding it verbatim would leak `target` - a
+    // server-side secret - to the browser, the same class of disclosure the
+    // redirect handling above closes off, just on a non-redirect status.
+    const upstream = vi.fn<(req: Request) => Promise<Response>>(
+      async () =>
+        new Response("{}", {
+          status: 201,
+          headers: {
+            Location: "https://forge.internal/dashboard/v1/items/123",
+          },
+        })
+    )
+    const { POST } = createForgeProxy({
+      target: "https://forge.internal",
+      fetchImpl: upstream as unknown as typeof fetch,
+    })
+
+    const res = await POST(
+      new Request("https://app.test/api/forge/dashboard/v1/items", {
+        method: "POST",
+        body: "{}",
+      }),
+      ctx(["dashboard", "v1", "items"])
+    )
+
+    expect(res.status).toBe(201)
+    expect(res.headers.get("location")).toBeNull()
+    expect(await res.text()).not.toContain("forge.internal")
   })
 
   it("forwards the inbound query string to the upstream request", async () => {

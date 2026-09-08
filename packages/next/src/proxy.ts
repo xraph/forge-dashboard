@@ -108,10 +108,12 @@ function upstreamURL(
 
 /**
  * Headers stripped from the inbound request before it is forwarded upstream.
- * Two different concerns share this list: connection-management headers are
- * per-hop, not per-resource, and forwarding them can desync the upstream
- * connection or make the HTTP client reject the request outright (undici
- * throws on a "transfer-encoding" it doesn't expect, or on a
+ * Two different concerns share this list: connection-management headers -
+ * the classic hop-by-hop set ("connection", "keep-alive",
+ * "transfer-encoding", "te", "upgrade", "trailer", "proxy-authorization") -
+ * are per-hop, not per-resource, and forwarding them can desync the
+ * upstream connection or make the HTTP client reject the request outright
+ * (undici throws on a "transfer-encoding" it doesn't expect, or on a
  * "content-length" that no longer matches once the body has been re-read as
  * text) - and "x-forwarded-*" / "x-real-ip" are trust signals that must come
  * from this proxy's own network position, never from whatever a browser
@@ -124,6 +126,8 @@ const STRIPPED_REQUEST_HEADERS = new Set([
   "transfer-encoding",
   "te",
   "upgrade",
+  "trailer",
+  "proxy-authorization",
   "content-length",
   "x-real-ip",
 ])
@@ -145,11 +149,19 @@ function sanitizeRequestHeaders(source: Headers): Headers {
  * rather than forwarding upstream's headers as-is. "cache-control" matters
  * so an upstream "no-store" on something like a CSRF token endpoint survives
  * the proxy instead of leaving the response heuristically cacheable.
+ *
+ * "location" is deliberately excluded, even for a non-redirect response
+ * like a 201 Created: `target` is a server-side secret, and an upstream
+ * Location is typically absolute (e.g.
+ * "https://forge.internal/dashboard/v1/items/123"), so forwarding it
+ * verbatim would disclose the target host to the browser on exactly the
+ * same class of path the redirect handling above closes off. A dashboard
+ * client proxied through this route has no legitimate use for an absolute
+ * upstream Location anyway.
  */
 const FORWARDED_RESPONSE_HEADERS = [
   "content-type",
   "cache-control",
-  "location",
   "www-authenticate",
   "retry-after",
   "content-disposition",
