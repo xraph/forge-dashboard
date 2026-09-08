@@ -1,5 +1,5 @@
 import { afterEach, beforeAll, describe, expect, it, vi } from "vitest"
-import { render, screen, within } from "@testing-library/react"
+import { render, screen, waitFor, within } from "@testing-library/react"
 import type {
   Capabilities,
   ContributorCapability,
@@ -60,6 +60,19 @@ function serverFetch(
     if (url.endsWith("/capabilities")) {
       const caps: Capabilities = { shellEnvelopes: ["v1"], contributors }
       return jsonOk(caps)
+    }
+    // ForgeDashboard resolves the session before it builds any chrome, so
+    // every test through it needs an answer here. Without one the session
+    // resolves `unreachable` and the shell renders an alert rather than the
+    // page each of these tests is asserting on. Signed in, because these
+    // tests are about mounting and routing rather than about auth.
+    if (url.endsWith("/principal")) {
+      return jsonOk({
+        authenticated: true,
+        subject: "usr_shell_test",
+        displayName: "Shell test user",
+        email: "shell@example.com",
+      })
     }
     if (url === CONTRACT_BASE) {
       return jsonOk({ ok: true, data: OVERVIEW })
@@ -177,9 +190,17 @@ describe("App at a non-default mount", () => {
     // an item also labelled "Overview" -- so an unscoped query here would
     // find two "Overview" links (ambiguous) and the link list below would
     // pick up the pinned entry this part of the test is not about.
-    const streamingNav = streaming.container.querySelector(
-      '[data-slot="sidebar-content"]'
-    ) as HTMLElement
+    // The session resolves before the shell is built, so the sidebar does not
+    // exist on the first frame: the host renders a bare spinner until
+    // /principal answers. Querying synchronously here hands `within` a null
+    // container. Wait for the chrome, then scope to it.
+    const streamingNav = await waitFor(() => {
+      const nav = streaming.container.querySelector(
+        '[data-slot="sidebar-content"]'
+      )
+      if (!nav) throw new Error("sidebar-content not rendered yet")
+      return nav as HTMLElement
+    })
     await within(streamingNav).findByRole("link", { name: "Overview" })
     let links = within(streamingNav).getAllByRole("link")
     expect(links.map((a) => a.textContent)).toEqual([
@@ -205,28 +226,28 @@ describe("App at a non-default mount", () => {
 
     streaming.unmount()
 
-    window.history.replaceState({}, "", `${SHELL_BASE}/@auth/login`)
+    // /@auth/users, not /@auth/login. Sign-in is the gate now, not a page:
+    // authsome dropped it from both nav and routes, so /@auth/login routes to
+    // nothing and "Sign in" is no longer a nav item.
+    window.history.replaceState({}, "", `${SHELL_BASE}/@auth/users`)
     const auth = render(<App />)
-    // Same reason as streaming above: scoped past core's pinned "Overview"
-    // so this asserts auth's own nav and nothing else, regardless of order.
-    const authNav = auth.container.querySelector(
-      '[data-slot="sidebar-content"]'
-    ) as HTMLElement
-    await within(authNav).findByRole("link", { name: "Sign in" })
+    const authNav = await waitFor(() => {
+      const nav = auth.container.querySelector('[data-slot="sidebar-content"]')
+      if (!nav) throw new Error("sidebar-content not rendered yet")
+      return nav as HTMLElement
+    })
+    await within(authNav).findByRole("link", { name: "Users" })
     links = within(authNav).getAllByRole("link")
-    expect(links.map((a) => a.textContent)).toEqual([
-      "Sign in",
-      "Users",
-      "Sessions",
-    ])
+    expect(links.map((a) => a.textContent)).toEqual(["Users", "Sessions"])
     expect(links.map((a) => a.getAttribute("href"))).toEqual([
-      "/dashboard/ui/@auth/login",
       "/dashboard/ui/@auth/users",
       "/dashboard/ui/@auth/sessions",
     ])
 
-    // Same check as streaming above: core's pinned nav is still there while
-    // inside auth's scope.
+    // The way out of a scope is a single back row above the switcher, which
+    // replaced the root plugin's pinned nav. It carries the root's first nav
+    // item, so it is still labelled "Overview" and it still lives in the
+    // header, but it is one row rather than a whole nav tree.
     const authHeader = auth.container.querySelector(
       '[data-slot="sidebar-header"]'
     ) as HTMLElement
