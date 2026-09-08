@@ -23,6 +23,9 @@ importers:
 
   apps/playground:
     dependencies:
+      '@forge-go/dashboard-host':
+        specifier: workspace:*
+        version: link:../../packages/host
       '@forge-go/dashboard-kit':
         specifier: workspace:*
         version: link:../../packages/kit
@@ -96,6 +99,9 @@ importers:
 
   apps/shell:
     dependencies:
+      '@forge-go/dashboard-host':
+        specifier: workspace:*
+        version: link:../../packages/host
       '@forge-go/dashboard-kit':
         specifier: workspace:*
         version: link:../../packages/kit

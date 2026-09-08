@@ -8,7 +8,7 @@ import {
 import { TooltipProvider } from "@forge-go/dashboard-kit/components/tooltip"
 import authsomePlugin from "@forge-go/dashboard-plugin-authsome"
 import streamingPlugin from "@forge-go/dashboard-plugin-streaming"
-import { PluginHost } from "./host/PluginHost"
+import { PluginHost } from "@forge-go/dashboard-host"
 import { corePlugin } from "./plugins/core"
 
 // The Go handler injects window.__FORGE_DASHBOARD__ before this bundle loads,

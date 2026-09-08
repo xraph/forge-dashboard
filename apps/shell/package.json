@@ -12,6 +12,7 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@forge-go/dashboard-host": "workspace:*",
     "@forge-go/dashboard-kit": "workspace:*",
     "@forge-go/dashboard-plugin": "workspace:*",
     "@forge-go/dashboard-plugin-authsome": "workspace:*",

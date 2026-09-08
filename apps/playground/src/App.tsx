@@ -1,7 +1,7 @@
 import { BrowserRouter } from "react-router"
 import { ForgeDashboardProvider } from "@forge-go/dashboard-runtime"
 import { TooltipProvider } from "@forge-go/dashboard-kit/components/tooltip"
-import { PluginHost } from "./host/PluginHost"
+import { PluginHost } from "@forge-go/dashboard-host"
 import { coreDemoPlugin } from "./plugins/core-demo"
 
 // Hoisted beside the plugin list: ForgeDashboardProvider memoizes on config
