@@ -88,6 +88,28 @@ const params = { page, ...(search ? { search } : {}) }
 
 not `{ page, search: search || undefined }`.
 
+## Reset the query store between tests
+
+The store is a module-level singleton, on purpose: two plugins reading the same
+intent through different scoped clients should share one request, and a context
+provider per plugin would give each its own cache and quietly double every shared
+read.
+
+The cost lands in tests. A cache entry written by one test is still there for the
+next one, so a test that expects a request to go out gets served from cache
+instead and fails in a way that points at the wrong thing. Every test harness
+that renders a plugin page has to clear it:
+
+```tsx
+beforeEach(() => {
+  queryStore.clear()
+})
+```
+
+`packages/plugin-authsome/test/harness.tsx` and
+`packages/plugin-streaming/test/harness.tsx` already do this. Copy whichever is
+closer to what you are writing.
+
 ## `ResourceTable` sorts nothing and pages nothing
 
 Both are controlled, and that isn't an oversight to fix later. The server owns
