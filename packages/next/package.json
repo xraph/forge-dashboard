@@ -1,0 +1,24 @@
+{
+  "name": "@forge-go/dashboard-next",
+  "version": "0.0.0",
+  "type": "module",
+  "files": ["src"],
+  "publishConfig": { "access": "public" },
+  "scripts": {
+    "test": "vitest run",
+    "lint": "eslint",
+    "format": "prettier --write \"**/*.{ts,tsx}\"",
+    "typecheck": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "@eslint/js": "^10",
+    "eslint": "^10",
+    "globals": "^17",
+    "typescript": "~6",
+    "typescript-eslint": "^8",
+    "vitest": "^5.0.0"
+  },
+  "exports": {
+    ".": "./src/index.ts"
+  }
+}
