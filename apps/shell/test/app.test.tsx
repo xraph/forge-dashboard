@@ -1,5 +1,5 @@
 import { afterEach, beforeAll, describe, expect, it, vi } from "vitest"
-import { render, screen } from "@testing-library/react"
+import { render, screen, within } from "@testing-library/react"
 import type {
   Capabilities,
   ContributorCapability,
@@ -123,10 +123,12 @@ describe("App at a non-default mount", () => {
     // The exact probe run against the built artifact in the browser: the href
     // used to read "/overview" -- absolute from the site root, outside the
     // dashboard mount, so it 404s from the Go app on refresh or on a shared
-    // link. It is now scoped under the core plugin's namespace ("system",
-    // set explicitly because "core-contract" would otherwise derive to
-    // "core") as well as under the mount.
-    expect(link.getAttribute("href")).toBe("/dashboard/ui/@system/overview")
+    // link. Core is now the root plugin, so its href carries no "@namespace"
+    // segment of its own, but it is still resolved relative to the mount:
+    // that is what this assertion is actually pinning -- mount-prefixed, not
+    // site-root-absolute -- regardless of whether the plugin behind it has a
+    // namespace.
+    expect(link.getAttribute("href")).toBe("/dashboard/ui/overview")
   })
 
   /**
@@ -156,19 +158,30 @@ describe("App at a non-default mount", () => {
       ])
     )
 
-    // core is first in the plugins array, so the site root redirects to its
-    // scope by default -- no explicit navigation needed for it.
+    // core is the root plugin and first in the plugins array, so the site
+    // root redirects to its own page by default -- no explicit navigation
+    // needed for it. Unlike streaming and auth below, its href carries no
+    // "@namespace" segment (root plugins do not get one); this assertion
+    // proves it is still wired and reachable at the mount, not that it is
+    // namespaced.
     const core = render(<App />)
     const overviewLink = await screen.findByRole("link", { name: "Overview" })
-    expect(overviewLink.getAttribute("href")).toBe(
-      "/dashboard/ui/@system/overview"
-    )
+    expect(overviewLink.getAttribute("href")).toBe("/dashboard/ui/overview")
     core.unmount()
 
     window.history.replaceState({}, "", `${SHELL_BASE}/@streaming`)
     const streaming = render(<App />)
-    await screen.findByRole("link", { name: "Overview" })
-    let links = screen.getAllByRole("link")
+    // Scoped to the active scope's own nav group (SidebarContent), not the
+    // whole page. core's pinned nav lives in SidebarHeader and stays visible
+    // in every scope -- including this one, whose own nav happens to declare
+    // an item also labelled "Overview" -- so an unscoped query here would
+    // find two "Overview" links (ambiguous) and the link list below would
+    // pick up the pinned entry this part of the test is not about.
+    const streamingNav = streaming.container.querySelector(
+      '[data-slot="sidebar-content"]'
+    ) as HTMLElement
+    await within(streamingNav).findByRole("link", { name: "Overview" })
+    let links = within(streamingNav).getAllByRole("link")
     expect(links.map((a) => a.textContent)).toEqual([
       "Overview",
       "Rooms",
@@ -182,9 +195,14 @@ describe("App at a non-default mount", () => {
     streaming.unmount()
 
     window.history.replaceState({}, "", `${SHELL_BASE}/@auth/login`)
-    render(<App />)
-    await screen.findByRole("link", { name: "Sign in" })
-    links = screen.getAllByRole("link")
+    const auth = render(<App />)
+    // Same reason as streaming above: scoped past core's pinned "Overview"
+    // so this asserts auth's own nav and nothing else, regardless of order.
+    const authNav = auth.container.querySelector(
+      '[data-slot="sidebar-content"]'
+    ) as HTMLElement
+    await within(authNav).findByRole("link", { name: "Sign in" })
+    links = within(authNav).getAllByRole("link")
     expect(links.map((a) => a.textContent)).toEqual([
       "Sign in",
       "Users",
