@@ -15,6 +15,14 @@ import {
 
 export interface AppSidebarProps
   extends React.ComponentProps<typeof Sidebar> {
+  /**
+   * Nav that stays visible in every scope, rendered above the switcher.
+   *
+   * This is the root plugin's nav. It sits outside the scope system on
+   * purpose: the server's own pages are not one context among several, they
+   * are where you are when you are not inside an extension.
+   */
+  pinned?: NavGroup[]
   scopes: ScopeOption[]
   activeScopeId?: string
   onScopeSelect: (id: string) => void
@@ -41,6 +49,7 @@ export interface AppSidebarProps
  * there was no way in here.
  */
 export function AppSidebar({
+  pinned,
   scopes,
   activeScopeId,
   onScopeSelect,
@@ -55,11 +64,21 @@ export function AppSidebar({
   return (
     <Sidebar collapsible="offcanvas" {...props}>
       <SidebarHeader>
-        <ScopeSwitcher
-          scopes={scopes}
-          activeId={activeScopeId}
-          onSelect={onScopeSelect}
-        />
+        {pinned?.length ? (
+          <NavTree
+            groups={pinned}
+            currentPath={currentPath}
+            search={search}
+            renderLink={renderLink}
+          />
+        ) : null}
+        {scopes.length > 0 ? (
+          <ScopeSwitcher
+            scopes={scopes}
+            activeId={activeScopeId}
+            onSelect={onScopeSelect}
+          />
+        ) : null}
         {header}
       </SidebarHeader>
       <SidebarContent>
