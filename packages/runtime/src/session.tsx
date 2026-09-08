@@ -71,6 +71,20 @@ export interface Session {
    * `[contractBase, doFetch]` alone and never re-runs.
    */
   epoch: number
+  /**
+   * True once the session's own `/principal` fetch has completed at least
+   * once. False on every first render, seeded or not.
+   *
+   * This is not the same question as `state.status === "unknown"`. A page
+   * whose principal was inlined by the Go handler starts its first render
+   * already `signedIn` or `signedOut` (see `seed()` below), before the real
+   * `/principal` fetch behind it has ever landed. Something that gates on a
+   * seeded-looking state rather than on this flag runs once against the seed
+   * and once again the instant the real fetch resolves and downgrades or
+   * confirms it, firing whatever it gates twice on every load that carries an
+   * inlined principal.
+   */
+  resolved: boolean
   refresh: () => void
 }
 
@@ -100,6 +114,7 @@ export function SessionProvider({
     return s.status === "signedOut" ? { status: "signedOut", loginPath } : s
   })
   const [epoch, setEpoch] = useState(0)
+  const [resolved, setResolved] = useState(false)
   const [nonce, setNonce] = useState(0)
 
   // Bound on purpose. An unbound `fetch` called as a plain function throws
@@ -148,6 +163,7 @@ export function SessionProvider({
       // seeded the first frame; it never outranks the endpoint.
       setState(next)
       setEpoch((e) => e + 1)
+      setResolved(true)
     })()
 
     return () => {
@@ -155,7 +171,10 @@ export function SessionProvider({
     }
   }, [contractBase, doFetch, loginPath, nonce])
 
-  const value = useMemo<Session>(() => ({ state, epoch, refresh }), [state, epoch, refresh])
+  const value = useMemo<Session>(
+    () => ({ state, epoch, resolved, refresh }),
+    [state, epoch, resolved, refresh],
+  )
 
   return <SessionContext.Provider value={value}>{children}</SessionContext.Provider>
 }

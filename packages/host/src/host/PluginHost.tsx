@@ -135,13 +135,31 @@ export function PluginHost({ plugins, fetchImpl }: PluginHostProps) {
   )
 
   useEffect(() => {
-    // Nothing has told us yet whether this visitor is even allowed to see
-    // capabilities. Waiting for the session's first resolution keeps a
-    // signed-out visitor's mount from firing a capabilities request nobody
-    // will use, and keeps the epoch dependency below from doubling every
-    // resolution into two fetches: one at mount with epoch still 0, one
-    // again the instant the session's own first fetch lands.
-    if (session.state.status === "unknown") return
+    // Two things must both hold before capabilities are worth asking for.
+    //
+    // First, the session must have resolved at least once. This is deliberately
+    // `!session.resolved`, not `session.state.status === "unknown"`: a page
+    // whose principal was inlined by the Go handler starts its first render
+    // already `signedIn` or `signedOut` (session.tsx's `seed()`), before the
+    // real `/principal` fetch behind that seed has ever landed. Gating on the
+    // status instead of on `resolved` would pass on that very first render,
+    // fire capabilities once against the seed, then fire it again the instant
+    // the real fetch confirms or downgrades it and `session.epoch` changes --
+    // two requests on every load that carries an inlined principal, which no
+    // jsdom-default test (none of them seed `window.__FORGE_DASHBOARD__`) is
+    // in a position to notice.
+    //
+    // Second, the resolved state must not be one that blocks the whole page
+    // behind the gate. `signedOut` and `denied` both mean nobody is about to
+    // see a capabilities-driven page anyway, so a request here would be a
+    // guaranteed-401 sent for no reader.
+    if (
+      !session.resolved ||
+      session.state.status === "signedOut" ||
+      session.state.status === "denied"
+    ) {
+      return
+    }
 
     let cancelled = false
 
@@ -175,7 +193,7 @@ export function PluginHost({ plugins, fetchImpl }: PluginHostProps) {
     return () => {
       cancelled = true
     }
-  }, [contractBase, doFetch, session.epoch, session.state.status])
+  }, [contractBase, doFetch, session.epoch, session.resolved, session.state.status])
 
   // One client per plugin, each permanently bound to that plugin's own
   // extension. Built here rather than inside the render of each route so a

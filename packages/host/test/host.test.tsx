@@ -263,7 +263,14 @@ describe("PluginHost", () => {
   })
 
   it("shows an error state, not a blank page, when the capabilities request never lands", async () => {
-    const fetchImpl = vi.fn(async () => {
+    // /principal answers signed-in so the session resolves cleanly and the
+    // host actually reaches the capabilities branch this test names, rather
+    // than blocking on the session's own unreachable state first.
+    const fetchImpl = vi.fn(async (input: RequestInfo | URL) => {
+      const url = String(input)
+      if (url.endsWith("/principal")) {
+        return jsonOk({ authenticated: true, subject: "usr_test", email: "test@example.com" })
+      }
       throw new TypeError("Failed to fetch")
     }) as unknown as typeof fetch
 
@@ -271,19 +278,30 @@ describe("PluginHost", () => {
 
     const alert = await screen.findByRole("alert")
     expect(alert.textContent).toContain("Failed to fetch")
+    // Confirms this is the capabilities branch's own alert, not the
+    // session's unreachable alert, which "Failed to fetch" alone would also
+    // satisfy if /principal had been left throwing too.
+    expect(alert.textContent).toContain("Could not reach the dashboard server")
     expect(screen.queryByText("overview page body")).toBeNull()
   })
 
   it("shows an error state when the capabilities request answers with a non-2xx status", async () => {
-    const fetchImpl = vi.fn(
-      async () =>
-        ({ ok: false, status: 502, json: async () => ({}) }) as Response
-    ) as unknown as typeof fetch
+    // Same reasoning: /principal must succeed on its own so only the
+    // capabilities request is left answering 502.
+    const fetchImpl = vi.fn(async (input: RequestInfo | URL) => {
+      const url = String(input)
+      if (url.endsWith("/principal")) {
+        return jsonOk({ authenticated: true, subject: "usr_test", email: "test@example.com" })
+      }
+      return { ok: false, status: 502, json: async () => ({}) } as Response
+    }) as unknown as typeof fetch
 
     renderHost([demoPlugin()], fetchImpl)
 
     const alert = await screen.findByRole("alert")
     expect(alert.textContent).toContain("502")
+    // Same discriminator as above: this is the capabilities branch's alert.
+    expect(alert.textContent).toContain("Could not reach the dashboard server")
     expect(screen.queryByText("overview page body")).toBeNull()
   })
 
@@ -1188,15 +1206,37 @@ describe("PluginHost capability states", () => {
   // kit's data-slot markers rather than their copy: the point is that these
   // states are built from the component library like everything else, and a
   // text assertion passes just as well for a hand-rolled div.
-  it("shows the kit's spinner while capabilities are in flight", () => {
-    const pending = vi.fn(() => new Promise<Response>(() => {})) as unknown as typeof fetch
+  it("shows the kit's spinner while capabilities are in flight", async () => {
+    // /principal must resolve so the session clears its own "unknown"
+    // spinner (PluginHost.tsx's own bare-spinner branch, which has a
+    // spinner too and would otherwise satisfy this test without ever
+    // reaching the branch it names). /capabilities never resolves, so once
+    // the session is signed in the host is left in its own
+    // capabilities-loading state.
+    const pending = vi.fn(async (input: RequestInfo | URL) => {
+      const url = String(input)
+      if (url.endsWith("/principal")) {
+        return jsonOk({ authenticated: true, subject: "usr_test", email: "test@example.com" })
+      }
+      return new Promise<Response>(() => {})
+    }) as unknown as typeof fetch
     const { container } = renderHost([rootPlugin()], pending, "/overview")
 
+    // The copy is the discriminator: it only appears from the capabilities
+    // branch (state.status === "loading"), never from the session's own
+    // "Resolving your session…" spinner.
+    expect(await screen.findByText(/Loading dashboard capabilities/)).toBeTruthy()
     expect(container.querySelector('[data-slot="spinner"]')).toBeTruthy()
   })
 
   it("shows the kit's alert when the capabilities request fails", async () => {
-    const failing = vi.fn(async () => {
+    // Same reasoning: /principal must succeed so the session resolves
+    // cleanly and only the capabilities request is left failing.
+    const failing = vi.fn(async (input: RequestInfo | URL) => {
+      const url = String(input)
+      if (url.endsWith("/principal")) {
+        return jsonOk({ authenticated: true, subject: "usr_test", email: "test@example.com" })
+      }
       throw new Error("network is down")
     }) as unknown as typeof fetch
     const { container } = renderHost([rootPlugin()], failing, "/overview")
@@ -1207,6 +1247,11 @@ describe("PluginHost capability states", () => {
     // The reason still has to reach the person; an alert with no cause in it
     // is a worse version of the div it replaced.
     expect(screen.getByText(/network is down/)).toBeTruthy()
+    // The title is the discriminator: it only appears from the capabilities
+    // branch, never from the session's own unreachable alert ("Could not
+    // determine whether you are signed in"), which the message text alone
+    // would not have told apart.
+    expect(screen.getByText("Could not reach the dashboard server")).toBeTruthy()
   })
 })
 
@@ -1440,6 +1485,46 @@ describe("PluginHost auth gate", () => {
     // key on the session epoch and not on [contractBase, doFetch] alone.
     expect(principalCalls).toBe(1)
     expect(capabilityCalls).toBe(1)
+  })
+
+  it("fires capabilities exactly once when the Go handler seeds the principal", async () => {
+    // The seeded path is the production shape: the Go handler always writes
+    // window.__FORGE_DASHBOARD__.principal (session.tsx's own doc comment),
+    // so the very first render already looks signedIn, before /principal has
+    // ever been asked. A guard keyed on state.status === "unknown" passes on
+    // that first render too, fires capabilities against the seed, then fires
+    // it again the instant the real fetch lands and session.epoch moves --
+    // two requests, both while nothing downstream can tell.
+    ;(window as unknown as { __FORGE_DASHBOARD__?: unknown }).__FORGE_DASHBOARD__ = {
+      principal: { authenticated: true, subject: "u1", email: "ada@example.com" },
+    }
+    try {
+      let principalCalls = 0
+      let capabilityCalls = 0
+      const fetchImpl = vi.fn(async (input: RequestInfo | URL) => {
+        const url = String(input)
+        if (url.endsWith("/principal")) {
+          principalCalls += 1
+          return jsonOk({ authenticated: true, subject: "u1", email: "ada@example.com" })
+        }
+        if (url.endsWith("/capabilities")) {
+          capabilityCalls += 1
+          return jsonOk({
+            shellEnvelopes: ["v1"],
+            contributors: [{ name: "core-contract", envelopes: ["v1"], configured: true }],
+          })
+        }
+        throw new Error(`unexpected request to ${url}`)
+      }) as unknown as typeof fetch
+
+      renderHost([rootPlugin()], fetchImpl, "/overview")
+      await screen.findByText("root overview body")
+
+      expect(principalCalls).toBe(1)
+      expect(capabilityCalls).toBe(1)
+    } finally {
+      delete (window as unknown as { __FORGE_DASHBOARD__?: unknown }).__FORGE_DASHBOARD__
+    }
   })
 
   it("sends the provider's sign-out command and re-reads the session", async () => {
