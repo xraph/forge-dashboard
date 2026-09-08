@@ -19,6 +19,7 @@
     "react-router": "^8.3.1"
   },
   "devDependencies": {
+    "@eslint/js": "^10",
     "@forge-go/dashboard-kit": "workspace:*",
     "@forge-go/dashboard-plugin": "workspace:*",
     "@forge-go/dashboard-runtime": "workspace:*",
@@ -26,12 +27,17 @@
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "@vitejs/plugin-react": "^6",
+    "eslint": "^10",
+    "eslint-plugin-react-hooks": "^7.1.1",
+    "eslint-plugin-react-refresh": "^0.5.2",
+    "globals": "^17",
     "jsdom": "^25.0.1",
     "lucide-react": "^1.40.0",
     "react": "^19.2.6",
     "react-dom": "^19.2.6",
     "react-router": "^8.3.1",
     "typescript": "~6",
+    "typescript-eslint": "^8",
     "vitest": "^5.0.0"
   },
   "exports": {
