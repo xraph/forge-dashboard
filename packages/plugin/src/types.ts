@@ -25,6 +25,17 @@ export interface ForgePlugin {
    */
   extension: string
   /**
+   * Mounts this plugin's routes at the dashboard root rather than under a
+   * namespace, so `to: "/overview"` serves at "/overview".
+   *
+   * The server's own pages belong here. Extensions arrive from elsewhere and
+   * can collide with each other, which is what namespaces are for; the server
+   * is the thing being extended and has nothing to collide with. Exactly one
+   * plugin may set this, and a plugin that sets it must not also set
+   * `namespace`, because then it cannot say where it mounts.
+   */
+  root?: boolean
+  /**
    * The URL segment this plugin mounts under, without the `@` sigil. Defaults
    * to `extension` with a trailing "-contract" stripped. Kept separate from
    * `extension` so the Go join key never reaches a URL.

@@ -33,6 +33,12 @@ export function definePlugin(input: PluginInput): ForgePlugin {
     )
   }
 
+  if (input.root && input.namespace !== undefined) {
+    throw new Error(
+      `definePlugin: plugin "${input.extension}" sets both \`root\` and \`namespace\`, so it cannot say where it mounts. A root plugin serves at "/" and takes no namespace.`,
+    )
+  }
+
   if (
     input.namespace !== undefined &&
     !/^[a-z0-9][a-z0-9-]*$/i.test(input.namespace)

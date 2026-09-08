@@ -133,4 +133,33 @@ describe("definePlugin", () => {
       }),
     ).not.toThrow()
   })
+
+  it("accepts a root plugin", () => {
+    const p = definePlugin({
+      extension: "core-contract",
+      root: true,
+      nav: [{ label: "Overview", to: "/overview" }],
+      routes: [{ path: "/overview", element: Stub }],
+    })
+
+    expect(p.root).toBe(true)
+    expect(p.namespace).toBeUndefined()
+  })
+
+  it("rejects a plugin that sets both root and namespace", () => {
+    expect(() =>
+      definePlugin({
+        extension: "core-contract",
+        root: true,
+        namespace: "system",
+        routes: [],
+      }),
+    ).toThrow(/root/)
+  })
+
+  it("leaves a non-root plugin's root undefined", () => {
+    const p = definePlugin({ extension: "auth", routes: [] })
+
+    expect(p.root).toBeUndefined()
+  })
 })
