@@ -888,3 +888,33 @@ describe("scoped routing", () => {
     expect(screen.queryByLabelText("Plugin pages")).toBeNull()
   })
 })
+
+describe("a root plugin that is not ready", () => {
+  it("renders the root's setup panel rather than a blank page", async () => {
+    const fetchImpl = capabilitiesFetch([
+      { name: "core-contract", envelopes: ["v1"], configured: false, message: "needs a database" },
+    ])
+
+    render(
+      <ForgeDashboardProvider config={config}>
+        <MemoryRouter initialEntries={["/"]}>
+          <PluginHost
+            plugins={[
+              definePlugin({
+                extension: "core-contract",
+                root: true,
+                label: "System",
+                nav: [{ label: "Overview", to: "/overview" }],
+                routes: [{ path: "/overview", element: () => <p>root page</p> }],
+              }),
+            ]}
+            fetchImpl={fetchImpl}
+          />
+        </MemoryRouter>
+      </ForgeDashboardProvider>,
+    )
+
+    expect(await screen.findByText(/needs a database/)).toBeTruthy()
+    expect(screen.queryByText("root page")).toBeNull()
+  })
+})

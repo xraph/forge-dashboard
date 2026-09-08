@@ -30,7 +30,7 @@ export interface ForgePlugin {
    *
    * The server's own pages belong here. Extensions arrive from elsewhere and
    * can collide with each other, which is what namespaces are for; the server
-   * is the thing being extended and has nothing to collide with. Exactly one
+   * is the thing being extended and has nothing to collide with. At most one
    * plugin may set this, and a plugin that sets it must not also set
    * `namespace`, because then it cannot say where it mounts.
    */

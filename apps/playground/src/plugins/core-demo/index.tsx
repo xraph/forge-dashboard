@@ -98,7 +98,9 @@ function OverviewPage() {
  * `root: true` and not a `namespace`: this stands in for the server's own
  * UI, not an extension arriving from elsewhere, so it has nothing to collide
  * with and nothing to gain from living behind a scope switcher. It serves at
- * "/overview" and its nav is pinned above the switcher in every scope.
+ * "/overview" and its nav is pinned above the switcher in every scope. It
+ * keeps `label: "System"` for the page title even though there is no more
+ * switcher entry to label.
  */
 export const coreDemoPlugin = definePlugin({
   extension: "core-contract",

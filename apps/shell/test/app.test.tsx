@@ -192,6 +192,17 @@ describe("App at a non-default mount", () => {
       "/dashboard/ui/@streaming/rooms",
       "/dashboard/ui/@streaming/connections",
     ])
+
+    // core's pinned nav stays visible while inside this scope, against the
+    // real plugin set App.tsx wires -- not just the synthetic plugins
+    // host.test.tsx builds.
+    const streamingHeader = streaming.container.querySelector(
+      '[data-slot="sidebar-header"]'
+    ) as HTMLElement
+    expect(
+      within(streamingHeader).getByRole("link", { name: "Overview" })
+    ).toBeTruthy()
+
     streaming.unmount()
 
     window.history.replaceState({}, "", `${SHELL_BASE}/@auth/login`)
@@ -213,5 +224,14 @@ describe("App at a non-default mount", () => {
       "/dashboard/ui/@auth/users",
       "/dashboard/ui/@auth/sessions",
     ])
+
+    // Same check as streaming above: core's pinned nav is still there while
+    // inside auth's scope.
+    const authHeader = auth.container.querySelector(
+      '[data-slot="sidebar-header"]'
+    ) as HTMLElement
+    expect(
+      within(authHeader).getByRole("link", { name: "Overview" })
+    ).toBeTruthy()
   })
 })

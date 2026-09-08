@@ -196,6 +196,14 @@ export function PluginHost({ plugins, fetchImpl }: PluginHostProps) {
   // (including the root plugin's own pages) belongs to no scope at all.
   const activeScope = resolveActiveScope(pathname, scopes)
 
+  // A non-ready ROOT has no scope to render its panel in, so it renders here.
+  // The rule for scopes extends without needing a new one: a non-ready scope
+  // renders its panel inside its own scope, and the root's own scope is the
+  // root. Without this, taking core out of the scope model turns W8's "your
+  // server needs configuring" screen into a blank page, on the most common
+  // deployment there is: a server with no extensions installed at all.
+  const panelSource = activeScope ?? root
+
   const scopeOptions: ScopeOption[] = scopes.map((scope) => ({
     id: scope.id,
     label: scope.label,
@@ -236,7 +244,7 @@ export function PluginHost({ plugins, fetchImpl }: PluginHostProps) {
         }
       }
     }
-    return activeScope?.label
+    return (activeScope ?? root)?.label
   })()
 
   // Switching scope is a navigation, never a state write. A scope with no nav
@@ -294,26 +302,33 @@ export function PluginHost({ plugins, fetchImpl }: PluginHostProps) {
     (scope): scope is Scope => scope !== undefined && scope.state.kind === "ready",
   )
 
-  // The root plugin owns "/" when there is one. Without it the first ready
-  // scope's first item wins, which is what a shell built without core gets.
-  const landing = root ?? ready[0]
+  // ready is [root, ...scopes] filtered, so ready[0] is the root when the root
+  // is ready and the first ready scope otherwise. Routes mount only for ready
+  // plugins, so preferring the root unconditionally would redirect "/" to a
+  // path that matches nothing.
+  const landing = ready[0]
   const home = landing
-    ? mountPath(landing.plugin, sortByPriority(landing.plugin.nav)[0]?.to ?? "/")
+    ? mountPath(
+        landing.plugin,
+        sortByPriority(landing.plugin.nav)[0]?.to ??
+          landing.plugin.routes[0]?.path ??
+          "/",
+      )
     : undefined
 
   return (
     <HostShell sidebar={sidebar} title={pageTitle}>
-      {activeScope && activeScope.state.kind === "mismatch" && (
+      {panelSource && panelSource.state.kind === "mismatch" && (
         <MismatchPanel
-          required={activeScope.state.required}
-          reported={activeScope.state.reported}
+          required={panelSource.state.required}
+          reported={panelSource.state.reported}
         />
       )}
-      {activeScope && activeScope.state.kind === "setup" && (
-        <PluginErrorBoundary key={activeScope.id} plugin={activeScope.id}>
+      {panelSource && panelSource.state.kind === "setup" && (
+        <PluginErrorBoundary key={panelSource.id} plugin={panelSource.id}>
           {(() => {
-            const Setup = activeScope.plugin.setup ?? SetupPanel
-            return <Setup message={activeScope.state.message} />
+            const Setup = panelSource.plugin.setup ?? SetupPanel
+            return <Setup message={panelSource.state.message} />
           })()}
         </PluginErrorBoundary>
       )}
