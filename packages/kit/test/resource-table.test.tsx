@@ -49,9 +49,16 @@ describe("ResourceTable", () => {
   })
 
   it("makes only sortable headers pressable", () => {
-    renderTable()
+    // onSortChange is required here: a sortable column with no handler must NOT
+    // render a button, because clicking it would do nothing.
+    renderTable({ onSortChange: () => {} })
     expect(screen.getByRole("button", { name: /Email/ })).toBeTruthy()
     expect(screen.queryByRole("button", { name: /Created/ })).toBeNull()
+  })
+
+  it("renders a sortable column as a plain header when no handler is supplied", () => {
+    renderTable()
+    expect(screen.queryByRole("button", { name: /Email/ })).toBeNull()
   })
 
   it("asks for ascending on a fresh column and flips direction on the sorted one", () => {

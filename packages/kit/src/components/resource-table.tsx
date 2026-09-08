@@ -118,7 +118,7 @@ export function ResourceTable<Row>({
                     column.className,
                   )}
                 >
-                  {column.sortable ? (
+                  {column.sortable && onSortChange ? (
                     <Button
                       variant="ghost"
                       size="xs"
