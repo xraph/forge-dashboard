@@ -1,0 +1,8 @@
+# Compiled binary, if built with `go build -o demo .` / `go build ./...`.
+/demo
+/demo.exe
+
+# ForgeUI writes a generated CSS cache here on first run when the process's
+# working directory is this module (tailwind input, compiled output). It is
+# reproducible and machine/run specific.
+/extensions/
