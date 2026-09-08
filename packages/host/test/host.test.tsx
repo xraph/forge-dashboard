@@ -422,19 +422,47 @@ describe("PluginHost", () => {
     expect(screen.queryByText("second page")).toBeNull()
   })
 
-  // Same review finding, the other call site: `selectScope` -- reached by
-  // picking a different scope from the ScopeSwitcher -- had the identical
-  // nav[0] bug, fixed the same way. Not separately pinned here: driving it
-  // for real means opening base-ui's dropdown under jsdom, which
-  // packages/kit's own scope-switcher tests document at 15-52s per
-  // interaction (vi.setConfig to a 120s testTimeout there). A first attempt
-  // at that test in this file ran past even a 60s budget. `selectScope` and
-  // `home` now share one `sortByPriority` helper in PluginHost.tsx, so a
-  // regression to the sort itself is still caught by the "site root" test
-  // above; what would slip through is a future change that touches only the
-  // `selectScope` call site. Judged not worth a two-minute, flake-prone test
-  // for a review finding rated "minor" with no shipped plugin affected.
-  // Flagged here rather than silently skipped.
+  // Same review finding, the other call site. `selectScope` is reached by
+  // picking a scope from the ScopeSwitcher, and it had the identical nav[0]
+  // bug. It went unpinned for a while because opening a base-ui dropdown
+  // under jsdom used to cost 15 to 52 seconds per interaction, which made
+  // this test too slow and too flaky to keep. That turned out to be an
+  // nwsapi recursion rather than anything base-ui does, and
+  // packages/test-support/jsdom-setup.ts short-circuits it, so the same
+  // interaction now runs in milliseconds. `selectScope` and `home` share one
+  // `sortByPriority` helper, and the "site root" test above covers the helper
+  // itself; what this one adds is the call site, which a future change could
+  // break on its own.
+  it("selects a scope by its priority-sorted first item, not its first declared one", async () => {
+    const fetchImpl = capabilitiesFetch([
+      { name: "core-contract", envelopes: ["v1"], configured: true },
+      { name: "gateway-contract", envelopes: ["v1"], configured: true },
+    ])
+    const gateway = definePlugin({
+      extension: "gateway-contract",
+      nav: [
+        { label: "Gateway Second", to: "/second", priority: 20 },
+        { label: "Gateway First", to: "/first", priority: 10 },
+      ],
+      routes: [
+        { path: "/first", element: () => <p>gateway first page</p> },
+        { path: "/second", element: () => <p>gateway second page</p> },
+      ],
+    })
+
+    renderHost([demoPlugin(), gateway], fetchImpl)
+    expect(await screen.findByText("overview page body")).toBeTruthy()
+
+    fireEvent.click(
+      await screen.findByRole("button", { name: /core-contract/ })
+    )
+    fireEvent.click(
+      screen.getByRole("menuitem", { name: /gateway-contract/ })
+    )
+
+    expect(await screen.findByText("gateway first page")).toBeTruthy()
+    expect(screen.queryByText("gateway second page")).toBeNull()
+  })
 
   // ITEM 4's regression. "A plugin cannot address another extension's
   // handlers" is a requirement, and until now nothing at the host layer drove
