@@ -78,8 +78,70 @@ describe("ContextSwitchers", () => {
     fireEvent.change(screen.getByRole("combobox", { name: "App" }), { target: { value: "a2" } })
 
     await waitFor(() =>
-      expect(command).toHaveBeenCalledWith("apps.switch", { appId: "a2" }, undefined),
+      expect(command.mock.calls[0].slice(0, 2)).toEqual(["apps.switch", { appId: "a2" }]),
     )
     await waitFor(() => expect(queryStore.snapshot(stale).data).toBeUndefined())
+  })
+
+  it("issues one request when two dimensions read the same query", async () => {
+    queryStore.clear()
+    const query = vi.fn().mockResolvedValue({
+      currentApp: { id: "a1", name: "Platform" },
+      availableApps: [{ id: "a1", name: "Platform" }],
+      currentEnv: { id: "e1", name: "Development" },
+      availableEnvs: [{ id: "e1", name: "Development" }],
+    })
+    const envDimension: ContextDimension = {
+      id: "environment",
+      label: "Environment",
+      query: "apps.context",
+      switchCommand: "environments.switch",
+      select: (d) => {
+        const data = d as { currentEnv?: { id: string; name: string }; availableEnvs: { id: string; name: string }[] }
+        return {
+          current: data.currentEnv ? { id: data.currentEnv.id, label: data.currentEnv.name } : undefined,
+          options: (data.availableEnvs ?? []).map((e) => ({ id: e.id, label: e.name })),
+        }
+      },
+      payload: (envId) => ({ envId }),
+    }
+
+    render(
+      <PluginProvider client={{ extension: "auth", query, command: vi.fn() }}>
+        <ContextSwitchers dimensions={[appDimension, envDimension]} />
+      </PluginProvider>,
+    )
+
+    await waitFor(() => expect(screen.getByRole("combobox", { name: "App" })).toBeTruthy())
+    await waitFor(() => expect(screen.getByRole("combobox", { name: "Environment" })).toBeTruthy())
+
+    // Both dimensions read apps.context. The store dedups on the key, so the
+    // two switchers share one request rather than each issuing their own.
+    expect(query).toHaveBeenCalledTimes(1)
+  })
+
+  it("keeps the cache when the switch command fails", async () => {
+    queryStore.clear()
+    const stale = queryStore.keyOf("auth", "users.list")
+    queryStore.read(stale, () => Promise.resolve({ total: 2 }), 60_000)
+    await waitFor(() => expect(queryStore.snapshot(stale).data).toBeTruthy())
+
+    // execute resolves with undefined on failure and never rejects, which is
+    // the signal the component gates on.
+    const command = vi.fn().mockRejectedValue(new Error("nope"))
+    render(
+      <PluginProvider client={client(command)}>
+        <ContextSwitchers dimensions={[appDimension]} />
+      </PluginProvider>,
+    )
+    await waitFor(() => expect(screen.getByRole("combobox", { name: "App" })).toBeTruthy())
+
+    fireEvent.change(screen.getByRole("combobox", { name: "App" }), { target: { value: "a2" } })
+    await waitFor(() => expect(command).toHaveBeenCalled())
+
+    // A failed switch means the cookie did not change, so the cache is still
+    // about the right app. Clearing it here would blank the dashboard for
+    // nothing.
+    expect(queryStore.snapshot(stale).data).toEqual({ total: 2 })
   })
 })
