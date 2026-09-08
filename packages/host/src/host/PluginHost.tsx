@@ -26,6 +26,8 @@ import {
 import type {
   Capabilities,
   ForgePlugin,
+  ForgeSubPlugin,
+  PluginNavItem,
   Scope,
   ScopedClient,
 } from "@forge-go/dashboard-plugin"
@@ -102,11 +104,16 @@ function sortByPriority<T extends { priority?: number }>(items: T[]): T[] {
   return [...items].sort((a, b) => (a.priority ?? 0) - (b.priority ?? 0))
 }
 
-// One mapper for both the pinned root nav and the active scope's nav. Two
-// copies of this would be two chances to forget mountPath and emit a link
+// One mapper for the host plugin's nav and every sub-plugin's nav together.
+// Two copies of this would be two chances to forget mountPath and emit a link
 // that resolves outside its plugin.
-function navNodes(plugin: ForgePlugin): NavNode[] {
-  return sortByPriority(plugin.nav).map((item) => ({
+//
+// A sub-plugin's `to` is relative to its HOST's namespace, not to a namespace
+// of its own. That is the whole point of mounting inside: "/organizations" on
+// a sub-plugin of "auth" serves at "/@auth/organizations", so `mountPath` is
+// called with the host plugin in both cases.
+function toNodes(plugin: ForgePlugin, items: PluginNavItem[]): NavNode[] {
+  return items.map((item) => ({
     label: item.label,
     href: mountPath(plugin, item.to),
     icon: item.icon,
@@ -116,6 +123,69 @@ function navNodes(plugin: ForgePlugin): NavNode[] {
       icon: child.icon,
     })),
   }))
+}
+
+const UNGROUPED = Symbol("ungrouped")
+
+/**
+ * The sidebar's groups for one scope: the plugin's own nav merged with every
+ * ready sub-plugin's.
+ *
+ * Ungrouped items come first, in one unlabelled group. Every plugin shipping
+ * today declares no groups, so this is what keeps `plugin-core` and
+ * `plugin-streaming` rendering exactly as they do now.
+ *
+ * Named groups follow in first-appearance order, host nav scanned before
+ * sub-plugin nav, with items sorted by priority inside each. First appearance
+ * rather than alphabetical because the Go manifests already imply an order and
+ * an admin reading "Identity, Security, Auth" should not get "Auth,
+ * Compliance, Configuration".
+ *
+ * `contributed` marks a group holding at least one sub-plugin item, which is
+ * a field kit's NavGroup already carries.
+ */
+export function navGroups(
+  plugin: ForgePlugin,
+  subPlugins: ForgeSubPlugin[],
+): NavGroup[] {
+  const buckets = new Map<
+    string | typeof UNGROUPED,
+    { items: PluginNavItem[]; contributed: boolean }
+  >()
+
+  function add(items: PluginNavItem[], contributed: boolean) {
+    for (const item of items) {
+      const key = item.group ?? UNGROUPED
+      const bucket = buckets.get(key)
+      if (bucket) {
+        bucket.items.push(item)
+        bucket.contributed ||= contributed
+      } else {
+        buckets.set(key, { items: [item], contributed })
+      }
+    }
+  }
+
+  add(plugin.nav, false)
+  for (const sub of subPlugins) add(sub.nav, true)
+
+  // The ungrouped bucket leads regardless of where it was inserted.
+  const ordered = [...buckets.entries()].sort(([a], [b]) => {
+    if (a === UNGROUPED) return -1
+    if (b === UNGROUPED) return 1
+    return 0
+  })
+
+  return ordered.map(([key, bucket]) => ({
+    label: key === UNGROUPED ? undefined : key,
+    contributed: bucket.contributed || undefined,
+    items: toNodes(plugin, sortByPriority(bucket.items)),
+  }))
+}
+
+// Replaced in Task 10, which resolves sub-plugins against capabilities.
+function readySubPluginsFor(_hostExtension: string): ForgeSubPlugin[] {
+  return []
 }
 
 export function PluginHost({ plugins, fetchImpl }: PluginHostProps) {
@@ -313,7 +383,7 @@ export function PluginHost({ plugins, fetchImpl }: PluginHostProps) {
   // nowhere.
   const back: NavNode | undefined =
     activeScope && root && root.state.kind === "ready"
-      ? navNodes(root.plugin)[0]
+      ? navGroups(root.plugin, [])[0]?.items[0]
       : undefined
 
   // The body shows the nav of wherever you are, which is the same question
@@ -332,7 +402,7 @@ export function PluginHost({ plugins, fetchImpl }: PluginHostProps) {
   const navOwner = activeScope ?? root
   const groups: NavGroup[] =
     navOwner && navOwner.state.kind === "ready"
-      ? [{ items: navNodes(navOwner.plugin) }]
+      ? navGroups(navOwner.plugin, readySubPluginsFor(navOwner.plugin.extension))
       : []
 
   // The header's title names the current page, not the product: the label of
