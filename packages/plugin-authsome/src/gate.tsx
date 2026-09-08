@@ -13,7 +13,7 @@ import {
 import { Input } from "@forge-go/dashboard-kit/components/input"
 import { Label } from "@forge-go/dashboard-kit/components/label"
 import { CommandAlert, QueryView } from "./components/query-view"
-import type { AuthConfig, LoginResult } from "./pages/login"
+import type { AuthConfig, LoginResult, LogoutResult } from "./pages/login"
 
 /**
  * The screen the host renders instead of the dashboard when nobody is signed
@@ -25,7 +25,25 @@ import type { AuthConfig, LoginResult } from "./pages/login"
  * re-reads /principal, and the shell takes the screen. Holding local state
  * here would leave a confirmation panel with no way onward.
  */
-function Denied({ requiredRoles, loginPath }: { requiredRoles: string[]; loginPath: string }) {
+function Denied({
+  requiredRoles,
+  onAuthenticated,
+}: {
+  requiredRoles: string[]
+  onAuthenticated: () => void
+}) {
+  // This gate runs inside a PluginProvider and has its own scoped client, so
+  // it can genuinely sign somebody out rather than pointing at a login path
+  // and hoping something serves it. A user whose roles fail RequiredRoles
+  // otherwise has no shell, no gate, and no way to reach a different account.
+  const logout = useCommand<LogoutResult>("auth.logout")
+
+  async function handleSignOut() {
+    const result = await logout.execute()
+    if (result === undefined) return
+    onAuthenticated()
+  }
+
   return (
     <Card className="mx-auto max-w-sm">
       <CardHeader>
@@ -34,10 +52,16 @@ function Denied({ requiredRoles, loginPath }: { requiredRoles: string[]; loginPa
           It needs one of these roles: {requiredRoles.join(", ")}.
         </CardDescription>
       </CardHeader>
-      <CardContent>
-        <a className={buttonVariants({ variant: "outline" })} href={loginPath}>
-          Sign in as someone else
-        </a>
+      <CardContent className="flex flex-col gap-3">
+        <CommandAlert error={logout.error} title="Sign out failed" />
+        <button
+          type="button"
+          onClick={handleSignOut}
+          disabled={logout.loading}
+          className={buttonVariants({ variant: "outline" })}
+        >
+          {logout.loading ? "Signing out…" : "Sign out"}
+        </button>
       </CardContent>
     </Card>
   )
@@ -156,9 +180,9 @@ function SignInGate({ onAuthenticated }: { onAuthenticated: () => void }) {
   )
 }
 
-export function AuthGate({ loginPath, requiredRoles, onAuthenticated }: AuthGateProps) {
+export function AuthGate({ requiredRoles, onAuthenticated }: AuthGateProps) {
   if ((requiredRoles?.length ?? 0) > 0) {
-    return <Denied requiredRoles={requiredRoles ?? []} loginPath={loginPath} />
+    return <Denied requiredRoles={requiredRoles ?? []} onAuthenticated={onAuthenticated} />
   }
 
   return <SignInGate onAuthenticated={onAuthenticated} />

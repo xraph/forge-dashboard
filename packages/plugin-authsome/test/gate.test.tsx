@@ -103,4 +103,55 @@ describe("AuthGate", () => {
     // last thing a locked-out visitor sees.
     expect(intents).not.toContain("auth.config")
   })
+
+  // A user whose roles fail RequiredRoles has no shell and no gate other
+  // than this one, so this panel is the only way back to a different
+  // account. It has the plugin's own scoped client, unlike the runtime's
+  // fallback gate, so it can actually sign out rather than just linking
+  // somewhere and hoping.
+  it("signs out and reports the host on success", async () => {
+    const onAuthenticated = vi.fn()
+    const { client, intents } = stubClient(
+      { "auth.config": config },
+      { "auth.logout": { ok: true } },
+    )
+    renderPage(
+      () => (
+        <AuthGate
+          loginPath="/dashboard/login"
+          requiredRoles={["admin"]}
+          onAuthenticated={onAuthenticated}
+        />
+      ),
+      client,
+    )
+
+    fireEvent.click(await screen.findByRole("button", { name: /sign out/i }))
+
+    await waitFor(() => expect(onAuthenticated).toHaveBeenCalledTimes(1))
+    expect(intents).toContain("auth.logout")
+  })
+
+  it("shows the failure and does not report the host when sign-out fails", async () => {
+    const onAuthenticated = vi.fn()
+    const { client } = stubClient({ "auth.config": config })
+    client.command = vi.fn(async () => {
+      throw new Error("network blip")
+    })
+    renderPage(
+      () => (
+        <AuthGate
+          loginPath="/dashboard/login"
+          requiredRoles={["admin"]}
+          onAuthenticated={onAuthenticated}
+        />
+      ),
+      client,
+    )
+
+    fireEvent.click(await screen.findByRole("button", { name: /sign out/i }))
+
+    await waitFor(() => expect(screen.getByRole("alert")).toBeTruthy())
+    expect(onAuthenticated).not.toHaveBeenCalled()
+  })
 })
