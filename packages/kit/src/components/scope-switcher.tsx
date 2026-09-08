@@ -30,7 +30,13 @@ export interface ScopeSwitcherProps {
   scopes: ScopeOption[]
   activeId?: string
   onSelect: (id: string) => void
-  /** Shown before capabilities resolve, when there is no scope to name. */
+  /**
+   * Shown before capabilities resolve, when there is no scope to name. Also
+   * the steady-state label on every root-plugin page: the root is the
+   * dashboard's home and was deliberately taken out of the scope model, so
+   * `activeId` never names it and this fallback carries the switcher there
+   * too, not only during loading.
+   */
   fallbackLabel?: string
 }
 
