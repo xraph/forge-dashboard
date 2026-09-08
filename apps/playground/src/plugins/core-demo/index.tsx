@@ -94,9 +94,16 @@ function OverviewPage() {
  * Go contributor it belongs to, declares its nav and routes, and never names
  * a contributor when it queries. It lives in the playground because it is a
  * demonstration that the plugin API works, not a package anyone ships.
+ *
+ * `root: true` and not a `namespace`: this stands in for the server's own
+ * UI, not an extension arriving from elsewhere, so it has nothing to collide
+ * with and nothing to gain from living behind a scope switcher. It serves at
+ * "/overview" and its nav is pinned above the switcher in every scope.
  */
 export const coreDemoPlugin = definePlugin({
   extension: "core-contract",
+  root: true,
+  label: "System",
   nav: [{ label: "Overview", to: "/overview" }],
   routes: [{ path: "/overview", element: OverviewPage }],
 })

@@ -234,7 +234,14 @@ describe("PluginHost", () => {
       routes: [{ path: "/other", element: () => <p>other page body</p> }],
     })
 
-    renderHost([demoPlugin(), present], fetchImpl)
+    // An explicit route into the present plugin's own scope, not the
+    // renderHost default. resolveActiveScope no longer falls back to the
+    // first scope when a pathname's namespace matches nothing (it now
+    // answers `undefined`, meaning "at the root"), so demoPlugin()'s default
+    // route ("/@core/overview") would resolve to no scope at all here -- its
+    // own contributor is absent -- and show no nav from either plugin. That
+    // used to work by accident, riding the old scopes[0] fallback.
+    renderHost([demoPlugin(), present], fetchImpl, "/@other-extension/other")
 
     // The second plugin is the control: it proves the host resolved
     // capabilities and rendered nav at all, so the absences below are the
@@ -462,5 +469,67 @@ describe("PluginHost", () => {
 
     expect(sent.map((r) => r.intent)).toEqual(["ping", "ping"])
     expect(sent.map((r) => r.contributor)).toEqual(["alpha", "beta"])
+  })
+})
+
+describe("root plugin", () => {
+  it("serves a root plugin's page at the unscoped path", async () => {
+    const fetchImpl = capabilitiesFetch([
+      { name: "core-contract", envelopes: ["v1"], configured: true },
+    ])
+
+    render(
+      <ForgeDashboardProvider config={config}>
+        <MemoryRouter initialEntries={["/overview"]}>
+          <PluginHost
+            plugins={[
+              definePlugin({
+                extension: "core-contract",
+                root: true,
+                nav: [{ label: "Overview", to: "/overview" }],
+                routes: [{ path: "/overview", element: () => <p>root page</p> }],
+              }),
+            ]}
+            fetchImpl={fetchImpl}
+          />
+        </MemoryRouter>
+      </ForgeDashboardProvider>,
+    )
+
+    expect(await screen.findByText("root page")).toBeTruthy()
+  })
+
+  it("keeps the root plugin's nav visible while inside a scope", async () => {
+    const fetchImpl = capabilitiesFetch([
+      { name: "core-contract", envelopes: ["v1"], configured: true },
+      { name: "streaming-contract", envelopes: ["v1"], configured: true },
+    ])
+
+    render(
+      <ForgeDashboardProvider config={config}>
+        <MemoryRouter initialEntries={["/@streaming/rooms"]}>
+          <PluginHost
+            plugins={[
+              definePlugin({
+                extension: "core-contract",
+                root: true,
+                nav: [{ label: "Overview", to: "/overview" }],
+                routes: [{ path: "/overview", element: () => <p>root page</p> }],
+              }),
+              definePlugin({
+                extension: "streaming-contract",
+                label: "Streaming",
+                nav: [{ label: "Rooms", to: "/rooms" }],
+                routes: [{ path: "/rooms", element: () => <p>rooms page</p> }],
+              }),
+            ]}
+            fetchImpl={fetchImpl}
+          />
+        </MemoryRouter>
+      </ForgeDashboardProvider>,
+    )
+
+    expect(await screen.findByText("rooms page")).toBeTruthy()
+    expect(screen.getByRole("link", { name: "Overview" })).toBeTruthy()
   })
 })

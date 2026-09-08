@@ -10,11 +10,12 @@ import {
   createScopedClient,
   labelOf,
   MismatchPanel,
+  mountPath,
   namespaceOf,
+  partitionScopes,
   PluginProvider,
   resolveActiveScope,
   resolvePluginState,
-  scopePath,
   SetupPanel,
 } from "@forge-go/dashboard-plugin"
 import type {
@@ -89,6 +90,22 @@ function sortByPriority<T extends { priority?: number }>(items: T[]): T[] {
   return [...items].sort((a, b) => (a.priority ?? 0) - (b.priority ?? 0))
 }
 
+// One mapper for both the pinned root nav and the active scope's nav. Two
+// copies of this would be two chances to forget mountPath and emit a link
+// that resolves outside its plugin.
+function navNodes(plugin: ForgePlugin): NavNode[] {
+  return sortByPriority(plugin.nav).map((item) => ({
+    label: item.label,
+    href: mountPath(plugin, item.to),
+    icon: item.icon,
+    children: item.children?.map((child) => ({
+      label: child.label,
+      href: mountPath(plugin, child.to),
+      icon: child.icon,
+    })),
+  }))
+}
+
 export function PluginHost({ plugins, fetchImpl }: PluginHostProps) {
   const { contractBase } = useDashboardConfig()
   const { pathname, search } = useLocation()
@@ -155,7 +172,7 @@ export function PluginHost({ plugins, fetchImpl }: PluginHostProps) {
   // Every state renders the sidebar, so scopes are built before the early
   // returns. Before capabilities land there are none, and the switcher shows
   // its fallback rather than a half-built list.
-  const scopes: Scope[] =
+  const resolved: Scope[] =
     state.status === "ready"
       ? plugins
           .map((plugin) => ({
@@ -169,6 +186,14 @@ export function PluginHost({ plugins, fetchImpl }: PluginHostProps) {
           .filter((scope) => scope.state.kind !== "hidden")
       : []
 
+  // The root plugin (if any) is not one scope among several: it is pinned
+  // nav, not a switcher entry, so it is split out before anything downstream
+  // ever sees it as a "scope".
+  const { root, scopes } = partitionScopes(resolved)
+
+  // `undefined` means "at the root" -- a real, expected answer, not an error
+  // or an empty state. A pathname with no recognised "@namespace" segment
+  // (including the root plugin's own pages) belongs to no scope at all.
   const activeScope = resolveActiveScope(pathname, scopes)
 
   const scopeOptions: ScopeOption[] = scopes.map((scope) => ({
@@ -179,36 +204,31 @@ export function PluginHost({ plugins, fetchImpl }: PluginHostProps) {
     badge: scope.state.kind === "ready" ? undefined : scope.state.kind,
   }))
 
-  // Only the active scope's nav is shown. priority orders a plugin's items
-  // among its own and nothing more. No group label here: the switcher above
-  // already names the active scope both by its label and its "@namespace"
-  // caption, and repeating either one as a section heading only duplicates
-  // text a screen reader (and a test) would otherwise find once.
+  // The root plugin's nav, pinned above the switcher and visible in every
+  // scope -- it is not part of the switcher's rotation, so it does not wait
+  // on activeScope at all.
+  const pinned: NavGroup[] =
+    root && root.state.kind === "ready" ? [{ items: navNodes(root.plugin) }] : []
+
+  // Only the active scope's nav is shown here. priority orders a plugin's
+  // items among its own and nothing more. No group label here: the switcher
+  // above already names the active scope both by its label and its
+  // "@namespace" caption, and repeating either one as a section heading only
+  // duplicates text a screen reader (and a test) would otherwise find once.
   const groups: NavGroup[] =
     activeScope && activeScope.state.kind === "ready"
-      ? [
-          {
-            items: sortByPriority(activeScope.plugin.nav).map((item) => ({
-              label: item.label,
-              href: scopePath(activeScope.namespace, item.to),
-              icon: item.icon,
-              children: item.children?.map((child) => ({
-                label: child.label,
-                href: scopePath(activeScope.namespace, child.to),
-                icon: child.icon,
-              })),
-            })),
-          },
-        ]
+      ? [{ items: navNodes(activeScope.plugin) }]
       : []
 
   // The header's title names the current page, not the product: the label of
   // whichever nav item's href matches the current pathname, checking children
-  // too since a deep link can land straight on one. Falls back to the active
-  // scope's own label when the pathname matches nothing in its nav (its own
-  // root, or a route the plugin never listed).
+  // too since a deep link can land straight on one, and checking the pinned
+  // nav first since the root plugin's own pages have no active scope to fall
+  // back to. Falls back to the active scope's own label when the pathname
+  // matches nothing in either (its own root, or a route the plugin never
+  // listed).
   const pageTitle: string | undefined = (() => {
-    for (const group of groups) {
+    for (const group of [...pinned, ...groups]) {
       for (const item of group.items) {
         if (item.href === pathname) return item.label
         for (const child of item.children ?? []) {
@@ -230,12 +250,11 @@ export function PluginHost({ plugins, fetchImpl }: PluginHostProps) {
     const target = scopes.find((scope) => scope.id === id)
     if (!target) return
     const first = sortByPriority(target.plugin.nav)[0]
-    navigate(
-      `${scopePath(target.namespace, first ? first.to : "/")}${search}`,
-    )
+    navigate(`${mountPath(target.plugin, first ? first.to : "/")}${search}`)
   }
 
   const sidebar = {
+    pinned,
     scopes: scopeOptions,
     activeScopeId: activeScope?.id,
     onScopeSelect: selectScope,
@@ -269,19 +288,17 @@ export function PluginHost({ plugins, fetchImpl }: PluginHostProps) {
     )
   }
 
-  const ready = scopes.filter((scope) => scope.state.kind === "ready")
+  // root counts toward "ready" alongside the scopes: a root plugin that is
+  // mismatched or needs setup contributes no routes here, same as any scope.
+  const ready = [root, ...scopes].filter(
+    (scope): scope is Scope => scope !== undefined && scope.state.kind === "ready",
+  )
 
-  // No plugin can claim "/" any more: every route is mounted under a
-  // namespace, so the root is always the host's to redirect from. That
-  // deletes the rootIsClaimed guard the flat scheme needed.
-  const first = ready[0]
-  const home = first
-    ? scopePath(
-        namespaceOf(first.plugin),
-        sortByPriority(first.plugin.nav)[0]?.to ??
-          first.plugin.routes[0]?.path ??
-          "/",
-      )
+  // The root plugin owns "/" when there is one. Without it the first ready
+  // scope's first item wins, which is what a shell built without core gets.
+  const landing = root ?? ready[0]
+  const home = landing
+    ? mountPath(landing.plugin, sortByPriority(landing.plugin.nav)[0]?.to ?? "/")
     : undefined
 
   return (
@@ -309,14 +326,13 @@ export function PluginHost({ plugins, fetchImpl }: PluginHostProps) {
       */}
       {ready.length > 0 && (
         <Routes>
-          {ready.flatMap(({ plugin }) => {
-            const namespace = namespaceOf(plugin)
-            return plugin.routes.map((route) => {
+          {ready.flatMap(({ plugin }) =>
+            plugin.routes.map((route) => {
               const Page = route.element
               return (
                 <Route
                   key={`${plugin.extension}:${route.path}`}
-                  path={scopePath(namespace, route.path)}
+                  path={mountPath(plugin, route.path)}
                   element={
                     // The unit this isolates is one plugin: a third-party
                     // bundle throwing during render must take down its own
@@ -342,9 +358,10 @@ export function PluginHost({ plugins, fetchImpl }: PluginHostProps) {
                     // boundary instance -- a throw on one id would latch the
                     // fallback for every other id served by the same route.
                     // The extension stays in the key too, as defense in depth:
-                    // every route is now mounted under its own "@namespace" via
-                    // scopePath, so two plugins can no longer resolve to the
-                    // same pathname at all, but the key does not depend on that
+                    // mountPath gives every non-root plugin its own
+                    // "@namespace" and gives the one root plugin the bare
+                    // path, so two plugins can no longer resolve to the same
+                    // pathname at all, but the key does not depend on that
                     // guarantee holding to stay correct.
                     <PluginErrorBoundary
                       key={`${plugin.extension}:${pathname}`}
@@ -357,8 +374,8 @@ export function PluginHost({ plugins, fetchImpl }: PluginHostProps) {
                   }
                 />
               )
-            })
-          })}
+            }),
+          )}
           {home && <Route path="/" element={<Navigate to={home} replace />} />}
         </Routes>
       )}
