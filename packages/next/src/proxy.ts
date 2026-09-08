@@ -3,6 +3,15 @@ export interface ForgeProxyOptions {
   target: string
   /** Headers added to every upstream request, e.g. a service token. */
   headers?: Record<string, string>
+  /**
+   * Maximum accepted request body size, in bytes. Next.js route handlers
+   * impose no limit of their own, so an unbounded `await req.text()` is a
+   * memory-exhaustion vector against the consumer's own app server - a
+   * single large POST gets fully buffered regardless of what (or whether)
+   * Content-Length claims. Defaults to 1 MiB; raise it if a forge command
+   * legitimately needs a larger payload.
+   */
+  maxBodyBytes?: number
   /** Injected in tests. */
   fetchImpl?: typeof fetch
 }
@@ -106,6 +115,61 @@ function upstreamURL(
   return url
 }
 
+const DEFAULT_MAX_BODY_BYTES = 1024 * 1024 // 1 MiB
+
+function concatChunks(chunks: Uint8Array[], total: number): Uint8Array {
+  const out = new Uint8Array(total)
+  let offset = 0
+  for (const chunk of chunks) {
+    out.set(chunk, offset)
+    offset += chunk.byteLength
+  }
+  return out
+}
+
+/**
+ * Reads `req`'s body as text, rejecting it once more than `maxBytes` has
+ * arrived rather than trusting Content-Length (which can be absent, or -
+ * with chunked transfer-encoding - simply not describe the eventual size at
+ * all) and buffering an unbounded amount into memory first.
+ */
+async function readBodyWithLimit(
+  req: Request,
+  maxBytes: number
+): Promise<{ ok: true; body: string } | { ok: false }> {
+  const reader = req.body?.getReader()
+  if (!reader) {
+    return { ok: true, body: "" }
+  }
+
+  const chunks: Uint8Array[] = []
+  let total = 0
+  for (;;) {
+    const { done, value } = await reader.read()
+    if (done) break
+    total += value.byteLength
+    if (total > maxBytes) {
+      await reader.cancel()
+      return { ok: false }
+    }
+    chunks.push(value)
+  }
+
+  return {
+    ok: true,
+    body: new TextDecoder().decode(concatChunks(chunks, total)),
+  }
+}
+
+/**
+ * Statuses the Fetch/Response spec forbids pairing with a body at all - the
+ * Response constructor throws "Invalid response status code" if it is given
+ * one anyway. 204 and 304 in particular are ordinary, expected responses
+ * (a write with no payload; a successful cache revalidation), not edge
+ * cases, so this can't be left to the transport catch above.
+ */
+const NULL_BODY_STATUSES = new Set([204, 205, 304])
+
 /**
  * Headers stripped from the inbound request before it is forwarded upstream.
  * Two different concerns share this list: connection-management headers -
@@ -182,6 +246,18 @@ function handler(
       return new Response("bad path", { status: 400 })
     }
 
+    let body: string | undefined
+    if (method === "POST") {
+      const read = await readBodyWithLimit(
+        req,
+        options.maxBodyBytes ?? DEFAULT_MAX_BODY_BYTES
+      )
+      if (!read.ok) {
+        return new Response("payload too large", { status: 413 })
+      }
+      body = read.body
+    }
+
     const headers = sanitizeRequestHeaders(req.headers)
     for (const [k, v] of Object.entries(options.headers ?? {})) {
       headers.set(k, v)
@@ -198,7 +274,7 @@ function handler(
           // whatever host the upstream's Location points at. That is a
           // direct exfiltration path for a secret like a service token.
           redirect: "manual",
-          body: method === "POST" ? await req.text() : undefined,
+          body,
         })
       )
     } catch {
@@ -209,14 +285,19 @@ function handler(
       return new Response("bad gateway", { status: 502 })
     }
 
-    if (upstream.status >= 300 && upstream.status < 400) {
+    if (
+      upstream.status >= 300 &&
+      upstream.status < 400 &&
+      upstream.status !== 304
+    ) {
       // Redirects are never forwarded. Passing the Location through would
       // expose `target` - a server-side secret - to the browser; resolving
       // and following it here ourselves would extend the trust placed in
       // `target` (and the headers injected above) to whatever host the
       // Location names. `redirect: "manual"` above only stops fetch() from
       // chasing it invisibly; this is what stops the proxy from forwarding
-      // it another way.
+      // it another way. 304 Not Modified is excluded: it is not a
+      // redirect, it's a successful cache validation response.
       return new Response("bad gateway", { status: 502 })
     }
 
@@ -235,7 +316,9 @@ function handler(
       out.append("set-cookie", cookie)
     }
 
-    return new Response(await upstream.text(), {
+    const text = await upstream.text()
+
+    return new Response(NULL_BODY_STATUSES.has(upstream.status) ? null : text, {
       status: upstream.status,
       headers: out,
     })

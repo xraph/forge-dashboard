@@ -1,3 +1,5 @@
+"use client"
+
 export { PluginHost } from "./host/PluginHost"
 export type { PluginHostProps } from "./host/PluginHost"
 export { ForgeDashboard } from "./ForgeDashboard"

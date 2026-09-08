@@ -312,4 +312,87 @@ describe("createForgeProxy", () => {
     expect(() => createForgeProxy({ target: "not a url" })).toThrow()
     expect(() => createForgeProxy({ target: "file:///etc/passwd" })).toThrow()
   })
+
+  it.each([204, 205, 304])(
+    "passes a null-body upstream %i through without throwing",
+    async (status) => {
+      const upstream = vi.fn<(req: Request) => Promise<Response>>(
+        async () => new Response(null, { status })
+      )
+      const { GET } = createForgeProxy({
+        target: "https://forge.internal",
+        fetchImpl: upstream as unknown as typeof fetch,
+      })
+
+      const res = await GET(
+        new Request("https://app.test/api/forge/x"),
+        ctx(["x"])
+      )
+
+      expect(res.status).toBe(status)
+      expect(await res.text()).toBe("")
+    }
+  )
+
+  it("forwards a 304 Not Modified instead of swallowing it into a 502", async () => {
+    // 304 falls in the 300-399 range but is a successful cache
+    // revalidation, not a redirect - it must not hit the redirect guard
+    // that turns a real 3xx (301/302/303/307/308) into a 502.
+    const upstream = vi.fn<(req: Request) => Promise<Response>>(
+      async () => new Response(null, { status: 304 })
+    )
+    const { GET } = createForgeProxy({
+      target: "https://forge.internal",
+      fetchImpl: upstream as unknown as typeof fetch,
+    })
+
+    const res = await GET(
+      new Request("https://app.test/api/forge/x"),
+      ctx(["x"])
+    )
+    expect(res.status).toBe(304)
+  })
+
+  it("rejects a request body larger than the configured limit with a 413, without forwarding it upstream", async () => {
+    const upstream = vi.fn<(req: Request) => Promise<Response>>(
+      async () => new Response("{}", { status: 200 })
+    )
+    const { POST } = createForgeProxy({
+      target: "https://forge.internal",
+      maxBodyBytes: 8,
+      fetchImpl: upstream as unknown as typeof fetch,
+    })
+
+    const res = await POST(
+      new Request("https://app.test/api/forge/x", {
+        method: "POST",
+        body: "this body is far more than eight bytes long",
+      }),
+      ctx(["x"])
+    )
+
+    expect(res.status).toBe(413)
+    expect(upstream).not.toHaveBeenCalled()
+  })
+
+  it("accepts a request body within the default limit", async () => {
+    const upstream = vi.fn<(req: Request) => Promise<Response>>(
+      async () => new Response("{}", { status: 200 })
+    )
+    const { POST } = createForgeProxy({
+      target: "https://forge.internal",
+      fetchImpl: upstream as unknown as typeof fetch,
+    })
+
+    const res = await POST(
+      new Request("https://app.test/api/forge/x", {
+        method: "POST",
+        body: JSON.stringify({ hello: "world" }),
+      }),
+      ctx(["x"])
+    )
+
+    expect(res.status).toBe(200)
+    expect(upstream).toHaveBeenCalledTimes(1)
+  })
 })
