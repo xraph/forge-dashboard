@@ -16,6 +16,28 @@ describe("AuthGate", () => {
     expect(screen.getByLabelText("Password")).toBeTruthy()
   })
 
+  // This is the screen every visitor meets before anything else in the
+  // product, so it is the busiest sign-in surface there is. A password
+  // manager that cannot recognise the fields makes every visit worse, and
+  // no other assertion in this file would catch the attributes going
+  // missing, so they get pinned directly.
+  it("carries autocomplete hints a password manager can act on", async () => {
+    const { client } = stubClient({ "auth.config": config })
+    renderPage(
+      () => <AuthGate loginPath="/dashboard/login" onAuthenticated={() => {}} />,
+      client,
+    )
+    const emailField = await screen.findByLabelText("Email")
+    const passwordField = screen.getByLabelText("Password")
+    // No jest-dom matcher is wired into this package's vitest setup, so this
+    // reads the DOM attributes directly rather than reaching for
+    // toHaveAttribute.
+    expect(emailField.getAttribute("autocomplete")).toBe("username")
+    expect(emailField.getAttribute("name")).toBe("email")
+    expect(passwordField.getAttribute("autocomplete")).toBe("current-password")
+    expect(passwordField.getAttribute("name")).toBe("password")
+  })
+
   it("reports a successful sign-in to the host instead of rendering a signed-in panel", async () => {
     const onAuthenticated = vi.fn()
     const { client } = stubClient(
@@ -62,7 +84,7 @@ describe("AuthGate", () => {
   })
 
   it("renders the denied variant and no form when requiredRoles is present", async () => {
-    const { client } = stubClient({ "auth.config": config })
+    const { client, intents } = stubClient({ "auth.config": config })
     renderPage(
       () => (
         <AuthGate
@@ -75,5 +97,10 @@ describe("AuthGate", () => {
     )
     expect(await screen.findByText(/admin/)).toBeTruthy()
     expect(screen.queryByLabelText("Password")).toBeNull()
+    // The denied screen never shows the form the config would fill in, so it
+    // must not fire the read either. Reading anyway would be a request whose
+    // answer is thrown away on every render of a screen that is often the
+    // last thing a locked-out visitor sees.
+    expect(intents).not.toContain("auth.config")
   })
 })

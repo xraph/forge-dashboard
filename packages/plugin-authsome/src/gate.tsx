@@ -87,7 +87,9 @@ function GateForm({
               <Label htmlFor={emailId}>Email</Label>
               <Input
                 id={emailId}
+                name="email"
                 type="email"
+                autoComplete="username"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
               />
@@ -96,13 +98,28 @@ function GateForm({
               <Label htmlFor={passwordId}>Password</Label>
               <Input
                 id={passwordId}
+                name="password"
                 type="password"
+                autoComplete="current-password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
               />
             </div>
-            <button type="submit" className={buttonVariants()} disabled={login.loading}>
-              Sign in
+            {/*
+              autoComplete on both fields is not decoration. This gate is the
+              screen every visitor meets before anything else, so it is the
+              single most used sign-in surface in the product, and a password
+              manager that cannot recognise "username" and "current-password"
+              makes every visit worse. Kept in step with LoginForm in
+              pages/login.tsx on purpose: the two forms should read as the
+              same form, and nothing here should drift from there again.
+            */}
+            <button
+              type="submit"
+              disabled={login.loading}
+              className={buttonVariants({ className: "w-full" })}
+            >
+              {login.loading ? "Signing in…" : "Sign in"}
             </button>
           </form>
         ) : null}
@@ -120,16 +137,29 @@ function GateForm({
   )
 }
 
-export function AuthGate({ loginPath, requiredRoles, onAuthenticated }: AuthGateProps) {
+/**
+ * Reads `auth.config` and renders the form once it answers.
+ *
+ * Split out of `AuthGate` so the read only happens on the branch that uses
+ * it. `useQuery` fires from an effect on mount, so folding it into
+ * `AuthGate` above the `requiredRoles` check would send an `auth.config`
+ * request on every render of the denied screen too, for a result that
+ * screen never reads.
+ */
+function SignInGate({ onAuthenticated }: { onAuthenticated: () => void }) {
   const config = useQuery<AuthConfig>("auth.config")
-
-  if ((requiredRoles?.length ?? 0) > 0) {
-    return <Denied requiredRoles={requiredRoles ?? []} loginPath={loginPath} />
-  }
 
   return (
     <QueryView title="Sign-in options" query={config} skeletonRows={3}>
       {(data) => <GateForm config={data} onAuthenticated={onAuthenticated} />}
     </QueryView>
   )
+}
+
+export function AuthGate({ loginPath, requiredRoles, onAuthenticated }: AuthGateProps) {
+  if ((requiredRoles?.length ?? 0) > 0) {
+    return <Denied requiredRoles={requiredRoles ?? []} loginPath={loginPath} />
+  }
+
+  return <SignInGate onAuthenticated={onAuthenticated} />
 }
