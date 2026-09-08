@@ -47,6 +47,7 @@ export interface ResourceTableProps<Row> {
   onSortChange?: (sort: SortState) => void
   pagination?: PaginationState
   onPageChange?: (page: number) => void
+  className?: string
 }
 
 const ARIA_SORT = { asc: "ascending", desc: "descending" } as const
@@ -75,9 +76,10 @@ export function ResourceTable<Row>({
   onSortChange,
   pagination,
   onPageChange,
+  className,
 }: ResourceTableProps<Row>) {
   if (rows.length === 0) {
-    return <EmptyState title={emptyMessage} action={emptyAction} />
+    return <EmptyState title={emptyMessage} description={caption} action={emptyAction} />
   }
 
   // Clicking the column already sorted flips it. Clicking any other column
@@ -95,74 +97,79 @@ export function ResourceTable<Row>({
     : 1
 
   return (
-    <div className="flex flex-col gap-3">
+    <div className={cn("flex flex-col gap-3", className)}>
       {/*
-        Horizontal scroll lives on a wrapper, not on the page. A wide table
-        must not make the whole dashboard scroll sideways.
+        Horizontal scroll lives on the vendored Table's own container, not on
+        the page. A wide table must not make the whole dashboard scroll
+        sideways.
       */}
-      <div className="w-full overflow-x-auto">
-        <Table>
-          {caption && <TableCaption>{caption}</TableCaption>}
-          <TableHeader>
-            <TableRow>
+      <Table
+        containerProps={{
+          tabIndex: 0,
+          role: "region",
+          "aria-label": caption ?? "Table",
+        }}
+      >
+        {caption && <TableCaption>{caption}</TableCaption>}
+        <TableHeader>
+          <TableRow>
+            {columns.map((column) => (
+              <TableHead
+                key={column.id}
+                aria-sort={
+                  sort?.columnId === column.id
+                    ? ARIA_SORT[sort.direction]
+                    : undefined
+                }
+                className={cn(
+                  column.align === "end" && "text-right",
+                  column.className,
+                )}
+              >
+                {column.sortable && onSortChange ? (
+                  <Button
+                    variant="ghost"
+                    size="xs"
+                    onClick={() => requestSort(column.id)}
+                  >
+                    {column.header}
+                    {sort?.columnId === column.id
+                      ? sort.direction === "asc"
+                        ? " ↑"
+                        : " ↓"
+                      : ""}
+                  </Button>
+                ) : (
+                  column.header
+                )}
+              </TableHead>
+            ))}
+            {rowActions && <TableHead className="text-right">Actions</TableHead>}
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          {rows.map((row) => (
+            <TableRow key={rowKey(row)}>
               {columns.map((column) => (
-                <TableHead
+                <TableCell
                   key={column.id}
-                  aria-sort={
-                    sort?.columnId === column.id
-                      ? ARIA_SORT[sort.direction]
-                      : undefined
-                  }
                   className={cn(
                     column.align === "end" && "text-right",
                     column.className,
                   )}
                 >
-                  {column.sortable && onSortChange ? (
-                    <Button
-                      variant="ghost"
-                      size="xs"
-                      onClick={() => requestSort(column.id)}
-                    >
-                      {column.header}
-                      {sort?.columnId === column.id
-                        ? sort.direction === "asc"
-                          ? " ↑"
-                          : " ↓"
-                        : ""}
-                    </Button>
-                  ) : (
-                    column.header
-                  )}
-                </TableHead>
+                  {column.cell(row)}
+                </TableCell>
               ))}
-              {rowActions && <TableHead className="text-right">Actions</TableHead>}
+              {rowActions && (
+                <TableCell className="flex justify-end gap-2">
+                  {rowActions(row)}
+                </TableCell>
+              )}
             </TableRow>
-          </TableHeader>
-          <TableBody>
-            {rows.map((row) => (
-              <TableRow key={rowKey(row)}>
-                {columns.map((column) => (
-                  <TableCell
-                    key={column.id}
-                    className={cn(
-                      column.align === "end" && "text-right",
-                      column.className,
-                    )}
-                  >
-                    {column.cell(row)}
-                  </TableCell>
-                ))}
-                {rowActions && (
-                  <TableCell className="flex justify-end gap-2">
-                    {rowActions(row)}
-                  </TableCell>
-                )}
-              </TableRow>
-            ))}
-          </TableBody>
-        </Table>
-      </div>
+          ))}
+        </TableBody>
+      </Table>
 
       {/*
         No controls for a single page. A disabled Previous next to a disabled

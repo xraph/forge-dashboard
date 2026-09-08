@@ -4,11 +4,23 @@ import * as React from "react"
 
 import { cn } from "@forge-go/dashboard-kit/lib/utils"
 
-function Table({ className, ...props }: React.ComponentProps<"table">) {
+// `containerProps` reaches the scroll container, which is the element that
+// actually overflows. Without it a caller can only reach the <table>, so a
+// wide table has no keyboard-reachable way to scroll sideways. Re-apply
+// this if the component is ever re-vendored from the shadcn registry:
+// `shadcn add table` will drop it silently.
+function Table({
+  className,
+  containerProps,
+  ...props
+}: React.ComponentProps<"table"> & {
+  containerProps?: React.ComponentProps<"div">
+}) {
   return (
     <div
       data-slot="table-container"
       className="relative w-full overflow-x-auto"
+      {...containerProps}
     >
       <table
         data-slot="table"

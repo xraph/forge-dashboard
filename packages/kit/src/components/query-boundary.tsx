@@ -1,4 +1,5 @@
 import type { ReactNode } from "react"
+import { cn } from "@forge-go/dashboard-kit/lib/utils"
 import {
   Card,
   CardContent,
@@ -30,6 +31,7 @@ export interface QueryBoundaryProps<T> {
   query: QueryLike<T>
   skeletonRows?: number
   children: (data: T) => ReactNode
+  className?: string
 }
 
 /**
@@ -51,6 +53,7 @@ export function QueryBoundary<T>({
   query,
   skeletonRows = 3,
   children,
+  className,
 }: QueryBoundaryProps<T>) {
   if (query.loading) {
     return (
@@ -58,7 +61,7 @@ export function QueryBoundary<T>({
         role="status"
         aria-busy="true"
         aria-label={`Loading ${title}`}
-        className="flex flex-col gap-2"
+        className={cn("flex flex-col gap-2", className)}
       >
         {Array.from({ length: skeletonRows }, (_, i) => (
           <Skeleton key={i} className="h-8 w-full" />
@@ -69,7 +72,7 @@ export function QueryBoundary<T>({
 
   if (query.error) {
     return (
-      <Card>
+      <Card className={cn(className)}>
         <CardHeader>
           <CardTitle>{title} unavailable</CardTitle>
           {/*
@@ -94,7 +97,7 @@ export function QueryBoundary<T>({
 
   if (query.data === undefined) {
     return (
-      <p role="status" className="text-sm text-muted-foreground">
+      <p role="status" className={cn("text-sm text-muted-foreground", className)}>
         {title} returned no data.
       </p>
     )
@@ -107,6 +110,7 @@ export interface CommandAlertProps {
   error?: { code: string; message: string }
   /** What was being attempted. "Ban failed". */
   title: string
+  className?: string
 }
 
 /**
@@ -122,13 +126,16 @@ export interface CommandAlertProps {
  * Renders nothing when there is no error, so callers drop it in
  * unconditionally.
  */
-export function CommandAlert({ error, title }: CommandAlertProps) {
+export function CommandAlert({ error, title, className }: CommandAlertProps) {
   if (!error) return null
 
   return (
     <div
       role="alert"
-      className="flex flex-col gap-0.5 rounded-md border border-destructive/50 px-3 py-2 text-sm text-destructive"
+      className={cn(
+        "flex flex-col gap-0.5 rounded-md border border-destructive/50 px-3 py-2 text-sm text-destructive",
+        className,
+      )}
     >
       <span className="font-medium">{title}</span>
       <span>{error.message}</span>

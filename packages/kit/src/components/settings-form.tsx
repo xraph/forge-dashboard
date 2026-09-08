@@ -43,6 +43,7 @@ export interface SettingsFormProps {
   onSave: (changed: Record<string, unknown>) => void
   saving?: boolean
   emptyMessage?: string
+  className?: string
 }
 
 function toFormValue(field: SettingFieldDescriptor): string | boolean {
@@ -74,6 +75,7 @@ export function SettingsForm({
   onSave,
   saving = false,
   emptyMessage = "This namespace has no settings.",
+  className,
 }: SettingsFormProps) {
   const initial = useMemo(() => {
     const out: Record<string, string | boolean> = {}
@@ -116,7 +118,9 @@ export function SettingsForm({
     })
   }, [fields])
 
-  if (fields.length === 0) return <EmptyState title={emptyMessage} />
+  if (fields.length === 0) {
+    return <EmptyState title={emptyMessage} className={className} />
+  }
 
   function submit() {
     const changed: Record<string, unknown> = {}
@@ -133,7 +137,7 @@ export function SettingsForm({
   }
 
   return (
-    <div className="flex flex-col gap-6">
+    <div className={cn("flex flex-col gap-6", className)}>
       {sections.map(([section, sectionFields]) => (
         <section key={section ?? ""} className="flex flex-col gap-4">
           {section !== undefined && (

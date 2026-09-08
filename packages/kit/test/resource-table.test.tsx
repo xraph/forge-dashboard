@@ -110,4 +110,13 @@ describe("ResourceTable", () => {
     renderTable({ pagination: { page: 1, pageSize: 10, total: 2 }, onPageChange: () => {} })
     expect(screen.queryByRole("button", { name: "Next page" })).toBeNull()
   })
+
+  it("gives the scrollable container a keyboard-reachable, named region", () => {
+    renderTable({ caption: "Active sessions" })
+    const region = screen.getByRole("region", { name: "Active sessions" })
+    expect(region.getAttribute("tabindex")).toBe("0")
+    // The region must be the element that actually overflows, not a wrapper
+    // around it: a focusable box that scrolls nothing is worse than no fix.
+    expect(region.getAttribute("data-slot")).toBe("table-container")
+  })
 })

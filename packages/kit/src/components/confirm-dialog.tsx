@@ -1,4 +1,5 @@
 import type { ReactNode } from "react"
+import { cn } from "@forge-go/dashboard-kit/lib/utils"
 import {
   AlertDialog,
   AlertDialogAction,
@@ -24,6 +25,7 @@ export interface ConfirmDialogProps {
   /** The command is in flight. Disables confirm and swaps its label. */
   pending?: boolean
   onConfirm: () => void
+  className?: string
 }
 
 /**
@@ -47,10 +49,11 @@ export function ConfirmDialog({
   destructive = true,
   pending = false,
   onConfirm,
+  className,
 }: ConfirmDialogProps) {
   return (
     <AlertDialog open={open} onOpenChange={onOpenChange}>
-      <AlertDialogContent>
+      <AlertDialogContent className={cn(className)}>
         <AlertDialogHeader>
           <AlertDialogTitle>{title}</AlertDialogTitle>
           {description && (
