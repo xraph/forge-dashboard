@@ -1,7 +1,21 @@
 import type { ComponentType } from "react"
+import { beforeEach } from "vitest"
 import { render } from "@testing-library/react"
-import { ContractError, PluginProvider } from "@forge-go/dashboard-plugin"
+import {
+  ContractError,
+  PluginProvider,
+  queryStore,
+} from "@forge-go/dashboard-plugin"
 import type { ScopedClient } from "@forge-go/dashboard-plugin"
+
+/**
+ * `queryStore` is a module-level singleton, so an entry one test writes
+ * outlives that test and the next read is served from cache rather than
+ * reaching the stub. Every file importing this harness gets the reset.
+ */
+beforeEach(() => {
+  queryStore.clear()
+})
 
 /**
  * A client that answers exactly the intents it was given and refuses every
