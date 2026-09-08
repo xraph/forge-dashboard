@@ -211,13 +211,25 @@ export function navGroups(
 // React-router matches the first and leaves the rest unreachable in silence,
 // so pick a winner deterministically and say what was dropped.
 //
-// The host's own route always wins. Between sub-plugins the lower priority
-// wins, and ties break on extension name so the winner never depends on the
-// order somebody happened to write the imports.
+// The host's own route always wins. Between sub-plugins, the winner is
+// decided purely by extension name (ascending), so the outcome never depends
+// on the order somebody happened to write the imports. (ForgeSubPlugin has no
+// priority field, so there is no "lower priority wins" step before that.)
 function dropCollidingRoutes(
   hostPlugin: ForgePlugin,
   subs: { subPlugin: ForgeSubPlugin; state: PluginState }[]
-): { subPlugin: ForgeSubPlugin; state: PluginState; routes: PluginRoute[] }[] {
+): {
+  subPlugin: ForgeSubPlugin
+  state: PluginState
+  routes: PluginRoute[]
+  /**
+   * Mounted paths (already run through mountPath) this sub-plugin lost to a
+   * collision. The nav side of this same decision needs it too: a nav item
+   * whose route lost must not go on linking to a path that now serves
+   * somebody else's page.
+   */
+  droppedPaths: Set<string>
+}[] {
   const claimed = new Set(
     hostPlugin.routes.map((r) => mountPath(hostPlugin, r.path))
   )
@@ -227,24 +239,35 @@ function dropCollidingRoutes(
 
   return ordered.map((entry) => {
     const kept: PluginRoute[] = []
+    const droppedPaths = new Set<string>()
     for (const route of entry.subPlugin.routes) {
       const path = mountPath(hostPlugin, route.path)
       if (claimed.has(path)) {
         console.warn(
           `[forge-dashboard] "${entry.subPlugin.extension}" claims "${path}", which is already mounted. That page will not be reachable. Two installed extensions disagree about this path; one of them has to change it.`
         )
+        droppedPaths.add(path)
         continue
       }
       claimed.add(path)
       kept.push(route)
     }
-    return { ...entry, routes: kept }
+    return { ...entry, routes: kept, droppedPaths }
   })
 }
 
+// Module scope, not a default `= []` in PluginHostProps's destructure. A
+// literal in the parameter list is a new array every render, and this value
+// sits in the `clients` useMemo's dependency list below, so defaulting
+// inline would hand every plugin a fresh ScopedClient on every render -- the
+// exact thing that memo exists to prevent -- for every consumer that never
+// passes sub-plugins at all: ForgeDashboard when its own prop is omitted,
+// and every host test written before this one.
+const NO_SUB_PLUGINS: ForgeSubPlugin[] = []
+
 export function PluginHost({
   plugins,
-  subPlugins = [],
+  subPlugins = NO_SUB_PLUGINS,
   fetchImpl,
 }: PluginHostProps) {
   const { contractBase } = useDashboardConfig()
@@ -468,10 +491,22 @@ export function PluginHost({
     )
   }
 
-  function readySubPluginsFor(hostExtension: string): ForgeSubPlugin[] {
-    return subsMountedIn(hostExtension)
+  // Ready sub-plugins for one host, with nav filtered by the same collision
+  // decision that decides routes. A losing sub-plugin's route never mounts
+  // (dropCollidingRoutes above), so its nav item must not go on linking to a
+  // path that now opens the winner's page instead -- that would trade a
+  // missing page for a wrong one, which is worse. A nav item pointing at a
+  // path this sub-plugin never declared a route for is untouched; only paths
+  // actually lost to a collision are filtered.
+  function readySubPluginsFor(hostPlugin: ForgePlugin): ForgeSubPlugin[] {
+    return dropCollidingRoutes(hostPlugin, subsMountedIn(hostPlugin.extension))
       .filter((entry) => entry.state.kind === "ready")
-      .map((entry) => entry.subPlugin)
+      .map((entry) => ({
+        ...entry.subPlugin,
+        nav: entry.subPlugin.nav.filter(
+          (item) => !entry.droppedPaths.has(mountPath(hostPlugin, item.to))
+        ),
+      }))
   }
 
   // `undefined` means "at the root" -- a real, expected answer, not an error
@@ -526,10 +561,7 @@ export function PluginHost({
   const navOwner = activeScope ?? root
   const groups: NavGroup[] =
     navOwner && navOwner.state.kind === "ready"
-      ? navGroups(
-          navOwner.plugin,
-          readySubPluginsFor(navOwner.plugin.extension)
-        )
+      ? navGroups(navOwner.plugin, readySubPluginsFor(navOwner.plugin))
       : []
 
   // The header's title names the current page, not the product: the label of
@@ -875,8 +907,13 @@ export function PluginHost({
                       key={`${entry.subPlugin.extension}:${route.path}`}
                       path={mountPath(plugin, route.path)}
                       element={
+                        // Same reasoning as the host route boundary above:
+                        // keyed on the resolved pathname, not a constant, so
+                        // one sub-plugin throwing does not latch a failed
+                        // boundary instance that then paints over every
+                        // subsequent sub-plugin page until a full reload.
                         <PluginErrorBoundary
-                          key={entry.subPlugin.extension}
+                          key={`${entry.subPlugin.extension}:${pathname}`}
                           plugin={entry.subPlugin.extension}
                         >
                           <PluginProvider client={client!}>
