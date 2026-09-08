@@ -787,6 +787,7 @@ describe("scoped routing", () => {
     expect(await screen.findByText("rooms page")).toBeTruthy()
     expect(screen.getByText("Streaming")).toBeTruthy()
     expect(screen.getByText("@streaming")).toBeTruthy()
+    expect(screen.getByText("Rooms").closest("[data-active]")).toBeTruthy()
   })
 
   it("renders no pill nav above the content", async () => {
