@@ -79,7 +79,14 @@ export function ResourceTable<Row>({
   className,
 }: ResourceTableProps<Row>) {
   if (rows.length === 0) {
-    return <EmptyState title={emptyMessage} description={caption} action={emptyAction} />
+    return (
+      <EmptyState
+        title={emptyMessage}
+        description={caption}
+        action={emptyAction}
+        className={className}
+      />
+    )
   }
 
   // Clicking the column already sorted flips it. Clicking any other column

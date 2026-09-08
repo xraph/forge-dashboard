@@ -111,6 +111,11 @@ describe("ResourceTable", () => {
     expect(screen.queryByRole("button", { name: "Next page" })).toBeNull()
   })
 
+  it("keeps className on an empty table, same as a populated one", () => {
+    const { container } = renderTable({ rows: [], className: "mt-4" })
+    expect(container.querySelector(".mt-4")).toBeTruthy()
+  })
+
   it("gives the scrollable container a keyboard-reachable, named region", () => {
     renderTable({ caption: "Active sessions" })
     const region = screen.getByRole("region", { name: "Active sessions" })

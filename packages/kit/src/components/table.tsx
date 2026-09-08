@@ -16,11 +16,16 @@ function Table({
 }: React.ComponentProps<"table"> & {
   containerProps?: React.ComponentProps<"div">
 }) {
+  const { className: containerClassName, ...containerRest } =
+    containerProps ?? {}
   return (
     <div
       data-slot="table-container"
-      className="relative w-full overflow-x-auto"
-      {...containerProps}
+      // Merged, not replaced. A raw spread would let a caller drop
+      // overflow-x-auto and silently reinstate the bug this passthrough
+      // exists to fix.
+      className={cn("relative w-full overflow-x-auto", containerClassName)}
+      {...containerRest}
     >
       <table
         data-slot="table"
