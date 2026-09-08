@@ -1,4 +1,8 @@
 import type { ForgePlugin, PluginInput, PluginNavItem } from "./types"
+import { SCOPE_SIGIL } from "./scope"
+
+/** The prefix that opens a namespaced scope's mount, e.g. "/@streaming/rooms". */
+const SIGIL_PREFIX = `/${SCOPE_SIGIL}`
 
 /**
  * Walks a nav tree (and every level of `children`) checking that each `to`
@@ -11,14 +15,32 @@ import type { ForgePlugin, PluginInput, PluginNavItem } from "./types"
  * rather than the whole tree, which matches what the sidebar keys against: a
  * child repeating its parent's `to`, or two children under different parents,
  * are never rendered as siblings and stay legal.
+ *
+ * `isRoot` extends the walk with one more rule, for root plugins only:
+ * `mountPath` passes a root plugin's own paths straight through, so nothing
+ * else stops one from declaring a nav item under the "/@" sigil and
+ * colliding with whatever scoped plugin already owns it. A namespaced
+ * plugin's `to` is scope-relative and gets its own namespace prepended by
+ * `scopePath`, so the rule has nothing to say about it there, however
+ * unusual the literal string looks.
  */
-function validateNav(items: PluginNavItem[], extension: string): void {
+function validateNav(
+  items: PluginNavItem[],
+  extension: string,
+  isRoot: boolean,
+): void {
   const labels = new Map<string, string>()
 
   for (const item of items) {
     if (!item.to.startsWith("/")) {
       throw new Error(
         `definePlugin: nav item "to" value "${item.to}" must start with "/" (plugin "${extension}")`,
+      )
+    }
+
+    if (isRoot && item.to.startsWith(SIGIL_PREFIX)) {
+      throw new Error(
+        `definePlugin: root plugin "${extension}" cannot claim a nav item under the sigil ("${item.to}"). A root plugin's paths mount as written, with no namespace of its own, so a path starting with "${SIGIL_PREFIX}" would collide with whichever scoped plugin already owns it (plugin "${extension}")`,
       )
     }
 
@@ -31,7 +53,7 @@ function validateNav(items: PluginNavItem[], extension: string): void {
     labels.set(item.to, item.label)
 
     if (item.children) {
-      validateNav(item.children, extension)
+      validateNav(item.children, extension, isRoot)
     }
   }
 }
@@ -71,10 +93,19 @@ export function definePlugin(input: PluginInput): ForgePlugin {
         `definePlugin: route path "${route.path}" must start with "/" (plugin "${input.extension}")`,
       )
     }
+
+    // Same rule as validateNav's sigil guard, for routes: a root plugin's
+    // route paths mount as written, so one starting with "/@" would collide
+    // with whichever scoped plugin already owns it.
+    if (input.root && route.path.startsWith(SIGIL_PREFIX)) {
+      throw new Error(
+        `definePlugin: root plugin "${input.extension}" cannot claim a route under the sigil ("${route.path}"). A root plugin's paths mount as written, with no namespace of its own, so a path starting with "${SIGIL_PREFIX}" would collide with whichever scoped plugin already owns it (plugin "${input.extension}")`,
+      )
+    }
   }
 
   if (input.nav) {
-    validateNav(input.nav, input.extension)
+    validateNav(input.nav, input.extension, input.root ?? false)
   }
 
   return { ...input, nav: input.nav ?? [] }

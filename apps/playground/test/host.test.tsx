@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest"
-import { render, screen } from "@testing-library/react"
+import { render, screen, waitFor } from "@testing-library/react"
 import { MemoryRouter } from "react-router"
 import { ForgeDashboardProvider } from "@forge-go/dashboard-runtime"
 import { definePlugin, useQuery } from "@forge-go/dashboard-plugin"
@@ -531,5 +531,130 @@ describe("root plugin", () => {
 
     expect(await screen.findByText("rooms page")).toBeTruthy()
     expect(screen.getByRole("link", { name: "Overview" })).toBeTruthy()
+  })
+})
+
+describe("a root plugin that is not ready", () => {
+  it("renders the root's setup panel rather than a blank page", async () => {
+    const fetchImpl = capabilitiesFetch([
+      { name: "core-contract", envelopes: ["v1"], configured: false, message: "needs a database" },
+    ])
+
+    render(
+      <ForgeDashboardProvider config={config}>
+        <MemoryRouter initialEntries={["/"]}>
+          <PluginHost
+            plugins={[
+              definePlugin({
+                extension: "core-contract",
+                root: true,
+                label: "System",
+                nav: [{ label: "Overview", to: "/overview" }],
+                routes: [{ path: "/overview", element: () => <p>root page</p> }],
+              }),
+            ]}
+            fetchImpl={fetchImpl}
+          />
+        </MemoryRouter>
+      </ForgeDashboardProvider>,
+    )
+
+    expect(await screen.findByText(/needs a database/)).toBeTruthy()
+    expect(screen.queryByText("root page")).toBeNull()
+  })
+})
+
+// Mirrors "a root plugin that is not ready" above, for the shape that fix
+// closes: no root plugin at all (never declared, or its contributor missing
+// from /capabilities and filtered out before partitionScopes ever sees it),
+// with every scope in "setup" or "mismatch". "/" carries no "@namespace"
+// sigil, so resolveActiveScope returns undefined and panelSource has nothing
+// to fall back to -- the same blank landing page an earlier task already
+// closed for a non-ready ROOT, but reachable here from the opposite
+// direction: no root and an unready scope, on the single most common
+// deployment there is, a server with exactly one extension not yet
+// configured.
+describe("no root plugin, with a scope that is not ready", () => {
+  it("renders the scope's setup panel rather than a blank page", async () => {
+    const fetchImpl = capabilitiesFetch([
+      {
+        name: "streaming-contract",
+        envelopes: ["v1"],
+        configured: false,
+        message: "needs a database",
+      },
+    ])
+
+    render(
+      <ForgeDashboardProvider config={config}>
+        <MemoryRouter initialEntries={["/"]}>
+          <PluginHost
+            plugins={[
+              definePlugin({
+                extension: "streaming-contract",
+                label: "Streaming",
+                nav: [{ label: "Rooms", to: "/rooms" }],
+                routes: [{ path: "/rooms", element: () => <p>rooms page</p> }],
+              }),
+            ]}
+            fetchImpl={fetchImpl}
+          />
+        </MemoryRouter>
+      </ForgeDashboardProvider>,
+    )
+
+    expect(await screen.findByText(/needs a database/)).toBeTruthy()
+    expect(screen.queryByText("rooms page")).toBeNull()
+  })
+})
+
+// Whole-branch review, Minor. mountPath passes a root plugin's own paths
+// through untouched, so `home` can now literally come out as "/" -- a value
+// scopePath could never produce for a namespaced plugin, which always came
+// out "/@<namespace>" at minimum. Reachable whenever a root plugin's
+// priority-first nav item (or, with no nav, its first route) is "/", which
+// packages/plugin-streaming/src/index.tsx already writes for its own
+// "Overview" entry -- harmlessly there, since streaming is namespaced and
+// scopePath turns it into "/@streaming". Given to a root plugin instead,
+// where mountPath adds no namespace, "/" survives verbatim and the redirect
+// route would send "/" to the location it is already rendering.
+describe('a root plugin whose home resolves to "/"', () => {
+  it('does not redirect "/" to itself', async () => {
+    const fetchImpl = capabilitiesFetch([
+      { name: "core-contract", envelopes: ["v1"], configured: true },
+    ])
+    // A self-redirect's navigate() fires from an effect after the render
+    // this test awaits below has already settled, so it lands outside any
+    // act() this test wraps and React reports it as an update "not wrapped
+    // in act(...)". Confirmed by hand against this exact fixture: the
+    // capabilities round trip alone never produces this warning, so its
+    // presence here can only mean the router performed a navigation nobody
+    // asked for.
+    const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {})
+
+    render(
+      <ForgeDashboardProvider config={config}>
+        <MemoryRouter initialEntries={["/"]}>
+          <PluginHost
+            plugins={[
+              definePlugin({
+                extension: "core-contract",
+                root: true,
+                nav: [{ label: "Home", to: "/" }],
+                routes: [{ path: "/other", element: () => <p>other page</p> }],
+              }),
+            ]}
+            fetchImpl={fetchImpl}
+          />
+        </MemoryRouter>
+      </ForgeDashboardProvider>,
+    )
+
+    await waitFor(() => expect(fetchImpl).toHaveBeenCalled())
+    // Give a wrongly-fired self-redirect a moment to land before checking.
+    await new Promise((resolve) => setTimeout(resolve, 50))
+
+    expect(errorSpy).not.toHaveBeenCalled()
+    errorSpy.mockRestore()
   })
 })

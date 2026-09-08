@@ -164,6 +164,89 @@ describe("definePlugin", () => {
   })
 })
 
+// Whole-branch review, Important-adjacent Minor. Nothing structurally stops a
+// root plugin from declaring a path under the "/@" sigil: mountPath passes a
+// root plugin's paths straight through, so `routes: [{ path: "/@streaming/rooms" }]`
+// mounts exactly there and can collide with a real scoped plugin's own mount.
+// Before namespacing, two plugins landing on the same pathname was
+// structurally impossible; these guards restore that guarantee for root
+// plugins specifically, since only they can opt out of namespacing at all.
+describe("definePlugin root plugins may not claim a scoped path", () => {
+  it("rejects a root plugin whose nav item starts with the sigil", () => {
+    expect(() =>
+      definePlugin({
+        extension: "core-contract",
+        root: true,
+        nav: [{ label: "Rooms", to: "/@streaming/rooms" }],
+        routes: [],
+      }),
+    ).toThrow(/@streaming\/rooms/)
+  })
+
+  it("rejects a root plugin whose nested nav child starts with the sigil", () => {
+    expect(() =>
+      definePlugin({
+        extension: "core-contract",
+        root: true,
+        nav: [
+          {
+            label: "Overview",
+            to: "/overview",
+            children: [{ label: "Rooms", to: "/@streaming/rooms" }],
+          },
+        ],
+        routes: [],
+      }),
+    ).toThrow(/@streaming\/rooms/)
+  })
+
+  it("rejects a root plugin whose route path starts with the sigil", () => {
+    expect(() =>
+      definePlugin({
+        extension: "core-contract",
+        root: true,
+        routes: [{ path: "/@streaming/rooms", element: Stub }],
+      }),
+    ).toThrow(/@streaming\/rooms/)
+  })
+
+  it("names the offending plugin in the error", () => {
+    expect(() =>
+      definePlugin({
+        extension: "core-contract",
+        root: true,
+        nav: [{ label: "Rooms", to: "/@streaming/rooms" }],
+        routes: [],
+      }),
+    ).toThrow(/core-contract/)
+  })
+
+  it("accepts a root plugin whose nav and routes stay off the sigil", () => {
+    expect(() =>
+      definePlugin({
+        extension: "core-contract",
+        root: true,
+        nav: [{ label: "Overview", to: "/overview" }],
+        routes: [{ path: "/overview", element: Stub }],
+      }),
+    ).not.toThrow()
+  })
+
+  // The sigil guard is a root-only rule. A namespaced plugin's own `to` and
+  // `path` values are scope-relative -- scopePath prepends its namespace on
+  // top of whatever is written here -- so this guard has nothing to say
+  // about them, however unusual the literal string looks.
+  it("leaves a non-root plugin's sigil-shaped paths alone", () => {
+    expect(() =>
+      definePlugin({
+        extension: "streaming-contract",
+        nav: [{ label: "Odd", to: "/@nested/odd" }],
+        routes: [{ path: "/@nested/odd", element: Stub }],
+      }),
+    ).not.toThrow()
+  })
+})
+
 // Duplicates are rejected per sibling array, which is the scope React keys
 // against. Two entries in one list collide; a child repeating an ancestor's
 // `to`, or two children under different parents, never share a key scope.

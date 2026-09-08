@@ -314,7 +314,18 @@ export function PluginHost({ plugins, fetchImpl }: PluginHostProps) {
           landing.plugin.routes[0]?.path ??
           "/",
       )
-    : undefined
+    : // Nothing is ready. Falling back to undefined here is what used to
+      // leave "/" stranded: no sigil, so resolveActiveScope reads it as "at
+      // the root," panelSource has neither an activeScope nor a root to be,
+      // and the page renders no panel at all -- on a server with no root
+      // plugin and exactly one extension still in setup, the single most
+      // common deployment there is. A scope that exists but is not ready
+      // still has a namespace, so land there instead: resolveActiveScope
+      // resolves "/@<namespace>" straight back to that scope, and its own
+      // setup/mismatch panel renders exactly as it would from a real visit.
+      scopes[0]
+      ? mountPath(scopes[0].plugin, "/")
+      : undefined
 
   return (
     <HostShell sidebar={sidebar} title={pageTitle}>
@@ -334,12 +345,18 @@ export function PluginHost({ plugins, fetchImpl }: PluginHostProps) {
       )}
 
       {/*
-        No route table at all when nothing is ready, rather than an empty one.
-        An empty <Routes> makes react-router warn that the location matched
-        nothing, which is noise: a dashboard whose only plugin needs setup has
-        no pages by design, and that is already said by the panel above.
+        No route table at all when nothing is ready and there is no fallback
+        home either, rather than an empty one. An empty <Routes> makes
+        react-router warn that the location matched nothing, which is noise:
+        a dashboard with nothing to route to has no pages by design, and that
+        is already said by the panel above. `home` alone can still be truthy
+        here with `ready` empty -- see its computation above -- so the
+        redirect route below must not be gated on `ready.length > 0`, or the
+        one case this exists for (nothing ready, landing on a not-ready
+        scope's namespace root so its panel can render) never gets a route to
+        land on.
       */}
-      {ready.length > 0 && (
+      {(ready.length > 0 || home) && (
         <Routes>
           {ready.flatMap(({ plugin }) =>
             plugin.routes.map((route) => {
@@ -391,7 +408,19 @@ export function PluginHost({ plugins, fetchImpl }: PluginHostProps) {
               )
             }),
           )}
-          {home && <Route path="/" element={<Navigate to={home} replace />} />}
+          {/*
+            home === "/" is reachable now that a root plugin's own paths pass
+            through mountPath untouched: a root plugin whose priority-first
+            nav item (or, with no nav, first route) is "/" resolves `home` to
+            the literal root, and without this guard the route below would
+            redirect "/" to the location it is already rendering. Guarded
+            here rather than at the computation above so every caller of
+            `home` -- this route and the panel fallback alike -- sees the
+            same value; only the redirect itself needs to refuse to fire.
+          */}
+          {home && home !== "/" && (
+            <Route path="/" element={<Navigate to={home} replace />} />
+          )}
         </Routes>
       )}
     </HostShell>
