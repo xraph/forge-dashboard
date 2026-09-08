@@ -55,6 +55,13 @@ func main() {
 		log.Fatalf("register auth contributor: %v", err)
 	}
 
+	// See startupcheck.go and README.md's "Which forge checkout you need":
+	// the go.mod replace directive points at ../../forge on disk with no
+	// version pin, so whether the shell can ever see "ready" for these
+	// contributors depends on which branch that checkout happens to be on.
+	// This makes a missing "configured" field loud instead of silent.
+	registerCapabilitiesShapeCheck(app)
+
 	log.Printf("forge-dashboard demo starting on :%s (dashboard at /dashboard, contract at /dashboard/api/dashboard/v1)", port)
 	if err := app.Run(); err != nil {
 		log.Fatalf("application error: %v", err)
