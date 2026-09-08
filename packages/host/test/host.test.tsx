@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from "vitest"
 import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react"
 import { MemoryRouter, useParams } from "react-router"
-import { ForgeDashboardProvider, SessionProvider } from "@forge-go/dashboard-runtime"
+import { ForgeDashboardProvider, SessionProvider, useSession } from "@forge-go/dashboard-runtime"
 import { definePlugin, useQuery, usePluginClient } from "@forge-go/dashboard-plugin"
 import type {
   Capabilities,
@@ -1437,6 +1437,36 @@ describe("PluginHost auth gate", () => {
     expect(screen.queryByText(/Could not reach the dashboard server/)).toBeNull()
   })
 
+  it("renders no sidebar and no shell when /principal fails but /capabilities succeeds", async () => {
+    // A dead server failing both requests is not the only way to reach
+    // `unreachable` -- a 500 out of the principal handler alone gets here
+    // too, with capabilities answering fine. Rendering the unreachable alert
+    // inside HostShell would build the full sidebar object regardless, and
+    // every scope name and nav item would reach the DOM for a visitor who
+    // may not be signed in at all. This is the disclosure the spec calls a
+    // curtain.
+    const fetchImpl = vi.fn(async (input: RequestInfo | URL) => {
+      const url = String(input)
+      if (url.endsWith("/principal")) {
+        throw new Error("principal handler exploded")
+      }
+      if (url.endsWith("/capabilities")) {
+        return jsonOk({
+          shellEnvelopes: ["v1"],
+          contributors: [{ name: "core-contract", envelopes: ["v1"], configured: true }],
+        })
+      }
+      throw new Error(`unexpected request to ${url}`)
+    }) as unknown as typeof fetch
+
+    const { container } = renderHost([rootPlugin(), GatePlugin()], fetchImpl, "/overview")
+
+    expect(await screen.findByText(/Could not determine whether you are signed in/)).toBeTruthy()
+    expect(container.querySelector('[data-slot="sidebar-header"]')).toBeNull()
+    expect(container.querySelector('[data-slot="sidebar-content"]')).toBeNull()
+    expect(screen.queryByText("root overview body")).toBeNull()
+  })
+
   it("shows the signed-in user in the sidebar footer", async () => {
     renderHost(
       [rootPlugin()],
@@ -1477,7 +1507,29 @@ describe("PluginHost auth gate", () => {
       throw new Error(`unexpected request to ${url}`)
     }) as unknown as typeof fetch
 
-    renderHost([rootPlugin()], fetchImpl, "/overview")
+    // A probe sharing the same SessionProvider as PluginHost, so clicking it
+    // calls the real session.refresh() -- the same thing a successful login
+    // triggers via onAuthenticated. Nothing else in this render tree exposes
+    // a second resolution to the test.
+    function RefreshProbe() {
+      const session = useSession()
+      return (
+        <button type="button" onClick={() => session.refresh()}>
+          refresh session
+        </button>
+      )
+    }
+
+    render(
+      <MemoryRouter initialEntries={["/overview"]}>
+        <ForgeDashboardProvider config={config}>
+          <SessionProvider fetchImpl={fetchImpl}>
+            <RefreshProbe />
+            <PluginHost plugins={[rootPlugin()]} fetchImpl={fetchImpl} />
+          </SessionProvider>
+        </ForgeDashboardProvider>
+      </MemoryRouter>,
+    )
     await screen.findByText("root overview body")
 
     // One of each on the first pass. A freshly signed-in user may be shown
@@ -1485,6 +1537,15 @@ describe("PluginHost auth gate", () => {
     // key on the session epoch and not on [contractBase, doFetch] alone.
     expect(principalCalls).toBe(1)
     expect(capabilityCalls).toBe(1)
+
+    // The session resolving a second time -- what a successful login does
+    // through onAuthenticated -- has to trigger a second capabilities fetch.
+    // Without session.epoch in the effect's dependency array this would
+    // never fire again and the assertions below would go red.
+    fireEvent.click(screen.getByRole("button", { name: "refresh session" }))
+
+    await waitFor(() => expect(principalCalls).toBe(2))
+    await waitFor(() => expect(capabilityCalls).toBe(2))
   })
 
   it("fires capabilities exactly once when the Go handler seeds the principal", async () => {

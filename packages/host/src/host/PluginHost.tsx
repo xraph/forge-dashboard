@@ -445,15 +445,24 @@ export function PluginHost({ plugins, fetchImpl }: PluginHostProps) {
     )
   }
 
+  // Bare, like `unknown` above and unlike the capabilities-error branch
+  // below: this fires whenever /principal itself failed, which is not only
+  // the dead-server case where /capabilities fails too. A 500 out of the
+  // principal handler alone still lets capabilities answer fine, and
+  // rendering this inside HostShell would build the full sidebar object
+  // regardless -- every scope name and nav item reaching the DOM for a
+  // visitor who may not be signed in at all. That is the disclosure the gate
+  // above exists to prevent, and a route that paints over a mounted sidebar
+  // is exactly the curtain this dashboard does not do.
   if (session.state.status === "unreachable") {
     return (
-      <HostShell sidebar={sidebar} title={pageTitle}>
-        <Alert variant="destructive">
+      <div className="flex min-h-svh items-center justify-center p-4">
+        <Alert variant="destructive" className="max-w-md">
           <TriangleAlertIcon />
           <AlertTitle>Could not determine whether you are signed in</AlertTitle>
           <AlertDescription>{session.state.message}</AlertDescription>
         </Alert>
-      </HostShell>
+      </div>
     )
   }
 
