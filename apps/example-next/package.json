@@ -1,0 +1,31 @@
+{
+  "name": "example-next",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "next dev --port 3100",
+    "build": "next build",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@forge-go/dashboard-host": "workspace:*",
+    "@forge-go/dashboard-kit": "workspace:*",
+    "@forge-go/dashboard-next": "workspace:*",
+    "@forge-go/dashboard-plugin": "workspace:*",
+    "@forge-go/dashboard-plugin-authsome": "workspace:*",
+    "@forge-go/dashboard-plugin-core": "workspace:*",
+    "@forge-go/dashboard-plugin-streaming": "workspace:*",
+    "@forge-go/dashboard-runtime": "workspace:*",
+    "next": "^15",
+    "react": "^19.2.6",
+    "react-dom": "^19.2.6",
+    "react-router": "^8.3.1"
+  },
+  "devDependencies": {
+    "@tailwindcss/postcss": "^4",
+    "@types/node": "^24",
+    "@types/react": "^19",
+    "@types/react-dom": "^19",
+    "typescript": "~6"
+  }
+}

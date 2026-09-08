@@ -1,0 +1,17 @@
+@import "@forge-go/dashboard-kit/globals.css";
+
+/*
+ * dashboard-kit/globals.css only declares `@source "../**\/*.{ts,tsx}"`,
+ * which is relative to that file and therefore only scans dashboard-kit's
+ * own package. That is enough for apps/shell and apps/playground because
+ * they run through @tailwindcss/vite, which scans Vite's whole module graph
+ * regardless of @source. This app runs through @tailwindcss/postcss instead
+ * (Next has no equivalent auto-detection), so every other workspace package
+ * that renders Tailwind-styled markup has to be named explicitly or its
+ * classes never make it into the generated stylesheet.
+ */
+@source "../../../packages/host/src/**/*.{ts,tsx}";
+@source "../../../packages/plugin/src/**/*.{ts,tsx}";
+@source "../../../packages/plugin-core/src/**/*.{ts,tsx}";
+@source "../../../packages/plugin-streaming/src/**/*.{ts,tsx}";
+@source "../../../packages/plugin-authsome/src/**/*.{ts,tsx}";

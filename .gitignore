@@ -12,6 +12,9 @@ dist
 dist-ssr
 *.local
 
+# next.js
+.next
+
 # env files (can opt-in for committing if needed)
 .env*
 
