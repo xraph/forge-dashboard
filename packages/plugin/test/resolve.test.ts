@@ -8,6 +8,9 @@ function plugin(overrides: Partial<ForgePlugin> = {}): ForgePlugin {
     extension: "billing",
     nav: [],
     routes: [],
+    // `context` is required on ForgePlugin. definePlugin fills it in from an
+    // optional input field, so only a raw literal like this one has to say it.
+    context: [],
     ...overrides,
   }
 }
