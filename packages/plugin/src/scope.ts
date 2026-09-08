@@ -53,25 +53,51 @@ export function scopePath(namespace: string, to: string): string {
 }
 
 /**
- * The scope a pathname belongs to.
+ * Where a plugin's scope-relative path actually serves.
  *
- * Read the first segment, strip the sigil, look it up. Nothing here inspects
- * the search string: context selectors live in the query under a `ctx.` prefix
- * and must never influence which scope resolves.
+ * A root plugin's paths are already absolute from the dashboard's point of
+ * view, so they pass through untouched. Everything else gets its namespace.
+ */
+export function mountPath(plugin: ForgePlugin, to: string): string {
+  return plugin.root ? to : scopePath(namespaceOf(plugin), to)
+}
+
+/**
+ * Splits resolved plugins into the one that owns the root and the rest.
  *
- * Falling back to the first scope rather than returning undefined on a miss is
- * deliberate. An unknown namespace should land somewhere renderable, not blank
- * the dashboard.
+ * Two plugins claiming the root is a programming error in whoever assembled
+ * the plugin list, not a runtime state to render around, so it throws here
+ * rather than picking a winner and leaving the loser silently unreachable.
+ */
+export function partitionScopes(all: Scope[]): {
+  root?: Scope
+  scopes: Scope[]
+} {
+  const roots = all.filter((s) => s.plugin.root)
+  if (roots.length > 1) {
+    throw new Error(
+      `two plugins claim the dashboard root: ${roots.map((s) => s.id).join(", ")}. Only one plugin may set \`root: true\`.`,
+    )
+  }
+  return { root: roots[0], scopes: all.filter((s) => !s.plugin.root) }
+}
+
+/**
+ * The scope a pathname belongs to, or `undefined` when it belongs to none.
+ *
+ * `undefined` is a real answer and means "at the root", which is where the
+ * root plugin serves. It is not an error and not an empty state. Read the
+ * first segment, strip the sigil, look it up; anything without a sigil, and
+ * any namespace that matches nothing, is the root.
+ *
+ * Nothing here inspects the search string: context selectors live in the
+ * query under a `ctx.` prefix and must never influence which scope resolves.
  */
 export function resolveActiveScope(
   pathname: string,
   scopes: Scope[],
 ): Scope | undefined {
   const first = pathname.split("/").filter(Boolean)[0]
-  if (first?.startsWith(SCOPE_SIGIL)) {
-    const namespace = first.slice(SCOPE_SIGIL.length)
-    const hit = scopes.find((s) => s.namespace === namespace)
-    if (hit) return hit
-  }
-  return scopes[0]
+  if (!first?.startsWith(SCOPE_SIGIL)) return undefined
+  return scopes.find((s) => s.namespace === first.slice(SCOPE_SIGIL.length))
 }
