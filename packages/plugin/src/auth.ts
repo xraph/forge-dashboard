@@ -49,7 +49,7 @@ export function resolveAuthProvider(plugins: ForgePlugin[]): ForgePlugin | undef
   if (declaring.length > 1) {
     const names = declaring.map((plugin) => plugin.extension).join(", ")
     throw new Error(
-      `more than one plugin declare an auth gate (${names}); at most one may`,
+      `more than one plugin declares an auth gate (${names}); at most one may`,
     )
   }
   return declaring[0]

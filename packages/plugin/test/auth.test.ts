@@ -36,7 +36,7 @@ describe("resolveAuthProvider", () => {
 
   it("names both offenders in the error", () => {
     expect(() => resolveAuthProvider([plugin("auth", true), plugin("other", true)])).toThrow(
-      /declare an auth gate/,
+      /declares an auth gate/,
     )
   })
 
