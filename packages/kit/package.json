@@ -60,7 +60,6 @@
     "./globals.css": "./src/styles/globals.css",
     "./lib/*": "./src/lib/*.ts",
     "./components/*": "./src/components/*.tsx",
-    "./hooks/*": "./src/hooks/*.ts",
-    "./app/*": "./src/app/*"
+    "./hooks/*": "./src/hooks/*.ts"
   }
 }
