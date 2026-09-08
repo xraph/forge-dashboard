@@ -14,15 +14,6 @@ export interface Principal {
 }
 
 /**
- * Six states, and only four of them come from an endpoint answer.
- *
- * `unknown` and `unreachable` exist because "we have not been told" and "we
- * asked and could not find out" are not the same as any answer the server
- * gives, and folding either into `anonymous` paints a sign-in screen at a
- * signed-in person while folding either into `signedIn` shows the dashboard
- * to a stranger.
- */
-/**
  * The principal the Go shell handler inlines, if it inlined one.
  *
  * Three return values, not two, and the difference is load-bearing:
@@ -52,6 +43,15 @@ export function injectedPrincipal(): Principal | null | undefined {
   return injected.principal ?? null
 }
 
+/**
+ * Six states, and only four of them come from an endpoint answer.
+ *
+ * `unknown` and `unreachable` exist because "we have not been told" and "we
+ * asked and could not find out" are not the same as any answer the server
+ * gives, and folding either into `anonymous` paints a sign-in screen at a
+ * signed-in person while folding either into `signedIn` shows the dashboard
+ * to a stranger.
+ */
 export type SessionState =
   | { status: "unknown" }
   | { status: "anonymous" }
@@ -90,10 +90,24 @@ export interface Session {
 
 const SessionContext = createContext<Session | null>(null)
 
-function seed(): SessionState {
+/**
+ * Reads the seed the Go handler inlined and decides frame one's state.
+ *
+ * `authEnabled` is what tells apart the two plausible ways a Go handler
+ * marks "auth is off": an explicit `principal: null`, and an
+ * `authenticated: false` principal. When auth is disabled the middleware that
+ * would set an identity never runs, so `UserFromContext` is nil and the
+ * handler writes `null` either way. Reading that as `signedOut` on an
+ * auth-disabled dashboard flashes the sign-in gate on every load, and the
+ * shell only arrives once `/principal` answers back. `authEnabled` is already
+ * in the injected config, so this needs no new server field to tell the two
+ * cases apart.
+ */
+function seed(authEnabled: boolean): SessionState {
   const injected = injectedPrincipal()
   if (injected === undefined) return { status: "unknown" }
   if (injected === null || !injected.authenticated) {
+    if (!authEnabled) return { status: "anonymous" }
     // loginPath is filled in by the provider, which can read the config.
     return { status: "signedOut", loginPath: "" }
   }
@@ -107,10 +121,10 @@ export function SessionProvider({
   children: ReactNode
   fetchImpl?: typeof fetch
 }) {
-  const { contractBase, loginPath } = useDashboardConfig()
+  const { contractBase, loginPath, authEnabled } = useDashboardConfig()
 
   const [state, setState] = useState<SessionState>(() => {
-    const s = seed()
+    const s = seed(authEnabled)
     return s.status === "signedOut" ? { status: "signedOut", loginPath } : s
   })
   const [epoch, setEpoch] = useState(0)

@@ -24,9 +24,12 @@ function Probe() {
   )
 }
 
-function renderSession(fetchImpl: typeof fetch) {
+function renderSession(
+  fetchImpl: typeof fetch,
+  configOverrides: Partial<typeof config & { authEnabled: boolean }> = {},
+) {
   return render(
-    <ForgeDashboardProvider config={config}>
+    <ForgeDashboardProvider config={{ ...config, ...configOverrides }}>
       <SessionProvider fetchImpl={fetchImpl}>
         <Probe />
       </SessionProvider>
@@ -56,17 +59,35 @@ describe("useSession", () => {
     expect(screen.getByTestId("status").textContent).toBe("unknown")
   })
 
-  it("seeds signedOut from a present-but-null injected principal", () => {
+  it("seeds signedOut from a present-but-null injected principal when auth is enabled", () => {
     ;(window as { __FORGE_DASHBOARD__?: unknown }).__FORGE_DASHBOARD__ = {
       basePath: "/dashboard",
       loginPath: "/dashboard/login",
       principal: null,
     }
     const pending = vi.fn(() => new Promise<Response>(() => {})) as unknown as typeof fetch
-    renderSession(pending)
+    // authEnabled: true is the distinction this test pins. A present-but-null
+    // principal on an auth-disabled dashboard means "auth is off", not "you
+    // are signed out"; see the sibling test below.
+    renderSession(pending, { authEnabled: true })
     // The server rendered the page, looked, and found nobody. That is not the
     // same as not having been told, so the gate paints with no spinner first.
     expect(screen.getByTestId("status").textContent).toBe("signedOut")
+  })
+
+  it("seeds anonymous, not signedOut, from a null injected principal when auth is disabled", () => {
+    ;(window as { __FORGE_DASHBOARD__?: unknown }).__FORGE_DASHBOARD__ = {
+      basePath: "/dashboard",
+      principal: null,
+    }
+    const pending = vi.fn(() => new Promise<Response>(() => {})) as unknown as typeof fetch
+    // When auth is switched off, the Go middleware that would set an identity
+    // never runs, so the handler writes the principal key as an explicit
+    // null - the same bytes a real signed-out visitor gets. Without
+    // authEnabled in the seed, this flashes the sign-in gate on every load of
+    // an auth-disabled dashboard.
+    renderSession(pending, { authEnabled: false })
+    expect(screen.getByTestId("status").textContent).toBe("anonymous")
   })
 
   it("seeds signedIn from an injected principal", () => {
