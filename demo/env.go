@@ -21,6 +21,15 @@ func envBool(name string, def bool) bool {
 	return b
 }
 
+// demoSynthetic reports whether DEMO_SYNTHETIC is set, meaning main should
+// register the hand-written streaming-contract and auth contributors
+// (streaming.go / auth.go) instead of the real forge/extensions/streaming
+// and authsome extensions. This is the escape hatch for when the real
+// extensions can't be built or started at all -- see README.md.
+func demoSynthetic() bool {
+	return envBool("DEMO_SYNTHETIC", false)
+}
+
 // demoOmit reports whether DEMO_<PREFIX>_OMIT is set, meaning the
 // contributor should not be registered with the contract registry at all --
 // it will not appear in GET .../capabilities, and forge-dashboard's shell

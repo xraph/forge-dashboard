@@ -13,6 +13,7 @@ import (
 
 	"github.com/xraph/forge"
 	"github.com/xraph/forge/extensions/dashboard"
+	"github.com/xraph/forge/extensions/streaming"
 )
 
 // defaultPort matches what apps/shell/vite.config.ts and the playground
@@ -44,15 +45,58 @@ func main() {
 		log.Fatalf("register dashboard extension: %v", err)
 	}
 
-	// These two are auto-discovered by the dashboard extension during its
-	// Start() (see extensions/dashboard/aware.go: ContractContributorAware)
-	// purely because they implement RegisterContractContributor -- no
-	// manual wiring against dashExt is needed here.
-	if err := app.RegisterExtension(NewStreamingContributorExtension()); err != nil {
-		log.Fatalf("register streaming-contract contributor: %v", err)
+	// Both contributors below are auto-discovered by the dashboard extension
+	// during its Start() (see extensions/dashboard/aware.go:
+	// ContractContributorAware) purely because they implement
+	// RegisterContractContributor -- no manual wiring against dashExt is
+	// needed here.
+	//
+	// Real extensions are the default. DEMO_SYNTHETIC=true switches both
+	// back to the hand-written contributors in streaming.go/auth.go -- the
+	// only thing that still works if a real extension can't be built or
+	// started. Per-contributor, DEMO_<PREFIX>_OMIT / DEMO_<PREFIX>_UNAVAILABLE
+	// also fall back to the synthetic contributor even when DEMO_SYNTHETIC
+	// isn't set: a real extension that's actually running has no "I'm not
+	// registered" or "I'm registered but broken" mode to trigger, so those
+	// two states can only come from the fixture. See README.md.
+	synthetic := demoSynthetic()
+
+	if synthetic || demoOmit("STREAMING") || demoUnavailableFlag("STREAMING") {
+		if err := app.RegisterExtension(NewStreamingContributorExtension()); err != nil {
+			log.Fatalf("register streaming-contract contributor (synthetic): %v", err)
+		}
+	} else if ok, detail := checkRealStreamingManifest(); !ok && !envBool("DEMO_STREAMING_FORCE_REAL", false) {
+		// See streamingcheck.go: the real streaming extension's own bundled
+		// manifest.yaml fails the dashboard's own contract validator (a
+		// genuine, pre-existing defect, not something this demo caused), so
+		// registering it for real would leave streaming-contract silently
+		// missing from /capabilities. Fall back to the synthetic contributor
+		// so the shell still has a working streaming scope, and say why.
+		warnRealStreamingManifestInvalid(detail)
+		if err := app.RegisterExtension(NewStreamingContributorExtension()); err != nil {
+			log.Fatalf("register streaming-contract contributor (synthetic fallback): %v", err)
+		}
+	} else {
+		if err := app.RegisterExtension(streaming.NewExtension()); err != nil {
+			log.Fatalf("register streaming-contract contributor (real): %v", err)
+		}
 	}
-	if err := app.RegisterExtension(NewAuthContributorExtension()); err != nil {
-		log.Fatalf("register auth contributor: %v", err)
+
+	switch {
+	case synthetic || demoOmit("AUTH") || demoUnavailableFlag("AUTH"):
+		if err := app.RegisterExtension(NewAuthContributorExtension()); err != nil {
+			log.Fatalf("register auth contributor (synthetic): %v", err)
+		}
+	default:
+		authExt, err := newRealAuthsomeExtension()
+		if err != nil {
+			log.Printf("[demo] real authsome contributor unavailable, falling back to synthetic: %v", err)
+			if err := app.RegisterExtension(NewAuthContributorExtension()); err != nil {
+				log.Fatalf("register auth contributor (synthetic fallback): %v", err)
+			}
+		} else if err := app.RegisterExtension(authExt); err != nil {
+			log.Fatalf("register auth contributor (real): %v", err)
+		}
 	}
 
 	// See startupcheck.go and README.md's "Which forge checkout you need":

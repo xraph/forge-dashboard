@@ -1,10 +1,15 @@
 # forge-dashboard demo server
 
 A real Forge application. It imports `github.com/xraph/forge` as an ordinary
-dependency, registers the dashboard extension, and adds two extra contract
-contributors so the React shell has more than one scope to switch between.
-Nothing here is a fixture: every response comes from forge's actual contract
-registry and dispatcher, the same code path a production Forge app uses.
+dependency, registers the dashboard extension, and by default registers the
+real `github.com/xraph/forge/extensions/streaming` extension and the real
+`github.com/xraph/authsome` engine as its other two contract contributors,
+so the React shell has more than one scope to switch between. Nothing here
+is a fixture: every response comes from forge's (or authsome's) actual
+contract registry and dispatcher, the same code path a production Forge app
+uses. Hand-written synthetic contributors (`streaming.go` / `auth.go`) still
+exist and are still wired up, but only as a fallback -- see "Real vs
+synthetic contributors" below for exactly when each one is used.
 
 ## Why this exists
 
@@ -18,6 +23,65 @@ The Node fixture at `packages/fixture-server/` is still there and still
 useful for fast iteration, but it fakes the wire shape by hand, so it can't
 catch drift between forge's real transport and what the shell expects. This
 demo can, because it's forge.
+
+## Real vs synthetic contributors
+
+Default behaviour, no env vars set:
+
+- **`streaming-contract`** is meant to come from the real
+  `forge/extensions/streaming` extension, registered unconditionally in
+  `main.go`. But its own bundled `contract/manifest.yaml` fails the
+  dashboard's contract validator -- see "A defect in the real streaming
+  extension's manifest" below -- so this demo pre-flights that manifest at
+  startup (`streamingcheck.go`) and falls back to the synthetic
+  `streaming-contract` contributor (`streaming.go`) automatically, with a
+  loud startup banner explaining why. Set `DEMO_STREAMING_FORCE_REAL=true`
+  to register the real extension anyway and watch it fail for yourself (the
+  dashboard logs the error and the contributor is simply absent from
+  `/capabilities`).
+- **`auth`** comes from a real `github.com/xraph/authsome` engine
+  (`authsome.go`), built directly with `authsome.NewEngine` against
+  in-memory stores (both authsome's own and an in-memory warden engine) and
+  `authsome.WithBootstrap()`, which seeds a "Platform" app + dev/staging/
+  production environments. No database, no network calls, no migrations.
+  If engine construction or startup ever fails, main.go catches the error
+  and falls back to the synthetic `auth` contributor (`auth.go`) instead of
+  refusing to boot, logging exactly why.
+
+`DEMO_SYNTHETIC=true` forces both back to the hand-written contributors
+regardless of whether the real ones would have worked -- the blanket escape
+hatch for when you specifically want the old fixture behaviour. Per
+contributor, `DEMO_<PREFIX>_OMIT` / `DEMO_<PREFIX>_UNAVAILABLE` (see
+"Exercising non-ready states" below) also force the synthetic contributor
+even without `DEMO_SYNTHETIC`: a real extension that's actually running and
+healthy has no "I'm not registered" or "I'm registered but broken" mode to
+trigger, so those two states can only come from the fixture.
+
+### A defect in the real streaming extension's manifest
+
+While wiring the real streaming extension up to this demo,
+`extensions/streaming/contract/manifest.yaml`'s `/playground` route turned
+out to nest five `form.edit` widgets directly inside a `dashboard.grid`
+node's `widgets` slot. `extensions/dashboard/contract/slots.go` -- checked
+across its entire git history, back to the commit that introduced the slot
+catalog -- has never allowed `form.edit` there; `widgets` only ever accepted
+`metric.counter`, `metric.gauge`, `audit.tail`, `dashboard.stat`,
+`dashboard.recentlist`, `molecule.stat-card`, the three `organism.*` chart
+kinds, and `custom`. This is not a version-skew artifact of the forge
+checkout this demo happens to be built against: it has been wrong on every
+commit since slot validation existed, on every branch and every released
+tag, and nobody had run the real streaming extension's own
+`RegisterContractContributor` against the real dashboard registry until
+this demo did. `loader.Validate`/the registry's own `Register` fail fast on
+the first bad node, so the entire `streaming-contract` manifest is rejected
+-- not just the `/playground` route -- and the dashboard extension only
+logs the failure and carries on (see its `ContractContributorAware` loop in
+`extensions/dashboard/extension.go`), so `streaming-contract` would
+otherwise just silently be missing from `/capabilities` with no other
+signal. `streamingcheck.go` exists to make that loud instead of silent and
+to substitute a working contributor automatically. This demo cannot fix
+`manifest.yaml` itself (forge is read-only from here); it's a real defect
+worth fixing upstream.
 
 ## Which forge checkout you need
 
@@ -87,31 +151,39 @@ except a generated CSS cache under `demo/extensions/` on first run
 
 ## What it reports
 
-Three contract contributors, all real, all reachable through the genuine
-dispatcher:
+Three contract contributors, all reachable through the genuine dispatcher:
 
 - **`core-contract`**, wired in automatically by the dashboard extension
   itself (`extensions/dashboard/contract/pilot`). You get this for free just
-  by registering the extension.
-- **`streaming-contract`**, in `streaming.go`. Read-only, matching
-  `packages/plugin-streaming`'s three query intents: `stats`, `rooms.list`,
-  `connections.list`. Static synthetic data, no persistence.
-- **`auth`**, in `auth.go`. Matches `packages/plugin-authsome`: `auth.config`,
-  `auth.login`, `auth.logout`, `users.list`, `users.detail`, `users.ban`,
-  `users.unban`, `sessions.list`, `sessions.revoke`. Backed by an in-memory
-  store seeded with three users and two sessions, so ban/unban/revoke
-  actually mutate state you can read back on the next query. Restart the
-  server and it reseeds.
+  by registering the extension. Always real.
+- **`streaming-contract`**. In practice this is currently always the
+  synthetic contributor from `streaming.go` (three read-only query intents:
+  `stats`, `rooms.list`, `connections.list`, static data, no persistence) --
+  see "A defect in the real streaming extension's manifest" above for why
+  the real one doesn't currently register.
+- **`auth`**. By default the real `github.com/xraph/authsome` engine
+  (`authsome.go`): 68 intents covering login/logout, users, apps,
+  environments, sessions, devices, credentials, roles, settings, webhooks,
+  and form configs -- everything `extension/contract/contract.go` registers
+  in authsome's own manifest. Falls back to the synthetic 9-intent
+  contributor in `auth.go` (`auth.config`, `auth.login`, `auth.logout`,
+  `users.list`, `users.detail`, `users.ban`, `users.unban`,
+  `sessions.list`, `sessions.revoke`, backed by an in-memory store seeded
+  with three users and two sessions) if the real engine can't be built, or
+  under the toggles described below.
 
 Both names (`streaming-contract` and `auth`) are exactly what those two
-plugin packages look up in the capabilities response, not guesses. Read the
-doc comments at the top of `packages/plugin-streaming/src/index.tsx` and
+plugin packages look up in the capabilities response, not guesses -- true
+of both the real and synthetic contributors, since they're registering
+under the same contributor name either way. Read the doc comments at the
+top of `packages/plugin-streaming/src/index.tsx` and
 `packages/plugin-authsome/src/index.tsx` if you want the reasoning.
 
 ## Exercising non-ready states
 
-Two env vars per contributor, checked at request time so you don't need to
-restart between tests except for the omit case:
+Two env vars per contributor, checked at process-start (they select which
+contributor gets registered, so unlike the underlying `demoUnavailable`
+check they do need a restart to take effect):
 
 - `DEMO_STREAMING_OMIT=true` / `DEMO_AUTH_OMIT=true`: don't register the
   contributor at all. It disappears from capabilities entirely, and the
@@ -122,6 +194,12 @@ restart between tests except for the omit case:
   `contract.Error{Code: CodeUnavailable}`. The shell's `QueryView` renders
   its error card with a retry button, and that's a genuine dispatcher error,
   not a hand-rolled one.
+
+Both toggles work by substituting the synthetic contributor for the real
+one (see "Real vs synthetic contributors" above) -- a real, healthy
+extension has no lever to make it hide itself or fail every request, so
+that's the only way to keep exercising these two shell states now that the
+default is real data.
 
 ```bash
 DEMO_AUTH_OMIT=true PORT=8099 go run .
@@ -141,17 +219,52 @@ using forge's real transport, which defeats the point of the whole
 exercise. See the report referenced from this repo's `w8-scoped-sidebar`
 design doc for the full writeup.
 
-## The replace directive
+## The replace directives
 
-`go.mod` points `github.com/xraph/forge` at `../../forge` on disk. That's
-there so day-to-day dashboard work doesn't need a forge release cut every
-time the contract package changes underneath it, and it's exactly why you
-shouldn't trust a green build here as proof of anything beyond "this compiles
-against whatever's currently checked out in `../../forge`". Before this demo
-is evidence about the real, published, external-consumer path, remove the
-replace line or pin it to a tagged forge version and rebuild. With the
-replace in place, `go build` here proves nothing about what `go get
-github.com/xraph/forge` would actually hand you.
+`go.mod` points three modules at on-disk checkouts instead of published
+versions:
+
+- `github.com/xraph/forge => ../../forge`
+- `github.com/xraph/forge/extensions/streaming => ../../forge/extensions/streaming`
+  (a separate Go module inside the forge repo, same rationale)
+- `github.com/xraph/authsome => ../../authsome` (a private sibling repo with
+  no tag covering the commit this demo needs -- see "Version skew: authsome
+  pins forge v1.11.0" below)
+
+That's there so day-to-day dashboard work doesn't need a forge (or authsome)
+release cut every time the contract package changes underneath it, and it's
+exactly why you shouldn't trust a green build here as proof of anything
+beyond "this compiles against whatever's currently checked out in
+`../../forge` and `../../authsome`". Before this demo is evidence about the
+real, published, external-consumer path, remove the replace lines or pin
+them to tagged versions and rebuild. With the replaces in place, `go build`
+here proves nothing about what `go get github.com/xraph/forge` (or
+`github.com/xraph/authsome`) would actually hand you.
+
+## Version skew: authsome pins forge v1.11.0
+
+`authsome`'s own `go.mod` requires `github.com/xraph/forge v1.11.0` (and
+`github.com/xraph/forge/extensions/auth v1.9.11`). This demo's `go.mod`
+replaces the root `github.com/xraph/forge` module with the on-disk checkout
+at `../../forge`, and Go replace directives apply build-wide to every
+importer of that exact module path -- so authsome's copy of the forge SDK
+gets compiled against whatever `../../forge` actually contains, not against
+v1.11.0, regardless of what authsome's own `go.mod` says. In theory that's
+exactly the skew this demo needs forge's `main` (or later) for anyway (see
+"Which forge checkout you need"), so it should be strictly newer and
+backward compatible.
+
+In practice: `go build ./...` and `go vet ./...` both succeed cleanly with
+zero changes needed to authsome or its dependency versions, and the real
+`auth` contributor registers, starts, and answers real queries (curl
+`auth.config` and it returns the real bootstrapped "Platform" app's name
+as `brand`). No incompatibility surfaced. The one thing worth
+flagging is unrelated to version skew: the `authsome` checkout at
+`../../authsome` currently has uncommitted local modifications (`git status`
+there shows changes to `engine.go`, several `plugins/*`, and others) --
+this demo built and ran against whatever was on disk there, the same way it
+already treats `../../forge`, so if the shell behaves differently for you,
+check what that checkout's working tree actually contains.
 
 ## Contract security
 
@@ -166,13 +279,25 @@ so you can curl a command without minting a real token first.
 
 ## Files
 
-- `main.go`: builds the Forge app, registers the dashboard extension and
-  both contributor extensions, reads `PORT`.
-- `streaming.go`: the `streaming-contract` contributor, manifest and
-  handlers.
-- `auth.go`: the `auth` contributor, manifest, handlers, and the in-memory
-  store.
-- `env.go`: the `DEMO_*_OMIT` / `DEMO_*_UNAVAILABLE` helpers shared by both.
+- `main.go`: builds the Forge app, registers the dashboard extension, then
+  decides real vs synthetic for each of the other two contributors (see
+  "Real vs synthetic contributors" above), reads `PORT`.
+- `streaming.go`: the synthetic `streaming-contract` contributor (manifest +
+  handlers) -- currently always the one actually serving traffic, see
+  `streamingcheck.go`.
+- `streamingcheck.go`: pre-flight validates the real streaming extension's
+  bundled manifest against the real dashboard loader/registry before
+  deciding whether to register it, and prints a loud warning + falls back
+  to the synthetic contributor when that fails (which it currently always
+  does -- see "A defect in the real streaming extension's manifest" above).
+- `auth.go`: the synthetic `auth` contributor (manifest, handlers, and the
+  in-memory store) -- the fallback if the real authsome engine can't be
+  built or started.
+- `authsome.go`: builds a real `authsome.Engine` against in-memory stores
+  (authsome's own + an in-memory warden engine) and wraps it as the real
+  `auth` contract contributor.
+- `env.go`: the `DEMO_SYNTHETIC` / `DEMO_*_OMIT` / `DEMO_*_UNAVAILABLE`
+  helpers.
 - `startupcheck.go`: the in-process check that warns loudly at startup if
   the compiled forge checkout is missing `ContributorCapability.Configured`
   (see "Which forge checkout you need" above).
