@@ -15,13 +15,6 @@ interface Record_<T> {
   generation: number
   /** In flight now? Used to collapse concurrent readers onto one request. */
   pending: boolean
-  /**
-   * The fetcher backing the in-flight request, if any. Two readers calling
-   * `read` with the identical fetcher reference are the same logical request
-   * and share it; a different fetcher for the same key is a later read that
-   * must supersede the one in flight rather than be swallowed by it.
-   */
-  fetcher?: () => Promise<unknown>
   extension: string
   intent: string
 }
@@ -111,21 +104,23 @@ export class QueryStore {
    * `staleMs` of 0 means every call refetches, which is what `useQuery` does
    * today and what a contributor sending no cache hint keeps getting.
    */
-  read<T>(key: string, fetcher: () => Promise<T>, staleMs: number): Entry<T> {
+  read<T>(key: string, fetcher: () => Promise<T>, staleMs: number, opts?: { force?: boolean }): Entry<T> {
     const record = this.records.get(key)
     const fresh =
       record !== undefined &&
       record.settledAt > 0 &&
       Date.now() - record.settledAt < staleMs
 
-    if (fresh) return this.snapshot<T>(key)
-
-    // Someone else already asked this exact question and has not heard back.
-    // Join their request rather than sending a second one. A different
-    // fetcher for the same key is not that reader: it is a later read (a
-    // remount with a fresh closure, a post-invalidation refetch) that must
-    // supersede the one in flight, so it falls through and issues its own.
-    if (record?.pending && record.fetcher === fetcher) return this.snapshot<T>(key)
+    // Join or supersede is the caller's intent, never a property of the
+    // fetcher. `useQuery` builds its fetcher as an inline arrow inside an
+    // effect, so every component instance and every re-render has a different
+    // closure identity: comparing them would make two components mounting the
+    // same key issue two requests, which is the exact thing this store exists
+    // to prevent. A mount joins. Only an explicit refetch forces.
+    if (!opts?.force) {
+      if (fresh) return this.snapshot<T>(key)
+      if (record?.pending) return this.snapshot<T>(key)
+    }
 
     const { extension, intent } = QueryStore.parse(key)
     const generation = (record?.generation ?? 0) + 1
@@ -135,7 +130,6 @@ export class QueryStore {
       settledAt: record?.settledAt ?? 0,
       generation,
       pending: true,
-      fetcher,
       extension,
       intent,
     })

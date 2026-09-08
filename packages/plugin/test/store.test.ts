@@ -89,13 +89,13 @@ describe("QueryStore", () => {
     expect(store.snapshot(key).error).toBeTruthy()
   })
 
-  it("lets a later read supersede an in-flight one whichever settles last", async () => {
+  it("lets a forced read supersede an in-flight one whichever settles last", async () => {
     const key = store.keyOf("auth", "users.list")
     const first = deferred<{ tag: string }>()
     const second = deferred<{ tag: string }>()
 
     store.read(key, () => first.promise, 0)
-    store.read(key, () => second.promise, 0)
+    store.read(key, () => second.promise, 0, { force: true })
 
     // The older request settles last and must not win.
     second.resolve({ tag: "second" })
@@ -103,6 +103,18 @@ describe("QueryStore", () => {
     first.resolve({ tag: "first" })
     await Promise.resolve()
     expect(store.snapshot(key).data).toEqual({ tag: "second" })
+  })
+
+  it("joins an in-flight request instead of issuing a second one", async () => {
+    const key = store.keyOf("auth", "users.list")
+    const a = vi.fn().mockResolvedValue({ tag: "a" })
+    const b = vi.fn().mockResolvedValue({ tag: "b" })
+    // Two components mounting the same key pass two different closures. They
+    // must still share one request: closure identity is not the question.
+    store.read(key, a, 0)
+    store.read(key, b, 0)
+    expect(a).toHaveBeenCalledOnce()
+    expect(b).not.toHaveBeenCalled()
   })
 
   it("drops only the named intents when a command invalidates", async () => {
