@@ -96,10 +96,17 @@ function OverviewPage() {
  * broken. It is the only plugin in the shell until W5 adds the first-party
  * set; it names the Go contributor it belongs to, declares its nav and
  * routes, and never names a contributor when it queries.
+ *
+ * `root: true` and not a `namespace`: this is the server's own UI, not an
+ * extension arriving from elsewhere, so it has nothing to collide with and
+ * nothing to gain from living behind a scope switcher. It serves at
+ * "/overview" and its nav is pinned above the switcher in every scope. It
+ * keeps `label: "System"` for the page title even though there is no more
+ * switcher entry to label.
  */
 export const corePlugin = definePlugin({
   extension: "core-contract",
-  namespace: "system",
+  root: true,
   label: "System",
   nav: [{ label: "Overview", to: "/overview" }],
   routes: [{ path: "/overview", element: OverviewPage }],
