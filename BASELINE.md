@@ -75,3 +75,31 @@ boundary, the `useSyncExternalStore` subscription in `useRegistry`, and the
 listener set on the registry. The split itself is unchanged: the entry chunk
 still statically imports only the rolldown-runtime and Base UI hook chunks,
 and `CompositeRoot` still appears in the entry only inside `__vite__mapDeps`.
+
+## After the plugin platform (Task 12)
+
+The comparison above no longer applies as a like-for-like: the intent
+registry and graph renderer that produced the eager/lazy split were deleted
+(`refactor(runtime): delete the intent registry and graph renderer`), and
+`apps/playground/src/App.tsx` now mounts a single `coreDemoPlugin` through
+`PluginHost` instead of the `dashboard-01` block composition that pulled in
+recharts, TanStack Table and @dnd-kit. Both changes predate this plan's own
+base commit (`22cf81b`), so they are not this plan's doing, and `pnpm build`
+now emits one JS chunk for `apps/playground` rather than six — there is
+nothing left to split, so that single chunk is the entire eager bundle:
+
+| composition | raw | gzip |
+|---|---|---|
+| single eager chunk, current | 484.90 KB | 158.36 KB |
+| single eager chunk, at this plan's base commit (`22cf81b`) | 445.81 KB | 143.78 KB |
+
+The 39.09 KB raw / 14.58 KB gzip difference is everything landed on the
+shared branch since `22cf81b` that touches the bundle, not this plan alone:
+the query store, the slot machinery and the context switchers are in there
+(all eager, all in scope for this plan), but so is anything the concurrent
+authentication workstream added to `PluginHost.tsx` in the same window.
+Isolating this plan's own share exactly would need a per-commit bisect,
+which this verification pass didn't attempt. The CSS bundle grew far more
+sharply in the same window (107.67 KB to 246.98 KB) from the sibling kit
+plan's large batch of new UI primitives feeding Tailwind's source scan; that
+is the kit plan's footprint, not this one, and outside the JS figures above.
