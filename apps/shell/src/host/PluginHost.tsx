@@ -40,15 +40,17 @@ import {
 function HostShell({
   children,
   sidebar,
+  title,
 }: {
   children: ReactNode
   sidebar: React.ComponentProps<typeof AppSidebar>
+  title?: string
 }) {
   return (
     <SidebarProvider>
       <AppSidebar variant="inset" {...sidebar} />
       <SidebarInset>
-        <SiteHeader />
+        <SiteHeader title={title} />
         {/*
           `@container/main` is load-bearing, not decoration. dashboard-01's
           SectionCards sizes itself with container queries scoped to a container
@@ -200,6 +202,23 @@ export function PluginHost({ plugins, fetchImpl }: PluginHostProps) {
         ]
       : []
 
+  // The header's title names the current page, not the product: the label of
+  // whichever nav item's href matches the current pathname, checking children
+  // too since a deep link can land straight on one. Falls back to the active
+  // scope's own label when the pathname matches nothing in its nav (its own
+  // root, or a route the plugin never listed).
+  const pageTitle: string | undefined = (() => {
+    for (const group of groups) {
+      for (const item of group.items) {
+        if (item.href === pathname) return item.label
+        for (const child of item.children ?? []) {
+          if (child.href === pathname) return child.label
+        }
+      }
+    }
+    return activeScope?.label
+  })()
+
   // Switching scope is a navigation, never a state write. A scope with no nav
   // (one that needs setup) goes to its bare namespace root, where its panel
   // renders. Search is carried over for now, but that is provisional: no
@@ -229,7 +248,7 @@ export function PluginHost({ plugins, fetchImpl }: PluginHostProps) {
 
   if (state.status === "loading") {
     return (
-      <HostShell sidebar={sidebar}>
+      <HostShell sidebar={sidebar} title={pageTitle}>
         <p role="status" className="text-sm text-muted-foreground">
           Loading dashboard capabilities…
         </p>
@@ -239,7 +258,7 @@ export function PluginHost({ plugins, fetchImpl }: PluginHostProps) {
 
   if (state.status === "error") {
     return (
-      <HostShell sidebar={sidebar}>
+      <HostShell sidebar={sidebar} title={pageTitle}>
         <div
           role="alert"
           className="rounded-md border border-destructive/50 px-3 py-2 text-sm text-destructive"
@@ -266,7 +285,7 @@ export function PluginHost({ plugins, fetchImpl }: PluginHostProps) {
     : undefined
 
   return (
-    <HostShell sidebar={sidebar}>
+    <HostShell sidebar={sidebar} title={pageTitle}>
       {activeScope && activeScope.state.kind === "mismatch" && (
         <MismatchPanel
           required={activeScope.state.required}
