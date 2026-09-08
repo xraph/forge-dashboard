@@ -12,6 +12,9 @@
     "format": "prettier --write \"**/*.{ts,tsx}\"",
     "typecheck": "tsc --noEmit"
   },
+  "dependencies": {
+    "@forge-go/dashboard-runtime": "workspace:*"
+  },
   "peerDependencies": {
     "react": "^19.2.0",
     "react-dom": "^19.2.0"
