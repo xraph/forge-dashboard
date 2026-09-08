@@ -43,6 +43,10 @@ describe("plugin error boundary", () => {
       </PluginErrorBoundary>,
     )
     expect(screen.queryByText("custom fallback")).toBeNull()
+    // Absence alone would also pass if the boundary rendered nothing at all.
+    // The default message has to actually be on screen, not merely not be
+    // the custom one.
+    expect(screen.getByText(/this plugin failed to render/i)).toBeTruthy()
   })
 })
 
@@ -65,9 +69,13 @@ describe("FallbackAuthGate", () => {
     expect(screen.getByText(/auditor/)).toBeTruthy()
   })
 
-  it("offers a way out of the denied state", () => {
-    // Without this a user signed in as the wrong person has no shell, no
-    // sign-in form, and no way to reach a different account.
+  it("tells the reader what to do instead of offering a link nothing serves", () => {
+    // This fallback has no scoped client, unlike the plugin gates it stands
+    // in for, so it cannot actually sign anyone out. A "Sign in as someone
+    // else" link here would point at a login path nothing in a React
+    // deployment serves once authsome drops its own /login route - a fake
+    // action is worse than none, so the copy has to be honest about what it
+    // cannot do rather than dress up a dead link.
     render(
       <FallbackAuthGate
         loginPath="/dashboard/login"
@@ -75,7 +83,8 @@ describe("FallbackAuthGate", () => {
         onAuthenticated={() => {}}
       />,
     )
-    expect(screen.getByRole("link", { name: /sign in as someone else/i })).toBeTruthy()
+    expect(screen.getByText(/sign out/i)).toBeTruthy()
+    expect(screen.queryByRole("link", { name: /sign in as someone else/i })).toBeNull()
   })
 
   it("treats an empty requiredRoles as signed out, not denied", () => {

@@ -64,9 +64,18 @@ export class PluginErrorBoundary extends Component<
  * why it cannot import from the kit or from any plugin: it has to be the
  * thing that still renders when the styled one did not.
  *
- * It links rather than posting a form. A gate with no provider behind it has
- * no login intent to call, so the only honest thing it can do is send you to
- * the path the server named.
+ * The signed-out variant links rather than posting a form. A gate with no
+ * provider behind it has no login intent to call, so the only honest thing
+ * it can do is send you to the path the server named.
+ *
+ * The denied variant offers no link and no button. This component has no
+ * scoped client, by design: it has to be able to render when a plugin gate
+ * threw, and a plugin gate is the only thing with a client to sign out
+ * through. Pointing it at `loginPath` would not make up for that either,
+ * since the only thing that ever served a dashboard-relative login path was
+ * a plugin's own route, which is exactly what did not render here. Its job
+ * is to say plainly what happened and what to do about it, not to pretend it
+ * can act.
  */
 export function FallbackAuthGate({
   loginPath,
@@ -89,9 +98,10 @@ export function FallbackAuthGate({
           <p className="text-muted-foreground">
             It needs one of these roles: {requiredRoles?.join(", ")}.
           </p>
-          <a className="underline" href={loginPath}>
-            Sign in as someone else
-          </a>
+          <p className="text-muted-foreground">
+            Sign out of this account, then sign in again with one that has
+            access, or ask whoever manages this dashboard to grant it.
+          </p>
         </>
       ) : (
         <>
