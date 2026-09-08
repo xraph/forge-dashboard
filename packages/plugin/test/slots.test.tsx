@@ -8,8 +8,11 @@ import type { ScopedClient } from "../src/client"
 function client(extension: string): ScopedClient {
   return {
     extension,
-    query: () => Promise.resolve({}),
-    command: () => Promise.resolve({}),
+    // Generic to match ScopedClient. A non-generic `Promise.resolve({})`
+    // fails tsc even though vitest never typechecks it, so the suite would
+    // pass while `pnpm typecheck` broke.
+    query: <T,>() => Promise.resolve({} as T),
+    command: <T,>() => Promise.resolve({} as T),
   }
 }
 
