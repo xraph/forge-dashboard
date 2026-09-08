@@ -17,6 +17,16 @@ interface Record_<T> {
   pending: boolean
   extension: string
   intent: string
+  // The most recent fetcher for this key, kept so `invalidate` and `clear`
+  // can re-issue on behalf of readers that are still mounted.
+  //
+  // This is NOT a dedup discriminator and must never become one again. An
+  // earlier version compared `record.fetcher === fetcher` to decide whether
+  // to join an in-flight request, which never matched: useQuery builds a new
+  // closure on every render, so two components mounting the same key each
+  // issued their own request. Joining is decided by `pending`, never by
+  // identity.
+  fetcher: () => Promise<unknown>
 }
 
 const EMPTY: Entry<never> = { loading: true }
@@ -132,6 +142,7 @@ export class QueryStore {
       pending: true,
       extension,
       intent,
+      fetcher: fetcher as () => Promise<unknown>,
     })
     this.notify(key)
 
@@ -177,19 +188,40 @@ export class QueryStore {
    * after a ban has to drop page 1 and page 7, and the command has no idea
    * which pages anybody is looking at.
    *
-   * Entries are dropped rather than refetched here. Whoever is mounted gets
-   * notified and reissues on their next render; whoever is not mounted
-   * reissues when they next mount. Refetching from here would fire requests
-   * for pages nobody is looking at.
+   * A key still watched by a mounted reader is re-issued rather than left
+   * empty; see `dropOrReissue`. A key nobody is watching is simply dropped
+   * and refetches on its next mount. Either way this method never fires a
+   * request for a page nobody is looking at.
    */
   invalidate(extension: string, intents: string[]): void {
     if (intents.length === 0) return
     const wanted = new Set(intents)
 
+    const keys: string[] = []
     for (const [key, record] of this.records) {
       if (record.extension !== extension || !wanted.has(record.intent)) continue
+      keys.push(key)
+    }
+    this.dropOrReissue(keys)
+  }
+
+  /**
+   * Re-issues the keys somebody is still watching, and drops the rest.
+   *
+   * A key with a live subscriber is a page on screen right now: dropping its
+   * entry without reissuing leaves it loading forever, because nothing in the
+   * hook re-runs on invalidation. A key with no subscriber is nobody's page,
+   * so it is dropped and refetches on its next mount.
+   */
+  private dropOrReissue(keys: string[]): void {
+    for (const key of keys) {
+      const record = this.records.get(key)
+      if (!record) continue
+      const fetcher = record.fetcher
+      const watched = (this.listeners.get(key)?.size ?? 0) > 0
       this.records.delete(key)
       this.notify(key)
+      if (watched) this.read(key, fetcher, 0)
     }
   }
 
@@ -218,14 +250,17 @@ export class QueryStore {
    * changed, so every read in the dashboard is now a question about a
    * different app, and the server has no way to enumerate that. This is the
    * only place the store throws away more than it was told to.
+   *
+   * Goes through `dropOrReissue` like `invalidate` does: a watched key is the
+   * operator's current page, and a context switch should reload it, not leave
+   * it blank.
    */
   clear(): void {
     const keys = [...this.records.keys()]
-    this.records.clear()
     // The hints belong to the previous app's contributors. Keeping them would
     // let a stale hint suppress the first read after a switch.
     this.staleTimes.clear()
-    for (const key of keys) this.notify(key)
+    this.dropOrReissue(keys)
   }
 }
 

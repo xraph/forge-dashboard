@@ -12,8 +12,10 @@ import {
   MismatchPanel,
   mountPath,
   namespaceOf,
+  parseGoDuration,
   partitionScopes,
   PluginProvider,
+  queryStore,
   resolveActiveScope,
   resolvePluginState,
   SetupPanel,
@@ -165,12 +167,31 @@ export function PluginHost({ plugins, fetchImpl }: PluginHostProps) {
   // One client per plugin, each permanently bound to that plugin's own
   // extension. Built here rather than inside the render of each route so a
   // re-render does not hand every plugin a fresh client identity.
+  //
+  // The meta listener is what joins the client to the store. A command's
+  // `meta.invalidates` drops exactly the intents the server named, within the
+  // sending extension only, and a query's `meta.cacheControl` teaches the
+  // store how long that intent may be served stale. Both fields have been on
+  // the wire since the envelope was written; this is the first thing to read
+  // them.
   const clients = useMemo(() => {
     const byExtension = new Map<string, ScopedClient>()
     for (const plugin of plugins) {
       byExtension.set(
         plugin.extension,
-        createScopedClient(contractBase, plugin.extension, doFetch)
+        createScopedClient(contractBase, plugin.extension, doFetch, (info) => {
+          if (info.kind === "query") {
+            queryStore.noteStaleTime(
+              info.extension,
+              info.intent,
+              parseGoDuration(info.meta.cacheControl?.staleTime),
+            )
+            return
+          }
+          if (info.meta.invalidates?.length) {
+            queryStore.invalidate(info.extension, info.meta.invalidates)
+          }
+        })
       )
     }
     return byExtension

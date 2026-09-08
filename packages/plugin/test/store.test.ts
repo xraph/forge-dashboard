@@ -161,6 +161,28 @@ describe("QueryStore", () => {
     expect(listener).toHaveBeenCalled()
   })
 
+  it("re-issues an invalidated key that still has a subscriber", async () => {
+    const key = store.keyOf("auth", "users.list")
+    const fetcher = vi.fn().mockResolvedValue({ total: 2 })
+    store.read(key, fetcher, 60_000)
+    await vi.waitFor(() => expect(store.snapshot(key).data).toBeTruthy())
+    store.subscribe(key, () => {})
+
+    store.invalidate("auth", ["users.list"])
+    expect(fetcher).toHaveBeenCalledTimes(2)
+  })
+
+  it("drops an invalidated key nobody is watching without re-issuing", async () => {
+    const key = store.keyOf("auth", "users.list")
+    const fetcher = vi.fn().mockResolvedValue({ total: 2 })
+    store.read(key, fetcher, 60_000)
+    await vi.waitFor(() => expect(store.snapshot(key).data).toBeTruthy())
+
+    store.invalidate("auth", ["users.list"])
+    expect(fetcher).toHaveBeenCalledOnce()
+    expect(store.snapshot(key).data).toBeUndefined()
+  })
+
   it("clear drops everything, which is what an app switch needs", async () => {
     const a = store.keyOf("auth", "users.list")
     const b = store.keyOf("streaming-contract", "stats")
