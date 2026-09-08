@@ -28,6 +28,35 @@ export class ContractError extends Error {
   }
 }
 
+/**
+ * The cross-cutting metadata the Go dispatcher attaches to every settled
+ * response. Mirrors `ResponseMeta` in `contract/envelope.go`.
+ *
+ * `deprecation` and `intentVersion` are on the wire and are not modelled here
+ * beyond the version, because nothing consumes them yet. Add them when
+ * something does, not before.
+ */
+export interface ResponseMeta {
+  intentVersion?: number
+  cacheControl?: { staleTime?: string }
+  invalidates?: string[]
+}
+
+/**
+ * Notified after every request that settles successfully.
+ *
+ * A side channel, deliberately, rather than a changed return type on `query`
+ * and `command`. Those two signatures are what every page is written against,
+ * and the store is an implementation detail that pages must not have to know
+ * about.
+ */
+export type MetaListener = (info: {
+  kind: "query" | "command"
+  extension: string
+  intent: string
+  meta: ResponseMeta
+}) => void
+
 /** Per-call options for {@link ScopedClient.command}. */
 export interface CommandOptions {
   /**
@@ -137,6 +166,7 @@ export function createScopedClient(
   // call time also means a fetch installed after the client was built (a
   // polyfill, a test stub) is the one that runs.
   fetchImpl: FetchLike = (...args) => globalThis.fetch(...args),
+  onMeta?: MetaListener,
 ): ScopedClient {
   // Held for the life of the client, shared by every command it sends. `null`
   // means "not held", which is both the initial state and what a failed
@@ -279,6 +309,7 @@ export function createScopedClient(
     const envelope = ((await res.json?.()?.catch(() => null)) ?? null) as {
       ok: boolean
       data?: T
+      meta?: ResponseMeta
       error?: { code: string; message: string }
     } | null
 
@@ -295,6 +326,16 @@ export function createScopedClient(
         envelope.error?.message ?? "contract request failed",
       )
     }
+
+    // Reported only on success. A failed request tells you nothing about what
+    // went stale, and a listener that fired on failure would let a rejected
+    // ban invalidate the list it did not change.
+    onMeta?.({
+      kind: input.kind,
+      extension,
+      intent: input.intent,
+      meta: envelope.meta ?? {},
+    })
 
     return envelope.data as T
   }

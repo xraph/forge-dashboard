@@ -179,4 +179,15 @@ describe("QueryStore", () => {
     await vi.waitFor(() => expect(store.snapshot(key).data).toBeTruthy())
     expect(store.snapshot(key)).toBe(store.snapshot(key))
   })
+
+  it("defaults an unknown intent's stale time to 0 so the first read always fetches", () => {
+    expect(store.staleTimeFor("auth", "users.list")).toBe(0)
+  })
+
+  it("remembers a stale time per extension and intent", () => {
+    store.noteStaleTime("auth", "users.list", 30_000)
+    expect(store.staleTimeFor("auth", "users.list")).toBe(30_000)
+    expect(store.staleTimeFor("auth", "roles.list")).toBe(0)
+    expect(store.staleTimeFor("organization", "users.list")).toBe(0)
+  })
 })

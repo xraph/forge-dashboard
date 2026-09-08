@@ -468,3 +468,94 @@ describe("ScopedClient.command", () => {
     expect(h.csrfURLs).toHaveLength(1)
   })
 })
+
+function okResponse(body: unknown) {
+  return {
+    ok: true,
+    status: 200,
+    json: () => Promise.resolve(body),
+  } as unknown as Response
+}
+
+describe("createScopedClient meta reporting", () => {
+  it("reports a query's cacheControl to the listener", async () => {
+    const onMeta = vi.fn()
+    const fetchImpl = vi.fn().mockResolvedValue(
+      okResponse({
+        ok: true,
+        data: { users: [] },
+        meta: { cacheControl: { staleTime: "30s" } },
+      }),
+    )
+    const client = createScopedClient("/dashboard/contract", "auth", fetchImpl, onMeta)
+
+    await client.query("users.list")
+
+    expect(onMeta).toHaveBeenCalledWith({
+      kind: "query",
+      extension: "auth",
+      intent: "users.list",
+      meta: { cacheControl: { staleTime: "30s" } },
+    })
+  })
+
+  it("reports a command's invalidates to the listener", async () => {
+    const onMeta = vi.fn()
+    const fetchImpl = vi
+      .fn()
+      // The CSRF fetch the client makes before its first command.
+      .mockResolvedValueOnce(okResponse({ token: "t" }))
+      .mockResolvedValueOnce(
+        okResponse({
+          ok: true,
+          data: { ok: true },
+          meta: { invalidates: ["users.list", "users.detail"] },
+        }),
+      )
+    const client = createScopedClient("/dashboard/contract", "auth", fetchImpl, onMeta)
+
+    await client.command("users.ban", { id: "u1" })
+
+    expect(onMeta).toHaveBeenCalledWith({
+      kind: "command",
+      extension: "auth",
+      intent: "users.ban",
+      meta: { invalidates: ["users.list", "users.detail"] },
+    })
+  })
+
+  it("still resolves with data and no listener attached", async () => {
+    const fetchImpl = vi
+      .fn()
+      .mockResolvedValue(okResponse({ ok: true, data: { users: [] }, meta: {} }))
+    const client = createScopedClient("/dashboard/contract", "auth", fetchImpl)
+    await expect(client.query("users.list")).resolves.toEqual({ users: [] })
+  })
+
+  it("does not call the listener when a request fails", async () => {
+    const onMeta = vi.fn()
+    const fetchImpl = vi.fn().mockResolvedValue({
+      ok: false,
+      status: 403,
+      json: () => Promise.resolve({ error: { code: "PERMISSION_DENIED", message: "no" } }),
+    } as unknown as Response)
+    const client = createScopedClient("/dashboard/contract", "auth", fetchImpl, onMeta)
+
+    await expect(client.query("users.list")).rejects.toThrow()
+    expect(onMeta).not.toHaveBeenCalled()
+  })
+
+  it("survives a response that carries no meta at all", async () => {
+    const onMeta = vi.fn()
+    const fetchImpl = vi.fn().mockResolvedValue(okResponse({ ok: true, data: { users: [] } }))
+    const client = createScopedClient("/dashboard/contract", "auth", fetchImpl, onMeta)
+
+    await expect(client.query("users.list")).resolves.toEqual({ users: [] })
+    expect(onMeta).toHaveBeenCalledWith({
+      kind: "query",
+      extension: "auth",
+      intent: "users.list",
+      meta: {},
+    })
+  })
+})

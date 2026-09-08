@@ -193,6 +193,24 @@ export class QueryStore {
     }
   }
 
+  private staleTimes = new Map<string, number>()
+
+  /**
+   * Records what the server said about caching one intent.
+   *
+   * The hint arrives on the response, which is after the read it would have
+   * governed, so it applies from the next read of that intent onward. The
+   * first read of anything always goes to the server, which is both correct
+   * and what the dashboard does today.
+   */
+  noteStaleTime(extension: string, intent: string, staleMs: number): void {
+    this.staleTimes.set(`${extension}|${intent}`, staleMs)
+  }
+
+  staleTimeFor(extension: string, intent: string): number {
+    return this.staleTimes.get(`${extension}|${intent}`) ?? 0
+  }
+
   /**
    * Drops everything.
    *
@@ -204,6 +222,9 @@ export class QueryStore {
   clear(): void {
     const keys = [...this.records.keys()]
     this.records.clear()
+    // The hints belong to the previous app's contributors. Keeping them would
+    // let a stale hint suppress the first read after a switch.
+    this.staleTimes.clear()
     for (const key of keys) this.notify(key)
   }
 }
