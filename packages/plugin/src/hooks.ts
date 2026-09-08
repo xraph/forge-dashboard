@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from "react"
 import { usePluginClient } from "./context"
+import { useHostAccess } from "./slots"
 import { queryStore } from "./store"
 import type { CommandOptions, ContractError } from "./client"
 
@@ -128,6 +129,86 @@ export function useCommand<T = unknown>(intent: string): CommandState<T> {
         }
         // Each caller still learns its own outcome from what it gets back.
         // Only the shared state is generation-guarded.
+        return undefined
+      }
+    },
+    [client, intent],
+  )
+
+  return { ...state, execute }
+}
+
+/**
+ * Reads one of the host plugin's intents, from a sub-plugin.
+ *
+ * Same signature and same store as `useQuery`, so a settings panel written
+ * against one works against the other. The only difference is which client
+ * answers, and that the intent has to be on the sub-plugin's `hostIntents`
+ * allowlist.
+ */
+export function useHostQuery<T = unknown>(
+  intent: string,
+  params?: Record<string, unknown>,
+): QueryState<T> {
+  const client = useHostAccess(intent)
+  const key = queryStore.keyOf(client.extension, intent, params)
+
+  const entry = useSyncExternalStore(
+    useCallback((listener) => queryStore.subscribe(key, listener), [key]),
+    useCallback(() => queryStore.snapshot<T>(key), [key]),
+    useCallback(() => queryStore.snapshot<T>(key), [key]),
+  )
+
+  const staleMs = queryStore.staleTimeFor(client.extension, intent)
+
+  useEffect(() => {
+    queryStore.read<T>(key, () => client.query<T>(intent, params), staleMs)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [client, intent, key, staleMs])
+
+  const refetch = useCallback(() => {
+    queryStore.read<T>(key, () => client.query<T>(intent, params), 0)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [client, intent, key])
+
+  return { ...entry, refetch }
+}
+
+/**
+ * Sends one of the host plugin's commands, from a sub-plugin.
+ *
+ * Cached reads are invalidated under the *host's* extension, because that is
+ * whose cache the write changed. A settings panel saving through
+ * `settings.update` refreshes the auth plugin's own settings pages, which is
+ * the correct and slightly surprising result of the same rule applied
+ * honestly.
+ */
+export function useHostCommand<T = unknown>(intent: string): CommandState<T> {
+  const client = useHostAccess(intent)
+  const [state, setState] = useState<{ data?: T; error?: ContractError; loading: boolean }>({
+    loading: false,
+  })
+  const generationRef = useRef(0)
+
+  useEffect(
+    () => () => {
+      generationRef.current += 1
+    },
+    [],
+  )
+
+  const execute = useCallback(
+    async (payload?: unknown, opts?: CommandOptions): Promise<T | undefined> => {
+      const generation = ++generationRef.current
+      setState({ loading: true })
+      try {
+        const data = await client.command<T>(intent, payload, opts)
+        if (generationRef.current === generation) setState({ data, loading: false })
+        return data
+      } catch (error) {
+        if (generationRef.current === generation) {
+          setState({ error: error as ContractError, loading: false })
+        }
         return undefined
       }
     },

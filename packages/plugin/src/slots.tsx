@@ -121,3 +121,64 @@ export function PluginSlot({ name, params }: PluginSlotProps) {
 export function useSlotCount(name: SlotName): number {
   return contributionsFor(useContext(SubPluginContext), name).length
 }
+
+/**
+ * A sub-plugin's declared, narrow access to its host's intents.
+ *
+ * The rule everywhere else is that a plugin queries its own extension and
+ * nothing else, enforced by the contributor name being closed over inside the
+ * client rather than passed as an argument. This is the one declared exception,
+ * and it exists because eighteen authsome sub-plugins have no intents of their
+ * own: their settings panel reads `settings.namespace` from `auth`.
+ *
+ * `allowed` is what keeps the exception narrow. A settings-only sub-plugin
+ * declares four intents and can reach nothing else, so the widening is visible
+ * in the sub-plugin's own declaration rather than implied by having a host.
+ */
+export interface HostAccess {
+  client: ScopedClient
+  allowed: string[]
+  /** Named in the error when a sub-plugin reaches past its allowlist. */
+  subExtension: string
+}
+
+const HostAccessContext = createContext<HostAccess | null>(null)
+
+export function HostAccessProvider({
+  value,
+  children,
+}: {
+  value: HostAccess
+  children: ReactNode
+}) {
+  return (
+    <HostAccessContext.Provider value={value}>
+      {children}
+    </HostAccessContext.Provider>
+  )
+}
+
+/**
+ * Resolves the host client for one intent, or throws.
+ *
+ * Throws rather than returning an error state, and throws during render rather
+ * than on the request. An intent outside the allowlist is a mistake in the
+ * sub-plugin's own declaration, not a runtime condition to render around, and
+ * it should be as loud as `definePlugin`'s import-time validation. The
+ * error boundary around every contribution catches it, so the failure is
+ * contained to the sub-plugin that made it.
+ */
+export function useHostAccess(intent: string): ScopedClient {
+  const access = useContext(HostAccessContext)
+  if (!access) {
+    throw new Error(
+      `useHostQuery/useHostCommand were called outside a HostAccessProvider (intent "${intent}"). Only a sub-plugin's own routes and contributions may read host intents.`,
+    )
+  }
+  if (!access.allowed.includes(intent)) {
+    throw new Error(
+      `sub-plugin "${access.subExtension}" read host intent "${intent}" without declaring it. Add it to \`hostIntents\` in defineSubPlugin, or query the sub-plugin's own extension instead.`,
+    )
+  }
+  return access.client
+}
