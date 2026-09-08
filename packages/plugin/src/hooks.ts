@@ -1,5 +1,6 @@
-import { useCallback, useEffect, useRef, useState } from "react"
+import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from "react"
 import { usePluginClient } from "./context"
+import { queryStore } from "./store"
 import type { CommandOptions, ContractError } from "./client"
 
 export interface QueryState<T> {
@@ -12,63 +13,46 @@ export interface QueryState<T> {
 /**
  * Reads one query intent from this plugin's own extension.
  *
- * Deliberately minimal. This is not a cache and does not deduplicate. Putting
- * react-query behind the same signature is possible later, and the trigger is
- * a second consumer telling us what the caching policy should be, not a
- * particular wave. (This comment used to say W3. W3 shipped without it.)
+ * The state lives in the module-level store, not in this hook. Two components
+ * asking the same question with the same params share one entry and one
+ * request, and a command that invalidates the intent refreshes both without
+ * either of them knowing the other exists.
+ *
+ * `refetch` is still here, and still goes to the server. A "reload" button is
+ * a real thing a page wants. What went away is having to call it to stay
+ * correct after a write: `meta.invalidates` does that now.
  */
 export function useQuery<T = unknown>(
   intent: string,
   params?: Record<string, unknown>,
 ): QueryState<T> {
   const client = usePluginClient()
-  const [state, setState] = useState<{ data?: T; error?: ContractError; loading: boolean }>({
-    loading: true,
-  })
-  const key = JSON.stringify(params ?? {})
-  // Bumped at the start of every run(), whether that run is the automatic
-  // one below or a caller's own refetch(). A settlement only applies its
-  // result when it still owns the latest generation, so whichever request
-  // was issued last always wins the state, regardless of which one's promise
-  // settles last. This is what lets refetch() supersede an in-flight
-  // automatic request (and vice versa) instead of racing it.
-  const generationRef = useRef(0)
+  const key = queryStore.keyOf(client.extension, intent, params)
 
-  const run = useCallback(() => {
-    const generation = ++generationRef.current
-    setState({ loading: true })
+  const entry = useSyncExternalStore(
+    useCallback((listener) => queryStore.subscribe(key, listener), [key]),
+    useCallback(() => queryStore.snapshot<T>(key), [key]),
+    useCallback(() => queryStore.snapshot<T>(key), [key]),
+  )
 
-    client
-      .query<T>(intent, params)
-      .then((data) => {
-        if (generationRef.current === generation) setState({ data, loading: false })
-      })
-      .catch((error) => {
-        if (generationRef.current === generation) {
-          setState({ error: error as ContractError, loading: false })
-        }
-      })
+  // Reads what the server said about this intent last time. Unknown intents
+  // answer 0, so a first read always goes out.
+  const staleMs = queryStore.staleTimeFor(client.extension, intent)
+
+  useEffect(() => {
+    queryStore.read<T>(key, () => client.query<T>(intent, params), staleMs)
+    // params is compared by the key it produced, which is what `key` is.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [client, intent, key, staleMs])
+
+  const refetch = useCallback(() => {
+    // staleMs 0 forces the request. A refetch that honoured the cache would
+    // be a button that sometimes does nothing, which is worse than no button.
+    queryStore.read<T>(key, () => client.query<T>(intent, params), 0, { force: true })
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [client, intent, key])
 
-  // This hook body is specified verbatim by the plan. run() does call
-  // setState synchronously when invoked from this effect (the setState({
-  // loading: true }) at the top of run(), not anything in the async
-  // .then/.catch below) which is exactly the extra-render-pass cost the rule
-  // warns about. That cost is accepted, not fixed, here. The cleanup below
-  // bumps the same generation counter run() uses, so on unmount (or before a
-  // dependency change reruns this effect) any request still in flight loses
-  // its claim on the latest generation and its settlement becomes a no-op,
-  // the same way a newer run() or refetch() supersedes it.
-  useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    run()
-    return () => {
-      generationRef.current += 1
-    }
-  }, [run])
-
-  return { ...state, refetch: run }
+  return { ...entry, refetch }
 }
 
 export interface CommandState<T> {

@@ -91,24 +91,17 @@ describe("useQuery", () => {
   })
 
   // A request can still be in flight when the component unmounts (the user
-  // navigated away, the plugin's route changed). Nothing else will ever call
-  // run() again for this hook instance, so unless the effect's own cleanup
-  // supersedes the in-flight request, there is nothing to stop its eventual
-  // settlement from trying to update state that no longer has anywhere to go.
-  //
-  // We cannot observe "no state update was attempted" directly: React 19
-  // silently drops a setState aimed at an unmounted fiber, with no warning
-  // and no re-render either way, so a black-box assertion on visible
-  // behavior would pass whether or not the fix exists (see the module mock
-  // above). What we *can* observe honestly is the one fact the fix actually
-  // changes: whether the hook's private generation counter advances past the
-  // in-flight request's generation when the component unmounts, with no
-  // further run() or refetch() call involved. This is a weaker test than
-  // "and therefore nothing bad happens" would be, but it is the strongest
-  // one available against this observable surface, and it is real: run
-  // without the unmount cleanup, it fails (see the fix report's
-  // discriminator for the verbatim failure).
-  it("advances the generation counter on unmount, superseding an in-flight request", async () => {
+  // navigated away, the plugin's route changed). Under the old per-hook
+  // state this was a generation-counter race; under the store, the entry
+  // outlives the reader, so the hazard this test protects against is
+  // structurally gone, not merely guarded against. What replaces it is a
+  // stronger guarantee: the settlement still lands in the store, so a later
+  // reader inside the stale window is served from it without a second
+  // request. The old hook discarded that answer on unmount; the store does
+  // not.
+  it("lets an in-flight read settle into the store after its reader unmounts", async () => {
+    queryStore.clear()
+    queryStore.noteStaleTime("billing", "x.y", 60_000)
     const pending = deferred<{ n: number }>()
     const queryMock = vi.fn().mockReturnValue(pending.promise)
     const client: ScopedClientT = {
@@ -120,21 +113,21 @@ describe("useQuery", () => {
       <PluginProvider client={client}>{children}</PluginProvider>
     )
 
-    const before = capturedRefs.length
     const { unmount } = renderHook(() => useQuery<{ n: number }>("x.y"), { wrapper })
-    const ref = capturedRefs[capturedRefs.length - 1]
-    expect(capturedRefs.length).toBeGreaterThan(before)
-
-    const generationAtMount = ref.current
     unmount()
-    expect(ref.current).toBeGreaterThan(generationAtMount)
 
-    // Resolving after unmount must not regress or otherwise touch the
-    // generation the cleanup already advanced past.
+    // Settling after unmount must not throw. The store owns the entry and the
+    // unmounted reader simply unsubscribed, so there is no component to write to.
     await act(async () => {
       pending.resolve({ n: 1 })
     })
-    expect(ref.current).toBeGreaterThan(generationAtMount)
+
+    // And the answer is kept rather than thrown away, so a later reader inside
+    // the stale window is served without a second request. That is the
+    // behaviour the store buys; the old hook discarded this result on unmount.
+    const { result } = renderHook(() => useQuery<{ n: number }>("x.y"), { wrapper })
+    expect(result.current.data).toEqual({ n: 1 })
+    expect(queryMock).toHaveBeenCalledOnce()
   })
 })
 
@@ -269,5 +262,121 @@ describe("useCommand", () => {
     })
     await expect(call).resolves.toEqual({ n: 1 })
     expect(ref.current).toBeGreaterThan(generationInFlight)
+  })
+})
+
+import { render, screen, waitFor } from "@testing-library/react"
+import { queryStore } from "../src/store"
+import type { ScopedClient } from "../src/client"
+
+function stubClient(query: ScopedClient["query"]): ScopedClient {
+  return {
+    extension: "auth",
+    query,
+    command: () => Promise.reject(new Error("not used")),
+  }
+}
+
+function Reader({ intent = "users.list" }: { intent?: string }) {
+  const { data, loading } = useQuery<{ total: number }>(intent)
+  if (loading) return <p>loading</p>
+  return <p>total {data?.total}</p>
+}
+
+describe("useQuery over the store", () => {
+  it("shares one request between two components reading the same key", async () => {
+    queryStore.clear()
+    const query = vi.fn().mockResolvedValue({ total: 2 })
+    render(
+      <PluginProvider client={stubClient(query)}>
+        <Reader />
+        <Reader />
+      </PluginProvider>,
+    )
+    await waitFor(() => expect(screen.getAllByText("total 2")).toHaveLength(2))
+    expect(query).toHaveBeenCalledOnce()
+  })
+
+  it("refetches every mount when the server sends no cache hint", async () => {
+    queryStore.clear()
+    const query = vi.fn().mockResolvedValue({ total: 2 })
+    const { unmount } = render(
+      <PluginProvider client={stubClient(query)}>
+        <Reader />
+      </PluginProvider>,
+    )
+    await waitFor(() => expect(screen.getByText("total 2")).toBeTruthy())
+    unmount()
+
+    render(
+      <PluginProvider client={stubClient(query)}>
+        <Reader />
+      </PluginProvider>,
+    )
+    await waitFor(() => expect(query).toHaveBeenCalledTimes(2))
+  })
+
+  it("serves a fresh entry from cache on a later mount", async () => {
+    queryStore.clear()
+    queryStore.noteStaleTime("auth", "users.list", 60_000)
+    const query = vi.fn().mockResolvedValue({ total: 2 })
+    const { unmount } = render(
+      <PluginProvider client={stubClient(query)}>
+        <Reader />
+      </PluginProvider>,
+    )
+    await waitFor(() => expect(screen.getByText("total 2")).toBeTruthy())
+    unmount()
+
+    render(
+      <PluginProvider client={stubClient(query)}>
+        <Reader />
+      </PluginProvider>,
+    )
+    expect(screen.getByText("total 2")).toBeTruthy()
+    expect(query).toHaveBeenCalledOnce()
+  })
+
+  it("still exposes refetch, and refetch still goes to the server", async () => {
+    queryStore.clear()
+    queryStore.noteStaleTime("auth", "users.list", 60_000)
+    const query = vi.fn().mockResolvedValue({ total: 2 })
+
+    function WithButton() {
+      const { data, refetch } = useQuery<{ total: number }>("users.list")
+      return (
+        <>
+          <p>total {data?.total}</p>
+          <button onClick={refetch}>reload</button>
+        </>
+      )
+    }
+
+    render(
+      <PluginProvider client={stubClient(query)}>
+        <WithButton />
+      </PluginProvider>,
+    )
+    await waitFor(() => expect(screen.getByText("total 2")).toBeTruthy())
+    screen.getByRole("button", { name: "reload" }).click()
+    await waitFor(() => expect(query).toHaveBeenCalledTimes(2))
+  })
+
+  it("surfaces a failure as an error without throwing out of render", async () => {
+    queryStore.clear()
+    const query = vi.fn().mockRejectedValue(new Error("boom"))
+
+    function ErrorReader() {
+      const { error, loading } = useQuery("users.list")
+      if (loading) return <p>loading</p>
+      return <p>{error ? "failed" : "fine"}</p>
+    }
+
+    render(
+      <PluginProvider client={stubClient(query)}>
+        <ErrorReader />
+      </PluginProvider>,
+    )
+    await waitFor(() => expect(screen.getByText("failed")).toBeTruthy())
   })
 })
