@@ -93,4 +93,27 @@ describe("SettingsForm", () => {
     fireEvent.click(screen.getByRole("button", { name: "Reset" }))
     expect((screen.getByLabelText("Minimum length") as HTMLInputElement).value).toBe("8")
   })
+
+  it("refuses to save a numeric field cleared to blank rather than writing 0", () => {
+    const onSave = vi.fn()
+    render(<SettingsForm fields={fields} onSave={onSave} />)
+    fireEvent.change(screen.getByLabelText("Minimum length"), { target: { value: "" } })
+
+    const save = screen.getByRole("button", { name: "Save changes" }) as HTMLButtonElement
+    expect(save.disabled).toBe(true)
+    expect(screen.getByRole("alert").textContent).toContain("Enter a number")
+
+    fireEvent.click(save)
+    expect(onSave).not.toHaveBeenCalled()
+  })
+
+  it("re-enables save once a blanked numeric field is filled in again", () => {
+    render(<SettingsForm fields={fields} onSave={() => {}} />)
+    const input = screen.getByLabelText("Minimum length")
+    fireEvent.change(input, { target: { value: "" } })
+    fireEvent.change(input, { target: { value: "12" } })
+    expect(
+      (screen.getByRole("button", { name: "Save changes" }) as HTMLButtonElement).disabled,
+    ).toBe(false)
+  })
 })

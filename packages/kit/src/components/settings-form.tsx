@@ -88,6 +88,15 @@ export function SettingsForm({
     (key) => draft[key] !== initial[key],
   )
 
+  // A numeric field cleared to blank is ambiguous: it could mean "unset this"
+  // or "I am about to type". Number("") is 0, so submitting it would write a
+  // real zero override and look like a deliberate setting. Refuse instead,
+  // and let the operator say what they meant.
+  const blankNumbers = changedKeys.filter((key) => {
+    const field = fields.find((f) => f.key === key)
+    return field?.type === "number" && draft[key] === ""
+  })
+
   const sections = useMemo(() => {
     // Keyed on `string | undefined` directly. A Map takes undefined as a key,
     // so the "no section" bucket needs no sentinel value and therefore cannot
@@ -99,7 +108,12 @@ export function SettingsForm({
       if (bucket) bucket.push(field)
       else grouped.set(name, [field])
     }
-    return [...grouped.entries()]
+    // Ungrouped fields render first, as the doc comment on `section` promises.
+    return [...grouped.entries()].sort(([a], [b]) => {
+      if (a === undefined) return -1
+      if (b === undefined) return 1
+      return 0
+    })
   }, [fields])
 
   if (fields.length === 0) return <EmptyState title={emptyMessage} />
@@ -130,6 +144,7 @@ export function SettingsForm({
               key={field.key}
               field={field}
               value={draft[field.key]}
+              invalid={blankNumbers.includes(field.key)}
               onChange={(value) =>
                 setDraft((prev) => ({ ...prev, [field.key]: value }))
               }
@@ -139,7 +154,12 @@ export function SettingsForm({
       ))}
 
       <div className="flex items-center gap-2">
-        <Button onClick={submit} disabled={saving || changedKeys.length === 0}>
+        <Button
+          onClick={submit}
+          disabled={
+            saving || changedKeys.length === 0 || blankNumbers.length > 0
+          }
+        >
           {saving ? "Saving" : "Save changes"}
         </Button>
         <Button
@@ -157,10 +177,12 @@ export function SettingsForm({
 function Field({
   field,
   value,
+  invalid,
   onChange,
 }: {
   field: SettingFieldDescriptor
   value: string | boolean
+  invalid?: boolean
   onChange: (value: string | boolean) => void
 }) {
   const disabled = Boolean(field.enforced || field.readOnly)
@@ -222,8 +244,15 @@ function Field({
           min={field.min}
           max={field.max}
           placeholder={field.placeholder}
+          aria-invalid={invalid || undefined}
           onChange={(event) => onChange(event.target.value)}
         />
+      )}
+
+      {invalid && (
+        <p role="alert" className="text-xs text-destructive">
+          Enter a number, or press Reset to restore the current value.
+        </p>
       )}
 
       {field.helpText && (
