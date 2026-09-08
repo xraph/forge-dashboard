@@ -559,3 +559,110 @@ describe("createScopedClient meta reporting", () => {
     })
   })
 })
+
+// ---------------------------------------------------------------------------
+// onUnauthenticated
+//
+// `onMeta` already occupies the fourth positional argument (see the "meta
+// reporting" tests above and the real caller in
+// packages/host/src/host/PluginHost.tsx), so `onUnauthenticated` is the
+// fifth. Every call below passes `undefined` for `onMeta` to reach it.
+// ---------------------------------------------------------------------------
+
+describe("onUnauthenticated", () => {
+  function rejecting(status: number, code: string): typeof fetch {
+    return vi.fn(async (input: RequestInfo | URL) => {
+      if (String(input).endsWith("/csrf")) {
+        return {
+          ok: true,
+          status: 200,
+          json: async () => ({ token: "t", expiresAt: "2999-01-01T00:00:00Z" }),
+        } as Response
+      }
+      return {
+        ok: false,
+        status,
+        json: async () => ({ error: { code, message: "no" } }),
+      } as Response
+    }) as unknown as typeof fetch
+  }
+
+  it("fires immediately when a query is rejected for identity", async () => {
+    const notified = vi.fn()
+    const client = createScopedClient(
+      "/c",
+      "auth",
+      rejecting(401, "UNAUTHENTICATED"),
+      undefined,
+      notified,
+    )
+    await expect(client.query("users.list")).rejects.toThrow()
+    // A query carries no CSRF token, so there is nothing stale to blame and
+    // no retry to wait for.
+    expect(notified).toHaveBeenCalledTimes(1)
+  })
+
+  it("fires on a command only after the retry is spent", async () => {
+    const notified = vi.fn()
+    const client = createScopedClient(
+      "/c",
+      "auth",
+      rejecting(403, "UNAUTHENTICATED"),
+      undefined,
+      notified,
+    )
+    await expect(client.command("users.ban", { id: "u1" })).rejects.toThrow()
+    // Both attempts were rejected, so this is a real identity failure and not
+    // a token that needed replacing.
+    expect(notified).toHaveBeenCalledTimes(1)
+  })
+
+  it("does not fire when a stale token succeeds on retry", async () => {
+    const notified = vi.fn()
+    let commandAttempts = 0
+    const fetchImpl = vi.fn(async (input: RequestInfo | URL) => {
+      if (String(input).endsWith("/csrf")) {
+        return {
+          ok: true,
+          status: 200,
+          json: async () => ({ token: "fresh", expiresAt: "2999-01-01T00:00:00Z" }),
+        } as Response
+      }
+      commandAttempts += 1
+      if (commandAttempts === 1) {
+        return {
+          ok: false,
+          status: 403,
+          json: async () => ({ error: { code: "UNAUTHENTICATED", message: "stale csrf" } }),
+        } as Response
+      }
+      return { ok: true, status: 200, json: async () => ({ ok: true, data: { ok: true } }) } as Response
+    }) as unknown as typeof fetch
+
+    const client = createScopedClient("/c", "auth", fetchImpl, undefined, notified)
+    await expect(client.command("users.ban", { id: "u1" })).resolves.toEqual({ ok: true })
+    // This is the whole point of the retry-exhaustion rule. Firing here would
+    // sign the user out every time a cached CSRF token aged past its window,
+    // in the middle of whatever they were saving.
+    expect(notified).not.toHaveBeenCalled()
+    expect(commandAttempts).toBe(2)
+  })
+
+  it("does not fire for a rejection that is not about identity", async () => {
+    const notified = vi.fn()
+    const client = createScopedClient(
+      "/c",
+      "auth",
+      rejecting(404, "NOT_FOUND"),
+      undefined,
+      notified,
+    )
+    await expect(client.query("users.list")).rejects.toThrow()
+    expect(notified).not.toHaveBeenCalled()
+  })
+
+  it("works with no callback supplied", async () => {
+    const client = createScopedClient("/c", "auth", rejecting(401, "UNAUTHENTICATED"))
+    await expect(client.query("users.list")).rejects.toThrow()
+  })
+})

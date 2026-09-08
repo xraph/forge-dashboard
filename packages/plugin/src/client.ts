@@ -167,6 +167,18 @@ export function createScopedClient(
   // polyfill, a test stub) is the one that runs.
   fetchImpl: FetchLike = (...args) => globalThis.fetch(...args),
   onMeta?: MetaListener,
+  /**
+   * Called when a request is refused for want of identity and no retry is
+   * left to try. The host wires this to the session's refresh, which re-reads
+   * /principal and puts the gate up.
+   *
+   * The timing is the contract. A stale CSRF token and an expired session are
+   * the same status and code on the wire (see isStaleTokenRejection), so this
+   * fires only once the retry has been spent: a stale token succeeds on the
+   * second attempt, an expired session fails again. A query has no retry and
+   * no CSRF token, so it notifies on the first rejection.
+   */
+  onUnauthenticated?: () => void,
 ): ScopedClient {
   // Held for the life of the client, shared by every command it sends. `null`
   // means "not held", which is both the initial state and what a failed
@@ -283,6 +295,14 @@ export function createScopedClient(
         // identical across both attempts: the server sees one command that
         // took two tries, not two commands.
         return send<T>(input, false)
+      }
+
+      // Everything that reaches here was refused and has no retry left. If it
+      // was refused for identity, the session is the thing that is wrong, not
+      // the token: a command arrives here only on its second attempt, and a
+      // query has no first-attempt exception to make.
+      if (isStaleTokenRejection(res.status, body)) {
+        onUnauthenticated?.()
       }
 
       // The Go transport sends the same envelope shape on a non-ok response
