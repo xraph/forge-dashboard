@@ -631,10 +631,7 @@ export function PluginHost({
     renderLink: (_node: NavNode, href: string) => <Link to={href} />,
     header:
       panelSource && panelSource.state.kind === "ready" ? (
-        <PluginErrorBoundary
-          key={panelSource.plugin.extension}
-          plugin={panelSource.plugin.extension}
-        >
+        <PluginErrorBoundary key={panelSource.id} plugin={panelSource.id}>
           <PluginProvider client={clients.get(panelSource.plugin.extension)!}>
             <ContextSwitchers dimensions={panelSource.plugin.context} />
           </PluginProvider>

@@ -169,7 +169,7 @@ describe("PluginSlot", () => {
     const spy = vi.spyOn(console, "error").mockImplementation(() => {})
     const Probe = () => {
       useHostQuery("users.list")
-      return null
+      return <p>panel rendered</p>
     }
     const sub = defineSubPlugin({
       extension: "mfa",
@@ -178,9 +178,8 @@ describe("PluginSlot", () => {
       contributions: { "settings.tabs": [{ id: "mfa", render: Probe }] },
     })
 
-    // Rendered inside a route-level provider whose allowlist is WIDER. The
-    // contribution must still be held to its own declaration, not inherit
-    // the ambient one.
+    // The ambient provider's allowlist is WIDER and would permit this read.
+    // The contribution must still be held to its own declaration.
     render(
       <HostAccessProvider
         value={{ client: client("auth"), allowed: ["users.list"], subExtension: "other" }}
@@ -192,11 +191,17 @@ describe("PluginSlot", () => {
         </SubPluginProvider>
       </HostAccessProvider>,
     )
-    spy.mockRestore()
 
-    // The contribution's boundary catches the throw, so the page survives and
-    // the slot renders its fallback rather than the panel.
-    expect(screen.queryByText("never")).toBeNull()
+    // If the ambient allowlist won, the hook would not throw and this would
+    // render. Its absence is the whole assertion.
+    expect(screen.queryByText("panel rendered")).toBeNull()
+    // And the contribution's own boundary caught it, rather than the throw
+    // escaping to blank the tree.
+    expect(screen.getByText(/failed to render: mfa/)).toBeTruthy()
+    // Failed for the right reason, not any reason.
+    const logged = spy.mock.calls.flat().map(String).join(" ")
+    expect(logged).toContain("mfa")
+    spy.mockRestore()
   })
 })
 
