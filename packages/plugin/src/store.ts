@@ -217,11 +217,21 @@ export class QueryStore {
     for (const key of keys) {
       const record = this.records.get(key)
       if (!record) continue
-      const fetcher = record.fetcher
-      const watched = (this.listeners.get(key)?.size ?? 0) > 0
-      this.records.delete(key)
-      this.notify(key)
-      if (watched) this.read(key, fetcher, 0)
+
+      if ((this.listeners.get(key)?.size ?? 0) > 0) {
+        // Watched: re-issue in place, forced. The record must NOT be deleted
+        // first. Deleting it resets the generation counter, so a request issued
+        // before this invalidation and still in flight would settle with a
+        // matching generation and write its stale data over the fresh read.
+        // Keeping the record also leaves the previous data on screen with
+        // `loading` beside it during the refetch, rather than blanking the page.
+        this.read(key, record.fetcher, 0, { force: true })
+      } else {
+        // Nobody is watching: drop it, and let the next mount refetch. An
+        // in-flight settle for this key will find no record and discard itself.
+        this.records.delete(key)
+        this.notify(key)
+      }
     }
   }
 

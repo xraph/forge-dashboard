@@ -183,6 +183,29 @@ describe("QueryStore", () => {
     expect(store.snapshot(key).data).toBeUndefined()
   })
 
+  it("does not let a pre-invalidation request overwrite the re-issued one", async () => {
+    const key = store.keyOf("auth", "users.list")
+    const stale = deferred<{ tag: string }>()
+    const fresh = deferred<{ tag: string }>()
+    let call = 0
+    const fetcher = vi.fn(() => (++call === 1 ? stale.promise : fresh.promise))
+
+    store.read(key, fetcher, 0)
+    store.subscribe(key, () => {})
+
+    // Invalidate while the first request is still in flight, then let the
+    // stale one settle LAST. Deleting the record would reset the generation
+    // counter and let this stale result win.
+    store.invalidate("auth", ["users.list"])
+    fresh.resolve({ tag: "fresh" })
+    await vi.waitFor(() => expect(store.snapshot(key).data).toEqual({ tag: "fresh" }))
+
+    stale.resolve({ tag: "stale" })
+    await Promise.resolve()
+    await Promise.resolve()
+    expect(store.snapshot(key).data).toEqual({ tag: "fresh" })
+  })
+
   it("clear drops everything, which is what an app switch needs", async () => {
     const a = store.keyOf("auth", "users.list")
     const b = store.keyOf("streaming-contract", "stats")
