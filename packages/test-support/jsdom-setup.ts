@@ -49,6 +49,14 @@
  * selector that merely contains one of these still goes to nwsapi unchanged.
  *
  * With this in place the same repro drops from 232,592ms to 542ms.
+ *
+ * Upstream: this is a regression nwsapi shipped in 2.2.26 (commit 24cdab6),
+ * reported as dperini/nwsapi#171, #172 and #177, and fixed on master by a
+ * re-entrancy guard inside `matchesNative` itself. The fix is unreleased.
+ * npm latest is still 2.2.27, and jsdom pins `nwsapi: ^2.2.12`, so a fresh
+ * install picks the broken one up on its own. Once a release lands with that
+ * guard in it, drop this file and its three `setupFiles` entries, then check
+ * that a menu test still runs in milliseconds.
  */
 const NO_TOP_LAYER_IN_JSDOM = new Set([
   ":popover-open",
