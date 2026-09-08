@@ -1,7 +1,14 @@
 import { useEffect, useMemo, useRef, useState } from "react"
 import type { ReactNode } from "react"
 import type * as React from "react"
-import { Link, Navigate, Route, Routes, useLocation, useNavigate } from "react-router"
+import {
+  Link,
+  Navigate,
+  Route,
+  Routes,
+  useLocation,
+  useNavigate,
+} from "react-router"
 import {
   FallbackAuthGate,
   PluginErrorBoundary,
@@ -10,6 +17,7 @@ import {
 } from "@forge-go/dashboard-runtime"
 import {
   createScopedClient,
+  HostAccessProvider,
   labelOf,
   MismatchPanel,
   mountPath,
@@ -22,17 +30,23 @@ import {
   resolveAuthProvider,
   resolvePluginState,
   SetupPanel,
+  SubPluginProvider,
 } from "@forge-go/dashboard-plugin"
 import type {
   Capabilities,
   ForgePlugin,
   ForgeSubPlugin,
   PluginNavItem,
+  PluginRoute,
+  PluginState,
   Scope,
   ScopedClient,
 } from "@forge-go/dashboard-plugin"
 import { AppSidebar } from "@forge-go/dashboard-kit/components/app-sidebar"
-import type { NavGroup, NavNode } from "@forge-go/dashboard-kit/components/nav-tree"
+import type {
+  NavGroup,
+  NavNode,
+} from "@forge-go/dashboard-kit/components/nav-tree"
 import type { ScopeOption } from "@forge-go/dashboard-kit/components/scope-switcher"
 import { SiteHeader } from "@forge-go/dashboard-kit/components/site-header"
 import {
@@ -83,6 +97,13 @@ function HostShell({
 
 export interface PluginHostProps {
   plugins: ForgePlugin[]
+  /**
+   * Sub-plugins, each naming the plugin it mounts inside. Resolved against the
+   * same capabilities document as plugins, so an absent Go contributor hides a
+   * sub-plugin exactly as it hides a plugin: no nav, no route, no widget, no
+   * log line.
+   */
+  subPlugins?: ForgeSubPlugin[]
   /**
    * Injected in tests. The host uses one fetch for both the capabilities
    * request and every scoped client it builds, so a single stub covers the
@@ -146,7 +167,7 @@ const UNGROUPED = Symbol("ungrouped")
  */
 export function navGroups(
   plugin: ForgePlugin,
-  subPlugins: ForgeSubPlugin[],
+  subPlugins: ForgeSubPlugin[]
 ): NavGroup[] {
   const buckets = new Map<
     string | typeof UNGROUPED,
@@ -183,12 +204,48 @@ export function navGroups(
   }))
 }
 
-// Replaced in Task 10, which resolves sub-plugins against capabilities.
-function readySubPluginsFor(_hostExtension: string): ForgeSubPlugin[] {
-  return []
+// Two sub-plugins of one host can both claim a path, and so can a sub-plugin
+// and its host. Import-time validation cannot see it: those authors never met,
+// and the collision exists only in this deployment's particular combination.
+// React-router matches the first and leaves the rest unreachable in silence,
+// so pick a winner deterministically and say what was dropped.
+//
+// The host's own route always wins. Between sub-plugins the lower priority
+// wins, and ties break on extension name so the winner never depends on the
+// order somebody happened to write the imports.
+function dropCollidingRoutes(
+  hostPlugin: ForgePlugin,
+  subs: { subPlugin: ForgeSubPlugin; state: PluginState }[]
+): { subPlugin: ForgeSubPlugin; state: PluginState; routes: PluginRoute[] }[] {
+  const claimed = new Set(
+    hostPlugin.routes.map((r) => mountPath(hostPlugin, r.path))
+  )
+  const ordered = [...subs].sort((a, b) =>
+    a.subPlugin.extension < b.subPlugin.extension ? -1 : 1
+  )
+
+  return ordered.map((entry) => {
+    const kept: PluginRoute[] = []
+    for (const route of entry.subPlugin.routes) {
+      const path = mountPath(hostPlugin, route.path)
+      if (claimed.has(path)) {
+        console.warn(
+          `[forge-dashboard] "${entry.subPlugin.extension}" claims "${path}", which is already mounted. That page will not be reachable. Two installed extensions disagree about this path; one of them has to change it.`
+        )
+        continue
+      }
+      claimed.add(path)
+      kept.push(route)
+    }
+    return { ...entry, routes: kept }
+  })
 }
 
-export function PluginHost({ plugins, fetchImpl }: PluginHostProps) {
+export function PluginHost({
+  plugins,
+  subPlugins = [],
+  fetchImpl,
+}: PluginHostProps) {
   const { contractBase } = useDashboardConfig()
   const { loginPath } = useDashboardConfig()
   const session = useSession()
@@ -263,7 +320,13 @@ export function PluginHost({ plugins, fetchImpl }: PluginHostProps) {
     return () => {
       cancelled = true
     }
-  }, [contractBase, doFetch, session.epoch, session.resolved, session.state.status])
+  }, [
+    contractBase,
+    doFetch,
+    session.epoch,
+    session.resolved,
+    session.state.status,
+  ])
 
   // Drops the query cache when the signed-in identity changes.
   //
@@ -281,7 +344,9 @@ export function PluginHost({ plugins, fetchImpl }: PluginHostProps) {
   // those would defeat the cache for no reason. Only a change in who is
   // signed in earns a clear.
   const identitySubject =
-    session.state.status === "signedIn" ? session.state.principal.subject : undefined
+    session.state.status === "signedIn"
+      ? session.state.principal.subject
+      : undefined
   const lastIdentityRef = useRef<{ subject: string | undefined } | null>(null)
 
   useEffect(() => {
@@ -289,7 +354,10 @@ export function PluginHost({ plugins, fetchImpl }: PluginHostProps) {
     // The first resolution sets the baseline rather than clearing: there is
     // no previous identity yet for this one to differ from, so nothing in
     // the store could have been cached for somebody else.
-    if (lastIdentityRef.current !== null && lastIdentityRef.current.subject !== identitySubject) {
+    if (
+      lastIdentityRef.current !== null &&
+      lastIdentityRef.current.subject !== identitySubject
+    ) {
       queryStore.clear()
     }
     lastIdentityRef.current = { subject: identitySubject }
@@ -307,26 +375,35 @@ export function PluginHost({ plugins, fetchImpl }: PluginHostProps) {
   // them.
   const clients = useMemo(() => {
     const byExtension = new Map<string, ScopedClient>()
-    for (const plugin of plugins) {
+    const build = (extension: string) => {
+      if (byExtension.has(extension)) return
       byExtension.set(
-        plugin.extension,
-        createScopedClient(contractBase, plugin.extension, doFetch, (info) => {
-          if (info.kind === "query") {
-            queryStore.noteStaleTime(
-              info.extension,
-              info.intent,
-              parseGoDuration(info.meta.cacheControl?.staleTime),
-            )
-            return
-          }
-          if (info.meta.invalidates?.length) {
-            queryStore.invalidate(info.extension, info.meta.invalidates)
-          }
-        }, session.refresh)
+        extension,
+        createScopedClient(
+          contractBase,
+          extension,
+          doFetch,
+          (info) => {
+            if (info.kind === "query") {
+              queryStore.noteStaleTime(
+                info.extension,
+                info.intent,
+                parseGoDuration(info.meta.cacheControl?.staleTime)
+              )
+              return
+            }
+            if (info.meta.invalidates?.length) {
+              queryStore.invalidate(info.extension, info.meta.invalidates)
+            }
+          },
+          session.refresh
+        )
       )
     }
+    for (const plugin of plugins) build(plugin.extension)
+    for (const sub of subPlugins) build(sub.extension)
     return byExtension
-  }, [plugins, contractBase, doFetch, session.refresh])
+  }, [plugins, subPlugins, contractBase, doFetch, session.refresh])
 
   // Every state renders the sidebar, so scopes are built before the early
   // returns. Before capabilities land there are none, and the switcher shows
@@ -345,10 +422,56 @@ export function PluginHost({ plugins, fetchImpl }: PluginHostProps) {
           .filter((scope) => scope.state.kind !== "hidden")
       : []
 
+  // A sub-plugin gets the same four answers a plugin does, from the same
+  // function against the same document. `hidden` is the common case and is not
+  // an error: a deployment without the organization plugin has no
+  // Organizations page, and that is correct.
+  //
+  // Only `ready` sub-plugins reach the slots. A sub-plugin in `setup` still
+  // gets its own routes, so somebody can reach its setup screen, but
+  // contributes nothing to anybody else's page: a widget reading "needs
+  // configuring" on the auth overview is noise rather than information.
+  const resolvedSubs =
+    state.status === "ready"
+      ? subPlugins
+          .map((subPlugin) => ({
+            subPlugin,
+            state: resolvePluginState(
+              // resolvePluginState reads `extension` and `requires` only, and
+              // both interfaces carry them, so no second implementation is
+              // needed and the two can never drift apart.
+              subPlugin as unknown as ForgePlugin,
+              state.capabilities
+            ),
+          }))
+          .filter((entry) => entry.state.kind !== "hidden")
+      : []
+
   // The root plugin (if any) is not one scope among several: it is pinned
   // nav, not a switcher entry, so it is split out before anything downstream
   // ever sees it as a "scope".
   const { root, scopes } = partitionScopes(resolved)
+
+  // A sub-plugin whose host is not ready renders nothing, whatever its own
+  // state says. There is nowhere to put it.
+  const readyHosts = new Set(
+    resolved
+      .filter((scope) => scope.state.kind === "ready")
+      .map((scope) => scope.id)
+  )
+
+  function subsMountedIn(hostExtension: string) {
+    if (!readyHosts.has(hostExtension)) return []
+    return resolvedSubs.filter(
+      (entry) => entry.subPlugin.host === hostExtension
+    )
+  }
+
+  function readySubPluginsFor(hostExtension: string): ForgeSubPlugin[] {
+    return subsMountedIn(hostExtension)
+      .filter((entry) => entry.state.kind === "ready")
+      .map((entry) => entry.subPlugin)
+  }
 
   // `undefined` means "at the root" -- a real, expected answer, not an error
   // or an empty state. A pathname with no recognised "@namespace" segment
@@ -402,7 +525,10 @@ export function PluginHost({ plugins, fetchImpl }: PluginHostProps) {
   const navOwner = activeScope ?? root
   const groups: NavGroup[] =
     navOwner && navOwner.state.kind === "ready"
-      ? navGroups(navOwner.plugin, readySubPluginsFor(navOwner.plugin.extension))
+      ? navGroups(
+          navOwner.plugin,
+          readySubPluginsFor(navOwner.plugin.extension)
+        )
       : []
 
   // The header's title names the current page, not the product: the label of
@@ -473,7 +599,10 @@ export function PluginHost({ plugins, fetchImpl }: PluginHostProps) {
     user:
       session.state.status === "signedIn"
         ? {
-            name: session.state.principal.displayName ?? session.state.principal.subject ?? "Signed in",
+            name:
+              session.state.principal.displayName ??
+              session.state.principal.subject ??
+              "Signed in",
             email: session.state.principal.email ?? "",
           }
         : { name: "Dashboard user", email: "" },
@@ -483,13 +612,18 @@ export function PluginHost({ plugins, fetchImpl }: PluginHostProps) {
   // The gate goes here, before anything builds a route table or a sidebar.
   // Rendering it as a route would leave the shell mounted underneath it,
   // naming every scope the visitor is not allowed to see.
-  if (session.state.status === "signedOut" || session.state.status === "denied") {
+  if (
+    session.state.status === "signedOut" ||
+    session.state.status === "denied"
+  ) {
     const provider = resolveAuthProvider(plugins)
     const Gate = provider?.auth?.gate ?? FallbackAuthGate
     const gateLoginPath =
       session.state.status === "signedOut" ? session.state.loginPath : loginPath
     const requiredRoles =
-      session.state.status === "denied" ? session.state.requiredRoles : undefined
+      session.state.status === "denied"
+        ? session.state.requiredRoles
+        : undefined
 
     return (
       // A gate is third-party code like any other plugin component, and a
@@ -592,7 +726,8 @@ export function PluginHost({ plugins, fetchImpl }: PluginHostProps) {
   // root counts toward "ready" alongside the scopes: a root plugin that is
   // mismatched or needs setup contributes no routes here, same as any scope.
   const ready = [root, ...scopes].filter(
-    (scope): scope is Scope => scope !== undefined && scope.state.kind === "ready",
+    (scope): scope is Scope =>
+      scope !== undefined && scope.state.kind === "ready"
   )
 
   // ready is [root, ...scopes] filtered, so ready[0] is the root when the root
@@ -605,7 +740,7 @@ export function PluginHost({ plugins, fetchImpl }: PluginHostProps) {
         landing.plugin,
         sortByPriority(landing.plugin.nav)[0]?.to ??
           landing.plugin.routes[0]?.path ??
-          "/",
+          "/"
       )
     : // Nothing is ready. Falling back to undefined here is what used to
       // leave "/" stranded: no sigil, so resolveActiveScope reads it as "at
@@ -650,58 +785,112 @@ export function PluginHost({ plugins, fetchImpl }: PluginHostProps) {
         land on.
       */}
       {(ready.length > 0 || home) && (
-        <Routes>
-          {ready.flatMap(({ plugin }) =>
-            plugin.routes.map((route) => {
-              const Page = route.element
-              return (
-                <Route
-                  key={`${plugin.extension}:${route.path}`}
-                  path={mountPath(plugin, route.path)}
-                  element={
-                    // The unit this isolates is one plugin: a third-party
-                    // bundle throwing during render must take down its own
-                    // page, not the dashboard.
-                    //
-                    // The key is load-bearing and is not the same key as the
-                    // one on <Route>. <Routes> renders exactly one element
-                    // here, so without a key React sees PluginErrorBoundary at
-                    // the same position on every navigation and keeps the
-                    // instance -- along with the latched failed:true a
-                    // previous page put there. One plugin throwing then paints
-                    // "failed to render" over every page you navigate to next,
-                    // naming whichever plugin you just opened, until a full
-                    // reload. That inverts the boundary: instead of one plugin
-                    // taking down its own page, one plugin takes down the
-                    // dashboard by a slower route. Keying per route makes each
-                    // navigation a remount, which is the only way a class
-                    // boundary clears itself.
-                    //
-                    // Keyed on the resolved pathname, not route.path. route.path
-                    // is the pattern (`/users/:id`), and every id that pattern
-                    // matches shares one <Route> element and therefore one
-                    // boundary instance -- a throw on one id would latch the
-                    // fallback for every other id served by the same route.
-                    // The extension stays in the key too, as defense in depth:
-                    // mountPath gives every non-root plugin its own
-                    // "@namespace" and gives the one root plugin the bare
-                    // path, so two plugins can no longer resolve to the same
-                    // pathname at all, but the key does not depend on that
-                    // guarantee holding to stay correct.
-                    <PluginErrorBoundary
-                      key={`${plugin.extension}:${pathname}`}
-                      plugin={plugin.extension}
-                    >
-                      <PluginProvider client={clients.get(plugin.extension)!}>
-                        <Page />
-                      </PluginProvider>
-                    </PluginErrorBoundary>
-                  }
-                />
+        <SubPluginProvider
+          entries={
+            panelSource
+              ? subsMountedIn(panelSource.plugin.extension)
+                  .filter((entry) => entry.state.kind === "ready")
+                  .map((entry) => ({
+                    subPlugin: entry.subPlugin,
+                    client: clients.get(entry.subPlugin.extension)!,
+                  }))
+              : []
+          }
+        >
+          <Routes>
+            {ready.flatMap(({ plugin }) =>
+              plugin.routes.map((route) => {
+                const Page = route.element
+                return (
+                  <Route
+                    key={`${plugin.extension}:${route.path}`}
+                    path={mountPath(plugin, route.path)}
+                    element={
+                      // The unit this isolates is one plugin: a third-party
+                      // bundle throwing during render must take down its own
+                      // page, not the dashboard.
+                      //
+                      // The key is load-bearing and is not the same key as the
+                      // one on <Route>. <Routes> renders exactly one element
+                      // here, so without a key React sees PluginErrorBoundary at
+                      // the same position on every navigation and keeps the
+                      // instance -- along with the latched failed:true a
+                      // previous page put there. One plugin throwing then paints
+                      // "failed to render" over every page you navigate to next,
+                      // naming whichever plugin you just opened, until a full
+                      // reload. That inverts the boundary: instead of one plugin
+                      // taking down its own page, one plugin takes down the
+                      // dashboard by a slower route. Keying per route makes each
+                      // navigation a remount, which is the only way a class
+                      // boundary clears itself.
+                      //
+                      // Keyed on the resolved pathname, not route.path. route.path
+                      // is the pattern (`/users/:id`), and every id that pattern
+                      // matches shares one <Route> element and therefore one
+                      // boundary instance -- a throw on one id would latch the
+                      // fallback for every other id served by the same route.
+                      // The extension stays in the key too, as defense in depth:
+                      // mountPath gives every non-root plugin its own
+                      // "@namespace" and gives the one root plugin the bare
+                      // path, so two plugins can no longer resolve to the same
+                      // pathname at all, but the key does not depend on that
+                      // guarantee holding to stay correct.
+                      <PluginErrorBoundary
+                        key={`${plugin.extension}:${pathname}`}
+                        plugin={plugin.extension}
+                      >
+                        <PluginProvider client={clients.get(plugin.extension)!}>
+                          <Page />
+                        </PluginProvider>
+                      </PluginErrorBoundary>
+                    }
+                  />
+                )
+              })
+            )}
+            {ready.flatMap(({ plugin }) =>
+              dropCollidingRoutes(
+                plugin,
+                subsMountedIn(plugin.extension)
+              ).flatMap((entry) =>
+                entry.routes.map((route) => {
+                  const Page =
+                    entry.state.kind === "ready"
+                      ? route.element
+                      : // Not ready but not hidden: its route still mounts, so
+                        // somebody following a link or a bookmark lands on a
+                        // panel explaining why rather than on a blank page.
+                        (entry.subPlugin.setup ?? SetupPanel)
+                  const client = clients.get(entry.subPlugin.extension)
+                  const hostClient = clients.get(plugin.extension)
+                  return (
+                    <Route
+                      key={`${entry.subPlugin.extension}:${route.path}`}
+                      path={mountPath(plugin, route.path)}
+                      element={
+                        <PluginErrorBoundary
+                          key={entry.subPlugin.extension}
+                          plugin={entry.subPlugin.extension}
+                        >
+                          <PluginProvider client={client!}>
+                            <HostAccessProvider
+                              value={{
+                                client: hostClient!,
+                                allowed: entry.subPlugin.hostIntents,
+                                subExtension: entry.subPlugin.extension,
+                              }}
+                            >
+                              <Page />
+                            </HostAccessProvider>
+                          </PluginProvider>
+                        </PluginErrorBoundary>
+                      }
+                    />
+                  )
+                })
               )
-            }),
-          )}
-          {/*
+            )}
+            {/*
             home === "/" is reachable now that a root plugin's own paths pass
             through mountPath untouched: a root plugin whose priority-first
             nav item (or, with no nav, first route) is "/" resolves `home` to
@@ -711,10 +900,11 @@ export function PluginHost({ plugins, fetchImpl }: PluginHostProps) {
             `home` -- this route and the panel fallback alike -- sees the
             same value; only the redirect itself needs to refuse to fire.
           */}
-          {home && home !== "/" && (
-            <Route path="/" element={<Navigate to={home} replace />} />
-          )}
-        </Routes>
+            {home && home !== "/" && (
+              <Route path="/" element={<Navigate to={home} replace />} />
+            )}
+          </Routes>
+        </SubPluginProvider>
       )}
     </HostShell>
   )

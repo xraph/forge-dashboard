@@ -2,7 +2,7 @@ import type { ReactNode } from "react"
 import { BrowserRouter } from "react-router"
 import { ForgeDashboardProvider, SessionProvider } from "@forge-go/dashboard-runtime"
 import type { DashboardConfigInput } from "@forge-go/dashboard-runtime"
-import type { ForgePlugin } from "@forge-go/dashboard-plugin"
+import type { ForgePlugin, ForgeSubPlugin } from "@forge-go/dashboard-plugin"
 import { TooltipProvider } from "@forge-go/dashboard-kit/components/tooltip"
 import { PluginHost } from "./host/PluginHost"
 
@@ -16,6 +16,12 @@ export interface ForgeDashboardProps {
    */
   plugins: ForgePlugin[]
   /**
+   * Sub-plugins, each naming the plugin it mounts inside. Passed straight
+   * through to PluginHost, which resolves each against the same capabilities
+   * document as plugins.
+   */
+  subPlugins?: ForgeSubPlugin[]
+  /**
    * Router mount prefix. apps/shell passes the injected shellBase. A Next.js
    * app passes the route segment it is mounted at, e.g. "/admin". Omitted
    * means no basename, which is the dev and externally hosted case.
@@ -27,6 +33,7 @@ export interface ForgeDashboardProps {
 export function ForgeDashboard({
   config,
   plugins,
+  subPlugins,
   basename,
   fetchImpl,
 }: ForgeDashboardProps): ReactNode {
@@ -35,7 +42,7 @@ export function ForgeDashboard({
       <TooltipProvider>
         <BrowserRouter basename={basename}>
           <SessionProvider fetchImpl={fetchImpl}>
-            <PluginHost plugins={plugins} fetchImpl={fetchImpl} />
+            <PluginHost plugins={plugins} subPlugins={subPlugins} fetchImpl={fetchImpl} />
           </SessionProvider>
         </BrowserRouter>
       </TooltipProvider>
