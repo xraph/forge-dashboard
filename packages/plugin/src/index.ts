@@ -1,4 +1,5 @@
 export * from "./types"
+export * from "./auth"
 export * from "./define"
 export * from "./client"
 export * from "./context"

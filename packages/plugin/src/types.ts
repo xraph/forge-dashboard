@@ -1,5 +1,7 @@
 import type { ComponentType, ReactNode } from "react"
 
+import type { PluginAuth } from "./auth"
+
 /** One sidebar entry contributed by a plugin. `to` is relative to the plugin's scope. */
 export interface PluginNavItem {
   label: string
@@ -55,6 +57,15 @@ export interface ForgePlugin {
    * Semver range of the Go extension this UI supports. Omit to skip the check.
    */
   requires?: string
+  /**
+   * Marks this plugin as the dashboard's authentication provider and supplies
+   * the screen shown when nobody is signed in.
+   *
+   * At most one plugin may set this. When it is set and the session resolves
+   * to signed out, the host renders this component instead of the shell: no
+   * sidebar, no scope switcher, no plugin routes mounted at all.
+   */
+  auth?: PluginAuth
   nav: PluginNavItem[]
   routes: PluginRoute[]
   /** Rendered when the extension is present but reports Configured: false. */
