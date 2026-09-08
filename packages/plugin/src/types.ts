@@ -9,6 +9,13 @@ export interface PluginNavItem {
   icon?: ReactNode
   /** Nested entries. Rendered expanded; the kit has no collapsible primitive. */
   children?: PluginNavItem[]
+  /**
+   * The sidebar heading this item sorts under. Items with no group render
+   * first, in one unlabelled group, which is what every plugin does today.
+   * The Go manifests already declare these: Identity, Security, Auth,
+   * Compliance, Enterprise, Configuration.
+   */
+  group?: string
 }
 
 /** One route contributed by a plugin. */
@@ -57,4 +64,61 @@ export interface ForgePlugin {
 /** What an author passes to definePlugin. nav is optional; the rest mirrors ForgePlugin. */
 export interface PluginInput extends Omit<ForgePlugin, "nav"> {
   nav?: PluginNavItem[]
+}
+
+/** The six places a sub-plugin can push UI into a host plugin's pages. */
+export const SLOT_NAMES = [
+  "overview.widgets",
+  "user.detail.sections",
+  "org.detail.sections",
+  "org.detail.tabs",
+  "org.create.fields",
+  "settings.tabs",
+] as const
+
+export type SlotName = (typeof SLOT_NAMES)[number]
+
+export interface SlotContribution {
+  /** Unique within one slot, per sub-plugin. Used as the React key. */
+  id: string
+  /** Lower sorts earlier. Ties break on id, so ordering is total and stable. */
+  priority?: number
+  /** Required by `org.detail.tabs`, which needs something to put on the tab. */
+  label?: string
+  /**
+   * Receives the slot's params: `{ userId }` for user.detail.sections,
+   * `{ orgId }` for the org slots, nothing for the rest.
+   */
+  render: ComponentType<Record<string, unknown>>
+}
+
+export interface ForgeSubPlugin {
+  /**
+   * This sub-plugin's own Go contributor. Decides whether it renders at all,
+   * and scopes every query it makes. Never the same as `host`.
+   */
+  extension: string
+  /** The `extension` of the plugin whose namespace this mounts inside. */
+  host: string
+  label?: string
+  icon?: ReactNode
+  requires?: string
+  nav: PluginNavItem[]
+  routes: PluginRoute[]
+  contributions: Partial<Record<SlotName, SlotContribution[]>>
+  /**
+   * Host intents this sub-plugin may read through `useHostQuery` and
+   * `useHostCommand`. Empty by default. The eighteen settings-only authsome
+   * sub-plugins declare four; most sub-plugins declare none.
+   */
+  hostIntents: string[]
+  setup?: ComponentType<{ message?: string }>
+}
+
+export interface SubPluginInput
+  extends Omit<ForgeSubPlugin, "nav" | "routes" | "contributions" | "hostIntents"> {
+  nav?: PluginNavItem[]
+  routes?: PluginRoute[]
+  contributions?: Partial<Record<SlotName, SlotContribution[]>>
+  hostIntents?: string[]
 }
