@@ -1,8 +1,8 @@
 import { describe, expect, it, vi } from "vitest"
-import { fireEvent, render, screen, waitFor, within } from "@testing-library/react"
+import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react"
 import { MemoryRouter, useParams } from "react-router"
-import { ForgeDashboardProvider } from "@forge-go/dashboard-runtime"
-import { definePlugin, useQuery } from "@forge-go/dashboard-plugin"
+import { ForgeDashboardProvider, SessionProvider } from "@forge-go/dashboard-runtime"
+import { definePlugin, useQuery, usePluginClient } from "@forge-go/dashboard-plugin"
 import type {
   Capabilities,
   ContributorCapability,
@@ -47,6 +47,13 @@ function capabilitiesFetch(
     if (url.endsWith("/capabilities")) {
       const caps: Capabilities = { shellEnvelopes: ["v1"], contributors }
       return jsonOk(caps)
+    }
+    // Every pre-existing test in this suite is about resolution and routing,
+    // not about auth, so they run as a signed-in user. Without this branch
+    // the session resolves `unreachable` and the host renders an alert
+    // instead of the thing each of those tests is asserting on.
+    if (url.endsWith("/principal")) {
+      return jsonOk({ authenticated: true, subject: "usr_test", email: "test@example.com" })
     }
     throw new Error(`unexpected request to ${url}`)
   }) as unknown as typeof fetch
@@ -95,7 +102,9 @@ function renderHost(
   return render(
     <MemoryRouter initialEntries={[route]}>
       <ForgeDashboardProvider config={config}>
-        <PluginHost plugins={plugins} fetchImpl={fetchImpl} />
+        <SessionProvider fetchImpl={fetchImpl}>
+          <PluginHost plugins={plugins} fetchImpl={fetchImpl} />
+        </SessionProvider>
       </ForgeDashboardProvider>
     </MemoryRouter>
   )
@@ -483,6 +492,9 @@ describe("PluginHost", () => {
           }
           return jsonOk(caps)
         }
+        if (url.endsWith("/principal")) {
+          return jsonOk({ authenticated: true, subject: "usr_test", email: "test@example.com" })
+        }
         const body = JSON.parse(String(init?.body)) as {
           contributor: string
           intent: string
@@ -798,17 +810,19 @@ describe("root plugin", () => {
     render(
       <ForgeDashboardProvider config={config}>
         <MemoryRouter initialEntries={["/overview"]}>
-          <PluginHost
-            plugins={[
-              definePlugin({
-                extension: "core-contract",
-                root: true,
-                nav: [{ label: "Overview", to: "/overview" }],
-                routes: [{ path: "/overview", element: () => <p>root page</p> }],
-              }),
-            ]}
-            fetchImpl={fetchImpl}
-          />
+          <SessionProvider fetchImpl={fetchImpl}>
+            <PluginHost
+              plugins={[
+                definePlugin({
+                  extension: "core-contract",
+                  root: true,
+                  nav: [{ label: "Overview", to: "/overview" }],
+                  routes: [{ path: "/overview", element: () => <p>root page</p> }],
+                }),
+              ]}
+              fetchImpl={fetchImpl}
+            />
+          </SessionProvider>
         </MemoryRouter>
       </ForgeDashboardProvider>,
     )
@@ -825,23 +839,25 @@ describe("root plugin", () => {
     render(
       <ForgeDashboardProvider config={config}>
         <MemoryRouter initialEntries={["/@streaming/rooms"]}>
-          <PluginHost
-            plugins={[
-              definePlugin({
-                extension: "core-contract",
-                root: true,
-                nav: [{ label: "Overview", to: "/overview" }],
-                routes: [{ path: "/overview", element: () => <p>root page</p> }],
-              }),
-              definePlugin({
-                extension: "streaming-contract",
-                label: "Streaming",
-                nav: [{ label: "Rooms", to: "/rooms" }],
-                routes: [{ path: "/rooms", element: () => <p>rooms page</p> }],
-              }),
-            ]}
-            fetchImpl={fetchImpl}
-          />
+          <SessionProvider fetchImpl={fetchImpl}>
+            <PluginHost
+              plugins={[
+                definePlugin({
+                  extension: "core-contract",
+                  root: true,
+                  nav: [{ label: "Overview", to: "/overview" }],
+                  routes: [{ path: "/overview", element: () => <p>root page</p> }],
+                }),
+                definePlugin({
+                  extension: "streaming-contract",
+                  label: "Streaming",
+                  nav: [{ label: "Rooms", to: "/rooms" }],
+                  routes: [{ path: "/rooms", element: () => <p>rooms page</p> }],
+                }),
+              ]}
+              fetchImpl={fetchImpl}
+            />
+          </SessionProvider>
         </MemoryRouter>
       </ForgeDashboardProvider>,
     )
@@ -873,23 +889,25 @@ describe("scoped routing", () => {
     render(
       <ForgeDashboardProvider config={config}>
         <MemoryRouter initialEntries={["/@streaming/rooms"]}>
-          <PluginHost
-            plugins={[
-              definePlugin({
-                extension: "streaming-contract",
-                label: "Streaming",
-                nav: [
-                  { label: "Overview", to: "/" },
-                  { label: "Rooms", to: "/rooms" },
-                ],
-                routes: [
-                  { path: "/", element: () => <p>streaming home</p> },
-                  { path: "/rooms", element: () => <p>rooms page</p> },
-                ],
-              }),
-            ]}
-            fetchImpl={fetchImpl}
-          />
+          <SessionProvider fetchImpl={fetchImpl}>
+            <PluginHost
+              plugins={[
+                definePlugin({
+                  extension: "streaming-contract",
+                  label: "Streaming",
+                  nav: [
+                    { label: "Overview", to: "/" },
+                    { label: "Rooms", to: "/rooms" },
+                  ],
+                  routes: [
+                    { path: "/", element: () => <p>streaming home</p> },
+                    { path: "/rooms", element: () => <p>rooms page</p> },
+                  ],
+                }),
+              ]}
+              fetchImpl={fetchImpl}
+            />
+          </SessionProvider>
         </MemoryRouter>
       </ForgeDashboardProvider>,
     )
@@ -911,16 +929,18 @@ describe("scoped routing", () => {
     render(
       <ForgeDashboardProvider config={config}>
         <MemoryRouter initialEntries={["/@streaming/rooms"]}>
-          <PluginHost
-            plugins={[
-              definePlugin({
-                extension: "streaming-contract",
-                nav: [{ label: "Rooms", to: "/rooms" }],
-                routes: [{ path: "/rooms", element: () => <p>rooms page</p> }],
-              }),
-            ]}
-            fetchImpl={fetchImpl}
-          />
+          <SessionProvider fetchImpl={fetchImpl}>
+            <PluginHost
+              plugins={[
+                definePlugin({
+                  extension: "streaming-contract",
+                  nav: [{ label: "Rooms", to: "/rooms" }],
+                  routes: [{ path: "/rooms", element: () => <p>rooms page</p> }],
+                }),
+              ]}
+              fetchImpl={fetchImpl}
+            />
+          </SessionProvider>
         </MemoryRouter>
       </ForgeDashboardProvider>,
     )
@@ -939,18 +959,20 @@ describe("a root plugin that is not ready", () => {
     render(
       <ForgeDashboardProvider config={config}>
         <MemoryRouter initialEntries={["/"]}>
-          <PluginHost
-            plugins={[
-              definePlugin({
-                extension: "core-contract",
-                root: true,
-                label: "System",
-                nav: [{ label: "Overview", to: "/overview" }],
-                routes: [{ path: "/overview", element: () => <p>root page</p> }],
-              }),
-            ]}
-            fetchImpl={fetchImpl}
-          />
+          <SessionProvider fetchImpl={fetchImpl}>
+            <PluginHost
+              plugins={[
+                definePlugin({
+                  extension: "core-contract",
+                  root: true,
+                  label: "System",
+                  nav: [{ label: "Overview", to: "/overview" }],
+                  routes: [{ path: "/overview", element: () => <p>root page</p> }],
+                }),
+              ]}
+              fetchImpl={fetchImpl}
+            />
+          </SessionProvider>
         </MemoryRouter>
       </ForgeDashboardProvider>,
     )
@@ -984,17 +1006,19 @@ describe("no root plugin, with a scope that is not ready", () => {
     render(
       <ForgeDashboardProvider config={config}>
         <MemoryRouter initialEntries={["/"]}>
-          <PluginHost
-            plugins={[
-              definePlugin({
-                extension: "streaming-contract",
-                label: "Streaming",
-                nav: [{ label: "Rooms", to: "/rooms" }],
-                routes: [{ path: "/rooms", element: () => <p>rooms page</p> }],
-              }),
-            ]}
-            fetchImpl={fetchImpl}
-          />
+          <SessionProvider fetchImpl={fetchImpl}>
+            <PluginHost
+              plugins={[
+                definePlugin({
+                  extension: "streaming-contract",
+                  label: "Streaming",
+                  nav: [{ label: "Rooms", to: "/rooms" }],
+                  routes: [{ path: "/rooms", element: () => <p>rooms page</p> }],
+                }),
+              ]}
+              fetchImpl={fetchImpl}
+            />
+          </SessionProvider>
         </MemoryRouter>
       </ForgeDashboardProvider>,
     )
@@ -1031,24 +1055,32 @@ describe('a root plugin whose home resolves to "/"', () => {
     render(
       <ForgeDashboardProvider config={config}>
         <MemoryRouter initialEntries={["/"]}>
-          <PluginHost
-            plugins={[
-              definePlugin({
-                extension: "core-contract",
-                root: true,
-                nav: [{ label: "Home", to: "/" }],
-                routes: [{ path: "/other", element: () => <p>other page</p> }],
-              }),
-            ]}
-            fetchImpl={fetchImpl}
-          />
+          <SessionProvider fetchImpl={fetchImpl}>
+            <PluginHost
+              plugins={[
+                definePlugin({
+                  extension: "core-contract",
+                  root: true,
+                  nav: [{ label: "Home", to: "/" }],
+                  routes: [{ path: "/other", element: () => <p>other page</p> }],
+                }),
+              ]}
+              fetchImpl={fetchImpl}
+            />
+          </SessionProvider>
         </MemoryRouter>
       </ForgeDashboardProvider>,
     )
 
     await waitFor(() => expect(fetchImpl).toHaveBeenCalled())
     // Give a wrongly-fired self-redirect a moment to land before checking.
-    await new Promise((resolve) => setTimeout(resolve, 50))
+    // Wrapped in act(): the session now resolves through its own fetch too,
+    // alongside capabilities, so more than one state update can still be
+    // settling here. Wrapping keeps React's own housekeeping from tripping
+    // the same "not wrapped in act" warning this assertion is here to catch.
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 50))
+    })
 
     expect(errorSpy).not.toHaveBeenCalled()
     errorSpy.mockRestore()
@@ -1175,5 +1207,238 @@ describe("PluginHost capability states", () => {
     // The reason still has to reach the person; an alert with no cause in it
     // is a worse version of the div it replaced.
     expect(screen.getByText(/network is down/)).toBeTruthy()
+  })
+})
+
+describe("PluginHost auth gate", () => {
+  function principalFetch(
+    status: number,
+    body: unknown,
+    contributors: ContributorCapability[] = [
+      { name: "core-contract", envelopes: ["v1"], configured: true },
+    ],
+  ): typeof fetch {
+    return vi.fn(async (input: RequestInfo | URL) => {
+      const url = String(input)
+      if (url.endsWith("/principal")) {
+        return { ok: status >= 200 && status < 300, status, json: async () => body } as Response
+      }
+      if (url.endsWith("/capabilities")) {
+        return jsonOk({ shellEnvelopes: ["v1"], contributors })
+      }
+      throw new Error(`unexpected request to ${url}`)
+    }) as unknown as typeof fetch
+  }
+
+  const GatePlugin = () =>
+    definePlugin({
+      extension: "auth",
+      namespace: "auth",
+      label: "Auth",
+      auth: { gate: () => <p>gate body</p> },
+      nav: [{ label: "Users", to: "/users" }],
+      routes: [{ path: "/users", element: () => <p>auth users body</p> }],
+    })
+
+  it("renders the plugin's gate and no shell when signed out", async () => {
+    const { container } = renderHost(
+      [rootPlugin(), GatePlugin()],
+      principalFetch(401, { code: "UNAUTHENTICATED", loginPath: "/dashboard/login" }),
+      "/overview",
+    )
+
+    expect(await screen.findByText("gate body")).toBeTruthy()
+    // "Blocks the UI entirely" means the shell is never constructed. A route
+    // painting over a mounted sidebar is a curtain: the scope names are still
+    // in the DOM.
+    expect(container.querySelector('[data-slot="sidebar-header"]')).toBeNull()
+    expect(container.querySelector('[data-slot="sidebar-content"]')).toBeNull()
+    expect(screen.queryByText("root overview body")).toBeNull()
+  })
+
+  it("renders the shell when signed in", async () => {
+    const { container } = renderHost(
+      [rootPlugin(), GatePlugin()],
+      principalFetch(200, { authenticated: true, subject: "u1", email: "ada@example.com" }),
+      "/overview",
+    )
+
+    expect(await screen.findByText("root overview body")).toBeTruthy()
+    expect(container.querySelector('[data-slot="sidebar-header"]')).toBeTruthy()
+    expect(screen.queryByText("gate body")).toBeNull()
+  })
+
+  it("renders the shell when auth is switched off", async () => {
+    const { container } = renderHost(
+      [rootPlugin(), GatePlugin()],
+      principalFetch(200, { authenticated: false }),
+      "/overview",
+    )
+
+    // authenticated:false with a 200 means auth is off, not that you are
+    // logged out. Gating on the boolean instead of the status locks every
+    // anonymous dashboard out of itself.
+    expect(await screen.findByText("root overview body")).toBeTruthy()
+    expect(container.querySelector('[data-slot="sidebar-header"]')).toBeTruthy()
+  })
+
+  it("renders the gate's denied variant with requiredRoles", async () => {
+    const Denied = ({ requiredRoles }: { requiredRoles?: string[] }) => (
+      <p>needs {requiredRoles?.join(",")}</p>
+    )
+    const plugin = definePlugin({
+      extension: "auth",
+      namespace: "auth",
+      auth: { gate: Denied },
+      nav: [],
+      routes: [],
+    })
+
+    renderHost(
+      [rootPlugin(), plugin],
+      principalFetch(403, { code: "PERMISSION_DENIED", requiredRoles: ["admin"] }),
+      "/overview",
+    )
+
+    expect(await screen.findByText("needs admin")).toBeTruthy()
+  })
+
+  it("renders neither gate nor shell while the session is unknown", async () => {
+    const pending = vi.fn(() => new Promise<Response>(() => {})) as unknown as typeof fetch
+    const { container } = renderHost([rootPlugin(), GatePlugin()], pending, "/overview")
+
+    expect(container.querySelector('[data-slot="spinner"]')).toBeTruthy()
+    expect(screen.queryByText("gate body")).toBeNull()
+    expect(container.querySelector('[data-slot="sidebar-header"]')).toBeNull()
+  })
+
+  it("falls back to the runtime gate when no plugin declares one", async () => {
+    renderHost(
+      [rootPlugin()],
+      principalFetch(401, { code: "UNAUTHENTICATED", loginPath: "/dashboard/login" }),
+      "/overview",
+    )
+
+    expect(await screen.findByRole("link", { name: /^sign in$/i })).toBeTruthy()
+  })
+
+  it("falls back when a plugin's gate throws", async () => {
+    const Boom = () => {
+      throw new Error("gate blew up")
+    }
+    const plugin = definePlugin({
+      extension: "auth",
+      namespace: "auth",
+      auth: { gate: Boom },
+      nav: [],
+      routes: [],
+    })
+
+    renderHost(
+      [rootPlugin(), plugin],
+      principalFetch(401, { code: "UNAUTHENTICATED", loginPath: "/dashboard/login" }),
+      "/overview",
+    )
+
+    // A throwing gate must not be able to lock you out of your own dashboard.
+    expect(await screen.findByRole("link", { name: /^sign in$/i })).toBeTruthy()
+  })
+
+  it("gives the gate its plugin's scoped client", async () => {
+    // The gate renders outside the route table, so it does not inherit the
+    // PluginProvider each route gets. A gate that calls useCommand without
+    // one throws, and the only screen with a way in becomes the fallback.
+    const ClientProbe = () => {
+      const client = usePluginClient()
+      return <p>client for {client.extension}</p>
+    }
+    const plugin = definePlugin({
+      extension: "auth",
+      namespace: "auth",
+      auth: { gate: ClientProbe },
+      nav: [],
+      routes: [],
+    })
+
+    renderHost(
+      [rootPlugin(), plugin],
+      principalFetch(401, { code: "UNAUTHENTICATED", loginPath: "/dashboard/login" }),
+      "/overview",
+    )
+
+    expect(await screen.findByText("client for auth")).toBeTruthy()
+  })
+
+  it("shows the gate, not a capabilities error, when signed out", async () => {
+    // The spec requires a capabilities failure to be discarded rather than
+    // rendered while signed out. This holds because the gate returns before
+    // the capabilities error branch, so it is a property of statement order
+    // and would break silently if the gate block were moved below it.
+    const fetchImpl = vi.fn(async (input: RequestInfo | URL) => {
+      const url = String(input)
+      if (url.endsWith("/principal")) {
+        return {
+          ok: false,
+          status: 401,
+          json: async () => ({ code: "UNAUTHENTICATED", loginPath: "/dashboard/login" }),
+        } as Response
+      }
+      throw new Error("capabilities is unreachable")
+    }) as unknown as typeof fetch
+
+    renderHost([rootPlugin(), GatePlugin()], fetchImpl, "/overview")
+
+    expect(await screen.findByText("gate body")).toBeTruthy()
+    expect(screen.queryByText(/Could not reach the dashboard server/)).toBeNull()
+  })
+
+  it("shows the signed-in user in the sidebar footer", async () => {
+    renderHost(
+      [rootPlugin()],
+      principalFetch(200, {
+        authenticated: true,
+        subject: "u1",
+        displayName: "Ada Lovelace",
+        email: "ada@example.com",
+      }),
+      "/overview",
+    )
+
+    expect(await screen.findByText("Ada Lovelace")).toBeTruthy()
+    expect(screen.getByText("ada@example.com")).toBeTruthy()
+    expect(screen.queryByText("user@example.com")).toBeNull()
+  })
+
+  it("re-fetches capabilities when the session resolves again", async () => {
+    let principalCalls = 0
+    let capabilityCalls = 0
+    const fetchImpl = vi.fn(async (input: RequestInfo | URL) => {
+      const url = String(input)
+      if (url.endsWith("/principal")) {
+        principalCalls += 1
+        return {
+          ok: true,
+          status: 200,
+          json: async () => ({ authenticated: true, subject: "u1", email: "a@b.c" }),
+        } as Response
+      }
+      if (url.endsWith("/capabilities")) {
+        capabilityCalls += 1
+        return jsonOk({
+          shellEnvelopes: ["v1"],
+          contributors: [{ name: "core-contract", envelopes: ["v1"], configured: true }],
+        })
+      }
+      throw new Error(`unexpected request to ${url}`)
+    }) as unknown as typeof fetch
+
+    renderHost([rootPlugin()], fetchImpl, "/overview")
+    await screen.findByText("root overview body")
+
+    // One of each on the first pass. A freshly signed-in user may be shown
+    // contributors that were hidden while anonymous, so capabilities has to
+    // key on the session epoch and not on [contractBase, doFetch] alone.
+    expect(principalCalls).toBe(1)
+    expect(capabilityCalls).toBe(1)
   })
 })

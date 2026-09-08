@@ -1,6 +1,6 @@
 import type { ReactNode } from "react"
 import { BrowserRouter } from "react-router"
-import { ForgeDashboardProvider } from "@forge-go/dashboard-runtime"
+import { ForgeDashboardProvider, SessionProvider } from "@forge-go/dashboard-runtime"
 import type { DashboardConfigInput } from "@forge-go/dashboard-runtime"
 import type { ForgePlugin } from "@forge-go/dashboard-plugin"
 import { TooltipProvider } from "@forge-go/dashboard-kit/components/tooltip"
@@ -34,7 +34,9 @@ export function ForgeDashboard({
     <ForgeDashboardProvider config={config}>
       <TooltipProvider>
         <BrowserRouter basename={basename}>
-          <PluginHost plugins={plugins} fetchImpl={fetchImpl} />
+          <SessionProvider fetchImpl={fetchImpl}>
+            <PluginHost plugins={plugins} fetchImpl={fetchImpl} />
+          </SessionProvider>
         </BrowserRouter>
       </TooltipProvider>
     </ForgeDashboardProvider>

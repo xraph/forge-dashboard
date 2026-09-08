@@ -58,6 +58,15 @@ function stubFetch(): typeof fetch {
         headers: { "Content-Type": "application/json" },
       })
     }
+    // ForgeDashboard now wraps PluginHost in a SessionProvider, which fetches
+    // this before capabilities does. This test is about routing under a
+    // basename, not auth, so it runs as a signed-in user.
+    if (url.endsWith("/principal")) {
+      return new Response(
+        JSON.stringify({ authenticated: true, subject: "usr_test", email: "test@example.com" }),
+        { status: 200, headers: { "Content-Type": "application/json" } },
+      )
+    }
     throw new Error(`unexpected request to ${url}`)
   }) as unknown as typeof fetch
 }

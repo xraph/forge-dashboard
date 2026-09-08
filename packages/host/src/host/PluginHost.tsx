@@ -3,8 +3,10 @@ import type { ReactNode } from "react"
 import type * as React from "react"
 import { Link, Navigate, Route, Routes, useLocation, useNavigate } from "react-router"
 import {
+  FallbackAuthGate,
   PluginErrorBoundary,
   useDashboardConfig,
+  useSession,
 } from "@forge-go/dashboard-runtime"
 import {
   createScopedClient,
@@ -17,6 +19,7 @@ import {
   PluginProvider,
   queryStore,
   resolveActiveScope,
+  resolveAuthProvider,
   resolvePluginState,
   SetupPanel,
 } from "@forge-go/dashboard-plugin"
@@ -117,6 +120,8 @@ function navNodes(plugin: ForgePlugin): NavNode[] {
 
 export function PluginHost({ plugins, fetchImpl }: PluginHostProps) {
   const { contractBase } = useDashboardConfig()
+  const { loginPath } = useDashboardConfig()
+  const session = useSession()
   const { pathname, search } = useLocation()
   const navigate = useNavigate()
   const [state, setState] = useState<CapabilitiesState>({ status: "loading" })
@@ -130,6 +135,14 @@ export function PluginHost({ plugins, fetchImpl }: PluginHostProps) {
   )
 
   useEffect(() => {
+    // Nothing has told us yet whether this visitor is even allowed to see
+    // capabilities. Waiting for the session's first resolution keeps a
+    // signed-out visitor's mount from firing a capabilities request nobody
+    // will use, and keeps the epoch dependency below from doubling every
+    // resolution into two fetches: one at mount with epoch still 0, one
+    // again the instant the session's own first fetch lands.
+    if (session.state.status === "unknown") return
+
     let cancelled = false
 
     void (async () => {
@@ -162,7 +175,7 @@ export function PluginHost({ plugins, fetchImpl }: PluginHostProps) {
     return () => {
       cancelled = true
     }
-  }, [contractBase, doFetch])
+  }, [contractBase, doFetch, session.epoch, session.state.status])
 
   // One client per plugin, each permanently bound to that plugin's own
   // extension. Built here rather than inside the render of each route so a
@@ -191,11 +204,11 @@ export function PluginHost({ plugins, fetchImpl }: PluginHostProps) {
           if (info.meta.invalidates?.length) {
             queryStore.invalidate(info.extension, info.meta.invalidates)
           }
-        })
+        }, session.refresh)
       )
     }
     return byExtension
-  }, [plugins, contractBase, doFetch])
+  }, [plugins, contractBase, doFetch, session.refresh])
 
   // Every state renders the sidebar, so scopes are built before the early
   // returns. Before capabilities land there are none, and the switcher shows
@@ -317,8 +330,91 @@ export function PluginHost({ plugins, fetchImpl }: PluginHostProps) {
     currentPath: pathname,
     search,
     renderLink: (_node: NavNode, href: string) => <Link to={href} />,
-    user: { name: "Dashboard user", email: "user@example.com" },
+    user:
+      session.state.status === "signedIn"
+        ? {
+            name: session.state.principal.displayName ?? session.state.principal.subject ?? "Signed in",
+            email: session.state.principal.email ?? "",
+          }
+        : { name: "Dashboard user", email: "" },
   } satisfies React.ComponentProps<typeof AppSidebar>
+
+  // The gate goes here, before anything builds a route table or a sidebar.
+  // Rendering it as a route would leave the shell mounted underneath it,
+  // naming every scope the visitor is not allowed to see.
+  if (session.state.status === "signedOut" || session.state.status === "denied") {
+    const provider = resolveAuthProvider(plugins)
+    const Gate = provider?.auth?.gate ?? FallbackAuthGate
+    const gateLoginPath =
+      session.state.status === "signedOut" ? session.state.loginPath : loginPath
+    const requiredRoles =
+      session.state.status === "denied" ? session.state.requiredRoles : undefined
+
+    return (
+      // A gate is third-party code like any other plugin component, and a
+      // throw here would blank the only screen with a way in. The fallback
+      // gate is the one thing that cannot be taken down by a plugin.
+      <PluginErrorBoundary
+        key={provider?.extension ?? "fallback-gate"}
+        plugin={provider?.extension ?? "auth"}
+        fallback={
+          <FallbackAuthGate
+            loginPath={gateLoginPath}
+            requiredRoles={requiredRoles}
+            onAuthenticated={session.refresh}
+          />
+        }
+      >
+        {/*
+          The gate needs its plugin's scoped client, and it cannot inherit one:
+          it renders outside the route table, and PluginProvider is normally
+          applied per route. Without this the authsome gate throws the moment
+          it calls useCommand("auth.login"), because usePlugin finds no
+          client. The fallback gate needs none, since it only ever links.
+        */}
+        {provider ? (
+          <PluginProvider client={clients.get(provider.extension)!}>
+            <Gate
+              loginPath={gateLoginPath}
+              requiredRoles={requiredRoles}
+              onAuthenticated={session.refresh}
+            />
+          </PluginProvider>
+        ) : (
+          <Gate
+            loginPath={gateLoginPath}
+            requiredRoles={requiredRoles}
+            onAuthenticated={session.refresh}
+          />
+        )}
+      </PluginErrorBoundary>
+    )
+  }
+
+  // Neutral chrome, not the shell. HostShell's AppSidebar always renders a
+  // sidebar-header div, gate or no gate, so putting the spinner inside
+  // HostShell here would put sidebar chrome on screen before the session
+  // says whether this visitor may see it at all.
+  if (session.state.status === "unknown") {
+    return (
+      <div className="flex min-h-svh items-center justify-center gap-2 text-sm text-muted-foreground">
+        <Spinner />
+        Resolving your session…
+      </div>
+    )
+  }
+
+  if (session.state.status === "unreachable") {
+    return (
+      <HostShell sidebar={sidebar} title={pageTitle}>
+        <Alert variant="destructive">
+          <TriangleAlertIcon />
+          <AlertTitle>Could not determine whether you are signed in</AlertTitle>
+          <AlertDescription>{session.state.message}</AlertDescription>
+        </Alert>
+      </HostShell>
+    )
+  }
 
   if (state.status === "loading") {
     return (
