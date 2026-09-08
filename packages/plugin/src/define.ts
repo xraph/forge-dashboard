@@ -108,5 +108,26 @@ export function definePlugin(input: PluginInput): ForgePlugin {
     validateNav(input.nav, input.extension, input.root ?? false)
   }
 
-  return { ...input, nav: input.nav ?? [] }
+  const seenDimensions = new Map<string, string>()
+  for (const dimension of input.context ?? []) {
+    if (!dimension.query || !dimension.switchCommand) {
+      throw new Error(
+        `definePlugin: context dimension "${dimension.id}" needs both a \`query\` to read it and a \`switchCommand\` to change it (plugin "${input.extension}")`,
+      )
+    }
+    if (typeof dimension.payload !== "function") {
+      throw new Error(
+        `definePlugin: context dimension "${dimension.id}" needs a \`payload\` building the switch command's input, because intents do not agree on a field name (apps.switch takes appId, environments.switch takes envId) (plugin "${input.extension}")`,
+      )
+    }
+    const claimed = seenDimensions.get(dimension.id)
+    if (claimed !== undefined) {
+      throw new Error(
+        `definePlugin: context dimensions "${claimed}" and "${dimension.label}" both use the id "${dimension.id}" (plugin "${input.extension}")`,
+      )
+    }
+    seenDimensions.set(dimension.id, dimension.label)
+  }
+
+  return { ...input, nav: input.nav ?? [], context: input.context ?? [] }
 }

@@ -332,4 +332,67 @@ describe("definePlugin duplicate nav destinations", () => {
       }),
     ).not.toThrow()
   })
+
+  it("rejects a context dimension with no query to read it from", () => {
+    expect(() =>
+      definePlugin({
+        extension: "auth",
+        routes: [{ path: "/", element: () => null }],
+        context: [
+          {
+            id: "app",
+            label: "App",
+            query: "",
+            switchCommand: "apps.switch",
+            select: () => ({ options: [] }),
+            payload: (appId) => ({ appId }),
+          },
+        ],
+      }),
+    ).toThrow(/query/)
+  })
+
+  it("rejects two context dimensions sharing an id", () => {
+    const dimension = {
+      id: "app",
+      label: "App",
+      query: "apps.context",
+      switchCommand: "apps.switch",
+      select: () => ({ options: [] }),
+      payload: (appId: string) => ({ appId }),
+    }
+    expect(() =>
+      definePlugin({
+        extension: "auth",
+        routes: [{ path: "/", element: () => null }],
+        context: [dimension, { ...dimension, label: "Environment" }],
+      }),
+    ).toThrow(/both use the id/)
+  })
+
+  it("rejects a context dimension with no payload builder", () => {
+    expect(() =>
+      definePlugin({
+        extension: "auth",
+        routes: [{ path: "/", element: () => null }],
+        context: [
+          {
+            id: "app",
+            label: "App",
+            query: "apps.context",
+            switchCommand: "apps.switch",
+            select: () => ({ options: [] }),
+          },
+        ] as never,
+      }),
+    ).toThrow(/payload/)
+  })
+
+  it("defaults context to an empty list, so most plugins render no switchers", () => {
+    const plugin = definePlugin({
+      extension: "streaming-contract",
+      routes: [{ path: "/", element: () => null }],
+    })
+    expect(plugin.context).toEqual([])
+  })
 })

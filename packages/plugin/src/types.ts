@@ -70,11 +70,52 @@ export interface ForgePlugin {
   routes: PluginRoute[]
   /** Rendered when the extension is present but reports Configured: false. */
   setup?: ComponentType<{ message?: string }>
+  /** Scope-wide selectors rendered in the sidebar. Most plugins declare none. */
+  context: ContextDimension[]
 }
 
 /** What an author passes to definePlugin. nav is optional; the rest mirrors ForgePlugin. */
-export interface PluginInput extends Omit<ForgePlugin, "nav"> {
+export interface PluginInput extends Omit<ForgePlugin, "nav" | "context"> {
   nav?: PluginNavItem[]
+  context?: ContextDimension[]
+}
+
+export interface ContextOption {
+  id: string
+  label: string
+}
+
+/**
+ * One dimension the whole scope is read through: an app, an environment, a
+ * tenant.
+ *
+ * The host renders a switcher per dimension and knows nothing about what any
+ * of them mean. Authsome scopes every handler to an app resolved from a
+ * cookie, so switching is a command plus a full cache drop, and no query in
+ * any plugin ever carries an app id.
+ *
+ * `query` and `switchCommand` are intents on the declaring plugin's own
+ * extension. `select` pulls the current value and the choices out of whatever
+ * that query returns, which is what lets two dimensions share one query: both
+ * of authsome's read `apps.context`, and the store collapses that to a single
+ * request.
+ */
+export interface ContextDimension {
+  id: string
+  label: string
+  query: string
+  switchCommand: string
+  select: (data: unknown) => { current?: ContextOption; options: ContextOption[] }
+  /**
+   * Builds the switch command's payload from the chosen option's id.
+   *
+   * Not a fixed `{ id }`, because the contract does not use one:
+   * `apps.switch` takes `{appId}` and `environments.switch` takes `{envId}`.
+   * A hardcoded field name would send something the server ignores, and the
+   * switch would appear to work while changing nothing. Keeping the shape
+   * here is also what lets the host stay ignorant of what a dimension means.
+   */
+  payload: (optionId: string) => Record<string, unknown>
 }
 
 /** The six places a sub-plugin can push UI into a host plugin's pages. */

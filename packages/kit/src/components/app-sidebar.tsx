@@ -38,8 +38,8 @@ export interface AppSidebarProps
   renderLink: (node: NavNode, href: string) => ReactElement
   /**
    * Rendered under the switcher. Reserved for the per-scope context selectors
-   * (organisation, app, environment), which are a later wave. Nothing passes
-   * it today.
+   * (organisation, app, environment), which are a later wave. The host passes
+   * a plugin's context switchers here.
    */
   header?: ReactNode
   user: { name: string; email: string; avatar?: string }

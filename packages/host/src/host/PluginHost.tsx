@@ -43,6 +43,7 @@ import type {
   ScopedClient,
 } from "@forge-go/dashboard-plugin"
 import { AppSidebar } from "@forge-go/dashboard-kit/components/app-sidebar"
+import { ContextSwitchers } from "./ContextSwitchers"
 import type {
   NavGroup,
   NavNode,
@@ -162,8 +163,8 @@ const UNGROUPED = Symbol("ungrouped")
  * an admin reading "Identity, Security, Auth" should not get "Auth,
  * Compliance, Configuration".
  *
- * `contributed` marks a group holding at least one sub-plugin item, which is
- * a field kit's NavGroup already carries.
+ * `contributed` marks a group holding at least one sub-plugin item, a field
+ * kit's NavGroup already carries.
  */
 export function navGroups(
   plugin: ForgePlugin,
@@ -596,6 +597,12 @@ export function PluginHost({
     currentPath: pathname,
     search,
     renderLink: (_node: NavNode, href: string) => <Link to={href} />,
+    header:
+      panelSource && panelSource.state.kind === "ready" ? (
+        <PluginProvider client={clients.get(panelSource.plugin.extension)!}>
+          <ContextSwitchers dimensions={panelSource.plugin.context} />
+        </PluginProvider>
+      ) : undefined,
     user:
       session.state.status === "signedIn"
         ? {
