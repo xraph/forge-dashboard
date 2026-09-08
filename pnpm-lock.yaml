@@ -175,6 +175,51 @@ importers:
 
   packages/fixture-server: {}
 
+  packages/host:
+    devDependencies:
+      '@forge-go/dashboard-kit':
+        specifier: workspace:*
+        version: link:../kit
+      '@forge-go/dashboard-plugin':
+        specifier: workspace:*
+        version: link:../plugin
+      '@forge-go/dashboard-runtime':
+        specifier: workspace:*
+        version: link:../runtime
+      '@testing-library/react':
+        specifier: ^16.3.2
+        version: 16.3.3(@testing-library/dom@10.4.1)(@types/react-dom@19.2.7(@types/react@19.2.18))(@types/react@19.2.18)(react-dom@19.2.8(react@19.2.8))(react@19.2.8)
+      '@types/react':
+        specifier: ^19
+        version: 19.2.18
+      '@types/react-dom':
+        specifier: ^19
+        version: 19.2.7(@types/react@19.2.18)
+      '@vitejs/plugin-react':
+        specifier: ^6
+        version: 6.1.1(vite@8.2.2(@types/node@24.13.3)(esbuild@0.28.2)(jiti@2.7.0))
+      jsdom:
+        specifier: ^25.0.1
+        version: 25.0.1
+      lucide-react:
+        specifier: ^1.40.0
+        version: 1.40.0(react@19.2.8)
+      react:
+        specifier: ^19.2.6
+        version: 19.2.8
+      react-dom:
+        specifier: ^19.2.6
+        version: 19.2.8(react@19.2.8)
+      react-router:
+        specifier: ^8.3.1
+        version: 8.3.1(react-dom@19.2.8(react@19.2.8))(react@19.2.8)
+      typescript:
+        specifier: ~6
+        version: 6.0.3
+      vitest:
+        specifier: ^5.0.0
+        version: 5.0.0(@types/node@24.13.3)(jsdom@25.0.1)(vite@8.2.2(@types/node@24.13.3)(esbuild@0.28.2)(jiti@2.7.0))
+
   packages/kit:
     dependencies:
       '@base-ui/react':
