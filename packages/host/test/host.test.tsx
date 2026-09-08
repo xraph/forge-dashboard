@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from "vitest"
 import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react"
 import { MemoryRouter, useParams } from "react-router"
 import { ForgeDashboardProvider, SessionProvider, useSession } from "@forge-go/dashboard-runtime"
-import { definePlugin, useQuery, usePluginClient } from "@forge-go/dashboard-plugin"
+import { definePlugin, queryStore, useQuery, usePluginClient } from "@forge-go/dashboard-plugin"
 import type {
   Capabilities,
   ContributorCapability,
@@ -1635,5 +1635,176 @@ describe("PluginHost auth gate", () => {
 
     await waitFor(() => expect(sent).toContain("auth.logout"))
     await waitFor(() => expect(principalCalls).toBeGreaterThan(before))
+  })
+
+  // The cross-account disclosure this fix closes. queryStore's cache key
+  // carries no identity component (extension, intent and params only), and
+  // an entry younger than its server-supplied staleTime is served without a
+  // round trip. Nothing used to clear that cache when the signed-in identity
+  // changed, so a query cached while alice was signed in would still answer
+  // for bob if he signed in within the stale window -- the gate's in-page
+  // sign-out is what made that reachable in one page load.
+  //
+  // The fetch stub tracks "whoever /principal last said we are" and echoes
+  // that subject back from the contract endpoint, exactly as a real backend
+  // would: the query response reflects the caller's own session, not
+  // anything the client sent. A cache bug is invisible if the stub answers
+  // every identity the same way, so this is the one thing the stub must get
+  // right.
+  it("refetches a query rather than serving the previous identity's cache, once the signed-in subject changes", async () => {
+    // queryStore is module scope (deliberately: see its own doc comment), so
+    // a previous test's entry under the same key would otherwise answer this
+    // test's first read for free and make queryCalls lie.
+    queryStore.clear()
+    let principalCalls = 0
+    let queryCalls = 0
+    let currentSubject = "alice"
+    const fetchImpl = vi.fn(async (input: RequestInfo | URL) => {
+      const url = String(input)
+      if (url.endsWith("/principal")) {
+        principalCalls += 1
+        currentSubject = principalCalls === 1 ? "alice" : "bob"
+        return jsonOk({
+          authenticated: true,
+          subject: currentSubject,
+          email: `${currentSubject}@example.com`,
+        })
+      }
+      if (url.endsWith("/capabilities")) {
+        return jsonOk({
+          shellEnvelopes: ["v1"],
+          contributors: [{ name: "secret-ext", envelopes: ["v1"], configured: true }],
+        })
+      }
+      // The contract endpoint. A 60s stale time is long enough that nothing
+      // in this test's own runtime could make the cache expire on its own --
+      // the only thing that can make a second read go to the wire is the
+      // identity change itself.
+      queryCalls += 1
+      return jsonOk({
+        ok: true,
+        data: { seen: currentSubject },
+        meta: { cacheControl: { staleTime: "60s" } },
+      })
+    }) as unknown as typeof fetch
+
+    function RefreshProbe() {
+      const session = useSession()
+      return (
+        <button type="button" onClick={() => session.refresh()}>
+          refresh session
+        </button>
+      )
+    }
+
+    function EpochProbe() {
+      const session = useSession()
+      return <p>epoch {session.epoch}</p>
+    }
+
+    render(
+      <MemoryRouter initialEntries={["/@secret-ext"]}>
+        <ForgeDashboardProvider config={config}>
+          <SessionProvider fetchImpl={fetchImpl}>
+            <RefreshProbe />
+            <EpochProbe />
+            <PluginHost
+              plugins={[queryingPlugin("secret-ext", "/", "Secret")]}
+              fetchImpl={fetchImpl}
+            />
+          </SessionProvider>
+        </ForgeDashboardProvider>
+      </MemoryRouter>,
+    )
+
+    await screen.findByText("Secret says alice")
+    expect(queryCalls).toBe(1)
+
+    // What a sign-out through the footer followed by somebody else signing
+    // in looks like from here: the same session re-reading /principal and
+    // getting back a different subject.
+    fireEvent.click(screen.getByRole("button", { name: "refresh session" }))
+    await screen.findByText("epoch 2")
+
+    // This is the disclosure itself. Unpatched, the entry cached for alice
+    // is still within its 60s stale time, so it answers for bob too: the
+    // page keeps reading "Secret says alice" and queryCalls never moves off
+    // 1.
+    await screen.findByText("Secret says bob")
+    expect(queryCalls).toBe(2)
+    expect(screen.queryByText("Secret says alice")).toBeNull()
+  })
+
+  // The other half of the same fix: a session re-resolving to the *same*
+  // subject (a rejected request re-reading /principal, session.refresh()
+  // firing after an ordinary event) must not pay for a refetch that gains
+  // nothing. This is what stops the subject comparison above from being
+  // "simplified" into clearing on every resolution -- that would defeat the
+  // cache for every reader, all the time, for a disclosure that only exists
+  // across an actual identity change.
+  it("does not clear the query cache when the same signed-in subject resolves again", async () => {
+    queryStore.clear()
+    let principalCalls = 0
+    let queryCalls = 0
+    const fetchImpl = vi.fn(async (input: RequestInfo | URL) => {
+      const url = String(input)
+      if (url.endsWith("/principal")) {
+        principalCalls += 1
+        return jsonOk({ authenticated: true, subject: "alice", email: "alice@example.com" })
+      }
+      if (url.endsWith("/capabilities")) {
+        return jsonOk({
+          shellEnvelopes: ["v1"],
+          contributors: [{ name: "secret-ext", envelopes: ["v1"], configured: true }],
+        })
+      }
+      queryCalls += 1
+      return jsonOk({
+        ok: true,
+        data: { seen: "alice" },
+        meta: { cacheControl: { staleTime: "60s" } },
+      })
+    }) as unknown as typeof fetch
+
+    function RefreshProbe() {
+      const session = useSession()
+      return (
+        <button type="button" onClick={() => session.refresh()}>
+          refresh session
+        </button>
+      )
+    }
+
+    function EpochProbe() {
+      const session = useSession()
+      return <p>epoch {session.epoch}</p>
+    }
+
+    render(
+      <MemoryRouter initialEntries={["/@secret-ext"]}>
+        <ForgeDashboardProvider config={config}>
+          <SessionProvider fetchImpl={fetchImpl}>
+            <RefreshProbe />
+            <EpochProbe />
+            <PluginHost
+              plugins={[queryingPlugin("secret-ext", "/", "Secret")]}
+              fetchImpl={fetchImpl}
+            />
+          </SessionProvider>
+        </ForgeDashboardProvider>
+      </MemoryRouter>,
+    )
+
+    await screen.findByText("Secret says alice")
+    expect(queryCalls).toBe(1)
+
+    fireEvent.click(screen.getByRole("button", { name: "refresh session" }))
+    await screen.findByText("epoch 2")
+    expect(principalCalls).toBe(2)
+
+    // Same subject both times. The cache must still be answering from the
+    // first read, not a second one the identity change did not earn.
+    expect(queryCalls).toBe(1)
+    expect(screen.getByText("Secret says alice")).toBeTruthy()
   })
 })

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react"
+import { useEffect, useMemo, useRef, useState } from "react"
 import type { ReactNode } from "react"
 import type * as React from "react"
 import { Link, Navigate, Route, Routes, useLocation, useNavigate } from "react-router"
@@ -194,6 +194,36 @@ export function PluginHost({ plugins, fetchImpl }: PluginHostProps) {
       cancelled = true
     }
   }, [contractBase, doFetch, session.epoch, session.resolved, session.state.status])
+
+  // Drops the query cache when the signed-in identity changes.
+  //
+  // queryStore's cache key (extension, intent, params) carries no identity
+  // component, and an entry younger than its server-supplied staleTime is
+  // served without a round trip. Nothing else in this file, or in the
+  // store, ever separates one visitor's cached rows from another's. Without
+  // this, an admin who opens Users and then signs out through the footer
+  // would hand the next person to sign in, within the stale window, their
+  // cached rows: the key still matches, and the entry is still fresh.
+  //
+  // Gated on the *subject*, not on every session resolution. session.refresh
+  // fires on ordinary events too -- a rejected request re-reading /principal,
+  // a login that resolves back to the same person -- and clearing on all of
+  // those would defeat the cache for no reason. Only a change in who is
+  // signed in earns a clear.
+  const identitySubject =
+    session.state.status === "signedIn" ? session.state.principal.subject : undefined
+  const lastIdentityRef = useRef<{ subject: string | undefined } | null>(null)
+
+  useEffect(() => {
+    if (!session.resolved) return
+    // The first resolution sets the baseline rather than clearing: there is
+    // no previous identity yet for this one to differ from, so nothing in
+    // the store could have been cached for somebody else.
+    if (lastIdentityRef.current !== null && lastIdentityRef.current.subject !== identitySubject) {
+      queryStore.clear()
+    }
+    lastIdentityRef.current = { subject: identitySubject }
+  }, [identitySubject, session.resolved])
 
   // One client per plugin, each permanently bound to that plugin's own
   // extension. Built here rather than inside the render of each route so a
