@@ -163,3 +163,90 @@ describe("definePlugin", () => {
     expect(p.root).toBeUndefined()
   })
 })
+
+// Duplicates are rejected per sibling array, which is the scope React keys
+// against. Two entries in one list collide; a child repeating an ancestor's
+// `to`, or two children under different parents, never share a key scope.
+describe("definePlugin duplicate nav destinations", () => {
+  it("refuses two top-level nav items sharing a `to`", () => {
+    expect(() =>
+      definePlugin({
+        extension: "streaming-contract",
+        nav: [
+          { label: "Rooms", to: "/rooms" },
+          { label: "Live rooms", to: "/rooms" },
+        ],
+        routes: [],
+      }),
+    ).toThrow(/\/rooms/)
+  })
+
+  it("refuses two children of one parent sharing a `to`", () => {
+    expect(() =>
+      definePlugin({
+        extension: "streaming-contract",
+        nav: [
+          {
+            label: "Archive",
+            to: "/archive",
+            children: [
+              { label: "Recent", to: "/archive/all" },
+              { label: "Everything", to: "/archive/all" },
+            ],
+          },
+        ],
+        routes: [],
+      }),
+    ).toThrow(/\/archive\/all/)
+  })
+
+  it("names the offending plugin in the error", () => {
+    expect(() =>
+      definePlugin({
+        extension: "streaming-contract",
+        nav: [
+          { label: "Rooms", to: "/rooms" },
+          { label: "Live rooms", to: "/rooms" },
+        ],
+        routes: [],
+      }),
+    ).toThrow(/streaming-contract/)
+  })
+
+  it("accepts a child repeating its own parent's `to`", () => {
+    expect(() =>
+      definePlugin({
+        extension: "streaming-contract",
+        nav: [
+          {
+            label: "Rooms",
+            to: "/rooms",
+            children: [{ label: "All rooms", to: "/rooms" }],
+          },
+        ],
+        routes: [],
+      }),
+    ).not.toThrow()
+  })
+
+  it("accepts the same `to` under two different parents", () => {
+    expect(() =>
+      definePlugin({
+        extension: "streaming-contract",
+        nav: [
+          {
+            label: "Rooms",
+            to: "/rooms",
+            children: [{ label: "Recent", to: "/recent" }],
+          },
+          {
+            label: "Archive",
+            to: "/archive",
+            children: [{ label: "Recent", to: "/recent" }],
+          },
+        ],
+        routes: [],
+      }),
+    ).not.toThrow()
+  })
+})

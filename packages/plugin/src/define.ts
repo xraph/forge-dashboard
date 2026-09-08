@@ -5,14 +5,31 @@ import type { ForgePlugin, PluginInput, PluginNavItem } from "./types"
  * is scope-relative. Recursive because a bad leading slash three levels deep
  * is exactly as fatal as one at the top: `scopePath` concatenates blindly at
  * every depth.
+ *
+ * The same walk rejects two entries in one sibling list pointing at the same
+ * `to`. `labels` is rebuilt per call, so the check is scoped to one list
+ * rather than the whole tree, which matches what the sidebar keys against: a
+ * child repeating its parent's `to`, or two children under different parents,
+ * are never rendered as siblings and stay legal.
  */
 function validateNav(items: PluginNavItem[], extension: string): void {
+  const labels = new Map<string, string>()
+
   for (const item of items) {
     if (!item.to.startsWith("/")) {
       throw new Error(
         `definePlugin: nav item "to" value "${item.to}" must start with "/" (plugin "${extension}")`,
       )
     }
+
+    const claimed = labels.get(item.to)
+    if (claimed !== undefined) {
+      throw new Error(
+        `definePlugin: nav items "${claimed}" and "${item.label}" both point at "${item.to}", so the sidebar cannot tell them apart. Give one of them a different "to" (plugin "${extension}")`,
+      )
+    }
+    labels.set(item.to, item.label)
+
     if (item.children) {
       validateNav(item.children, extension)
     }
