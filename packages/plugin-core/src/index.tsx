@@ -1,4 +1,5 @@
 import { definePlugin, useQuery } from "@forge-go/dashboard-plugin"
+import { GaugeIcon, LayoutGridIcon } from "@forge-go/dashboard-kit/icons"
 import {
   Card,
   CardContent,
@@ -108,7 +109,8 @@ export const corePlugin = definePlugin({
   extension: "core-contract",
   root: true,
   label: "System",
-  nav: [{ label: "Overview", to: "/overview" }],
+  icon: <GaugeIcon />,
+  nav: [{ label: "Overview", to: "/overview", icon: <LayoutGridIcon /> }],
   routes: [{ path: "/overview", element: OverviewPage }],
 })
 

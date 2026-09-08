@@ -40,6 +40,32 @@ export interface ScopeSwitcherProps {
   fallbackLabel?: string
 }
 
+/**
+ * The accent tile a scope's icon sits in.
+ *
+ * Renders nothing at all without an icon, rather than an empty square: a
+ * filled tile with no glyph in it reads as a broken image, while a scope with
+ * no icon should just look like a scope with no icon.
+ */
+function ScopeGlyph({
+  icon,
+  className,
+}: {
+  icon?: ReactNode
+  className?: string
+}) {
+  if (!icon) return null
+  return (
+    <span
+      data-slot="scope-glyph"
+      aria-hidden="true"
+      className={`grid size-6 shrink-0 place-items-center rounded-md [&>svg]:size-3.5 ${className ?? "bg-primary text-primary-foreground"}`}
+    >
+      {icon}
+    </span>
+  )
+}
+
 export function ScopeSwitcher({
   scopes,
   activeId,
@@ -63,7 +89,7 @@ export function ScopeSwitcher({
               <SidebarMenuButton size="lg" disabled={scopes.length === 0} />
             }
           >
-            {active?.icon}
+            <ScopeGlyph icon={active?.icon} />
             <div className="grid flex-1 text-left leading-tight">
               <span className="truncate font-semibold">
                 {active?.label ?? fallbackLabel}
@@ -96,7 +122,14 @@ export function ScopeSwitcher({
                   data-active={isActive || undefined}
                   aria-current={isActive ? "true" : undefined}
                 >
-                  {scope.icon}
+                  <ScopeGlyph
+                    icon={scope.icon}
+                    className={
+                      isActive
+                        ? "bg-primary text-primary-foreground"
+                        : "bg-sidebar-accent text-muted-foreground border"
+                    }
+                  />
                   <div className="grid flex-1 leading-tight">
                     <span className="truncate">{scope.label}</span>
                     <span className="truncate text-xs text-muted-foreground">

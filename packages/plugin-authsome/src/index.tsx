@@ -1,4 +1,10 @@
 import { definePlugin } from "@forge-go/dashboard-plugin"
+import {
+  ClockIcon,
+  DoorOpenIcon,
+  ShieldIcon,
+  UsersIcon,
+} from "@forge-go/dashboard-kit/icons"
 import { AuthLoginPage } from "./pages/login"
 import { AuthSessionsPage } from "./pages/sessions"
 import { AuthUsersPage } from "./pages/users"
@@ -56,10 +62,11 @@ export const authsomePlugin = definePlugin({
   extension: "auth",
   namespace: "auth",
   label: "Auth",
+  icon: <ShieldIcon />,
   nav: [
-    { label: "Sign in", to: "/login", priority: 10 },
-    { label: "Users", to: "/users", priority: 20 },
-    { label: "Sessions", to: "/sessions", priority: 30 },
+    { label: "Sign in", to: "/login", priority: 10, icon: <DoorOpenIcon /> },
+    { label: "Users", to: "/users", priority: 20, icon: <UsersIcon /> },
+    { label: "Sessions", to: "/sessions", priority: 30, icon: <ClockIcon /> },
   ],
   routes: [
     { path: "/login", element: AuthLoginPage },

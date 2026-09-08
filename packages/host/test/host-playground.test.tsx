@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest"
-import { render, screen, waitFor } from "@testing-library/react"
+import { render, screen, waitFor, within } from "@testing-library/react"
 import { MemoryRouter } from "react-router"
 import { ForgeDashboardProvider } from "@forge-go/dashboard-runtime"
 import { definePlugin, useQuery } from "@forge-go/dashboard-plugin"
@@ -499,7 +499,7 @@ describe("root plugin", () => {
     expect(await screen.findByText("root page")).toBeTruthy()
   })
 
-  it("keeps the root plugin's nav visible while inside a scope", async () => {
+  it("does not leak the root plugin's nav into the body inside a scope", async () => {
     const fetchImpl = capabilitiesFetch([
       { name: "core-contract", envelopes: ["v1"], configured: true },
       { name: "streaming-contract", envelopes: ["v1"], configured: true },
@@ -530,7 +530,14 @@ describe("root plugin", () => {
     )
 
     expect(await screen.findByText("rooms page")).toBeTruthy()
-    expect(screen.getByRole("link", { name: "Overview" })).toBeTruthy()
+
+    // Scoped to the body: "Overview" is in the document as the header's back
+    // row, so an unscoped query passes whichever nav the body renders.
+    const body = document.querySelector(
+      '[data-slot="sidebar-content"]',
+    ) as HTMLElement
+    expect(within(body).getByRole("link", { name: "Rooms" })).toBeTruthy()
+    expect(within(body).queryByRole("link", { name: "Overview" })).toBeNull()
   })
 })
 

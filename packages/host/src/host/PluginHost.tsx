@@ -32,6 +32,13 @@ import {
   SidebarInset,
   SidebarProvider,
 } from "@forge-go/dashboard-kit/components/sidebar"
+import {
+  Alert,
+  AlertDescription,
+  AlertTitle,
+} from "@forge-go/dashboard-kit/components/alert"
+import { Spinner } from "@forge-go/dashboard-kit/components/spinner"
+import { TriangleAlertIcon } from "@forge-go/dashboard-kit/icons"
 
 /**
  * The chrome every host state renders inside: sidebar, header, and the content
@@ -212,31 +219,50 @@ export function PluginHost({ plugins, fetchImpl }: PluginHostProps) {
     badge: scope.state.kind === "ready" ? undefined : scope.state.kind,
   }))
 
-  // The root plugin's nav, pinned above the switcher and visible in every
-  // scope -- it is not part of the switcher's rotation, so it does not wait
-  // on activeScope at all.
-  const pinned: NavGroup[] =
-    root && root.state.kind === "ready" ? [{ items: navNodes(root.plugin) }] : []
+  // The way out of the active scope: the root plugin's own home.
+  //
+  // Offered only from inside a scope. At the root this row would point at the
+  // page you are already on, and the root plugin's nav is reachable in the
+  // body there anyway. Taking navNodes()[0] rather than plugin.nav[0] is
+  // deliberate and matches `home` and `selectScope`: the sidebar sorts by
+  // priority, so a root plugin whose nav is not already in priority order
+  // must still send you to the item the sidebar shows first. A ready root
+  // with no nav at all yields undefined here, so there is no row pointing
+  // nowhere.
+  const back: NavNode | undefined =
+    activeScope && root && root.state.kind === "ready"
+      ? navNodes(root.plugin)[0]
+      : undefined
 
-  // Only the active scope's nav is shown here. priority orders a plugin's
-  // items among its own and nothing more. No group label here: the switcher
-  // above already names the active scope both by its label and its
-  // "@namespace" caption, and repeating either one as a section heading only
-  // duplicates text a screen reader (and a test) would otherwise find once.
+  // The body shows the nav of wherever you are, which is the same question
+  // `panelSource` asks and therefore the same answer: the active scope, or
+  // the root when no scope is active.
+  //
+  // The root's nav used to be pinned into the header in every scope, which
+  // left the body empty on the root's own pages and put a second nav above
+  // the switcher everywhere else. One nav, in the body, belonging to the
+  // place you are.
+  //
+  // No group label: the switcher above already names the active scope by
+  // label and by "@namespace", so a section heading repeating either is text
+  // a screen reader (and a test) would find twice. That changes the day
+  // sub-plugin groups arrive and there is more than one group to tell apart.
+  const navOwner = activeScope ?? root
   const groups: NavGroup[] =
-    activeScope && activeScope.state.kind === "ready"
-      ? [{ items: navNodes(activeScope.plugin) }]
+    navOwner && navOwner.state.kind === "ready"
+      ? [{ items: navNodes(navOwner.plugin) }]
       : []
 
   // The header's title names the current page, not the product: the label of
   // whichever nav item's href matches the current pathname, checking children
-  // too since a deep link can land straight on one, and checking the pinned
-  // nav first since the root plugin's own pages have no active scope to fall
-  // back to. Falls back to the active scope's own label when the pathname
+  // too since a deep link can land straight on one. One nav to scan now: the
+  // root plugin's own pages put the root's nav in `groups`, so there is no
+  // separate pinned list to check first. Falls back to the owner's own label
+  // when the pathname
   // matches nothing in either (its own root, or a route the plugin never
   // listed).
   const pageTitle: string | undefined = (() => {
-    for (const group of [...pinned, ...groups]) {
+    for (const group of groups) {
       for (const item of group.items) {
         if (item.href === pathname) return item.label
         for (const child of item.children ?? []) {
@@ -262,7 +288,7 @@ export function PluginHost({ plugins, fetchImpl }: PluginHostProps) {
   }
 
   const sidebar = {
-    pinned,
+    back,
     scopes: scopeOptions,
     activeScopeId: activeScope?.id,
     onScopeSelect: selectScope,
@@ -276,9 +302,10 @@ export function PluginHost({ plugins, fetchImpl }: PluginHostProps) {
   if (state.status === "loading") {
     return (
       <HostShell sidebar={sidebar} title={pageTitle}>
-        <p role="status" className="text-sm text-muted-foreground">
+        <div className="flex items-center gap-2 text-sm text-muted-foreground">
+          <Spinner />
           Loading dashboard capabilities…
-        </p>
+        </div>
       </HostShell>
     )
   }
@@ -286,12 +313,11 @@ export function PluginHost({ plugins, fetchImpl }: PluginHostProps) {
   if (state.status === "error") {
     return (
       <HostShell sidebar={sidebar} title={pageTitle}>
-        <div
-          role="alert"
-          className="rounded-md border border-destructive/50 px-3 py-2 text-sm text-destructive"
-        >
-          Could not reach the dashboard server: {state.message}
-        </div>
+        <Alert variant="destructive">
+          <TriangleAlertIcon />
+          <AlertTitle>Could not reach the dashboard server</AlertTitle>
+          <AlertDescription>{state.message}</AlertDescription>
+        </Alert>
       </HostShell>
     )
   }

@@ -51,11 +51,38 @@ describe("AppSidebar", () => {
     expect(screen.queryByText("Data Library")).toBeNull()
   })
 
-  it("renders pinned nav above the switcher", () => {
-    renderSidebar({
-      pinned: [{ items: [{ label: "Overview", href: "/overview" }] }],
+  it("renders the back row above the switcher", () => {
+    const { container } = renderSidebar({
+      back: { label: "Overview", href: "/overview" },
     })
-    expect(screen.getByText("Overview")).toBeTruthy()
+    const header = container.querySelector('[data-slot="sidebar-header"]') as HTMLElement
+    const back = within(header).getByRole("link", { name: "Overview" })
+    const switcher = within(header).getByText("@auth")
+    // Ordering is the point of this component's header, not an incidental
+    // detail: the switcher is the sidebar's anchor and the way out of a scope
+    // sits above it. DOCUMENT_POSITION_FOLLOWING means switcher comes after
+    // back in document order.
+    expect(
+      back.compareDocumentPosition(switcher) & Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy()
+  })
+
+  it("renders no back row when there is nothing to go back to", () => {
+    renderSidebar()
+    expect(screen.queryByRole("link", { name: "Overview" })).toBeNull()
+  })
+
+  it("carries the search string forward on the back row", () => {
+    // Every other link the sidebar draws preserves the query string, because
+    // dropping it silently swaps the data under the person. The way out of a
+    // scope is not exempt.
+    renderSidebar({
+      back: { label: "Overview", href: "/overview" },
+      search: "?ctx.org=acme",
+    })
+    expect(
+      screen.getByRole("link", { name: "Overview" }).getAttribute("href"),
+    ).toBe("/overview?ctx.org=acme")
   })
 
   it("renders no switcher when there are no scopes", () => {

@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest"
-import { fireEvent, render, screen, waitFor } from "@testing-library/react"
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react"
 import { MemoryRouter, useParams } from "react-router"
 import { ForgeDashboardProvider } from "@forge-go/dashboard-runtime"
 import { definePlugin, useQuery } from "@forge-go/dashboard-plugin"
@@ -816,7 +816,7 @@ describe("root plugin", () => {
     expect(await screen.findByText("root page")).toBeTruthy()
   })
 
-  it("keeps the root plugin's nav visible while inside a scope", async () => {
+  it("does not leak the root plugin's nav into the body inside a scope", async () => {
     const fetchImpl = capabilitiesFetch([
       { name: "core-contract", envelopes: ["v1"], configured: true },
       { name: "streaming-contract", envelopes: ["v1"], configured: true },
@@ -847,7 +847,20 @@ describe("root plugin", () => {
     )
 
     expect(await screen.findByText("rooms page")).toBeTruthy()
-    expect(screen.getByRole("link", { name: "Overview" })).toBeTruthy()
+
+    // The body belongs to the scope you are in, and to nothing else. This
+    // fails if `navOwner` ever prefers the root, or if `groups` goes back to
+    // concatenating both navs: the root's "Overview" would show up in the
+    // body alongside "Rooms".
+    //
+    // Scoped to the body on purpose. "Overview" IS in the document here, as
+    // the header's back row, so an unscoped query passes no matter which nav
+    // the body renders and proves nothing.
+    const body = document.querySelector(
+      '[data-slot="sidebar-content"]',
+    ) as HTMLElement
+    expect(within(body).getByRole("link", { name: "Rooms" })).toBeTruthy()
+    expect(within(body).queryByRole("link", { name: "Overview" })).toBeNull()
   })
 })
 
@@ -1039,5 +1052,128 @@ describe('a root plugin whose home resolves to "/"', () => {
 
     expect(errorSpy).not.toHaveBeenCalled()
     errorSpy.mockRestore()
+  })
+})
+
+/**
+ * The root plugin and one namespaced scope, which is the shape every
+ * assertion about the back row needs: something to go back TO, and somewhere
+ * to be that is not it.
+ */
+function rootPlugin(overrides: Partial<PluginInput> = {}): ForgePlugin {
+  return definePlugin({
+    extension: "core-contract",
+    root: true,
+    label: "System",
+    nav: [{ label: "Overview", to: "/overview" }],
+    routes: [{ path: "/overview", element: () => <p>root overview body</p> }],
+    ...overrides,
+  })
+}
+
+function authScopePlugin(): ForgePlugin {
+  return definePlugin({
+    extension: "auth",
+    namespace: "auth",
+    label: "Auth",
+    nav: [{ label: "Users", to: "/users" }],
+    routes: [{ path: "/users", element: () => <p>auth users body</p> }],
+  })
+}
+
+function bothReady(): typeof fetch {
+  return capabilitiesFetch([
+    { name: "core-contract", envelopes: ["v1"], configured: true },
+    { name: "auth", envelopes: ["v1"], configured: true },
+  ])
+}
+
+const header = (c: HTMLElement) =>
+  c.querySelector('[data-slot="sidebar-header"]') as HTMLElement
+const content = (c: HTMLElement) =>
+  c.querySelector('[data-slot="sidebar-content"]') as HTMLElement
+
+describe("PluginHost back row", () => {
+  it("puts one back row, not a nav tree, in the header inside a scope", async () => {
+    const { container } = renderHost(
+      [rootPlugin(), authScopePlugin()],
+      bothReady(),
+      "/@auth/users",
+    )
+    await screen.findByText("auth users body")
+
+    const h = header(container)
+    expect(within(h).getByRole("link", { name: "Overview" })).toBeTruthy()
+    // The old pinned nav rendered the root plugin's whole NavTree up here,
+    // which emits a SidebarGroup. The way out of a scope is a single row.
+    expect(h.querySelector('[data-slot="sidebar-group"]')).toBeNull()
+  })
+
+  it("points the back row at the root plugin's first nav item", async () => {
+    const { container } = renderHost(
+      [rootPlugin(), authScopePlugin()],
+      bothReady(),
+      "/@auth/users",
+    )
+    await screen.findByText("auth users body")
+
+    expect(
+      within(header(container))
+        .getByRole("link", { name: "Overview" })
+        .getAttribute("href"),
+    ).toBe("/overview")
+  })
+
+  it("shows no back row at the root, and puts the root nav in the body", async () => {
+    const { container } = renderHost(
+      [rootPlugin(), authScopePlugin()],
+      bothReady(),
+      "/overview",
+    )
+    await screen.findByText("root overview body")
+
+    // Nothing to go back from: this IS where back would take you.
+    expect(
+      within(header(container)).queryByRole("link", { name: "Overview" }),
+    ).toBeNull()
+    // And the root's own nav is ordinary nav, so it belongs in the body. It
+    // used to live in the header and leave the body empty, which is backwards.
+    expect(
+      within(content(container)).getByRole("link", { name: "Overview" }),
+    ).toBeTruthy()
+  })
+
+  it("shows no back row inside a scope when no root plugin is mounted", async () => {
+    const { container } = renderHost([authScopePlugin()], bothReady(), "/@auth/users")
+    await screen.findByText("auth users body")
+
+    expect(within(header(container)).queryByRole("link")).toBeNull()
+  })
+})
+
+describe("PluginHost capability states", () => {
+  // Neither state had a test before this. Both are asserted through the
+  // kit's data-slot markers rather than their copy: the point is that these
+  // states are built from the component library like everything else, and a
+  // text assertion passes just as well for a hand-rolled div.
+  it("shows the kit's spinner while capabilities are in flight", () => {
+    const pending = vi.fn(() => new Promise<Response>(() => {})) as unknown as typeof fetch
+    const { container } = renderHost([rootPlugin()], pending, "/overview")
+
+    expect(container.querySelector('[data-slot="spinner"]')).toBeTruthy()
+  })
+
+  it("shows the kit's alert when the capabilities request fails", async () => {
+    const failing = vi.fn(async () => {
+      throw new Error("network is down")
+    }) as unknown as typeof fetch
+    const { container } = renderHost([rootPlugin()], failing, "/overview")
+
+    await waitFor(() =>
+      expect(container.querySelector('[data-slot="alert"]')).toBeTruthy(),
+    )
+    // The reason still has to reach the person; an alert with no cause in it
+    // is a worse version of the div it replaced.
+    expect(screen.getByText(/network is down/)).toBeTruthy()
   })
 })

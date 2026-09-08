@@ -1,4 +1,10 @@
 import { definePlugin } from "@forge-go/dashboard-plugin"
+import {
+  AudioWaveformIcon,
+  HouseIcon,
+  LayoutGridIcon,
+  LinkIcon,
+} from "@forge-go/dashboard-kit/icons"
 import { StreamingConnectionsPage } from "./pages/connections"
 import { StreamingOverviewPage } from "./pages/overview"
 import { StreamingRoomsPage } from "./pages/rooms"
@@ -34,10 +40,16 @@ export const streamingPlugin = definePlugin({
   extension: "streaming-contract",
   namespace: "streaming",
   label: "Streaming",
+  icon: <AudioWaveformIcon />,
   nav: [
-    { label: "Overview", to: "/", priority: 10 },
-    { label: "Rooms", to: "/rooms", priority: 20 },
-    { label: "Connections", to: "/connections", priority: 30 },
+    { label: "Overview", to: "/", priority: 10, icon: <LayoutGridIcon /> },
+    { label: "Rooms", to: "/rooms", priority: 20, icon: <HouseIcon /> },
+    {
+      label: "Connections",
+      to: "/connections",
+      priority: 30,
+      icon: <LinkIcon />,
+    },
   ],
   routes: [
     { path: "/", element: StreamingOverviewPage },

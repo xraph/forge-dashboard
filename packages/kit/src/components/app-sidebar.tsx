@@ -11,18 +11,24 @@ import {
   SidebarContent,
   SidebarFooter,
   SidebarHeader,
+  SidebarMenu,
+  SidebarMenuButton,
+  SidebarMenuItem,
 } from "@forge-go/dashboard-kit/components/sidebar"
+import { ChevronLeftIcon } from "lucide-react"
 
 export interface AppSidebarProps
   extends React.ComponentProps<typeof Sidebar> {
   /**
-   * Nav that stays visible in every scope, rendered above the switcher.
+   * The way out of the active scope, rendered above the switcher.
    *
-   * This is the root plugin's nav. It sits outside the scope system on
-   * purpose: the server's own pages are not one context among several, they
-   * are where you are when you are not inside an extension.
+   * Present only when there is somewhere to go back to, which means only
+   * inside a scope. The root plugin's own nav is not this: at the root it is
+   * the sidebar's ordinary nav, in `groups`, because that is where you are
+   * rather than one context among several. This is the single row that gets
+   * you there from inside an extension.
    */
-  pinned?: NavGroup[]
+  back?: NavNode
   scopes: ScopeOption[]
   activeScopeId?: string
   onScopeSelect: (id: string) => void
@@ -49,7 +55,7 @@ export interface AppSidebarProps
  * there was no way in here.
  */
 export function AppSidebar({
-  pinned,
+  back,
   scopes,
   activeScopeId,
   onScopeSelect,
@@ -64,13 +70,17 @@ export function AppSidebar({
   return (
     <Sidebar collapsible="offcanvas" {...props}>
       <SidebarHeader>
-        {pinned?.length ? (
-          <NavTree
-            groups={pinned}
-            currentPath={currentPath}
-            search={search}
-            renderLink={renderLink}
-          />
+        {back ? (
+          <SidebarMenu>
+            <SidebarMenuItem>
+              <SidebarMenuButton
+                render={renderLink(back, `${back.href}${search ?? ""}`)}
+              >
+                <ChevronLeftIcon aria-hidden="true" />
+                <span>{back.label}</span>
+              </SidebarMenuButton>
+            </SidebarMenuItem>
+          </SidebarMenu>
         ) : null}
         {scopes.length > 0 ? (
           <ScopeSwitcher
