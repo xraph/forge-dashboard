@@ -631,9 +631,14 @@ export function PluginHost({
     renderLink: (_node: NavNode, href: string) => <Link to={href} />,
     header:
       panelSource && panelSource.state.kind === "ready" ? (
-        <PluginProvider client={clients.get(panelSource.plugin.extension)!}>
-          <ContextSwitchers dimensions={panelSource.plugin.context} />
-        </PluginProvider>
+        <PluginErrorBoundary
+          key={panelSource.plugin.extension}
+          plugin={panelSource.plugin.extension}
+        >
+          <PluginProvider client={clients.get(panelSource.plugin.extension)!}>
+            <ContextSwitchers dimensions={panelSource.plugin.context} />
+          </PluginProvider>
+        </PluginErrorBoundary>
       ) : undefined,
     user:
       session.state.status === "signedIn"
@@ -832,6 +837,11 @@ export function PluginHost({
                   .map((entry) => ({
                     subPlugin: entry.subPlugin,
                     client: clients.get(entry.subPlugin.extension)!,
+                    // The HOST plugin's client -- the same one the route-level
+                    // HostAccessProvider below uses -- so a slot contribution
+                    // reads host intents through its own provider rather than
+                    // inheriting whichever route happens to be mounted above it.
+                    hostClient: clients.get(panelSource.plugin.extension)!,
                   }))
               : []
           }

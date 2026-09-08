@@ -33,6 +33,18 @@ describe("QueryStore", () => {
     )
   })
 
+  it("keys an undefined param the same as an absent one, and differently from null", () => {
+    // JSON.stringify drops an undefined value from the request body, so
+    // { a: undefined } and {} are the same request and must share a key.
+    // null survives onto the wire, so it is a different request.
+    expect(store.keyOf("auth", "users.list", { a: undefined })).toBe(
+      store.keyOf("auth", "users.list", {}),
+    )
+    expect(store.keyOf("auth", "users.list", { a: null })).not.toBe(
+      store.keyOf("auth", "users.list", {}),
+    )
+  })
+
   it("issues one request when two readers ask for the same key at once", async () => {
     const fetcher = vi.fn().mockResolvedValue({ users: [] })
     const key = store.keyOf("auth", "users.list")
@@ -198,9 +210,12 @@ describe("QueryStore", () => {
     store.read(key, fetcher, 0)
     store.subscribe(key, () => {})
 
-    // Invalidate while the first request is still in flight, then let the
-    // stale one settle LAST. Deleting the record would reset the generation
-    // counter and let this stale result win.
+    // Invalidate while the first request is still in flight. The key is
+    // watched, so invalidate re-issues in place rather than deleting the
+    // record, bumping the store-global generation counter without resetting
+    // it. Let the stale first request settle LAST: it must still lose,
+    // because the write handler compares its generation against the
+    // record's current one rather than checking whether a record exists.
     store.invalidate("auth", ["users.list"])
     fresh.resolve({ tag: "fresh" })
     await vi.waitFor(() => expect(store.snapshot(key).data).toEqual({ tag: "fresh" }))

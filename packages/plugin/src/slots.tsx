@@ -8,7 +8,15 @@ import type { ForgeSubPlugin, SlotContribution, SlotName } from "./types"
 /** One ready sub-plugin and the client bound to its own extension. */
 export interface ResolvedSubPlugin {
   subPlugin: ForgeSubPlugin
+  /** Bound to the sub-plugin's OWN extension. */
   client: ScopedClient
+  /**
+   * The HOST's client, for the intents this sub-plugin declared in
+   * `hostIntents`. Carried per entry so `PluginSlot` can give each
+   * contribution its own HostAccessProvider rather than letting one
+   * ambient provider leak a route's allowlist across every sibling.
+   */
+  hostClient: ScopedClient
 }
 
 const SubPluginContext = createContext<ResolvedSubPlugin[]>([])
@@ -84,6 +92,14 @@ export interface PluginSlotProps {
  * Each contribution also gets its own `PluginProvider`, carrying the client
  * bound to its own extension. That is what makes a widget on the auth
  * overview query `organization` rather than `auth`.
+ *
+ * And each contribution gets its own `HostAccessProvider`, scoped to that
+ * sub-plugin's own `hostIntents`. Without this, a contribution could only
+ * read host intents by inheriting whatever `HostAccessProvider` happened to
+ * be above it in the tree -- typically the one wrapping the ROUTE that
+ * rendered this slot, which belongs to a different sub-plugin entirely. A
+ * per-contribution provider means every entry is held to its own
+ * declaration, not to whichever route it happened to be mounted inside.
  */
 export function PluginSlot({ name, params }: PluginSlotProps) {
   const entries = useContext(SubPluginContext)
@@ -100,9 +116,17 @@ export function PluginSlot({ name, params }: PluginSlotProps) {
             key={`${entry.subPlugin.extension}:${contribution.id}`}
             plugin={entry.subPlugin.extension}
           >
-            <PluginProvider client={entry.client}>
-              <Contribution {...(params ?? {})} />
-            </PluginProvider>
+            <HostAccessProvider
+              value={{
+                client: entry.hostClient,
+                allowed: entry.subPlugin.hostIntents,
+                subExtension: entry.subPlugin.extension,
+              }}
+            >
+              <PluginProvider client={entry.client}>
+                <Contribution {...(params ?? {})} />
+              </PluginProvider>
+            </HostAccessProvider>
           </PluginErrorBoundary>
         )
       })}

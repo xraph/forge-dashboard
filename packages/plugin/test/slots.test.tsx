@@ -1,8 +1,14 @@
 import { describe, expect, it, vi } from "vitest"
-import { render, screen } from "@testing-library/react"
+import { render, screen, waitFor } from "@testing-library/react"
 import { defineSubPlugin } from "../src/subplugin"
-import { PluginSlot, SubPluginProvider, useSlotCount } from "../src/slots"
+import {
+  HostAccessProvider,
+  PluginSlot,
+  SubPluginProvider,
+  useSlotCount,
+} from "../src/slots"
 import { usePluginClient } from "../src/context"
+import { useHostQuery } from "../src/hooks"
 import type { ScopedClient } from "../src/client"
 
 function client(extension: string): ScopedClient {
@@ -17,7 +23,7 @@ function client(extension: string): ScopedClient {
 }
 
 function entry(sub: ReturnType<typeof defineSubPlugin>) {
-  return { subPlugin: sub, client: client(sub.extension) }
+  return { subPlugin: sub, client: client(sub.extension), hostClient: client(sub.host) }
 }
 
 const Widget = () => <p>org count</p>
@@ -125,6 +131,72 @@ describe("PluginSlot", () => {
     spy.mockRestore()
 
     expect(screen.getByText("still here")).toBeTruthy()
+  })
+
+  it("lets a contribution read a host intent it declared", async () => {
+    const hostQuery = vi.fn().mockResolvedValue({ fields: [] })
+    const Panel = () => {
+      const { data, loading } = useHostQuery<{ fields: unknown[] }>("settings.namespace")
+      if (loading) return <p>loading</p>
+      return <p>fields {data?.fields.length}</p>
+    }
+    const sub = defineSubPlugin({
+      extension: "mfa",
+      host: "auth",
+      hostIntents: ["settings.namespace"],
+      contributions: { "settings.tabs": [{ id: "mfa", render: Panel }] },
+    })
+
+    render(
+      <SubPluginProvider
+        entries={[
+          {
+            subPlugin: sub,
+            client: client("mfa"),
+            hostClient: { extension: "auth", query: hostQuery, command: vi.fn() },
+          },
+        ]}
+      >
+        <PluginSlot name="settings.tabs" />
+      </SubPluginProvider>,
+    )
+
+    await waitFor(() => expect(screen.getByText("fields 0")).toBeTruthy())
+    expect(hostQuery).toHaveBeenCalled()
+  })
+
+  it("gives each contribution its own allowlist rather than an ambient one", () => {
+    const spy = vi.spyOn(console, "error").mockImplementation(() => {})
+    const Probe = () => {
+      useHostQuery("users.list")
+      return null
+    }
+    const sub = defineSubPlugin({
+      extension: "mfa",
+      host: "auth",
+      hostIntents: ["settings.namespace"],
+      contributions: { "settings.tabs": [{ id: "mfa", render: Probe }] },
+    })
+
+    // Rendered inside a route-level provider whose allowlist is WIDER. The
+    // contribution must still be held to its own declaration, not inherit
+    // the ambient one.
+    render(
+      <HostAccessProvider
+        value={{ client: client("auth"), allowed: ["users.list"], subExtension: "other" }}
+      >
+        <SubPluginProvider
+          entries={[{ subPlugin: sub, client: client("mfa"), hostClient: client("auth") }]}
+        >
+          <PluginSlot name="settings.tabs" />
+        </SubPluginProvider>
+      </HostAccessProvider>,
+    )
+    spy.mockRestore()
+
+    // The contribution's boundary catches the throw, so the page survives and
+    // the slot renders its fallback rather than the panel.
+    expect(screen.queryByText("never")).toBeNull()
   })
 })
 

@@ -42,9 +42,16 @@ const EMPTY: Entry<never> = { loading: true }
 function stableStringify(value: unknown): string {
   if (value === null || typeof value !== "object") return JSON.stringify(value) ?? "null"
   if (Array.isArray(value)) return `[${value.map(stableStringify).join(",")}]`
-  const entries = Object.entries(value as Record<string, unknown>).sort(
-    ([a], [b]) => (a < b ? -1 : a > b ? 1 : 0),
-  )
+  const entries = Object.entries(value as Record<string, unknown>)
+    // `JSON.stringify` drops a key whose value is `undefined` from the
+    // request body -- `{a: undefined}` goes over the wire as `{}`, same as an
+    // absent key entirely. Skipping it here too keeps the cache key matching
+    // what the wire actually sends. Without this, `{a: undefined}` and
+    // `{a: null}` produced the same key even though `null` survives onto the
+    // wire and `undefined` does not, so two callers asking different
+    // questions shared one cache entry and one of them got the wrong answer.
+    .filter(([, v]) => v !== undefined)
+    .sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0))
   return `{${entries.map(([k, v]) => `${JSON.stringify(k)}:${stableStringify(v)}`).join(",")}}`
 }
 
@@ -226,12 +233,10 @@ export class QueryStore {
       if (!record) continue
 
       if ((this.listeners.get(key)?.size ?? 0) > 0) {
-        // Watched: re-issue in place, forced. The record must NOT be deleted
-        // first. Deleting it resets the generation counter, so a request issued
-        // before this invalidation and still in flight would settle with a
-        // matching generation and write its stale data over the fresh read.
-        // Keeping the record also leaves the previous data on screen with
-        // `loading` beside it during the refetch, rather than blanking the page.
+        // Watched: re-issue in place, forced. The record is updated rather
+        // than deleted and recreated: a watched key keeps its data on screen
+        // (with `loading` beside it) during the refetch, rather than
+        // blanking the page while the new answer is in flight.
         if (blank) {
           this.records.set(key, { ...record, entry: { loading: true }, settledAt: 0 })
         }

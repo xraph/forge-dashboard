@@ -73,20 +73,21 @@ on the Save button's disabled state, and a form gives you a submit-on-Enter path
 straight past it. Either leave the form element off, or add the check to the
 component's own submit handler at that point.
 
-## Omit absent params rather than setting them undefined
+## An undefined param keys the same as an absent one
 
-The query store keys a cache entry on extension, intent and params together, and
-its stable stringify turns a param whose value is `undefined` into `null`. So
-`{ page: 1, search: undefined }` gets a different cache key from `{ page: 1 }`,
-and collides with `{ page: 1, search: null }`.
-
-Nothing breaks. You just quietly get two cache entries and two requests where you expected one, which is the kind of thing nobody notices and everybody pays for. Build params objects by omitting the keys you do not have:
+The query store keys a cache entry on extension, intent and params together.
+Its stable stringify now drops a key whose value is `undefined`, the same as
+`JSON.stringify` does when it builds the request body. So `{ page: 1, search:
+undefined }` and `{ page: 1 }` key identically, and you don't need to build
+params by omitting the keys you don't have. Either form is fine now:
 
 ```tsx
-const params = { page, ...(search ? { search } : {}) }
+const params = { page, search }
 ```
 
-not `{ page, search: search || undefined }`.
+`null` still gets its own key, because it survives onto the wire. `{ page: 1,
+search: null }` is a different request from `{ page: 1 }`, and the store keeps
+it that way.
 
 ## Reset the query store between tests
 
