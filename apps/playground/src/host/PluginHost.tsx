@@ -202,7 +202,11 @@ export function PluginHost({ plugins, fetchImpl }: PluginHostProps) {
 
   // Switching scope is a navigation, never a state write. A scope with no nav
   // (one that needs setup) goes to its bare namespace root, where its panel
-  // renders. Search is carried over so context survives the switch.
+  // renders. Search is carried over for now, but that is provisional: no
+  // `ctx.` params exist yet, so there is nothing to drop and nothing to prove
+  // this against. Per-scope context dimensions belong to the plugin that
+  // declares them, so once `ctx.` params land, switching scope should DROP
+  // any dimension the new scope never declared, not carry it over blind.
   const selectScope = (id: string) => {
     const target = scopes.find((scope) => scope.id === id)
     if (!target) return
