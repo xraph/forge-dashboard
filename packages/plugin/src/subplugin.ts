@@ -4,12 +4,23 @@ import type { ForgeSubPlugin, PluginNavItem, SlotName, SubPluginInput } from "./
 const KNOWN_SLOTS = new Set<string>(SLOT_NAMES)
 
 function validateNav(items: PluginNavItem[], extension: string): void {
+  const labels = new Map<string, string>()
+
   for (const item of items) {
     if (!item.to.startsWith("/")) {
       throw new Error(
         `defineSubPlugin: nav item "to" value "${item.to}" must start with "/" (sub-plugin "${extension}")`,
       )
     }
+
+    const claimed = labels.get(item.to)
+    if (claimed !== undefined) {
+      throw new Error(
+        `defineSubPlugin: nav items "${claimed}" and "${item.label}" both point at "${item.to}", so the sidebar cannot tell them apart. Give one of them a different "to" (sub-plugin "${extension}")`,
+      )
+    }
+    labels.set(item.to, item.label)
+
     if (item.children) validateNav(item.children, extension)
   }
 }

@@ -92,4 +92,28 @@ describe("defineSubPlugin", () => {
     const sub = defineSubPlugin({ ...valid(), hostIntents: ["settings.namespace"] })
     expect(sub.hostIntents).toEqual(["settings.namespace"])
   })
+
+  it("rejects two sibling nav items pointing at the same place", () => {
+    expect(() =>
+      defineSubPlugin({
+        ...valid(),
+        nav: [
+          { label: "Organizations", to: "/organizations" },
+          { label: "Orgs", to: "/organizations" },
+        ],
+      }),
+    ).toThrow(/both point at/)
+  })
+
+  it("allows a child to repeat a path used under a different parent", () => {
+    expect(() =>
+      defineSubPlugin({
+        ...valid(),
+        nav: [
+          { label: "A", to: "/a", children: [{ label: "List", to: "/a/list" }] },
+          { label: "B", to: "/b", children: [{ label: "List", to: "/a/list" }] },
+        ],
+      }),
+    ).not.toThrow()
+  })
 })
