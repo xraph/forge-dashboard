@@ -11,12 +11,15 @@ import (
 	"github.com/xraph/forge/extensions/dashboard/contract/transport"
 )
 
-// requiredForgeBranch names the earliest forge branch confirmed to carry
+// mergedForgeBranch names the branch whose merge into main first carried
 // the ContributorCapability.Configured field this demo, and
-// forge-dashboard's shell, depend on. It is absent from main and from the
-// v1.11.0 tag. See the "Which forge checkout you need" section of
-// README.md for the full story of how that was found.
-const requiredForgeBranch = "fix/dashboard-collector-rss"
+// forge-dashboard's shell, depend on: PR #99, merged into main on
+// 2026-09-08. The field is on origin/main now. It is NOT in any released
+// tag: the newest tags (v1.11.0 and its per-extension siblings) predate
+// that merge by three commits, so a consumer pinning a released forge
+// version still won't have it until a new tag ships. See the "Which forge
+// checkout you need" section of README.md for the full story.
+const mergedForgeBranch = "fix/dashboard-collector-rss"
 
 // registerCapabilitiesShapeCheck installs a BeforeRun hook (runs after the
 // startup banner, right before the HTTP server starts listening) that
@@ -31,11 +34,14 @@ const requiredForgeBranch = "fix/dashboard-collector-rss"
 //
 // This exists because go.mod's replace directive points at ../../forge on
 // disk with no version pin, so this demo's behaviour silently changes with
-// whatever branch that checkout happens to be sitting on, including
-// branches left there by unrelated work in another session. A missing
-// field degrades the shell without producing an error of its own (every
-// contributor just reads as "setup" forever), so this check exists to turn
-// that into a loud, specific message instead of a silent one.
+// whatever branch or commit that checkout happens to be sitting on,
+// including branches left there by unrelated work in another session, or
+// a checkout that predates the field's merge. A missing field degrades the
+// shell without producing an error of its own (every contributor just
+// reads as "setup" forever), so this check exists to turn that into a
+// loud, specific message instead of a silent one. It proved its worth
+// during development: it correctly fired against a checkout on an
+// unrelated feature branch and named that branch.
 func registerCapabilitiesShapeCheck(app forge.App) {
 	_ = forge.OnBeforeRun(app, "demo-capabilities-shape-check", func(_ context.Context, _ forge.App) error {
 		checkConfiguredFieldPresent()
@@ -64,9 +70,10 @@ func checkConfiguredFieldPresent() {
 	fmt.Printf("[demo] That checkout (../../forge, via the go.mod replace directive) is\n")
 	fmt.Printf("[demo] currently on branch %q.\n", branch)
 	fmt.Println("[demo]")
-	fmt.Println("[demo] This demo, and forge-dashboard's shell, need forge at commit")
-	fmt.Printf("[demo] %s or later. The field is absent from main\n", requiredForgeBranch)
-	fmt.Println("[demo] and from the v1.11.0 tag.")
+	fmt.Println("[demo] This demo, and forge-dashboard's shell, need forge at origin/main")
+	fmt.Printf("[demo] or later (the field merged via %s,\n", mergedForgeBranch)
+	fmt.Println("[demo] PR #99, 2026-09-08). It is NOT in any released tag: v1.11.0 and")
+	fmt.Println("[demo] its sibling extension tags all predate that merge.")
 	fmt.Println("[demo]")
 	fmt.Println(`[demo] Effect: every contributor this server reports will resolve to the`)
 	fmt.Println(`[demo] shell's "setup" state, never "ready", no matter what DEMO_* env`)

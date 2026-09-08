@@ -24,20 +24,23 @@ demo can, because it's forge.
 Read this before you assume a green build means anything. `go.mod` replaces
 `github.com/xraph/forge` with `../../forge` on disk (see "The replace
 directive" below), with no version pin. That means this demo's behaviour is
-a live dependency on whatever branch someone else last left that checkout
+a live dependency on whatever commit someone else last left that checkout
 on, and it can change under you with no error, because nothing here forces
 a version.
 
 Concretely: `extensions/dashboard/contract/transport/capabilities.go` gained
-a `Configured bool` field on `ContributorCapability` on forge branch
-**`fix/dashboard-collector-rss`**. That field is what lets the shell's
-`resolvePluginState` (`packages/plugin/src/resolve.ts`) tell a contributor
-apart as `ready` instead of stuck on `setup`. It is **absent from `main`**
-and **absent from the `v1.11.0` tag**. If `../../forge` is checked out to
-anything earlier than `fix/dashboard-collector-rss`, forge's real
-capabilities endpoint simply won't send the field, and every contributor
-this demo reports will read as `setup` in the shell forever, no matter what
-you do with the `DEMO_*` env vars below.
+a `Configured bool` field on `ContributorCapability` via PR #99
+(`fix/dashboard-collector-rss`, merged into `main` on 2026-09-08). That
+field is what lets the shell's `resolvePluginState`
+(`packages/plugin/src/resolve.ts`) tell a contributor apart as `ready`
+instead of stuck on `setup`. **It's on `origin/main` now**, so building
+from source works. The constraint that actually lasts is about released
+tags, not branches: the field is **absent from every `v1.11.0` tag**
+(`v1.11.0` and its per-extension siblings), which sit three commits behind
+`main`. If you, or a real downstream consumer, pin a released forge
+version instead of building from `main`, you won't have this field until a
+new tag ships. That's the human's call, not something this demo can route
+around.
 
 Check what you're actually building against:
 
@@ -45,13 +48,17 @@ Check what you're actually building against:
 git -C ../../forge branch --show-current
 ```
 
-If that's not `fix/dashboard-collector-rss` or a branch built on top of it,
-the demo will still start and serve real data, but it can't get you the
-`ready` state, and it says so loudly: a startup check in
-`startupcheck.go` inspects the compiled `ContributorCapability` struct (no
-network call, just `encoding/json` on a zero value) and prints an
-impossible-to-miss warning naming the branch it found, right after the
-startup banner, every time this is true.
+A checkout on `main` (or any branch that has merged past PR #99) has the
+field. A checkout on an older branch, or one that branched off before the
+merge and hasn't rebased, might not, the same way `feat/devtools-causal-panel`
+didn't while this was being verified, despite being an active, unrelated
+feature branch rather than something stale. If it's missing, the demo
+still starts and serves real data, it just can't get you the `ready`
+state, and it says so loudly: a startup check in `startupcheck.go`
+inspects the compiled `ContributorCapability` struct (no network call,
+just `encoding/json` on a zero value) and prints an impossible-to-miss
+warning naming the actual branch it found, right after the startup
+banner, every time this is true.
 
 ## Running it
 
@@ -123,10 +130,11 @@ DEMO_STREAMING_UNAVAILABLE=true PORT=8099 go run .
 
 There's no third toggle for `configured: false` (the `setup` state) on
 purpose. See "Which forge checkout you need" above: whether the real
-transport can send `configured` at all depends entirely on which forge
-branch `../../forge` is checked out to, not on anything this demo controls.
-On a new-enough checkout, `DEMO_*_UNAVAILABLE` still isn't the same signal
-as `configured: false`, since it fails per request rather than reporting
+transport can send `configured` at all depends on whether `../../forge` has
+merged PR #99, not on anything this demo controls, and it's absent from
+every released tag regardless of branch. Even on a checkout that has the
+field, `DEMO_*_UNAVAILABLE` still isn't the same signal as
+`configured: false`, since it fails per request rather than reporting
 readiness up front, and this demo doesn't attempt to fake the field
 directly; that would mean hand-rolling part of the wire response instead of
 using forge's real transport, which defeats the point of the whole
