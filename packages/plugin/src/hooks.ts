@@ -167,7 +167,11 @@ export function useHostQuery<T = unknown>(
   }, [client, intent, key, staleMs])
 
   const refetch = useCallback(() => {
-    queryStore.read<T>(key, () => client.query<T>(intent, params), 0)
+    // Forced for the same reason useQuery's is: staleMs 0 defeats the
+    // freshness check, but only `force` skips the "already pending, join it"
+    // return. Without it a reload pressed during an in-flight request does
+    // nothing at all.
+    queryStore.read<T>(key, () => client.query<T>(intent, params), 0, { force: true })
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [client, intent, key])
 

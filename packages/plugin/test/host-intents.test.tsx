@@ -78,6 +78,40 @@ describe("useHostQuery", () => {
     expect(() => render(<Probe />)).toThrow(/HostAccessProvider/)
     spy.mockRestore()
   })
+
+  it("refetch supersedes an in-flight host read rather than joining it", async () => {
+    queryStore.clear()
+    let calls = 0
+    const query = vi.fn(() => {
+      calls += 1
+      return calls === 1 ? new Promise(() => {}) : Promise.resolve({ fields: ["a"] })
+    })
+
+    const Probe = () => {
+      const { data, refetch } = useHostQuery<{ fields: string[] }>("settings.namespace")
+      return (
+        <>
+          <p>fields {data?.fields.length ?? "none"}</p>
+          <button onClick={refetch}>reload</button>
+        </>
+      )
+    }
+
+    render(
+      <HostAccessProvider
+        value={{ client: hostClient(query), allowed: SETTINGS, subExtension: "mfa" }}
+      >
+        <Probe />
+      </HostAccessProvider>,
+    )
+
+    // The first read never settles. A refetch must issue a second request
+    // rather than joining the first and waiting forever.
+    await waitFor(() => expect(query).toHaveBeenCalledTimes(1))
+    screen.getByRole("button", { name: "reload" }).click()
+    await waitFor(() => expect(query).toHaveBeenCalledTimes(2))
+    await waitFor(() => expect(screen.getByText("fields 1")).toBeTruthy())
+  })
 })
 
 describe("defineSubPlugin hostIntents", () => {
