@@ -95,4 +95,26 @@ describe("navGroups", () => {
     expect(hrefs).toContain("/@auth/users")
     expect(hrefs).toContain("/@auth/organizations")
   })
+
+  it("puts ungrouped items first even when a grouped item is declared before them", () => {
+    // The declaration order is deliberately the opposite of the render order.
+    // Every other fixture in this file happens to declare ungrouped items
+    // first, so an implementation that just took Map insertion order would
+    // pass all of them. This one fails against that and passes against the
+    // explicit sort, which is the only reason it exists.
+    const groupedFirst = definePlugin({
+      extension: "auth",
+      namespace: "auth",
+      nav: [
+        { label: "Users", to: "/users", group: "Identity" },
+        { label: "Overview", to: "/" },
+      ],
+      routes: [{ path: "/", element: Noop }],
+    })
+
+    const groups = navGroups(groupedFirst, [])
+    expect(groups[0].label).toBeUndefined()
+    expect(groups[0].items.map((i) => i.label)).toEqual(["Overview"])
+    expect(groups[1].label).toBe("Identity")
+  })
 })
