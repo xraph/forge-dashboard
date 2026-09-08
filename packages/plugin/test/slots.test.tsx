@@ -62,11 +62,7 @@ describe("PluginSlot", () => {
   })
 
   it("gives each contribution its own extension's client, not the host's", () => {
-    let seen = ""
-    const Probe = () => {
-      seen = usePluginClient().extension
-      return null
-    }
+    const Probe = () => <p>{usePluginClient().extension}</p>
     const sub = defineSubPlugin({
       extension: "organization",
       host: "auth",
@@ -77,7 +73,7 @@ describe("PluginSlot", () => {
         <PluginSlot name="overview.widgets" />
       </SubPluginProvider>,
     )
-    expect(seen).toBe("organization")
+    expect(screen.getByText("organization")).toBeTruthy()
   })
 
   it("orders by priority, then by id so ties are stable", () => {
