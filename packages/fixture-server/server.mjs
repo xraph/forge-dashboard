@@ -52,6 +52,7 @@ const CODE = {
   PERMISSION_DENIED: "PERMISSION_DENIED",
   NOT_FOUND: "NOT_FOUND",
   UNSUPPORTED_VERSION: "UNSUPPORTED_VERSION",
+  INTERNAL: "INTERNAL",
 }
 
 /** Thrown by intent handlers when they need a specific status+code pair. */
@@ -796,6 +797,57 @@ function handleReset(res) {
   return sendJSON(res, 200, { ok: true })
 }
 
+/**
+ * GET {BASE_PATH}/principal, mirroring extensions/dashboard/handlers/principal.go.
+ *
+ * FIXTURE_PRINCIPAL selects which of the Go handler's four answers to serve:
+ *
+ *   signedIn   (default)  200 {authenticated:true, subject, ...}
+ *   anonymous             200 {authenticated:false}          auth switched off
+ *   signedOut             401 {code:"UNAUTHENTICATED", loginPath}
+ *   denied                403 {code:"PERMISSION_DENIED", requiredRoles}
+ *
+ * The client's other two states need no switch. `unknown` happens on any cold
+ * load before this answers, and `unreachable` you get by stopping the fixture.
+ */
+function handlePrincipalGet(req, res) {
+  if (req.method !== "GET") {
+    return sendError(res, 405, CODE.BAD_REQUEST, "GET required")
+  }
+  const mode = process.env.FIXTURE_PRINCIPAL ?? "signedIn"
+  switch (mode) {
+    case "anonymous":
+      return sendJSON(res, 200, { authenticated: false })
+    case "signedOut":
+      return sendJSON(res, 401, {
+        code: "UNAUTHENTICATED",
+        loginPath: "/dashboard/login",
+      })
+    case "denied":
+      return sendJSON(res, 403, {
+        code: "PERMISSION_DENIED",
+        message: "Your account doesn't have a role required to access this dashboard.",
+        requiredRoles: ["admin"],
+      })
+    case "signedIn":
+      return sendJSON(res, 200, {
+        authenticated: true,
+        subject: "usr_fixture_ada",
+        displayName: "Ada Lovelace",
+        email: "ada@example.com",
+        roles: ["admin"],
+        scopes: ["users:read", "users:write", "sessions:read"],
+      })
+    default:
+      return sendError(
+        res,
+        500,
+        CODE.INTERNAL,
+        `FIXTURE_PRINCIPAL=${mode} is not one of signedIn, anonymous, signedOut, denied`,
+      )
+  }
+}
+
 const server = createServer(async (req, res) => {
   applyCORS(req, res)
   if (req.method === "OPTIONS") {
@@ -817,6 +869,9 @@ const server = createServer(async (req, res) => {
     }
     if (url.pathname === `${BASE_PATH}/csrf`) {
       return handleCSRFGet(req, res, url)
+    }
+    if (url.pathname === `${BASE_PATH}/principal`) {
+      return handlePrincipalGet(req, res)
     }
     if (url.pathname === `${BASE_PATH}/_fixture/expire-csrf` && req.method === "POST") {
       return handleExpireCSRF(res)
