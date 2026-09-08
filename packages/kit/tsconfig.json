@@ -12,6 +12,6 @@
       "@forge-go/dashboard-kit/*": ["./src/*"]
     }
   },
-  "include": ["."],
+  "include": [".", "../test-support"],
   "exclude": ["node_modules", "dist"]
 }
