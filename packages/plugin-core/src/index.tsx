@@ -111,3 +111,5 @@ export const corePlugin = definePlugin({
   nav: [{ label: "Overview", to: "/overview" }],
   routes: [{ path: "/overview", element: OverviewPage }],
 })
+
+export default corePlugin

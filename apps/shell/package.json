@@ -16,6 +16,7 @@
     "@forge-go/dashboard-kit": "workspace:*",
     "@forge-go/dashboard-plugin": "workspace:*",
     "@forge-go/dashboard-plugin-authsome": "workspace:*",
+    "@forge-go/dashboard-plugin-core": "workspace:*",
     "@forge-go/dashboard-plugin-streaming": "workspace:*",
     "@forge-go/dashboard-runtime": "workspace:*",
     "lucide-react": "^1.40.0",
