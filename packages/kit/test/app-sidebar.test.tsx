@@ -59,12 +59,18 @@ describe("AppSidebar", () => {
   })
 
   it("renders no switcher when there are no scopes", () => {
-    // Scoped to the header: the default `groups` fixture's own nav group is
-    // labelled "@auth" too, so an unscoped query would match that instead of
-    // (or as well as) the switcher this test is actually about.
+    // Asserting on "@auth" text here would pass even if the `scopes.length >
+    // 0` gate were deleted: `ScopeSwitcher` only renders that text once it
+    // finds an active scope (scope-switcher.tsx's `active` lookup), and with
+    // `scopes: []` there is never an active scope to find regardless of the
+    // gate. The switcher's `SidebarMenuButton` trigger, by contrast, renders
+    // unconditionally whenever `ScopeSwitcher` mounts at all, so its absence
+    // is what actually proves the gate is doing something. With no `pinned`
+    // and no `header` slot passed, the header renders nothing else, so a
+    // plain button query is unambiguous here.
     const { container } = renderSidebar({ scopes: [] })
     const header = container.querySelector('[data-slot="sidebar-header"]') as HTMLElement
-    expect(within(header).queryByText("@auth")).toBeNull()
+    expect(within(header).queryByRole("button")).toBeNull()
   })
 
   it("still renders the switcher when scopes exist", () => {
