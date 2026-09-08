@@ -65,6 +65,12 @@ export class QueryStore {
   private records = new Map<string, Record_<unknown>>()
   private listeners = new Map<string, Set<() => void>>()
 
+  // Monotonic across the whole store and across a key's deletion, so a
+  // deleted-and-recreated key can never reissue a number some request that
+  // is still in flight already holds. Deriving this from the record made
+  // that collision representable: delete the record and the count restarts.
+  private nextGeneration = 0
+
   keyOf(extension: string, intent: string, params?: Record<string, unknown>): string {
     return `${extension}|${intent}|${stableStringify(params ?? {})}`
   }
@@ -133,7 +139,7 @@ export class QueryStore {
     }
 
     const { extension, intent } = QueryStore.parse(key)
-    const generation = (record?.generation ?? 0) + 1
+    const generation = ++this.nextGeneration
 
     this.records.set(key, {
       entry: { ...(record?.entry ?? {}), loading: true },
@@ -202,18 +208,19 @@ export class QueryStore {
       if (record.extension !== extension || !wanted.has(record.intent)) continue
       keys.push(key)
     }
-    this.dropOrReissue(keys)
+    this.dropOrReissue(keys, false)
   }
 
   /**
    * Re-issues the keys somebody is still watching, and drops the rest.
    *
-   * A key with a live subscriber is a page on screen right now: dropping its
-   * entry without reissuing leaves it loading forever, because nothing in the
-   * hook re-runs on invalidation. A key with no subscriber is nobody's page,
-   * so it is dropped and refetches on its next mount.
+   * `blank` distinguishes the two callers. An invalidation keeps the stale
+   * rows on screen while the refetch runs, which is ordinary
+   * stale-while-revalidate. A context switch must NOT: the previous app's
+   * rows under the new app's chrome is the one case where showing stale
+   * data is wrong rather than merely old.
    */
-  private dropOrReissue(keys: string[]): void {
+  private dropOrReissue(keys: string[], blank: boolean): void {
     for (const key of keys) {
       const record = this.records.get(key)
       if (!record) continue
@@ -225,12 +232,16 @@ export class QueryStore {
         // matching generation and write its stale data over the fresh read.
         // Keeping the record also leaves the previous data on screen with
         // `loading` beside it during the refetch, rather than blanking the page.
+        if (blank) {
+          this.records.set(key, { ...record, entry: { loading: true }, settledAt: 0 })
+        }
         this.read(key, record.fetcher, 0, { force: true })
       } else {
         // Nobody is watching: drop it, and let the next mount refetch. An
         // in-flight settle for this key will find no record and discard itself.
+        // Nothing is subscribed here by construction, so there is nobody to
+        // notify.
         this.records.delete(key)
-        this.notify(key)
       }
     }
   }
@@ -270,7 +281,7 @@ export class QueryStore {
     // The hints belong to the previous app's contributors. Keeping them would
     // let a stale hint suppress the first read after a switch.
     this.staleTimes.clear()
-    this.dropOrReissue(keys)
+    this.dropOrReissue(keys, true)
   }
 }
 

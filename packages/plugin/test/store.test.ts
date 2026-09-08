@@ -169,6 +169,11 @@ describe("QueryStore", () => {
     store.subscribe(key, () => {})
 
     store.invalidate("auth", ["users.list"])
+    // The previous rows stay on screen, with loading set, while the refetch
+    // runs -- ordinary stale-while-revalidate. Only `clear()` (a context
+    // switch) blanks the entry instead.
+    expect(store.snapshot(key).data).toEqual({ total: 2 })
+    expect(store.snapshot(key).loading).toBe(true)
     expect(fetcher).toHaveBeenCalledTimes(2)
   })
 
@@ -204,6 +209,41 @@ describe("QueryStore", () => {
     await Promise.resolve()
     await Promise.resolve()
     expect(store.snapshot(key).data).toEqual({ tag: "fresh" })
+  })
+
+  it("does not let a request in flight from before a delete overwrite a later one", async () => {
+    const key = store.keyOf("auth", "users.list")
+    const first = deferred<{ tag: string }>()
+    const second = deferred<{ tag: string }>()
+
+    // Read, then leave nothing watching it, then invalidate so the record is
+    // dropped while the first request is still in flight.
+    store.read(key, () => first.promise, 0)
+    store.invalidate("auth", ["users.list"])
+
+    // A remount issues a fresh request against a recreated record.
+    store.read(key, () => second.promise, 0)
+    second.resolve({ tag: "second" })
+    await vi.waitFor(() => expect(store.snapshot(key).data).toEqual({ tag: "second" }))
+
+    // The pre-delete request settles last and must lose.
+    first.resolve({ tag: "first" })
+    await Promise.resolve()
+    await Promise.resolve()
+    expect(store.snapshot(key).data).toEqual({ tag: "second" })
+  })
+
+  it("blanks a watched entry on clear so one app's rows never show under another's chrome", async () => {
+    const key = store.keyOf("auth", "users.list")
+    const fetcher = vi.fn().mockReturnValue(new Promise(() => {}))
+    store.read(key, () => Promise.resolve({ tag: "app-a" }), 60_000)
+    await vi.waitFor(() => expect(store.snapshot(key).data).toEqual({ tag: "app-a" }))
+    store.subscribe(key, () => {})
+
+    store.read(key, fetcher, 0, { force: true })
+    store.clear()
+    expect(store.snapshot(key).data).toBeUndefined()
+    expect(store.snapshot(key).loading).toBe(true)
   })
 
   it("clear drops everything, which is what an app switch needs", async () => {
