@@ -122,4 +122,158 @@ describe("createForgeProxy", () => {
     expect(res.status).toBe(400)
     expect(upstream).not.toHaveBeenCalled()
   })
+
+  it("does not forward an upstream redirect, so an injected header can't be exfiltrated to another host", async () => {
+    // Real fetch() defaults to redirect: "follow", which would chase a 3xx
+    // from upstream invisibly - carrying the injected header to whatever
+    // host its Location points at. redirect: "manual" is what stops that;
+    // this test asserts on the visible half of the fix (the response), and
+    // the header-sanitization test below asserts the outgoing Request is
+    // actually configured with redirect: "manual".
+    const upstream = vi.fn<(req: Request) => Promise<Response>>(
+      async () =>
+        new Response(null, {
+          status: 302,
+          headers: { Location: "http://other-host.example/stolen" },
+        })
+    )
+    const { GET } = createForgeProxy({
+      target: "https://forge.internal",
+      headers: { "X-Forge-Key": "CUSTOM-SECRET" },
+      fetchImpl: upstream as unknown as typeof fetch,
+    })
+
+    const res = await GET(
+      new Request("https://app.test/api/forge/x"),
+      ctx(["x"])
+    )
+
+    expect(upstream).toHaveBeenCalledTimes(1)
+    const called = upstream.mock.calls[0][0]
+    expect(called.redirect).toBe("manual")
+    expect(res.status).toBe(502)
+    expect(res.headers.get("location")).toBeNull()
+    expect(await res.text()).not.toContain("CUSTOM-SECRET")
+  })
+
+  it("strips hop-by-hop and forwarding-trust headers before contacting upstream", async () => {
+    const upstream = vi.fn<(req: Request) => Promise<Response>>(
+      async () => new Response("{}", { status: 200 })
+    )
+    const { GET } = createForgeProxy({
+      target: "https://forge.internal",
+      fetchImpl: upstream as unknown as typeof fetch,
+    })
+
+    await GET(
+      new Request("https://app.test/api/forge/x", {
+        headers: {
+          Connection: "keep-alive",
+          "Transfer-Encoding": "chunked",
+          "Content-Length": "999",
+          "X-Forwarded-For": "1.2.3.4",
+          "X-Forwarded-Host": "evil.example",
+          "X-Real-IP": "1.2.3.4",
+        },
+      }),
+      ctx(["x"])
+    )
+
+    const called = upstream.mock.calls[0][0]
+    expect(called.headers.get("connection")).toBeNull()
+    expect(called.headers.get("transfer-encoding")).toBeNull()
+    expect(called.headers.get("content-length")).toBeNull()
+    expect(called.headers.get("x-forwarded-for")).toBeNull()
+    expect(called.headers.get("x-forwarded-host")).toBeNull()
+    expect(called.headers.get("x-real-ip")).toBeNull()
+  })
+
+  it("returns a clean 502 instead of throwing when the upstream fetch rejects", async () => {
+    // A real HTTP client (undici) throws for things like a malformed
+    // Transfer-Encoding/Content-Length pairing. Uncaught, that becomes an
+    // unhandled exception - a client-triggerable 500 with a stack trace.
+    const upstream = vi.fn<(req: Request) => Promise<Response>>(async () => {
+      throw new Error("RequestContentLengthMismatchError: boom")
+    })
+    const { GET } = createForgeProxy({
+      target: "https://forge.internal",
+      fetchImpl: upstream as unknown as typeof fetch,
+    })
+
+    const res = await GET(
+      new Request("https://app.test/api/forge/x"),
+      ctx(["x"])
+    )
+    expect(res.status).toBe(502)
+    expect(await res.text()).not.toContain("RequestContentLengthMismatchError")
+  })
+
+  it("preserves multiple Set-Cookie headers instead of collapsing them into one", async () => {
+    const upstream = vi.fn<(req: Request) => Promise<Response>>(async () => {
+      const headers = new Headers()
+      headers.append("Set-Cookie", "session=abc; Path=/; HttpOnly")
+      headers.append("Set-Cookie", "csrf=def; Path=/")
+      return new Response("{}", { status: 200, headers })
+    })
+    const { GET } = createForgeProxy({
+      target: "https://forge.internal",
+      fetchImpl: upstream as unknown as typeof fetch,
+    })
+
+    const res = await GET(
+      new Request("https://app.test/api/forge/x"),
+      ctx(["x"])
+    )
+    expect(res.headers.getSetCookie()).toEqual([
+      "session=abc; Path=/; HttpOnly",
+      "csrf=def; Path=/",
+    ])
+  })
+
+  it("preserves Cache-Control so a token response can't become cacheable by a shared cache", async () => {
+    const upstream = vi.fn<(req: Request) => Promise<Response>>(
+      async () =>
+        new Response("{}", {
+          status: 200,
+          headers: { "Cache-Control": "no-store" },
+        })
+    )
+    const { GET } = createForgeProxy({
+      target: "https://forge.internal",
+      fetchImpl: upstream as unknown as typeof fetch,
+    })
+
+    const res = await GET(
+      new Request("https://app.test/api/forge/x"),
+      ctx(["x"])
+    )
+    expect(res.headers.get("cache-control")).toBe("no-store")
+  })
+
+  it("forwards the inbound query string to the upstream request", async () => {
+    const upstream = vi.fn<(req: Request) => Promise<Response>>(
+      async () => new Response("{}", { status: 200 })
+    )
+    const { GET } = createForgeProxy({
+      target: "https://forge.internal",
+      fetchImpl: upstream as unknown as typeof fetch,
+    })
+
+    await GET(
+      new Request(
+        "https://app.test/api/forge/dashboard/v1/list?limit=20&cursor=abc"
+      ),
+      ctx(["dashboard", "v1", "list"])
+    )
+
+    const called = upstream.mock.calls[0][0]
+    expect(called.url).toBe(
+      "https://forge.internal/dashboard/v1/list?limit=20&cursor=abc"
+    )
+  })
+
+  it("validates the target URL once, at construction, rejecting non-http(s) schemes", () => {
+    expect(() => createForgeProxy({ target: "not a url" })).toThrow()
+    expect(() => createForgeProxy({ target: "file:///etc/passwd" })).toThrow()
+  })
 })
