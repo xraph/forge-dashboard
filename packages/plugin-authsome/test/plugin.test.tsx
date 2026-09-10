@@ -74,18 +74,6 @@ describe("authsomePlugin", () => {
     expect(authsomePlugin.requires).toBeUndefined()
   })
 
-  // Paths are relative to the plugin's own "@auth" mount now (Task 7 of the
-  // w8-scoped-sidebar plan), not absolute from the site root: the host
-  // applies the "/@auth" prefix itself via scopePath, so a route declared
-  // here as "/auth/login" would double-prefix to "/@auth/auth/login" and
-  // never match.
-  it("gives every route a nav entry pointing at it", () => {
-    const paths = authsomePlugin.routes.map((r) => r.path).sort()
-    const targets = authsomePlugin.nav.map((n) => n.to).sort()
-    expect(paths).toEqual(["/sessions", "/users"])
-    expect(targets).toEqual(paths)
-  })
-
   // Sign-in is no longer a route: the host renders the gate in its place
   // before any route table exists, so `/login` has nothing to mean here.
   it("declares the gate rather than a sign-in page", () => {
@@ -95,8 +83,90 @@ describe("authsomePlugin", () => {
   })
 
   it("mounts each route's element, and each one reads its own intent", async () => {
+    // One fixture per intent, shared across every route below. A route with
+    // a `:param` in its path is rendered with no params at all - the same
+    // way the host renders a stale link - so it must hit its own missing-
+    // param branch and say something useful rather than go blank or throw.
     const queries = {
-      "auth.config": { passwordEnabled: true, brand: "Forge Fixture" },
+      "overview.stats": { users: 3, sessions: 5, devices: 2, plugins: 4 },
+      "overview.recentSignups": {
+        users: [
+          {
+            id: "usr_1",
+            email: "ada@example.com",
+            emailVerified: true,
+            firstName: "Ada",
+            lastName: "Lovelace",
+            banned: false,
+            createdAt: "2026-09-06T09:00:00.000Z",
+          },
+        ],
+      },
+      "apps.list": {
+        apps: [
+          { id: "app_1", name: "Acme", slug: "acme", isPlatform: false, createdAt: "2026-09-06T09:00:00.000Z" },
+        ],
+      },
+      "credentials.detail": {
+        appId: "app_1",
+        appName: "Acme",
+        appSlug: "acme",
+        isPlatform: false,
+      },
+      "devices.list": {
+        devices: [
+          {
+            id: "dev_1",
+            userId: "usr_1",
+            name: "iPhone",
+            trusted: false,
+            lastSeenAt: "2026-09-06T09:00:00.000Z",
+            createdAt: "2026-09-06T09:00:00.000Z",
+          },
+        ],
+      },
+      "environments.list": {
+        environments: [
+          {
+            id: "env_1",
+            name: "Production",
+            slug: "prod",
+            type: "prod",
+            isDefault: true,
+            createdAt: "2026-09-06T09:00:00.000Z",
+          },
+        ],
+      },
+      "auth.featureToggles": {
+        toggles: [{ key: "mfa", label: "MFA", enabled: true, available: true }],
+      },
+      "roles.list": {
+        roles: [{ id: "role_1", name: "Admin", slug: "admin", createdAt: "2026-09-06T09:00:00.000Z" }],
+      },
+      "sessions.list": {
+        sessions: [
+          {
+            id: "ses_1",
+            userId: "usr_1",
+            ipAddress: "127.0.0.1",
+            userAgent: "curl/8.4.0",
+            lastActivityAt: "2026-09-06T09:00:00.000Z",
+            expiresAt: "2026-09-07T09:00:00.000Z",
+            createdAt: "2026-09-06T09:00:00.000Z",
+          },
+        ],
+      },
+      "settings.namespaces": {
+        namespaces: [{ name: "general", displayName: "General", settingCount: 3 }],
+      },
+      "formConfigs.list": {
+        formConfigs: [{ id: "f1", formType: "signup", version: 1, active: true, createdAt: "2026-09-06T09:00:00.000Z" }],
+      },
+      "formConfigs.signup": {
+        appId: "app_1",
+        fields: [{ key: "email", label: "Email", type: "text", order: 1 }],
+        updatedAt: "2026-09-06T09:00:00.000Z",
+      },
       "users.list": {
         users: [
           {
@@ -112,15 +182,13 @@ describe("authsomePlugin", () => {
         ],
         total: 1,
       },
-      "sessions.list": {
-        sessions: [
+      "webhooks.list": {
+        webhooks: [
           {
-            id: "ses_1",
-            userId: "usr_1",
-            ipAddress: "127.0.0.1",
-            userAgent: "curl/8.4.0",
-            lastActivityAt: "2026-09-06T09:00:00.000Z",
-            expiresAt: "2026-09-07T09:00:00.000Z",
+            id: "w1",
+            url: "https://example.com/hook",
+            events: ["user.created"],
+            active: true,
             createdAt: "2026-09-06T09:00:00.000Z",
           },
         ],
@@ -128,14 +196,38 @@ describe("authsomePlugin", () => {
     }
 
     const expected: Record<string, string> = {
-      "/users": "ada@example.com",
+      "/": "ada@example.com",
+      "/apps": "Acme",
+      "/apps/create": "New app",
+      "/apps/:id": "No app selected.",
+      "/credentials": "Acme",
+      "/devices": "iPhone",
+      "/devices/:id": "No device selected.",
+      "/environments": "Production",
+      "/environments/:id": "No environment selected.",
+      "/features": "MFA",
+      "/plugins": "MFA",
+      "/roles": "Admin",
+      "/roles/:id": "No role selected.",
       "/sessions": "ses_1",
+      "/sessions/:id": "No session selected.",
+      "/settings": "General",
+      "/settings/:namespace": "No namespace selected.",
+      "/signup-forms": "signup",
+      "/signup-forms/edit": "Edit signup form",
+      "/users": "ada@example.com",
+      "/users/create": "New user",
+      "/users/:id": "No user selected.",
+      "/webhooks": "https://example.com/hook",
     }
 
     for (const route of authsomePlugin.routes) {
       const { client } = stubClient(queries)
       const { unmount } = renderPage(route.element, client)
-      expect(await screen.findByText(expected[route.path])).toBeDefined()
+      expect(
+        await screen.findByText(expected[route.path]),
+        `route "${route.path}" did not render the expected text`,
+      ).toBeDefined()
       unmount()
     }
   })
@@ -155,6 +247,116 @@ describe("icons", () => {
       for (const child of item.children ?? []) {
         expect(child.icon, `child "${child.label}" has no icon`).toBeDefined()
       }
+    }
+  })
+})
+
+describe("the finished plugin", () => {
+  it("declares a route for every page", () => {
+    const paths = authsomePlugin.routes.map((r) => r.path).sort()
+    expect(paths).toEqual(
+      [
+        "/", "/apps", "/apps/create", "/apps/:id",
+        "/credentials", "/devices", "/devices/:id",
+        "/environments", "/environments/:id", "/features",
+        "/plugins", "/roles", "/roles/:id",
+        "/sessions", "/sessions/:id",
+        "/settings", "/settings/:namespace",
+        "/signup-forms", "/signup-forms/edit",
+        "/users", "/users/create", "/users/:id", "/webhooks",
+      ].sort(),
+    )
+  })
+
+  it("groups its nav the way the Go manifests do", () => {
+    const groups = [...new Set(authsomePlugin.nav.map((n) => n.group))]
+    expect(groups).toEqual(["Identity", "Configuration", "Security", "System"])
+  })
+
+  it("declares the app and environment dimensions with their own payload builders", () => {
+    const ids = authsomePlugin.context.map((d) => d.id)
+    expect(ids).toEqual(["app", "environment"])
+
+    const app = authsomePlugin.context.find((d) => d.id === "app")!
+    const env = authsomePlugin.context.find((d) => d.id === "environment")!
+    // The contract has no shared field name. A hardcoded `id` would send
+    // something the server ignores and the switch would silently do nothing.
+    expect(app.payload("a1")).toEqual({ appId: "a1" })
+    expect(env.payload("e1")).toEqual({ envId: "e1" })
+    expect(app.query).toBe("apps.context")
+    expect(env.query).toBe("apps.context")
+  })
+
+  it("does not contribute a nav entry for a detail route", () => {
+    const navPaths = authsomePlugin.nav.map((n) => n.to)
+    expect(navPaths.some((p) => p.includes(":"))).toBe(false)
+  })
+
+  it("still resolves against a capabilities document naming the auth contributor", () => {
+    const state = resolvePluginState(authsomePlugin, {
+      shellEnvelopes: ["v1"],
+      contributors: [{ name: "auth", envelopes: ["v1"], configured: true }],
+    })
+    expect(state.kind).toBe("ready")
+  })
+
+  // Not asserted mechanically above: every route path is unique. A duplicate
+  // path is two pages fighting over which one the host actually renders, and
+  // `.sort()` on the full path list would hide a duplicate rather than catch
+  // it, since a repeated entry still sorts into place next to itself.
+  it("never declares the same route path twice", () => {
+    const paths = authsomePlugin.routes.map((r) => r.path)
+    expect(new Set(paths).size).toBe(paths.length)
+  })
+
+  // A nav entry pointing at a path with no route opens the host's fallback,
+  // which looks exactly like a broken page rather than a missing one.
+  it("gives every nav item a route that actually exists", () => {
+    const routePaths = new Set(authsomePlugin.routes.map((r) => r.path))
+    for (const item of authsomePlugin.nav) {
+      expect(
+        routePaths.has(item.to),
+        `nav item "${item.label}" points at undeclared route "${item.to}"`,
+      ).toBe(true)
+    }
+  })
+
+  // Complements "does not contribute a nav entry for a detail route" above:
+  // this checks the positive claim too, that every LIST route does carry a
+  // nav entry, matching what the Go manifests declare a page is reached from.
+  it("gives every list route a nav entry, and no detail, create or edit route one", () => {
+    const navTargets = new Set(authsomePlugin.nav.map((n) => n.to))
+    const listRoutes = [
+      "/", "/apps", "/credentials", "/devices", "/environments", "/features",
+      "/plugins", "/roles", "/sessions", "/settings", "/signup-forms", "/users", "/webhooks",
+    ]
+    const detailCreateOrEditRoutes = [
+      "/apps/create", "/apps/:id", "/devices/:id", "/environments/:id",
+      "/roles/:id", "/sessions/:id", "/settings/:namespace",
+      "/signup-forms/edit", "/users/create", "/users/:id",
+    ]
+    for (const path of listRoutes) {
+      expect(navTargets.has(path), `list route "${path}" has no nav entry`).toBe(true)
+    }
+    for (const path of detailCreateOrEditRoutes) {
+      expect(
+        navTargets.has(path),
+        `route "${path}" should not have a nav entry`,
+      ).toBe(false)
+    }
+  })
+
+  it("orders each nav group's items by priority", () => {
+    const byGroup = new Map<string, number[]>()
+    for (const item of authsomePlugin.nav) {
+      const key = item.group ?? ""
+      const priorities = byGroup.get(key) ?? []
+      priorities.push(item.priority ?? 0)
+      byGroup.set(key, priorities)
+    }
+    for (const [group, priorities] of byGroup) {
+      const sorted = [...priorities].sort((a, b) => a - b)
+      expect(priorities, `nav group "${group}" is not ordered by priority`).toEqual(sorted)
     }
   })
 })
