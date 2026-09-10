@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest"
-import { fireEvent, screen, waitFor } from "@testing-library/react"
-import { ContractError } from "@forge-go/dashboard-plugin"
-import type { ScopedClient } from "@forge-go/dashboard-plugin"
+import { fireEvent, render, screen, waitFor } from "@testing-library/react"
+import { ContractError, NavigationProvider, PluginProvider } from "@forge-go/dashboard-plugin"
+import type { PluginLinkProps, ScopedClient } from "@forge-go/dashboard-plugin"
 import { AuthUsersPage } from "../src/pages/users"
 import type { UserSummary } from "../src/pages/users"
 import {
@@ -11,6 +11,15 @@ import {
   renderPage,
   stubClient,
 } from "./harness"
+
+/** A stand-in for the host's router link, the same shape `packages/plugin/test/link.test.tsx` uses. */
+function RouterLink({ to, children, className, ...rest }: PluginLinkProps) {
+  return (
+    <a data-router="yes" href={to} className={className} {...rest}>
+      {children}
+    </a>
+  )
+}
 
 const START = "2026-09-06T09:00:00.000Z"
 
@@ -137,6 +146,27 @@ describe("AuthUsersPage", () => {
     const busy = screen.getByRole("status")
     expect(busy.getAttribute("aria-busy")).toBe("true")
     expect(busy.getAttribute("aria-label")).toBe("Loading Users")
+  })
+
+  it("navigates through the host's router instead of a full page load", async () => {
+    // Proves the behaviour, not just the markup: a plain `<a href>` is a full
+    // document load in the shell's single-page app - it refetches
+    // capabilities, remounts every plugin and throws away the query store,
+    // all to look at one user. Inside a host that supplies a router link, the
+    // row's "Details" link must render through it rather than as a bare
+    // anchor. A refactor back to `<a>` fails this even though it would still
+    // satisfy an href-only assertion.
+    render(
+      <PluginProvider client={stubClient({ "users.list": { users: [user()], total: 1 } }).client}>
+        <NavigationProvider value={{ Link: RouterLink, navigate: () => {} }}>
+          <AuthUsersPage />
+        </NavigationProvider>
+      </PluginProvider>,
+    )
+
+    const detailsLink = await screen.findByRole("link", { name: "Details" })
+    expect(detailsLink.getAttribute("data-router")).toBe("yes")
+    expect(detailsLink.getAttribute("href")).toBe("/@auth/users/usr_1")
   })
 
   it("shows the contract error code and message when the read fails", async () => {

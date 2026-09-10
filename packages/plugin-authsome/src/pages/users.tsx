@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react"
-import { useCommand, useQuery } from "@forge-go/dashboard-plugin"
+import { PluginLink, useCommand, useQuery } from "@forge-go/dashboard-plugin"
 import { Badge } from "@forge-go/dashboard-kit/components/badge"
 import { Button } from "@forge-go/dashboard-kit/components/button"
 import { ConfirmDialog } from "@forge-go/dashboard-kit/components/confirm-dialog"
@@ -134,7 +134,7 @@ export function AuthUsersPage() {
     <section className="flex flex-col gap-4">
       <PageHeader
         title="Users"
-        actions={<a href="/@auth/users/create" className="underline underline-offset-4">New user</a>}
+        actions={<PluginLink to="/@auth/users/create" className="underline underline-offset-4">New user</PluginLink>}
       />
 
       <FilterBar
@@ -168,12 +168,12 @@ export function AuthUsersPage() {
                 emptyMessage={search ? `No users match “${search}”.` : "No users yet."}
                 rowActions={(user) => (
                   <>
-                    <a
-                      href={`/@auth/users/${user.id}`}
+                    <PluginLink
+                      to={`/@auth/users/${user.id}`}
                       className="text-sm underline underline-offset-4"
                     >
                       Details
-                    </a>
+                    </PluginLink>
                     {user.banned ? (
                       <Button
                         variant="outline"

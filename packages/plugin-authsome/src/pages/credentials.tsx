@@ -73,7 +73,7 @@ export function AuthCredentialsPage() {
                 value: (
                   <span className="flex items-center gap-2">
                     <span className="font-medium">{data.appName}</span>
-                    <Badge variant={data.isPlatform ? "secondary" : "outline"}>
+                    <Badge variant={data.isPlatform ? "outline" : "secondary"}>
                       {data.isPlatform ? "platform" : "app"}
                     </Badge>
                   </span>

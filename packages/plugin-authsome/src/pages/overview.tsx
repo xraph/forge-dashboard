@@ -1,4 +1,4 @@
-import { PluginSlot, useQuery, useSlotCount } from "@forge-go/dashboard-plugin"
+import { PluginLink, PluginSlot, useQuery, useSlotCount } from "@forge-go/dashboard-plugin"
 import { PageHeader } from "@forge-go/dashboard-kit/components/page-header"
 import {
   QueryBoundary,
@@ -75,12 +75,12 @@ export function AuthOverviewPage() {
               caption={`${users.length} shown`}
               emptyMessage="No signups yet."
               rowActions={(user) => (
-                <a
-                  href={`/@auth/users/${user.id}`}
+                <PluginLink
+                  to={`/@auth/users/${user.id}`}
                   className="text-sm underline underline-offset-4"
                 >
                   Details
-                </a>
+                </PluginLink>
               )}
             />
           )

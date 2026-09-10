@@ -1,5 +1,5 @@
 import { useState } from "react"
-import { useCommand, useQuery } from "@forge-go/dashboard-plugin"
+import { PluginLink, useCommand, useQuery } from "@forge-go/dashboard-plugin"
 import { Button } from "@forge-go/dashboard-kit/components/button"
 import { ConfirmDialog } from "@forge-go/dashboard-kit/components/confirm-dialog"
 import { Input } from "@forge-go/dashboard-kit/components/input"
@@ -171,12 +171,12 @@ export function AuthRolesPage() {
               emptyMessage="No roles yet."
               rowActions={(role) => (
                 <>
-                  <a
-                    href={`/@auth/roles/${role.id}`}
+                  <PluginLink
+                    to={`/@auth/roles/${role.id}`}
                     className="text-sm underline underline-offset-4"
                   >
                     Details
-                  </a>
+                  </PluginLink>
                   <Button
                     variant="destructive"
                     size="sm"

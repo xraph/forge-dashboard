@@ -1,4 +1,4 @@
-import { useQuery } from "@forge-go/dashboard-plugin"
+import { PluginLink, useQuery } from "@forge-go/dashboard-plugin"
 import { Badge } from "@forge-go/dashboard-kit/components/badge"
 import { PageHeader } from "@forge-go/dashboard-kit/components/page-header"
 import { QueryBoundary } from "@forge-go/dashboard-kit/components/query-boundary"
@@ -65,9 +65,9 @@ export function AuthSignupFormsPage() {
       <PageHeader
         title="Signup forms"
         actions={
-          <a href="/@auth/signup-forms/edit" className="text-sm underline underline-offset-4">
+          <PluginLink to="/@auth/signup-forms/edit" className="text-sm underline underline-offset-4">
             Edit signup form
-          </a>
+          </PluginLink>
         }
       />
 

@@ -1,5 +1,5 @@
 import { useState } from "react"
-import { useCommand, useQuery } from "@forge-go/dashboard-plugin"
+import { PluginLink, useCommand, useQuery } from "@forge-go/dashboard-plugin"
 import { Badge } from "@forge-go/dashboard-kit/components/badge"
 import { Button } from "@forge-go/dashboard-kit/components/button"
 import { ConfirmDialog } from "@forge-go/dashboard-kit/components/confirm-dialog"
@@ -213,12 +213,12 @@ export function AuthEnvironmentsPage() {
               emptyMessage="No environments yet."
               rowActions={(env) => (
                 <>
-                  <a
-                    href={`/@auth/environments/${env.id}`}
+                  <PluginLink
+                    to={`/@auth/environments/${env.id}`}
                     className="text-sm underline underline-offset-4"
                   >
                     Details
-                  </a>
+                  </PluginLink>
                   {!env.isDefault && (
                     <Button
                       variant="outline"

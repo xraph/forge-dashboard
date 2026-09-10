@@ -1,5 +1,5 @@
 import { useState } from "react"
-import { useCommand, useQuery } from "@forge-go/dashboard-plugin"
+import { PluginLink, useCommand, useQuery } from "@forge-go/dashboard-plugin"
 import { Badge } from "@forge-go/dashboard-kit/components/badge"
 import { Button } from "@forge-go/dashboard-kit/components/button"
 import { ConfirmDialog } from "@forge-go/dashboard-kit/components/confirm-dialog"
@@ -136,12 +136,12 @@ export function AuthDevicesPage() {
               emptyMessage="No devices seen."
               rowActions={(device) => (
                 <>
-                  <a
-                    href={`/@auth/devices/${device.id}`}
+                  <PluginLink
+                    to={`/@auth/devices/${device.id}`}
                     className="text-sm underline underline-offset-4"
                   >
                     Details
-                  </a>
+                  </PluginLink>
                   {!device.trusted && (
                     <Button
                       variant="outline"

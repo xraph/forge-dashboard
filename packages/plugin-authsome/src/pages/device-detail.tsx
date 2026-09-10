@@ -1,5 +1,5 @@
 import { useState } from "react"
-import { useCommand, useQuery } from "@forge-go/dashboard-plugin"
+import { useCommand, useNavigateTo, useQuery } from "@forge-go/dashboard-plugin"
 import type { PluginPageProps } from "@forge-go/dashboard-plugin"
 import { Badge } from "@forge-go/dashboard-kit/components/badge"
 import { Button } from "@forge-go/dashboard-kit/components/button"
@@ -105,13 +105,14 @@ function DeviceDetailBody({ deviceId }: { deviceId: string }) {
   // rendering the device's header, its data and its live action buttons
   // immediately (not waiting on a navigation that a test environment, or a
   // slow browser, cannot be relied on to have completed yet), and leaves the
-  // way any in-app link in this package does: a plain navigation - this
-  // package deliberately carries no client-side router - back to the list.
+  // way a page whose subject just got deleted has to: it has nowhere left to
+  // stay, which is the one case `useNavigateTo` exists for rather than a link.
   const [forgotten, setForgotten] = useState(false)
+  const navigate = useNavigateTo()
 
   function handleForgotten() {
     setForgotten(true)
-    window.location.href = "/@auth/devices"
+    navigate("/@auth/devices")
   }
 
   if (forgotten) {

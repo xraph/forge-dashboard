@@ -1,5 +1,6 @@
 import { useState } from "react"
 import {
+  PluginLink,
   PluginSlot,
   defineSubPlugin,
   useCommand,
@@ -144,12 +145,12 @@ export function OrgListPage() {
       header: "Name",
       className: "font-medium",
       cell: (org) => (
-        <a
-          href={`/@auth/organizations/${org.id}`}
+        <PluginLink
+          to={`/@auth/organizations/${org.id}`}
           className="underline underline-offset-4"
         >
           {org.name}
-        </a>
+        </PluginLink>
       ),
     },
     { id: "slug", header: "Slug", className: "font-mono text-xs", cell: (org) => org.slug },
@@ -161,12 +162,12 @@ export function OrgListPage() {
       <PageHeader
         title="Organizations"
         actions={
-          <a
-            href="/@auth/organizations/create"
+          <PluginLink
+            to="/@auth/organizations/create"
             className="text-sm underline underline-offset-4"
           >
             New organization
-          </a>
+          </PluginLink>
         }
       />
       {/*

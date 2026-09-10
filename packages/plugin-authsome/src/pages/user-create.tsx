@@ -1,5 +1,5 @@
 import { useState } from "react"
-import { useCommand } from "@forge-go/dashboard-plugin"
+import { PluginLink, useCommand } from "@forge-go/dashboard-plugin"
 import { Button } from "@forge-go/dashboard-kit/components/button"
 import { Input } from "@forge-go/dashboard-kit/components/input"
 import { Label } from "@forge-go/dashboard-kit/components/label"
@@ -43,9 +43,9 @@ export function AuthUserCreatePage() {
         <p role="status" className="rounded-md border px-3 py-2 text-sm">
           User created.{" "}
           {created && (
-            <a href={`/@auth/users/${created}`} className="underline underline-offset-4">
+            <PluginLink to={`/@auth/users/${created}`} className="underline underline-offset-4">
               Open it
-            </a>
+            </PluginLink>
           )}
         </p>
       )}

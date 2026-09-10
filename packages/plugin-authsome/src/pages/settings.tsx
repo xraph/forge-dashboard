@@ -1,4 +1,4 @@
-import { PluginSlot, useQuery, useSlotCount } from "@forge-go/dashboard-plugin"
+import { PluginLink, PluginSlot, useQuery, useSlotCount } from "@forge-go/dashboard-plugin"
 import { NoneCell } from "@forge-go/dashboard-kit/components/none-cell"
 import { PageHeader } from "@forge-go/dashboard-kit/components/page-header"
 import { QueryBoundary } from "@forge-go/dashboard-kit/components/query-boundary"
@@ -25,12 +25,12 @@ const columns: Column<NamespaceSummary>[] = [
     id: "namespace",
     header: "Namespace",
     cell: (n) => (
-      <a
-        href={`/@auth/settings/${n.name}`}
+      <PluginLink
+        to={`/@auth/settings/${n.name}`}
         className="font-medium underline underline-offset-4"
       >
         {n.displayName || n.name}
-      </a>
+      </PluginLink>
     ),
   },
   {

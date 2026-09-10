@@ -1,5 +1,5 @@
 import { useState } from "react"
-import { useCommand, useQuery } from "@forge-go/dashboard-plugin"
+import { PluginLink, useCommand, useQuery } from "@forge-go/dashboard-plugin"
 import { Badge } from "@forge-go/dashboard-kit/components/badge"
 import { Button } from "@forge-go/dashboard-kit/components/button"
 import { ConfirmDialog } from "@forge-go/dashboard-kit/components/confirm-dialog"
@@ -72,9 +72,9 @@ export function AuthAppsPage() {
       <PageHeader
         title="Apps"
         actions={
-          <a href="/@auth/apps/create" className="text-sm underline underline-offset-4">
+          <PluginLink to="/@auth/apps/create" className="text-sm underline underline-offset-4">
             New app
-          </a>
+          </PluginLink>
         }
       />
 
@@ -91,12 +91,12 @@ export function AuthAppsPage() {
               emptyMessage="No apps yet."
               rowActions={(app) => (
                 <>
-                  <a
-                    href={`/@auth/apps/${app.id}`}
+                  <PluginLink
+                    to={`/@auth/apps/${app.id}`}
                     className="text-sm underline underline-offset-4"
                   >
                     Details
-                  </a>
+                  </PluginLink>
                   {!app.isPlatform && (
                     <Button
                       variant="destructive"

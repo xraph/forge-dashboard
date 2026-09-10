@@ -27,6 +27,10 @@ describe("AuthCredentialsPage", () => {
     expect(screen.getByText("pk_live_abc123")).toBeTruthy()
     expect(screen.getByRole("button", { name: "Copy publishable key" })).toBeTruthy()
     expect(screen.getByText("app")).toBeTruthy()
+    // Same polarity as `apps.tsx`, `environments.tsx`, `plugins.tsx` and
+    // `users.tsx`: `outline` reads as the true/normal case, `secondary` as
+    // false. A non-platform app is the false case here.
+    expect(screen.getByText("app").className).toContain("bg-secondary")
   })
 
   it("marks the platform app with a badge", async () => {
@@ -36,6 +40,7 @@ describe("AuthCredentialsPage", () => {
     renderPage(AuthCredentialsPage, client)
     await waitFor(() => expect(screen.getByText("Storefront")).toBeTruthy())
     expect(screen.getByText("platform")).toBeTruthy()
+    expect(screen.getByText("platform").className).toContain("border-border")
   })
 
   it("shows a dash rather than a blank when there is no environment or key on file", async () => {

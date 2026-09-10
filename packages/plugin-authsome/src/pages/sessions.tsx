@@ -1,5 +1,5 @@
 import { useState } from "react"
-import { useCommand, useQuery } from "@forge-go/dashboard-plugin"
+import { PluginLink, useCommand, useQuery } from "@forge-go/dashboard-plugin"
 import { Button } from "@forge-go/dashboard-kit/components/button"
 import { ConfirmDialog } from "@forge-go/dashboard-kit/components/confirm-dialog"
 import { FilterBar } from "@forge-go/dashboard-kit/components/filter-bar"
@@ -156,12 +156,12 @@ export function AuthSessionsPage() {
               emptyMessage="No active sessions."
               rowActions={(session) => (
                 <>
-                  <a
-                    href={`/@auth/sessions/${session.id}`}
+                  <PluginLink
+                    to={`/@auth/sessions/${session.id}`}
                     className="text-sm underline underline-offset-4"
                   >
                     Details
-                  </a>
+                  </PluginLink>
                   <Button
                     variant="destructive"
                     size="sm"
