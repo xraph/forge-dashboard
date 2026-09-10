@@ -167,8 +167,27 @@ export interface SlotContribution {
   /**
    * Receives the slot's params: `{ userId }` for user.detail.sections,
    * `{ orgId }` for the org slots, nothing for the rest.
+   *
+   * Typed loosely on purpose, and this is the one place in the platform that
+   * is. `PluginSlot` spreads params a contribution declares for itself, so a
+   * contribution reading `{ orgId }` and one reading nothing at all are both
+   * correct and neither is assignable to the other: React's props are
+   * contravariant, so `ComponentType<{ orgId?: string }>` does not accept
+   * `Record<string, unknown>`.
+   *
+   * The strict version was `ComponentType<Record<string, unknown>>` and it
+   * bought nothing. Every real contribution carried
+   * `as unknown as ComponentType<Record<string, unknown>>` at its declaration
+   * site, which is a cast that asserts exactly what the loose type says while
+   * also silencing anything genuinely wrong. Twenty-four sub-plugins were on
+   * course to each carry one.
+   *
+   * A contribution still gets its params typed where it matters, in its own
+   * signature. What is untyped is the boundary, which is honest: the platform
+   * genuinely does not know what a given slot hands a given contribution.
    */
-  render: ComponentType<Record<string, unknown>>
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  render: ComponentType<any>
 }
 
 export interface ForgeSubPlugin {
