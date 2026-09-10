@@ -16,11 +16,11 @@ export type {
   SocialProvider,
 } from "./pages/login"
 export type {
-  BanResult,
-  UserRecord,
+  AckResponse,
   UserSummary,
   UsersList,
 } from "./pages/users"
+export { displayName } from "./pages/users"
 export type {
   RevokeResult,
   SessionSummary,
