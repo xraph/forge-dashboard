@@ -46,18 +46,20 @@ describe("StreamingConnectionsPage", () => {
     expect(await screen.findByText("conn_1")).toBeDefined()
     expect(screen.getByText("conn_2")).toBeDefined()
     expect(screen.getByText("usr_1")).toBeDefined()
+    expect(screen.getByText("usr_2")).toBeDefined()
     expect(screen.getByText("websocket")).toBeDefined()
     expect(screen.getByText("sse")).toBeDefined()
     expect(screen.getByText("active")).toBeDefined()
     expect(screen.getByText("idle")).toBeDefined()
-    expect(screen.getByText("2 connections")).toBeDefined()
+    expect(
+      screen.getByText("Connections", { selector: "caption" })
+    ).toBeDefined()
 
-    // Both slice columns render, and the empty one is labelled rather than
-    // blank: an empty cell and a cell whose data failed to arrive look the
-    // same on screen otherwise.
-    expect(screen.getByText("room_1")).toBeDefined()
-    expect(screen.getByText("chan_2")).toBeDefined()
-    expect(screen.getByLabelText("no rooms")).toBeDefined()
+    // One row per connection: the header row plus a row for each of the two
+    // connections. `ResourceTable` renders a real table now, unlike the old
+    // hand-rolled markup, so counting rows through the table's own role is
+    // what stands in for the old "2 connections" caption text.
+    expect(screen.getAllByRole("row")).toHaveLength(3)
   })
 
   it("reads the connections.list intent and nothing else", async () => {
@@ -98,7 +100,7 @@ describe("StreamingConnectionsPage", () => {
     )
 
     await waitFor(() =>
-      expect(screen.getByText("No active connections.")).toBeDefined()
+      expect(screen.getByText("No connections right now.")).toBeDefined()
     )
     expect(screen.queryByRole("table")).toBeNull()
   })

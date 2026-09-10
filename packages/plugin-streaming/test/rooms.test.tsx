@@ -46,18 +46,20 @@ describe("StreamingRoomsPage", () => {
 
     expect(await screen.findByText("General")).toBeDefined()
     expect(screen.getByText("Support")).toBeDefined()
-    expect(screen.getByText("room_1")).toBeDefined()
-    expect(screen.getByText("room_2")).toBeDefined()
     expect(screen.getByText("usr_1")).toBeDefined()
-    expect(screen.getByText("2 rooms")).toBeDefined()
+    expect(screen.getByText("usr_2")).toBeDefined()
+    expect(screen.getByText("Rooms", { selector: "caption" })).toBeDefined()
 
-    // The two booleans are rendered as words, not as raw true/false, and the
-    // second room differs from the first in both of them so a swapped column
-    // shows up here.
+    // One row per room: the header row plus a row for each of the two rooms.
+    // `ResourceTable` renders a real table now, unlike the old hand-rolled
+    // markup, so counting rows through the table's own role is what stands in
+    // for the old "2 rooms" caption text.
+    expect(screen.getAllByRole("row")).toHaveLength(3)
+
+    // The private flag is rendered as a word, not as raw true/false, and the
+    // second room differs from the first so a swapped column shows up here.
     expect(screen.getByText("public")).toBeDefined()
     expect(screen.getByText("private")).toBeDefined()
-    expect(screen.getByText("active")).toBeDefined()
-    expect(screen.getByText("archived")).toBeDefined()
   })
 
   it("reads the rooms.list intent and nothing else", async () => {

@@ -28,22 +28,48 @@ beforeEach(() => {
  * empty page. That was checked by breaking it and watching the run go red, not
  * assumed.
  */
-export function stubClient(answers: Record<string, unknown>): ScopedClient {
+export function stubClient(
+  answers: Record<string, unknown>,
+  commands: Record<string, unknown> = {},
+): ScopedClient {
   return {
     extension: "streaming-contract",
     query: async (intent: string) => {
       if (!(intent in answers)) {
-        throw new ContractError(
-          "NOT_FOUND",
-          `no handler for intent "${intent}"`
-        )
+        throw new ContractError("NOT_FOUND", `no handler for intent "${intent}"`)
       }
       return answers[intent]
     },
-    command: async () => {
-      throw new Error("the streaming plugin is read-only and sends no commands")
+    // Same refusal as `query`, for the same reason: a command this map does not
+    // hold is a typo in an intent name, and it should turn red rather than
+    // resolve to undefined and look like a success.
+    command: async (intent: string) => {
+      if (!(intent in commands)) {
+        throw new ContractError("NOT_FOUND", `no handler for command "${intent}"`)
+      }
+      return commands[intent]
     },
   } as ScopedClient
+}
+
+/** Records every command a page sends, with its payload, in order. */
+export function recordingCommandClient(
+  answers: Record<string, unknown>,
+  commands: Record<string, unknown> = {},
+): { client: ScopedClient; sent: { intent: string; payload: unknown }[] } {
+  const sent: { intent: string; payload: unknown }[] = []
+  const inner = stubClient(answers, commands)
+  return {
+    sent,
+    client: {
+      extension: inner.extension,
+      query: inner.query,
+      command: (intent: string, payload?: unknown) => {
+        sent.push({ intent, payload })
+        return inner.command(intent, payload)
+      },
+    } as ScopedClient,
+  }
 }
 
 /** A client whose every read fails, for exercising the error branch. */

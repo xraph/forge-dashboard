@@ -1,11 +1,7 @@
 import { useQuery } from "@forge-go/dashboard-plugin"
-import {
-  Card,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@forge-go/dashboard-kit/components/card"
-import { QueryView } from "../components/query-view"
+import { PageHeader } from "@forge-go/dashboard-kit/components/page-header"
+import { StatGrid } from "@forge-go/dashboard-kit/components/stat-grid"
+import { QueryBoundary } from "@forge-go/dashboard-kit/components/query-boundary"
 
 /**
  * The `stats` query's wire shape, from `StatsResponse` in
@@ -21,17 +17,6 @@ export interface StreamingStats {
   messagesPerSec: number
   uptimeSeconds: number
   memoryBytes: number
-}
-
-function Stat({ label, value }: { label: string; value: string | number }) {
-  return (
-    <Card size="sm">
-      <CardHeader>
-        <CardDescription>{label}</CardDescription>
-        <CardTitle className="text-2xl tabular-nums">{value}</CardTitle>
-      </CardHeader>
-    </Card>
-  )
 }
 
 export function formatUptime(seconds: number): string {
@@ -60,21 +45,23 @@ export function StreamingOverviewPage() {
 
   return (
     <section className="flex flex-col gap-4">
-      <h1 className="text-lg font-medium">Streaming</h1>
-      <QueryView title="Streaming stats" query={query} skeletonRows={2}>
+      <PageHeader title="Streaming" description="Live connection and room counts for this node." />
+      <QueryBoundary title="Streaming stats" query={query} skeletonRows={2}>
         {(stats) => (
-          <div className="grid grid-cols-1 gap-4 @xl/main:grid-cols-2 @5xl/main:grid-cols-4">
-            <Stat label="Connections" value={stats.totalConnections} />
-            <Stat label="Rooms" value={stats.totalRooms} />
-            <Stat label="Channels" value={stats.totalChannels} />
-            <Stat label="Online users" value={stats.onlineUsers} />
-            <Stat label="Messages" value={stats.totalMessages} />
-            <Stat label="Messages / sec" value={stats.messagesPerSec} />
-            <Stat label="Uptime" value={formatUptime(stats.uptimeSeconds)} />
-            <Stat label="Memory" value={formatBytes(stats.memoryBytes)} />
-          </div>
+          <StatGrid
+            items={[
+              { label: "Connections", value: stats.totalConnections },
+              { label: "Rooms", value: stats.totalRooms },
+              { label: "Channels", value: stats.totalChannels },
+              { label: "Online users", value: stats.onlineUsers },
+              { label: "Messages", value: stats.totalMessages },
+              { label: "Messages / sec", value: stats.messagesPerSec },
+              { label: "Uptime", value: formatUptime(stats.uptimeSeconds) },
+              { label: "Memory", value: formatBytes(stats.memoryBytes) },
+            ]}
+          />
         )}
-      </QueryView>
+      </QueryBoundary>
     </section>
   )
 }
