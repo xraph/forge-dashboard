@@ -7,12 +7,24 @@ import {
 } from "@forge-go/dashboard-kit/icons"
 import { StreamingConnectionsPage } from "./pages/connections"
 import { StreamingOverviewPage } from "./pages/overview"
+import { StreamingRoomDetailPage } from "./pages/room-detail"
 import { StreamingRoomsPage } from "./pages/rooms"
 
 export type { StreamingStats } from "./pages/overview"
 export type { RoomInfo, RoomsList } from "./pages/rooms"
+export type {
+  MemberInfo,
+  MembersList,
+  ModerationEntry,
+  ModerationLog,
+} from "./pages/room-detail"
 export type { ConnectionInfo, ConnectionsList } from "./pages/connections"
-export { StreamingConnectionsPage, StreamingOverviewPage, StreamingRoomsPage }
+export {
+  StreamingConnectionsPage,
+  StreamingOverviewPage,
+  StreamingRoomDetailPage,
+  StreamingRoomsPage,
+}
 
 /**
  * The first-party UI for the `streaming` extension.
@@ -54,6 +66,7 @@ export const streamingPlugin = definePlugin({
   routes: [
     { path: "/", element: StreamingOverviewPage },
     { path: "/rooms", element: StreamingRoomsPage },
+    { path: "/rooms/:id", element: StreamingRoomDetailPage },
     { path: "/connections", element: StreamingConnectionsPage },
   ],
 })
