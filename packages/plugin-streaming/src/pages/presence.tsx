@@ -1,4 +1,5 @@
 import { useCommand, useQuery } from "@forge-go/dashboard-plugin"
+import { usePoll } from "../use-poll"
 import { PageHeader } from "@forge-go/dashboard-kit/components/page-header"
 import {
   CommandAlert,
@@ -27,6 +28,14 @@ const STATUSES = ["online", "away", "busy", "offline"]
 
 export function StreamingPresencePage() {
   const query = useQuery<PresenceList>("presence.list")
+  // Polling, not reacting to a write: `presence.set` already invalidates
+  // this intent through `meta.invalidates`, so this refetch exists only to
+  // pick up status changes nobody on this page caused. The select below is
+  // bound to the server's own value and disabled while a write is pending,
+  // so a poll landing mid-command cannot yank a value out from under an
+  // operator who is mid-edit - there is no local edit state for it to
+  // clobber, and the row it repaints is exactly the row it always renders.
+  usePoll(query.refetch)
   const setPresence = useCommand<CommandResult>("presence.set")
 
   const columns: Column<PresenceInfo>[] = [

@@ -1,5 +1,6 @@
 import { useState } from "react"
 import { useCommand, useQuery } from "@forge-go/dashboard-plugin"
+import { usePoll } from "../use-poll"
 import { Badge } from "@forge-go/dashboard-kit/components/badge"
 import { Button } from "@forge-go/dashboard-kit/components/button"
 import { ConfirmDialog } from "@forge-go/dashboard-kit/components/confirm-dialog"
@@ -108,6 +109,10 @@ const columns: Column<ConnectionInfo>[] = [
 
 export function StreamingConnectionsPage() {
   const query = useQuery<ConnectionsList>("connections.list")
+  // Polling, not reacting to a write: `connections.kick` already invalidates
+  // this intent through `meta.invalidates`, so this refetch exists only to
+  // catch connections opening and closing on their own between commands.
+  usePoll(query.refetch)
   const [pendingKick, setPendingKick] = useState<ConnectionInfo | null>(null)
   const [reason, setReason] = useState("")
   const kick = useCommand<CommandResult>("connections.kick")

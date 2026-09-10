@@ -1,4 +1,5 @@
 import { useQuery } from "@forge-go/dashboard-plugin"
+import { usePoll } from "../use-poll"
 import { PageHeader } from "@forge-go/dashboard-kit/components/page-header"
 import { StatGrid } from "@forge-go/dashboard-kit/components/stat-grid"
 import { QueryBoundary } from "@forge-go/dashboard-kit/components/query-boundary"
@@ -76,6 +77,11 @@ const presenceColumns: Column<PresenceInfo>[] = [
 
 function OnlineUsers() {
   const query = useQuery<PresenceList>("presence.list")
+  // Polling, not reacting to a write: presence changes continuously as
+  // people connect and disconnect, so this is the one legitimate use of
+  // `refetch` rather than a sign that an invalidation is being worked
+  // around.
+  usePoll(query.refetch)
   return (
     <QueryBoundary title="Online users" query={query} skeletonRows={3}>
       {(data) => (
@@ -93,6 +99,9 @@ function OnlineUsers() {
 
 export function StreamingOverviewPage() {
   const query = useQuery<StreamingStats>("stats")
+  // Polling, not reacting to a write: the stats intent has no command that
+  // invalidates it, so a live number here depends entirely on this refetch.
+  usePoll(query.refetch)
 
   return (
     <section className="flex flex-col gap-4">
