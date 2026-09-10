@@ -24,6 +24,16 @@ export interface ConfirmDialogProps {
   destructive?: boolean
   /** The command is in flight. Disables confirm and swaps its label. */
   pending?: boolean
+  /**
+   * The dialog collects something and does not have it yet.
+   *
+   * Separate from `pending` because they are different states and read
+   * differently: `pending` means "working on it" and swaps the label, this
+   * means "not yet" and leaves the label alone. A dialog that asks for a
+   * reason and cannot express "no reason yet" has to either block on nothing
+   * or send an empty one, and both are worse than a button that waits.
+   */
+  confirmDisabled?: boolean
   onConfirm: () => void
   className?: string
 }
@@ -38,6 +48,9 @@ export interface ConfirmDialogProps {
  * The confirm button stays enabled after `onConfirm` fires unless the caller
  * sets `pending`, because this block cannot know whether the command it
  * triggered is asynchronous.
+ *
+ * Cancel is disabled while `pending` and stays enabled while `confirmDisabled`.
+ * An operator who cannot yet confirm must always still be able to back out.
  */
 export function ConfirmDialog({
   open,
@@ -48,6 +61,7 @@ export function ConfirmDialog({
   cancelLabel = "Cancel",
   destructive = true,
   pending = false,
+  confirmDisabled = false,
   onConfirm,
   className,
 }: ConfirmDialogProps) {
@@ -64,7 +78,7 @@ export function ConfirmDialog({
           <AlertDialogCancel disabled={pending}>{cancelLabel}</AlertDialogCancel>
           <AlertDialogAction
             variant={destructive ? "destructive" : "default"}
-            disabled={pending}
+            disabled={pending || confirmDisabled}
             onClick={onConfirm}
           >
             {pending ? "Working…" : confirmLabel}

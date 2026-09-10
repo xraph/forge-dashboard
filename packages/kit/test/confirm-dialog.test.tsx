@@ -58,4 +58,25 @@ describe("ConfirmDialog", () => {
     const confirm = screen.getByRole("button", { name: "Working…" })
     expect((confirm as HTMLButtonElement).disabled).toBe(true)
   })
+
+  it("disables confirm without claiming to be working when the caller is not ready", () => {
+    render(
+      <ConfirmDialog
+        open
+        onOpenChange={() => {}}
+        title="Kick this connection?"
+        confirmLabel="Kick"
+        confirmDisabled
+        onConfirm={() => {}}
+      />,
+    )
+    // Label unchanged: this is "not yet", not "working on it", and swapping
+    // the label would tell the operator something false about what is
+    // happening.
+    const confirm = screen.getByRole("button", { name: "Kick" })
+    expect((confirm as HTMLButtonElement).disabled).toBe(true)
+    // Cancel stays available. Somebody who cannot confirm must still be able
+    // to back out.
+    expect((screen.getByRole("button", { name: "Cancel" }) as HTMLButtonElement).disabled).toBe(false)
+  })
 })
