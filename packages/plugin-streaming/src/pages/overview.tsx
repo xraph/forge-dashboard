@@ -84,15 +84,25 @@ function OnlineUsers() {
   usePoll(query.refetch)
   return (
     <QueryBoundary title="Online users" query={query} skeletonRows={3}>
-      {(data) => (
-        <ResourceTable<PresenceInfo>
-          columns={presenceColumns}
-          rows={data.presence ?? []}
-          rowKey={(p) => p.userID}
-          caption="Online users"
-          emptyMessage="Nobody is online."
-        />
-      )}
+      {(data) => {
+        const presence = data.presence ?? []
+        return (
+          <ResourceTable<PresenceInfo>
+            columns={presenceColumns}
+            rows={presence}
+            rowKey={(p) => p.userID}
+            // A live count, not a static title: this table's row count moves
+            // on its own as people connect and disconnect, the same
+            // convention every other table in this package follows.
+            caption={
+              presence.length === 0
+                ? undefined
+                : `${presence.length} ${presence.length === 1 ? "person" : "people"} online`
+            }
+            emptyMessage="Nobody is online."
+          />
+        )
+      }}
     </QueryBoundary>
   )
 }

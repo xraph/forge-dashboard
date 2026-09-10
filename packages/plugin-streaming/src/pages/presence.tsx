@@ -13,6 +13,7 @@ import {
   NativeSelect,
   NativeSelectOption,
 } from "@forge-go/dashboard-kit/components/native-select"
+import { NoneCell } from "@forge-go/dashboard-kit/components/none-cell"
 import { formatTimestamp } from "@forge-go/dashboard-kit/lib/format"
 import type { PresenceInfo, PresenceList } from "./overview"
 import type { CommandResult } from "./rooms"
@@ -77,7 +78,7 @@ export function StreamingPresencePage() {
     {
       id: "customStatus",
       header: "Custom",
-      cell: (p) => p.customStatus || "–",
+      cell: (p) => p.customStatus || <NoneCell label="custom status" />,
     },
     { id: "rooms", header: "Rooms", cell: (p) => (p.rooms ?? []).length, align: "end" },
     { id: "lastSeen", header: "Last seen", cell: (p) => formatTimestamp(p.lastSeen) },

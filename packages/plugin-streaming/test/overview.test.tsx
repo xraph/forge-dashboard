@@ -106,6 +106,9 @@ describe("StreamingOverviewPage presence", () => {
     expect(screen.getByText("grace")).toBeTruthy()
     // A custom status is the operator-supplied part and must survive.
     expect(screen.getByText("lunch")).toBeTruthy()
+    // The caption carries a live row count, not the static "Online users"
+    // title this table used to render regardless of how many rows it had.
+    expect(screen.getByText("2 people online", { selector: "caption" })).toBeTruthy()
   })
 
   it("says so when nobody is online rather than rendering an empty table", async () => {

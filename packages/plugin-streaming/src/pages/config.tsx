@@ -6,6 +6,7 @@ import {
   type DescriptionItem,
 } from "@forge-go/dashboard-kit/components/detail-layout"
 import { EmptyState } from "@forge-go/dashboard-kit/components/empty-state"
+import { NoneCell } from "@forge-go/dashboard-kit/components/none-cell"
 
 /** From `ConfigSummary` in types.go. The three maps are deliberately open. */
 export interface ConfigSummary {
@@ -15,19 +16,6 @@ export interface ConfigSummary {
   features: Record<string, unknown>
   limits: Record<string, unknown>
   timeouts: Record<string, unknown>
-}
-
-/**
- * A dash standing in for a field the server did not send, carrying its own
- * `aria-label` rather than nothing at all: a screen reader hitting a bare "–"
- * announces punctuation, not the fact that the value is unset.
- */
-function Unset({ label }: { label: string }) {
-  return (
-    <span aria-label={label} className="text-muted-foreground">
-      –
-    </span>
-  )
 }
 
 /**
@@ -81,7 +69,7 @@ export function StreamingConfigPage() {
               items={[
                 {
                   term: "Backend",
-                  value: config.backendType || <Unset label="No backend type reported" />,
+                  value: config.backendType || <NoneCell label="backend type" />,
                 },
                 { term: "Distributed", value: config.distributed ? "yes" : "no" },
                 {
@@ -89,7 +77,7 @@ export function StreamingConfigPage() {
                   value: config.nodeID ? (
                     <span className="font-mono text-xs">{config.nodeID}</span>
                   ) : (
-                    <Unset label="No node ID reported" />
+                    <NoneCell label="node ID" />
                   ),
                 },
               ]}

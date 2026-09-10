@@ -15,6 +15,7 @@ import {
   ResourceTable,
   type Column,
 } from "@forge-go/dashboard-kit/components/resource-table"
+import { TagList } from "@forge-go/dashboard-kit/components/tag-list"
 import { formatTimestamp } from "@forge-go/dashboard-kit/lib/format"
 import type { CommandResult } from "./rooms"
 
@@ -44,28 +45,6 @@ function statusVariant(status: string): "default" | "secondary" | "outline" {
   return "outline"
 }
 
-/** Renders a string slice as badges, or an em-less dash when it is empty. */
-function IdList({ values, label }: { values: string[]; label: string }) {
-  if (values.length === 0) {
-    // An empty cell reads as "loading" or "broken". The dash says "none",
-    // and the label says it to a screen reader too.
-    return (
-      <span aria-label={`no ${label}`} className="text-muted-foreground">
-        –
-      </span>
-    )
-  }
-  return (
-    <span className="flex flex-wrap gap-1">
-      {values.map((value) => (
-        <Badge key={value} variant="outline" className="font-mono text-xs">
-          {value}
-        </Badge>
-      ))}
-    </span>
-  )
-}
-
 const columns: Column<ConnectionInfo>[] = [
   {
     id: "userID",
@@ -91,13 +70,13 @@ const columns: Column<ConnectionInfo>[] = [
   {
     id: "rooms",
     header: "Rooms",
-    cell: (c) => <IdList values={c.joinedRooms ?? []} label="rooms" />,
+    cell: (c) => <TagList values={c.joinedRooms ?? []} label="rooms" />,
   },
   {
     id: "subscriptions",
     header: "Subscriptions",
     cell: (c) => (
-      <IdList values={c.subscriptions ?? []} label="subscriptions" />
+      <TagList values={c.subscriptions ?? []} label="subscriptions" />
     ),
   },
   {

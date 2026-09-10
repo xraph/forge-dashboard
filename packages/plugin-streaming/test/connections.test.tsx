@@ -66,6 +66,9 @@ describe("StreamingConnectionsPage", () => {
     // instead of a blank cell.
     expect(screen.getByText("room_1")).toBeDefined()
     expect(screen.getByLabelText("no rooms")).toBeDefined()
+    // Rendered through kit's `TagList`, not a hand-rolled duplicate: an id
+    // badge carries the package's monospace vocabulary for identifiers.
+    expect(screen.getByText("room_1").className).toContain("font-mono")
 
     // The subscriptions are shown as their own channel ids too, symmetric with
     // the rooms column: conn_1 is subscribed to chan_1; conn_2 is subscribed

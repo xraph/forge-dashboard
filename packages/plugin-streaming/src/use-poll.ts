@@ -25,10 +25,21 @@ const DEFAULT_INTERVAL_MS = 10_000
  * it ever fired, so a page that re-renders faster than its interval would
  * never poll at all. The ref keeps one timer and always calls the latest
  * function.
+ *
+ * Writing `latest.current` from a separate effect, not inline in the render
+ * body: a ref written during render is a render impurity even though nothing
+ * here reads it before commit, and `react-hooks/refs` correctly refuses to
+ * take that on faith. Every render still schedules exactly one of these (no
+ * dependency array), and it runs before the interval or the visibility
+ * handler ever fires, so `latest.current` is never stale by the time
+ * anything reads it.
  */
 export function usePoll(refetch: () => void, intervalMs: number = DEFAULT_INTERVAL_MS): void {
   const latest = useRef(refetch)
-  latest.current = refetch
+
+  useEffect(() => {
+    latest.current = refetch
+  })
 
   useEffect(() => {
     let timer: ReturnType<typeof setInterval> | undefined

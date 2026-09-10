@@ -56,9 +56,12 @@ describe("StreamingConfigPage", () => {
       StreamingConfigPage,
       stubClient({ config: { ...config, backendType: undefined, nodeID: undefined } }),
     )
+    // Kit's `NoneCell` builds the accessible label as "no <label>", the same
+    // convention every other page in this package uses, rather than a
+    // hand-rolled sentence of this page's own invention.
     await waitFor(() =>
-      expect(screen.getAllByLabelText("No backend type reported").length).toBeGreaterThan(0),
+      expect(screen.getAllByLabelText("no backend type").length).toBeGreaterThan(0),
     )
-    expect(screen.getAllByLabelText("No node ID reported").length).toBeGreaterThan(0)
+    expect(screen.getAllByLabelText("no node ID").length).toBeGreaterThan(0)
   })
 })

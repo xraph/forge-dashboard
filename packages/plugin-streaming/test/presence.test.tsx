@@ -16,6 +16,9 @@ describe("StreamingPresencePage", () => {
     renderPage(StreamingPresencePage, stubClient(answers))
     await waitFor(() => expect(screen.getByText("ada")).toBeTruthy())
     expect(screen.getByText("online")).toBeTruthy()
+    // ada has no custom status. That cell must say so rather than render a
+    // bare dash: a blank cell reads as "still loading", not "there is none".
+    expect(screen.getByLabelText("no custom status")).toBeTruthy()
   })
 
   it("sends presence.set with the user and the chosen status", async () => {
