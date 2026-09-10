@@ -2033,6 +2033,19 @@ describe("OrgCountWidget", () => {
 Add `OrgCountWidget` to the organization sub-plugin's `overview.widgets`
 contributions with `priority: 10`.
 
+- [ ] **Step 1b: Delete the slot-contribution casts**
+
+Several sub-plugins carry `as unknown as ComponentType<Record<string, unknown>>`
+at a `contributions` declaration, because `SlotContribution.render` used to be
+typed strictly enough that no real contribution satisfied it. It is
+`ComponentType<any>` now, deliberately and with the reasoning written at its
+definition in `packages/plugin/src/types.ts`, so every one of those casts is
+dead weight that also silences anything genuinely wrong.
+
+Remove them all and confirm `tsc --noEmit` still passes. They are in
+`settings-only.tsx`, `password.tsx` and `subscription.tsx` at least; grep for
+`as unknown as ComponentType` and get the rest.
+
 - [ ] **Step 2: Write the barrel**
 
 ```ts
