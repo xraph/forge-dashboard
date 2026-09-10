@@ -1,264 +1,246 @@
 import { useState } from "react"
 import { useCommand, useQuery } from "@forge-go/dashboard-plugin"
 import { Badge } from "@forge-go/dashboard-kit/components/badge"
-import { buttonVariants } from "@forge-go/dashboard-kit/components/button"
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@forge-go/dashboard-kit/components/card"
+import { Button } from "@forge-go/dashboard-kit/components/button"
+import { ConfirmDialog } from "@forge-go/dashboard-kit/components/confirm-dialog"
+import { FilterBar } from "@forge-go/dashboard-kit/components/filter-bar"
+import { Input } from "@forge-go/dashboard-kit/components/input"
+import { Label } from "@forge-go/dashboard-kit/components/label"
 import { PageHeader } from "@forge-go/dashboard-kit/components/page-header"
 import {
   CommandAlert,
   QueryBoundary,
 } from "@forge-go/dashboard-kit/components/query-boundary"
-import { ResourceTable } from "@forge-go/dashboard-kit/components/resource-table"
-import type { Column } from "@forge-go/dashboard-kit/components/resource-table"
+import {
+  ResourceTable,
+  type Column,
+} from "@forge-go/dashboard-kit/components/resource-table"
 import { formatTimestamp } from "@forge-go/dashboard-kit/lib/format"
+import { CursorPager, useCursorStack } from "../components/cursor-pager"
 
-/** One row of `users.list`. */
 export interface UserSummary {
   id: string
   email: string
   emailVerified: boolean
-  firstName: string
-  lastName: string
-  username: string
+  firstName?: string
+  lastName?: string
+  username?: string
   banned: boolean
   createdAt: string
 }
 
 export interface UsersList {
   users: UserSummary[]
-  total: number
+  nextCursor?: string
+  total?: number
 }
 
-/**
- * What `users.detail` answers: the summary plus the fields the list omits.
- *
- * The extras are optional because the list row and the detail record are two
- * different projections of one user in authsome, and only the summary's
- * fields are guaranteed by both. A detail response missing `banReason` should
- * render a user, not a blank pane.
- */
-export interface UserRecord extends UserSummary {
-  displayName?: string
-  phone?: string
-  phoneVerified?: boolean
-  banReason?: string
-  banExpiresAt?: string
-  updatedAt?: string
-}
-
-/** What `users.ban` and `users.unban` answer. */
-export interface BanResult {
+/** The canonical reply for every mutating command in this contract. */
+export interface AckResponse {
   ok: boolean
-  id: string
+  id?: string
 }
 
-function BannedBadge({ banned }: { banned: boolean }) {
+export function displayName(user: UserSummary): string {
   return (
-    <Badge variant={banned ? "destructive" : "outline"}>
-      {banned ? "banned" : "active"}
-    </Badge>
-  )
-}
-
-/**
- * The detail read for one selected user.
- *
- * A child component, and not a second `useQuery` in the page, because
- * `useQuery` fires on mount and there is no id to read until somebody picks a
- * row. Hooks cannot be called conditionally; mounting the component that owns
- * the hook can be. With nobody selected this never renders, so `users.detail`
- * is never called with an undefined id.
- */
-function UserDetail({ id }: { id: string }) {
-  const detail = useQuery<UserRecord>("users.detail", { id })
-
-  return (
-    <Card size="sm">
-      <CardHeader>
-        <CardTitle>User detail</CardTitle>
-        <CardDescription className="font-mono">{id}</CardDescription>
-      </CardHeader>
-      <CardContent>
-        <QueryBoundary title="User detail" query={detail} skeletonRows={2}>
-          {(user) => (
-            <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1 text-sm">
-              <dt className="text-muted-foreground">Name</dt>
-              <dd>
-                {user.displayName ||
-                  [user.firstName, user.lastName].filter(Boolean).join(" ") ||
-                  user.username}
-              </dd>
-              <dt className="text-muted-foreground">Email</dt>
-              <dd>{user.email}</dd>
-              <dt className="text-muted-foreground">Status</dt>
-              <dd>
-                <BannedBadge banned={user.banned} />
-              </dd>
-              <dt className="text-muted-foreground">Ban reason</dt>
-              <dd>{user.banReason || "–"}</dd>
-              <dt className="text-muted-foreground">Updated</dt>
-              <dd>{formatTimestamp(user.updatedAt ?? "")}</dd>
-            </dl>
-          )}
-        </QueryBoundary>
-      </CardContent>
-    </Card>
+    [user.firstName, user.lastName].filter(Boolean).join(" ") ||
+    user.username ||
+    user.email
   )
 }
 
 export function AuthUsersPage() {
-  const list = useQuery<UsersList>("users.list")
-  const ban = useCommand<BanResult>("users.ban")
-  const unban = useCommand<BanResult>("users.unban")
+  const [search, setSearch] = useState("")
+  const page = useCursorStack()
+  const [banning, setBanning] = useState<UserSummary | null>(null)
+  const [banReason, setBanReason] = useState("")
+  const [banExpiry, setBanExpiry] = useState("")
+  const [deleting, setDeleting] = useState<UserSummary | null>(null)
 
-  const [selected, setSelected] = useState<string | null>(null)
-  /**
-   * Bumped on every successful ban or unban, and used as the detail card's
-   * `key`.
-   *
-   * The manifest says `users.ban` and `users.unban` invalidate both
-   * `users.list` and `users.detail`, and `useQuery` is not a cache: it has one
-   * invalidation primitive, `refetch`, and it fires on mount. The list is
-   * refetched directly because this component holds its query state.
-   * `users.detail` belongs to a child, so remounting the child is how its read
-   * is reissued - the same effect, without threading a callback ref up out of
-   * a component whose whole job is to own that one read.
-   */
-  const [invalidations, setInvalidations] = useState(0)
-  /**
-   * Which row is mid-command. `ban.loading` is a page-wide flag, so spinning
-   * every row's button on it would say three users are being banned when one
-   * is.
-   */
-  const [pendingId, setPendingId] = useState<string | null>(null)
+  // `email` and `cursor` are left undefined rather than sent empty. The store
+  // keys an undefined value the same as an absent one, and the server reads an
+  // empty cursor as "start again", so this is both correct and free.
+  const list = useQuery<UsersList>("users.list", {
+    email: search || undefined,
+    cursor: page.cursor,
+  })
 
-  async function toggleBan(user: UserSummary) {
-    const command = user.banned ? unban : ban
-    setPendingId(user.id)
-    const result = await command.execute({ id: user.id })
-    setPendingId(null)
+  const ban = useCommand<AckResponse>("users.ban")
+  const unban = useCommand<AckResponse>("users.unban")
+  const remove = useCommand<AckResponse>("users.delete")
 
-    // `execute` resolves with `undefined` on failure and never rejects, so
-    // this is the success check. A failed ban must not refetch: the list has
-    // not changed, and refetching anyway would make this page look like it
-    // invalidates correctly even after the invalidation was deleted.
+  function searchFor(value: string) {
+    setSearch(value)
+    // A cursor points into the previous result set. Carrying it across a new
+    // search returns page two of the old answer.
+    page.reset()
+  }
+
+  async function confirmBan() {
+    if (!banning) return
+    const result = await ban.execute({
+      id: banning.id,
+      reason: banReason,
+      // Empty means indefinite in this contract, and an omitted key says that
+      // more clearly than an empty string does.
+      expiresAt: banExpiry ? new Date(banExpiry).toISOString() : undefined,
+    })
     if (result === undefined) return
+    setBanning(null)
+    setBanReason("")
+    setBanExpiry("")
+  }
 
-    list.refetch()
-    setInvalidations((n) => n + 1)
+  async function confirmDelete() {
+    if (!deleting) return
+    const result = await remove.execute({ id: deleting.id })
+    if (result !== undefined) setDeleting(null)
   }
 
   const columns: Column<UserSummary>[] = [
+    { id: "email", header: "Email", cell: (u) => u.email },
+    { id: "name", header: "Name", cell: (u) => displayName(u) },
     {
-      id: "email",
-      header: "Email",
-      cell: (user) => user.email,
-      className: "font-medium",
-    },
-    {
-      id: "name",
-      header: "Name",
-      cell: (user) =>
-        [user.firstName, user.lastName].filter(Boolean).join(" ") ||
-        user.username,
-    },
-    {
-      id: "id",
-      header: "ID",
-      cell: (user) => user.id,
-      className: "font-mono text-xs",
-    },
-    {
-      id: "verified",
+      id: "emailVerified",
       header: "Verified",
-      cell: (user) => (
-        <Badge variant={user.emailVerified ? "outline" : "secondary"}>
-          {user.emailVerified ? "verified" : "unverified"}
+      cell: (u) => (
+        <Badge variant={u.emailVerified ? "outline" : "secondary"}>
+          {u.emailVerified ? "verified" : "unverified"}
         </Badge>
       ),
     },
     {
-      id: "status",
+      id: "banned",
       header: "Status",
-      cell: (user) => <BannedBadge banned={user.banned} />,
+      cell: (u) => (
+        <Badge variant={u.banned ? "destructive" : "outline"}>
+          {u.banned ? "banned" : "active"}
+        </Badge>
+      ),
     },
-    {
-      id: "created",
-      header: "Created",
-      cell: (user) => formatTimestamp(user.createdAt),
-    },
+    { id: "createdAt", header: "Created", cell: (u) => formatTimestamp(u.createdAt) },
   ]
 
   return (
     <section className="flex flex-col gap-4">
-      <PageHeader title="Users" />
+      <PageHeader
+        title="Users"
+        actions={<a href="/@auth/users/create" className="underline underline-offset-4">New user</a>}
+      />
 
-      <CommandAlert error={ban.error} title="Ban failed" />
-      <CommandAlert error={unban.error} title="Unban failed" />
+      <FilterBar
+        search={{ value: search, onChange: searchFor, label: "Search users", placeholder: "Search by email" }}
+      />
 
-      <QueryBoundary title="Users" query={list} skeletonRows={4}>
-        {(data) => {
-          // The Go handler builds this slice itself so it is never null on the
-          // wire, but the page is rendered by a host that will happily hand it
-          // whatever the server said. A missing array must not throw inside a
-          // plugin's own render.
-          const users = data.users ?? []
+      <CommandAlert error={ban.error} title="Could not ban" />
+      <CommandAlert error={unban.error} title="Could not unban" />
+      <CommandAlert error={remove.error} title="Could not delete" />
 
-          return (
-            <ResourceTable
+      <QueryBoundary title="Users" query={list} skeletonRows={5}>
+        {(data) => (
+          <>
+            <ResourceTable<UserSummary>
               columns={columns}
-              rows={users}
-              rowKey={(user) => user.id}
-              caption={
-                users.length > 0
-                  ? `${users.length} of ${data.total ?? users.length}`
-                  : undefined
-              }
-              emptyMessage="No users yet."
+              rows={data.users ?? []}
+              rowKey={(u) => u.id}
+              caption="Users"
+              emptyMessage={search ? `No users match “${search}”.` : "No users yet."}
               rowActions={(user) => (
                 <>
-                  <button
-                    type="button"
-                    onClick={() => setSelected(user.id)}
-                    className={buttonVariants({
-                      variant: "ghost",
-                      size: "sm",
-                    })}
+                  <a
+                    href={`/@auth/users/${user.id}`}
+                    className="text-sm underline underline-offset-4"
                   >
                     Details
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => void toggleBan(user)}
-                    disabled={pendingId === user.id}
-                    aria-label={`${user.banned ? "Unban" : "Ban"} ${user.email}`}
-                    className={buttonVariants({
-                      variant: user.banned ? "outline" : "destructive",
-                      size: "sm",
-                    })}
+                  </a>
+                  {user.banned ? (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      aria-label={`Unban ${user.email}`}
+                      disabled={unban.loading}
+                      onClick={() => void unban.execute({ id: user.id })}
+                    >
+                      Unban
+                    </Button>
+                  ) : (
+                    <Button
+                      variant="destructive"
+                      size="sm"
+                      aria-label={`Ban ${user.email}`}
+                      onClick={() => setBanning(user)}
+                    >
+                      Ban
+                    </Button>
+                  )}
+                  <Button
+                    variant="destructive"
+                    size="sm"
+                    aria-label={`Delete ${user.email}`}
+                    onClick={() => setDeleting(user)}
                   >
-                    {pendingId === user.id
-                      ? "Working…"
-                      : user.banned
-                        ? "Unban"
-                        : "Ban"}
-                  </button>
+                    Delete
+                  </Button>
                 </>
               )}
             />
-          )
-        }}
+            <CursorPager
+              shown={(data.users ?? []).length}
+              total={data.total}
+              nextCursor={data.nextCursor}
+              canGoBack={page.canGoBack}
+              onNext={page.next}
+              onPrevious={page.previous}
+            />
+          </>
+        )}
       </QueryBoundary>
 
-      {selected && (
-        <UserDetail key={`${selected}:${invalidations}`} id={selected} />
-      )}
+      <ConfirmDialog
+        open={banning !== null}
+        onOpenChange={(open) => {
+          if (!open) {
+            setBanning(null)
+            setBanReason("")
+            setBanExpiry("")
+          }
+        }}
+        title={`Ban ${banning?.email ?? ""}?`}
+        description={
+          <span className="flex flex-col gap-2">
+            <span>They are signed out of every session and cannot sign in again.</span>
+            <span className="flex flex-col gap-1.5">
+              <Label htmlFor="ban-reason">Reason</Label>
+              <Input id="ban-reason" value={banReason} onChange={(e) => setBanReason(e.target.value)} />
+            </span>
+            <span className="flex flex-col gap-1.5">
+              <Label htmlFor="ban-expiry">Expires at</Label>
+              <Input
+                id="ban-expiry"
+                type="datetime-local"
+                value={banExpiry}
+                onChange={(e) => setBanExpiry(e.target.value)}
+              />
+              <span className="text-xs text-muted-foreground">
+                Leave empty to ban indefinitely.
+              </span>
+            </span>
+          </span>
+        }
+        confirmLabel="Ban"
+        pending={ban.loading}
+        onConfirm={() => void confirmBan()}
+      />
+
+      <ConfirmDialog
+        open={deleting !== null}
+        onOpenChange={(open) => !open && setDeleting(null)}
+        title={`Delete ${deleting?.email ?? ""}?`}
+        description="Their sessions, devices and role assignments go with them. This cannot be undone."
+        confirmLabel="Delete"
+        pending={remove.loading}
+        onConfirm={() => void confirmDelete()}
+      />
     </section>
   )
 }
