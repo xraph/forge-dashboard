@@ -1,6 +1,6 @@
 # Obligations on anyone using the kit blocks
 
-The eleven shared blocks in `packages/kit` are done. Eight things fell out of
+The twelve shared blocks in `packages/kit` are done. Eight things fell out of
 building them, and of building the first pages against them, that a consumer has
 to know and cannot discover from the types. They're written down here because the working notes they came from are scratch and get deleted. These outlive them.
 
@@ -46,6 +46,14 @@ cell looking blank. `TagList` maps values onto badges and falls through to
 of that cell got wrong, because a map over an empty array renders nothing.
 
 Write the label to read after the word "no": `label="rooms"` becomes "no rooms".
+
+**A timestamp cell uses `Timestamp`, not `formatTimestamp`.** The formatter
+answers an en dash for an absent value, which is right for a string and wrong
+for a cell: there is no way to attach a label to a character inside a string, so
+every "never happened" timestamp was rendering silently to assistive technology.
+`<Timestamp value={s.lastActivity} label="last activity" />` formats what it has
+and falls through to `NoneCell` when it has nothing. Reach for `formatTimestamp`
+only where a plain string is genuinely what is wanted.
 
 These are blocks rather than a convention because the convention was hand-rolled
 four times across two plugins and dropped in three separate rewrites, each time

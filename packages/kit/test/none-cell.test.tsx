@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest"
 import { render, screen } from "@testing-library/react"
 import { NoneCell } from "../src/components/none-cell"
 import { TagList } from "../src/components/tag-list"
+import { Timestamp } from "../src/components/timestamp"
 
 describe("NoneCell", () => {
   it("says none to a screen reader and shows a dash on screen", () => {
@@ -33,5 +34,26 @@ describe("TagList", () => {
     expect(screen.getByText("r1").className).toContain("font-mono")
     rerender(<TagList values={["read"]} label="scopes" mono={false} />)
     expect(screen.getByText("read").className).not.toContain("font-mono")
+  })
+})
+
+describe("Timestamp", () => {
+  it("formats a value it has", () => {
+    render(<Timestamp value="2026-01-01T00:00:00Z" label="expiry" />)
+    expect(screen.queryByLabelText("no expiry")).toBeNull()
+    expect(screen.getByText(new Date("2026-01-01T00:00:00Z").toLocaleString())).toBeTruthy()
+  })
+
+  it("says what did not happen, rather than an unlabelled dash", () => {
+    render(<Timestamp value={undefined} label="last activity" />)
+    // formatTimestamp answers "–" for an absent value, and a caller cannot
+    // attach a label to a character inside a string. That is the whole reason
+    // this component exists.
+    expect(screen.getByLabelText("no last activity").textContent).toBe("–")
+  })
+
+  it("treats an empty string the same as absent, because the contract sends one", () => {
+    render(<Timestamp value="" label="expiry" />)
+    expect(screen.getByLabelText("no expiry")).toBeTruthy()
   })
 })
