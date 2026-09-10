@@ -195,3 +195,68 @@ describe("AuthSessionsPage actions", () => {
     )
   })
 })
+
+describe("AuthSessionsPage stale command state across rows", () => {
+  const twoSessions = {
+    sessions: [
+      session({ id: "s1", userId: "u1", ipAddress: "10.0.0.1" }),
+      session({ id: "s2", userId: "u2", ipAddress: "10.0.0.2" }),
+    ],
+  }
+
+  it("does not carry one session's revoke error into another session's revoke dialog", async () => {
+    const { client } = recordingCommandClient(
+      { "sessions.list": twoSessions },
+      {
+        "sessions.revoke": (payload?: unknown) =>
+          (payload as { id: string }).id === "s1"
+            ? new ContractError("PERMISSION_DENIED", "sessions.revoke required")
+            : { ok: true },
+      }
+    )
+    renderPage(AuthSessionsPage, client)
+    await waitFor(() => expect(screen.getByText("10.0.0.1")).toBeTruthy())
+
+    fireEvent.click(screen.getByRole("button", { name: "Revoke session s1" }))
+    fireEvent.click(screen.getByRole("button", { name: "Revoke" }))
+    const failure = await screen.findByRole("alert", { hidden: true })
+    expect(failure.textContent).toContain("sessions.revoke required")
+
+    fireEvent.click(screen.getByRole("button", { name: "Cancel" }))
+    await waitFor(() => expect(screen.queryByRole("alertdialog")).toBeNull())
+    fireEvent.click(screen.getByRole("button", { name: "Revoke session s2" }))
+
+    // s2 has not been touched. s1's failure must not show up here.
+    expect(screen.getByText("Revoke this session?")).toBeTruthy()
+    expect(screen.queryByRole("alert")).toBeNull()
+    expect(screen.queryByText("sessions.revoke required")).toBeNull()
+  })
+
+  it("does not carry one user's bulk-revoke error into another user's bulk-revoke dialog", async () => {
+    const { client } = recordingCommandClient(
+      { "sessions.list": twoSessions },
+      {
+        "sessions.bulkRevoke": (payload?: unknown) =>
+          (payload as { userId: string }).userId === "u1"
+            ? new ContractError("PERMISSION_DENIED", "sessions.bulkRevoke required")
+            : { ok: true },
+      }
+    )
+    renderPage(AuthSessionsPage, client)
+    await waitFor(() => expect(screen.getByText("10.0.0.1")).toBeTruthy())
+
+    fireEvent.click(screen.getByRole("button", { name: "Revoke all for u1" }))
+    fireEvent.click(screen.getByRole("button", { name: "Revoke all" }))
+    const failure = await screen.findByRole("alert", { hidden: true })
+    expect(failure.textContent).toContain("sessions.bulkRevoke required")
+
+    fireEvent.click(screen.getByRole("button", { name: "Cancel" }))
+    await waitFor(() => expect(screen.queryByRole("alertdialog")).toBeNull())
+    fireEvent.click(screen.getByRole("button", { name: "Revoke all for u2" }))
+
+    // u2 has not been touched. u1's failure must not show up here.
+    expect(screen.getByText("Revoke every session for u2?")).toBeTruthy()
+    expect(screen.queryByRole("alert")).toBeNull()
+    expect(screen.queryByText("sessions.bulkRevoke required")).toBeNull()
+  })
+})

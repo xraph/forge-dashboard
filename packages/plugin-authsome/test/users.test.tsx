@@ -427,3 +427,82 @@ describe("AuthUsersPage row actions", () => {
     expect(queries.filter((q) => q.intent === "users.list")).toHaveLength(1)
   })
 })
+
+describe("AuthUsersPage stale command state across rows", () => {
+  // Both active, so both show a Ban button rather than one of them showing
+  // Unban - the ban dialog test below needs to open it on two different rows.
+  const twoActive = {
+    users: [
+      user({ id: "u1", email: "ada@example.com", firstName: "Ada", lastName: "Lovelace" }),
+      user({ id: "u2", email: "grace@example.com", firstName: "Grace", lastName: "Hopper" }),
+    ],
+    total: 2,
+  }
+
+  it("does not carry one user's delete error into another user's delete dialog", async () => {
+    const { client } = recordingCommandClient(
+      { "users.list": twoActive },
+      {
+        "users.delete": (payload?: unknown) =>
+          (payload as { id: string }).id === "u1"
+            ? new ContractError("VALIDATION", "cannot delete the last owner")
+            : { ok: true },
+      }
+    )
+    renderPage(AuthUsersPage, client)
+    await waitFor(() => expect(screen.getByText("ada@example.com")).toBeTruthy())
+
+    // Delete ada, let it fail, see the reason.
+    fireEvent.click(screen.getByRole("button", { name: "Delete ada@example.com" }))
+    fireEvent.click(screen.getByRole("button", { name: "Delete" }))
+    const failure = await screen.findByRole("alert", { hidden: true })
+    expect(failure.textContent).toContain("cannot delete the last owner")
+
+    // Back out, then open the same dialog pointed at grace instead.
+    fireEvent.click(screen.getByRole("button", { name: "Cancel" }))
+    await waitFor(() => expect(screen.queryByRole("alertdialog")).toBeNull())
+    fireEvent.click(screen.getByRole("button", { name: "Delete grace@example.com" }))
+
+    // Grace has not been touched. Ada's failure must not show up here.
+    expect(screen.getByText(/Delete grace@example.com\?/)).toBeTruthy()
+    expect(screen.queryByRole("alert")).toBeNull()
+    expect(screen.queryByText("cannot delete the last owner")).toBeNull()
+  })
+
+  it("clears a stale ban error, and the previous row's reason and expiry, when the ban dialog reopens for a different user", async () => {
+    const { client } = recordingCommandClient(
+      { "users.list": twoActive },
+      {
+        "users.ban": (payload?: unknown) =>
+          (payload as { id: string }).id === "u1"
+            ? new ContractError("VALIDATION", "reason is required")
+            : { ok: true },
+      }
+    )
+    renderPage(AuthUsersPage, client)
+    await waitFor(() => expect(screen.getByText("ada@example.com")).toBeTruthy())
+
+    // Ban ada with a reason and an expiry, let it fail.
+    fireEvent.click(screen.getByRole("button", { name: "Ban ada@example.com" }))
+    fireEvent.change(screen.getByLabelText("Reason"), { target: { value: "spam from ada" } })
+    fireEvent.change(screen.getByLabelText("Expires at"), {
+      target: { value: "2026-12-01T00:00" },
+    })
+    fireEvent.click(screen.getByRole("button", { name: "Ban" }))
+    const failure = await screen.findByRole("alert", { hidden: true })
+    expect(failure.textContent).toContain("reason is required")
+
+    // Back out, then open the ban dialog on grace instead.
+    fireEvent.click(screen.getByRole("button", { name: "Cancel" }))
+    await waitFor(() => expect(screen.queryByRole("alertdialog")).toBeNull())
+    fireEvent.click(screen.getByRole("button", { name: "Ban grace@example.com" }))
+
+    // Ada's failure, and what was typed for ada, must not follow into grace's
+    // confirmation - an operator confirming this would otherwise be banning
+    // grace with a reason they wrote about someone else.
+    expect(screen.queryByRole("alert")).toBeNull()
+    expect(screen.queryByText("reason is required")).toBeNull()
+    expect((screen.getByLabelText("Reason") as HTMLInputElement).value).toBe("")
+    expect((screen.getByLabelText("Expires at") as HTMLInputElement).value).toBe("")
+  })
+})

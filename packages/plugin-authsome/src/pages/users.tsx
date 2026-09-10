@@ -189,7 +189,17 @@ export function AuthUsersPage() {
                         variant="destructive"
                         size="sm"
                         aria-label={`Ban ${user.email}`}
-                        onClick={() => setBanning(user)}
+                        onClick={() => {
+                          // Opening the dialog is the moment that matters, not
+                          // closing it: the operator is about to read whatever
+                          // is on screen for THIS row, so any leftover error
+                          // or reason/expiry text from the last row this
+                          // dialog was pointed at has to go now.
+                          ban.reset()
+                          setBanReason("")
+                          setBanExpiry("")
+                          setBanning(user)
+                        }}
                       >
                         Ban
                       </Button>
@@ -198,7 +208,10 @@ export function AuthUsersPage() {
                       variant="destructive"
                       size="sm"
                       aria-label={`Delete ${user.email}`}
-                      onClick={() => setDeleting(user)}
+                      onClick={() => {
+                        remove.reset()
+                        setDeleting(user)
+                      }}
                     >
                       Delete
                     </Button>

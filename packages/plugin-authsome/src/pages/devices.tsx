@@ -136,7 +136,14 @@ export function AuthDevicesPage() {
                     variant="destructive"
                     size="sm"
                     aria-label={`Forget ${deviceLabel(device)}`}
-                    onClick={() => setForgetting(device)}
+                    onClick={() => {
+                      // Reset at open: the dialog is about to show whatever
+                      // is on screen for THIS device, not a leftover error
+                      // from whichever device was forgotten (or failed to
+                      // be) last.
+                      remove.reset()
+                      setForgetting(device)
+                    }}
                   >
                     Forget
                   </Button>

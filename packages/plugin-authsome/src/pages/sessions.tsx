@@ -143,7 +143,14 @@ export function AuthSessionsPage() {
                     variant="destructive"
                     size="sm"
                     aria-label={`Revoke session ${session.id}`}
-                    onClick={() => setRevoking(session)}
+                    onClick={() => {
+                      // Reset at open, not at close: the state that matters
+                      // is what the operator is looking at right now, for
+                      // this session, not whatever the last dialog left
+                      // behind.
+                      revoke.reset()
+                      setRevoking(session)
+                    }}
                   >
                     Revoke
                   </Button>
@@ -151,7 +158,10 @@ export function AuthSessionsPage() {
                     variant="destructive"
                     size="sm"
                     aria-label={`Revoke all for ${session.userId}`}
-                    onClick={() => setBulkFor(session.userId)}
+                    onClick={() => {
+                      bulkRevoke.reset()
+                      setBulkFor(session.userId)
+                    }}
                   >
                     Revoke all
                   </Button>
