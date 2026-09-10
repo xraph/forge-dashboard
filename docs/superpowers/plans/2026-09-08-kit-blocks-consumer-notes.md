@@ -1,7 +1,8 @@
 # Obligations on anyone using the kit blocks
 
-The nine shared blocks in `packages/kit` are done. Six things fell out of building
-them that a consumer has to know and cannot discover from the types. They're written down here because the working notes they came from are scratch and get deleted. These outlive them.
+The nine shared blocks in `packages/kit` are done. Seven things fell out of
+building them, and of building the first pages against them, that a consumer has
+to know and cannot discover from the types. They're written down here because the working notes they came from are scratch and get deleted. These outlive them.
 
 Read this before writing a page against `ResourceTable`, `ConfirmDialog` or
 `SettingsForm`.
@@ -26,6 +27,39 @@ users page fires it straight from the row with no dialog at all, which is the
 right design: a confirm step in front of an action that undoes a restriction
 is friction with nothing behind it. The obligation attaches to opening a
 `ConfirmDialog`, not to sending a command.
+
+## Reset the command hook when a dialog opens, and use `confirmDisabled` for "not yet"
+
+Two things learned from pages built against `ConfirmDialog`, both about state
+that outlives the row it belongs to.
+
+A page holds ONE command hook and points it at whichever row the operator
+clicked. That is the right shape: a hook per row would mean a hook count that
+varies with the data. But a failure then sticks to the hook rather than to the
+row, so opening the dialog for a different row shows the previous row's error
+attributed to this one. The operator reads "this already failed" about
+something they have not touched.
+
+`useCommand` and `useHostCommand` return `reset()` for this. Call it when the
+dialog OPENS, not when it closes:
+
+```tsx
+onClick={() => { remove.reset(); setDeleting(row) }}
+```
+
+Closing is not the only way a dialog goes away, and the state that matters is
+the state the operator is looking at now. The same applies to inputs the dialog
+carries: a ban reason left over from the previous row is the same defect in
+different clothes.
+
+Separately, `ConfirmDialog` takes `confirmDisabled` as well as `pending`. They
+are different states and read differently. `pending` means "working on it" and
+swaps the label to "Working…". `confirmDisabled` means "this dialog is still
+missing something it needs" and leaves the label alone. A dialog that collects a
+required value, a kick reason say, uses `confirmDisabled`; without it the choice
+is between blocking on nothing and sending an empty one. Cancel stays enabled
+under `confirmDisabled`, because somebody who cannot confirm must still be able
+to back out.
 
 ## Re-measure the bundle at the first page that imports ConfirmDialog or SettingsForm
 
