@@ -82,9 +82,17 @@ defineSubPlugin({
   nav: [{ label: "Multi-Factor Auth", to: "/auth/mfa", group: "Auth", priority: 4 }],
   routes: [{ path: "/auth/mfa", element: settingsPanelFor("mfa") }],
   hostIntents: SETTINGS_INTENTS,
-  contributions: { "settings.tabs": [{ id: "mfa", label: "MFA", namespace: "mfa" }] },
+  contributions: {
+    "settings.tabs": [{ id: "mfa", label: "MFA", render: settingsPanelFor("mfa") }],
+  },
 })
 ```
+
+Note what the contribution carries. An earlier draft of this spec wrote
+`namespace: "mfa"` on the contribution object, which `SlotContribution` has no
+field for and `defineSubPlugin` would have accepted silently on its way to
+rendering nothing. A contribution is `{ id, label, priority, render }` and the
+namespace binding lives inside the component `settingsPanelFor` returns.
 
 `settingsPanelFor` is one component in the core package, bound to a namespace.
 It reads `settings.namespace` and renders kit's `settings-form` over whatever
@@ -93,9 +101,28 @@ comes back. This works because the settings surface is entirely schema-driven:
 `isEnforced`, `canOverride`, `readOnly` and `sensitive`. The React side renders
 descriptors and has no opinion about MFA.
 
-Four of the eighteen also contribute a widget or a user section in the templ
-dashboard (mfa, passkey, social, oauth2provider). Those are per-user factor and
-provider lists, and they have no intents behind them. See the gaps.
+Six of the eighteen contribute something beyond the panel: mfa, passkey, social,
+oauth2provider, sso and scim. The first draft of this spec said four and left
+out sso, whose `org_section.templ` lists an organization's SSO connections, and
+undercounted scim, which also ships an overview widget. All six still declare
+`intents: []`, so every surface that needs data of its own is blocked.
+
+Three of their widgets are not blocked, because they carry no data at all. The
+mfa, passkey and oauth2provider tiles are static cards in templ, taking no
+parameters and reading nothing: "MFA Enabled", "Passkeys / Enabled", "OAuth2
+Clients / Active". A React contribution can render those today. Whether it
+should is a separate question, and the answer here is no: a tile that always
+says the same thing is furniture, and the overview is better without it.
+
+The social and sso widgets take a list of configured provider names. That is
+settings data, not a query of its own, so it is reachable through the settings
+host intent the eighteen already declare. Confirm the field name against the
+namespace response at implementation time rather than assuming one.
+
+Every manifest declares its namespace equal to its contributor name, verified
+across all eighteen. That makes binding the panel by contributor name safe, but
+it is manifest convention rather than a schema invariant, so the binding stays
+an explicit string per sub-plugin instead of being derived.
 
 ## hostIntents
 
@@ -122,10 +149,11 @@ exactly the behaviour an admin expects when the plugin isn't installed.
 
 ## What can't be built yet
 
-Two sub-plugins ship templ pages with no contract intents behind them. The templ
-dashboard reads their stores in-process; a React page has only the contract. So
-these are blocked on Go work in the authsome repository, and the migration notes
-have to say so rather than let somebody find out.
+Three sub-plugins ship templ pages with no contract intents behind them: scim,
+subscription and sso. The templ dashboard reads their stores in-process; a React
+page has only the contract. So these are blocked on Go work in the authsome
+repository, and the migration notes have to say so rather than let somebody find
+out.
 
 | surface | templ file | missing |
 |---|---|---|
@@ -137,9 +165,13 @@ have to say so rather than let somebody find out.
 | Per-user MFA factors | `plugins/mfa/dashui/user_section.templ` | `mfa` declares `intents: []` |
 | Per-user passkeys | `plugins/passkey/dashui/user_section.templ` | `passkey` declares `intents: []` |
 | Per-user linked social accounts | `plugins/social/dashui/user_section.templ` | `social` declares `intents: []` |
-| OAuth2 client widget | `plugins/oauth2provider/dashui/widget.templ` | `intents: []` |
+| Organization SSO connections | `plugins/sso/dashui/org_section.templ` | `sso` declares `intents: []` |
+| SCIM overview widget | `plugins/scim/dashui/overview_widget.templ` | as above |
 
-Nine surfaces. Each needs an intent pair on the Go side (a list query, sometimes
+Ten surfaces. The oauth2provider client widget was on this list and has come
+off it: that tile reads nothing, so it is not blocked, just not worth building.
+
+ Each needs an intent pair on the Go side (a list query, sometimes
 a revoke command) and then a small React contribution. SCIM and subscription
 billing are the substantial ones; the three per-user sections are a query each.
 
