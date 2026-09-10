@@ -66,11 +66,12 @@ describe("StreamingConnectionsPage", () => {
     // conn_2 has joined no rooms and renders no badge for it.
     expect(screen.getByText("room_1")).toBeDefined()
 
-    // The subscriptions column is a count, not the channel ids themselves
-    // (the brief only asked for a count here, unlike the rooms column) - one
-    // subscription for conn_1, two for conn_2.
-    expect(screen.getByText("1")).toBeDefined()
-    expect(screen.getByText("2")).toBeDefined()
+    // The subscriptions are shown as their own channel ids too, symmetric with
+    // the rooms column: conn_1 is subscribed to chan_1; conn_2 is subscribed
+    // to both chan_1 and chan_2, so chan_1 renders twice (once per row) and
+    // chan_2 renders once.
+    expect(screen.getAllByText("chan_1")).toHaveLength(2)
+    expect(screen.getByText("chan_2")).toBeDefined()
   })
 
   it("reads the connections.list intent and nothing else", async () => {

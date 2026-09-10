@@ -52,8 +52,15 @@ const columns: Column<ConnectionInfo>[] = [
   {
     id: "subscriptions",
     header: "Subscriptions",
-    cell: (c) => (c.subscriptions ?? []).length,
-    align: "end",
+    cell: (c) => (
+      <span className="flex flex-wrap gap-1">
+        {(c.subscriptions ?? []).map((channel) => (
+          <Badge key={channel} variant="outline" className="font-mono text-xs">
+            {channel}
+          </Badge>
+        ))}
+      </span>
+    ),
   },
   {
     id: "lastActivity",
