@@ -127,9 +127,12 @@ interface FormConfigSummary { id: string; formType: string; version: number; act
 // settings
 interface NamespaceSummary { name: string; displayName?: string; description?: string; settingCount: number }
 // settings.namespaces -> { namespaces, context: { appId?, orgId?, userId? } }
-// settings.namespace({ namespace, scope, appId?, orgId?, userId? }) -> { fields: SettingField[] }
+// settings.namespace({ namespace, scope, appId?, orgId?, userId? })
+//   -> { namespace, displayName?, scope, categories: SettingCategory[] }
+// NOT a flat `fields` array. The server groups. See Task 8.
+interface SettingCategory { name: string; settings: SettingField[] }
 interface SettingOption { label: string; value: string }
-interface SettingValidation { required?: boolean; min?: number; max?: number; minLen?: number; maxLen?: number }
+interface SettingValidation { required?: boolean; min?: number; max?: number; minLen?: number; maxLen?: number; pattern?: string }
 interface SettingField {
   key: string; displayName: string; description?: string; type: string; inputType?: string
   default?: unknown; effectiveValue?: unknown
@@ -2211,7 +2214,11 @@ git commit -m "feat(authsome): webhooks and the signup form editor" -- packages/
 
 **Interfaces:**
 - Consumes: `PluginPageProps`, `AckResponse`; `SettingsForm` and `type SettingFieldDescriptor` from `@forge-go/dashboard-kit/components/settings-form`.
-- Produces: `toDescriptors(fields: SettingField[]): SettingFieldDescriptor[]`, `AuthSettingsPage`, `AuthSettingsNamespacePage`.
+- Produces: `toDescriptors(fields: SettingField[]): SettingFieldDescriptor[]`, `flattenCategories(res: SettingsNamespaceResponse | undefined): SettingField[]`, `AuthSettingsPage`, `AuthSettingsNamespacePage`, and the types `SettingField`, `SettingCategory`, `SettingsNamespaceResponse`.
+
+**Corrected against the Go source after this plan was first written.** `settings.namespace` does NOT answer a flat `{ fields }` array. It answers `{ namespace, displayName?, scope, categories: [{ name, settings: SettingField[] }] }`, and the fields live two levels down. An earlier draft of this task read `data.fields`, which would have been `undefined` on every namespace and rendered an empty form with no error. `flattenCategories` exists for that reason and the sub-plugin package imports it too, so it belongs in `settings-fields.ts` next to `toDescriptors` rather than inside a page.
+
+**One more thing the server does that the UI has to respect.** A sensitive field with a value set comes back with `effectiveValue` redacted to the literal string `"***"`; the real value never crosses the wire. `SettingsForm` only sends keys the operator actually changed, so an untouched secret is never echoed back as `"***"`. Do not add anything that sends the whole form.
 
 This is the highest-leverage task in the plan. Eighteen authsome sub-plugins render their entire settings surface through kit's `SettingsForm`, and the mapping written here is what they all go through. Get it right once.
 
@@ -2234,12 +2241,41 @@ This is the highest-leverage task in the plan. Eighteen authsome sub-plugins ren
 ```ts
 // packages/plugin-authsome/test/settings.test.tsx  (mapping half)
 import { describe, expect, it } from "vitest"
-import { toDescriptors } from "../src/settings-fields"
+import { flattenCategories, toDescriptors } from "../src/settings-fields"
 
 const base = {
   key: "min_length", displayName: "Minimum length", type: "int",
   isOverridden: false, isEnforced: false, canOverride: true, order: 1,
 }
+
+describe("flattenCategories", () => {
+  it("pulls the fields out of their categories", () => {
+    const out = flattenCategories({
+      namespace: "password", scope: "app",
+      categories: [
+        { name: "Strength", settings: [{ ...base, key: "min_length" }] },
+        { name: "Hashing", settings: [{ ...base, key: "algorithm" }] },
+      ],
+    })
+    expect(out.map((f) => f.key)).toEqual(["min_length", "algorithm"])
+  })
+
+  it("uses the category name as the section when a field has none", () => {
+    const out = flattenCategories({
+      namespace: "password", scope: "app",
+      categories: [{ name: "Strength", settings: [{ ...base, key: "a" }, { ...base, key: "b", section: "Own" }] }],
+    })
+    expect(out[0].section).toBe("Strength")
+    // A field that names its own section keeps it. The category is a
+    // fallback, not an override.
+    expect(out[1].section).toBe("Own")
+  })
+
+  it("answers an empty list for undefined, rather than throwing", () => {
+    // The page calls this while the query is still loading.
+    expect(flattenCategories(undefined)).toEqual([])
+  })
+})
 
 describe("toDescriptors", () => {
   it("shows the effective value, falling back to the default when unset", () => {
@@ -2318,6 +2354,17 @@ export interface SettingValidation {
   max?: number
   minLen?: number
   maxLen?: number
+  pattern?: string
+}
+export interface SettingCategory {
+  name: string
+  settings: SettingField[]
+}
+export interface SettingsNamespaceResponse {
+  namespace: string
+  displayName?: string
+  scope: string
+  categories: SettingCategory[]
 }
 export interface SettingField {
   key: string
@@ -2349,6 +2396,24 @@ export interface SettingField {
  * eighteen settings-only sub-plugins share one renderer. Widening kit to
  * understand `SettingField` would trade that away for nothing.
  */
+/**
+ * Flattens the server's categories into one ordered list of fields.
+ *
+ * The response groups settings into named categories, and kit's `SettingsForm`
+ * groups by a `section` on each field. Those are the same idea arriving in two
+ * shapes, so the category name becomes the section for any field that does not
+ * carry one of its own. Dropping the category name instead would collapse a
+ * grouped namespace into one undifferentiated wall of inputs.
+ */
+export function flattenCategories(res: SettingsNamespaceResponse | undefined): SettingField[] {
+  return (res?.categories ?? []).flatMap((category) =>
+    (category.settings ?? []).map((field) => ({
+      ...field,
+      section: field.section || category.name,
+    })),
+  )
+}
+
 export function toDescriptors(fields: SettingField[]): SettingFieldDescriptor[] {
   return [...(fields ?? [])]
     .sort((a, b) => a.order - b.order)
@@ -2404,14 +2469,15 @@ function kitType(field: SettingField): SettingFieldDescriptor["type"] {
 
 `/settings` reads `settings.namespaces` and renders a `ResourceTable<NamespaceSummary>` with columns Namespace (linking to `/@auth/settings/${name}`), Description and Settings (the count). Below it, render `<PluginSlot name="settings.tabs" />` with a heading shown only when `useSlotCount("settings.tabs") > 0`, so installed sub-plugins can add their own entries.
 
-`/settings/:namespace` takes `PluginPageProps`, guards on a missing `params.namespace` with "No namespace selected.", then reads `settings.namespace({ namespace, scope: "app" })` and renders:
+`/settings/:namespace` takes `PluginPageProps`, guards on a missing `params.namespace` with "No namespace selected.", then reads `settings.namespace({ namespace, scope: "app" })`, flattens it with
+`const fields = flattenCategories(data)`, and renders:
 
 ```tsx
 <SettingsForm
   // Remount when the data changes, per the kit consumer notes: the form
   // seeds its draft once on mount and does not re-seed.
-  key={`${namespace}:${data.fields.length}`}
-  fields={toDescriptors(data.fields)}
+  key={`${namespace}:${fields.length}`}
+  fields={toDescriptors(fields)}
   saving={update.loading}
   onSave={(changed) => void save(changed)}
 />
@@ -2435,7 +2501,7 @@ Note the route param is named `namespace`, so the route path is `/settings/:name
 
 - [ ] **Step 5: Write the page tests**
 
-Cover: the namespace index links to each namespace; the panel renders a field with its effective value; an enforced field renders disabled; saving two changed keys sends two `settings.update` commands with the right keys; a failed first save stops rather than sending the second.
+Cover: the namespace index links to each namespace; the panel renders a field from inside a category with its effective value; an enforced field renders disabled; saving two changed keys sends two `settings.update` commands with the right keys; a failed first save stops rather than sending the second.
 
 - [ ] **Step 6: Run the tests**
 
