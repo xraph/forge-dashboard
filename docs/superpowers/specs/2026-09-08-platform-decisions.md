@@ -119,11 +119,38 @@ belongs on the gap list below rather than in the authsome plan. Until it exists,
 refusing the blank save is the honest behaviour: a field can be set, and it
 cannot be unset, and the UI should not pretend otherwise.
 
-**Ten legacy surfaces cannot be rebuilt at all**, because they have no contract
-intents behind them. Nine of them are pages: SCIM's directory list, detail and logs; subscription's
-invoices, coupons and plan features; and the per-user MFA, passkey and social
-sections. The tenth is the "Reset to default" affordance described above. Each
-needs Go work in the authsome repository first. Put them in the retirement
+**A page holds one command hook and points it at whichever row was clicked**,
+so a failure sticks to the hook rather than to the row. Delete row A, it fails,
+open the dialog for row B, and B's prompt carries A's error. `useCommand` and
+`useHostCommand` now return `reset()`, which clears the last outcome and raises
+the generation so an in-flight command cannot repaint what was just cleared.
+Call it when the dialog OPENS: closing is not the only way a dialog goes away.
+The hook-per-page shape stays, because a hook per row would mean a hook count
+that varies with the data.
+
+**`ConfirmDialog` needed a second disabled state.** `pending` means "working on
+it" and swaps the label to "Working…". A dialog collecting a required value, a
+kick reason say, needs to say "not yet" instead, and conflating the two either
+blocks on nothing or ships an empty value. That is `confirmDisabled`, and Cancel
+stays enabled under it.
+
+**A table cell meaning "none" is a kit block now**, `NoneCell` and `TagList`.
+The convention was hand-rolled four times across two plugins and dropped in
+three separate rewrites, always for the same reason: a map over an empty array
+renders nothing, a blank cell reads as "loading" or "broken", and there was
+nothing to import and nothing to name.
+
+**Fourteen legacy surfaces cannot be rebuilt at all**, because they have no contract
+intents behind them, and the count grew when the sub-plugin spec was checked
+against the Go source. They are: SCIM's directory list, detail, logs, org
+section, org tab and overview widget; subscription's invoices, coupons, feature
+catalog, plan editing and subscription lifecycle; the per-user MFA, passkey and
+social sections; the sso org section; the per-user API key section, because
+`apikeys.list` takes no input and its summary carries no user id to filter on;
+and organization invitations and member role changes, which are implemented in
+`organization/service.go` and simply never registered with the dispatcher. The
+"Reset to default" affordance described above is on the same list. Each needs Go
+work in the authsome repository first. Put them in the retirement
 checklist so nobody discovers them the hard way.
 
 **Re-measure the bundle at the first page that statically imports
