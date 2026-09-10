@@ -38,6 +38,8 @@
     "vitest": "^5.0.0"
   },
   "exports": {
-    ".": "./src/index.tsx"
+    ".": "./src/index.tsx",
+    "./sub": "./src/sub/index.ts",
+    "./sub/*": "./src/sub/*.tsx"
   }
 }
