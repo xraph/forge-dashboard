@@ -1,4 +1,3 @@
-import type { ComponentType } from "react"
 import { defineSubPlugin, useQuery } from "@forge-go/dashboard-plugin"
 import type { PluginPageProps } from "@forge-go/dashboard-plugin"
 import { Badge } from "@forge-go/dashboard-kit/components/badge"
@@ -96,14 +95,8 @@ export const passwordSubPlugin = defineSubPlugin({
       {
         id: "password",
         label: "Password",
-        // Same cast `settings-only.tsx` makes, for the same reason: the slot
-        // wants `ComponentType<Record<string, unknown>>`, `tsc` compares the
-        // class-component branch contravariantly, and the panel ignores its
-        // params either way. This is still the exact same instance used for
-        // the route above.
-        render: PasswordSettingsPanel as unknown as ComponentType<
-          Record<string, unknown>
-        >,
+        // Still the exact same instance used for the route above.
+        render: PasswordSettingsPanel,
       },
     ],
   },

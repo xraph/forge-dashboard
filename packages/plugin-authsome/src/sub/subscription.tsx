@@ -1,5 +1,4 @@
 import { useState } from "react"
-import type { ComponentType } from "react"
 import { PluginLink, defineSubPlugin, useCommand, useQuery } from "@forge-go/dashboard-plugin"
 import type { PluginPageProps } from "@forge-go/dashboard-plugin"
 import { Badge } from "@forge-go/dashboard-kit/components/badge"
@@ -406,24 +405,19 @@ export const subscriptionSubPlugin = defineSubPlugin({
   // Reads nothing of its host's. Every intent it uses is its own.
   hostIntents: [],
   contributions: {
-    // `SlotContribution.render` takes `ComponentType<Record<string, unknown>>`,
-    // and comparing it against the narrower `{ orgId?: string }` /
-    // `{ userId?: string }` prop types needs the same cast settings-only.tsx
-    // uses for its settings panel: the component ignores any params it does
-    // not know about, so the cast changes nothing at runtime.
     "org.detail.tabs": [
       {
         id: "billing",
         label: "Billing",
         priority: 10,
-        render: SubscriptionOrgTab as unknown as ComponentType<Record<string, unknown>>,
+        render: SubscriptionOrgTab,
       },
     ],
     "user.detail.sections": [
       {
         id: "subscription",
         priority: 20,
-        render: SubscriptionUserSection as unknown as ComponentType<Record<string, unknown>>,
+        render: SubscriptionUserSection,
       },
     ],
   },

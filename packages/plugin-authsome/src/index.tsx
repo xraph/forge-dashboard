@@ -41,6 +41,7 @@ import { AuthUserCreatePage } from "./pages/user-create"
 import { AuthUserDetailPage } from "./pages/user-detail"
 import { AuthUsersPage } from "./pages/users"
 import { AuthWebhooksPage } from "./pages/webhooks"
+import { authsomeSubPlugins } from "./sub"
 
 export type {
   AuthConfig,
@@ -261,3 +262,5 @@ export const authsomePlugin = definePlugin({
 })
 
 export default authsomePlugin
+
+export { authsomeSubPlugins }

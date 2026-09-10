@@ -23,6 +23,7 @@ import {
   ResourceTable,
   type Column,
 } from "@forge-go/dashboard-kit/components/resource-table"
+import { StatGrid } from "@forge-go/dashboard-kit/components/stat-grid"
 import {
   Tabs,
   TabsContent,
@@ -520,6 +521,34 @@ export function OrgCreatePage() {
   )
 }
 
+/* --------------------------------------------------------------- widget */
+
+/**
+ * The overview count. `orgs.list` answers the whole collection with no
+ * paging, so its length IS the count - no separate intent to keep in sync
+ * with the list page, and the same request the list page makes, served from
+ * the same query store.
+ *
+ * Routed through `QueryBoundary` rather than reading `query.data` directly:
+ * while the request is in flight `query.data` is `undefined` and a widget
+ * that fell back to `?? 0` would render a zero that is not true yet. The
+ * boundary draws a skeleton instead, and only renders this render prop once
+ * the count is real.
+ */
+export function OrgCountWidget() {
+  const query = useQuery<OrgListResponse>("orgs.list")
+
+  return (
+    <QueryBoundary title="Organizations" query={query}>
+      {(data) => (
+        <StatGrid
+          items={[{ label: "Organizations", value: data.organizations?.length ?? 0 }]}
+        />
+      )}
+    </QueryBoundary>
+  )
+}
+
 /* ------------------------------------------------------------ declaration */
 
 export const organizationSubPlugin = defineSubPlugin({
@@ -534,4 +563,7 @@ export const organizationSubPlugin = defineSubPlugin({
   ],
   // Reads nothing of its host's. Every intent it uses is its own.
   hostIntents: [],
+  contributions: {
+    "overview.widgets": [{ id: "organization-count", priority: 10, render: OrgCountWidget }],
+  },
 })

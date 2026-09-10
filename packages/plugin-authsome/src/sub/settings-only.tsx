@@ -1,4 +1,3 @@
-import type { ComponentType } from "react"
 import { defineSubPlugin } from "@forge-go/dashboard-plugin"
 import type { ForgeSubPlugin } from "@forge-go/dashboard-plugin"
 import { SETTINGS_INTENTS, settingsPanelFor } from "./settings-panel"
@@ -64,14 +63,10 @@ export const settingsOnlySubPlugins: ForgeSubPlugin[] = SETTINGS_ONLY.map((row) 
     routes: [{ path: row.route, element: Panel }],
     hostIntents: [...SETTINGS_INTENTS],
     contributions: {
-      // `SlotContribution.render` takes `ComponentType<Record<string, unknown>>`,
-      // and `tsc` compares `ComponentType`'s `ComponentClass` branch
-      // contravariantly, so the narrower `ComponentType<PluginPageProps>` does
-      // not assign without help even though the panel ignores its params. The
-      // cast changes nothing at runtime: it is still the exact same component
-      // instance used for the route above, which is what the "same instance"
-      // test in settings-only.test.tsx checks for.
-      "settings.tabs": [{ id: row.extension, label: row.tab, render: Panel as unknown as ComponentType<Record<string, unknown>> }],
+      // Still the exact same component instance used for the route above,
+      // which is what the "same instance" test in settings-only.test.tsx
+      // checks for.
+      "settings.tabs": [{ id: row.extension, label: row.tab, render: Panel }],
     },
   })
 })

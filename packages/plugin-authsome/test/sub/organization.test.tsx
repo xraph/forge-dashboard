@@ -5,7 +5,7 @@ import {
   organizationSubPlugin,
   slugify,
 } from "../../src/sub/organization"
-import { renderSubPage, subStubClient } from "./harness"
+import { renderContribution, renderSubPage, subStubClient } from "./harness"
 
 const orgs = {
   organizations: [
@@ -261,5 +261,38 @@ describe("organization create", () => {
     const payload = own.payloads[0].payload as Record<string, unknown>
     expect(payload).toEqual({ name: "Wayne", slug: "wayne" })
     expect("logo" in payload).toBe(false)
+  })
+})
+
+describe("OrgCountWidget", () => {
+  const widgetContribution = organizationSubPlugin.contributions["overview.widgets"]![0]
+
+  it("counts the organizations the list intent answered", async () => {
+    const own = subStubClient({ "orgs.list": orgs })
+    renderContribution(widgetContribution, {
+      slot: "overview.widgets",
+      client: own.client,
+      hostClient: subStubClient({}).client,
+    })
+    await waitFor(() => expect(screen.getByText("2")).toBeTruthy())
+    expect(screen.getByText(/organizations/i)).toBeTruthy()
+    // Same intent the list page reads, same params (none), so the store
+    // serves both from one request. That is the query store working, not a
+    // coincidence worth avoiding.
+    expect(own.intents).toEqual(["orgs.list"])
+  })
+
+  it("shows nothing rather than a zero while the count is loading", () => {
+    const own = subStubClient({ "orgs.list": orgs })
+    renderContribution(widgetContribution, {
+      slot: "overview.widgets",
+      client: own.client,
+      hostClient: subStubClient({}).client,
+    })
+    // A widget that renders 0 before its data arrives tells an operator
+    // something false for as long as the request takes. Asserted
+    // synchronously, before the stub's async query resolves: this is the
+    // loading state, not the settled-with-zero state.
+    expect(screen.queryByText("0")).toBeNull()
   })
 })
