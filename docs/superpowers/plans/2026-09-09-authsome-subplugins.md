@@ -1947,3 +1947,452 @@ git commit -m "feat(authsome): the password policy, above the settings that set 
 ```
 
 ---
+
+### Task 8: Overview widgets, and wiring every sub-plugin in
+
+**Files:**
+- Modify: `packages/plugin-authsome/src/sub/organization.tsx` (add its widget)
+- Create: `packages/plugin-authsome/src/sub/index.ts`
+- Modify: `packages/plugin-authsome/src/index.tsx`
+- Test: `packages/plugin-authsome/test/sub/index.test.tsx`
+
+**Interfaces:**
+- Produces: `authsomeSubPlugins: ForgeSubPlugin[]`, re-exported from the package root.
+
+#### The widgets, and the ones that are not worth building
+
+The legacy dashboard has an overview widget per plugin. Most of them are static
+cards. Going through them honestly:
+
+| widget | what the templ card actually does | decision |
+|---|---|---|
+| organization | a count of organizations | **build it.** `orgs.list` answers the whole array, so its length IS the count |
+| waitlist | pending count | **built in Task 4** from `waitlist.counts` |
+| apikey | a card reading "API Keys / Active", no number | skip |
+| consent | a card reading "Consent / Active", no number | skip |
+| mfa, passkey, oauth2provider | static cards with no parameters | skip |
+| subscription | active, trialing and past-due counts computed server-side | skip: `subscriptions.list` needs a `tenantId` and there is no app-wide count |
+| social, sso | a count of configured providers, from settings | skip for now, see below |
+
+Skipping is the decision, not an omission. A tile that always says the same
+thing is furniture, and an overview made mostly of furniture is worse than a
+short one. The social and sso provider counts are reachable through the settings
+namespace these sub-plugins already read, but only if the provider list is a
+settings field. Check the namespace response before building either, and if it
+is not there, say so in the migration notes rather than inventing a number.
+
+- [ ] **Step 1: Write the failing test for the org widget**
+
+```tsx
+// in packages/plugin-authsome/test/sub/organization.test.tsx
+describe("OrgCountWidget", () => {
+  it("counts the organizations the list intent answered", async () => {
+    const own = subStubClient(orgs)
+    renderSubPage(OrgCountWidget, { client: own.client, hostClient: subStubClient({}).client, allowed: [] })
+    await waitFor(() => expect(screen.getByText("2")).toBeTruthy())
+    expect(screen.getByText(/organizations/i)).toBeTruthy()
+    // Same intent the list page reads, same params, so the store serves both
+    // from one request. That is the query store working, not a coincidence
+    // worth avoiding.
+    expect(own.intents).toEqual(["orgs.list"])
+  })
+
+  it("shows nothing rather than a zero while the count is loading", () => {
+    const own = subStubClient(orgs)
+    renderSubPage(OrgCountWidget, { client: own.client, hostClient: subStubClient({}).client, allowed: [] })
+    // A widget that renders 0 before its data arrives tells an operator
+    // something false for as long as the request takes.
+    expect(screen.queryByText("0")).toBeNull()
+  })
+})
+```
+
+Add `OrgCountWidget` to the organization sub-plugin's `overview.widgets`
+contributions with `priority: 10`.
+
+- [ ] **Step 2: Write the barrel**
+
+```ts
+// packages/plugin-authsome/src/sub/index.ts
+import type { ForgeSubPlugin } from "@forge-go/dashboard-plugin"
+import { organizationSubPlugin } from "./organization"
+import { apikeySubPlugin } from "./apikey"
+import { waitlistSubPlugin } from "./waitlist"
+import { consentSubPlugin } from "./consent"
+import { subscriptionSubPlugin } from "./subscription"
+import { passwordSubPlugin } from "./password"
+import { settingsOnlySubPlugins } from "./settings-only"
+
+export {
+  organizationSubPlugin, apikeySubPlugin, waitlistSubPlugin,
+  consentSubPlugin, subscriptionSubPlugin, passwordSubPlugin,
+  settingsOnlySubPlugins,
+}
+
+/**
+ * Every first-party authsome sub-plugin.
+ *
+ * Order does not decide anything. Nav sorts by group then priority, slot
+ * contributions sort by priority then id, and routes are keyed by path. This
+ * array is just the set, and it is ordered by hand for readability rather than
+ * by any rule a reader has to learn.
+ */
+export const authsomeSubPlugins: ForgeSubPlugin[] = [
+  organizationSubPlugin,
+  apikeySubPlugin,
+  waitlistSubPlugin,
+  consentSubPlugin,
+  subscriptionSubPlugin,
+  passwordSubPlugin,
+  ...settingsOnlySubPlugins,
+]
+```
+
+Re-export `authsomeSubPlugins` from `src/index.tsx`, next to `authsomePlugin`.
+
+- [ ] **Step 3: Write the wiring test**
+
+```tsx
+// packages/plugin-authsome/test/sub/index.test.tsx
+import { describe, expect, it } from "vitest"
+import { authsomeSubPlugins } from "../../src/sub"
+
+describe("authsomeSubPlugins", () => {
+  it("is all twenty-four", () => {
+    expect(authsomeSubPlugins).toHaveLength(24)
+  })
+
+  it("declares every route exactly once across the whole set", () => {
+    const paths = authsomeSubPlugins.flatMap((s) => s.routes.map((r) => r.path))
+    const duplicates = paths.filter((p, i) => paths.indexOf(p) !== i)
+    // Two sub-plugins claiming one path is decided by the host's collision
+    // rule, which drops one of them along with its nav entry. That is a
+    // correct recovery from a mistake, not a design, and it should never fire
+    // for first-party plugins.
+    expect(duplicates).toEqual([])
+  })
+
+  it("declares every nav target exactly once", () => {
+    const targets = authsomeSubPlugins.flatMap((s) => s.nav.map((n) => n.to))
+    const duplicates = targets.filter((t, i) => targets.indexOf(t) !== i)
+    expect(duplicates).toEqual([])
+  })
+
+  it("mounts every one inside auth", () => {
+    for (const sub of authsomeSubPlugins) expect(sub.host).toBe("auth")
+  })
+
+  it("gives every nav item a route to land on", () => {
+    for (const sub of authsomeSubPlugins) {
+      const paths = new Set(sub.routes.map((r) => r.path))
+      for (const item of sub.nav) {
+        // A nav entry pointing at a path nobody declared is a link to the
+        // host's fallback, and it looks exactly like a broken page.
+        expect(paths.has(item.to)).toBe(true)
+      }
+    }
+  })
+
+  it("declares host intents only where a sub-plugin actually reads the host", () => {
+    for (const sub of authsomeSubPlugins) {
+      for (const intent of sub.hostIntents) {
+        // The allowlist is the whole scoping guarantee. Anything outside the
+        // settings four is a sub-plugin reaching into auth for something else.
+        expect(intent.startsWith("settings.")).toBe(true)
+      }
+    }
+  })
+
+  it("uses a slot name the platform knows for every contribution", () => {
+    const known = new Set([
+      "overview.widgets", "user.detail.sections", "org.detail.sections",
+      "org.detail.tabs", "org.create.fields", "settings.tabs",
+    ])
+    for (const sub of authsomeSubPlugins) {
+      for (const slot of Object.keys(sub.contributions)) {
+        // defineSubPlugin already throws on an unknown slot at import time.
+        // This asserts the set itself has not drifted from the platform's.
+        expect(known.has(slot)).toBe(true)
+      }
+    }
+  })
+})
+```
+
+- [ ] **Step 4: Run the tests and typecheck**
+
+- [ ] **Step 5: Commit**
+
+```bash
+git add packages/plugin-authsome/src/sub/index.ts packages/plugin-authsome/src/sub/organization.tsx packages/plugin-authsome/src/index.tsx packages/plugin-authsome/test/sub/index.test.tsx packages/plugin-authsome/test/sub/organization.test.tsx
+git commit -m "feat(authsome): export all twenty-four sub-plugins, and the two widgets worth having" -- packages/plugin-authsome/src/sub packages/plugin-authsome/src/index.tsx packages/plugin-authsome/test/sub
+```
+
+---
+
+### Task 9: The three tests that matter more than the rest
+
+**Files:**
+- Test: `packages/plugin-authsome/test/sub/isolation.test.tsx`
+
+No source changes. If any of these three fails, the fix is in the sub-plugin
+that broke it, not here.
+
+The spec names three properties as mattering more than the per-sub-plugin
+suites, and every one of them is a property of the SET rather than of any member
+of it. That is why they live in their own file: a per-sub-plugin test cannot see
+a leak between two of them.
+
+**A vacuous test is worse than no test here.** One of the platform's own
+isolation tests was found to assert that a string never rendered by anything was
+absent from the screen, which passes forever and proves nothing. Every assertion
+below has to fail if the property breaks. Check that by breaking it on purpose
+once, locally, before you commit.
+
+- [ ] **Step 1: A sub-plugin's query carries its own contributor**
+
+```tsx
+it("queries under its own extension, never its host's", async () => {
+  const own = subStubClient({ "orgs.list": { organizations: [{ id: "o1", name: "Acme", slug: "acme", createdAt: "2026-01-01T00:00:00Z" }] } })
+  const host = subStubClient({ "orgs.list": { organizations: [{ id: "x", name: "WRONG", slug: "wrong", createdAt: "2026-01-01T00:00:00Z" }] } })
+
+  renderSubPage(organizationSubPlugin.routes[0].element, {
+    client: own.client, hostClient: host.client, allowed: [],
+  })
+
+  // Both stubs answer orgs.list, and they answer DIFFERENTLY. If the page
+  // reached through the host client it would render "WRONG" and every other
+  // assertion in this file would still pass.
+  await waitFor(() => expect(screen.getByText("Acme")).toBeTruthy())
+  expect(screen.queryByText("WRONG")).toBeNull()
+  expect(host.intents).toEqual([])
+})
+```
+
+The two stubs answering the same intent with different data is the whole design
+of this test. A stub that answers nothing on the host side would let a page
+reaching the wrong way fail with an error, which is a different bug and an
+easier one.
+
+- [ ] **Step 2: A host intent outside the allowlist throws at render**
+
+```tsx
+it("throws when a sub-plugin reaches a host intent it did not declare", () => {
+  function Overreacher() {
+    // users.list belongs to auth. A settings-only sub-plugin declaring the
+    // four settings intents must not be able to reach it through its host.
+    useHostQuery("users.list")
+    return <p>should never render</p>
+  }
+
+  expect(() =>
+    renderSubPage(Overreacher, {
+      client: subStubClient({}).client,
+      hostClient: subStubClient({ "users.list": { users: [] } }).client,
+      allowed: [...SETTINGS_INTENTS],
+    }),
+  ).toThrow(/users\.list/)
+
+  // And the component genuinely did not render, rather than throwing after
+  // painting something.
+  expect(screen.queryByText("should never render")).toBeNull()
+})
+```
+
+Note the second assertion. Without it this test passes if the hook throws on the
+request instead of during render, which is a materially different behaviour: an
+overreaching sub-plugin would paint its UI, send the request and then fail.
+
+- [ ] **Step 3: One sub-plugin throwing loses only its own slot entry**
+
+```tsx
+it("loses only the contribution that threw", async () => {
+  function Boom(): never { throw new Error("contribution exploded") }
+  function Fine() { return <p>sibling survived</p> }
+
+  const entries = [
+    { subPlugin: fakeSub("alpha", { "user.detail.sections": [{ id: "a", render: Boom }] }), client, hostClient },
+    { subPlugin: fakeSub("beta", { "user.detail.sections": [{ id: "b", render: Fine }] }), client, hostClient },
+  ]
+
+  render(
+    <SubPluginProvider entries={entries}>
+      <h1>host page</h1>
+      <PluginSlot name="user.detail.sections" params={{ userId: "u1" }} />
+    </SubPluginProvider>,
+  )
+
+  // Three separate claims, and the middle one is the one that usually breaks:
+  // an unkeyed boundary swallows the whole slot.
+  expect(screen.getByRole("heading", { name: "host page" })).toBeTruthy()
+  expect(screen.getByText("sibling survived")).toBeTruthy()
+  expect(screen.getByText(/alpha/)).toBeTruthy()   // the boundary names it
+})
+```
+
+Write `fakeSub(extension, contributions)` as a small local helper calling
+`defineSubPlugin` with `host: "auth"`. Do not reach for a real sub-plugin here:
+this test is about the slot machinery and a real one would couple it to whatever
+that sub-plugin happens to render this month.
+
+Silence React's error logging for this one test only. A boundary catching a
+deliberate throw prints a stack that reads like a failure in an otherwise green
+run, and somebody will eventually spend twenty minutes on it.
+
+- [ ] **Step 4: Break each property on purpose and watch the test fail**
+
+This is a step, not a suggestion. For each of the three:
+1. Change the source so the property no longer holds (point the page at the host
+   client; widen the allowlist to everything; drop the key off the boundary).
+2. Run the test and confirm it FAILS, with a message that points at the right
+   thing.
+3. Revert.
+
+Three tests that pass against broken code are three tests that will be trusted
+and should not be.
+
+- [ ] **Step 5: Commit**
+
+```bash
+git add packages/plugin-authsome/test/sub/isolation.test.tsx
+git commit -m "test(authsome): pin the three properties that hold the sub-plugins apart" -- packages/plugin-authsome/test/sub/isolation.test.tsx
+```
+
+---
+
+### Task 10: Verify the set, and write down what stayed behind
+
+**Files:**
+- Create: `docs/superpowers/plans/2026-09-09-authsome-migration-notes.md`
+- Test: whole-package and whole-workspace runs
+
+No new features. This task is the difference between "the code is written" and
+"the legacy dashboard can be retired", and those are not the same claim.
+
+- [ ] **Step 1: Run everything**
+
+```bash
+pnpm --filter @forge-go/dashboard-plugin-authsome test
+pnpm --filter @forge-go/dashboard-plugin-authsome typecheck
+pnpm -r typecheck
+pnpm -r test
+```
+
+All green. Record the test count.
+
+- [ ] **Step 2: Check every intent the package uses against the manifests**
+
+Take every intent string in `src/`, and check each against the contributor that
+should answer it. The exact-name check catches typos that no test finds, because
+a page querying a misspelled intent renders an error state and a test asserting
+"shows an error when the server fails" passes.
+
+```bash
+grep -rhoE '"(orgs|apikeys|waitlist|consent|plans|subscriptions|password|settings)\.[a-zA-Z]+"' \
+  packages/plugin-authsome/src | sort -u
+```
+
+Every line must appear in the contract reference at
+`.superpowers/sdd/authsome-subplugins-contract.md`, and nothing may appear that
+belongs to a contributor other than the one querying it. `settings.*` appears
+only inside `sub/settings-panel.tsx` and only through `useHostQuery` or
+`useHostCommand`; anywhere else it is a scoping breach.
+
+- [ ] **Step 3: Mount the whole set in the playground and look at it**
+
+Run the playground against the fixture server and click through. Automated tests
+do not catch a nav group with one item in it, an org detail tab strip that wraps,
+or a settings panel whose fields are all enforced and therefore all disabled with
+no explanation of why.
+
+Specifically confirm by hand, because none of this is unit-testable:
+- the six data sub-plugins appear under Identity, Security, Compliance and Configuration, and the eighteen under Security, Auth, Enterprise and Configuration
+- the subscription Billing tab renders inside the organization detail page, which is one sub-plugin contributing into another sub-plugin's host slot
+- turning a contributor off in the capabilities fixture removes its nav entry, its route AND its settings tab together
+- the settings index page lists namespaces AND shows the contributed tabs below
+
+- [ ] **Step 4: Re-measure the bundle**
+
+The kit consumer notes require this at the first page that statically imports
+`ConfirmDialog` or `SettingsForm`, and this package now does both many times
+over. Run `pnpm build`, compare the eager entry set against `BASELINE.md`, and
+write the new number in whichever way it goes.
+
+- [ ] **Step 5: Write the migration notes**
+
+`docs/superpowers/plans/2026-09-09-authsome-migration-notes.md`, and it has one
+job: somebody deciding whether to switch the templ dashboard off can read it and
+know what they lose. Written for that reader, not for us.
+
+It must contain, each with the reason and not just the fact:
+
+- **The fourteen blocked surfaces** from the spec, grouped by how much Go work
+  each needs. Say plainly that SCIM directory management and subscription
+  billing stay in the templ dashboard, because those two are the reason this is
+  not yet a clean retirement.
+- **The three surfaces that are cheap**: organization invitations and member
+  role changes are already implemented in `organization/service.go` and only
+  need dispatcher registration; the three per-user sections (MFA factors,
+  passkeys, linked social accounts) are one query each.
+- **What this dashboard has that the legacy one does not**: an app-wide consent
+  list, a waitlist delete and approval notes, and a settings panel over every
+  namespace rather than a hand-written panel per plugin.
+- **The nav divergences.** The legacy `dashboard.go` puts organization and
+  waitlist under "Authentication" and apikey under "Developer" at `/api-keys`
+  with a hyphen. The manifests say Identity, Compliance and `/apikeys`. Anyone
+  going by muscle memory will look in the wrong place, and one of the paths is
+  genuinely different.
+- **The stat rows that did not survive.** The legacy organization list shows
+  Organizations, Members, Teams and Invitations computed in-process. Only the
+  first is reachable. Say so rather than letting somebody notice.
+- **`hashAlgorithm` is a constant**, not a live reading.
+- **There is no reset-to-default anywhere in settings**, and why: `settings.update`
+  passes its value to `Manager.Set` unchanged, so null stores null, and the
+  intent that would clear an override is not exposed.
+
+Run the draft through the `rex-voice` skill and then `humanizer` in embedded
+mode, as the repository's CLAUDE.md requires for prose that ships. No em dashes.
+
+- [ ] **Step 6: Commit**
+
+```bash
+git add docs/superpowers/plans/2026-09-09-authsome-migration-notes.md
+git commit -m "docs: what the react dashboard covers, and what stays in templ" -- docs/superpowers/plans/2026-09-09-authsome-migration-notes.md
+```
+
+---
+
+## Self-review
+
+Checked against the spec at
+`docs/superpowers/specs/2026-09-08-authsome-subplugins-design.md`, after the
+spec was itself corrected against the Go source.
+
+**Coverage.** Twenty-four sub-plugins: eighteen in Task 1, six in Tasks 2 to 7.
+Every slot the spec names has a contributor: `overview.widgets` (Tasks 4 and 8),
+`user.detail.sections` (Tasks 5 and 6), `org.detail.tabs` (Task 6),
+`settings.tabs` (Tasks 1 and 7), and `org.detail.sections` plus
+`org.create.fields` are HOSTED by Task 2. The three cross-cutting tests the spec
+asks for are Task 9. The blocked list is Task 10.
+
+**One slot has no first-party contributor**: `org.detail.sections`. The
+organization page hosts it and nothing fills it, which is correct rather than
+missing. The sso org section would have filled it and `sso` declares no intents.
+Task 2's page must therefore render that slot without drawing an empty heading,
+which `useSlotCount` is for, and Task 2 says so.
+
+**Two things the spec asked for that this plan deliberately does not build**,
+both recorded in Task 10's notes: the apikey user section, because
+`apikeys.list` has nothing to filter on, and an overview widget for four of the
+six, because the legacy cards carry no data.
+
+**Type consistency.** `AckResponse` comes from the core plugin's `users.tsx`.
+`flattenCategories`, `toDescriptors`, `SettingField` and
+`SettingsNamespaceResponse` come from the core's `settings-fields.ts` and are
+named identically in both plans. `CursorPager` and `useCursorStack` come from
+`src/components/cursor-pager.tsx`. `settingsPanelFor` and `SETTINGS_INTENTS` are
+defined in Task 0 and consumed in Tasks 1 and 7 under those exact names.
+
+**Ordering.** Task 0 blocks on authsome core Task 8. Everything else in this
+plan blocks on Task 0. Tasks 2 through 7 are independent of each other and can
+run in parallel; Task 8 needs all of them; Tasks 9 and 10 need Task 8.
