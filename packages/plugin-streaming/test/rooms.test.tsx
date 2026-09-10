@@ -62,7 +62,10 @@ describe("StreamingRoomsPage", () => {
     expect(screen.getByText("Support")).toBeDefined()
     expect(screen.getByText("usr_1")).toBeDefined()
     expect(screen.getByText("usr_2")).toBeDefined()
-    expect(screen.getByText("Rooms", { selector: "caption" })).toBeDefined()
+
+    // The caption carries a live row count, the way the old hand-rolled
+    // table's caption did, not just the static section name.
+    expect(screen.getByText("2 rooms", { selector: "caption" })).toBeDefined()
 
     // The raw room id, so an operator can correlate a row with logs or a
     // support ticket without going through the name.
@@ -70,9 +73,6 @@ describe("StreamingRoomsPage", () => {
     expect(screen.getByText("room_2")).toBeDefined()
 
     // One row per room: the header row plus a row for each of the two rooms.
-    // `ResourceTable` renders a real table now, unlike the old hand-rolled
-    // markup, so counting rows through the table's own role is what stands in
-    // for the old "2 rooms" caption text.
     expect(screen.getAllByRole("row")).toHaveLength(3)
 
     // The private flag is rendered as a word, not as raw true/false, and the
@@ -85,6 +85,21 @@ describe("StreamingRoomsPage", () => {
     // of the visibility badge.
     expect(screen.getByText("active")).toBeDefined()
     expect(screen.getByText("archived")).toBeDefined()
+
+    // Archived is the louder variant, the one an operator scans a room list
+    // for. Visibility (private/public) is a separate fact and stays neutral.
+    expect(screen.getByText("archived").getAttribute("data-variant")).toBe(
+      "destructive",
+    )
+    expect(screen.getByText("active").getAttribute("data-variant")).not.toBe(
+      "destructive",
+    )
+
+    // Identifier columns carry the table's monospace vocabulary; the name
+    // column is the one you read, not copy.
+    expect(screen.getByText("General").className).toContain("font-medium")
+    expect(screen.getByText("usr_1").className).toContain("font-mono")
+    expect(screen.getByText("usr_1").className).toContain("text-xs")
   })
 
   it("reads the rooms.list intent and nothing else", async () => {

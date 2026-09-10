@@ -42,14 +42,30 @@ export interface RoomsList {
 }
 
 const columns: Column<RoomInfo>[] = [
-  { id: "name", header: "Name", cell: (r) => r.name },
+  {
+    id: "name",
+    header: "Name",
+    cell: (r) => r.name,
+    className: "font-medium",
+  },
   {
     id: "id",
     header: "ID",
     cell: (r) => <span className="font-mono text-xs">{r.id}</span>,
   },
-  { id: "owner", header: "Owner", cell: (r) => r.owner },
-  { id: "members", header: "Members", cell: (r) => r.members, align: "end" },
+  {
+    id: "owner",
+    header: "Owner",
+    cell: (r) => r.owner,
+    className: "font-mono text-xs",
+  },
+  {
+    id: "members",
+    header: "Members",
+    cell: (r) => r.members,
+    align: "end",
+    className: "tabular-nums",
+  },
   {
     id: "visibility",
     header: "Visibility",
@@ -62,8 +78,11 @@ const columns: Column<RoomInfo>[] = [
   {
     id: "archived",
     header: "Archived",
+    // Archived is the state an operator is scanning a room list for, so it
+    // gets the loud variant. Visibility above is neutral either way and
+    // stays on "secondary" - only archived borrows "destructive".
     cell: (r) => (
-      <Badge variant={r.archived ? "secondary" : "outline"}>
+      <Badge variant={r.archived ? "destructive" : "outline"}>
         {r.archived ? "archived" : "active"}
       </Badge>
     ),
@@ -159,29 +178,36 @@ export function StreamingRoomsPage() {
       />
       {creating && <CreateRoomForm onDone={() => setCreating(false)} />}
       <QueryBoundary title="Rooms" query={query} skeletonRows={4}>
-        {(data) => (
-          <ResourceTable<RoomInfo>
-            columns={columns}
-            // The Go handler builds this slice itself so it is never null on
-            // the wire, but this page is rendered by a host that will hand it
-            // whatever the server said. A missing array must not throw inside
-            // a plugin's own render.
-            rows={data.rooms ?? []}
-            rowKey={(r) => r.id}
-            caption="Rooms"
-            emptyMessage="No rooms yet."
-            rowActions={(room) => (
-              <Button
-                variant="destructive"
-                size="sm"
-                aria-label={`Delete ${room.name}`}
-                onClick={() => setPendingDelete(room)}
-              >
-                Delete
-              </Button>
-            )}
-          />
-        )}
+        {(data) => {
+          // The Go handler builds this slice itself so it is never null on
+          // the wire, but this page is rendered by a host that will hand it
+          // whatever the server said. A missing array must not throw inside
+          // a plugin's own render.
+          const rooms = data.rooms ?? []
+          return (
+            <ResourceTable<RoomInfo>
+              columns={columns}
+              rows={rooms}
+              rowKey={(r) => r.id}
+              caption={
+                rooms.length === 0
+                  ? undefined
+                  : `${rooms.length} ${rooms.length === 1 ? "room" : "rooms"}`
+              }
+              emptyMessage="No rooms yet."
+              rowActions={(room) => (
+                <Button
+                  variant="destructive"
+                  size="sm"
+                  aria-label={`Delete ${room.name}`}
+                  onClick={() => setPendingDelete(room)}
+                >
+                  Delete
+                </Button>
+              )}
+            />
+          )
+        }}
       </QueryBoundary>
       <ConfirmDialog
         open={pendingDelete !== null}
