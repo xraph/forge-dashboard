@@ -137,6 +137,73 @@ function EditWebhookPanel({
 }
 
 /**
+ * The inline create panel for a new webhook.
+ *
+ * `webhooks.create` takes `{ url, events }`, both required non-pointer
+ * fields - the server rejects an empty url and an empty events list with a
+ * bad-request error, so the Create button stays disabled until both are
+ * non-empty rather than round-tripping to learn that. There is no `active`
+ * field on `CreateWebhookInput`; the server always creates a webhook active
+ * and the operator uses the row's own toggle afterward if that is wrong.
+ */
+function CreateWebhookPanel({ onDone }: { onDone: () => void }) {
+  const create = useCommand<AckResponse>("webhooks.create")
+  const [url, setUrl] = useState("")
+  const [eventsInput, setEventsInput] = useState("")
+
+  // Same comma-separated convention as the edit panel below: the contract
+  // takes `string[]` for events and never enumerates valid ones.
+  const parsedEvents = eventsInput
+    .split(",")
+    .map((event) => event.trim())
+    .filter((event) => event !== "")
+
+  async function submit() {
+    const result = await create.execute({ url, events: parsedEvents })
+    // `execute` resolves with undefined on failure and never rejects, so
+    // this is the success check. A failed create must not close the panel
+    // and throw away what the operator typed.
+    if (result === undefined) return
+    onDone()
+  }
+
+  return (
+    <div className="flex flex-col gap-3 rounded-md border p-4">
+      <h2 className="text-sm font-medium">New webhook</h2>
+      <CommandAlert error={create.error} title="Could not create the webhook" />
+      <div className="flex flex-col gap-1.5">
+        <Label htmlFor="webhook-create-url">URL</Label>
+        <Input id="webhook-create-url" value={url} onChange={(e) => setUrl(e.target.value)} />
+      </div>
+      <div className="flex flex-col gap-1.5">
+        <Label htmlFor="webhook-create-events">Events</Label>
+        <Input
+          id="webhook-create-events"
+          value={eventsInput}
+          onChange={(e) => setEventsInput(e.target.value)}
+          placeholder="user.created, user.deleted"
+        />
+        <span className="text-xs text-muted-foreground">
+          Comma-separated. The server does not enumerate valid events, so anything typed here is
+          sent as-is. At least one is required.
+        </span>
+      </div>
+      <div className="flex gap-2">
+        <Button
+          onClick={() => void submit()}
+          disabled={create.loading || url.trim() === "" || parsedEvents.length === 0}
+        >
+          {create.loading ? "Creating…" : "Create webhook"}
+        </Button>
+        <Button variant="ghost" onClick={onDone} disabled={create.loading}>
+          Cancel
+        </Button>
+      </div>
+    </div>
+  )
+}
+
+/**
  * Webhooks, list and detail together on one page.
  *
  * A webhook is four fields, so a separate detail route for it would be
@@ -144,6 +211,7 @@ function EditWebhookPanel({
  * panel rather than a navigation.
  */
 export function AuthWebhooksPage() {
+  const [creating, setCreating] = useState(false)
   const [editing, setEditing] = useState<WebhookSummary | null>(null)
   const [deleting, setDeleting] = useState<WebhookSummary | null>(null)
 
@@ -180,7 +248,12 @@ export function AuthWebhooksPage() {
 
   return (
     <section className="flex flex-col gap-4">
-      <PageHeader title="Webhooks" />
+      <PageHeader
+        title="Webhooks"
+        actions={!creating && <Button onClick={() => setCreating(true)}>New webhook</Button>}
+      />
+
+      {creating && <CreateWebhookPanel onDone={() => setCreating(false)} />}
 
       {/*
         The toggle's error lives above the table rather than inside a dialog,

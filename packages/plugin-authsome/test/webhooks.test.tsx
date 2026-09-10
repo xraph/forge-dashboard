@@ -47,6 +47,75 @@ describe("AuthWebhooksPage", () => {
     expect(screen.getByLabelText("no events")).toBeTruthy()
   })
 
+  it("creates a webhook with the url and the split, trimmed events", async () => {
+    const { client, sent } = recordingCommandClient(
+      { "webhooks.list": webhooksAnswer },
+      { "webhooks.create": { ok: true, id: "w2" } },
+    )
+    renderPage(AuthWebhooksPage, client)
+    await waitFor(() => expect(screen.getByText("https://example.com/hook")).toBeTruthy())
+
+    fireEvent.click(screen.getByRole("button", { name: "New webhook" }))
+    fireEvent.change(screen.getByLabelText("URL"), {
+      target: { value: "https://example.com/new" },
+    })
+    fireEvent.change(screen.getByLabelText("Events"), {
+      target: { value: " user.created ,, user.deleted " },
+    })
+    fireEvent.click(screen.getByRole("button", { name: "Create webhook" }))
+
+    await waitFor(() => expect(sent).toHaveLength(1))
+    expect(sent[0]).toEqual({
+      intent: "webhooks.create",
+      payload: { url: "https://example.com/new", events: ["user.created", "user.deleted"] },
+    })
+  })
+
+  it("will not create a webhook without a url and at least one event", async () => {
+    const { client, sent } = recordingCommandClient(
+      { "webhooks.list": webhooksAnswer },
+      { "webhooks.create": { ok: true } },
+    )
+    renderPage(AuthWebhooksPage, client)
+    await waitFor(() => expect(screen.getByText("https://example.com/hook")).toBeTruthy())
+
+    fireEvent.click(screen.getByRole("button", { name: "New webhook" }))
+    expect(
+      (screen.getByRole("button", { name: "Create webhook" }) as HTMLButtonElement).disabled,
+    ).toBe(true)
+
+    fireEvent.change(screen.getByLabelText("URL"), {
+      target: { value: "https://example.com/new" },
+    })
+    expect(
+      (screen.getByRole("button", { name: "Create webhook" }) as HTMLButtonElement).disabled,
+    ).toBe(true)
+    expect(sent).toHaveLength(0)
+  })
+
+  it("shows the server's reason without closing the create panel", async () => {
+    const { client, sent } = recordingCommandClient(
+      { "webhooks.list": webhooksAnswer },
+      { "webhooks.create": new ContractError("VALIDATION", "url is not reachable") },
+    )
+    renderPage(AuthWebhooksPage, client)
+    await waitFor(() => expect(screen.getByText("https://example.com/hook")).toBeTruthy())
+
+    fireEvent.click(screen.getByRole("button", { name: "New webhook" }))
+    fireEvent.change(screen.getByLabelText("URL"), {
+      target: { value: "https://bad" },
+    })
+    fireEvent.change(screen.getByLabelText("Events"), {
+      target: { value: "user.created" },
+    })
+    fireEvent.click(screen.getByRole("button", { name: "Create webhook" }))
+
+    await waitFor(() => expect(sent).toHaveLength(1))
+    expect(screen.getByText("url is not reachable")).toBeTruthy()
+    // The panel is still open and the operator's input survived the failure.
+    expect(screen.getByLabelText("URL")).toBeTruthy()
+  })
+
   it("toggling active sends only the id and the new active value", async () => {
     const { client, sent } = recordingCommandClient(
       { "webhooks.list": webhooksAnswer },

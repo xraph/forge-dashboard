@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest"
 import { fireEvent, screen, waitFor } from "@testing-library/react"
+import { ContractError } from "@forge-go/dashboard-plugin"
 import { recordingCommandClient, renderPage, stubClient } from "./harness"
 import { AuthSignupFormEditorPage, AuthSignupFormsPage } from "../src/pages/signup-forms"
 
@@ -102,5 +103,45 @@ describe("AuthSignupFormEditorPage", () => {
     const payload = sent[0].payload as { fields: unknown[]; active: boolean }
     expect(payload.fields).toEqual(signupAnswer.fields)
     expect(payload.active).toBe(true)
+  })
+
+  it("confirms before deleting, then sends an empty payload", async () => {
+    const { client, sent } = recordingCommandClient(
+      { "formConfigs.signup": signupAnswer },
+      { "formConfigs.deleteSignup": { ok: true } },
+    )
+    renderPage(AuthSignupFormEditorPage, client)
+    await waitFor(() => expect(screen.getByDisplayValue("email")).toBeTruthy())
+
+    fireEvent.click(screen.getByRole("button", { name: "Delete signup form" }))
+    expect(sent).toHaveLength(0)
+    expect(screen.getByText(/removed entirely/)).toBeTruthy()
+
+    fireEvent.click(screen.getByRole("button", { name: "Delete" }))
+    await waitFor(() => expect(sent).toHaveLength(1))
+    // `formConfigs.deleteSignup` takes no input: it deletes the one signup
+    // form config for the current app context, not one picked by id.
+    expect(sent[0]).toEqual({ intent: "formConfigs.deleteSignup", payload: {} })
+    expect(screen.getByText("The signup form has been deleted.")).toBeTruthy()
+  })
+
+  it("shows the server's reason and leaves the delete dialog open when the delete fails", async () => {
+    const { client } = recordingCommandClient(
+      { "formConfigs.signup": signupAnswer },
+      { "formConfigs.deleteSignup": new ContractError("VALIDATION", "no signup form to delete") },
+    )
+    renderPage(AuthSignupFormEditorPage, client)
+    await waitFor(() => expect(screen.getByDisplayValue("email")).toBeTruthy())
+
+    fireEvent.click(screen.getByRole("button", { name: "Delete signup form" }))
+    fireEvent.click(screen.getByRole("button", { name: "Delete" }))
+
+    // The alert lives inside the open dialog's own description, so it is
+    // reachable without reaching past Base UI's `aria-hidden` on the rest of
+    // the page.
+    const alert = await screen.findByRole("alert")
+    expect(alert.textContent).toContain("Could not delete")
+    expect(alert.textContent).toContain("no signup form to delete")
+    expect(screen.getByRole("alertdialog")).toBeTruthy()
   })
 })

@@ -37,7 +37,7 @@ export const SETTINGS_INTENTS = [
  * but it has to declare the prop to be usable where every other page is.
  */
 export function settingsPanelFor(namespace: string): ComponentType<PluginPageProps> {
-  function SettingsPanel(_props: PluginPageProps) {
+  function SettingsPanel() {
     const query = useHostQuery<SettingsNamespaceResponse>("settings.namespace", {
       namespace,
       scope: "app",

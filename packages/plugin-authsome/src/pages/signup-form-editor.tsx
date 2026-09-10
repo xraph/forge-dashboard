@@ -1,6 +1,7 @@
 import { useState } from "react"
-import { useCommand, useQuery } from "@forge-go/dashboard-plugin"
+import { useCommand, useNavigateTo, useQuery } from "@forge-go/dashboard-plugin"
 import { Button } from "@forge-go/dashboard-kit/components/button"
+import { ConfirmDialog } from "@forge-go/dashboard-kit/components/confirm-dialog"
 import { Input } from "@forge-go/dashboard-kit/components/input"
 import { Label } from "@forge-go/dashboard-kit/components/label"
 import { PageHeader } from "@forge-go/dashboard-kit/components/page-header"
@@ -198,10 +199,50 @@ function EditorBody({ fields: initialFields }: { fields: FormField[] }) {
  */
 export function AuthSignupFormEditorPage() {
   const query = useQuery<SignupFormResponse>("formConfigs.signup")
+  const remove = useCommand<AckResponse>("formConfigs.deleteSignup")
+  const [deleting, setDeleting] = useState(false)
+  // `formConfigs.deleteSignup` invalidates both `formConfigs.list` and
+  // `formConfigs.signup`, so a query-store-level refetch of this very page's
+  // `formConfigs.signup` follows automatically - but that refetch would find
+  // nothing left to read and resolve into an error, which is a worse thing
+  // for this page to show than a plain "it's gone" message. Once the delete
+  // succeeds this page stops reading that query at all, the same "nowhere
+  // left to stay" case `useNavigateTo` exists for on `device-detail.tsx`.
+  const [deleted, setDeleted] = useState(false)
+  const navigate = useNavigateTo()
+
+  async function confirmDelete() {
+    // `formConfigs.deleteSignup` takes no input at all (`DeleteSignupFormInput`
+    // is an empty struct on the Go side) - it deletes the one signup form
+    // config for the current app/environment context, not a form picked by
+    // id, matching how `formConfigs.signup` reads it.
+    const result = await remove.execute({})
+    if (result === undefined) return
+    setDeleting(false)
+    setDeleted(true)
+    navigate("/@auth/signup-forms")
+  }
+
+  if (deleted) {
+    return (
+      <section className="flex flex-col gap-4">
+        <p role="status" className="text-sm text-muted-foreground">
+          The signup form has been deleted.
+        </p>
+      </section>
+    )
+  }
 
   return (
     <section className="flex flex-col gap-4">
-      <PageHeader title="Edit signup form" />
+      <PageHeader
+        title="Edit signup form"
+        actions={
+          <Button variant="destructive" onClick={() => setDeleting(true)}>
+            Delete signup form
+          </Button>
+        }
+      />
       <QueryBoundary title="Signup form" query={query} skeletonRows={3}>
         {(data) => (
           // Remounted on `updatedAt`, the same reseed-via-remount pattern the
@@ -212,6 +253,36 @@ export function AuthSignupFormEditorPage() {
           <EditorBody key={data.updatedAt} fields={data.fields ?? []} />
         )}
       </QueryBoundary>
+
+      {/*
+        The error lives inside the dialog's description, not above the page.
+        Base UI marks everything outside an open AlertDialog `inert` and
+        `aria-hidden`, so an alert rendered outside it is unreachable for as
+        long as the dialog that can fail is open. Rendered as a <span> with
+        role="alert" rather than CommandAlert's <div>: AlertDialogDescription
+        renders a <p>, and a <div> is not valid <p> content.
+      */}
+      <ConfirmDialog
+        open={deleting}
+        onOpenChange={setDeleting}
+        title="Delete this signup form?"
+        description={
+          <span className="flex flex-col gap-2">
+            <span>
+              The dynamic signup form is removed entirely. New signups fall back to the static
+              form. This cannot be undone.
+            </span>
+            {remove.error && (
+              <span role="alert" className="mt-2 block font-medium text-destructive">
+                Could not delete: {remove.error.message} ({remove.error.code})
+              </span>
+            )}
+          </span>
+        }
+        confirmLabel="Delete"
+        pending={remove.loading}
+        onConfirm={() => void confirmDelete()}
+      />
     </section>
   )
 }
