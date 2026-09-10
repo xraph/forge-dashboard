@@ -96,6 +96,33 @@ export function stubClient(
   return { client, intents, payloads }
 }
 
+/**
+ * Records every command a page sends, with its payload, in order.
+ *
+ * A thin wrapper over {@link stubClient} rather than a second
+ * implementation: `stubClient` already refuses an intent this map does not
+ * hold, and this only needs to add the recording on top of that refusal
+ * rather than repeat it.
+ */
+export function recordingCommandClient(
+  answers: Record<string, Answer>,
+  commands: Record<string, Answer> = {}
+): { client: ScopedClient; sent: { intent: string; payload: unknown }[] } {
+  const sent: { intent: string; payload: unknown }[] = []
+  const { client: inner } = stubClient(answers, commands)
+  return {
+    sent,
+    client: {
+      extension: inner.extension,
+      query: inner.query,
+      command: (intent: string, payload?: unknown) => {
+        sent.push({ intent, payload })
+        return inner.command(intent, payload)
+      },
+    } as ScopedClient,
+  }
+}
+
 /** A client whose every call fails, for exercising the error branches. */
 export function failingClient(error: ContractError): ScopedClient {
   return {

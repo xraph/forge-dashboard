@@ -9,21 +9,14 @@ import {
   CardHeader,
   CardTitle,
 } from "@forge-go/dashboard-kit/components/card"
-import {
-  Table,
-  TableBody,
-  TableCaption,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@forge-go/dashboard-kit/components/table"
+import { PageHeader } from "@forge-go/dashboard-kit/components/page-header"
 import {
   CommandAlert,
-  EmptyState,
-  QueryView,
-  formatTimestamp,
-} from "../components/query-view"
+  QueryBoundary,
+} from "@forge-go/dashboard-kit/components/query-boundary"
+import { ResourceTable } from "@forge-go/dashboard-kit/components/resource-table"
+import type { Column } from "@forge-go/dashboard-kit/components/resource-table"
+import { formatTimestamp } from "@forge-go/dashboard-kit/lib/format"
 
 /** One row of `users.list`. */
 export interface UserSummary {
@@ -92,7 +85,7 @@ function UserDetail({ id }: { id: string }) {
         <CardDescription className="font-mono">{id}</CardDescription>
       </CardHeader>
       <CardContent>
-        <QueryView title="User detail" query={detail} skeletonRows={2}>
+        <QueryBoundary title="User detail" query={detail} skeletonRows={2}>
           {(user) => (
             <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1 text-sm">
               <dt className="text-muted-foreground">Name</dt>
@@ -113,7 +106,7 @@ function UserDetail({ id }: { id: string }) {
               <dd>{formatTimestamp(user.updatedAt ?? "")}</dd>
             </dl>
           )}
-        </QueryView>
+        </QueryBoundary>
       </CardContent>
     </Card>
   )
@@ -161,96 +154,107 @@ export function AuthUsersPage() {
     setInvalidations((n) => n + 1)
   }
 
+  const columns: Column<UserSummary>[] = [
+    {
+      id: "email",
+      header: "Email",
+      cell: (user) => user.email,
+      className: "font-medium",
+    },
+    {
+      id: "name",
+      header: "Name",
+      cell: (user) =>
+        [user.firstName, user.lastName].filter(Boolean).join(" ") ||
+        user.username,
+    },
+    {
+      id: "id",
+      header: "ID",
+      cell: (user) => user.id,
+      className: "font-mono text-xs",
+    },
+    {
+      id: "verified",
+      header: "Verified",
+      cell: (user) => (
+        <Badge variant={user.emailVerified ? "outline" : "secondary"}>
+          {user.emailVerified ? "verified" : "unverified"}
+        </Badge>
+      ),
+    },
+    {
+      id: "status",
+      header: "Status",
+      cell: (user) => <BannedBadge banned={user.banned} />,
+    },
+    {
+      id: "created",
+      header: "Created",
+      cell: (user) => formatTimestamp(user.createdAt),
+    },
+  ]
+
   return (
     <section className="flex flex-col gap-4">
-      <h1 className="text-lg font-medium">Users</h1>
+      <PageHeader title="Users" />
 
       <CommandAlert error={ban.error} title="Ban failed" />
       <CommandAlert error={unban.error} title="Unban failed" />
 
-      <QueryView title="Users" query={list} skeletonRows={4}>
+      <QueryBoundary title="Users" query={list} skeletonRows={4}>
         {(data) => {
           // The Go handler builds this slice itself so it is never null on the
           // wire, but the page is rendered by a host that will happily hand it
           // whatever the server said. A missing array must not throw inside a
           // plugin's own render.
           const users = data.users ?? []
-          if (users.length === 0) return <EmptyState message="No users yet." />
 
           return (
-            <Table>
-              <TableCaption>
-                {users.length} of {data.total ?? users.length}
-              </TableCaption>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Email</TableHead>
-                  <TableHead>Name</TableHead>
-                  <TableHead>ID</TableHead>
-                  <TableHead>Verified</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead>Created</TableHead>
-                  <TableHead className="text-right">Actions</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {users.map((user) => (
-                  <TableRow key={user.id}>
-                    <TableCell className="font-medium">{user.email}</TableCell>
-                    <TableCell>
-                      {[user.firstName, user.lastName]
-                        .filter(Boolean)
-                        .join(" ") || user.username}
-                    </TableCell>
-                    <TableCell className="font-mono text-xs">
-                      {user.id}
-                    </TableCell>
-                    <TableCell>
-                      <Badge
-                        variant={user.emailVerified ? "outline" : "secondary"}
-                      >
-                        {user.emailVerified ? "verified" : "unverified"}
-                      </Badge>
-                    </TableCell>
-                    <TableCell>
-                      <BannedBadge banned={user.banned} />
-                    </TableCell>
-                    <TableCell>{formatTimestamp(user.createdAt)}</TableCell>
-                    <TableCell className="flex justify-end gap-2">
-                      <button
-                        type="button"
-                        onClick={() => setSelected(user.id)}
-                        className={buttonVariants({
-                          variant: "ghost",
-                          size: "sm",
-                        })}
-                      >
-                        Details
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => void toggleBan(user)}
-                        disabled={pendingId === user.id}
-                        aria-label={`${user.banned ? "Unban" : "Ban"} ${user.email}`}
-                        className={buttonVariants({
-                          variant: user.banned ? "outline" : "destructive",
-                          size: "sm",
-                        })}
-                      >
-                        {pendingId === user.id
-                          ? "Working…"
-                          : user.banned
-                            ? "Unban"
-                            : "Ban"}
-                      </button>
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
+            <ResourceTable
+              columns={columns}
+              rows={users}
+              rowKey={(user) => user.id}
+              caption={
+                users.length > 0
+                  ? `${users.length} of ${data.total ?? users.length}`
+                  : undefined
+              }
+              emptyMessage="No users yet."
+              rowActions={(user) => (
+                <>
+                  <button
+                    type="button"
+                    onClick={() => setSelected(user.id)}
+                    className={buttonVariants({
+                      variant: "ghost",
+                      size: "sm",
+                    })}
+                  >
+                    Details
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => void toggleBan(user)}
+                    disabled={pendingId === user.id}
+                    aria-label={`${user.banned ? "Unban" : "Ban"} ${user.email}`}
+                    className={buttonVariants({
+                      variant: user.banned ? "outline" : "destructive",
+                      size: "sm",
+                    })}
+                  >
+                    {pendingId === user.id
+                      ? "Working…"
+                      : user.banned
+                        ? "Unban"
+                        : "Ban"}
+                  </button>
+                </>
+              )}
+            />
           )
         }}
-      </QueryView>
+      </QueryBoundary>
 
       {selected && (
         <UserDetail key={`${selected}:${invalidations}`} id={selected} />

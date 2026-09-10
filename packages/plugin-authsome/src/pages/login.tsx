@@ -11,7 +11,10 @@ import {
 } from "@forge-go/dashboard-kit/components/card"
 import { Input } from "@forge-go/dashboard-kit/components/input"
 import { Label } from "@forge-go/dashboard-kit/components/label"
-import { CommandAlert, QueryView } from "../components/query-view"
+import {
+  CommandAlert,
+  QueryBoundary,
+} from "@forge-go/dashboard-kit/components/query-boundary"
 
 /** One OAuth button the deployment has configured, from `auth.config`. */
 export interface SocialProvider {
@@ -264,9 +267,9 @@ function LoginForm({ config }: { config: AuthConfig }) {
  * fallback is exactly the thing the config exists to replace: it would offer
  * a password box to a deployment that has password login switched off, and
  * the operator would type credentials into a form whose command is going to
- * be refused. `QueryView`'s error card carries the server's own reason and a
- * Retry button, which is the honest thing to show when we do not know what
- * this deployment accepts.
+ * be refused. `QueryBoundary`'s error card carries the server's own reason
+ * and a Retry button, which is the honest thing to show when we do not know
+ * what this deployment accepts.
  */
 export function AuthLoginPage() {
   const config = useQuery<AuthConfig>("auth.config")
@@ -274,9 +277,9 @@ export function AuthLoginPage() {
   return (
     <section className="flex flex-col gap-4">
       <h1 className="text-lg font-medium">Sign in</h1>
-      <QueryView title="Sign-in options" query={config} skeletonRows={3}>
+      <QueryBoundary title="Sign-in options" query={config} skeletonRows={3}>
         {(data) => <LoginForm config={data} />}
-      </QueryView>
+      </QueryBoundary>
     </section>
   )
 }

@@ -1,21 +1,14 @@
 import { useState } from "react"
 import { useCommand, useQuery } from "@forge-go/dashboard-plugin"
 import { buttonVariants } from "@forge-go/dashboard-kit/components/button"
-import {
-  Table,
-  TableBody,
-  TableCaption,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@forge-go/dashboard-kit/components/table"
+import { PageHeader } from "@forge-go/dashboard-kit/components/page-header"
 import {
   CommandAlert,
-  EmptyState,
-  QueryView,
-  formatTimestamp,
-} from "../components/query-view"
+  QueryBoundary,
+} from "@forge-go/dashboard-kit/components/query-boundary"
+import { ResourceTable } from "@forge-go/dashboard-kit/components/resource-table"
+import type { Column } from "@forge-go/dashboard-kit/components/resource-table"
+import { formatTimestamp } from "@forge-go/dashboard-kit/lib/format"
 
 /** One row of `sessions.list`. */
 export interface SessionSummary {
@@ -66,76 +59,84 @@ export function AuthSessionsPage() {
     list.refetch()
   }
 
+  const columns: Column<SessionSummary>[] = [
+    {
+      id: "session",
+      header: "Session",
+      cell: (session) => session.id,
+      className: "font-mono text-xs",
+    },
+    {
+      id: "user",
+      header: "User",
+      cell: (session) => session.userId,
+      className: "font-mono text-xs",
+    },
+    {
+      id: "ip",
+      header: "IP",
+      cell: (session) => session.ipAddress,
+      className: "font-mono text-xs",
+    },
+    {
+      id: "userAgent",
+      header: "User agent",
+      cell: (session) => session.userAgent,
+      className: "max-w-[18rem] truncate",
+    },
+    {
+      id: "lastActivity",
+      header: "Last activity",
+      cell: (session) => formatTimestamp(session.lastActivityAt),
+    },
+    {
+      id: "expires",
+      header: "Expires",
+      cell: (session) => formatTimestamp(session.expiresAt),
+    },
+  ]
+
   return (
     <section className="flex flex-col gap-4">
-      <h1 className="text-lg font-medium">Sessions</h1>
+      <PageHeader title="Sessions" />
 
       <CommandAlert error={revoke.error} title="Revoke failed" />
 
-      <QueryView title="Sessions" query={list} skeletonRows={3}>
+      <QueryBoundary title="Sessions" query={list} skeletonRows={3}>
         {(data) => {
           const sessions = data.sessions ?? []
-          if (sessions.length === 0) {
-            return <EmptyState message="No active sessions." />
-          }
 
           return (
-            <Table>
-              <TableCaption>
-                {sessions.length}{" "}
-                {sessions.length === 1 ? "session" : "sessions"}
-              </TableCaption>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Session</TableHead>
-                  <TableHead>User</TableHead>
-                  <TableHead>IP</TableHead>
-                  <TableHead>User agent</TableHead>
-                  <TableHead>Last activity</TableHead>
-                  <TableHead>Expires</TableHead>
-                  <TableHead className="text-right">Actions</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {sessions.map((session) => (
-                  <TableRow key={session.id}>
-                    <TableCell className="font-mono text-xs">
-                      {session.id}
-                    </TableCell>
-                    <TableCell className="font-mono text-xs">
-                      {session.userId}
-                    </TableCell>
-                    <TableCell className="font-mono text-xs">
-                      {session.ipAddress}
-                    </TableCell>
-                    <TableCell className="max-w-[18rem] truncate">
-                      {session.userAgent}
-                    </TableCell>
-                    <TableCell>
-                      {formatTimestamp(session.lastActivityAt)}
-                    </TableCell>
-                    <TableCell>{formatTimestamp(session.expiresAt)}</TableCell>
-                    <TableCell className="text-right">
-                      <button
-                        type="button"
-                        onClick={() => void handleRevoke(session.id)}
-                        disabled={pendingId === session.id}
-                        aria-label={`Revoke session ${session.id}`}
-                        className={buttonVariants({
-                          variant: "destructive",
-                          size: "sm",
-                        })}
-                      >
-                        {pendingId === session.id ? "Revoking…" : "Revoke"}
-                      </button>
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
+            <ResourceTable
+              columns={columns}
+              rows={sessions}
+              rowKey={(session) => session.id}
+              caption={
+                sessions.length > 0
+                  ? `${sessions.length} ${
+                      sessions.length === 1 ? "session" : "sessions"
+                    }`
+                  : undefined
+              }
+              emptyMessage="No active sessions."
+              rowActions={(session) => (
+                <button
+                  type="button"
+                  onClick={() => void handleRevoke(session.id)}
+                  disabled={pendingId === session.id}
+                  aria-label={`Revoke session ${session.id}`}
+                  className={buttonVariants({
+                    variant: "destructive",
+                    size: "sm",
+                  })}
+                >
+                  {pendingId === session.id ? "Revoking…" : "Revoke"}
+                </button>
+              )}
+            />
           )
         }}
-      </QueryView>
+      </QueryBoundary>
     </section>
   )
 }

@@ -12,7 +12,10 @@ import {
 } from "@forge-go/dashboard-kit/components/card"
 import { Input } from "@forge-go/dashboard-kit/components/input"
 import { Label } from "@forge-go/dashboard-kit/components/label"
-import { CommandAlert, QueryView } from "./components/query-view"
+import {
+  CommandAlert,
+  QueryBoundary,
+} from "@forge-go/dashboard-kit/components/query-boundary"
 import type { AuthConfig, LoginResult, LogoutResult } from "./pages/login"
 
 /**
@@ -174,9 +177,9 @@ function SignInGate({ onAuthenticated }: { onAuthenticated: () => void }) {
   const config = useQuery<AuthConfig>("auth.config")
 
   return (
-    <QueryView title="Sign-in options" query={config} skeletonRows={3}>
+    <QueryBoundary title="Sign-in options" query={config} skeletonRows={3}>
       {(data) => <GateForm config={data} onAuthenticated={onAuthenticated} />}
-    </QueryView>
+    </QueryBoundary>
   )
 }
 
