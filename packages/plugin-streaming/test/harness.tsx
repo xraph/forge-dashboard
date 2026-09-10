@@ -6,7 +6,7 @@ import {
   PluginProvider,
   queryStore,
 } from "@forge-go/dashboard-plugin"
-import type { ScopedClient } from "@forge-go/dashboard-plugin"
+import type { PluginPageProps, ScopedClient } from "@forge-go/dashboard-plugin"
 
 /**
  * `queryStore` is a module-level singleton, so an entry one test writes
@@ -115,10 +115,14 @@ export function recordingClient(answers: Record<string, unknown>): {
 }
 
 /** Renders one plugin page the way the host does: inside a PluginProvider. */
-export function renderPage(Page: ComponentType, client: ScopedClient) {
+export function renderPage(
+  Page: ComponentType<PluginPageProps>,
+  client: ScopedClient,
+  params: PluginPageProps["params"] = {},
+) {
   return render(
     <PluginProvider client={client}>
-      <Page />
+      <Page params={params} />
     </PluginProvider>
   )
 }

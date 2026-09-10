@@ -39,7 +39,20 @@ const columns: Column<ConnectionInfo>[] = [
   {
     id: "rooms",
     header: "Rooms",
-    cell: (c) => (c.joinedRooms ?? []).length,
+    cell: (c) => (
+      <span className="flex flex-wrap gap-1">
+        {(c.joinedRooms ?? []).map((room) => (
+          <Badge key={room} variant="outline" className="font-mono text-xs">
+            {room}
+          </Badge>
+        ))}
+      </span>
+    ),
+  },
+  {
+    id: "subscriptions",
+    header: "Subscriptions",
+    cell: (c) => (c.subscriptions ?? []).length,
     align: "end",
   },
   {

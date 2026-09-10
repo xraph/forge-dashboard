@@ -60,6 +60,17 @@ describe("StreamingConnectionsPage", () => {
     // hand-rolled markup, so counting rows through the table's own role is
     // what stands in for the old "2 connections" caption text.
     expect(screen.getAllByRole("row")).toHaveLength(3)
+
+    // The joined rooms are shown as their own ids, not just a count, so an
+    // operator can see WHICH room a connection is in. conn_1 is in room_1;
+    // conn_2 has joined no rooms and renders no badge for it.
+    expect(screen.getByText("room_1")).toBeDefined()
+
+    // The subscriptions column is a count, not the channel ids themselves
+    // (the brief only asked for a count here, unlike the rooms column) - one
+    // subscription for conn_1, two for conn_2.
+    expect(screen.getByText("1")).toBeDefined()
+    expect(screen.getByText("2")).toBeDefined()
   })
 
   it("reads the connections.list intent and nothing else", async () => {

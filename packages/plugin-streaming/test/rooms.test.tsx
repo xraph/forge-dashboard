@@ -50,6 +50,11 @@ describe("StreamingRoomsPage", () => {
     expect(screen.getByText("usr_2")).toBeDefined()
     expect(screen.getByText("Rooms", { selector: "caption" })).toBeDefined()
 
+    // The raw room id, so an operator can correlate a row with logs or a
+    // support ticket without going through the name.
+    expect(screen.getByText("room_1")).toBeDefined()
+    expect(screen.getByText("room_2")).toBeDefined()
+
     // One row per room: the header row plus a row for each of the two rooms.
     // `ResourceTable` renders a real table now, unlike the old hand-rolled
     // markup, so counting rows through the table's own role is what stands in
@@ -60,6 +65,12 @@ describe("StreamingRoomsPage", () => {
     // second room differs from the first so a swapped column shows up here.
     expect(screen.getByText("public")).toBeDefined()
     expect(screen.getByText("private")).toBeDefined()
+
+    // Archived is its own fact, separate from visibility: room_2 is both
+    // private AND archived, so both words must appear for it independently
+    // of the visibility badge.
+    expect(screen.getByText("active")).toBeDefined()
+    expect(screen.getByText("archived")).toBeDefined()
   })
 
   it("reads the rooms.list intent and nothing else", async () => {

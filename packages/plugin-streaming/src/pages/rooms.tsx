@@ -27,6 +27,11 @@ export interface RoomsList {
 
 const columns: Column<RoomInfo>[] = [
   { id: "name", header: "Name", cell: (r) => r.name },
+  {
+    id: "id",
+    header: "ID",
+    cell: (r) => <span className="font-mono text-xs">{r.id}</span>,
+  },
   { id: "owner", header: "Owner", cell: (r) => r.owner },
   { id: "members", header: "Members", cell: (r) => r.members, align: "end" },
   {
@@ -35,6 +40,15 @@ const columns: Column<RoomInfo>[] = [
     cell: (r) => (
       <Badge variant={r.private ? "secondary" : "outline"}>
         {r.private ? "private" : "public"}
+      </Badge>
+    ),
+  },
+  {
+    id: "archived",
+    header: "Archived",
+    cell: (r) => (
+      <Badge variant={r.archived ? "secondary" : "outline"}>
+        {r.archived ? "archived" : "active"}
       </Badge>
     ),
   },
