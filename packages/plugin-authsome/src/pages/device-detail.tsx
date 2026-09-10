@@ -141,10 +141,11 @@ function DeviceDetailBody({ deviceId }: { deviceId: string }) {
                 {
                   term: "Trusted",
                   value: (
-                    // Same pairing as the devices list and `banned` on the
-                    // users page: `destructive` against `outline` gives the
-                    // two states a real colour difference, not just a word.
-                    <Badge variant={device.trusted ? "outline" : "destructive"}>
+                    // Same pairing as the devices list and the devices table
+                    // embedded in user-detail.tsx: untrusted is an ordinary
+                    // starting state, not an alarm condition like `banned`,
+                    // so it gets `secondary` rather than `destructive`.
+                    <Badge variant={device.trusted ? "outline" : "secondary"}>
                       {device.trusted ? "trusted" : "untrusted"}
                     </Badge>
                   ),

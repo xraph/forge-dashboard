@@ -78,7 +78,7 @@ describe("AuthAppsPage stale command state across rows", () => {
     // Delete Core, let it fail, see the reason.
     fireEvent.click(screen.getByRole("button", { name: "Delete Core" }))
     fireEvent.click(screen.getByRole("button", { name: "Delete" }))
-    const failure = await screen.findByRole("alert", { hidden: true })
+    const failure = await screen.findByRole("alert")
     expect(failure.textContent).toContain("cannot delete an app with active users")
 
     // Back out, then open the same dialog pointed at Storefront instead.

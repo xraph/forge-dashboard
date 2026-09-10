@@ -22,11 +22,11 @@ describe("AuthDevicesPage", () => {
     // same emphasis `users.tsx`'s email column and `roles.tsx`'s name
     // column already carry.
     expect(screen.getByText("laptop").className).toContain("font-medium")
-    // `destructive` against `outline` mirrors `banned`/`active` on the users
-    // page: untrusted has to read as a genuinely different colour, not just
-    // a different word, or scanning the column by colour tells an operator
-    // nothing.
-    expect(screen.getByText("untrusted").className).toContain("text-destructive")
+    // Untrusted is the ordinary starting state for a device (like an
+    // unverified email), not an alarm condition like a banned user, so it
+    // takes `secondary` rather than `destructive` - matching the same
+    // `trusted` field rendered in user-detail.tsx's embedded devices table.
+    expect(screen.getByText("untrusted").className).toContain("bg-secondary")
   })
 
   it("announces a missing browser, os or ip instead of a bare dash", async () => {
@@ -109,7 +109,7 @@ describe("AuthDevicesPage stale command state across rows", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "Forget laptop" }))
     fireEvent.click(screen.getByRole("button", { name: "Forget" }))
-    const failure = await screen.findByRole("alert", { hidden: true })
+    const failure = await screen.findByRole("alert")
     expect(failure.textContent).toContain("cannot forget the current device")
 
     fireEvent.click(screen.getByRole("button", { name: "Cancel" }))
@@ -175,6 +175,13 @@ describe("AuthDeviceDetailPage", () => {
 
   afterEach(() => {
     if (originalLocation) Object.defineProperty(window, "location", originalLocation)
+  })
+
+  it("gives an untrusted device the same secondary treatment as the devices list, not the destructive one used for a banned user", async () => {
+    const { client } = stubClient({ "devices.detail": device })
+    renderPage(AuthDeviceDetailPage, client, { id: "d1" })
+    await waitFor(() => expect(screen.getByText("untrusted")).toBeTruthy())
+    expect(screen.getByText("untrusted").className).toContain("bg-secondary")
   })
 
   it("leaves the detail view once forgetting the device it is showing succeeds", async () => {

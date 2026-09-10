@@ -5,6 +5,7 @@ import { Button } from "@forge-go/dashboard-kit/components/button"
 import { ConfirmDialog } from "@forge-go/dashboard-kit/components/confirm-dialog"
 import { Input } from "@forge-go/dashboard-kit/components/input"
 import { Label } from "@forge-go/dashboard-kit/components/label"
+import { NoneCell } from "@forge-go/dashboard-kit/components/none-cell"
 import { PageHeader } from "@forge-go/dashboard-kit/components/page-header"
 import { Switch } from "@forge-go/dashboard-kit/components/switch"
 import {
@@ -36,14 +37,6 @@ export interface WebhookDetail extends WebhookSummary {
 
 export interface WebhooksList {
   webhooks: WebhookSummary[]
-}
-
-/**
- * A cell whose value is legitimately absent renders a dash an assistive
- * reader can still announce, rather than nothing at all.
- */
-function NoneCell() {
-  return <span aria-label="None">–</span>
 }
 
 /**
@@ -171,7 +164,7 @@ export function AuthWebhooksPage() {
     {
       id: "events",
       header: "Events",
-      cell: (w) => (w.events.length > 0 ? w.events.join(", ") : <NoneCell />),
+      cell: (w) => (w.events.length > 0 ? w.events.join(", ") : <NoneCell label="events" />),
     },
     {
       id: "active",

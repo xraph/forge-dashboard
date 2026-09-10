@@ -95,11 +95,12 @@ export function AuthDevicesPage() {
       id: "trusted",
       header: "Trusted",
       cell: (d) => (
-        // `destructive` against `outline` mirrors `banned` on the users
-        // page: the two variants read as genuinely different colours, so an
-        // operator scanning the column by colour alone can tell trusted from
-        // untrusted without reading either word.
-        <Badge variant={d.trusted ? "outline" : "destructive"}>
+        // Untrusted is the ordinary starting state for a device, not an
+        // alarm condition the way `banned` is for a user - so it takes the
+        // same `outline`/`secondary` pairing as `emailVerified`, `isDefault`
+        // and `isPlatform` elsewhere in this package, matching the same
+        // `trusted` field on the devices table embedded in user-detail.tsx.
+        <Badge variant={d.trusted ? "outline" : "secondary"}>
           {d.trusted ? "trusted" : "untrusted"}
         </Badge>
       ),

@@ -42,7 +42,9 @@ describe("AuthWebhooksPage", () => {
     })
     renderPage(AuthWebhooksPage, client)
     await waitFor(() => expect(screen.getByText("https://example.com/hook")).toBeTruthy())
-    expect(screen.getByLabelText("None")).toBeTruthy()
+    // kit's `NoneCell`, not a hand-rolled one: the label names the field
+    // rather than announcing a bare "None" to assistive tech.
+    expect(screen.getByLabelText("no events")).toBeTruthy()
   })
 
   it("toggling active sends only the id and the new active value", async () => {
@@ -196,9 +198,10 @@ describe("AuthWebhooksPage", () => {
     fireEvent.click(screen.getByRole("button", { name: "Delete webhook https://example.com/hook" }))
     fireEvent.click(screen.getByRole("button", { name: "Delete" }))
 
-    // `{ hidden: true }`: the open AlertDialog marks the rest of the page
-    // aria-hidden, and testing-library's role queries respect that by default.
-    const alert = await screen.findByRole("alert", { hidden: true })
+    // The alert lives inside the open dialog's own description, so it is
+    // reachable without reaching past Base UI's `aria-hidden` on the rest of
+    // the page.
+    const alert = await screen.findByRole("alert")
     expect(alert.textContent).toContain("Could not delete")
     expect(alert.textContent).toContain("webhook is referenced elsewhere")
     expect(screen.getByRole("alertdialog")).toBeTruthy()

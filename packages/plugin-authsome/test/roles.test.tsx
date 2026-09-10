@@ -21,6 +21,19 @@ describe("AuthRolesPage", () => {
     expect(screen.getByText("admin")).toBeTruthy()
   })
 
+  it("labels a role with no description instead of a bare unlabelled dash", async () => {
+    const { client } = stubClient({
+      "roles.list": {
+        roles: [{ id: "r2", name: "Viewer", slug: "viewer", createdAt: "2026-01-01T00:00:00Z" }],
+      },
+    })
+    renderPage(AuthRolesPage, client)
+    await waitFor(() => expect(screen.getByText("Viewer")).toBeTruthy())
+    // kit's `NoneCell`, not a hand-rolled one: the label names the field
+    // rather than announcing a bare "None" to assistive tech.
+    expect(screen.getByLabelText("no description")).toBeTruthy()
+  })
+
   it("creates a role with name, slug and description", async () => {
     const { client, sent } = recordingCommandClient(
       { "roles.list": rolesAnswer },
@@ -81,9 +94,10 @@ describe("AuthRolesPage", () => {
     fireEvent.click(screen.getByRole("button", { name: "Delete Admin" }))
     fireEvent.click(screen.getByRole("button", { name: "Delete" }))
 
-    // `{ hidden: true }`: the open AlertDialog marks the rest of the page
-    // aria-hidden, and testing-library's role queries respect that by default.
-    const alert = await screen.findByRole("alert", { hidden: true })
+    // The alert lives inside the open dialog's own description, so it is
+    // reachable without reaching past Base UI's `aria-hidden` on the rest of
+    // the page.
+    const alert = await screen.findByRole("alert")
     expect(alert.textContent).toContain("Could not delete")
     expect(alert.textContent).toContain("role is still in use")
     // The dialog stays open on failure: the operator's context is not thrown away.

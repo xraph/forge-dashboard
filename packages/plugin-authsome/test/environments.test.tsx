@@ -153,7 +153,7 @@ describe("AuthEnvironmentsPage stale command state across rows", () => {
     // Delete Staging, let it fail, see the reason.
     fireEvent.click(screen.getByRole("button", { name: "Delete Staging" }))
     fireEvent.click(screen.getByRole("button", { name: "Delete" }))
-    const failure = await screen.findByRole("alert", { hidden: true })
+    const failure = await screen.findByRole("alert")
     expect(failure.textContent).toContain("cannot delete an environment with live sessions")
 
     // Back out, then open the same dialog pointed at QA instead.
@@ -185,7 +185,7 @@ describe("AuthEnvironmentsPage stale command state across rows", () => {
     fireEvent.change(screen.getByLabelText("New name"), { target: { value: "Production Copy" } })
     fireEvent.change(screen.getByLabelText("New slug"), { target: { value: "production-copy" } })
     fireEvent.click(screen.getByRole("button", { name: "Clone" }))
-    const failure = await screen.findByRole("alert", { hidden: true })
+    const failure = await screen.findByRole("alert")
     expect(failure.textContent).toContain("slug already in use")
 
     // Back out, then open the clone dialog on Staging instead.

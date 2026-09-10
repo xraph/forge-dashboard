@@ -55,6 +55,48 @@ describe("AuthUserDetailPage", () => {
     expect(screen.getAllByText("ada@example.com").length).toBeGreaterThan(0)
     expect(screen.getByText("10.0.0.1")).toBeTruthy()
     expect(screen.getByText("laptop")).toBeTruthy()
+    // Both embedded tables carry a live row count in their caption, the same
+    // convention as every other table in this package, rather than a bare
+    // "Sessions" / "Devices" label that never changes with the data.
+    expect(screen.getByText("1 session")).toBeTruthy()
+    expect(screen.getByText("1 device")).toBeTruthy()
+  })
+
+  it("labels an absent session IP or device browser instead of a bare unlabelled dash", async () => {
+    renderDetail(
+      stubClient({
+        ...answers,
+        "sessions.list": {
+          sessions: [
+            { id: "s1", userId: "u1", expiresAt: "2026-03-01T00:00:00Z", createdAt: "2026-02-01T00:00:00Z" },
+          ],
+        },
+        "devices.list": {
+          devices: [
+            { id: "d1", userId: "u1", name: "laptop", trusted: true, lastSeenAt: "2026-02-02T00:00:00Z", createdAt: "2026-01-01T00:00:00Z" },
+          ],
+        },
+      }).client,
+    )
+    await waitFor(() => expect(screen.getByRole("heading", { name: /Ada Lovelace/ })).toBeTruthy())
+    expect(screen.getByLabelText("no ip address")).toBeTruthy()
+    expect(screen.getByLabelText("no browser")).toBeTruthy()
+    // The Device column is what an operator reads to identify the row, the
+    // same emphasis the standalone devices page gives it.
+    expect(screen.getByText("laptop").className).toContain("font-medium")
+  })
+
+  it("shows a zero live count when a user has no sessions or devices", async () => {
+    renderDetail(
+      stubClient({
+        ...answers,
+        "sessions.list": { sessions: [] },
+        "devices.list": { devices: [] },
+      }).client,
+    )
+    await waitFor(() => expect(screen.getByRole("heading", { name: /Ada Lovelace/ })).toBeTruthy())
+    expect(screen.getByText("0 sessions")).toBeTruthy()
+    expect(screen.getByText("0 devices")).toBeTruthy()
   })
 
   it("prints an en dash for the empty strings authsome sends for never-happened", async () => {
@@ -62,6 +104,16 @@ describe("AuthUserDetailPage", () => {
     await waitFor(() => expect(screen.getByRole("heading", { name: /Ada Lovelace/ })).toBeTruthy())
     // banExpiresAt is "" on a user who is not banned. The epoch would be a lie.
     expect(screen.getAllByText("–").length).toBeGreaterThan(0)
+  })
+
+  it("labels the absent ban-expiry and password-change dashes for assistive tech, not a bare unlabelled one", async () => {
+    renderDetail(stubClient(answers).client)
+    await waitFor(() => expect(screen.getByRole("heading", { name: /Ada Lovelace/ })).toBeTruthy())
+    // `formatTimestamp` alone returns a plain "–" string with nothing for a
+    // screen reader to announce. kit's `Timestamp` wraps it with `NoneCell`
+    // so the absent case still has a real accessible name.
+    expect(screen.getByLabelText("no ban expiry")).toBeTruthy()
+    expect(screen.getByLabelText("no password change")).toBeTruthy()
   })
 
   it("sends only the fields that changed, and never an empty string for an untouched one", async () => {

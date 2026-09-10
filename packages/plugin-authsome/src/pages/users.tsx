@@ -141,9 +141,13 @@ export function AuthUsersPage() {
         search={{ value: searchInput, onChange: setSearchInput, label: "Search users", placeholder: "Search by email" }}
       />
 
-      <CommandAlert error={ban.error} title="Could not ban" />
+      {/*
+        Unban fires straight from its row button, with no confirmation - the
+        plan calls it non-destructive, so there is no dialog for Base UI to
+        mark the rest of the page inert behind. Ban and delete DO open one,
+        so their errors render inside those dialogs instead, below.
+      */}
       <CommandAlert error={unban.error} title="Could not unban" />
-      <CommandAlert error={remove.error} title="Could not delete" />
 
       <QueryBoundary title="Users" query={list} skeletonRows={5}>
         {(data) => {
@@ -264,6 +268,12 @@ export function AuthUsersPage() {
                 Leave empty to ban indefinitely.
               </span>
             </span>
+            {/*
+              Base UI marks everything outside an open AlertDialog `inert`
+              and `aria-hidden`, so an alert rendered above the table is
+              unreachable for as long as this dialog is open.
+            */}
+            <CommandAlert error={ban.error} title="Could not ban" />
           </span>
         }
         confirmLabel="Ban"
@@ -275,7 +285,12 @@ export function AuthUsersPage() {
         open={deleting !== null}
         onOpenChange={(open) => !open && setDeleting(null)}
         title={`Delete ${deleting?.email ?? ""}?`}
-        description="Their sessions, devices and role assignments go with them. This cannot be undone."
+        description={
+          <span className="flex flex-col gap-2">
+            <span>Their sessions, devices and role assignments go with them. This cannot be undone.</span>
+            <CommandAlert error={remove.error} title="Could not delete" />
+          </span>
+        }
         confirmLabel="Delete"
         pending={remove.loading}
         onConfirm={() => void confirmDelete()}

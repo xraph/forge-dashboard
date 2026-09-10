@@ -4,6 +4,7 @@ import { Button } from "@forge-go/dashboard-kit/components/button"
 import { ConfirmDialog } from "@forge-go/dashboard-kit/components/confirm-dialog"
 import { Input } from "@forge-go/dashboard-kit/components/input"
 import { Label } from "@forge-go/dashboard-kit/components/label"
+import { NoneCell } from "@forge-go/dashboard-kit/components/none-cell"
 import { PageHeader } from "@forge-go/dashboard-kit/components/page-header"
 import {
   CommandAlert,
@@ -50,14 +51,6 @@ export interface RoleDetail extends RoleSummary {
 
 export interface RolesList {
   roles: RoleSummary[]
-}
-
-/**
- * A cell whose value is legitimately absent renders a dash an assistive
- * reader can still announce, rather than nothing at all.
- */
-function NoneCell() {
-  return <span aria-label="None">–</span>
 }
 
 function CreateRoleForm({ onDone }: { onDone: () => void }) {
@@ -140,7 +133,7 @@ export function AuthRolesPage() {
     {
       id: "description",
       header: "Description",
-      cell: (r) => r.description || <NoneCell />,
+      cell: (r) => r.description || <NoneCell label="description" />,
     },
     { id: "createdAt", header: "Created", cell: (r) => formatTimestamp(r.createdAt) },
   ]

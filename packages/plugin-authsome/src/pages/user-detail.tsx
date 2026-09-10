@@ -11,6 +11,7 @@ import {
   DescriptionList,
   DetailLayout,
 } from "@forge-go/dashboard-kit/components/detail-layout"
+import { NoneCell } from "@forge-go/dashboard-kit/components/none-cell"
 import {
   CommandAlert,
   QueryBoundary,
@@ -19,6 +20,7 @@ import {
   ResourceTable,
   type Column,
 } from "@forge-go/dashboard-kit/components/resource-table"
+import { Timestamp } from "@forge-go/dashboard-kit/components/timestamp"
 import { formatTimestamp } from "@forge-go/dashboard-kit/lib/format"
 import { displayName, type AckResponse, type UserSummary } from "./users"
 
@@ -59,14 +61,26 @@ interface DeviceRow {
 }
 
 const sessionColumns: Column<SessionRow>[] = [
-  { id: "ipAddress", header: "IP", cell: (s) => s.ipAddress || "–" },
+  {
+    id: "ipAddress",
+    header: "IP",
+    cell: (s) => s.ipAddress || <NoneCell label="ip address" />,
+  },
   { id: "createdAt", header: "Started", cell: (s) => formatTimestamp(s.createdAt) },
   { id: "expiresAt", header: "Expires", cell: (s) => formatTimestamp(s.expiresAt) },
 ]
 
 const deviceColumns: Column<DeviceRow>[] = [
-  { id: "name", header: "Device", cell: (d) => d.name || d.type || "–" },
-  { id: "browser", header: "Browser", cell: (d) => d.browser || "–" },
+  // Same fallback chain as `deviceLabel` on the devices page: name, then
+  // type, then the id, which always exists - so this column never has a
+  // genuine "none" case to hand to `NoneCell`.
+  {
+    id: "name",
+    header: "Device",
+    cell: (d) => d.name || d.type || d.id,
+    className: "font-medium",
+  },
+  { id: "browser", header: "Browser", cell: (d) => d.browser || <NoneCell label="browser" /> },
   {
     id: "trusted",
     header: "Trusted",
@@ -83,15 +97,21 @@ function UserSessions({ userId }: { userId: string }) {
   const query = useQuery<{ sessions: SessionRow[] }>("sessions.list", { userId })
   return (
     <QueryBoundary title="Sessions" query={query} skeletonRows={2}>
-      {(data) => (
-        <ResourceTable<SessionRow>
-          columns={sessionColumns}
-          rows={data.sessions ?? []}
-          rowKey={(s) => s.id}
-          caption="Sessions"
-          emptyMessage="No active sessions."
-        />
-      )}
+      {(data) => {
+        const sessions = data.sessions ?? []
+        // The caption carries the live count on every render, including at
+        // zero, the same as every other table in this package.
+        const caption = `${sessions.length} ${sessions.length === 1 ? "session" : "sessions"}`
+        return (
+          <ResourceTable<SessionRow>
+            columns={sessionColumns}
+            rows={sessions}
+            rowKey={(s) => s.id}
+            caption={caption}
+            emptyMessage="No active sessions."
+          />
+        )
+      }}
     </QueryBoundary>
   )
 }
@@ -100,15 +120,20 @@ function UserDevices({ userId }: { userId: string }) {
   const query = useQuery<{ devices: DeviceRow[] }>("devices.list", { userId })
   return (
     <QueryBoundary title="Devices" query={query} skeletonRows={2}>
-      {(data) => (
-        <ResourceTable<DeviceRow>
-          columns={deviceColumns}
-          rows={data.devices ?? []}
-          rowKey={(d) => d.id}
-          caption="Devices"
-          emptyMessage="No devices seen."
-        />
-      )}
+      {(data) => {
+        const devices = data.devices ?? []
+        // Same live-count convention as `UserSessions` above.
+        const caption = `${devices.length} ${devices.length === 1 ? "device" : "devices"}`
+        return (
+          <ResourceTable<DeviceRow>
+            columns={deviceColumns}
+            rows={devices}
+            rowKey={(d) => d.id}
+            caption={caption}
+            emptyMessage="No devices seen."
+          />
+        )
+      }}
     </QueryBoundary>
   )
 }
@@ -209,7 +234,7 @@ function UserDetailBody({ userId }: { userId: string }) {
                           </Badge>
                         ),
                       },
-                      { term: "Phone", value: user.phone || "–" },
+                      { term: "Phone", value: user.phone || <NoneCell label="phone" /> },
                       {
                         term: "Status",
                         value: (
@@ -218,9 +243,20 @@ function UserDetailBody({ userId }: { userId: string }) {
                           </Badge>
                         ),
                       },
-                      { term: "Ban reason", value: user.banReason || "–" },
-                      { term: "Ban expires", value: formatTimestamp(user.banExpiresAt) },
-                      { term: "Password changed", value: formatTimestamp(user.passwordChangedAt) },
+                      {
+                        term: "Ban reason",
+                        value: user.banReason || <NoneCell label="ban reason" />,
+                      },
+                      {
+                        term: "Ban expires",
+                        value: <Timestamp value={user.banExpiresAt} label="ban expiry" />,
+                      },
+                      {
+                        term: "Password changed",
+                        value: (
+                          <Timestamp value={user.passwordChangedAt} label="password change" />
+                        ),
+                      },
                       { term: "Created", value: formatTimestamp(user.createdAt) },
                       { term: "Updated", value: formatTimestamp(user.updatedAt) },
                     ]}

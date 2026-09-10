@@ -243,7 +243,7 @@ describe("AuthSessionsPage stale command state across rows", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "Revoke session s1" }))
     fireEvent.click(screen.getByRole("button", { name: "Revoke" }))
-    const failure = await screen.findByRole("alert", { hidden: true })
+    const failure = await screen.findByRole("alert")
     expect(failure.textContent).toContain("sessions.revoke required")
 
     fireEvent.click(screen.getByRole("button", { name: "Cancel" }))
@@ -271,7 +271,7 @@ describe("AuthSessionsPage stale command state across rows", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "Revoke all for u1" }))
     fireEvent.click(screen.getByRole("button", { name: "Revoke all" }))
-    const failure = await screen.findByRole("alert", { hidden: true })
+    const failure = await screen.findByRole("alert")
     expect(failure.textContent).toContain("sessions.bulkRevoke required")
 
     fireEvent.click(screen.getByRole("button", { name: "Cancel" }))

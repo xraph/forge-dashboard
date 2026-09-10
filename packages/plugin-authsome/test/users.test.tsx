@@ -384,11 +384,10 @@ describe("AuthUsersPage row actions", () => {
     fireEvent.change(screen.getByLabelText("Reason"), { target: { value: "spam" } })
     fireEvent.click(screen.getByRole("button", { name: "Ban" }))
 
-    // `{ hidden: true }`: the open AlertDialog marks the rest of the page
-    // `aria-hidden`, and testing-library's role queries respect that by
-    // default. The alert is still there, just outside the current modal's
-    // accessibility tree.
-    const alert = await screen.findByRole("alert", { hidden: true })
+    // No `{ hidden: true }` here: the alert renders inside the open
+    // AlertDialog's own description, not above the table where Base UI
+    // would mark it `aria-hidden` along with the rest of the page.
+    const alert = await screen.findByRole("alert")
     expect(alert.textContent).toContain("Could not ban")
     expect(alert.textContent).toContain("reason is required")
     // The dialog stays open: the operator's typed reason is not thrown away
@@ -424,7 +423,9 @@ describe("AuthUsersPage row actions", () => {
     fireEvent.click(screen.getByRole("button", { name: "Delete ada@example.com" }))
     fireEvent.click(screen.getByRole("button", { name: "Delete" }))
 
-    const alert = await screen.findByRole("alert", { hidden: true })
+    // No `{ hidden: true }` here either, for the same reason as the ban
+    // dialog's test above: this alert lives inside the open dialog now.
+    const alert = await screen.findByRole("alert")
     expect(alert.textContent).toContain("Could not delete")
     expect(alert.textContent).toContain("cannot delete the last owner")
     // The dialog stays open on failure, the same way the ban dialog does.
@@ -485,7 +486,7 @@ describe("AuthUsersPage stale command state across rows", () => {
     // Delete ada, let it fail, see the reason.
     fireEvent.click(screen.getByRole("button", { name: "Delete ada@example.com" }))
     fireEvent.click(screen.getByRole("button", { name: "Delete" }))
-    const failure = await screen.findByRole("alert", { hidden: true })
+    const failure = await screen.findByRole("alert")
     expect(failure.textContent).toContain("cannot delete the last owner")
 
     // Back out, then open the same dialog pointed at grace instead.
@@ -519,7 +520,7 @@ describe("AuthUsersPage stale command state across rows", () => {
       target: { value: "2026-12-01T00:00" },
     })
     fireEvent.click(screen.getByRole("button", { name: "Ban" }))
-    const failure = await screen.findByRole("alert", { hidden: true })
+    const failure = await screen.findByRole("alert")
     expect(failure.textContent).toContain("reason is required")
 
     // Back out, then open the ban dialog on grace instead.
