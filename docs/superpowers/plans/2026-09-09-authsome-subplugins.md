@@ -1412,3 +1412,538 @@ git commit -m "feat(authsome): the waitlist review queue and its counts widget" 
 ```
 
 ---
+
+### Task 5: Consent
+
+**Files:**
+- Create: `packages/plugin-authsome/src/sub/consent.tsx`
+- Test: `packages/plugin-authsome/test/sub/consent.test.tsx`
+
+**Interfaces:**
+- Produces: `consentSubPlugin`, `ConsentRecord`, `ConsentList`, `ConsentsPage`, `ConsentUserSection`, `ConsentWidget`.
+
+**The contract, verified against `plugins/consent/contract/`:**
+
+```ts
+// consent.list({ userId?, purpose?, cursor?, limit? })
+//   -> { items: ConsentRecord[], nextCursor? }
+// consent.userConsents(...)  same input, SAME HANDLER, wire-identical
+// consent.grant({ userId, purpose, version?, ipAddress? })  -> { ok, id }
+// consent.revoke({ userId, purpose })                       -> { ok }
+interface ConsentRecord {
+  id: string; userId: string; appId?: string; purpose: string; granted: boolean
+  version?: string; ipAddress?: string; grantedAt?: string; revokedAt?: string
+  createdAt: string; updatedAt?: string
+}
+```
+
+**`consent.revoke` does not take the record id.** It takes `{ userId, purpose }`
+and matches on that composite, scoped to the caller's app server-side. Every row
+carries an `id`, and sending it is the obvious wrong thing to do. Write the test
+that pins the payload shape before you write the button.
+
+**`consent.list` and `consent.userConsents` are the same handler.** They are
+registered to one function and differ only in name. Use `consent.list` for the
+app-wide page and `consent.userConsents` for the user section anyway: they are
+separate cache entries under separate names, and a future Go change that makes
+them differ should not require finding every call site. Do not "simplify" this
+into one intent.
+
+**The page is new functionality, and that is fine.** The legacy
+`/compliance/consent` templ page is a card reading "Consent data is available on
+individual user detail pages" with no table at all. So this is a gain over the
+legacy dashboard rather than a port of it, and the retirement checklist should
+say so rather than implying parity.
+
+- [ ] **Step 1: Write the failing tests**
+
+```tsx
+// packages/plugin-authsome/test/sub/consent.test.tsx
+import { describe, expect, it } from "vitest"
+import { fireEvent, screen, waitFor } from "@testing-library/react"
+import { consentSubPlugin, ConsentUserSection } from "../../src/sub/consent"
+import { renderSubPage, subStubClient } from "./harness"
+
+const items = {
+  items: [
+    { id: "c1", userId: "u1", purpose: "marketing", granted: true, version: "v2", grantedAt: "2026-01-01T00:00:00Z", createdAt: "2026-01-01T00:00:00Z" },
+    { id: "c2", userId: "u2", purpose: "analytics", granted: false, revokedAt: "2026-02-01T00:00:00Z", createdAt: "2026-01-01T00:00:00Z" },
+  ],
+}
+const page = consentSubPlugin.routes[0].element
+
+describe("consent list", () => {
+  it("shows granted and revoked apart", async () => {
+    renderSubPage(page, { client: subStubClient({ "consent.list": items }).client, hostClient: subStubClient({}).client, allowed: [] })
+    await waitFor(() => expect(screen.getByText("marketing")).toBeTruthy())
+    expect(screen.getByText("granted").getAttribute("data-variant")).toBe("default")
+    expect(screen.getByText("revoked").getAttribute("data-variant")).toBe("destructive")
+  })
+
+  it("revokes by user and purpose, never by the record id", async () => {
+    const own = subStubClient({ "consent.list": items }, { "consent.revoke": { ok: true } })
+    renderSubPage(page, { client: own.client, hostClient: subStubClient({}).client, allowed: [] })
+    await waitFor(() => expect(screen.getByText("marketing")).toBeTruthy())
+    fireEvent.click(screen.getByRole("button", { name: /revoke marketing for u1/i }))
+    fireEvent.click(screen.getByRole("button", { name: /^revoke$/i }))
+    await waitFor(() => expect(own.commands).toHaveLength(1))
+    // The row carries an id and the intent does not take one. It matches on
+    // the (userId, purpose) composite.
+    expect(own.commands[0].payload).toEqual({ userId: "u1", purpose: "marketing" })
+  })
+
+  it("offers revoke only on a granted record", async () => {
+    renderSubPage(page, { client: subStubClient({ "consent.list": items }).client, hostClient: subStubClient({}).client, allowed: [] })
+    await waitFor(() => expect(screen.getByText("marketing")).toBeTruthy())
+    expect(screen.queryByRole("button", { name: /revoke analytics for u2/i })).toBeNull()
+  })
+
+  it("forgets a failed revoke before the next row's dialog opens", async () => {
+    const own = subStubClient({ "consent.list": items }, { "consent.revoke": new Error("nope") })
+    renderSubPage(page, { client: own.client, hostClient: subStubClient({}).client, allowed: [] })
+    await waitFor(() => expect(screen.getByText("marketing")).toBeTruthy())
+    fireEvent.click(screen.getByRole("button", { name: /revoke marketing for u1/i }))
+    fireEvent.click(screen.getByRole("button", { name: /^revoke$/i }))
+    await waitFor(() => expect(screen.getByRole("alert")).toBeTruthy())
+    fireEvent.click(screen.getByRole("button", { name: /cancel/i }))
+    fireEvent.click(screen.getByRole("button", { name: /revoke marketing for u1/i }))
+    // One command hook serves every row, so without reset() the previous
+    // failure follows the operator to the next dialog and reads as this row's.
+    expect(screen.queryByRole("alert")).toBeNull()
+  })
+
+  it("drops the cursor when the purpose filter changes", async () => {
+    const own = subStubClient({ "consent.list": { ...items, nextCursor: "c9" } })
+    renderSubPage(page, { client: own.client, hostClient: subStubClient({}).client, allowed: [] })
+    await waitFor(() => expect(screen.getByText("marketing")).toBeTruthy())
+    fireEvent.click(screen.getByRole("button", { name: /next/i }))
+    await waitFor(() => expect(own.payloads.at(-1)).toMatchObject({ cursor: "c9" }))
+    fireEvent.change(screen.getByLabelText(/purpose/i), { target: { value: "analytics" } })
+    await waitFor(() => expect(own.payloads.at(-1)).toMatchObject({ purpose: "analytics" }))
+    expect((own.payloads.at(-1) as Record<string, unknown>).cursor).toBeUndefined()
+  })
+})
+
+describe("ConsentUserSection", () => {
+  it("asks the userConsents intent for the user it was given", async () => {
+    const own = subStubClient({ "consent.userConsents": items })
+    renderSubPage(
+      (props: { userId?: string }) => <ConsentUserSection {...props} />,
+      { client: own.client, hostClient: subStubClient({}).client, allowed: [], params: { userId: "u1" } },
+    )
+    await waitFor(() => expect(screen.getByText("marketing")).toBeTruthy())
+    expect(own.intents).toEqual(["consent.userConsents"])
+    expect(own.payloads[0]).toEqual({ userId: "u1" })
+  })
+
+  it("renders nothing at all when the user has no consents", async () => {
+    const own = subStubClient({ "consent.userConsents": { items: [] } })
+    const { container } = renderSubPage(
+      (props: { userId?: string }) => <ConsentUserSection {...props} />,
+      { client: own.client, hostClient: subStubClient({}).client, allowed: [], params: { userId: "u1" } },
+    )
+    await waitFor(() => expect(own.intents).toHaveLength(1))
+    // A section on somebody else's page is a guest. An empty card headed
+    // "Consent" on every user with no consent records is clutter, not
+    // information, and the host page has no way to suppress it.
+    expect(container.textContent).toBe("")
+  })
+})
+```
+
+Note the last one. A slot contribution renders inside a host page that cannot
+see it and cannot lay out around it, so a contribution with nothing to say
+renders nothing rather than an empty box. That is different from a full page,
+where an empty state IS the information.
+
+- [ ] **Step 2: Run and confirm they fail**
+
+- [ ] **Step 3: Write the page, the section, the widget and the declaration**
+
+The page: a `FilterBar` with a debounced user-id search and a purpose select
+(All plus whatever purposes are in the current page of results, since there is
+no purposes intent), a `ResourceTable<ConsentRecord>` with columns **User**
+(`font-mono text-xs`), **Purpose** (`font-medium`), **Status** (`Badge`:
+`granted` reads "granted" as `default`, otherwise "revoked" as `destructive`),
+**Version** (`font-mono text-xs`, dash with `aria-label="no version"` when
+absent), **Granted**, **Revoked** (dash with an `aria-label` when absent), and a
+`CursorPager`. Row action Revoke on granted records only, behind a
+`ConfirmDialog` with `pending`, `remove.reset()` on open, and its error inside
+the dialog.
+
+The user section: `consent.userConsents({ userId })`, columns Purpose, Status,
+Version, Granted, Revoked, matching the legacy `user_section.templ`. Returns
+`null` when the list is empty.
+
+The widget: the legacy one is a static card reading "Consent / Active" with no
+live count. Do not port it. A tile that always says the same thing is furniture.
+Contribute a real one instead: `consent.list({ limit: 1 })` is not a count and
+there is no counts intent, so the honest answer is to contribute NO overview
+widget for consent and say so in the migration notes.
+
+```tsx
+export const consentSubPlugin = defineSubPlugin({
+  extension: "consent",
+  host: "auth",
+  label: "Consent",
+  nav: [{ label: "Consent", to: "/compliance/consent", group: "Compliance", priority: 0 }],
+  routes: [{ path: "/compliance/consent", element: ConsentsPage }],
+  hostIntents: [],
+  contributions: {
+    "user.detail.sections": [{ id: "consent", priority: 30, render: ConsentUserSection }],
+  },
+})
+```
+
+- [ ] **Step 4: Run the tests and typecheck**
+
+- [ ] **Step 5: Commit**
+
+```bash
+git add packages/plugin-authsome/src/sub/consent.tsx packages/plugin-authsome/test/sub/consent.test.tsx
+git commit -m "feat(authsome): consent records, revoked by user and purpose" -- packages/plugin-authsome/src/sub/consent.tsx packages/plugin-authsome/test/sub/consent.test.tsx
+```
+
+---
+
+### Task 6: Subscription, and the billing it cannot reach
+
+**Files:**
+- Create: `packages/plugin-authsome/src/sub/subscription.tsx`
+- Test: `packages/plugin-authsome/test/sub/subscription.test.tsx`
+
+**Interfaces:**
+- Produces: `subscriptionSubPlugin`, `PlanSummary`, `PlanDetail`, `PlanFeature`, `SubscriptionSummary`, `PlansPage`, `PlanDetailPage`, `SubscriptionOrgTab`, `SubscriptionUserSection`.
+
+**The contract, verified against `plugins/subscription/contract/`. Five intents:**
+
+```ts
+// plans.list                 -> { plans: PlanSummary[] }        no input, no paging
+// plans.detail({ id })       -> PlanDetail                      PlanSummary + features?
+// plans.archive({ id })      -> { ok }
+// plans.activate({ id })     -> { ok }
+// subscriptions.list({ tenantId })  -> { subscriptions: SubscriptionSummary[] }
+interface PlanSummary {
+  id: string; name: string; slug: string; description?: string
+  currency?: string; status: string; trialDays?: number
+}
+interface PlanFeature { key: string; name: string; type: string; limit: number; period: string }
+interface SubscriptionSummary {
+  id: string; tenantId: string; planId: string; status: string
+  currentPeriodStart?: string; currentPeriodEnd?: string
+}
+```
+
+**This task is mostly an exercise in not building things.** The legacy
+subscription dashboard is a whole billing product: five nav entries, invoices,
+coupons, a feature catalog, subscription lifecycle, plan pricing and tier
+editing. Every one of those is an HTMX form post handled directly in
+`dashboard.go` and none of them reaches the dispatcher. There are five intents
+and two of them are commands.
+
+So `/plans` lists and `/plans/:id` reads, with archive and activate as the only
+writes on the page. **Do not build an editor.** A plan detail page with a
+pricing form that has nothing to submit to would be worse than not having one.
+
+**`subscriptions.list` requires a `tenantId`** and answers an empty list when
+given none, without an error. So a page that forgets the parameter shows "no
+subscriptions" and looks correct. That is the failure mode to test for: assert
+the org tab sends the org id it was handed, and never renders a list built from
+an empty tenant.
+
+**What must be said on screen, not just in a doc.** The plans page carries a
+single line pointing at the legacy dashboard for invoices, coupons, features and
+subscription changes. An operator who finds Plans in the new dashboard and
+concludes billing has moved will go looking for invoices and find nothing.
+
+- [ ] **Step 1: Write the failing tests**
+
+```tsx
+// packages/plugin-authsome/test/sub/subscription.test.tsx
+import { describe, expect, it } from "vitest"
+import { fireEvent, screen, waitFor } from "@testing-library/react"
+import { subscriptionSubPlugin, SubscriptionOrgTab } from "../../src/sub/subscription"
+import { renderSubPage, subStubClient } from "./harness"
+
+const plans = {
+  plans: [
+    { id: "p1", name: "Pro", slug: "pro", status: "active", currency: "usd", trialDays: 14 },
+    { id: "p2", name: "Legacy", slug: "legacy", status: "archived" },
+    { id: "p3", name: "Draft", slug: "draft", status: "draft" },
+  ],
+}
+function pageAt(path: string) {
+  return subscriptionSubPlugin.routes.find((r) => r.path === path)!.element
+}
+
+describe("plans", () => {
+  it("colours the three statuses apart", async () => {
+    renderSubPage(pageAt("/plans"), { client: subStubClient(plans).client, hostClient: subStubClient({}).client, allowed: [] })
+    await waitFor(() => expect(screen.getByText("Pro")).toBeTruthy())
+    expect(screen.getByText("active").getAttribute("data-variant")).toBe("default")
+    expect(screen.getByText("draft").getAttribute("data-variant")).toBe("secondary")
+    expect(screen.getByText("archived").getAttribute("data-variant")).toBe("outline")
+  })
+
+  it("offers archive on active plans and activate on draft ones, and neither on archived", async () => {
+    renderSubPage(pageAt("/plans"), { client: subStubClient(plans).client, hostClient: subStubClient({}).client, allowed: [] })
+    await waitFor(() => expect(screen.getByText("Pro")).toBeTruthy())
+    expect(screen.getByRole("button", { name: /archive pro/i })).toBeTruthy()
+    expect(screen.getByRole("button", { name: /activate draft/i })).toBeTruthy()
+    expect(screen.queryByRole("button", { name: /archive legacy/i })).toBeNull()
+    expect(screen.queryByRole("button", { name: /activate legacy/i })).toBeNull()
+  })
+
+  it("offers no create, and no editing of any kind", async () => {
+    renderSubPage(pageAt("/plans"), { client: subStubClient(plans).client, hostClient: subStubClient({}).client, allowed: [] })
+    await waitFor(() => expect(screen.getByText("Pro")).toBeTruthy())
+    // There is no plans.create intent, no pricing intent and no feature
+    // intent. A form with nothing to submit to is worse than no form.
+    expect(screen.queryByRole("button", { name: /create plan/i })).toBeNull()
+    expect(screen.queryByRole("button", { name: /add feature/i })).toBeNull()
+  })
+
+  it("says where the rest of billing lives", async () => {
+    renderSubPage(pageAt("/plans"), { client: subStubClient(plans).client, hostClient: subStubClient({}).client, allowed: [] })
+    await waitFor(() => expect(screen.getByText("Pro")).toBeTruthy())
+    // An operator who finds Plans here and concludes billing has moved will
+    // go looking for invoices and find nothing.
+    expect(screen.getByText(/invoices, coupons and subscription changes/i)).toBeTruthy()
+  })
+
+  it("shows a plan's features read-only", async () => {
+    const detail = {
+      id: "p1", name: "Pro", slug: "pro", status: "active", currency: "usd",
+      features: [{ key: "seats", name: "Seats", type: "seat", limit: 10, period: "monthly" }],
+    }
+    renderSubPage(pageAt("/plans/:id"), {
+      client: subStubClient({ "plans.detail": detail }).client,
+      hostClient: subStubClient({}).client, allowed: [], params: { id: "p1" },
+    })
+    await waitFor(() => expect(screen.getByRole("heading", { name: "Pro" })).toBeTruthy())
+    expect(screen.getByText("seats")).toBeTruthy()
+    expect(screen.getByText("10")).toBeTruthy()
+  })
+})
+
+describe("SubscriptionOrgTab", () => {
+  it("sends the org id it was handed as the tenant", async () => {
+    const own = subStubClient({
+      "subscriptions.list": { subscriptions: [{ id: "s1", tenantId: "o1", planId: "p1", status: "active", currentPeriodEnd: "2026-04-01T00:00:00Z" }] },
+      "plans.list": plans,
+    })
+    renderSubPage(
+      (props: { orgId?: string }) => <SubscriptionOrgTab {...props} />,
+      { client: own.client, hostClient: subStubClient({}).client, allowed: [], params: { orgId: "o1" } },
+    )
+    await waitFor(() => expect(screen.getByText("active")).toBeTruthy())
+    // subscriptions.list answers an EMPTY LIST for an empty tenantId, with no
+    // error. A tab that forgets this parameter renders "no subscriptions" and
+    // looks entirely correct doing it.
+    expect(own.payloads[own.intents.indexOf("subscriptions.list")]).toEqual({ tenantId: "o1" })
+  })
+
+  it("renders nothing when it has no org id at all", async () => {
+    const own = subStubClient({})
+    const { container } = renderSubPage(
+      (props: { orgId?: string }) => <SubscriptionOrgTab {...props} />,
+      { client: own.client, hostClient: subStubClient({}).client, allowed: [] },
+    )
+    // Never send an empty tenantId. The answer would be indistinguishable
+    // from a real one.
+    expect(own.intents).toEqual([])
+    expect(container.textContent).toBe("")
+  })
+
+  it("names the plan rather than showing its id", async () => {
+    const own = subStubClient({
+      "subscriptions.list": { subscriptions: [{ id: "s1", tenantId: "o1", planId: "p1", status: "active" }] },
+      "plans.list": plans,
+    })
+    renderSubPage(
+      (props: { orgId?: string }) => <SubscriptionOrgTab {...props} />,
+      { client: own.client, hostClient: subStubClient({}).client, allowed: [], params: { orgId: "o1" } },
+    )
+    // SubscriptionSummary carries planId and no plan name. plans.list is the
+    // only way to turn one into the other, and "p1" tells an operator nothing.
+    await waitFor(() => expect(screen.getByText("Pro")).toBeTruthy())
+  })
+})
+```
+
+- [ ] **Step 2: Run and confirm they fail**
+
+- [ ] **Step 3: Write the pages, the contributions and the declaration**
+
+Plans list columns: **Name** (`font-medium`, linking to `/@auth/plans/${id}`),
+**Slug** (`font-mono text-xs`), **Currency** (uppercased, dash with an
+`aria-label` when absent), **Trial** (`` `${trialDays}d` `` or a dash),
+**Status** (`Badge`: active `default`, draft `secondary`, archived `outline`).
+Row actions: Archive when active, Activate when draft, each behind a
+`ConfirmDialog` with `pending`, `reset()` on open and its error inside. Caption
+carries the row count. Below the table, the one line about the legacy dashboard.
+
+Plan detail: `plans.detail({ id })` into a `DescriptionList` of Plan ID, Slug,
+Currency, Status, Trial days and Description, then a read-only
+`ResourceTable<PlanFeature>` of Key (`font-mono text-xs`), Name, Type (a
+`Badge`), Limit (the number, or "Unlimited" when it is zero or negative) and
+Period. No edit controls anywhere.
+
+Org tab and user section: both read `subscriptions.list({ tenantId })`, both
+return `null` without one, and both render Plan (resolved through `plans.list`),
+Status and Period end. Match the legacy `org_section.templ`: plan name, status
+badge, period end, and a "No active subscription." empty state.
+
+```tsx
+export const subscriptionSubPlugin = defineSubPlugin({
+  extension: "subscription",
+  host: "auth",
+  label: "Plans",
+  nav: [{ label: "Plans", to: "/plans", group: "Configuration", priority: 2 }],
+  routes: [
+    { path: "/plans", element: PlansPage },
+    { path: "/plans/:id", element: PlanDetailPage },
+  ],
+  hostIntents: [],
+  contributions: {
+    "org.detail.tabs": [{ id: "billing", label: "Billing", priority: 10, render: SubscriptionOrgTab }],
+    "user.detail.sections": [{ id: "subscription", priority: 20, render: SubscriptionUserSection }],
+  },
+})
+```
+
+The `org.detail.tabs` contribution lands on the organization sub-plugin's detail
+page from Task 2. That is one sub-plugin contributing into another sub-plugin's
+host slot, which is the arrangement the whole extension point was designed
+around, and it is worth confirming by hand once in the running app.
+
+- [ ] **Step 4: Run the tests and typecheck**
+
+- [ ] **Step 5: Commit**
+
+```bash
+git add packages/plugin-authsome/src/sub/subscription.tsx packages/plugin-authsome/test/sub/subscription.test.tsx
+git commit -m "feat(authsome): plans, and an honest line about the billing that stayed behind" -- packages/plugin-authsome/src/sub/subscription.tsx packages/plugin-authsome/test/sub/subscription.test.tsx
+```
+
+---
+
+### Task 7: Password policy
+
+**Files:**
+- Create: `packages/plugin-authsome/src/sub/password.tsx`
+- Test: `packages/plugin-authsome/test/sub/password.test.tsx`
+
+**Interfaces:**
+- Consumes: `SETTINGS_INTENTS`, `settingsPanelFor` from Task 0.
+- Produces: `passwordSubPlugin`, `PasswordPolicy`, `PasswordPolicyPage`.
+
+The smallest of the six, and the only one that mixes its own intent with the
+shared settings panel.
+
+```ts
+// password.policy -> { minLength: number, requireSpecial: boolean, hashAlgorithm: string }
+```
+
+One query, no commands. The actual policy VALUES are written through the auth
+contributor's `settings.update`, not through this plugin, so the page is a
+read-only summary above the standard settings panel: an admin sees the effective
+hash algorithm next to the policy they are editing.
+
+**Two things about `hashAlgorithm`.** It is hardcoded to the literal string
+`"argon2id"` server-side and does not read engine config. So label it "as
+compiled" rather than "in effect", because presenting a constant as a live
+reading is the kind of thing somebody makes a decision on.
+
+**The legacy page shows an allowed-domains list that the intent does not
+return.** It comes straight from settings in the templ render path. So it is
+either read from the settings namespace or not shown at all. Read it from the
+namespace: this sub-plugin already declares the settings host intents for its
+panel, so nothing widens.
+
+- [ ] **Step 1: Write the failing tests**
+
+```tsx
+// packages/plugin-authsome/test/sub/password.test.tsx
+import { describe, expect, it } from "vitest"
+import { screen, waitFor } from "@testing-library/react"
+import { passwordSubPlugin } from "../../src/sub/password"
+import { renderSubPage, subStubClient } from "./harness"
+
+const page = passwordSubPlugin.routes[0].element
+
+describe("password policy", () => {
+  it("shows the policy from its own contributor and the panel from the host", async () => {
+    const own = subStubClient({ "password.policy": { minLength: 12, requireSpecial: true, hashAlgorithm: "argon2id" } })
+    const host = subStubClient({
+      "settings.namespace": {
+        namespace: "password", scope: "app",
+        categories: [{ name: "Strength", settings: [{
+          key: "min_length", displayName: "Minimum length", type: "int",
+          effectiveValue: 12, isOverridden: true, isEnforced: false, canOverride: true, order: 1,
+        }] }],
+      },
+    })
+    renderSubPage(page, { client: own.client, hostClient: host.client, allowed: passwordSubPlugin.hostIntents })
+
+    await waitFor(() => expect(screen.getByText("argon2id")).toBeTruthy())
+    // Two clients on one page: password.policy is this sub-plugin's own, and
+    // settings.namespace belongs to auth and is reached through hostIntents.
+    expect(own.intents).toEqual(["password.policy"])
+    expect(host.intents).toEqual(["settings.namespace"])
+    await waitFor(() => expect(screen.getByText("Minimum length")).toBeTruthy())
+  })
+
+  it("labels the hash algorithm as compiled rather than as a live reading", async () => {
+    const own = subStubClient({ "password.policy": { minLength: 12, requireSpecial: true, hashAlgorithm: "argon2id" } })
+    renderSubPage(page, { client: own.client, hostClient: subStubClient({}).client, allowed: passwordSubPlugin.hostIntents })
+    await waitFor(() => expect(screen.getByText("argon2id")).toBeTruthy())
+    // The server hardcodes this and never reads engine config. Presenting a
+    // constant as a live reading is how somebody ends up deciding on it.
+    expect(screen.getByText(/as compiled/i)).toBeTruthy()
+  })
+
+  it("says engine default rather than zero when no minimum is set", async () => {
+    const own = subStubClient({ "password.policy": { minLength: 0, requireSpecial: false, hashAlgorithm: "argon2id" } })
+    renderSubPage(page, { client: own.client, hostClient: subStubClient({}).client, allowed: passwordSubPlugin.hostIntents })
+    // "0 characters" reads as a policy allowing empty passwords. It is not one.
+    await waitFor(() => expect(screen.getByText(/engine default/i)).toBeTruthy())
+  })
+})
+```
+
+- [ ] **Step 2: Run and confirm they fail**
+
+- [ ] **Step 3: Write the page and the declaration**
+
+```tsx
+export const passwordSubPlugin = defineSubPlugin({
+  extension: "password",
+  host: "auth",
+  label: "Password",
+  nav: [{ label: "Password", to: "/auth/password", group: "Auth", priority: 0 }],
+  routes: [{ path: "/auth/password", element: PasswordPolicyPage }],
+  // Its own policy read needs nothing from the host. The panel below it does.
+  hostIntents: [...SETTINGS_INTENTS],
+  contributions: {
+    "settings.tabs": [{ id: "password", label: "Password", render: settingsPanelFor("password") }],
+  },
+})
+```
+
+`PasswordPolicyPage` renders a `DescriptionList` of Minimum length ("`N`
+characters" or "Engine default"), Require special character (a `Badge` reading
+Required or Optional) and Hash algorithm (the value with "as compiled" beside
+it), then the shared settings panel underneath. Bind the panel once at module
+scope and use the same instance for the tab, exactly as Task 1 does.
+
+- [ ] **Step 4: Run the tests and typecheck**
+
+- [ ] **Step 5: Commit**
+
+```bash
+git add packages/plugin-authsome/src/sub/password.tsx packages/plugin-authsome/test/sub/password.test.tsx
+git commit -m "feat(authsome): the password policy, above the settings that set it" -- packages/plugin-authsome/src/sub/password.tsx packages/plugin-authsome/test/sub/password.test.tsx
+```
+
+---
