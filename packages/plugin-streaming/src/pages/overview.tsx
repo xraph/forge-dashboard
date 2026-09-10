@@ -2,6 +2,9 @@ import { useQuery } from "@forge-go/dashboard-plugin"
 import { PageHeader } from "@forge-go/dashboard-kit/components/page-header"
 import { StatGrid } from "@forge-go/dashboard-kit/components/stat-grid"
 import { QueryBoundary } from "@forge-go/dashboard-kit/components/query-boundary"
+import { Badge } from "@forge-go/dashboard-kit/components/badge"
+import { ResourceTable, type Column } from "@forge-go/dashboard-kit/components/resource-table"
+import { formatTimestamp } from "@forge-go/dashboard-kit/lib/format"
 
 /**
  * The `stats` query's wire shape, from `StatsResponse` in
@@ -40,6 +43,54 @@ export function formatBytes(bytes: number): string {
   return `${value.toFixed(1)} ${units[unit]}`
 }
 
+/** One row of `presence.list`, from `PresenceInfo` in types.go. */
+export interface PresenceInfo {
+  userID: string
+  status: string
+  customStatus?: string
+  lastSeen: string
+  rooms: string[]
+}
+
+export interface PresenceList {
+  presence: PresenceInfo[]
+}
+
+const presenceColumns: Column<PresenceInfo>[] = [
+  { id: "userID", header: "User", cell: (p) => p.userID },
+  {
+    id: "status",
+    header: "Status",
+    cell: (p) => (
+      <span className="flex items-center gap-2">
+        <Badge variant="outline">{p.status}</Badge>
+        {p.customStatus && (
+          <span className="text-xs text-muted-foreground">{p.customStatus}</span>
+        )}
+      </span>
+    ),
+  },
+  { id: "rooms", header: "Rooms", cell: (p) => (p.rooms ?? []).length, align: "end" },
+  { id: "lastSeen", header: "Last seen", cell: (p) => formatTimestamp(p.lastSeen) },
+]
+
+function OnlineUsers() {
+  const query = useQuery<PresenceList>("presence.list")
+  return (
+    <QueryBoundary title="Online users" query={query} skeletonRows={3}>
+      {(data) => (
+        <ResourceTable<PresenceInfo>
+          columns={presenceColumns}
+          rows={data.presence ?? []}
+          rowKey={(p) => p.userID}
+          caption="Online users"
+          emptyMessage="Nobody is online."
+        />
+      )}
+    </QueryBoundary>
+  )
+}
+
 export function StreamingOverviewPage() {
   const query = useQuery<StreamingStats>("stats")
 
@@ -62,6 +113,7 @@ export function StreamingOverviewPage() {
           />
         )}
       </QueryBoundary>
+      <OnlineUsers />
     </section>
   )
 }
