@@ -12,7 +12,7 @@ Read this before writing a page against `ResourceTable`, `ConfirmDialog` or
 stays enabled after you click it, so a fast double-click fires `onConfirm`
 twice. The component can't fix this itself, because it has no idea whether the thing you triggered is asynchronous.
 
-Every destructive call site passes `pending`: ban, unban, delete, revoke,
+Every call site that opens one passes `pending`: ban, delete, revoke,
 bulk-revoke, kick, room delete. The value comes straight off the command hook:
 
 ```tsx
@@ -20,6 +20,12 @@ bulk-revoke, kick, room delete. The value comes straight off the command hook:
 ```
 
 It's documented on the component too, but a doc comment is easy to skip and banning somebody twice isn't.
+
+Unban was on that list and has come off it. Unban is not destructive and the
+users page fires it straight from the row with no dialog at all, which is the
+right design: a confirm step in front of an action that undoes a restriction
+is friction with nothing behind it. The obligation attaches to opening a
+`ConfirmDialog`, not to sending a command.
 
 ## Re-measure the bundle at the first page that imports ConfirmDialog or SettingsForm
 
