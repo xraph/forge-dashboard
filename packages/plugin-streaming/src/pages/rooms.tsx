@@ -1,5 +1,5 @@
 import { useState } from "react"
-import { useCommand, useQuery } from "@forge-go/dashboard-plugin"
+import { PluginLink, useCommand, useQuery } from "@forge-go/dashboard-plugin"
 import { Badge } from "@forge-go/dashboard-kit/components/badge"
 import { Button } from "@forge-go/dashboard-kit/components/button"
 import { ConfirmDialog } from "@forge-go/dashboard-kit/components/confirm-dialog"
@@ -46,9 +46,9 @@ const columns: Column<RoomInfo>[] = [
     id: "name",
     header: "Name",
     cell: (r) => (
-      <a href={`/@streaming/rooms/${r.id}`} className="underline underline-offset-4">
+      <PluginLink to={`/@streaming/rooms/${r.id}`} className="underline underline-offset-4">
         {r.name}
-      </a>
+      </PluginLink>
     ),
     className: "font-medium",
   },

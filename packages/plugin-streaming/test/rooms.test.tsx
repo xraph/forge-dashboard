@@ -1,6 +1,11 @@
 import { describe, expect, it } from "vitest"
-import { fireEvent, screen, waitFor } from "@testing-library/react"
-import { ContractError } from "@forge-go/dashboard-plugin"
+import { render, fireEvent, screen, waitFor } from "@testing-library/react"
+import {
+  ContractError,
+  NavigationProvider,
+  PluginProvider,
+} from "@forge-go/dashboard-plugin"
+import type { PluginLinkProps } from "@forge-go/dashboard-plugin"
 import { StreamingRoomsPage } from "../src/pages/rooms"
 import type { RoomsList } from "../src/pages/rooms"
 import {
@@ -11,6 +16,15 @@ import {
   renderPage,
   stubClient,
 } from "./harness"
+
+/** A stand-in for the host's router link, the same shape `packages/plugin/test/link.test.tsx` uses. */
+function RouterLink({ to, children, className, ...rest }: PluginLinkProps) {
+  return (
+    <a data-router="yes" href={to} className={className} {...rest}>
+      {children}
+    </a>
+  )
+}
 
 // jsdom 25 ships no PointerEvent constructor at all. The kit Switch's click
 // handler re-dispatches the click it receives as a `new PointerEvent(...)` at
@@ -123,6 +137,24 @@ describe("StreamingRoomsPage", () => {
     expect(screen.getByRole("link", { name: "Support" }).getAttribute("href")).toBe(
       "/@streaming/rooms/room_2",
     )
+  })
+
+  it("navigates through the host's router instead of a full page load", async () => {
+    // Proves the behaviour, not just the markup: inside a host that supplies
+    // a router link, the row link must render through it rather than as a
+    // bare anchor. A future refactor back to a plain `<a>` fails this, even
+    // though it would still satisfy the href-only assertions above.
+    render(
+      <PluginProvider client={stubClient({ "rooms.list": rooms })}>
+        <NavigationProvider value={{ Link: RouterLink, navigate: () => {} }}>
+          <StreamingRoomsPage />
+        </NavigationProvider>
+      </PluginProvider>,
+    )
+
+    const nameLink = await screen.findByRole("link", { name: "General" })
+    expect(nameLink.getAttribute("data-router")).toBe("yes")
+    expect(nameLink.getAttribute("href")).toBe("/@streaming/rooms/room_1")
   })
 
   it("reads the rooms.list intent and nothing else", async () => {
