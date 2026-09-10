@@ -99,10 +99,18 @@ describe("streamingPlugin", () => {
       "/channels",
       "/config",
       "/connections",
+      "/presence",
       "/rooms",
       "/rooms/:id",
     ])
-    expect(targets).toEqual(["/", "/channels", "/config", "/connections", "/rooms"])
+    expect(targets).toEqual([
+      "/",
+      "/channels",
+      "/config",
+      "/connections",
+      "/presence",
+      "/rooms",
+    ])
   })
 
   it("mounts each route's element, and each one reads its own intent", async () => {
@@ -150,6 +158,16 @@ describe("streamingPlugin", () => {
           { id: "chan_1", name: "alerts", subscriberCount: 3, messageCount: 10 },
         ],
       },
+      "presence.list": {
+        presence: [
+          {
+            userID: "usr_1",
+            status: "online",
+            lastSeen: "2026-09-06T09:00:00.000Z",
+            rooms: ["room_1"],
+          },
+        ],
+      },
       config: {
         backendType: "redis",
         distributed: true,
@@ -171,6 +189,7 @@ describe("streamingPlugin", () => {
       "/rooms/:id": "No room selected.",
       "/connections": "conn_1",
       "/channels": "alerts",
+      "/presence": "usr_1",
       "/config": "redis",
     }
 

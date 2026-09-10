@@ -6,16 +6,18 @@ import {
   LinkIcon,
   RadioIcon,
   SettingsIcon,
+  UsersIcon,
 } from "@forge-go/dashboard-kit/icons"
 import { StreamingChannelsPage } from "./pages/channels"
 import { StreamingConfigPage } from "./pages/config"
 import { StreamingConnectionsPage } from "./pages/connections"
 import { StreamingOverviewPage } from "./pages/overview"
+import { StreamingPresencePage } from "./pages/presence"
 import { StreamingRoomDetailPage } from "./pages/room-detail"
 import { StreamingRoomsPage } from "./pages/rooms"
 
-export type { StreamingStats } from "./pages/overview"
-export type { RoomInfo, RoomsList } from "./pages/rooms"
+export type { StreamingStats, PresenceInfo, PresenceList } from "./pages/overview"
+export type { RoomInfo, RoomsList, CommandResult } from "./pages/rooms"
 export type {
   MemberInfo,
   MembersList,
@@ -30,6 +32,7 @@ export {
   StreamingConfigPage,
   StreamingConnectionsPage,
   StreamingOverviewPage,
+  StreamingPresencePage,
   StreamingRoomDetailPage,
   StreamingRoomsPage,
 }
@@ -50,11 +53,12 @@ export {
  * answers no version, so a range here would be a claim nothing ever verifies:
  * it would read as a guarantee and enforce nothing.
  *
- * Read-only, deliberately. The contract declares five commands
- * (`rooms.create`, `rooms.delete`, `rooms.send-message`, `presence.set`,
- * `connections.kick`) and this plugin implements none of them: the command
- * path, with its CSRF and idempotency handshake, is exercised once by the auth
- * plugin rather than twice across the wave.
+ * All five commands the contract declares are wired up now: `rooms.create`
+ * and `rooms.delete` on the rooms page, `rooms.send-message` on a room's
+ * detail page, `connections.kick` on the connections page, and `presence.set`
+ * here on the presence page. Every one of them goes through `useCommand`, so
+ * the CSRF token and idempotency key are minted the same way regardless of
+ * which page issues the write.
  */
 export const streamingPlugin = definePlugin({
   extension: "streaming-contract",
@@ -71,7 +75,7 @@ export const streamingPlugin = definePlugin({
       icon: <LinkIcon />,
     },
     { label: "Channels", to: "/channels", priority: 40, icon: <RadioIcon /> },
-    // Priority 50 is left free for the presence page.
+    { label: "Presence", to: "/presence", priority: 50, icon: <UsersIcon /> },
     { label: "Configuration", to: "/config", priority: 60, icon: <SettingsIcon /> },
   ],
   routes: [
@@ -80,6 +84,7 @@ export const streamingPlugin = definePlugin({
     { path: "/rooms/:id", element: StreamingRoomDetailPage },
     { path: "/connections", element: StreamingConnectionsPage },
     { path: "/channels", element: StreamingChannelsPage },
+    { path: "/presence", element: StreamingPresencePage },
     { path: "/config", element: StreamingConfigPage },
   ],
 })
