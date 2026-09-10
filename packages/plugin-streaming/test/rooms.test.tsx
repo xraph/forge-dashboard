@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest"
-import { screen, waitFor } from "@testing-library/react"
+import { fireEvent, screen, waitFor } from "@testing-library/react"
 import { ContractError } from "@forge-go/dashboard-plugin"
 import { StreamingRoomsPage } from "../src/pages/rooms"
 import type { RoomsList } from "../src/pages/rooms"
@@ -7,9 +7,23 @@ import {
   failingClient,
   pendingClient,
   recordingClient,
+  recordingCommandClient,
   renderPage,
   stubClient,
 } from "./harness"
+
+// jsdom 25 ships no PointerEvent constructor at all. The kit Switch's click
+// handler re-dispatches the click it receives as a `new PointerEvent(...)` at
+// its hidden input, purely to carry the modifier keys along, so a MouseEvent
+// satisfies every property that call actually reads. Without this, clicking
+// the "Private" switch below throws "PointerEvent is not a constructor"
+// before this file's own assertions ever run. Scoped to this file rather than
+// the shared jsdom setup, since this is the first test in the repo to click a
+// kit Switch.
+if (typeof window.PointerEvent === "undefined") {
+  // @ts-expect-error - MouseEvent covers every field dispatchClickWithModifiers reads.
+  window.PointerEvent = window.MouseEvent
+}
 
 const START = "2026-09-06T09:00:00.000Z"
 
@@ -107,5 +121,76 @@ describe("StreamingRoomsPage", () => {
 
     await waitFor(() => expect(screen.getByText("No rooms yet.")).toBeDefined())
     expect(screen.queryByRole("table")).toBeNull()
+  })
+})
+
+describe("StreamingRoomsPage writes", () => {
+  it("sends rooms.create with exactly the fields the contract declares", async () => {
+    const { client, sent } = recordingCommandClient(
+      { "rooms.list": rooms },
+      { "rooms.create": { ok: true, id: "r2" } },
+    )
+    renderPage(StreamingRoomsPage, client)
+    await waitFor(() => expect(screen.getByText("General")).toBeTruthy())
+
+    fireEvent.click(screen.getByRole("button", { name: "New room" }))
+    fireEvent.change(screen.getByLabelText("Name"), { target: { value: "random" } })
+    fireEvent.change(screen.getByLabelText("Description"), { target: { value: "off topic" } })
+    fireEvent.change(screen.getByLabelText("Owner"), { target: { value: "grace" } })
+    fireEvent.click(screen.getByLabelText("Private"))
+    fireEvent.click(screen.getByRole("button", { name: "Create room" }))
+
+    await waitFor(() => expect(sent).toHaveLength(1))
+    expect(sent[0].intent).toBe("rooms.create")
+    expect(sent[0].payload).toEqual({
+      name: "random", description: "off topic", owner: "grace", private: true,
+    })
+  })
+
+  it("will not submit a room with no name", async () => {
+    const { client, sent } = recordingCommandClient(
+      { "rooms.list": rooms },
+      { "rooms.create": { ok: true } },
+    )
+    renderPage(StreamingRoomsPage, client)
+    await waitFor(() => expect(screen.getByText("General")).toBeTruthy())
+
+    fireEvent.click(screen.getByRole("button", { name: "New room" }))
+    const create = screen.getByRole("button", { name: "Create room" }) as HTMLButtonElement
+    expect(create.disabled).toBe(true)
+    fireEvent.click(create)
+    expect(sent).toHaveLength(0)
+  })
+
+  it("confirms before deleting and names the room being deleted", async () => {
+    const { client, sent } = recordingCommandClient(
+      { "rooms.list": rooms },
+      { "rooms.delete": { ok: true } },
+    )
+    renderPage(StreamingRoomsPage, client)
+    await waitFor(() => expect(screen.getByText("General")).toBeTruthy())
+
+    fireEvent.click(screen.getByRole("button", { name: "Delete General" }))
+    // Nothing is sent until the confirm is pressed.
+    expect(sent).toHaveLength(0)
+    expect(screen.getByText(/Delete “General”\?/)).toBeTruthy()
+
+    fireEvent.click(screen.getByRole("button", { name: "Delete" }))
+    await waitFor(() => expect(sent).toHaveLength(1))
+    expect(sent[0]).toEqual({ intent: "rooms.delete", payload: { id: "room_1" } })
+  })
+
+  it("surfaces the server's own sentence when a write fails", async () => {
+    const client = stubClient({ "rooms.list": rooms })
+    renderPage(StreamingRoomsPage, client)
+    await waitFor(() => expect(screen.getByText("General")).toBeTruthy())
+
+    fireEvent.click(screen.getByRole("button", { name: "Delete General" }))
+    fireEvent.click(screen.getByRole("button", { name: "Delete" }))
+
+    // stubClient was given no commands, so rooms.delete rejects NOT_FOUND.
+    await waitFor(() =>
+      expect(screen.getByRole("alert").textContent).toContain("rooms.delete"),
+    )
   })
 })
