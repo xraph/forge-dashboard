@@ -1,8 +1,18 @@
 import type { ComponentType } from "react"
 import { vi } from "vitest"
 import { render } from "@testing-library/react"
-import { HostAccessProvider, PluginProvider } from "@forge-go/dashboard-plugin"
-import type { ScopedClient } from "@forge-go/dashboard-plugin"
+import {
+  HostAccessProvider,
+  PluginProvider,
+  PluginSlot,
+  SubPluginProvider,
+  defineSubPlugin,
+} from "@forge-go/dashboard-plugin"
+import type {
+  ScopedClient,
+  SlotContribution,
+  SlotName,
+} from "@forge-go/dashboard-plugin"
 import { stubClient } from "../harness"
 
 /**
@@ -55,4 +65,56 @@ export function renderSubPage(
   } finally {
     spy?.mockRestore()
   }
+}
+
+/**
+ * Renders one slot contribution the way the running dashboard renders it.
+ *
+ * `renderSubPage` is for a sub-plugin's ROUTE, and it hands the component a
+ * single `params` prop, which is what `PluginHost` does for a route. A slot
+ * contribution is wired differently: `PluginSlot` SPREADS the slot's params
+ * onto the contribution, so `<PluginSlot name="org.detail.tabs" params={{ orgId }} />`
+ * renders `<Contribution orgId="o1" />` and never `<Contribution params={...} />`.
+ *
+ * Those two shapes are easy to confuse and the confusion is invisible until
+ * production: a contribution written to read `props.params.orgId` and tested
+ * through `renderSubPage` passes its test and renders nothing on a real page,
+ * because the prop it reads does not exist there. Use this for a contribution
+ * and `renderSubPage` for a route, and the test tree matches the real one.
+ *
+ * It goes through a real `SubPluginProvider` and a real `PluginSlot` rather
+ * than approximating them, so the error boundary, the per-contribution client
+ * and the host-access allowlist are all the production ones.
+ */
+export function renderContribution(
+  contribution: SlotContribution,
+  opts: RenderContributionOptions,
+) {
+  const subPlugin = defineSubPlugin({
+    extension: opts.extension ?? "test-sub",
+    host: opts.host ?? "auth",
+    hostIntents: opts.allowed ?? [],
+    contributions: { [opts.slot]: [contribution] },
+  })
+
+  return render(
+    <SubPluginProvider
+      entries={[{ subPlugin, client: opts.client, hostClient: opts.hostClient }]}
+    >
+      <PluginSlot name={opts.slot} params={opts.params} />
+    </SubPluginProvider>,
+  )
+}
+
+export interface RenderContributionOptions {
+  slot: SlotName
+  /** Bound to the sub-plugin's OWN extension. */
+  client: ScopedClient
+  /** Bound to the HOST's extension. What `hostIntents` reaches. */
+  hostClient: ScopedClient
+  /** Spread onto the contribution, exactly as `PluginSlot` does. */
+  params?: Record<string, unknown>
+  allowed?: string[]
+  extension?: string
+  host?: string
 }
