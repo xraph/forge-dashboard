@@ -2585,7 +2585,9 @@ git commit -m "feat(authsome): overview, credentials, feature toggles and the pl
 
 **Interfaces:**
 - Consumes: every page from Tasks 2 to 9.
-- Produces: the finished `authsomePlugin` with twenty-three routes, six nav groups and two context dimensions.
+- Produces: the finished `authsomePlugin` with twenty-three routes, four nav groups and two context dimensions.
+
+The four groups are Identity, Configuration, Security and System, and the task's own test enumerates them. An earlier draft of this line said six, which conflated the core plugin's nav with the six groups the SUB-PLUGIN manifests use (Identity, Security, Auth, Compliance, Enterprise, Configuration). Those are a different set belonging to a different plan.
 
 - [ ] **Step 1: Write the failing test**
 
