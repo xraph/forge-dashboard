@@ -94,8 +94,15 @@ describe("streamingPlugin", () => {
   it("gives every list-level route a nav entry pointing at it", () => {
     const paths = streamingPlugin.routes.map((r) => r.path).sort()
     const targets = streamingPlugin.nav.map((n) => n.to).sort()
-    expect(paths).toEqual(["/", "/connections", "/rooms", "/rooms/:id"])
-    expect(targets).toEqual(["/", "/connections", "/rooms"])
+    expect(paths).toEqual([
+      "/",
+      "/channels",
+      "/config",
+      "/connections",
+      "/rooms",
+      "/rooms/:id",
+    ])
+    expect(targets).toEqual(["/", "/channels", "/config", "/connections", "/rooms"])
   })
 
   it("mounts each route's element, and each one reads its own intent", async () => {
@@ -138,6 +145,19 @@ describe("streamingPlugin", () => {
           },
         ],
       },
+      "channels.list": {
+        channels: [
+          { id: "chan_1", name: "alerts", subscriberCount: 3, messageCount: 10 },
+        ],
+      },
+      config: {
+        backendType: "redis",
+        distributed: true,
+        nodeID: "node-1",
+        features: {},
+        limits: {},
+        timeouts: {},
+      },
     }
 
     // Rendered with no params, as every route below is. "/rooms/:id" is a
@@ -150,6 +170,8 @@ describe("streamingPlugin", () => {
       "/rooms": "General",
       "/rooms/:id": "No room selected.",
       "/connections": "conn_1",
+      "/channels": "alerts",
+      "/config": "redis",
     }
 
     for (const route of streamingPlugin.routes) {

@@ -4,7 +4,11 @@ import {
   HouseIcon,
   LayoutGridIcon,
   LinkIcon,
+  RadioIcon,
+  SettingsIcon,
 } from "@forge-go/dashboard-kit/icons"
+import { StreamingChannelsPage } from "./pages/channels"
+import { StreamingConfigPage } from "./pages/config"
 import { StreamingConnectionsPage } from "./pages/connections"
 import { StreamingOverviewPage } from "./pages/overview"
 import { StreamingRoomDetailPage } from "./pages/room-detail"
@@ -19,7 +23,11 @@ export type {
   ModerationLog,
 } from "./pages/room-detail"
 export type { ConnectionInfo, ConnectionsList } from "./pages/connections"
+export type { ChannelInfo, ChannelsList } from "./pages/channels"
+export type { ConfigSummary } from "./pages/config"
 export {
+  StreamingChannelsPage,
+  StreamingConfigPage,
   StreamingConnectionsPage,
   StreamingOverviewPage,
   StreamingRoomDetailPage,
@@ -62,12 +70,17 @@ export const streamingPlugin = definePlugin({
       priority: 30,
       icon: <LinkIcon />,
     },
+    { label: "Channels", to: "/channels", priority: 40, icon: <RadioIcon /> },
+    // Priority 50 is left free for the presence page.
+    { label: "Configuration", to: "/config", priority: 60, icon: <SettingsIcon /> },
   ],
   routes: [
     { path: "/", element: StreamingOverviewPage },
     { path: "/rooms", element: StreamingRoomsPage },
     { path: "/rooms/:id", element: StreamingRoomDetailPage },
     { path: "/connections", element: StreamingConnectionsPage },
+    { path: "/channels", element: StreamingChannelsPage },
+    { path: "/config", element: StreamingConfigPage },
   ],
 })
 
