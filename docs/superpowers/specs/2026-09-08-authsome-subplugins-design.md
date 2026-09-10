@@ -36,35 +36,110 @@ Getting one wrong breaks nothing. It just puts API Keys under the wrong heading,
 
 ## The six with data
 
-| sub-plugin | contributor | routes | slots |
+Checked against the Go manifests and handlers after this spec was approved. Four
+of the claims below are corrections, and one of them removes a surface this spec
+promised.
+
+| sub-plugin | contributor | routes (nav group / icon / priority) | slots |
 |---|---|---|---|
-| organization | `organization` | `/organizations`, `/organizations/create`, `/organizations/:id` | `overview.widgets` |
-| apikey | `apikey` | `/apikeys`, `/apikeys/create`, `/apikeys/:id` | `overview.widgets`, `user.detail.sections` |
-| waitlist | `waitlist` | `/waitlist` | `overview.widgets` |
-| consent | `consent` | `/compliance/consent` | `overview.widgets`, `user.detail.sections` |
-| subscription | `subscription` | `/plans`, `/plans/:id` | `overview.widgets`, `org.detail.tabs`, `user.detail.sections` |
-| password | `password` | `/auth/password` | none |
+| organization | `organization` | `/organizations` (Identity / users / 2), `/organizations/create`, `/organizations/:id` | `overview.widgets` |
+| apikey | `apikey` | `/apikeys` (Security / key / 1), `/apikeys/create`, `/apikeys/:id` | `overview.widgets` |
+| waitlist | `waitlist` | `/waitlist` (Compliance / clock / 1) | `overview.widgets` |
+| consent | `consent` | `/compliance/consent` (Compliance / shield-check / 0) | `overview.widgets`, `user.detail.sections` |
+| subscription | `subscription` | `/plans` (Configuration / package / 2), `/plans/:id` | `overview.widgets`, `org.detail.tabs`, `user.detail.sections` |
+| password | `password` | `/auth/password` (Auth / lock / 0) | none |
 
-**organization** is the biggest, and it's the one that hosts slots of its own.
-`/organizations/:id` renders `org.detail.sections` and `org.detail.tabs`;
-`/organizations/create` renders `org.create.fields`. So the organization sub-plugin is both a consumer and a host, which is the case that proves the slot API is not secretly a special case for the core plugin.
+Only the listed routes carry nav. Detail and create routes declare none, which
+is why they never appear in the sidebar and are reached from their list page.
+
+The legacy `dashboard.go` nav disagrees with these manifests in three places:
+organization sits under "Authentication" there, waitlist under "Authentication"
+at priority 5, and apikey under "Developer" at a different path entirely,
+`/api-keys` with a hyphen. The manifest is the contributor system's own
+declaration and the React side follows it. The hyphen matters: a route typed
+from memory off the old dashboard will 404.
+
+**organization** hosts slots of its own. `/organizations/:id` renders
+`org.detail.sections` and `org.detail.tabs`; `/organizations/create` renders
+`org.create.fields`. So it is both a consumer and a host, which is the case that
+proves the slot API is not a special case for the core plugin. Its detail page
+has exactly two built-in tabs, Overview and Members, and contributed tabs render
+after them.
+
 Intents: `orgs.list`, `orgs.detail`, `orgs.create`, `orgs.update`, `orgs.delete`,
-`orgs.members`, `orgs.removeMember`.
+`orgs.members`, `orgs.removeMember`. Seven, no more. Neither `orgs.list` nor
+`orgs.members` pages at all: both answer the whole array, with no cursor, no
+limit and no total. So the org list is the one place in this package that does
+not need the cursor pager, and adding paging controls to it would be inventing
+a server behaviour that does not exist.
 
-**apikey** lists, creates and revokes. Creation shows the secret exactly once, so you get a deliberate one-shot reveal panel and a copy button. The server will not answer it a second time, and an admin who closes that panel without copying has to mint a new key. `apikeys.list` filtered by user id is the
-`user.detail.sections` contribution.
+`orgs.update` takes `name` and `logo` as `*string`. Absent means leave alone;
+an empty string is a real value that clears the field. The Go plugin also
+implements invitations and member role changes, and none of it is wired to the
+dispatcher, so invite and role-change UI is blocked.
 
-**waitlist** is the admin review queue: approve, reject, delete, plus
-`waitlist.counts` behind the overview widget.
+**apikey** lists, creates and revokes. There is no delete. An earlier draft of
+this spec asked whether revoke and delete were different operations, and the
+answer is that delete does not exist: revoke sets a flag, and the templ UI drops
+the action entirely once a key is revoked.
 
-**consent** audits and revokes consent records app-wide, and shows one user's
-consents on the user detail page.
+Creation shows the secret exactly once. `CreateAPIKeyResponse` carries
+`{ ok, id, keyPrefix, secret }`, the stored row keeps only a hash, and
+`APIKeySummary` and `APIKeyDetail` have no secret field at all. So the one-shot
+reveal panel is not a UI convention being polite about a value it could refetch.
+The value is gone. An admin who closes that panel without copying mints a new key.
 
-**subscription** covers `/plans` and `/plans/:id` with archive and activate, and
-`subscriptions.list`. See the gap section for what it can't cover.
+`apikeys.create` requires a `userId`, so the create form needs a user to attach
+the key to rather than defaulting to the operator.
 
-**password** is `password.policy` read-only alongside the standard settings
-panel, so an admin sees the effective hash algorithm next to the policy.
+**The `user.detail.sections` contribution for apikey is blocked, and this spec
+previously said it was not.** It claimed `apikeys.list` filtered by user id.
+`apikeys.list` takes no input at all, and `APIKeySummary` does not carry a
+`userId`, so there is nothing to filter on. Getting the owner of each key means
+one `apikeys.detail` call per key. That is not a section, it is a fan-out, and
+it goes on the blocked list.
+
+**waitlist** is the admin review queue. Six intents: `waitlist.list`,
+`waitlist.detail`, `waitlist.approve`, `waitlist.reject`, `waitlist.delete` and
+`waitlist.counts`, which answers exactly `{ pending, approved, rejected }`.
+`waitlist.list` pages by cursor and takes `{ email?, status?, cursor?, limit? }`.
+Approve and reject both take an optional `note`, and the templ UI offers neither
+a note field nor a delete button, so the React page is a superset of it.
+
+**consent** has four intents, and two of them are the same handler:
+`consent.list` and `consent.userConsents` are registered to one function and are
+wire-identical, differing only in name. Both take
+`{ userId?, purpose?, cursor?, limit? }`.
+
+`consent.revoke` does not take a record id. It takes `{ userId, purpose }` and
+matches on that composite, scoped to the caller's app server-side. So a revoke
+button on a row sends the row's user and purpose, not its id, even though the
+row carries an id. `consent.grant` also exists and this spec did not mention it.
+
+The templ `/compliance/consent` page is not a data page: it renders a card
+saying consent data lives on user detail pages. So the app-wide consent list is
+new, and worth building, but it is a gain over the legacy dashboard rather than
+a port of it.
+
+**subscription** covers `/plans` and `/plans/:id` with archive and activate, plus
+`subscriptions.list`, which requires a `tenantId` and quietly answers an empty
+list when given none. Five intents total.
+
+Everything else in the legacy billing UI posts to form handlers that never reach
+the dispatcher. Invoices, coupons and the feature catalog have no intents.
+Neither does subscription lifecycle: create, pause, resume, cancel and change
+plan are all form posts. Neither does plan editing: pricing, tiers, features and
+plan info are all form posts against `plans.detail`'s own page. So `/plans/:id`
+is a read-only detail page with two buttons, and the templ dashboard stays the
+answer for billing.
+
+**password** is `password.policy`, read-only, answering
+`{ minLength, requireSpecial, hashAlgorithm }` alongside the standard settings
+panel. Two things about it. `hashAlgorithm` is hardcoded to `"argon2id"`
+server-side and does not read engine config, so it is a label rather than a
+fact. And the legacy page shows an allowed-domains list that the intent does not
+return; that comes straight from settings in the templ render path, so the React
+page reads it from the settings namespace or not at all.
 
 ## The eighteen settings-only
 
@@ -149,37 +224,51 @@ exactly the behaviour an admin expects when the plugin isn't installed.
 
 ## What can't be built yet
 
-Three sub-plugins ship templ pages with no contract intents behind them: scim,
-subscription and sso. The templ dashboard reads their stores in-process; a React
-page has only the contract. So these are blocked on Go work in the authsome
-repository, and the migration notes have to say so rather than let somebody find
-out.
+Some sub-plugins ship templ pages with no contract intents behind them. The
+templ dashboard reads their stores in-process; a React page has only the
+contract. So these are blocked on Go work in the authsome repository, and the
+migration notes have to say so rather than let somebody find out.
+
+The list below is longer than the first draft of this spec claimed, and the
+subscription entry in particular is much longer. That plugin registers five
+intents and ships an entire billing product.
 
 | surface | templ file | missing |
 |---|---|---|
 | SCIM directory list, detail, logs | `plugins/scim/dashui/scim_*.templ` | `scim` declares `intents: []` |
 | SCIM org section and tab | `plugins/scim/dashui/org_*.templ` | as above |
-| Invoices and invoice detail | `plugins/subscription/dashui/invoice*.templ` | no `invoices.*` intent |
-| Coupons | `plugins/subscription/dashui/coupons_page.templ` | no `coupons.*` intent |
-| Plan features | `plugins/subscription/dashui/features_page.templ` | no intent |
+| SCIM overview widget | `plugins/scim/dashui/overview_widget.templ` | as above |
 | Per-user MFA factors | `plugins/mfa/dashui/user_section.templ` | `mfa` declares `intents: []` |
 | Per-user passkeys | `plugins/passkey/dashui/user_section.templ` | `passkey` declares `intents: []` |
 | Per-user linked social accounts | `plugins/social/dashui/user_section.templ` | `social` declares `intents: []` |
 | Organization SSO connections | `plugins/sso/dashui/org_section.templ` | `sso` declares `intents: []` |
-| SCIM overview widget | `plugins/scim/dashui/overview_widget.templ` | as above |
+| Per-user API keys | `plugins/apikey/dashui/user_section.templ` | `apikeys.list` takes no filter and its summary has no `userId` |
+| Invoices and invoice detail | `plugins/subscription/dashui/invoice*.templ` | no `invoices.*` intent |
+| Coupons | `plugins/subscription/dashui/coupons_page.templ` | no `coupons.*` intent |
+| Feature catalog | `plugins/subscription/dashui/features_page.templ` | no `features.*` intent |
+| Subscription lifecycle: create, pause, resume, cancel, change plan | `plugins/subscription/dashui/subscription*.templ` | form posts only, no intents |
+| Plan editing: pricing, tiers, features, plan info | `plugins/subscription/dashui/plan_detail.templ` | form posts only, no intents |
+| Organization invitations and member role changes | `plugins/organization/dashui/org_detail.templ` | implemented in Go, never wired to the dispatcher |
 
-Ten surfaces. The oauth2provider client widget was on this list and has come
-off it: that tile reads nothing, so it is not blocked, just not worth building.
+The oauth2provider client widget came off this list. That tile takes no
+parameters and reads nothing, so it is not blocked, just not worth building.
 
- Each needs an intent pair on the Go side (a list query, sometimes
-a revoke command) and then a small React contribution. SCIM and subscription
-billing are the substantial ones; the three per-user sections are a query each.
+Two of these are cheaper than they look. The organization invitations and
+member-role surfaces already exist in `organization/service.go` as
+`CreateInvitation`, `ListInvitations`, `AcceptInvitation`, `DeclineInvitation`
+and `UpdateMemberRole`. Nothing is missing but the dispatcher registration. The
+three per-user sections are a query each.
 
-Until those exist, `scim` ships as a settings-only sub-plugin, and `subscription`
-ships plans without billing. Both render, both are useful, and neither pretends
-to be complete. The templ dashboard stays the answer for SCIM directory
-management specifically, and that should be an explicit line in the retirement
-checklist rather than a surprise.
+The rest is real work. SCIM directory management and subscription billing are
+whole products, and neither should be rushed onto a contract surface to make a
+migration checklist look finished.
+
+Until those exist, `scim` ships as a settings-only sub-plugin, `subscription`
+ships plans without billing, `apikey` ships without its user section, and
+`organization` ships without invitations. Everything renders, everything is
+useful, and nothing pretends to be complete. **The templ dashboard stays the
+answer for SCIM directory management and for billing**, and that belongs on the
+retirement checklist as an explicit line rather than as a surprise.
 
 ## Testing
 
