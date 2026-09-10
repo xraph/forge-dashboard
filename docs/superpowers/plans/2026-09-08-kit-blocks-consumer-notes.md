@@ -1,6 +1,6 @@
 # Obligations on anyone using the kit blocks
 
-The nine shared blocks in `packages/kit` are done. Seven things fell out of
+The eleven shared blocks in `packages/kit` are done. Eight things fell out of
 building them, and of building the first pages against them, that a consumer has
 to know and cannot discover from the types. They're written down here because the working notes they came from are scratch and get deleted. These outlive them.
 
@@ -27,6 +27,29 @@ users page fires it straight from the row with no dialog at all, which is the
 right design: a confirm step in front of an action that undoes a restriction
 is friction with nothing behind it. The obligation attaches to opening a
 `ConfirmDialog`, not to sending a command.
+
+## Use `NoneCell` and `TagList` for a cell that means "none"
+
+An empty table cell is ambiguous in a way that costs real time. A sighted
+operator reads a blank cell as "still loading" or "something is broken", and a
+screen reader reads it as nothing. Neither is what the data says.
+
+```tsx
+{ id: "scopes", header: "Scopes", cell: (k) => <TagList values={k.scopes ?? []} label="scopes" /> }
+{ id: "lastUsedAt", header: "Last used", cell: (k) => k.lastUsedAt ? formatTimestamp(k.lastUsedAt) : <NoneCell label="last use" /> }
+```
+
+`NoneCell` renders an en dash with `aria-label={`no ${label}`}`. Both halves
+matter: a dash alone is silent, and a visually-hidden label alone leaves the
+cell looking blank. `TagList` maps values onto badges and falls through to
+`NoneCell` when the array is empty, which is the case every hand-rolled version
+of that cell got wrong, because a map over an empty array renders nothing.
+
+Write the label to read after the word "no": `label="rooms"` becomes "no rooms".
+
+These are blocks rather than a convention because the convention was hand-rolled
+four times across two plugins and dropped in three separate rewrites, each time
+because there was nothing to import and nothing to name.
 
 ## Reset the command hook when a dialog opens, and use `confirmDisabled` for "not yet"
 
