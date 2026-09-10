@@ -6,6 +6,19 @@ import { AuthSettingsPage } from "../src/pages/settings"
 import { AuthSettingsNamespacePage } from "../src/pages/settings-namespace"
 import { recordingCommandClient, renderPage, stubClient } from "./harness"
 
+// jsdom 25 ships no PointerEvent constructor at all. The kit Switch's click
+// handler re-dispatches the click it receives as a `new PointerEvent(...)` at
+// its hidden input, purely to carry the modifier keys along, so a MouseEvent
+// satisfies every property that call actually reads. Without this, clicking
+// a switch on this page throws "PointerEvent is not a constructor" before
+// this file's own assertions ever run. Scoped to this file, matching
+// packages/plugin-authsome/test/features.test.tsx and
+// packages/plugin-authsome/test/user-detail.test.tsx.
+if (typeof window.PointerEvent === "undefined") {
+  // @ts-expect-error - MouseEvent covers every field dispatchClickWithModifiers reads.
+  window.PointerEvent = window.MouseEvent
+}
+
 const base = {
   key: "min_length", displayName: "Minimum length", type: "int",
   isOverridden: false, isEnforced: false, canOverride: true, order: 1,
@@ -282,5 +295,50 @@ describe("AuthSettingsNamespacePage", () => {
 
     expect(screen.queryByRole("button", { name: /reset to default/i })).toBeNull()
     expect(screen.queryByRole("button", { name: /default/i })).toBeNull()
+  })
+
+  it("toggles an enabled boolean field and sends the changed value as a boolean", async () => {
+    // Nothing in this suite, in kit's own settings-form.test.tsx (which only
+    // ever clicks a *disabled* switch), or anywhere else in the package
+    // exercises an enabled boolean field's change-detection and its value
+    // flowing all the way into `settings.update`. `min_length`/`max_length`
+    // above dodge the switch entirely for a jsdom reason that the polyfill
+    // above already solves, so this closes that hole rather than working
+    // around it again.
+    const withBoolean = {
+      namespace: "password", displayName: "Password", scope: "app",
+      categories: [
+        {
+          name: "Strength",
+          settings: [
+            {
+              key: "require_special", displayName: "Require a symbol", type: "bool",
+              effectiveValue: false, default: false,
+              isOverridden: false, isEnforced: false, canOverride: true, order: 1,
+            },
+          ],
+        },
+      ],
+    }
+    const { client, sent } = recordingCommandClient(
+      { "settings.namespace": withBoolean },
+      { "settings.update": { ok: true } },
+    )
+    renderPage(AuthSettingsNamespacePage, client, { namespace: "password" })
+    await waitFor(() => expect(screen.getByRole("switch", { name: "Require a symbol" })).toBeTruthy())
+
+    const control = screen.getByRole("switch", { name: "Require a symbol" })
+    expect(control.getAttribute("aria-checked")).toBe("false")
+
+    fireEvent.click(control)
+    expect(control.getAttribute("aria-checked")).toBe("true")
+
+    fireEvent.click(screen.getByRole("button", { name: "Save changes" }))
+
+    await waitFor(() => expect(sent).toHaveLength(1))
+    expect(sent[0]).toEqual({
+      intent: "settings.update",
+      payload: { key: "require_special", value: true, scope: "app" },
+    })
   })
 })

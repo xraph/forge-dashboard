@@ -6,6 +6,7 @@ import { Badge } from "@forge-go/dashboard-kit/components/badge"
 import { Button } from "@forge-go/dashboard-kit/components/button"
 import { Input } from "@forge-go/dashboard-kit/components/input"
 import { Label } from "@forge-go/dashboard-kit/components/label"
+import { NoneCell } from "@forge-go/dashboard-kit/components/none-cell"
 import { PageHeader } from "@forge-go/dashboard-kit/components/page-header"
 import {
   DescriptionList,
@@ -30,7 +31,7 @@ export interface AppDetail extends AppSummary {
 function formatMetadata(metadata?: Record<string, string>): ReactNode {
   const entries = Object.entries(metadata ?? {})
   if (entries.length === 0) {
-    return <span aria-label="No metadata">–</span>
+    return <NoneCell label="metadata" />
   }
   return (
     <ul className="flex flex-col gap-0.5">
@@ -148,7 +149,7 @@ function AppDetailBody({ appId }: { appId: string }) {
                     {
                       term: "Platform",
                       value: (
-                        <Badge variant={app.isPlatform ? "secondary" : "outline"}>
+                        <Badge variant={app.isPlatform ? "outline" : "secondary"}>
                           {app.isPlatform ? "platform" : "app"}
                         </Badge>
                       ),
@@ -158,7 +159,7 @@ function AppDetailBody({ appId }: { appId: string }) {
                       value: app.publishableKey ? (
                         <PublishableKey value={app.publishableKey} />
                       ) : (
-                        <span aria-label="No publishable key">–</span>
+                        <NoneCell label="publishable key" />
                       ),
                     },
                     { term: "Metadata", value: formatMetadata(app.metadata) },

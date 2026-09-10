@@ -59,7 +59,7 @@ export function AuthAppsPage() {
       id: "platform",
       header: "Platform",
       cell: (a) => (
-        <Badge variant={a.isPlatform ? "secondary" : "outline"}>
+        <Badge variant={a.isPlatform ? "outline" : "secondary"}>
           {a.isPlatform ? "platform" : "app"}
         </Badge>
       ),
@@ -102,7 +102,15 @@ export function AuthAppsPage() {
                       variant="destructive"
                       size="sm"
                       aria-label={`Delete ${app.name}`}
-                      onClick={() => setDeleting(app)}
+                      onClick={() => {
+                        // Opening the dialog is the moment that matters, not
+                        // closing it: the operator is about to read whatever
+                        // is on screen for THIS row, so a leftover error from
+                        // the last row this dialog was pointed at has to go
+                        // now.
+                        remove.reset()
+                        setDeleting(app)
+                      }}
                     >
                       Delete
                     </Button>

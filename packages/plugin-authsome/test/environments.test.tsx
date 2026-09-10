@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest"
 import { fireEvent, render, screen, waitFor } from "@testing-library/react"
-import { PluginProvider } from "@forge-go/dashboard-plugin"
+import { ContractError, PluginProvider } from "@forge-go/dashboard-plugin"
 import { AuthEnvironmentDetailPage } from "../src/pages/environment-detail"
 import { AuthEnvironmentsPage } from "../src/pages/environments"
 import { recordingCommandClient, renderPage, stubClient } from "./harness"
@@ -124,6 +124,83 @@ describe("AuthEnvironmentsPage", () => {
 
     await waitFor(() => expect(sent).toHaveLength(1))
     expect(sent[0]).toEqual({ intent: "environments.create", payload: { name: "Sandbox", slug: "sandbox" } })
+  })
+})
+
+describe("AuthEnvironmentsPage stale command state across rows", () => {
+  // Both non-default, so both show a Delete button - Production in
+  // `envsAnswer` is the default and has none.
+  const twoDeletable = {
+    environments: [
+      { id: "env_1", name: "Staging", slug: "staging", type: "staging", isDefault: false, createdAt: "2026-01-01T00:00:00Z" },
+      { id: "env_2", name: "QA", slug: "qa", type: "qa", isDefault: false, createdAt: "2026-01-02T00:00:00Z" },
+    ],
+  }
+
+  it("does not carry one environment's delete error into another environment's delete dialog", async () => {
+    const { client } = recordingCommandClient(
+      { "environments.list": twoDeletable },
+      {
+        "environments.delete": (payload?: unknown) =>
+          (payload as { id: string }).id === "env_1"
+            ? new ContractError("VALIDATION", "cannot delete an environment with live sessions")
+            : { ok: true },
+      },
+    )
+    renderPage(AuthEnvironmentsPage, client)
+    await waitFor(() => expect(screen.getByText("Staging")).toBeTruthy())
+
+    // Delete Staging, let it fail, see the reason.
+    fireEvent.click(screen.getByRole("button", { name: "Delete Staging" }))
+    fireEvent.click(screen.getByRole("button", { name: "Delete" }))
+    const failure = await screen.findByRole("alert", { hidden: true })
+    expect(failure.textContent).toContain("cannot delete an environment with live sessions")
+
+    // Back out, then open the same dialog pointed at QA instead.
+    fireEvent.click(screen.getByRole("button", { name: "Cancel" }))
+    await waitFor(() => expect(screen.queryByRole("alertdialog")).toBeNull())
+    fireEvent.click(screen.getByRole("button", { name: "Delete QA" }))
+
+    // QA has not been touched. Staging's failure must not show up here.
+    expect(screen.getByText(/Delete QA\?/)).toBeTruthy()
+    expect(screen.queryByRole("alert")).toBeNull()
+    expect(screen.queryByText("cannot delete an environment with live sessions")).toBeNull()
+  })
+
+  it("clears a stale clone error, and the previous row's name and slug, when the clone dialog reopens for a different environment", async () => {
+    const { client } = recordingCommandClient(
+      { "environments.list": envsAnswer },
+      {
+        "environments.clone": (payload?: unknown) =>
+          (payload as { sourceId: string }).sourceId === "env_1"
+            ? new ContractError("VALIDATION", "slug already in use")
+            : { ok: true },
+      },
+    )
+    renderPage(AuthEnvironmentsPage, client)
+    await waitFor(() => expect(screen.getByText("Production")).toBeTruthy())
+
+    // Clone Production with a name and slug, let it fail.
+    fireEvent.click(screen.getByRole("button", { name: "Clone Production" }))
+    fireEvent.change(screen.getByLabelText("New name"), { target: { value: "Production Copy" } })
+    fireEvent.change(screen.getByLabelText("New slug"), { target: { value: "production-copy" } })
+    fireEvent.click(screen.getByRole("button", { name: "Clone" }))
+    const failure = await screen.findByRole("alert", { hidden: true })
+    expect(failure.textContent).toContain("slug already in use")
+
+    // Back out, then open the clone dialog on Staging instead.
+    fireEvent.click(screen.getByRole("button", { name: "Cancel" }))
+    await waitFor(() => expect(screen.queryByRole("alertdialog")).toBeNull())
+    fireEvent.click(screen.getByRole("button", { name: "Clone Staging" }))
+
+    // Production's failure, and what was typed for Production, must not
+    // follow into Staging's confirmation - an operator confirming this would
+    // otherwise be cloning Staging under a name and slug meant for Production.
+    expect(screen.getByText(/Clone Staging\?/)).toBeTruthy()
+    expect(screen.queryByRole("alert")).toBeNull()
+    expect(screen.queryByText("slug already in use")).toBeNull()
+    expect((screen.getByLabelText("New name") as HTMLInputElement).value).toBe("")
+    expect((screen.getByLabelText("New slug") as HTMLInputElement).value).toBe("")
   })
 })
 

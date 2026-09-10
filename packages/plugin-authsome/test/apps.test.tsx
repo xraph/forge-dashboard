@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest"
 import { fireEvent, render, screen, waitFor } from "@testing-library/react"
-import { PluginProvider } from "@forge-go/dashboard-plugin"
+import { ContractError, PluginProvider } from "@forge-go/dashboard-plugin"
 import { AuthAppCreatePage } from "../src/pages/app-create"
 import { AuthAppDetailPage } from "../src/pages/app-detail"
 import { AuthAppsPage } from "../src/pages/apps"
@@ -49,6 +49,47 @@ describe("AuthAppsPage", () => {
     fireEvent.click(screen.getByRole("button", { name: "Delete" }))
     await waitFor(() => expect(sent).toHaveLength(1))
     expect(sent[0]).toEqual({ intent: "apps.delete", payload: { id: "app_2" } })
+  })
+})
+
+describe("AuthAppsPage stale command state across rows", () => {
+  // Both non-platform, so both show a Delete button - the platform app in
+  // `appsAnswer` has none.
+  const twoDeletable = {
+    apps: [
+      { id: "app_1", name: "Core", slug: "core", isPlatform: false, createdAt: "2026-01-01T00:00:00Z" },
+      { id: "app_2", name: "Storefront", slug: "storefront", isPlatform: false, createdAt: "2026-01-02T00:00:00Z" },
+    ],
+  }
+
+  it("does not carry one app's delete error into another app's delete dialog", async () => {
+    const { client } = recordingCommandClient(
+      { "apps.list": twoDeletable },
+      {
+        "apps.delete": (payload?: unknown) =>
+          (payload as { id: string }).id === "app_1"
+            ? new ContractError("VALIDATION", "cannot delete an app with active users")
+            : { ok: true },
+      },
+    )
+    renderPage(AuthAppsPage, client)
+    await waitFor(() => expect(screen.getByText("Core")).toBeTruthy())
+
+    // Delete Core, let it fail, see the reason.
+    fireEvent.click(screen.getByRole("button", { name: "Delete Core" }))
+    fireEvent.click(screen.getByRole("button", { name: "Delete" }))
+    const failure = await screen.findByRole("alert", { hidden: true })
+    expect(failure.textContent).toContain("cannot delete an app with active users")
+
+    // Back out, then open the same dialog pointed at Storefront instead.
+    fireEvent.click(screen.getByRole("button", { name: "Cancel" }))
+    await waitFor(() => expect(screen.queryByRole("alertdialog")).toBeNull())
+    fireEvent.click(screen.getByRole("button", { name: "Delete Storefront" }))
+
+    // Storefront has not been touched. Core's failure must not show up here.
+    expect(screen.getByText(/Delete Storefront\?/)).toBeTruthy()
+    expect(screen.queryByRole("alert")).toBeNull()
+    expect(screen.queryByText("cannot delete an app with active users")).toBeNull()
   })
 })
 

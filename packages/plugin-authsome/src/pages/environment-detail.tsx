@@ -6,6 +6,7 @@ import { Badge } from "@forge-go/dashboard-kit/components/badge"
 import { Button } from "@forge-go/dashboard-kit/components/button"
 import { Input } from "@forge-go/dashboard-kit/components/input"
 import { Label } from "@forge-go/dashboard-kit/components/label"
+import { NoneCell } from "@forge-go/dashboard-kit/components/none-cell"
 import { Textarea } from "@forge-go/dashboard-kit/components/textarea"
 import { PageHeader } from "@forge-go/dashboard-kit/components/page-header"
 import {
@@ -33,7 +34,7 @@ export interface EnvDetail extends EnvSummary {
 function formatMetadata(metadata?: Record<string, string>): ReactNode {
   const entries = Object.entries(metadata ?? {})
   if (entries.length === 0) {
-    return <span aria-label="No metadata">–</span>
+    return <NoneCell label="metadata" />
   }
   return (
     <ul className="flex flex-col gap-0.5">
@@ -122,7 +123,7 @@ function EnvironmentDetailBody({ envId }: { envId: string }) {
                     {
                       term: "Default",
                       value: (
-                        <Badge variant={env.isDefault ? "secondary" : "outline"}>
+                        <Badge variant={env.isDefault ? "outline" : "secondary"}>
                           {env.isDefault ? "default" : "not default"}
                         </Badge>
                       ),
@@ -132,17 +133,17 @@ function EnvironmentDetailBody({ envId }: { envId: string }) {
                       value: env.appId ? (
                         <span className="font-mono text-xs">{env.appId}</span>
                       ) : (
-                        <span aria-label="No app">–</span>
+                        <NoneCell label="app" />
                       ),
                     },
-                    { term: "Description", value: env.description || <span aria-label="No description">–</span> },
-                    { term: "Color", value: env.color || <span aria-label="No color">–</span> },
+                    { term: "Description", value: env.description || <NoneCell label="description" /> },
+                    { term: "Color", value: env.color || <NoneCell label="color" /> },
                     {
                       term: "Cloned from",
                       value: env.clonedFrom ? (
                         <span className="font-mono text-xs">{env.clonedFrom}</span>
                       ) : (
-                        <span aria-label="Not cloned">–</span>
+                        <NoneCell label="clone source" />
                       ),
                     },
                     { term: "Metadata", value: formatMetadata(env.metadata) },

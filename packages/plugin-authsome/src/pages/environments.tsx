@@ -132,6 +132,24 @@ export function AuthEnvironmentsPage() {
     setCloneType("")
   }
 
+  // Opening the dialog is the moment that matters, not closing it: the
+  // operator is about to read whatever is on screen for THIS row, so a
+  // leftover error - and, for clone, a leftover name/slug/type typed for a
+  // different row - has to go now rather than at close time, since closing
+  // is not the only way a dialog goes away.
+  function openDelete(env: EnvSummary) {
+    remove.reset()
+    setDeleting(env)
+  }
+
+  function openClone(env: EnvSummary) {
+    clone.reset()
+    setCloneName("")
+    setCloneSlug("")
+    setCloneType("")
+    setCloning(env)
+  }
+
   async function confirmDelete() {
     if (!deleting) return
     const result = await remove.execute({ id: deleting.id })
@@ -157,7 +175,7 @@ export function AuthEnvironmentsPage() {
       id: "default",
       header: "Default",
       cell: (e) => (
-        <Badge variant={e.isDefault ? "secondary" : "outline"}>
+        <Badge variant={e.isDefault ? "outline" : "secondary"}>
           {e.isDefault ? "default" : "not default"}
         </Badge>
       ),
@@ -216,7 +234,7 @@ export function AuthEnvironmentsPage() {
                     variant="outline"
                     size="sm"
                     aria-label={`Clone ${env.name}`}
-                    onClick={() => setCloning(env)}
+                    onClick={() => openClone(env)}
                   >
                     Clone
                   </Button>
@@ -225,7 +243,7 @@ export function AuthEnvironmentsPage() {
                       variant="destructive"
                       size="sm"
                       aria-label={`Delete ${env.name}`}
-                      onClick={() => setDeleting(env)}
+                      onClick={() => openDelete(env)}
                     >
                       Delete
                     </Button>
