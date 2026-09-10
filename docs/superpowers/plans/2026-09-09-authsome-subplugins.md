@@ -75,6 +75,14 @@ with no maintenance:
 }
 ```
 
+**Every file under `src/sub/` is `.tsx`, including the ones holding no JSX.**
+One wildcard covers one extension, and Vite does not honour an exports fallback
+array, so `["./src/sub/*.tsx", "./src/sub/*.ts"]` resolves nothing and fails at
+import rather than at build. Teaching consumers which sub-plugins are `.ts` and
+which are `.tsx` is worse than naming them all `.tsx`.
+`test/sub/exports-map.test.ts` pins this, because the failure is otherwise
+invisible until somebody outside this package tries the import.
+
 `import { organizationSubPlugin } from "@forge-go/dashboard-plugin-authsome/sub/organization"` resolves,
 and nothing else in that file's module graph loads. Twenty-four hand-written
 entries would say the same thing and go stale the first time somebody adds one.
@@ -378,6 +386,14 @@ In `packages/plugin-authsome/package.json`:
   "./sub/*": "./src/sub/*.tsx"
 }
 ```
+
+**Every file under `src/sub/` is `.tsx`, including the ones holding no JSX.**
+One wildcard covers one extension, and Vite does not honour an exports fallback
+array, so `["./src/sub/*.tsx", "./src/sub/*.ts"]` resolves nothing and fails at
+import rather than at build. Teaching consumers which sub-plugins are `.ts` and
+which are `.tsx` is worse than naming them all `.tsx`.
+`test/sub/exports-map.test.ts` pins this, because the failure is otherwise
+invisible until somebody outside this package tries the import.
 
 - [ ] **Step 6: Run the tests and typecheck**
 

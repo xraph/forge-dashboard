@@ -2,7 +2,9 @@
   "name": "@forge-go/dashboard-plugin-authsome",
   "version": "0.0.0",
   "type": "module",
-  "files": ["src"],
+  "files": [
+    "src"
+  ],
   "publishConfig": {
     "access": "public"
   },

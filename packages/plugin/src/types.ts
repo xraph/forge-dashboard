@@ -33,7 +33,17 @@ export interface PluginNavItem {
  * Always an object, never undefined, so a page can destructure it without a
  * guard even when its route declares no parameters.
  */
-export interface PluginPageProps {
+/**
+ * What the host hands a page in place of a router.
+ *
+ * A type alias rather than an interface, deliberately. An interface has no
+ * implicit index signature, so `PluginPageProps` would not be assignable to
+ * `Record<string, unknown>`, and a component written against these props could
+ * not be handed to `SlotContribution.render` without a cast. That case is real
+ * and common: a settings panel is both a route and a slot contribution, and
+ * twenty-four sub-plugins would each carry a cast for it.
+ */
+export type PluginPageProps = {
   params: Record<string, string | undefined>
 }
 
