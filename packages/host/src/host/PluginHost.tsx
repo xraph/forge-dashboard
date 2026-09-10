@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react"
-import type { ReactNode } from "react"
+import type { ComponentType, ReactNode } from "react"
 import type * as React from "react"
 import {
   Link,
@@ -8,6 +8,7 @@ import {
   Routes,
   useLocation,
   useNavigate,
+  useParams,
 } from "react-router"
 import {
   FallbackAuthGate,
@@ -37,6 +38,7 @@ import type {
   ForgePlugin,
   ForgeSubPlugin,
   PluginNavItem,
+  PluginPageProps,
   PluginRoute,
   PluginState,
   Scope,
@@ -264,6 +266,19 @@ function dropCollidingRoutes(
 // passes sub-plugins at all: ForgeDashboard when its own prop is omitted,
 // and every host test written before this one.
 const NO_SUB_PLUGINS: ForgeSubPlugin[] = []
+
+/**
+ * Reads the route's params and hands them to a plugin page as a prop.
+ *
+ * A hook is the only way react-router exposes params, and a plugin page must
+ * not call one, because no plugin package depends on react-router. So the host
+ * calls it here, one level above the page, and the page stays a plain
+ * component.
+ */
+function RouteParams({ page: Page }: { page: ComponentType<PluginPageProps> }) {
+  const params = useParams()
+  return <Page params={params} />
+}
 
 export function PluginHost({
   plugins,
@@ -886,7 +901,7 @@ export function PluginHost({
                         plugin={plugin.extension}
                       >
                         <PluginProvider client={clients.get(plugin.extension)!}>
-                          <Page />
+                          <RouteParams page={Page} />
                         </PluginProvider>
                       </PluginErrorBoundary>
                     }
@@ -900,13 +915,29 @@ export function PluginHost({
                 subsMountedIn(plugin.extension)
               ).flatMap((entry) =>
                 entry.routes.map((route) => {
-                  const Page =
-                    entry.state.kind === "ready"
-                      ? route.element
-                      : // Not ready but not hidden: its route still mounts, so
-                        // somebody following a link or a bookmark lands on a
-                        // panel explaining why rather than on a blank page.
-                        (entry.subPlugin.setup ?? SetupPanel)
+                  // Not ready but not hidden: its route still mounts, so
+                  // somebody following a link or a bookmark lands on a panel
+                  // explaining why rather than on a blank page. That fallback
+                  // component takes `message`, not `params` -- it never reads
+                  // route params, so it renders directly rather than through
+                  // RouteParams, which exists only for a route's own page.
+                  const page =
+                    entry.state.kind === "ready" ? (
+                      <RouteParams page={route.element} />
+                    ) : (
+                      (() => {
+                        const Setup = entry.subPlugin.setup ?? SetupPanel
+                        return (
+                          <Setup
+                            message={
+                              entry.state.kind === "setup"
+                                ? entry.state.message
+                                : undefined
+                            }
+                          />
+                        )
+                      })()
+                    )
                   const client = clients.get(entry.subPlugin.extension)
                   const hostClient = clients.get(plugin.extension)
                   return (
@@ -931,7 +962,7 @@ export function PluginHost({
                                 subExtension: entry.subPlugin.extension,
                               }}
                             >
-                              <Page />
+                              {page}
                             </HostAccessProvider>
                           </PluginProvider>
                         </PluginErrorBoundary>

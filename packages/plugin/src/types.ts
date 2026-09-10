@@ -20,10 +20,27 @@ export interface PluginNavItem {
   group?: string
 }
 
+/**
+ * What every plugin page receives.
+ *
+ * `params` is the route's own path parameters, already resolved by the host.
+ * A page reads `params.id` rather than calling `useParams()`, and that is the
+ * whole point: no plugin package depends on react-router, so a page stays a
+ * plain component that a test can render with no router at all. The kit makes
+ * the same trade for links, taking a `renderLink` prop instead of importing a
+ * router.
+ *
+ * Always an object, never undefined, so a page can destructure it without a
+ * guard even when its route declares no parameters.
+ */
+export interface PluginPageProps {
+  params: Record<string, string | undefined>
+}
+
 /** One route contributed by a plugin. */
 export interface PluginRoute {
   path: string
-  element: ComponentType
+  element: ComponentType<PluginPageProps>
 }
 
 export interface ForgePlugin {
