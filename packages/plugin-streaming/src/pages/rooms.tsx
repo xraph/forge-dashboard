@@ -204,7 +204,17 @@ export function StreamingRoomsPage() {
                   variant="destructive"
                   size="sm"
                   aria-label={`Delete ${room.name}`}
-                  onClick={() => setPendingDelete(room)}
+                  // `remove` is one hook shared by every row in this table, so
+                  // whatever it was holding for the last row acted on (an
+                  // error, in particular) is still there when this handler
+                  // runs. Reset here, at the moment the target changes, not
+                  // in the dialog's close handler - closing is not the only
+                  // way the dialog goes away, and it is what the operator is
+                  // about to look at that matters.
+                  onClick={() => {
+                    remove.reset()
+                    setPendingDelete(room)
+                  }}
                 >
                   Delete
                 </Button>

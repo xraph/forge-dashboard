@@ -212,12 +212,14 @@ describe("kicking a connection", () => {
     })
   })
 
-  // Pins the decision on a blank reason: the dialog does not block
-  // submission on an empty field. `connections.kick` has no default reason
-  // to fall back to, so an operator who disconnects without typing one gets
-  // exactly what they asked for, an empty string, rather than the page
-  // inventing wording on their behalf.
-  it("sends a blank reason rather than blocking or inventing one", async () => {
+  // Was "sends a blank reason rather than blocking or inventing one": that
+  // pinned a deliberate decision to let a blank reason through. It no longer
+  // holds - the reason is what the disconnected user is actually told, so a
+  // kick with no explanation is worse than a dialog that waits. The
+  // corrected behaviour is that the confirm button itself refuses to fire
+  // until a reason is typed, via `confirmDisabled`, not `pending`: nothing is
+  // in flight, the dialog is just missing something it needs.
+  it("disables the confirm button until a reason is given", async () => {
     const { client, sent } = recordingCommandClient(answers, {
       "connections.kick": { ok: true },
     })
@@ -225,13 +227,13 @@ describe("kicking a connection", () => {
     await waitFor(() => expect(screen.getByText("ada")).toBeTruthy())
 
     fireEvent.click(screen.getByRole("button", { name: "Kick ada" }))
-    fireEvent.click(screen.getByRole("button", { name: "Disconnect" }))
+    const confirm = screen.getByRole("button", { name: "Disconnect" }) as HTMLButtonElement
+    expect(confirm.disabled).toBe(true)
+    fireEvent.click(confirm)
+    expect(sent).toHaveLength(0)
 
-    await waitFor(() => expect(sent).toHaveLength(1))
-    expect(sent[0]).toEqual({
-      intent: "connections.kick",
-      payload: { connID: "c1", reason: "" },
-    })
+    fireEvent.change(screen.getByLabelText("Reason"), { target: { value: "abuse" } })
+    expect(confirm.disabled).toBe(false)
   })
 
   it("keeps the dialog open and shows why when the kick fails", async () => {
@@ -239,11 +241,54 @@ describe("kicking a connection", () => {
     await waitFor(() => expect(screen.getByText("ada")).toBeTruthy())
 
     fireEvent.click(screen.getByRole("button", { name: "Kick ada" }))
+    // A reason is required to enable Disconnect now; typing one is the setup
+    // for this test, not what it is pinning.
+    fireEvent.change(screen.getByLabelText("Reason"), { target: { value: "abuse" } })
     fireEvent.click(screen.getByRole("button", { name: "Disconnect" }))
 
     await waitFor(() =>
       expect(screen.getByRole("alert").textContent).toContain("connections.kick"),
     )
     expect(screen.getByText(/Disconnect ada\?/)).toBeTruthy()
+  })
+
+  it("does not carry ada's kick error into bob's dialog", async () => {
+    // Same shape as the rooms.delete pin: `kick` is one hook shared by every
+    // row, and stubClient here has no "connections.kick" handler, so
+    // confirming for either connection fails. Before the fix, failing ada's
+    // kick and then opening bob's dialog showed ada's error there too.
+    const twoConnections = {
+      "connections.list": {
+        connections: [
+          {
+            connID: "c1", userID: "ada", transport: "websocket",
+            joinedRooms: ["r1"], subscriptions: [],
+            lastActivity: "2026-09-08T10:00:00Z", status: "active",
+          },
+          {
+            connID: "c2", userID: "bob", transport: "websocket",
+            joinedRooms: ["r1"], subscriptions: [],
+            lastActivity: "2026-09-08T10:00:00Z", status: "active",
+          },
+        ],
+      },
+    }
+    renderPage(StreamingConnectionsPage, stubClient(twoConnections))
+    await waitFor(() => expect(screen.getByText("ada")).toBeTruthy())
+
+    fireEvent.click(screen.getByRole("button", { name: "Kick ada" }))
+    fireEvent.change(screen.getByLabelText("Reason"), { target: { value: "abuse" } })
+    fireEvent.click(screen.getByRole("button", { name: "Disconnect" }))
+    await waitFor(() =>
+      expect(screen.getByRole("alert").textContent).toContain("connections.kick"),
+    )
+
+    fireEvent.click(screen.getByRole("button", { name: "Cancel" }))
+    fireEvent.click(screen.getByRole("button", { name: "Kick bob" }))
+
+    expect(screen.getByText(/Disconnect bob\?/)).toBeTruthy()
+    // The dialog for bob must open clean: no error at all, and in particular
+    // not ada's.
+    expect(screen.queryByRole("alert")).toBeNull()
   })
 })

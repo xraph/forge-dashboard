@@ -144,7 +144,17 @@ export function StreamingConnectionsPage() {
                   variant="destructive"
                   size="sm"
                   aria-label={`Kick ${c.userID}`}
-                  onClick={() => setPendingKick(c)}
+                  // `kick` is one hook shared by every row in this table, so
+                  // whatever it was holding for the last connection acted on
+                  // (an error, in particular) is still there when this
+                  // handler runs. Reset here, at the moment the target
+                  // changes, not in the dialog's close handler - closing is
+                  // not the only way the dialog goes away, and it is what the
+                  // operator is about to look at that matters.
+                  onClick={() => {
+                    kick.reset()
+                    setPendingKick(c)
+                  }}
                 >
                   Kick
                 </Button>
@@ -196,6 +206,11 @@ export function StreamingConnectionsPage() {
         }
         confirmLabel="Disconnect"
         pending={kick.loading}
+        // The reason is what the disconnected user is actually told, so a
+        // blank one is a kick with no explanation. `confirmDisabled` (not
+        // `pending`) is the right signal here: the dialog is not working on
+        // anything, it is still missing something it needs before it can.
+        confirmDisabled={reason.trim() === ""}
         onConfirm={() => void confirmKick()}
       />
     </section>

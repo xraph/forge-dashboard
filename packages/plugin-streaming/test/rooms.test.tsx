@@ -231,4 +231,29 @@ describe("StreamingRoomsPage writes", () => {
       expect(screen.getByRole("alert").textContent).toContain("rooms.delete"),
     )
   })
+
+  it("does not carry General's delete error into Support's dialog", async () => {
+    // `remove` is one hook shared by every row, and stubClient was given no
+    // "rooms.delete" handler, so confirming a delete for either room fails.
+    // The bug this pins: deleting General and failing used to leave that
+    // failure sitting in the hook, so opening the dialog for Support showed
+    // General's error attributed to a room nobody had touched yet.
+    const client = stubClient({ "rooms.list": rooms })
+    renderPage(StreamingRoomsPage, client)
+    await waitFor(() => expect(screen.getByText("General")).toBeTruthy())
+
+    fireEvent.click(screen.getByRole("button", { name: "Delete General" }))
+    fireEvent.click(screen.getByRole("button", { name: "Delete" }))
+    await waitFor(() =>
+      expect(screen.getByRole("alert").textContent).toContain("rooms.delete"),
+    )
+
+    fireEvent.click(screen.getByRole("button", { name: "Cancel" }))
+    fireEvent.click(screen.getByRole("button", { name: "Delete Support" }))
+
+    expect(screen.getByText(/Delete “Support”\?/)).toBeTruthy()
+    // The dialog for Support must open clean: no error at all, and in
+    // particular not General's.
+    expect(screen.queryByRole("alert")).toBeNull()
+  })
 })
