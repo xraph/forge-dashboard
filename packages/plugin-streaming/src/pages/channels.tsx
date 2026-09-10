@@ -18,7 +18,7 @@ export interface ChannelsList {
 }
 
 const columns: Column<ChannelInfo>[] = [
-  { id: "name", header: "Name", cell: (c) => c.name },
+  { id: "name", header: "Name", cell: (c) => c.name, className: "font-medium" },
   // The raw channel id, same reasoning as the rooms and users lists: an
   // operator correlating a row with logs or a support ticket needs it
   // without going through the name.

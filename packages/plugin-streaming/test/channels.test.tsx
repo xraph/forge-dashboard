@@ -19,6 +19,10 @@ describe("StreamingChannelsPage", () => {
     expect(screen.getByText("12")).toBeTruthy()
     expect(screen.getByText("400")).toBeTruthy()
 
+    // The Name column is the one an operator reads, so it carries the same
+    // emphasis as `rooms.tsx`'s Name column.
+    expect(screen.getByText("alerts").className).toContain("font-medium")
+
     // The raw channel id, so an operator can correlate a row with logs or a
     // support ticket without going through the name, same as rooms and users.
     const id = screen.getByText("c1")

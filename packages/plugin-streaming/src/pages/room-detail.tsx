@@ -18,6 +18,8 @@ import {
   ResourceTable,
   type Column,
 } from "@forge-go/dashboard-kit/components/resource-table"
+import { NoneCell } from "@forge-go/dashboard-kit/components/none-cell"
+import { TagList } from "@forge-go/dashboard-kit/components/tag-list"
 import { formatTimestamp } from "@forge-go/dashboard-kit/lib/format"
 import type { RoomInfo } from "./rooms"
 import type { CommandResult } from "./rooms"
@@ -47,37 +49,60 @@ export interface ModerationLog {
 }
 
 const memberColumns: Column<MemberInfo>[] = [
-  { id: "userID", header: "User", cell: (m) => m.userID },
+  {
+    id: "userID",
+    header: "User",
+    cell: (m) => <span className="font-mono text-xs">{m.userID}</span>,
+  },
   { id: "role", header: "Role", cell: (m) => <Badge variant="outline">{m.role}</Badge> },
   { id: "joinedAt", header: "Joined", cell: (m) => formatTimestamp(m.joinedAt) },
   {
     id: "permissions",
     header: "Permissions",
-    cell: (m) => (m.permissions ?? []).join(", ") || "–",
+    cell: (m) => <TagList values={m.permissions ?? []} label="permissions" />,
   },
 ]
 
 const moderationColumns: Column<ModerationEntry>[] = [
   { id: "timestamp", header: "When", cell: (e) => formatTimestamp(e.timestamp) },
   { id: "action", header: "Action", cell: (e) => e.action },
-  { id: "actorID", header: "By", cell: (e) => e.actorID },
-  { id: "targetID", header: "Target", cell: (e) => e.targetID },
-  { id: "reason", header: "Reason", cell: (e) => e.reason || "–" },
+  {
+    id: "actorID",
+    header: "By",
+    cell: (e) => <span className="font-mono text-xs">{e.actorID}</span>,
+  },
+  {
+    id: "targetID",
+    header: "Target",
+    cell: (e) => <span className="font-mono text-xs">{e.targetID}</span>,
+  },
+  {
+    id: "reason",
+    header: "Reason",
+    cell: (e) => (e.reason ? e.reason : <NoneCell label="reason" />),
+  },
 ]
 
 function Members({ roomId }: { roomId: string }) {
   const query = useQuery<MembersList>("rooms.members", { id: roomId })
   return (
     <QueryBoundary title="Members" query={query} skeletonRows={3}>
-      {(data) => (
-        <ResourceTable<MemberInfo>
-          columns={memberColumns}
-          rows={data.members ?? []}
-          rowKey={(m) => m.userID}
-          caption="Members"
-          emptyMessage="Nobody has joined this room."
-        />
-      )}
+      {(data) => {
+        const members = data.members ?? []
+        return (
+          <ResourceTable<MemberInfo>
+            columns={memberColumns}
+            rows={members}
+            rowKey={(m) => m.userID}
+            caption={
+              members.length === 0
+                ? undefined
+                : `${members.length} ${members.length === 1 ? "member" : "members"}`
+            }
+            emptyMessage="Nobody has joined this room."
+          />
+        )
+      }}
     </QueryBoundary>
   )
 }
@@ -86,15 +111,22 @@ function Moderation({ roomId }: { roomId: string }) {
   const query = useQuery<ModerationLog>("rooms.moderation", { id: roomId })
   return (
     <QueryBoundary title="Moderation log" query={query} skeletonRows={3}>
-      {(data) => (
-        <ResourceTable<ModerationEntry>
-          columns={moderationColumns}
-          rows={data.entries ?? []}
-          rowKey={(e) => `${e.timestamp}:${e.actorID}:${e.targetID}`}
-          caption="Moderation log"
-          emptyMessage="Nothing has been moderated in this room."
-        />
-      )}
+      {(data) => {
+        const entries = data.entries ?? []
+        return (
+          <ResourceTable<ModerationEntry>
+            columns={moderationColumns}
+            rows={entries}
+            rowKey={(e) => `${e.timestamp}:${e.actorID}:${e.targetID}`}
+            caption={
+              entries.length === 0
+                ? undefined
+                : `${entries.length} ${entries.length === 1 ? "entry" : "entries"}`
+            }
+            emptyMessage="Nothing has been moderated in this room."
+          />
+        )
+      }}
     </QueryBoundary>
   )
 }
@@ -168,7 +200,10 @@ function RoomDetail({ roomId }: { roomId: string }) {
                 <>
                   <DescriptionList
                     items={[
-                      { term: "Owner", value: room.owner },
+                      {
+                        term: "Owner",
+                        value: <span className="font-mono text-xs">{room.owner}</span>,
+                      },
                       { term: "Members", value: room.members },
                       {
                         term: "Visibility",
