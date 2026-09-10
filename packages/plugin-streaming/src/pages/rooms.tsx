@@ -45,7 +45,11 @@ const columns: Column<RoomInfo>[] = [
   {
     id: "name",
     header: "Name",
-    cell: (r) => r.name,
+    cell: (r) => (
+      <a href={`/@streaming/rooms/${r.id}`} className="underline underline-offset-4">
+        {r.name}
+      </a>
+    ),
     className: "font-medium",
   },
   {

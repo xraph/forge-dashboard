@@ -95,11 +95,34 @@ describe("StreamingRoomsPage", () => {
       "destructive",
     )
 
+    // The name is a link to the room's detail page. `getByText("General")`
+    // now resolves to that `<a>` rather than the table cell itself (a `<td>`
+    // wrapping a single child element carries no text node of its own), so
+    // the `font-medium` emphasis - which lives on the cell, not the anchor -
+    // is checked on the enclosing `<td>` instead of on the text node
+    // directly. This is the one assertion the link required touching; every
+    // other assertion in this file still passes unchanged.
+    const nameLink = screen.getByText("General")
+    expect(nameLink.tagName).toBe("A")
+    expect(nameLink.getAttribute("href")).toBe("/@streaming/rooms/room_1")
+    expect(nameLink.closest("td")?.className).toContain("font-medium")
+
     // Identifier columns carry the table's monospace vocabulary; the name
     // column is the one you read, not copy.
-    expect(screen.getByText("General").className).toContain("font-medium")
     expect(screen.getByText("usr_1").className).toContain("font-mono")
     expect(screen.getByText("usr_1").className).toContain("text-xs")
+  })
+
+  it("links the room name to its detail page", async () => {
+    renderPage(StreamingRoomsPage, stubClient({ "rooms.list": rooms }))
+
+    await screen.findByText("General")
+    expect(screen.getByRole("link", { name: "General" }).getAttribute("href")).toBe(
+      "/@streaming/rooms/room_1",
+    )
+    expect(screen.getByRole("link", { name: "Support" }).getAttribute("href")).toBe(
+      "/@streaming/rooms/room_2",
+    )
   })
 
   it("reads the rooms.list intent and nothing else", async () => {

@@ -84,11 +84,18 @@ describe("streamingPlugin", () => {
   // applies the "/@streaming" prefix itself via scopePath, so a route
   // declared here as "/streaming/rooms" would double-prefix to
   // "/@streaming/streaming/rooms" and never match.
-  it("gives every route a nav entry pointing at it", () => {
+  //
+  // This stays an exact list, not a subset or length check, so it catches a
+  // route appearing OR vanishing by accident. "/rooms/:id" is the one route
+  // with no nav entry, on purpose: it is a detail page reached by following a
+  // link from the rooms list, not a destination an operator picks from the
+  // sidebar, so `targets` names it separately from `paths` rather than
+  // pretending every route has a nav entry.
+  it("gives every list-level route a nav entry pointing at it", () => {
     const paths = streamingPlugin.routes.map((r) => r.path).sort()
     const targets = streamingPlugin.nav.map((n) => n.to).sort()
-    expect(paths).toEqual(["/", "/connections", "/rooms"])
-    expect(targets).toEqual(paths)
+    expect(paths).toEqual(["/", "/connections", "/rooms", "/rooms/:id"])
+    expect(targets).toEqual(["/", "/connections", "/rooms"])
   })
 
   it("mounts each route's element, and each one reads its own intent", async () => {
@@ -133,9 +140,15 @@ describe("streamingPlugin", () => {
       },
     }
 
+    // Rendered with no params, as every route below is. "/rooms/:id" is a
+    // detail route, and reaching it with no id is a link built wrong, not a
+    // server state - `StreamingRoomDetailPage` says so explicitly rather than
+    // issuing `rooms.detail` with an undefined id, so this is the text that
+    // branch is worth asserting on rather than skipping.
     const expected: Record<string, string> = {
       "/": "7",
       "/rooms": "General",
+      "/rooms/:id": "No room selected.",
       "/connections": "conn_1",
     }
 
