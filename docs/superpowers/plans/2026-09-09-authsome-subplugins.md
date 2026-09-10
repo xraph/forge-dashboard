@@ -619,3 +619,373 @@ git commit -m "feat(authsome): the eighteen settings-only sub-plugins" -- packag
 ```
 
 ---
+
+### Task 2: Organization
+
+**Files:**
+- Create: `packages/plugin-authsome/src/sub/organization.tsx`
+- Test: `packages/plugin-authsome/test/sub/organization.test.tsx`
+
+**Interfaces:**
+- Consumes: `defineSubPlugin`, `useQuery`, `useCommand`, `PluginSlot`, `useSlotCount` from `@forge-go/dashboard-plugin`; `PluginPageProps`; kit blocks.
+- Produces: `organizationSubPlugin`, `OrgSummary`, `OrgDetail`, `MemberSummary`, and the three page components.
+
+This is the sub-plugin that proves the slot API is not a special case for the
+core plugin. It CONSUMES `overview.widgets` on the auth overview, and it HOSTS
+three slots of its own: `org.detail.sections`, `org.detail.tabs` and
+`org.create.fields`. Get the hosting right here and the same shape works for
+anyone.
+
+**The contract, verified against `plugins/organization/contract/`:**
+
+```ts
+// orgs.list    -> { organizations: OrgSummary[] }        no input, NO PAGING
+// orgs.detail({ id })    -> OrgDetail
+// orgs.create({ name, slug, logo? })      -> { ok, id? }
+// orgs.update({ id, name?, logo? })       -> { ok }      name/logo are *string
+// orgs.delete({ id })                     -> { ok }
+// orgs.members({ orgId }) -> { members: MemberSummary[] }  NO PAGING
+// orgs.removeMember({ id })               -> { ok }      id is the MEMBER id
+interface OrgSummary { id: string; name: string; slug: string; createdAt: string }
+interface OrgDetail extends OrgSummary {
+  appId?: string; logo?: string; metadata?: Record<string, string>; updatedAt: string
+}
+interface MemberSummary { id: string; userId: string; role: string; createdAt: string }
+```
+
+**Neither list pages.** `orgs.list` takes no input at all and answers the whole
+array; `orgs.members` is the same. So this is the one page in the package that
+gets no `CursorPager` and no pagination props, and adding them would be
+inventing a server behaviour that does not exist. If the org count grows past
+what one response should carry, that is a Go change, not a UI change.
+
+**`orgs.removeMember` takes the MEMBER id, not the user id.** `MemberSummary`
+carries both and they are different values. Send the wrong one and the call
+fails, or worse, matches something else.
+
+**`orgs.update` pointer semantics.** `name` and `logo` are `*string`: absent
+means leave alone, and an empty string is a real value that clears the field. So
+an untouched field must be ABSENT from the payload, and a field the operator
+deliberately cleared must be present as `""`. Those are two different outcomes
+and the edit panel has to be able to produce both.
+
+**What the legacy page shows, so nothing is lost.** The templ org list has a
+four-card stat row (Organizations, Members, Teams, Invitations) computed from
+in-process aggregates that no intent answers, so it does not survive; say so in
+the migration note rather than faking it from `organizations.length`. Its table
+is Name (with the logo image when set, a building icon otherwise), Slug in
+monospace, and Created. Its detail page has exactly two built-in tabs, Overview
+and Members, with contributed tabs after them; Overview shows Organization ID,
+Slug, Created, Updated and a metadata list when non-empty; Members is a table of
+Name, Email, Role and Joined, with the role badge reading Owner as `default`,
+Admin as `secondary` and everything else as `outline` labelled "Member".
+
+**What is blocked and must be said out loud in the page, not silently omitted:**
+invitations and member role changes. `CreateInvitation`, `ListInvitations` and
+`UpdateMemberRole` all exist in `organization/service.go` and none is registered
+with the dispatcher. The legacy detail page shows a pending-invitations table.
+This one cannot, so the Members tab carries one line of copy saying invitations
+are managed in the legacy dashboard until the intents exist. An operator who
+sees nothing assumes there are none.
+
+- [ ] **Step 1: Write the failing tests**
+
+```tsx
+// packages/plugin-authsome/test/sub/organization.test.tsx
+import { describe, expect, it } from "vitest"
+import { fireEvent, screen, waitFor } from "@testing-library/react"
+import { organizationSubPlugin } from "../../src/sub/organization"
+import { renderSubPage, subStubClient } from "./harness"
+
+const orgs = {
+  organizations: [
+    { id: "o1", name: "Acme", slug: "acme", createdAt: "2026-01-01T00:00:00Z" },
+    { id: "o2", name: "Globex", slug: "globex", createdAt: "2026-02-01T00:00:00Z" },
+  ],
+}
+const detail = {
+  id: "o1", name: "Acme", slug: "acme", createdAt: "2026-01-01T00:00:00Z",
+  updatedAt: "2026-03-01T00:00:00Z", logo: "https://example.test/a.png",
+  metadata: { tier: "gold" },
+}
+const members = {
+  members: [
+    { id: "m1", userId: "u1", role: "owner", createdAt: "2026-01-02T00:00:00Z" },
+    { id: "m2", userId: "u2", role: "member", createdAt: "2026-01-03T00:00:00Z" },
+  ],
+}
+
+function pageAt(path: string) {
+  return organizationSubPlugin.routes.find((r) => r.path === path)!.element
+}
+
+describe("organization list", () => {
+  it("lists organizations with their slug", async () => {
+    const own = subStubClient(orgs)
+    renderSubPage(pageAt("/organizations"), {
+      client: own.client, hostClient: subStubClient({}).client, allowed: [],
+    })
+    await waitFor(() => expect(screen.getByText("Acme")).toBeTruthy())
+    expect(screen.getByText("globex")).toBeTruthy()
+    // Its OWN contributor answered, not its host's. This is the property the
+    // whole extension/host split exists for.
+    expect(own.intents).toContain("orgs.list")
+  })
+
+  it("counts its rows in the caption, with no paging controls at all", async () => {
+    renderSubPage(pageAt("/organizations"), {
+      client: subStubClient(orgs).client, hostClient: subStubClient({}).client, allowed: [],
+    })
+    await waitFor(() => expect(screen.getByText("Acme")).toBeTruthy())
+    expect(screen.getByText(/2 organizations/i)).toBeTruthy()
+    // orgs.list takes no cursor and no limit. A Next button here would be a
+    // control for a server behaviour that does not exist.
+    expect(screen.queryByRole("button", { name: /next/i })).toBeNull()
+  })
+
+  it("says so when there are none", async () => {
+    renderSubPage(pageAt("/organizations"), {
+      client: subStubClient({ "orgs.list": { organizations: [] } }).client,
+      hostClient: subStubClient({}).client, allowed: [],
+    })
+    await waitFor(() => expect(screen.getByText(/no organizations/i)).toBeTruthy())
+  })
+})
+
+describe("organization detail", () => {
+  it("shows the org, its members, and the two built-in tabs", async () => {
+    renderSubPage(pageAt("/organizations/:id"), {
+      client: subStubClient({ "orgs.detail": detail, "orgs.members": members }).client,
+      hostClient: subStubClient({}).client, allowed: [], params: { id: "o1" },
+    })
+    await waitFor(() => expect(screen.getByRole("heading", { name: "Acme" })).toBeTruthy())
+    expect(screen.getByRole("tab", { name: "Overview" })).toBeTruthy()
+    expect(screen.getByRole("tab", { name: "Members" })).toBeTruthy()
+    expect(screen.getByText("gold")).toBeTruthy()
+  })
+
+  it("asks orgs.members for the org id it was routed with", async () => {
+    const own = subStubClient({ "orgs.detail": detail, "orgs.members": members })
+    renderSubPage(pageAt("/organizations/:id"), {
+      client: own.client, hostClient: subStubClient({}).client, allowed: [], params: { id: "o1" },
+    })
+    await waitFor(() => expect(screen.getByRole("heading", { name: "Acme" })).toBeTruthy())
+    const membersCall = own.payloads[own.intents.indexOf("orgs.members")]
+    // The param is orgId, not id. A detail page that sends `id` here gets
+    // somebody else's members or none at all.
+    expect(membersCall).toEqual({ orgId: "o1" })
+  })
+
+  it("removes a member by the MEMBER id, not the user id", async () => {
+    const own = subStubClient(
+      { "orgs.detail": detail, "orgs.members": members },
+      { "orgs.removeMember": { ok: true } },
+    )
+    renderSubPage(pageAt("/organizations/:id"), {
+      client: own.client, hostClient: subStubClient({}).client, allowed: [], params: { id: "o1" },
+    })
+    await waitFor(() => expect(screen.getByRole("heading", { name: "Acme" })).toBeTruthy())
+    fireEvent.click(screen.getByRole("tab", { name: "Members" }))
+    fireEvent.click(screen.getByRole("button", { name: /remove u2/i }))
+    fireEvent.click(screen.getByRole("button", { name: /^remove$/i }))
+    await waitFor(() => expect(own.commands).toHaveLength(1))
+    // m2, not u2. MemberSummary carries both and they are different values.
+    expect(own.commands[0].payload).toEqual({ id: "m2" })
+  })
+
+  it("says where invitations live rather than showing an empty section", async () => {
+    renderSubPage(pageAt("/organizations/:id"), {
+      client: subStubClient({ "orgs.detail": detail, "orgs.members": members }).client,
+      hostClient: subStubClient({}).client, allowed: [], params: { id: "o1" },
+    })
+    await waitFor(() => expect(screen.getByRole("heading", { name: "Acme" })).toBeTruthy())
+    fireEvent.click(screen.getByRole("tab", { name: "Members" }))
+    // The legacy page shows pending invitations. There is no intent for them.
+    // An operator who sees nothing concludes there are none.
+    expect(screen.getByText(/invitations are managed in the legacy dashboard/i)).toBeTruthy()
+  })
+
+  it("sends only the fields the operator changed", async () => {
+    const own = subStubClient(
+      { "orgs.detail": detail, "orgs.members": members },
+      { "orgs.update": { ok: true } },
+    )
+    renderSubPage(pageAt("/organizations/:id"), {
+      client: own.client, hostClient: subStubClient({}).client, allowed: [], params: { id: "o1" },
+    })
+    await waitFor(() => expect(screen.getByRole("heading", { name: "Acme" })).toBeTruthy())
+    fireEvent.click(screen.getByRole("button", { name: /edit/i }))
+    fireEvent.change(screen.getByLabelText("Name"), { target: { value: "Acme Inc" } })
+    fireEvent.click(screen.getByRole("button", { name: /save/i }))
+    await waitFor(() => expect(own.commands).toHaveLength(1))
+    const payload = own.commands[0].payload as Record<string, unknown>
+    expect(payload.name).toBe("Acme Inc")
+    // Absent, not "". orgs.update takes *string: an empty string is a real
+    // value that clears the logo, and the operator did not ask for that.
+    expect("logo" in payload).toBe(false)
+  })
+
+  it("sends an empty string for a field the operator deliberately cleared", async () => {
+    const own = subStubClient(
+      { "orgs.detail": detail, "orgs.members": members },
+      { "orgs.update": { ok: true } },
+    )
+    renderSubPage(pageAt("/organizations/:id"), {
+      client: own.client, hostClient: subStubClient({}).client, allowed: [], params: { id: "o1" },
+    })
+    await waitFor(() => expect(screen.getByRole("heading", { name: "Acme" })).toBeTruthy())
+    fireEvent.click(screen.getByRole("button", { name: /edit/i }))
+    fireEvent.change(screen.getByLabelText("Logo URL"), { target: { value: "" } })
+    fireEvent.click(screen.getByRole("button", { name: /save/i }))
+    await waitFor(() => expect(own.commands).toHaveLength(1))
+    const payload = own.commands[0].payload as Record<string, unknown>
+    // Present and empty. This is the other half of pointer semantics and the
+    // half that is usually missing: "clear it" has to be expressible.
+    expect("logo" in payload).toBe(true)
+    expect(payload.logo).toBe("")
+  })
+})
+
+describe("organization create", () => {
+  it("fills the slug from the name until the operator edits the slug", async () => {
+    const own = subStubClient({}, { "orgs.create": { ok: true, id: "o9" } })
+    renderSubPage(pageAt("/organizations/create"), {
+      client: own.client, hostClient: subStubClient({}).client, allowed: [],
+    })
+    fireEvent.change(screen.getByLabelText("Name"), { target: { value: "Wayne Enterprises" } })
+    expect((screen.getByLabelText("Slug") as HTMLInputElement).value).toBe("wayne-enterprises")
+    fireEvent.change(screen.getByLabelText("Slug"), { target: { value: "wayne" } })
+    fireEvent.change(screen.getByLabelText("Name"), { target: { value: "Wayne Corp" } })
+    // Once touched, the slug is the operator's. Overwriting it here loses the
+    // value they just typed and they may not notice before submitting.
+    expect((screen.getByLabelText("Slug") as HTMLInputElement).value).toBe("wayne")
+  })
+
+  it("omits the logo when it is blank", async () => {
+    const own = subStubClient({}, { "orgs.create": { ok: true, id: "o9" } })
+    renderSubPage(pageAt("/organizations/create"), {
+      client: own.client, hostClient: subStubClient({}).client, allowed: [],
+    })
+    fireEvent.change(screen.getByLabelText("Name"), { target: { value: "Wayne" } })
+    fireEvent.click(screen.getByRole("button", { name: /create/i }))
+    await waitFor(() => expect(own.commands).toHaveLength(1))
+    const payload = own.commands[0].payload as Record<string, unknown>
+    expect(payload).toEqual({ name: "Wayne", slug: "wayne" })
+    expect("logo" in payload).toBe(false)
+  })
+})
+```
+
+- [ ] **Step 2: Run and confirm they fail**
+
+Run: `pnpm --filter @forge-go/dashboard-plugin-authsome test sub/organization`
+Expected: FAIL, cannot resolve `../../src/sub/organization`.
+
+- [ ] **Step 3: Write the slug helper and its test**
+
+```ts
+/**
+ * The slug the create form offers for a name.
+ *
+ * Lowercase, non-alphanumerics collapsed to single hyphens, no leading or
+ * trailing hyphen. The Go side validates the slug and rejects anything else,
+ * so a form that offers an invalid default is a form that fails on submit for
+ * a reason the operator did not cause.
+ */
+export function slugify(name: string): string {
+  return name
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+}
+```
+
+Add to the test file: `slugify("Wayne Enterprises")` is `"wayne-enterprises"`,
+`slugify("  Acme!! ")` is `"acme"`, `slugify("")` is `""`.
+
+- [ ] **Step 4: Write the three pages and the declaration**
+
+The list page: `useQuery<OrgList>("orgs.list")` with no params, a `PageHeader`
+with a "New organization" link to `/@auth/organizations/create`, a
+`ResourceTable<OrgSummary>` with columns
+
+- **Name**, `className="font-medium"`, cell is a link to
+  `/@auth/organizations/${org.id}`
+- **Slug**, `className="font-mono text-xs"`
+- **Created**, `formatTimestamp(org.createdAt)`
+
+caption `` `${rows.length} organizations` ``, `emptyMessage` "No organizations
+yet." and no pagination props. Below it, the auth overview widget contribution
+is not here; that goes in Task 8.
+
+The detail page takes `PluginPageProps`, guards a missing `params.id` with "No
+organization selected.", and reads `orgs.detail({ id })` and
+`orgs.members({ orgId: id })` in TWO separate `QueryBoundary`s inside two child
+components, so a slow member list does not blank out the org's own fields.
+
+Its tab strip is Overview, Members, then `<PluginSlot name="org.detail.tabs"
+params={{ orgId: id }} />`. Use kit's tabs primitive; the contributed tabs are
+rendered after the built-ins, matching the templ page. Guard the contributed
+group with `useSlotCount("org.detail.tabs")` so no empty tab strip section is
+drawn.
+
+Overview renders a `DescriptionList` of Organization ID (`font-mono text-xs`),
+Slug (`font-mono text-xs`), Created, Updated, and a metadata list only when
+`metadata` is non-empty. Then `<PluginSlot name="org.detail.sections"
+params={{ orgId: id }} />`.
+
+Members renders a `ResourceTable<MemberSummary>` with columns User ID
+(`font-mono text-xs`), Role (a `Badge`: `owner` is `default`, `admin` is
+`secondary`, anything else is `outline` reading "Member") and Joined, a row
+action "Remove" opening a `ConfirmDialog` with `pending={removeMember.loading}`
+and `aria-label={`Remove ${member.userId}`}`, and below the table the single
+line of copy about invitations.
+
+**The remove dialog's error must render INSIDE the dialog.** Base UI marks
+everything outside an open dialog inert and `aria-hidden`, so a `CommandAlert`
+on the page body is invisible to a real operator, not just to a test. Put a
+`<span role="alert">` in the dialog description, as `plugin-streaming`'s
+`rooms.tsx` does.
+
+The create page has Name (required), Slug (required, help text "Lowercase
+letters, numbers and hyphens only. Filled in from the name until you edit it.")
+and Logo URL (optional), a `<PluginSlot name="org.create.fields" />` above the
+submit, and sends `{ name, slug }` plus `logo` only when non-empty.
+
+The declaration:
+
+```tsx
+export const organizationSubPlugin = defineSubPlugin({
+  extension: "organization",
+  host: "auth",
+  label: "Organizations",
+  nav: [{ label: "Organizations", to: "/organizations", group: "Identity", priority: 2 }],
+  routes: [
+    { path: "/organizations", element: OrgListPage },
+    { path: "/organizations/create", element: OrgCreatePage },
+    { path: "/organizations/:id", element: OrgDetailPage },
+  ],
+  // Reads nothing of its host's. Every intent it uses is its own.
+  hostIntents: [],
+})
+```
+
+Note that only `/organizations` carries nav. Create and detail are reached from
+the list, exactly as the Go manifest declares them.
+
+- [ ] **Step 5: Run the tests and typecheck**
+
+Run: `pnpm --filter @forge-go/dashboard-plugin-authsome test sub/organization`
+Expected: PASS.
+
+Run: `pnpm --filter @forge-go/dashboard-plugin-authsome typecheck`
+Expected: clean.
+
+- [ ] **Step 6: Commit**
+
+```bash
+git add packages/plugin-authsome/src/sub/organization.tsx packages/plugin-authsome/test/sub/organization.test.tsx
+git commit -m "feat(authsome): the organization sub-plugin, and the slots it hosts" -- packages/plugin-authsome/src/sub/organization.tsx packages/plugin-authsome/test/sub/organization.test.tsx
+```
+
+---
