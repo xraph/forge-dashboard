@@ -989,3 +989,426 @@ git commit -m "feat(authsome): the organization sub-plugin, and the slots it hos
 ```
 
 ---
+
+### Task 3: API keys, and the secret you see once
+
+**Files:**
+- Create: `packages/plugin-authsome/src/sub/apikey.tsx`
+- Test: `packages/plugin-authsome/test/sub/apikey.test.tsx`
+
+**Interfaces:**
+- Produces: `apikeySubPlugin`, `APIKeySummary`, `APIKeyDetail`, `CreatedKey`, and the three page components.
+
+**The contract, verified against `plugins/apikey/contract/`:**
+
+```ts
+// apikeys.list                 -> { apiKeys: APIKeySummary[] }   NO input, NO paging
+// apikeys.detail({ id })       -> APIKeyDetail
+// apikeys.create({ name, userId, scopes? }) -> { ok, id, keyPrefix, secret }
+// apikeys.revoke({ id })       -> { ok, id? }
+interface APIKeySummary {
+  id: string; name: string; keyPrefix: string; scopes?: string[]
+  revoked: boolean; expiresAt?: string; lastUsedAt?: string; createdAt: string
+}
+interface APIKeyDetail extends APIKeySummary {
+  appId?: string; envId?: string; userId?: string
+  serviceAccountId?: string; publicKey?: string; updatedAt: string
+}
+```
+
+**There is no delete.** Only revoke, which sets a flag. The templ UI drops the
+action entirely once a key is revoked, and this page does the same: a revoked
+key keeps its row and loses its button. Do not add a delete control and do not
+add a filter that hides revoked keys by default, because "where did my key go"
+is a worse question than "why is this one greyed out".
+
+**`apikeys.create` requires a `userId`.** A key belongs to a user, so the create
+form asks for one rather than defaulting to whoever is signed in. There is no
+user-picker intent inside this sub-plugin's own contributor, and reaching
+`users.list` through the host would be exactly the widening `hostIntents` exists
+to prevent. So the field is a plain text input for a user id, with help text
+saying where to find one. That is worse UX than a picker and it is the honest
+shape of what this sub-plugin is allowed to see.
+
+#### The one-shot reveal
+
+`CreateAPIKeyResponse` is `{ ok, id, keyPrefix, secret }`. The stored row keeps
+only a hash, `KeyHash` is tagged `json:"-"`, and neither `APIKeySummary` nor
+`APIKeyDetail` has a secret field. So the value is genuinely gone after this
+render. This is not a UI convention being polite about something it could
+refetch.
+
+That makes the reveal panel a correctness surface, not a decoration:
+
+- It renders after a successful create and stays until the operator dismisses it.
+- Dismissing asks for confirmation, and the confirmation says the key cannot be
+  recovered. An operator who closes it by reflex has to mint a new key.
+- It does NOT unmount when the list refreshes underneath it. Put it in state
+  that a query settling cannot clear.
+- The secret is `font-mono break-all select-all` with a copy button, matching
+  the legacy panel.
+- Navigating away is not something this page can prevent and should not try to.
+
+The legacy panel also shows a Public Key. That lives on `APIKeyDetail`, not on
+the create response, so showing it means a follow-up `apikeys.detail({ id })`
+using the id the create returned. Do that, and render the public key row only
+once it arrives, clearly labelled as safe to share. Never let a slow detail read
+delay or block the secret row.
+
+- [ ] **Step 1: Write the failing tests**
+
+```tsx
+// packages/plugin-authsome/test/sub/apikey.test.tsx
+import { describe, expect, it } from "vitest"
+import { fireEvent, screen, waitFor } from "@testing-library/react"
+import { apikeySubPlugin } from "../../src/sub/apikey"
+import { renderSubPage, subStubClient } from "./harness"
+
+const keys = {
+  apiKeys: [
+    { id: "k1", name: "CI", keyPrefix: "ask_abc", revoked: false, createdAt: "2026-01-01T00:00:00Z", lastUsedAt: "2026-02-01T00:00:00Z" },
+    { id: "k2", name: "Old", keyPrefix: "ask_def", revoked: true, createdAt: "2025-01-01T00:00:00Z" },
+  ],
+}
+
+function pageAt(path: string) {
+  return apikeySubPlugin.routes.find((r) => r.path === path)!.element
+}
+
+describe("api key list", () => {
+  it("shows revoked and active keys apart, and keeps revoked ones on screen", async () => {
+    renderSubPage(pageAt("/apikeys"), {
+      client: subStubClient(keys).client, hostClient: subStubClient({}).client, allowed: [],
+    })
+    await waitFor(() => expect(screen.getByText("CI")).toBeTruthy())
+    // A revoked key keeps its row. Hiding it turns "why is this greyed out"
+    // into "where did my key go", which is the worse question.
+    expect(screen.getByText("Old")).toBeTruthy()
+    expect(screen.getByText("revoked").getAttribute("data-variant")).toBe("destructive")
+    expect(screen.getByText("active").getAttribute("data-variant")).toBe("default")
+  })
+
+  it("offers Revoke on an active key and not on a revoked one", async () => {
+    renderSubPage(pageAt("/apikeys"), {
+      client: subStubClient(keys).client, hostClient: subStubClient({}).client, allowed: [],
+    })
+    await waitFor(() => expect(screen.getByText("CI")).toBeTruthy())
+    expect(screen.getByRole("button", { name: /revoke ci/i })).toBeTruthy()
+    // There is no delete intent at all, so there is no second action to offer
+    // once a key is revoked.
+    expect(screen.queryByRole("button", { name: /revoke old/i })).toBeNull()
+    expect(screen.queryByRole("button", { name: /delete/i })).toBeNull()
+  })
+
+  it("says never rather than leaving the last-used cell blank", async () => {
+    renderSubPage(pageAt("/apikeys"), {
+      client: subStubClient(keys).client, hostClient: subStubClient({}).client, allowed: [],
+    })
+    await waitFor(() => expect(screen.getByText("Old")).toBeTruthy())
+    // A blank cell reads as "loading" or "broken". "Never" is a fact.
+    expect(screen.getByText("Never")).toBeTruthy()
+  })
+})
+
+describe("api key create", () => {
+  it("shows the secret once, and will not offer to show it again", async () => {
+    const own = subStubClient(
+      { "apikeys.detail": { id: "k9", name: "CI2", keyPrefix: "ask_xyz", revoked: false, createdAt: "2026-03-01T00:00:00Z", publicKey: "pk_live_1" } },
+      { "apikeys.create": { ok: true, id: "k9", keyPrefix: "ask_xyz", secret: "ask_xyz_THE_SECRET" } },
+    )
+    renderSubPage(pageAt("/apikeys/create"), {
+      client: own.client, hostClient: subStubClient({}).client, allowed: [],
+    })
+    fireEvent.change(screen.getByLabelText("Name"), { target: { value: "CI2" } })
+    fireEvent.change(screen.getByLabelText("User ID"), { target: { value: "u1" } })
+    fireEvent.click(screen.getByRole("button", { name: /create key/i }))
+
+    await waitFor(() => expect(screen.getByText("ask_xyz_THE_SECRET")).toBeTruthy())
+    expect(screen.getByText(/only time you will see/i)).toBeTruthy()
+    expect(own.commands[0].payload).toEqual({ name: "CI2", userId: "u1" })
+  })
+
+  it("fetches the public key afterwards without holding up the secret", async () => {
+    const own = subStubClient(
+      { "apikeys.detail": { id: "k9", name: "CI2", keyPrefix: "ask_xyz", revoked: false, createdAt: "2026-03-01T00:00:00Z", publicKey: "pk_live_1" } },
+      { "apikeys.create": { ok: true, id: "k9", keyPrefix: "ask_xyz", secret: "ask_xyz_THE_SECRET" } },
+    )
+    renderSubPage(pageAt("/apikeys/create"), {
+      client: own.client, hostClient: subStubClient({}).client, allowed: [],
+    })
+    fireEvent.change(screen.getByLabelText("Name"), { target: { value: "CI2" } })
+    fireEvent.change(screen.getByLabelText("User ID"), { target: { value: "u1" } })
+    fireEvent.click(screen.getByRole("button", { name: /create key/i }))
+    // The secret is on screen before the detail read settles. A public key
+    // that arrives late must never gate the one value that cannot be refetched.
+    await waitFor(() => expect(screen.getByText("ask_xyz_THE_SECRET")).toBeTruthy())
+    await waitFor(() => expect(screen.getByText("pk_live_1")).toBeTruthy())
+    expect(own.payloads[own.intents.indexOf("apikeys.detail")]).toEqual({ id: "k9" })
+  })
+
+  it("confirms before dismissing the panel", async () => {
+    const own = subStubClient(
+      {},
+      { "apikeys.create": { ok: true, id: "k9", keyPrefix: "ask_xyz", secret: "ask_xyz_THE_SECRET" } },
+    )
+    renderSubPage(pageAt("/apikeys/create"), {
+      client: own.client, hostClient: subStubClient({}).client, allowed: [],
+    })
+    fireEvent.change(screen.getByLabelText("Name"), { target: { value: "CI2" } })
+    fireEvent.change(screen.getByLabelText("User ID"), { target: { value: "u1" } })
+    fireEvent.click(screen.getByRole("button", { name: /create key/i }))
+    await waitFor(() => expect(screen.getByText("ask_xyz_THE_SECRET")).toBeTruthy())
+
+    fireEvent.click(screen.getByRole("button", { name: /done/i }))
+    // Reflex-closing this panel costs a new key. The confirm step is the whole
+    // reason the panel is not just dismissible.
+    expect(screen.getByText(/cannot be recovered/i)).toBeTruthy()
+    expect(screen.getByText("ask_xyz_THE_SECRET")).toBeTruthy()
+  })
+
+  it("refuses to submit without a user id", async () => {
+    const own = subStubClient({}, { "apikeys.create": { ok: true, id: "k9", keyPrefix: "p", secret: "s" } })
+    renderSubPage(pageAt("/apikeys/create"), {
+      client: own.client, hostClient: subStubClient({}).client, allowed: [],
+    })
+    fireEvent.change(screen.getByLabelText("Name"), { target: { value: "CI2" } })
+    // userId is required by the contract. Sending an empty one produces a
+    // key attached to nobody, which is worse than a disabled button.
+    expect((screen.getByRole("button", { name: /create key/i }) as HTMLButtonElement).disabled).toBe(true)
+    expect(own.commands).toHaveLength(0)
+  })
+})
+```
+
+- [ ] **Step 2: Run and confirm they fail**
+
+Run: `pnpm --filter @forge-go/dashboard-plugin-authsome test sub/apikey`
+
+- [ ] **Step 3: Write the pages and the declaration**
+
+List columns, matching the legacy table: **Name** (`font-medium`, linking to
+`/@auth/apikeys/${id}`), **Prefix** (`font-mono text-xs`, rendered as
+`` `${keyPrefix}...` ``), **Scopes** (badges, or a dash with
+`aria-label="no scopes"` when empty), **Status** (a `Badge`: revoked is
+`destructive` reading "revoked", otherwise `default` reading "active"),
+**Created**, **Last used** (`formatTimestamp` or the literal "Never"). Caption
+carries the row count. Row action: Revoke, only when `!key.revoked`, behind a
+`ConfirmDialog` with `pending={revoke.loading}` and its error inside the dialog.
+
+Detail page: `apikeys.detail({ id })` in a `DescriptionList` of Key ID, Prefix,
+Public key (with a copy control, labelled safe to share), User, App,
+Environment, Scopes, Status, Expires, Last used, Created, Updated. Identifier
+rows are `font-mono text-xs`. No secret anywhere, because there is none.
+
+Create page: Name, User ID (required, help text), Scopes (comma separated,
+omitted when blank), and the reveal panel described above.
+
+```tsx
+export const apikeySubPlugin = defineSubPlugin({
+  extension: "apikey",
+  host: "auth",
+  label: "API Keys",
+  nav: [{ label: "API Keys", to: "/apikeys", group: "Security", priority: 1 }],
+  routes: [
+    { path: "/apikeys", element: APIKeyListPage },
+    { path: "/apikeys/create", element: APIKeyCreatePage },
+    { path: "/apikeys/:id", element: APIKeyDetailPage },
+  ],
+  hostIntents: [],
+})
+```
+
+Note the route is `/apikeys`, no hyphen. The legacy `dashboard.go` registers
+`/api-keys` under a group called "Developer", and both are wrong here: the
+manifest is the contributor system's own declaration. A route typed from memory
+off the old dashboard will 404.
+
+**No `user.detail.sections` contribution.** The spec originally promised one and
+it is blocked: `apikeys.list` takes no input at all, and `APIKeySummary` carries
+no `userId` to filter on. Finding one user's keys means an `apikeys.detail` call
+per key in the account. That goes on the migration notes, not into this file.
+
+- [ ] **Step 4: Run the tests and typecheck**
+
+- [ ] **Step 5: Commit**
+
+```bash
+git add packages/plugin-authsome/src/sub/apikey.tsx packages/plugin-authsome/test/sub/apikey.test.tsx
+git commit -m "feat(authsome): api keys, and the secret the server will not repeat" -- packages/plugin-authsome/src/sub/apikey.tsx packages/plugin-authsome/test/sub/apikey.test.tsx
+```
+
+---
+
+### Task 4: Waitlist
+
+**Files:**
+- Create: `packages/plugin-authsome/src/sub/waitlist.tsx`
+- Test: `packages/plugin-authsome/test/sub/waitlist.test.tsx`
+
+**Interfaces:**
+- Consumes: `CursorPager`, `useCursorStack` from `../components/cursor-pager` (authsome core Task 1).
+- Produces: `waitlistSubPlugin`, `EntrySummary`, `EntryList`, `WaitlistCounts`, `WaitlistPage`, `WaitlistCountsWidget`.
+
+**The contract, verified against `plugins/waitlist/contract/`:**
+
+```ts
+// waitlist.list({ email?, status?, cursor?, limit? })
+//   -> { entries: EntrySummary[], total?, nextCursor? }      limit <= 0 defaults to 100
+// waitlist.detail({ id })   -> EntrySummary
+// waitlist.approve({ id, note? })  -> { ok }
+// waitlist.reject({ id, note? })   -> { ok }
+// waitlist.delete({ id })          -> { ok }
+// waitlist.counts                  -> { pending, approved, rejected }
+interface EntrySummary {
+  id: string; email: string; name?: string; status: string; userId?: string
+  ipAddress?: string; note?: string; createdAt: string; updatedAt?: string
+}
+```
+
+`waitlist.counts` answers exactly those three numbers. There is no total, so do
+not render one, and do not sum the three into one: an entry could be in a state
+none of them counts and a made-up total would hide it.
+
+**This page is a superset of the legacy one, deliberately.** The templ page has
+no delete button and no note field, but both exist in the contract and in the
+newer manifest's action menu. Approve and reject take an optional `note`, and
+the note is what an operator writes down for the next person, so the dialog
+offers it. Blank is fine and must be OMITTED rather than sent as `""`.
+
+**Cursor paging, not page numbers.** Use `CursorPager` and `useCursorStack`, the
+same pair the users list uses. The bug they exist to prevent: a cursor points
+into the previous result set, so changing the search text or the status filter
+must reset it first. Carry a stale cursor across a new filter and you get page
+two of a result set the operator is no longer looking at, which looks like data
+rather than like an error.
+
+- [ ] **Step 1: Write the failing tests**
+
+```tsx
+// packages/plugin-authsome/test/sub/waitlist.test.tsx
+import { describe, expect, it } from "vitest"
+import { fireEvent, screen, waitFor } from "@testing-library/react"
+import { waitlistSubPlugin, WaitlistCountsWidget } from "../../src/sub/waitlist"
+import { renderSubPage, subStubClient } from "./harness"
+
+const entries = {
+  entries: [
+    { id: "w1", email: "ada@example.com", name: "Ada", status: "pending", createdAt: "2026-01-01T00:00:00Z" },
+    { id: "w2", email: "bob@example.com", status: "approved", createdAt: "2026-01-02T00:00:00Z" },
+  ],
+  total: 2,
+}
+
+const page = waitlistSubPlugin.routes[0].element
+
+describe("waitlist", () => {
+  it("colours each status apart", async () => {
+    renderSubPage(page, { client: subStubClient(entries).client, hostClient: subStubClient({}).client, allowed: [] })
+    await waitFor(() => expect(screen.getByText("ada@example.com")).toBeTruthy())
+    // The status is what an operator scans for. The word alone is not the
+    // signal; the colour is.
+    expect(screen.getByText("pending").getAttribute("data-variant")).toBe("outline")
+    expect(screen.getByText("approved").getAttribute("data-variant")).toBe("default")
+  })
+
+  it("offers approve and reject only on a pending entry", async () => {
+    renderSubPage(page, { client: subStubClient(entries).client, hostClient: subStubClient({}).client, allowed: [] })
+    await waitFor(() => expect(screen.getByText("ada@example.com")).toBeTruthy())
+    expect(screen.getByRole("button", { name: /approve ada@example.com/i })).toBeTruthy()
+    expect(screen.queryByRole("button", { name: /approve bob@example.com/i })).toBeNull()
+    // Delete is offered on every entry, pending or not. It is how a mistake
+    // gets cleaned up.
+    expect(screen.getByRole("button", { name: /delete bob@example.com/i })).toBeTruthy()
+  })
+
+  it("omits a blank note rather than sending an empty string", async () => {
+    const own = subStubClient(entries, { "waitlist.approve": { ok: true } })
+    renderSubPage(page, { client: own.client, hostClient: subStubClient({}).client, allowed: [] })
+    await waitFor(() => expect(screen.getByText("ada@example.com")).toBeTruthy())
+    fireEvent.click(screen.getByRole("button", { name: /approve ada@example.com/i }))
+    fireEvent.click(screen.getByRole("button", { name: /^approve$/i }))
+    await waitFor(() => expect(own.commands).toHaveLength(1))
+    const payload = own.commands[0].payload as Record<string, unknown>
+    expect(payload.id).toBe("w1")
+    expect("note" in payload).toBe(false)
+  })
+
+  it("sends the note when there is one", async () => {
+    const own = subStubClient(entries, { "waitlist.reject": { ok: true } })
+    renderSubPage(page, { client: own.client, hostClient: subStubClient({}).client, allowed: [] })
+    await waitFor(() => expect(screen.getByText("ada@example.com")).toBeTruthy())
+    fireEvent.click(screen.getByRole("button", { name: /reject ada@example.com/i }))
+    fireEvent.change(screen.getByLabelText(/note/i), { target: { value: "duplicate" } })
+    fireEvent.click(screen.getByRole("button", { name: /^reject$/i }))
+    await waitFor(() => expect(own.commands).toHaveLength(1))
+    expect(own.commands[0].payload).toEqual({ id: "w1", note: "duplicate" })
+  })
+
+  it("drops the cursor when the status filter changes", async () => {
+    const own = subStubClient({ "waitlist.list": { ...entries, nextCursor: "c2" } })
+    renderSubPage(page, { client: own.client, hostClient: subStubClient({}).client, allowed: [] })
+    await waitFor(() => expect(screen.getByText("ada@example.com")).toBeTruthy())
+    fireEvent.click(screen.getByRole("button", { name: /next/i }))
+    await waitFor(() => expect(own.payloads.at(-1)).toMatchObject({ cursor: "c2" }))
+    fireEvent.change(screen.getByLabelText(/status/i), { target: { value: "approved" } })
+    await waitFor(() => expect(own.payloads.at(-1)).toMatchObject({ status: "approved" }))
+    // A cursor points into the PREVIOUS result set. Carried across a new
+    // filter it returns page two of an answer nobody asked for, and it looks
+    // like data rather than like an error.
+    expect((own.payloads.at(-1) as Record<string, unknown>).cursor).toBeUndefined()
+  })
+})
+
+describe("WaitlistCountsWidget", () => {
+  it("shows the three counts the server actually answers", async () => {
+    const own = subStubClient({ "waitlist.counts": { pending: 3, approved: 10, rejected: 1 } })
+    renderSubPage(WaitlistCountsWidget, { client: own.client, hostClient: subStubClient({}).client, allowed: [] })
+    await waitFor(() => expect(screen.getByText("3")).toBeTruthy())
+    expect(screen.getByText("10")).toBeTruthy()
+    expect(screen.getByText("1")).toBeTruthy()
+    // No total. The server answers three numbers and an entry could be in a
+    // state none of them counts, so a computed total would hide it.
+    expect(screen.queryByText("14")).toBeNull()
+  })
+})
+```
+
+- [ ] **Step 2: Run and confirm they fail**
+
+- [ ] **Step 3: Write the page, the widget and the declaration**
+
+Columns: **Email** (`font-mono text-xs`, matching the legacy table), **Name** (or
+a dash with `aria-label="no name"`), **Status** (`Badge`: pending `outline`,
+approved `default`, rejected `destructive`, anything else `secondary`),
+**Created**. A `FilterBar` with a debounced email search and a status select of
+All / Pending / Approved / Rejected. Row actions: Approve and Reject on pending
+entries only, each opening a `ConfirmDialog` carrying an optional note field and
+`pending` off its command hook, and Delete on every entry behind a destructive
+confirm. Every dialog's error renders inside the dialog.
+
+The widget is a `StatGrid` of Pending, Approved, Rejected.
+
+```tsx
+export const waitlistSubPlugin = defineSubPlugin({
+  extension: "waitlist",
+  host: "auth",
+  label: "Waitlist",
+  nav: [{ label: "Waitlist", to: "/waitlist", group: "Compliance", priority: 1 }],
+  routes: [{ path: "/waitlist", element: WaitlistPage }],
+  hostIntents: [],
+  contributions: {
+    "overview.widgets": [{ id: "waitlist-counts", priority: 20, render: WaitlistCountsWidget }],
+  },
+})
+```
+
+- [ ] **Step 4: Run the tests and typecheck**
+
+- [ ] **Step 5: Commit**
+
+```bash
+git add packages/plugin-authsome/src/sub/waitlist.tsx packages/plugin-authsome/test/sub/waitlist.test.tsx
+git commit -m "feat(authsome): the waitlist review queue and its counts widget" -- packages/plugin-authsome/src/sub/waitlist.tsx packages/plugin-authsome/test/sub/waitlist.test.tsx
+```
+
+---
