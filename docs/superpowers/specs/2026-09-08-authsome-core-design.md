@@ -111,9 +111,22 @@ the same reason sign-in is.
 `AuthLoginPage` and its tests move, they don't get deleted. The component is
 correct. It's in the wrong package.
 
-What stays here is `auth.dynamicConfig` and `auth.dynamicRegister`, which back
-OAuth dynamic client registration. Those are an admin configuring a feature, not
-somebody signing in, so they get a route under `/settings` with no nav entry.
+What stays here is `auth.dynamicConfig`, and this paragraph used to be wrong
+about it. It said `auth.dynamicConfig` and `auth.dynamicRegister` back OAuth
+dynamic client registration. They do not. The handlers' own header comment puts
+them in the pre-auth bucket alongside `auth.signup`, and both read the same
+`formconfig.FormConfig` row the signup form editor already edits. There is no
+client, no client id and no client secret anywhere in the flow.
+
+`auth.dynamicConfig` gets a read-only page under `/settings` with no nav entry,
+showing what an unauthenticated visitor will be asked for. That is genuinely
+useful next to the signup form editor.
+
+`auth.dynamicRegister` gets no admin UI at all. It creates a real account in the
+user table and writes that account's session cookie over the caller's, so a
+"test registration" button in an admin dashboard signs the admin out, signs them
+in as an account they just made, and leaves a junk user in production. It is a
+sign-in surface intent and it belongs to the signup form.
 
 ## The /plugins gap
 
