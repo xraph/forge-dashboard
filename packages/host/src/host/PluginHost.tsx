@@ -17,6 +17,7 @@ import {
   useSession,
 } from "@forge-go/dashboard-runtime"
 import {
+  NavigationProvider,
   createScopedClient,
   HostAccessProvider,
   labelOf,
@@ -37,6 +38,7 @@ import type {
   Capabilities,
   ForgePlugin,
   ForgeSubPlugin,
+  PluginLinkProps,
   PluginNavItem,
   PluginPageProps,
   PluginRoute,
@@ -489,6 +491,28 @@ export function PluginHost({
   // The root plugin (if any) is not one scope among several: it is pinned
   // nav, not a switcher entry, so it is split out before anything downstream
   // ever sees it as a "scope".
+  // What `PluginLink` and `useNavigateTo` resolve to inside the shell.
+  //
+  // Same split the sidebar already uses through `renderLink`: the host owns a
+  // router and no plugin package depends on one. Without this a "Details" link
+  // on a table row is a plain anchor, which in a single-page app is a full
+  // document load -- capabilities refetched, every plugin remounted, the query
+  // store discarded.
+  //
+  // Memoised on `navigate` alone. A new object each render would remount every
+  // link in the tree, which is the bug this is meant to avoid rather than cause.
+  const navigation = useMemo(
+    () => ({
+      Link: ({ to, children, ...rest }: PluginLinkProps) => (
+        <Link to={to} {...rest}>
+          {children}
+        </Link>
+      ),
+      navigate: (to: string) => navigate(to),
+    }),
+    [navigate],
+  )
+
   const { root, scopes } = partitionScopes(resolved)
 
   // A sub-plugin whose host is not ready renders nothing, whatever its own
@@ -841,6 +865,7 @@ export function PluginHost({
         land on.
       */}
       {(ready.length > 0 || home) && (
+        <NavigationProvider value={navigation}>
         <SubPluginProvider
           entries={
             panelSource
@@ -987,6 +1012,7 @@ export function PluginHost({
             )}
           </Routes>
         </SubPluginProvider>
+        </NavigationProvider>
       )}
     </HostShell>
   )
