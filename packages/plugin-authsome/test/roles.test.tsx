@@ -124,8 +124,11 @@ describe("AuthRoleDetailPage", () => {
     )
     await waitFor(() => expect(screen.getByRole("heading", { name: "Admin" })).toBeTruthy())
     // Three absent identifiers (parent, app, environment) each render as a
-    // dash carrying an `aria-label`, not as nothing.
-    expect(screen.getAllByLabelText("None").length).toBeGreaterThanOrEqual(3)
+    // dash carrying its own `aria-label`, naming the field it belongs to
+    // rather than all three announcing the same bare "None".
+    expect(screen.getByLabelText("no parent role")).toBeTruthy()
+    expect(screen.getByLabelText("no app")).toBeTruthy()
+    expect(screen.getByLabelText("no environment")).toBeTruthy()
   })
 
   it("sends only what changed when renaming, never a blank description", async () => {

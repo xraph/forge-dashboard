@@ -9,6 +9,7 @@ import {
   DescriptionList,
   DetailLayout,
 } from "@forge-go/dashboard-kit/components/detail-layout"
+import { NoneCell } from "@forge-go/dashboard-kit/components/none-cell"
 import {
   CommandAlert,
   QueryBoundary,
@@ -25,16 +26,13 @@ import type { AckResponse } from "./users"
 import type { PermissionRecord, RoleDetail } from "./roles"
 
 /**
- * A cell whose value is legitimately absent renders a dash an assistive
- * reader can still announce, rather than nothing at all.
+ * An identifier-shaped value gets the same monospace treatment the tables
+ * use. `label` names what there is none of - "parent role", "app" - so an
+ * absent Parent and an absent Environment announce differently to a screen
+ * reader instead of both reading back the same bare "None".
  */
-function NoneCell() {
-  return <span aria-label="None">–</span>
-}
-
-/** An identifier-shaped value gets the same monospace treatment the tables use. */
-function IdCell({ value }: { value?: string }) {
-  return value ? <span className="font-mono text-xs">{value}</span> : <NoneCell />
+function IdCell({ value, label }: { value?: string; label: string }) {
+  return value ? <span className="font-mono text-xs">{value}</span> : <NoneCell label={label} />
 }
 
 const permissionColumns: Column<PermissionRecord>[] = [
@@ -185,10 +183,19 @@ function RoleDetailBody({ roleId }: { roleId: string }) {
                     <DescriptionList
                       items={[
                         { term: "Slug", value: <span className="font-mono text-xs">{role.slug}</span> },
-                        { term: "Description", value: role.description || <NoneCell /> },
-                        { term: "Parent", value: <IdCell value={role.parentId} /> },
-                        { term: "App", value: <IdCell value={role.appId} /> },
-                        { term: "Environment", value: <IdCell value={role.envId} /> },
+                        {
+                          term: "Description",
+                          value: role.description || <NoneCell label="description" />,
+                        },
+                        {
+                          term: "Parent",
+                          value: <IdCell value={role.parentId} label="parent role" />,
+                        },
+                        { term: "App", value: <IdCell value={role.appId} label="app" /> },
+                        {
+                          term: "Environment",
+                          value: <IdCell value={role.envId} label="environment" />,
+                        },
                         { term: "Created", value: formatTimestamp(role.createdAt) },
                         { term: "Updated", value: formatTimestamp(role.updatedAt) },
                       ]}

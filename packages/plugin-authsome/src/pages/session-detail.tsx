@@ -2,7 +2,9 @@ import { useQuery } from "@forge-go/dashboard-plugin"
 import type { PluginPageProps } from "@forge-go/dashboard-plugin"
 import { PageHeader } from "@forge-go/dashboard-kit/components/page-header"
 import { DescriptionList } from "@forge-go/dashboard-kit/components/detail-layout"
+import { NoneCell } from "@forge-go/dashboard-kit/components/none-cell"
 import { QueryBoundary } from "@forge-go/dashboard-kit/components/query-boundary"
+import { Timestamp } from "@forge-go/dashboard-kit/components/timestamp"
 import { formatTimestamp } from "@forge-go/dashboard-kit/lib/format"
 import type { SessionSummary } from "./sessions"
 
@@ -45,22 +47,42 @@ function SessionDetailBody({ sessionId }: { sessionId: string }) {
                 // Impersonated-by is the thing an operator is looking for
                 // when they open this page: a session somebody else is
                 // driving. It sits high, not buried among timestamps.
-                { term: "Impersonated by", value: session.impersonatedBy || "–" },
-                { term: "IP", value: session.ipAddress || "–" },
-                { term: "Agent", value: session.userAgent || "–" },
-                { term: "App", value: session.appId || "–" },
-                { term: "Environment", value: session.envId || "–" },
-                { term: "Organisation", value: session.orgId || "–" },
-                { term: "Device", value: session.deviceId || "–" },
-                { term: "Principal kind", value: session.principalKind || "–" },
-                { term: "Last activity", value: formatTimestamp(session.lastActivityAt) },
+                {
+                  term: "Impersonated by",
+                  value: session.impersonatedBy || <NoneCell label="impersonation" />,
+                },
+                { term: "IP", value: session.ipAddress || <NoneCell label="ip address" /> },
+                { term: "Agent", value: session.userAgent || <NoneCell label="user agent" /> },
+                { term: "App", value: session.appId || <NoneCell label="app" /> },
+                { term: "Environment", value: session.envId || <NoneCell label="environment" /> },
+                {
+                  term: "Organisation",
+                  value: session.orgId || <NoneCell label="organisation" />,
+                },
+                { term: "Device", value: session.deviceId || <NoneCell label="device" /> },
+                {
+                  term: "Principal kind",
+                  value: session.principalKind || <NoneCell label="principal kind" />,
+                },
+                {
+                  term: "Last activity",
+                  value: <Timestamp value={session.lastActivityAt} label="last activity" />,
+                },
                 { term: "Expires", value: formatTimestamp(session.expiresAt) },
                 {
                   term: "Refresh token expires",
-                  value: formatTimestamp(session.refreshTokenExpiresAt),
+                  value: (
+                    <Timestamp
+                      value={session.refreshTokenExpiresAt}
+                      label="refresh token expiry"
+                    />
+                  ),
                 },
                 { term: "Created", value: formatTimestamp(session.createdAt) },
-                { term: "Updated", value: formatTimestamp(session.updatedAt) },
+                {
+                  term: "Updated",
+                  value: <Timestamp value={session.updatedAt} label="last update" />,
+                },
               ]}
             />
           </>

@@ -8,10 +8,12 @@ import {
   CommandAlert,
   QueryBoundary,
 } from "@forge-go/dashboard-kit/components/query-boundary"
+import { NoneCell } from "@forge-go/dashboard-kit/components/none-cell"
 import {
   ResourceTable,
   type Column,
 } from "@forge-go/dashboard-kit/components/resource-table"
+import { Timestamp } from "@forge-go/dashboard-kit/components/timestamp"
 import { formatTimestamp } from "@forge-go/dashboard-kit/lib/format"
 import type { AckResponse } from "./users"
 
@@ -33,9 +35,20 @@ export interface SessionsList {
 /**
  * @deprecated Kept only so `src/index.tsx` (Task 10's file, out of bounds for
  * this task) keeps compiling against the old export name. This page itself
- * now types `sessions.revoke` and `sessions.bulkRevoke` as `AckResponse`.
+ * now types `sessions.revoke` as `AckResponse` and `sessions.bulkRevoke` as
+ * `BulkRevokeResponse`.
  */
 export type RevokeResult = AckResponse
+
+/**
+ * `BulkRevokeResponse`, from `authsome/extension/contract/handlers_sessions.go`:
+ * `{ ok bool; count int }` (json tag `count`). Typing `sessions.bulkRevoke`
+ * as plain `AckResponse` compiles fine but throws away the one thing the
+ * operator asked this command for: how many sessions it actually revoked.
+ */
+export interface BulkRevokeResponse extends AckResponse {
+  count: number
+}
 
 /** The server caps what it returns; this is what we ask for. */
 const LIMIT = 100
@@ -52,13 +65,18 @@ export function AuthSessionsPage() {
   const [userFilter, setUserFilter] = useState("")
   const [revoking, setRevoking] = useState<SessionSummary | null>(null)
   const [bulkFor, setBulkFor] = useState<string | null>(null)
+  // The last bulk revoke's own answer, kept around after the dialog that
+  // produced it closes: `count` is the whole reason the operator clicked
+  // "Revoke all" rather than one row at a time, and a dialog that just closes
+  // silently gives them nothing to check that number against.
+  const [bulkResult, setBulkResult] = useState<{ userId: string; count: number } | null>(null)
 
   const list = useQuery<SessionsList>("sessions.list", {
     userId: userFilter || undefined,
     limit: LIMIT,
   })
   const revoke = useCommand<AckResponse>("sessions.revoke")
-  const bulkRevoke = useCommand<AckResponse>("sessions.bulkRevoke")
+  const bulkRevoke = useCommand<BulkRevokeResponse>("sessions.bulkRevoke")
 
   async function confirmRevoke() {
     if (!revoking) return
@@ -68,7 +86,9 @@ export function AuthSessionsPage() {
   async function confirmBulk() {
     if (!bulkFor) return
     const result = await bulkRevoke.execute({ userId: bulkFor })
-    if (result !== undefined) setBulkFor(null)
+    if (result === undefined) return
+    setBulkResult({ userId: bulkFor, count: result.count })
+    setBulkFor(null)
   }
 
   const columns: Column<SessionSummary>[] = [
@@ -87,19 +107,19 @@ export function AuthSessionsPage() {
     {
       id: "ip",
       header: "IP",
-      cell: (s) => s.ipAddress || "–",
+      cell: (s) => s.ipAddress || <NoneCell label="ip address" />,
       className: "font-mono text-xs",
     },
     {
       id: "userAgent",
       header: "User agent",
-      cell: (s) => s.userAgent || "–",
+      cell: (s) => s.userAgent || <NoneCell label="user agent" />,
       className: "max-w-[18rem] truncate",
     },
     {
       id: "lastActivity",
       header: "Last activity",
-      cell: (s) => formatTimestamp(s.lastActivityAt),
+      cell: (s) => <Timestamp value={s.lastActivityAt} label="last activity" />,
     },
     { id: "expires", header: "Expires", cell: (s) => formatTimestamp(s.expiresAt) },
   ]
@@ -116,6 +136,13 @@ export function AuthSessionsPage() {
         }}
       />
 
+      {bulkResult && (
+        <p role="status" className="text-sm text-muted-foreground">
+          Revoked {bulkResult.count} {bulkResult.count === 1 ? "session" : "sessions"} for{" "}
+          {bulkResult.userId}.
+        </p>
+      )}
+
       <QueryBoundary title="Sessions" query={list} skeletonRows={5}>
         {(data) => {
           const sessions = data.sessions ?? []
@@ -125,11 +152,7 @@ export function AuthSessionsPage() {
               columns={columns}
               rows={sessions}
               rowKey={(s) => s.id}
-              caption={
-                sessions.length > 0
-                  ? `${sessions.length} ${sessions.length === 1 ? "session" : "sessions"}`
-                  : undefined
-              }
+              caption={`${sessions.length} ${sessions.length === 1 ? "session" : "sessions"}`}
               emptyMessage="No active sessions."
               rowActions={(session) => (
                 <>
@@ -160,6 +183,10 @@ export function AuthSessionsPage() {
                     aria-label={`Revoke all for ${session.userId}`}
                     onClick={() => {
                       bulkRevoke.reset()
+                      // A stale count from a previous user's bulk revoke must
+                      // not still be on screen once a different user's
+                      // dialog opens - it would read as this user's result.
+                      setBulkResult(null)
                       setBulkFor(session.userId)
                     }}
                   >

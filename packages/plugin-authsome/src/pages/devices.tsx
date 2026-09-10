@@ -9,6 +9,7 @@ import {
   CommandAlert,
   QueryBoundary,
 } from "@forge-go/dashboard-kit/components/query-boundary"
+import { NoneCell } from "@forge-go/dashboard-kit/components/none-cell"
 import {
   ResourceTable,
   type Column,
@@ -53,6 +54,12 @@ export function deviceLabel(device: DeviceSummary): string {
 export function AuthDevicesPage() {
   const [userFilter, setUserFilter] = useState("")
   const [forgetting, setForgetting] = useState<DeviceSummary | null>(null)
+  // Which device the in-flight or last-failed trust belongs to. `trust`'s
+  // error is one value shared by every row's button, so without this a
+  // failure attributed to one device would still be on screen, misattributed,
+  // once the operator moves on to trust another - the same hazard
+  // `features.tsx` closes for its per-row toggle command.
+  const [trustAttempt, setTrustAttempt] = useState<DeviceSummary | null>(null)
 
   const list = useQuery<DevicesList>("devices.list", {
     userId: userFilter || undefined,
@@ -67,17 +74,32 @@ export function AuthDevicesPage() {
     if (result !== undefined) setForgetting(null)
   }
 
+  async function handleTrust(device: DeviceSummary) {
+    if (trustAttempt?.id !== device.id) trust.reset()
+    setTrustAttempt(device)
+    await trust.execute({ id: device.id })
+  }
+
   const columns: Column<DeviceSummary>[] = [
-    { id: "name", header: "Device", cell: (d) => deviceLabel(d) },
+    { id: "name", header: "Device", cell: (d) => deviceLabel(d), className: "font-medium" },
     { id: "userId", header: "User", cell: (d) => d.userId, className: "font-mono text-xs" },
-    { id: "browser", header: "Browser", cell: (d) => d.browser || "–" },
-    { id: "os", header: "OS", cell: (d) => d.os || "–" },
-    { id: "ipAddress", header: "IP", cell: (d) => d.ipAddress || "–", className: "font-mono text-xs" },
+    { id: "browser", header: "Browser", cell: (d) => d.browser || <NoneCell label="browser" /> },
+    { id: "os", header: "OS", cell: (d) => d.os || <NoneCell label="os" /> },
+    {
+      id: "ipAddress",
+      header: "IP",
+      cell: (d) => d.ipAddress || <NoneCell label="ip address" />,
+      className: "font-mono text-xs",
+    },
     {
       id: "trusted",
       header: "Trusted",
       cell: (d) => (
-        <Badge variant={d.trusted ? "outline" : "secondary"}>
+        // `destructive` against `outline` mirrors `banned` on the users
+        // page: the two variants read as genuinely different colours, so an
+        // operator scanning the column by colour alone can tell trusted from
+        // untrusted without reading either word.
+        <Badge variant={d.trusted ? "outline" : "destructive"}>
           {d.trusted ? "trusted" : "untrusted"}
         </Badge>
       ),
@@ -96,7 +118,10 @@ export function AuthDevicesPage() {
           placeholder: "User id",
         }}
       />
-      <CommandAlert error={trust.error} title="Could not trust the device" />
+      <CommandAlert
+        error={trust.error}
+        title={`Could not trust ${trustAttempt ? deviceLabel(trustAttempt) : "the device"}`}
+      />
 
       <QueryBoundary title="Devices" query={list} skeletonRows={5}>
         {(data) => {
@@ -107,11 +132,7 @@ export function AuthDevicesPage() {
               columns={columns}
               rows={devices}
               rowKey={(d) => d.id}
-              caption={
-                devices.length > 0
-                  ? `${devices.length} ${devices.length === 1 ? "device" : "devices"}`
-                  : undefined
-              }
+              caption={`${devices.length} ${devices.length === 1 ? "device" : "devices"}`}
               emptyMessage="No devices seen."
               rowActions={(device) => (
                 <>
@@ -127,7 +148,7 @@ export function AuthDevicesPage() {
                       size="sm"
                       aria-label={`Trust ${deviceLabel(device)}`}
                       disabled={trust.loading}
-                      onClick={() => void trust.execute({ id: device.id })}
+                      onClick={() => void handleTrust(device)}
                     >
                       Trust
                     </Button>

@@ -6,6 +6,7 @@ import { Button } from "@forge-go/dashboard-kit/components/button"
 import { ConfirmDialog } from "@forge-go/dashboard-kit/components/confirm-dialog"
 import { PageHeader } from "@forge-go/dashboard-kit/components/page-header"
 import { DescriptionList } from "@forge-go/dashboard-kit/components/detail-layout"
+import { NoneCell } from "@forge-go/dashboard-kit/components/none-cell"
 import {
   CommandAlert,
   QueryBoundary,
@@ -14,14 +15,22 @@ import { formatTimestamp } from "@forge-go/dashboard-kit/lib/format"
 import type { AckResponse } from "./users"
 import { deviceLabel, type DeviceSummary } from "./devices"
 
-function DeviceActions({ device }: { device: DeviceSummary }) {
+function DeviceActions({
+  device,
+  onForgotten,
+}: {
+  device: DeviceSummary
+  onForgotten: () => void
+}) {
   const trust = useCommand<AckResponse>("devices.trust")
   const remove = useCommand<AckResponse>("devices.delete")
   const [forgetting, setForgetting] = useState(false)
 
   async function confirmForget() {
     const result = await remove.execute({ id: device.id })
-    if (result !== undefined) setForgetting(false)
+    if (result === undefined) return
+    setForgetting(false)
+    onForgotten()
   }
 
   return (
@@ -88,6 +97,32 @@ export function AuthDeviceDetailPage({ params }: PluginPageProps) {
 
 function DeviceDetailBody({ deviceId }: { deviceId: string }) {
   const query = useQuery<DeviceSummary>("devices.detail", { id: deviceId })
+  // `devices.delete` invalidates `devices.list` only, never `devices.detail`
+  // (see `manifest.yaml`) - there is no intent this page could refetch that
+  // would tell it the device it is showing is gone. No other detail page in
+  // this package deletes the very record it is showing, so there is no
+  // existing pattern to reuse. Once a forget succeeds, this page stops
+  // rendering the device's header, its data and its live action buttons
+  // immediately (not waiting on a navigation that a test environment, or a
+  // slow browser, cannot be relied on to have completed yet), and leaves the
+  // way any in-app link in this package does: a plain navigation - this
+  // package deliberately carries no client-side router - back to the list.
+  const [forgotten, setForgotten] = useState(false)
+
+  function handleForgotten() {
+    setForgotten(true)
+    window.location.href = "/@auth/devices"
+  }
+
+  if (forgotten) {
+    return (
+      <section className="flex flex-col gap-4">
+        <p role="status" className="text-sm text-muted-foreground">
+          This device has been forgotten.
+        </p>
+      </section>
+    )
+  }
 
   return (
     <section className="flex flex-col gap-4">
@@ -98,14 +133,17 @@ function DeviceDetailBody({ deviceId }: { deviceId: string }) {
             <DescriptionList
               items={[
                 { term: "User", value: device.userId },
-                { term: "Type", value: device.type || "–" },
-                { term: "Browser", value: device.browser || "–" },
-                { term: "OS", value: device.os || "–" },
-                { term: "IP", value: device.ipAddress || "–" },
+                { term: "Type", value: device.type || <NoneCell label="type" /> },
+                { term: "Browser", value: device.browser || <NoneCell label="browser" /> },
+                { term: "OS", value: device.os || <NoneCell label="os" /> },
+                { term: "IP", value: device.ipAddress || <NoneCell label="ip address" /> },
                 {
                   term: "Trusted",
                   value: (
-                    <Badge variant={device.trusted ? "outline" : "secondary"}>
+                    // Same pairing as the devices list and `banned` on the
+                    // users page: `destructive` against `outline` gives the
+                    // two states a real colour difference, not just a word.
+                    <Badge variant={device.trusted ? "outline" : "destructive"}>
                       {device.trusted ? "trusted" : "untrusted"}
                     </Badge>
                   ),
@@ -114,7 +152,7 @@ function DeviceDetailBody({ deviceId }: { deviceId: string }) {
                 { term: "Created", value: formatTimestamp(device.createdAt) },
               ]}
             />
-            <DeviceActions device={device} />
+            <DeviceActions device={device} onForgotten={handleForgotten} />
           </>
         )}
       </QueryBoundary>

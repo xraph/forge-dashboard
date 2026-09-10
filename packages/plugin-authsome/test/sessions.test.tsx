@@ -106,6 +106,25 @@ describe("AuthSessionsPage", () => {
       expect(screen.getByText("No active sessions.")).toBeDefined()
     )
     expect(screen.queryByRole("table")).toBeNull()
+    // The count is information ("0 sessions"), not something to drop just
+    // because the table itself has nothing to show.
+    expect(screen.getByText("0 sessions")).toBeDefined()
+  })
+
+  it("announces a missing ip, user agent or last activity instead of a bare dash", async () => {
+    const { client } = stubClient({
+      "sessions.list": {
+        sessions: [
+          session({ ipAddress: undefined, userAgent: undefined, lastActivityAt: undefined }),
+        ],
+      },
+    })
+    renderPage(AuthSessionsPage, client)
+
+    await waitFor(() => expect(screen.getByText("ses_1")).toBeTruthy())
+    expect(screen.getByLabelText("no ip address")).toBeTruthy()
+    expect(screen.getByLabelText("no user agent")).toBeTruthy()
+    expect(screen.getByLabelText("no last activity")).toBeTruthy()
   })
 
   it("sends nothing until the revoke is confirmed, and shows the reason on failure", async () => {
@@ -161,9 +180,11 @@ describe("AuthSessionsPage actions", () => {
   })
 
   it("revokes every session for one user, and says how many that is", async () => {
+    // `BulkRevokeResponse` from handlers_sessions.go is `{ ok, count }` - the
+    // json tag is `count`, not `revoked`.
     const { client, sent } = recordingCommandClient(
       { "sessions.list": sessionsAnswer },
-      { "sessions.bulkRevoke": { ok: true, revoked: 3 } },
+      { "sessions.bulkRevoke": { ok: true, count: 3 } },
     )
     renderPage(AuthSessionsPage, client)
     await waitFor(() => expect(screen.getByText("10.0.0.1")).toBeTruthy())
@@ -173,6 +194,9 @@ describe("AuthSessionsPage actions", () => {
 
     await waitFor(() => expect(sent).toHaveLength(1))
     expect(sent[0]).toEqual({ intent: "sessions.bulkRevoke", payload: { userId: "u1" } })
+    // The dialog closing is not feedback. The server's own count has to
+    // reach the operator, not just fire on the wire.
+    expect(await screen.findByText("Revoked 3 sessions for u1.")).toBeTruthy()
   })
 
   it("filters by user id and drops the filter when cleared", async () => {
