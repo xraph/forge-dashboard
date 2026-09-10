@@ -57,6 +57,42 @@ function recordingClient(answers: Record<string, unknown>): {
   }
 }
 
+/**
+ * Like {@link recordingClient}, but also records every command the page
+ * sends, the way `recordingCommandClient` in `harness.tsx` does for the
+ * command side alone. Needed to pin "a successful write does not trigger a
+ * page-level re-read" without reading `users.tsx` as text: this counts the
+ * `users.list` queries the stub actually received across a command, instead
+ * of grepping the module for a call to `refetch(`.
+ */
+function recordingClientAndCommands(
+  answers: Record<string, unknown>,
+  commands: Record<string, unknown>
+): {
+  client: ScopedClient
+  queries: { intent: string; params?: Record<string, unknown> }[]
+  sent: { intent: string; payload: unknown }[]
+} {
+  const queries: { intent: string; params?: Record<string, unknown> }[] = []
+  const sent: { intent: string; payload: unknown }[] = []
+  const { client: inner } = stubClient(answers, commands)
+  return {
+    queries,
+    sent,
+    client: {
+      extension: inner.extension,
+      query: (intent: string, params?: Record<string, unknown>) => {
+        queries.push({ intent, params })
+        return inner.query(intent, params)
+      },
+      command: (intent: string, payload?: unknown) => {
+        sent.push({ intent, payload })
+        return inner.command(intent, payload)
+      },
+    } as ScopedClient,
+  }
+}
+
 describe("AuthUsersPage", () => {
   it("renders a row per user with the fields it was given", async () => {
     const { client } = stubClient({
@@ -85,6 +121,14 @@ describe("AuthUsersPage", () => {
     expect(screen.getByText("unverified")).toBeDefined()
     expect(screen.getByText("active")).toBeDefined()
     expect(screen.getByText("banned")).toBeDefined()
+    // An operator reads a user's id off this list, e.g. to paste into a
+    // support ticket, without navigating to the detail route.
+    expect(screen.getByText("usr_1")).toBeDefined()
+    expect(screen.getByText("usr_2")).toBeDefined()
+    expect(screen.getByText("ada@example.com").className).toContain("font-medium")
+    // The count must show up even though this result fits on a single page,
+    // where `CursorPager` itself renders nothing at all.
+    expect(screen.getByText("2 of 2")).toBeDefined()
   })
 
   it("says it is loading rather than rendering a blank pane", () => {
@@ -112,6 +156,10 @@ describe("AuthUsersPage", () => {
 
     await waitFor(() => expect(screen.getByText("No users yet.")).toBeDefined())
     expect(screen.queryByRole("table")).toBeNull()
+    // `ResourceTable` feeds its `caption` to the empty state as a
+    // description. The caption is now the live count, not the static string
+    // "Users" repeated back at the reader next to "No users yet."
+    expect(screen.getByText("0 of 0")).toBeDefined()
   })
 })
 
@@ -160,7 +208,9 @@ describe("AuthUsersPage search and paging", () => {
     const { client, queries } = recordingClient({ "users.list": page1 })
     renderPage(AuthUsersPage, client)
     await waitFor(() => expect(screen.getByText("ada@example.com")).toBeTruthy())
-    expect(screen.getByText(/2 of 5/)).toBeTruthy()
+    // Both the table caption and `CursorPager` say the count on a multi-page
+    // result, so this looks for at least one rather than a single match.
+    expect(screen.getAllByText(/2 of 5/).length).toBeGreaterThan(0)
 
     fireEvent.click(screen.getByRole("button", { name: "Next page" }))
     await waitFor(() => expect(queries.some((q) => q.params?.cursor === "c1")).toBe(true))
@@ -169,6 +219,52 @@ describe("AuthUsersPage search and paging", () => {
     await waitFor(() =>
       expect(queries.filter((q) => q.params?.cursor === undefined).length).toBeGreaterThan(1)
     )
+  })
+
+  it("waits for typing to settle before querying, rather than firing one request per keystroke", async () => {
+    const { client, queries } = recordingClient({ "users.list": page1 })
+    renderPage(AuthUsersPage, client)
+    await waitFor(() => expect(screen.getByText("ada@example.com")).toBeTruthy())
+
+    const before = queries.length
+    const box = screen.getByRole("searchbox", { name: "Search users" })
+    fireEvent.change(box, { target: { value: "g" } })
+    fireEvent.change(box, { target: { value: "gr" } })
+    fireEvent.change(box, { target: { value: "gra" } })
+    fireEvent.change(box, { target: { value: "grace" } })
+
+    // Right after typing, nothing has gone out for any of the intermediate
+    // values yet - `FilterBar` fires on every keystroke, but the page holds
+    // the query until typing settles.
+    expect(queries.length).toBe(before)
+
+    await waitFor(() =>
+      expect(queries.some((q) => q.params?.email === "grace")).toBe(true)
+    )
+    expect(
+      queries.some((q) => q.params?.email === "g" || q.params?.email === "gr" || q.params?.email === "gra")
+    ).toBe(false)
+  })
+
+  it("disables Next next to a zero count, rather than leaving it clickable on an empty page", async () => {
+    const emptySecondPage = { users: [], nextCursor: "c2", total: 5 }
+    const { client, queries } = recordingClient({
+      "users.list": (params?: Record<string, unknown>) =>
+        params?.cursor === "c1" ? emptySecondPage : page1,
+    })
+    renderPage(AuthUsersPage, client)
+    await waitFor(() => expect(screen.getByText("ada@example.com")).toBeTruthy())
+
+    fireEvent.click(screen.getByRole("button", { name: "Next page" }))
+    await waitFor(() => expect(queries.some((q) => q.params?.cursor === "c1")).toBe(true))
+    await waitFor(() => expect(screen.getByText("No users yet.")).toBeTruthy())
+
+    const next = screen.getByRole("button", { name: "Next page" })
+    expect(next.hasAttribute("disabled")).toBe(true)
+    // Previous still works: the server's stray `nextCursor` on an empty page
+    // is suppressed, but the stack still knows how to go back.
+    const previous = screen.getByRole("button", { name: "Previous page" })
+    expect(previous.hasAttribute("disabled")).toBe(false)
   })
 })
 
@@ -287,12 +383,47 @@ describe("AuthUsersPage row actions", () => {
     expect(sent[0]).toEqual({ intent: "users.delete", payload: { id: "u1" } })
   })
 
-  // A source-reading test for the absence of `refetch(` was dropped here.
-  // This package's tsconfig carries no "node" types and no @types/node
-  // dependency - `tsc --noEmit` fails on `import("node:fs")` with
-  // TS2591, even though the read itself works fine under vitest's esbuild
-  // transform. Per the brief: dropped, and flagged for Task 11's
-  // verification pass to re-check by other means (e.g. reading the built
-  // source without a typed Node import, or a repo-wide grep step outside
-  // the typechecked package).
+  it("shows the server's reason and leaves the delete dialog open when the delete fails", async () => {
+    const { client } = recordingCommandClient(
+      { "users.list": page1 },
+      { "users.delete": new ContractError("VALIDATION", "cannot delete the last owner") }
+    )
+    renderPage(AuthUsersPage, client)
+    await waitFor(() => expect(screen.getByText("ada@example.com")).toBeTruthy())
+
+    fireEvent.click(screen.getByRole("button", { name: "Delete ada@example.com" }))
+    fireEvent.click(screen.getByRole("button", { name: "Delete" }))
+
+    const alert = await screen.findByRole("alert", { hidden: true })
+    expect(alert.textContent).toContain("Could not delete")
+    expect(alert.textContent).toContain("cannot delete the last owner")
+    // The dialog stays open on failure, the same way the ban dialog does.
+    expect(screen.getByText(/Delete ada@example.com\?/)).toBeTruthy()
+  })
+
+  // A source-reading test for the absence of `refetch(` used to live here,
+  // and had to go: this package's tsconfig carries no "node" types, so
+  // `import("node:fs")` passes vitest's esbuild transform but fails
+  // `tsc --noEmit` with TS2591. The property it pinned still holds - reads
+  // now go out through `meta.invalidates` on the host side
+  // (`PluginHost.tsx`), not a page-level `refetch()` - and this test pins it
+  // behaviorally instead of textually: it counts the `users.list` queries the
+  // stub client actually received across a successful command.
+  it("does not re-read the list itself after a successful command; the host's invalidation does that", async () => {
+    const { client, queries, sent } = recordingClientAndCommands(
+      { "users.list": page1 },
+      { "users.ban": { ok: true, id: "u1" } }
+    )
+    renderPage(AuthUsersPage, client)
+    await waitFor(() => expect(screen.getByText("ada@example.com")).toBeTruthy())
+
+    fireEvent.click(screen.getByRole("button", { name: "Ban ada@example.com" }))
+    fireEvent.change(screen.getByLabelText("Reason"), { target: { value: "spam" } })
+    fireEvent.click(screen.getByRole("button", { name: "Ban" }))
+
+    await waitFor(() => expect(sent).toHaveLength(1))
+    // A page-level refetch() here would push this to 2. meta.invalidates
+    // handles the re-read instead, from the host.
+    expect(queries.filter((q) => q.intent === "users.list")).toHaveLength(1)
+  })
 })

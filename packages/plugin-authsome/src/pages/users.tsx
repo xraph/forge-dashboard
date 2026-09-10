@@ -1,4 +1,4 @@
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import { useCommand, useQuery } from "@forge-go/dashboard-plugin"
 import { Badge } from "@forge-go/dashboard-kit/components/badge"
 import { Button } from "@forge-go/dashboard-kit/components/button"
@@ -50,12 +50,27 @@ export function displayName(user: UserSummary): string {
 }
 
 export function AuthUsersPage() {
+  // `searchInput` is what the box shows; `search` is what was last actually
+  // queried with. FilterBar fires on every keystroke by design (it has no
+  // opinion on debounce, only the page does), so those two are kept apart to
+  // avoid sending one `users.list` request per character typed.
+  const [searchInput, setSearchInput] = useState("")
   const [search, setSearch] = useState("")
   const page = useCursorStack()
   const [banning, setBanning] = useState<UserSummary | null>(null)
   const [banReason, setBanReason] = useState("")
   const [banExpiry, setBanExpiry] = useState("")
   const [deleting, setDeleting] = useState<UserSummary | null>(null)
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setSearch(searchInput)
+      // A cursor points into the previous result set. Carrying it across a
+      // new search returns page two of the old answer.
+      page.reset()
+    }, 300)
+    return () => clearTimeout(timer)
+  }, [searchInput, page.reset])
 
   // `email` and `cursor` are left undefined rather than sent empty. The store
   // keys an undefined value the same as an absent one, and the server reads an
@@ -68,13 +83,6 @@ export function AuthUsersPage() {
   const ban = useCommand<AckResponse>("users.ban")
   const unban = useCommand<AckResponse>("users.unban")
   const remove = useCommand<AckResponse>("users.delete")
-
-  function searchFor(value: string) {
-    setSearch(value)
-    // A cursor points into the previous result set. Carrying it across a new
-    // search returns page two of the old answer.
-    page.reset()
-  }
 
   async function confirmBan() {
     if (!banning) return
@@ -98,8 +106,9 @@ export function AuthUsersPage() {
   }
 
   const columns: Column<UserSummary>[] = [
-    { id: "email", header: "Email", cell: (u) => u.email },
+    { id: "email", header: "Email", cell: (u) => u.email, className: "font-medium" },
     { id: "name", header: "Name", cell: (u) => displayName(u) },
+    { id: "id", header: "ID", cell: (u) => u.id, className: "font-mono text-xs" },
     {
       id: "emailVerified",
       header: "Verified",
@@ -129,7 +138,7 @@ export function AuthUsersPage() {
       />
 
       <FilterBar
-        search={{ value: search, onChange: searchFor, label: "Search users", placeholder: "Search by email" }}
+        search={{ value: searchInput, onChange: setSearchInput, label: "Search users", placeholder: "Search by email" }}
       />
 
       <CommandAlert error={ban.error} title="Could not ban" />
@@ -137,63 +146,80 @@ export function AuthUsersPage() {
       <CommandAlert error={remove.error} title="Could not delete" />
 
       <QueryBoundary title="Users" query={list} skeletonRows={5}>
-        {(data) => (
-          <>
-            <ResourceTable<UserSummary>
-              columns={columns}
-              rows={data.users ?? []}
-              rowKey={(u) => u.id}
-              caption="Users"
-              emptyMessage={search ? `No users match “${search}”.` : "No users yet."}
-              rowActions={(user) => (
-                <>
-                  <a
-                    href={`/@auth/users/${user.id}`}
-                    className="text-sm underline underline-offset-4"
-                  >
-                    Details
-                  </a>
-                  {user.banned ? (
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      aria-label={`Unban ${user.email}`}
-                      disabled={unban.loading}
-                      onClick={() => void unban.execute({ id: user.id })}
+        {(data) => {
+          const users = data.users ?? []
+          // The caption carries the live count on every render, independent
+          // of whether `CursorPager` has anything to navigate to - it renders
+          // nothing at all on a single-page result, which used to mean the
+          // count disappeared along with it for the common case of a small
+          // org.
+          const caption =
+            data.total !== undefined
+              ? `${users.length} of ${data.total}`
+              : `${users.length} shown`
+
+          return (
+            <>
+              <ResourceTable<UserSummary>
+                columns={columns}
+                rows={users}
+                rowKey={(u) => u.id}
+                caption={caption}
+                emptyMessage={search ? `No users match “${search}”.` : "No users yet."}
+                rowActions={(user) => (
+                  <>
+                    <a
+                      href={`/@auth/users/${user.id}`}
+                      className="text-sm underline underline-offset-4"
                     >
-                      Unban
-                    </Button>
-                  ) : (
+                      Details
+                    </a>
+                    {user.banned ? (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        aria-label={`Unban ${user.email}`}
+                        disabled={unban.loading}
+                        onClick={() => void unban.execute({ id: user.id })}
+                      >
+                        Unban
+                      </Button>
+                    ) : (
+                      <Button
+                        variant="destructive"
+                        size="sm"
+                        aria-label={`Ban ${user.email}`}
+                        onClick={() => setBanning(user)}
+                      >
+                        Ban
+                      </Button>
+                    )}
                     <Button
                       variant="destructive"
                       size="sm"
-                      aria-label={`Ban ${user.email}`}
-                      onClick={() => setBanning(user)}
+                      aria-label={`Delete ${user.email}`}
+                      onClick={() => setDeleting(user)}
                     >
-                      Ban
+                      Delete
                     </Button>
-                  )}
-                  <Button
-                    variant="destructive"
-                    size="sm"
-                    aria-label={`Delete ${user.email}`}
-                    onClick={() => setDeleting(user)}
-                  >
-                    Delete
-                  </Button>
-                </>
-              )}
-            />
-            <CursorPager
-              shown={(data.users ?? []).length}
-              total={data.total}
-              nextCursor={data.nextCursor}
-              canGoBack={page.canGoBack}
-              onNext={page.next}
-              onPrevious={page.previous}
-            />
-          </>
-        )}
+                  </>
+                )}
+              />
+              <CursorPager
+                shown={users.length}
+                total={data.total}
+                // A zero-row page still carrying a `nextCursor` must not
+                // leave Next clickable next to a count that says there is
+                // nothing to see - so Next only reflects a real cursor when
+                // there is something on screen to have paged to.
+                nextCursor={users.length > 0 ? data.nextCursor : undefined}
+                canGoBack={page.canGoBack}
+                onNext={page.next}
+                onPrevious={page.previous}
+              />
+            </>
+          )
+        }}
       </QueryBoundary>
 
       <ConfirmDialog
