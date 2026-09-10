@@ -23,8 +23,45 @@ export interface ConnectionsList {
   connections: ConnectionInfo[]
 }
 
+/**
+ * `status` is a free string on the wire, so this maps the values the extension
+ * actually emits and falls through to a neutral badge for anything else. A
+ * new status must not render as nothing.
+ */
+function statusVariant(status: string): "default" | "secondary" | "outline" {
+  if (status === "active") return "default"
+  if (status === "idle") return "secondary"
+  return "outline"
+}
+
+/** Renders a string slice as badges, or an em-less dash when it is empty. */
+function IdList({ values, label }: { values: string[]; label: string }) {
+  if (values.length === 0) {
+    // An empty cell reads as "loading" or "broken". The dash says "none",
+    // and the label says it to a screen reader too.
+    return (
+      <span aria-label={`no ${label}`} className="text-muted-foreground">
+        –
+      </span>
+    )
+  }
+  return (
+    <span className="flex flex-wrap gap-1">
+      {values.map((value) => (
+        <Badge key={value} variant="outline" className="font-mono text-xs">
+          {value}
+        </Badge>
+      ))}
+    </span>
+  )
+}
+
 const columns: Column<ConnectionInfo>[] = [
-  { id: "userID", header: "User", cell: (c) => c.userID },
+  {
+    id: "userID",
+    header: "User",
+    cell: (c) => <span className="font-mono text-xs">{c.userID}</span>,
+  },
   {
     id: "connID",
     header: "Connection",
@@ -34,32 +71,23 @@ const columns: Column<ConnectionInfo>[] = [
   {
     id: "status",
     header: "Status",
-    cell: (c) => <Badge variant="outline">{c.status}</Badge>,
+    // The colour is the scan signal, not the text: an operator scanning a
+    // long list reads state from the badge colour at a glance. The text
+    // alone is not a substitute for that.
+    cell: (c) => (
+      <Badge variant={statusVariant(c.status)}>{c.status}</Badge>
+    ),
   },
   {
     id: "rooms",
     header: "Rooms",
-    cell: (c) => (
-      <span className="flex flex-wrap gap-1">
-        {(c.joinedRooms ?? []).map((room) => (
-          <Badge key={room} variant="outline" className="font-mono text-xs">
-            {room}
-          </Badge>
-        ))}
-      </span>
-    ),
+    cell: (c) => <IdList values={c.joinedRooms ?? []} label="rooms" />,
   },
   {
     id: "subscriptions",
     header: "Subscriptions",
     cell: (c) => (
-      <span className="flex flex-wrap gap-1">
-        {(c.subscriptions ?? []).map((channel) => (
-          <Badge key={channel} variant="outline" className="font-mono text-xs">
-            {channel}
-          </Badge>
-        ))}
-      </span>
+      <IdList values={c.subscriptions ?? []} label="subscriptions" />
     ),
   },
   {
@@ -76,15 +104,24 @@ export function StreamingConnectionsPage() {
     <section className="flex flex-col gap-4">
       <PageHeader title="Connections" />
       <QueryBoundary title="Connections" query={query} skeletonRows={4}>
-        {(data) => (
-          <ResourceTable<ConnectionInfo>
-            columns={columns}
-            rows={data.connections ?? []}
-            rowKey={(c) => c.connID}
-            caption="Connections"
-            emptyMessage="No connections right now."
-          />
-        )}
+        {(data) => {
+          const connections = data.connections ?? []
+          return (
+            <ResourceTable<ConnectionInfo>
+              columns={columns}
+              rows={connections}
+              rowKey={(c) => c.connID}
+              caption={
+                connections.length === 0
+                  ? undefined
+                  : `${connections.length} ${
+                      connections.length === 1 ? "connection" : "connections"
+                    }`
+              }
+              emptyMessage="No connections right now."
+            />
+          )
+        }}
       </QueryBoundary>
     </section>
   )
