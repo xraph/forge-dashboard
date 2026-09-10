@@ -67,12 +67,15 @@ min-length or a retry count, so it passes server-side validation unnoticed. The
 block therefore blocks the save and says why.
 
 That is deliberately not an answer to what "unset" should mean. Kit must not
-learn a contract shape, so it refuses rather than guessing. **Before building the
-authsome settings pages, read `handlers_settings.go` and find out whether
-`settings.update` accepts null to clear an override and fall back to the
-inherited default.** If it does, the right affordance is an explicit "Reset to
-default" per field, which is what an operator clearing the box is actually
-reaching for.
+learn a contract shape, so it refuses rather than guessing.
+
+**That question has since been answered, and the answer is no.** `handlers_settings.go`
+passes `in.Value` straight to `Manager.Set` with no null check, so sending null
+stores a literal null as the override rather than clearing it. The `Delete` path
+that would actually clear one exists in Go and no intent reaches it. So there is
+no "Reset to default" control anywhere in the authsome settings UI, and adding
+one would be building a button that quietly writes null. The gap is recorded in
+`docs/superpowers/specs/2026-09-08-platform-decisions.md` as Go work.
 
 Related: do not wrap `SettingsForm` in a `<form>`. Its blank-numeric guard lives
 on the Save button's disabled state, and a form gives you a submit-on-Enter path
