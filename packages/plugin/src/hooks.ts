@@ -67,6 +67,26 @@ export interface CommandState<T> {
    * command failed - it never rejects.
    */
   execute: (payload?: unknown, opts?: CommandOptions) => Promise<T | undefined>
+  /**
+   * Forgets the last result and the last error.
+   *
+   * A page usually holds ONE command hook and points it at whichever row the
+   * operator is acting on. That is the right shape: a hook per row would mean
+   * a hook count that changes with the data. But it means a failure sticks to
+   * the hook rather than to the row, so opening a confirmation dialog for a
+   * different row shows the previous row's error, attributed to this one. The
+   * operator reads "this already failed" about something they have not
+   * touched.
+   *
+   * So call `reset` when the dialog opens, not when it closes: closing is not
+   * the only way a dialog goes away, and the state that matters is the state
+   * the operator is looking at now.
+   *
+   * Superseding: a reset raises the generation, so a command still in flight
+   * settles into nothing rather than repainting the state that was just
+   * cleared.
+   */
+  reset: () => void
 }
 
 /**
@@ -135,7 +155,14 @@ export function useCommand<T = unknown>(intent: string): CommandState<T> {
     [client, intent],
   )
 
-  return { ...state, execute }
+  const reset = useCallback(() => {
+    // Raise the generation so an in-flight command cannot repaint what this
+    // just cleared.
+    generationRef.current += 1
+    setState({ loading: false })
+  }, [])
+
+  return { ...state, execute, reset }
 }
 
 /**
@@ -219,5 +246,12 @@ export function useHostCommand<T = unknown>(intent: string): CommandState<T> {
     [client, intent],
   )
 
-  return { ...state, execute }
+  const reset = useCallback(() => {
+    // Raise the generation so an in-flight command cannot repaint what this
+    // just cleared.
+    generationRef.current += 1
+    setState({ loading: false })
+  }, [])
+
+  return { ...state, execute, reset }
 }
