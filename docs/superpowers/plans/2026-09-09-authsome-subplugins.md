@@ -20,6 +20,9 @@
 - **Kit consumer obligations** live in `docs/superpowers/plans/2026-09-08-kit-blocks-consumer-notes.md`. Four bite here: pass `pending` to every `ConfirmDialog`; remount `SettingsForm` with a `key` when its data changes; call `useCommand().reset()` when a dialog OPENS, because one hook serves every row and a failure otherwise follows the operator to the next row's dialog; and use kit's `NoneCell` and `TagList` for a cell that means "none" rather than hand-rolling a dash.
 - **A cell that means "none" is never blank.** `<NoneCell label="scopes" />` renders an en dash with `aria-label="no scopes"`. A blank cell reads as "still loading" to a sighted operator and as nothing at all to a screen reader, and this convention was hand-rolled four times and dropped three times before it became a block.
 - **`ConfirmDialog` takes `confirmDisabled` as well as `pending`.** `pending` means "working on it" and swaps the label; `confirmDisabled` means "this dialog is still missing something it needs" and leaves the label alone. A dialog collecting a required value uses the second.
+- **The test stub records commands, not query params.** `stubClient`'s `payloads` array holds COMMAND payloads only. To assert what params a QUERY went out with, pass a functional answer that captures them. `test/sub/settings-panel.test.tsx` does this and is the pattern to copy. Several tests in this plan were written assuming otherwise; fix them where you find them and say so.
+- **`SettingsForm` renders its own local-undo button labelled "Reset".** So a test asserting there is no reset-to-default control must match something narrower, `/reset to default/i` say, not a bare `/reset/i`.
+- **`settingsPanelFor` returns `ComponentType<PluginPageProps>`, not a bare `ComponentType`.** `ComponentType<{}>`'s class-component branch is not assignable where a required `params` prop is expected, and only `tsc` catches it; vitest passes.
 - **A sub-plugin never names its own contributor as a parameter.** `defineSubPlugin` closes over it. If you find yourself passing an extension string to a query, you have the wrong hook.
 - **Nav placement is copied from the Go manifest, not invented.** Route, group, icon and priority are all declared there and the React side mirrors them exactly.
 
@@ -85,6 +88,8 @@ entries would say the same thing and go stale the first time somebody adds one.
 - Create: `packages/plugin-authsome/test/sub/harness.tsx`
 - Test: `packages/plugin-authsome/test/sub/settings-panel.test.tsx`
 - Modify: `packages/plugin-authsome/package.json` (the `exports` map)
+
+**Status: landed.** `settingsPanelFor(namespace: string): ComponentType<PluginPageProps>` and `SETTINGS_INTENTS` (a readonly tuple, so callers spread it) are exported from `src/sub/settings-panel.tsx`. The subpath `@forge-go/dashboard-plugin-authsome/sub/settings-panel` resolves.
 
 **Interfaces:**
 - Consumes: `flattenCategories`, `toDescriptors`, and the types `SettingField`, `SettingsNamespaceResponse` from `src/settings-fields.ts` (authsome core Task 8). `useHostQuery`, `useHostCommand` from `@forge-go/dashboard-plugin`. `SettingsForm`, `QueryBoundary`, `CommandAlert` from kit.
@@ -312,7 +317,7 @@ export const SETTINGS_INTENTS = [
  * new component type on every pass and remount the form under the operator's
  * cursor, discarding whatever they had typed.
  */
-export function settingsPanelFor(namespace: string): ComponentType {
+export function settingsPanelFor(namespace: string): ComponentType<PluginPageProps> {
   function SettingsPanel() {
     const query = useHostQuery<SettingsNamespaceResponse>("settings.namespace", {
       namespace,
