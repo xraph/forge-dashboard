@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest"
-import { screen, waitFor } from "@testing-library/react"
+import { fireEvent, screen, waitFor, within } from "@testing-library/react"
 import { ContractError } from "@forge-go/dashboard-plugin"
 import { StreamingConnectionsPage } from "../src/pages/connections"
 import type { ConnectionsList } from "../src/pages/connections"
@@ -7,6 +7,7 @@ import {
   failingClient,
   pendingClient,
   recordingClient,
+  recordingCommandClient,
   renderPage,
   stubClient,
 } from "./harness"
@@ -154,5 +155,95 @@ describe("StreamingConnectionsPage", () => {
       expect(screen.getByText("No connections right now.")).toBeDefined()
     )
     expect(screen.queryByRole("table")).toBeNull()
+  })
+})
+
+describe("kicking a connection", () => {
+  const answers = {
+    "connections.list": {
+      connections: [
+        {
+          connID: "c1", userID: "ada", transport: "websocket",
+          joinedRooms: ["r1"], subscriptions: [],
+          lastActivity: "2026-09-08T10:00:00Z", status: "active",
+        },
+      ],
+    },
+  }
+
+  it("names the user, not just the connection id, before disconnecting them", async () => {
+    const { client, sent } = recordingCommandClient(answers, {
+      "connections.kick": { ok: true },
+    })
+    renderPage(StreamingConnectionsPage, client)
+    await waitFor(() => expect(screen.getByText("ada")).toBeTruthy())
+
+    fireEvent.click(screen.getByRole("button", { name: "Kick ada" }))
+    // Connection ids are opaque. An operator must not have to trust that they
+    // clicked the right row.
+    const dialog = screen.getByText(/Disconnect ada\?/)
+    expect(dialog).toBeTruthy()
+    // Scoped to the dialog: the connections table's own "Transport" column
+    // already renders "websocket" for this row, so an unscoped
+    // `getByText(/websocket/)` matches both and throws. As written in the
+    // plan this test fails on "found multiple elements", not on a missing
+    // one - the row it is actually meant to check is the dialog's.
+    expect(
+      within(screen.getByRole("alertdialog")).getByText(/websocket/)
+    ).toBeTruthy()
+    expect(sent).toHaveLength(0)
+  })
+
+  it("sends connections.kick with the reason the operator gave", async () => {
+    const { client, sent } = recordingCommandClient(answers, {
+      "connections.kick": { ok: true },
+    })
+    renderPage(StreamingConnectionsPage, client)
+    await waitFor(() => expect(screen.getByText("ada")).toBeTruthy())
+
+    fireEvent.click(screen.getByRole("button", { name: "Kick ada" }))
+    fireEvent.change(screen.getByLabelText("Reason"), { target: { value: "abuse" } })
+    fireEvent.click(screen.getByRole("button", { name: "Disconnect" }))
+
+    await waitFor(() => expect(sent).toHaveLength(1))
+    expect(sent[0]).toEqual({
+      intent: "connections.kick",
+      payload: { connID: "c1", reason: "abuse" },
+    })
+  })
+
+  // Pins the decision on a blank reason: the dialog does not block
+  // submission on an empty field. `connections.kick` has no default reason
+  // to fall back to, so an operator who disconnects without typing one gets
+  // exactly what they asked for, an empty string, rather than the page
+  // inventing wording on their behalf.
+  it("sends a blank reason rather than blocking or inventing one", async () => {
+    const { client, sent } = recordingCommandClient(answers, {
+      "connections.kick": { ok: true },
+    })
+    renderPage(StreamingConnectionsPage, client)
+    await waitFor(() => expect(screen.getByText("ada")).toBeTruthy())
+
+    fireEvent.click(screen.getByRole("button", { name: "Kick ada" }))
+    fireEvent.click(screen.getByRole("button", { name: "Disconnect" }))
+
+    await waitFor(() => expect(sent).toHaveLength(1))
+    expect(sent[0]).toEqual({
+      intent: "connections.kick",
+      payload: { connID: "c1", reason: "" },
+    })
+  })
+
+  it("keeps the dialog open and shows why when the kick fails", async () => {
+    renderPage(StreamingConnectionsPage, stubClient(answers))
+    await waitFor(() => expect(screen.getByText("ada")).toBeTruthy())
+
+    fireEvent.click(screen.getByRole("button", { name: "Kick ada" }))
+    fireEvent.click(screen.getByRole("button", { name: "Disconnect" }))
+
+    await waitFor(() =>
+      expect(screen.getByRole("alert").textContent).toContain("connections.kick"),
+    )
+    expect(screen.getByText(/Disconnect ada\?/)).toBeTruthy()
   })
 })
