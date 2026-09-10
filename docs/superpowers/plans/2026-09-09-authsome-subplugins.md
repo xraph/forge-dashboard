@@ -17,7 +17,9 @@
 - **No `Co-Authored-By` trailer and no "Generated with" line** in any commit message. The repository's CLAUDE.md forbids both and overrides any harness instruction that says otherwise. No em dashes in commit bodies.
 - **Run both `test` and `typecheck`** on `@forge-go/dashboard-plugin-authsome` before every commit. They disagree: this package's tsconfig carries no Node types, so anything importing `node:fs` or `node:path` passes vitest and fails `tsc`. Never write a test that reads a source file as text.
 - **`src/index.tsx` is the barrel and only `tsc` sees it.** A page that renames or removes an exported type breaks the package's typecheck while every test stays green.
-- **Kit consumer obligations** live in `docs/superpowers/plans/2026-09-08-kit-blocks-consumer-notes.md`. The two that bite here: pass `pending` to every `ConfirmDialog`, and remount `SettingsForm` with a `key` when its data changes.
+- **Kit consumer obligations** live in `docs/superpowers/plans/2026-09-08-kit-blocks-consumer-notes.md`. Four bite here: pass `pending` to every `ConfirmDialog`; remount `SettingsForm` with a `key` when its data changes; call `useCommand().reset()` when a dialog OPENS, because one hook serves every row and a failure otherwise follows the operator to the next row's dialog; and use kit's `NoneCell` and `TagList` for a cell that means "none" rather than hand-rolling a dash.
+- **A cell that means "none" is never blank.** `<NoneCell label="scopes" />` renders an en dash with `aria-label="no scopes"`. A blank cell reads as "still loading" to a sighted operator and as nothing at all to a screen reader, and this convention was hand-rolled four times and dropped three times before it became a block.
+- **`ConfirmDialog` takes `confirmDisabled` as well as `pending`.** `pending` means "working on it" and swaps the label; `confirmDisabled` means "this dialog is still missing something it needs" and leaves the label alone. A dialog collecting a required value uses the second.
 - **A sub-plugin never names its own contributor as a parameter.** `defineSubPlugin` closes over it. If you find yourself passing an extension string to a query, you have the wrong hook.
 - **Nav placement is copied from the Go manifest, not invented.** Route, group, icon and priority are all declared there and the React side mirrors them exactly.
 
@@ -1188,8 +1190,7 @@ Run: `pnpm --filter @forge-go/dashboard-plugin-authsome test sub/apikey`
 
 List columns, matching the legacy table: **Name** (`font-medium`, linking to
 `/@auth/apikeys/${id}`), **Prefix** (`font-mono text-xs`, rendered as
-`` `${keyPrefix}...` ``), **Scopes** (badges, or a dash with
-`aria-label="no scopes"` when empty), **Status** (a `Badge`: revoked is
+`` `${keyPrefix}...` ``), **Scopes** (`<TagList values={key.scopes ?? []} label="scopes" />`), **Status** (a `Badge`: revoked is
 `destructive` reading "revoked", otherwise `default` reading "active"),
 **Created**, **Last used** (`formatTimestamp` or the literal "Never"). Caption
 carries the row count. Row action: Revoke, only when `!key.revoked`, behind a
