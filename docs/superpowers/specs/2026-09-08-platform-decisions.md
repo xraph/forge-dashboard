@@ -102,17 +102,29 @@ after the command succeeds.
 
 Beyond `2026-09-08-kit-blocks-consumer-notes.md`, which covers the kit blocks:
 
-**Check `handlers_settings.go` before designing the settings pages.** Kit's
+**The settings "unset" question is answered, and the answer is no.** Kit's
 `SettingsForm` refuses to save a blank numeric field rather than guessing what
 clearing one means, because `Number("")` is `0` and a silent zero override is
-worse than a validation error. Whether `settings.update` accepts null to clear
-an override and fall back to the inherited default is still unanswered. If it
-does, the right affordance is an explicit "Reset to default" per field.
+worse than a validation error. That guess would have been wrong either way.
 
-**Nine legacy surfaces cannot be rebuilt at all**, because they have no contract
-intents behind them: SCIM's directory list, detail and logs; subscription's
+`settings.update` passes its `Value` straight to `Manager.Set` as raw JSON
+(`handlers_settings.go:266`), so sending `null` stores the literal value null. It
+does not clear an override. The capability exists on the Go side, as
+`Manager.Delete(ctx, key, scope, scopeID)` at `settings/manager.go:323`, but no
+contract intent reaches it: the manifest has `settings.update`,
+`settings.enforce` and `settings.unenforce`, and nothing that clears.
+
+So an explicit "Reset to default" per field is blocked on a new Go intent, and it
+belongs on the gap list below rather than in the authsome plan. Until it exists,
+refusing the blank save is the honest behaviour: a field can be set, and it
+cannot be unset, and the UI should not pretend otherwise.
+
+**Ten legacy surfaces cannot be rebuilt at all**, because they have no contract
+intents behind them. Nine of them are pages: SCIM's directory list, detail and logs; subscription's
 invoices, coupons and plan features; and the per-user MFA, passkey and social
-sections. Each needs Go work in the authsome repository first. Put it in the retirement checklist so nobody discovers it the hard way.
+sections. The tenth is the "Reset to default" affordance described above. Each
+needs Go work in the authsome repository first. Put them in the retirement
+checklist so nobody discovers them the hard way.
 
 **Re-measure the bundle at the first page that statically imports
 `ConfirmDialog` or `SettingsForm`.** Both pull Base UI, and `BASELINE.md`
