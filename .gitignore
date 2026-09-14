@@ -34,3 +34,6 @@ dist-ssr
 
 # typescript
 *.tsbuildinfo
+
+# superpowers plans and specs, local working notes
+/docs/
