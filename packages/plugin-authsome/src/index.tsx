@@ -18,6 +18,7 @@ import {
 } from "@forge-go/dashboard-kit/icons"
 import { AuthAppCreatePage } from "./pages/app-create"
 import { AuthAppDetailPage } from "./pages/app-detail"
+import { AuthAppPicker } from "./pages/app-picker"
 import { AuthAppsPage } from "./pages/apps"
 import { AuthCredentialsPage } from "./pages/credentials"
 import { AuthDeviceDetailPage } from "./pages/device-detail"
@@ -132,15 +133,23 @@ const APP_DIMENSION: ContextDimension = {
   switchCommand: "apps.switch",
   select: (data) => {
     const d = data as {
-      currentApp?: { id: string; name: string }
-      availableApps?: { id: string; name: string }[]
+      currentApp?: { id: string; name: string; slug: string }
+      availableApps?: { id: string; name: string; slug: string }[]
     }
     return {
-      current: d.currentApp ? { id: d.currentApp.id, label: d.currentApp.name } : undefined,
-      options: (d.availableApps ?? []).map((a) => ({ id: a.id, label: a.name })),
+      current: d.currentApp
+        ? { id: d.currentApp.id, label: d.currentApp.name, slug: d.currentApp.slug }
+        : undefined,
+      options: (d.availableApps ?? []).map((a) => ({ id: a.id, label: a.name, slug: a.slug })),
     }
   },
   payload: (appId) => ({ appId }),
+  // App is a path segment under this plugin's own namespace root, not just
+  // a cookie: picking "acme" lands on this namespace's "acme" segment. With
+  // no segment in the URL at all, AuthAppPicker renders in place of every
+  // page this plugin has, rather than thirty-seven links that would each
+  // answer about an app nobody picked.
+  routed: { placement: "path", param: "app", by: "slug", picker: AuthAppPicker },
 }
 
 const ENV_DIMENSION: ContextDimension = {
@@ -150,15 +159,20 @@ const ENV_DIMENSION: ContextDimension = {
   switchCommand: "environments.switch",
   select: (data) => {
     const d = data as {
-      currentEnv?: { id: string; name: string }
-      availableEnvs?: { id: string; name: string }[]
+      currentEnv?: { id: string; name: string; slug: string }
+      availableEnvs?: { id: string; name: string; slug: string }[]
     }
     return {
-      current: d.currentEnv ? { id: d.currentEnv.id, label: d.currentEnv.name } : undefined,
-      options: (d.availableEnvs ?? []).map((e) => ({ id: e.id, label: e.name })),
+      current: d.currentEnv
+        ? { id: d.currentEnv.id, label: d.currentEnv.name, slug: d.currentEnv.slug }
+        : undefined,
+      options: (d.availableEnvs ?? []).map((e) => ({ id: e.id, label: e.name, slug: e.slug })),
     }
   },
   payload: (envId) => ({ envId }),
+  // Environment is a query param: `?env=prod`. Absent means "whatever the
+  // server already has" rather than "nothing", so it stays out of the path.
+  routed: { placement: "query", param: "env", by: "slug" },
 }
 
 /**

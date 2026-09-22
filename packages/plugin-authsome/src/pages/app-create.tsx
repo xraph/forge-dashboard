@@ -43,7 +43,7 @@ export function AuthAppCreatePage() {
         <p role="status" className="rounded-md border px-3 py-2 text-sm">
           App created.{" "}
           {created && (
-            <PluginLink to={`/@auth/apps/${created}`} className="underline underline-offset-4">
+            <PluginLink to={`/apps/${created}`} className="underline underline-offset-4">
               Open it
             </PluginLink>
           )}

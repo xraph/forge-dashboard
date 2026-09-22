@@ -121,7 +121,7 @@ describe("AuthSettingsPage", () => {
     await waitFor(() => expect(screen.getByText("Password")).toBeTruthy())
 
     const link = screen.getByRole("link", { name: "Password" })
-    expect(link.getAttribute("href")).toBe("/@auth/settings/password")
+    expect(link.getAttribute("href")).toBe("/settings/password")
     expect(screen.getByText("Password rules")).toBeTruthy()
     expect(screen.getByText("2")).toBeTruthy()
   })

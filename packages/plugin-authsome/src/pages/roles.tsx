@@ -165,7 +165,7 @@ export function AuthRolesPage() {
               rowActions={(role) => (
                 <>
                   <PluginLink
-                    to={`/@auth/roles/${role.id}`}
+                    to={`/roles/${role.id}`}
                     className="text-sm underline underline-offset-4"
                   >
                     Details

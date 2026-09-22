@@ -134,7 +134,7 @@ export function AuthUsersPage() {
     <section className="flex flex-col gap-4">
       <PageHeader
         title="Users"
-        actions={<PluginLink to="/@auth/users/create" className="underline underline-offset-4">New user</PluginLink>}
+        actions={<PluginLink to="/users/create" className="underline underline-offset-4">New user</PluginLink>}
       />
 
       <FilterBar
@@ -173,7 +173,7 @@ export function AuthUsersPage() {
                 rowActions={(user) => (
                   <>
                     <PluginLink
-                      to={`/@auth/users/${user.id}`}
+                      to={`/users/${user.id}`}
                       className="text-sm underline underline-offset-4"
                     >
                       Details

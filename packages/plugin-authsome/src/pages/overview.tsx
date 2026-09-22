@@ -76,7 +76,7 @@ export function AuthOverviewPage() {
               emptyMessage="No signups yet."
               rowActions={(user) => (
                 <PluginLink
-                  to={`/@auth/users/${user.id}`}
+                  to={`/users/${user.id}`}
                   className="text-sm underline underline-offset-4"
                 >
                   Details

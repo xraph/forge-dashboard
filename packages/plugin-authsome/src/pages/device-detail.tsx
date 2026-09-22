@@ -112,7 +112,7 @@ function DeviceDetailBody({ deviceId }: { deviceId: string }) {
 
   function handleForgotten() {
     setForgotten(true)
-    navigate("/@auth/devices")
+    navigate("/devices")
   }
 
   if (forgotten) {

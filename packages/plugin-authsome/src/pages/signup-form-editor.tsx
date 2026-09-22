@@ -220,7 +220,7 @@ export function AuthSignupFormEditorPage() {
     if (result === undefined) return
     setDeleting(false)
     setDeleted(true)
-    navigate("/@auth/signup-forms")
+    navigate("/signup-forms")
   }
 
   if (deleted) {

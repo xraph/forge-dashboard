@@ -72,7 +72,7 @@ export function AuthAppsPage() {
       <PageHeader
         title="Apps"
         actions={
-          <PluginLink to="/@auth/apps/create" className="text-sm underline underline-offset-4">
+          <PluginLink to="/apps/create" className="text-sm underline underline-offset-4">
             New app
           </PluginLink>
         }
@@ -92,7 +92,7 @@ export function AuthAppsPage() {
               rowActions={(app) => (
                 <>
                   <PluginLink
-                    to={`/@auth/apps/${app.id}`}
+                    to={`/apps/${app.id}`}
                     className="text-sm underline underline-offset-4"
                   >
                     Details

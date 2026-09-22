@@ -138,7 +138,7 @@ export function AuthDevicesPage() {
               rowActions={(device) => (
                 <>
                   <PluginLink
-                    to={`/@auth/devices/${device.id}`}
+                    to={`/devices/${device.id}`}
                     className="text-sm underline underline-offset-4"
                   >
                     Details

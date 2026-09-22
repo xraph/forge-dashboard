@@ -149,7 +149,7 @@ export function OrgListPage() {
       className: "font-medium",
       cell: (org) => (
         <PluginLink
-          to={`/@auth/organizations/${org.id}`}
+          to={`/organizations/${org.id}`}
           className="underline underline-offset-4"
         >
           {org.name}
@@ -166,7 +166,7 @@ export function OrgListPage() {
         title="Organizations"
         actions={
           <PluginLink
-            to="/@auth/organizations/create"
+            to="/organizations/create"
             className="text-sm underline underline-offset-4"
           >
             New organization
@@ -445,7 +445,7 @@ function OrgDetailBody({ orgId }: { orgId: string }) {
     const result = await deleteOrg.execute({ id: orgId })
     if (result === undefined) return
     setDeleted(true)
-    navigate("/@auth/organizations")
+    navigate("/organizations")
   }
 
   if (deleted) {

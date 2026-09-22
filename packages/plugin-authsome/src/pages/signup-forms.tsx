@@ -65,7 +65,7 @@ export function AuthSignupFormsPage() {
       <PageHeader
         title="Signup forms"
         actions={
-          <PluginLink to="/@auth/signup-forms/edit" className="text-sm underline underline-offset-4">
+          <PluginLink to="/signup-forms/edit" className="text-sm underline underline-offset-4">
             Edit signup form
           </PluginLink>
         }

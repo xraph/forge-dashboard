@@ -128,7 +128,7 @@ export function PlansPage() {
       id: "name",
       header: "Name",
       className: "font-medium",
-      cell: (plan) => <PluginLink to={`/@auth/plans/${plan.id}`}>{plan.name}</PluginLink>,
+      cell: (plan) => <PluginLink to={`/plans/${plan.id}`}>{plan.name}</PluginLink>,
     },
     { id: "slug", header: "Slug", className: "font-mono text-xs", cell: (plan) => plan.slug },
     {

@@ -102,7 +102,7 @@ interface RevokeResponse {
 
 /** Detail page path, matching the manifest's `/apikeys`, no hyphen. */
 function detailPath(id: string) {
-  return `/@auth/apikeys/${id}`
+  return `/apikeys/${id}`
 }
 
 function StatusBadge({ revoked }: { revoked: boolean }) {
@@ -218,7 +218,7 @@ export function APIKeyListPage() {
       <PageHeader
         title="API Keys"
         actions={
-          <PluginLink to="/@auth/apikeys/create" className="text-sm underline underline-offset-4">
+          <PluginLink to="/apikeys/create" className="text-sm underline underline-offset-4">
             New API key
           </PluginLink>
         }

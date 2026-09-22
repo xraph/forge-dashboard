@@ -26,7 +26,7 @@ const columns: Column<NamespaceSummary>[] = [
     header: "Namespace",
     cell: (n) => (
       <PluginLink
-        to={`/@auth/settings/${n.name}`}
+        to={`/settings/${n.name}`}
         className="font-medium underline underline-offset-4"
       >
         {n.displayName || n.name}

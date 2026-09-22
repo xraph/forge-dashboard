@@ -289,6 +289,52 @@ describe("the finished plugin", () => {
     expect(env.query).toBe("apps.context")
   })
 
+  it("routes the app dimension in the path, by slug, with a picker for when none is chosen", () => {
+    const app = authsomePlugin.context.find((d) => d.id === "app")!
+    expect(app.routed).toBeDefined()
+    expect(app.routed?.placement).toBe("path")
+    expect(app.routed?.param).toBe("app")
+    expect(app.routed?.by).toBe("slug")
+    expect(app.routed?.picker).toBeDefined()
+  })
+
+  it("routes the environment dimension in the query, by slug, with no picker", () => {
+    const env = authsomePlugin.context.find((d) => d.id === "environment")!
+    expect(env.routed).toEqual({ placement: "query", param: "env", by: "slug" })
+  })
+
+  it("selects a slug for every app and environment option, which the URL needs", () => {
+    const app = authsomePlugin.context.find((d) => d.id === "app")!
+    const env = authsomePlugin.context.find((d) => d.id === "environment")!
+
+    const data = {
+      currentApp: { id: "app_1", name: "Acme", slug: "acme" },
+      availableApps: [
+        { id: "app_1", name: "Acme", slug: "acme" },
+        { id: "app_2", name: "Globex", slug: "globex" },
+      ],
+      currentEnv: { id: "env_1", name: "Production", slug: "prod" },
+      availableEnvs: [
+        { id: "env_1", name: "Production", slug: "prod" },
+        { id: "env_2", name: "Staging", slug: "staging" },
+      ],
+    }
+
+    const appResult = app.select(data)
+    expect(appResult.current).toEqual({ id: "app_1", label: "Acme", slug: "acme" })
+    expect(appResult.options).toEqual([
+      { id: "app_1", label: "Acme", slug: "acme" },
+      { id: "app_2", label: "Globex", slug: "globex" },
+    ])
+
+    const envResult = env.select(data)
+    expect(envResult.current).toEqual({ id: "env_1", label: "Production", slug: "prod" })
+    expect(envResult.options).toEqual([
+      { id: "env_1", label: "Production", slug: "prod" },
+      { id: "env_2", label: "Staging", slug: "staging" },
+    ])
+  })
+
   it("does not contribute a nav entry for a detail route", () => {
     const navPaths = authsomePlugin.nav.map((n) => n.to)
     expect(navPaths.some((p) => p.includes(":"))).toBe(false)

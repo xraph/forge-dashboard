@@ -157,7 +157,7 @@ export function AuthSessionsPage() {
               rowActions={(session) => (
                 <>
                   <PluginLink
-                    to={`/@auth/sessions/${session.id}`}
+                    to={`/sessions/${session.id}`}
                     className="text-sm underline underline-offset-4"
                   >
                     Details

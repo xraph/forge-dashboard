@@ -214,7 +214,7 @@ export function AuthEnvironmentsPage() {
               rowActions={(env) => (
                 <>
                   <PluginLink
-                    to={`/@auth/environments/${env.id}`}
+                    to={`/environments/${env.id}`}
                     className="text-sm underline underline-offset-4"
                   >
                     Details

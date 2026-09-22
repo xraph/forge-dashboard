@@ -166,7 +166,7 @@ describe("AuthUsersPage", () => {
 
     const detailsLink = await screen.findByRole("link", { name: "Details" })
     expect(detailsLink.getAttribute("data-router")).toBe("yes")
-    expect(detailsLink.getAttribute("href")).toBe("/@auth/users/usr_1")
+    expect(detailsLink.getAttribute("href")).toBe("/users/usr_1")
   })
 
   it("shows the contract error code and message when the read fails", async () => {

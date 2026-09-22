@@ -198,7 +198,7 @@ describe("AuthDeviceDetailPage", () => {
 
     // The operator must not be left looking at a deleted device with its
     // Trust and Forget buttons still live.
-    await waitFor(() => expect(window.location.href).toBe("/@auth/devices"))
+    await waitFor(() => expect(window.location.href).toBe("/devices"))
     expect(screen.queryByRole("button", { name: "Forget laptop" })).toBeNull()
     expect(screen.queryByRole("button", { name: "Trust laptop" })).toBeNull()
   })
