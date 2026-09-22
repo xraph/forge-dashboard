@@ -41,11 +41,38 @@ export const AUTH_PATHS = [
   "/setup",
 ] as const
 
-/** True when `pathname` is one of AUTH_PATHS under `basename`. */
+/**
+ * True when `pathname` is one of AUTH_PATHS under `basename`.
+ *
+ * Normalizes `basename` by removing a trailing slash (so "/" and "/forge/"
+ * become "" and "/forge") to prevent the separator from being eaten when
+ * slicing. Returns false if basename is a non-empty prefix that does not
+ * match pathname. Strips a trailing slash from the remainder and exact-matches
+ * against AUTH_PATHS to avoid "/forge/login" matching "/forge/loginsomething".
+ */
 export function isAuthPath(pathname: string, basename: string): boolean {
-  const rest = basename && pathname.startsWith(basename)
-    ? pathname.slice(basename.length)
-    : pathname
+  // Normalize basename: remove trailing "/" (except for "/")
+  let normalized = basename
+  if (normalized.length > 1 && normalized.endsWith("/")) {
+    normalized = normalized.slice(0, -1)
+  } else if (normalized === "/") {
+    normalized = ""
+  }
+
+  // If there is a normalized basename, it must be a prefix of pathname
+  if (normalized && !pathname.startsWith(normalized)) {
+    return false
+  }
+
+  // Get remainder after basename
+  let rest = normalized ? pathname.slice(normalized.length) : pathname
+
+  // Strip single trailing "/" from remainder
+  if (rest.endsWith("/") && rest !== "/") {
+    rest = rest.slice(0, -1)
+  }
+
+  // Exact match against AUTH_PATHS
   return (AUTH_PATHS as readonly string[]).includes(rest)
 }
 
@@ -55,11 +82,14 @@ export function isAuthPath(pathname: string, basename: string): boolean {
  * A capability the provider never declared produces no route, so there is no
  * separate configuration to keep in step with the intent list, and no link
  * that renders a blank screen.
+ *
+ * Requires signIn in defaults to guarantee that every route table includes
+ * /login. A dashboard with no way to sign in is not usable.
  */
 export function authRoutesFor(
   intents: AuthIntents,
   screens: AuthScreens,
-  defaults: AuthScreens = {},
+  defaults: AuthScreens & Required<Pick<AuthScreens, "signIn">>,
 ): AuthRoute[] {
   const routes: AuthRoute[] = []
   const pick = (

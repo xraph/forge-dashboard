@@ -78,4 +78,25 @@ describe("isAuthPath", () => {
       "/setup",
     ])
   })
+
+  it("tolerates a trailing slash on the basename", () => {
+    expect(isAuthPath("/forge/login", "/forge/")).toBe(true)
+  })
+
+  it("treats a bare slash basename as no basename", () => {
+    expect(isAuthPath("/login", "/")).toBe(true)
+  })
+
+  it("tolerates a trailing slash on the pathname", () => {
+    expect(isAuthPath("/forge/login/", "/forge")).toBe(true)
+  })
+
+  it("does not match a path outside the basename", () => {
+    expect(isAuthPath("/login", "/forge")).toBe(false)
+  })
+
+  it("still rejects prefix confusion", () => {
+    expect(isAuthPath("/forge/loginsomething", "/forge")).toBe(false)
+    expect(isAuthPath("/forge/login/extra", "/forge")).toBe(false)
+  })
 })
