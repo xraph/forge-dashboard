@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react"
+import { fireEvent, render, screen, waitFor } from "@testing-library/react"
 import { describe, expect, it, vi } from "vitest"
 import { PluginProvider } from "@forge-go/dashboard-plugin"
 import type { ScopedClient } from "@forge-go/dashboard-plugin"
@@ -45,6 +45,51 @@ describe("DeniedScreen", () => {
       </PluginProvider>,
     )
     expect(screen.getByRole("button", { name: /sign out/i })).toBeDefined()
+  })
+
+  // gate.test.tsx pinned this pair against the old AuthGate's Denied variant;
+  // that component is gone, but SignOutButton (the thing that actually calls
+  // the command now) still owes the same two guarantees: a successful
+  // sign-out calls back to the host, and a failed one surfaces the failure
+  // and does not.
+  it("calls back to the host once sign-out succeeds", async () => {
+    const onSignedOut = vi.fn()
+    render(
+      <PluginProvider client={client(vi.fn().mockResolvedValue({ ok: true }))}>
+        <DeniedScreen
+          onSignedOut={onSignedOut}
+          requiredRoles={["admin"]}
+          signOutIntent="auth.logout"
+        />
+      </PluginProvider>,
+    )
+
+    fireEvent.click(screen.getByRole("button", { name: /sign out/i }))
+
+    await waitFor(() => expect(onSignedOut).toHaveBeenCalled())
+  })
+
+  it("surfaces a failed sign-out and does not call back", async () => {
+    const onSignedOut = vi.fn()
+    const failingCommand = vi
+      .fn()
+      .mockRejectedValue({ code: "TRANSPORT", message: "could not reach the server" })
+    render(
+      <PluginProvider client={client(failingCommand)}>
+        <DeniedScreen
+          onSignedOut={onSignedOut}
+          requiredRoles={["admin"]}
+          signOutIntent="auth.logout"
+        />
+      </PluginProvider>,
+    )
+
+    fireEvent.click(screen.getByRole("button", { name: /sign out/i }))
+
+    expect(
+      await screen.findByText("could not reach the server"),
+    ).toBeDefined()
+    expect(onSignedOut).not.toHaveBeenCalled()
   })
 
   it("the regression test: renders without throwing with no PluginProvider and no signOutIntent", () => {

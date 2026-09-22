@@ -73,6 +73,24 @@ export function SignInScreen({ intents, basename, onAuthenticated }: AuthScreenP
       <CommandAlert error={login.error} title="Sign in failed" />
       {config.loading && !config.data ? (
         <Spinner className="mx-auto" />
+      ) : config.error ? (
+        // The old AuthLoginPage routed this read through QueryBoundary, which
+        // showed the code and message and offered a Retry button. This screen
+        // does not use QueryBoundary itself (its loading and success shapes
+        // are its own, not the Card the boundary renders), so the same two
+        // things - the error visible, and a way to try again - are built from
+        // the same pieces QueryBoundary uses: CommandAlert for the message,
+        // and refetch behind a button.
+        <div className="flex flex-col gap-3">
+          <CommandAlert error={config.error} title="Sign-in options unavailable" />
+          <button
+            className={buttonVariants({ variant: "outline", className: "w-full" })}
+            onClick={() => config.refetch()}
+            type="button"
+          >
+            Retry
+          </button>
+        </div>
       ) : passwordEnabled ? (
         <form className="flex flex-col gap-4" onSubmit={handleSubmit}>
           <div className="flex flex-col gap-1.5">

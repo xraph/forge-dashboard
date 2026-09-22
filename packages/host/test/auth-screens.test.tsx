@@ -55,6 +55,18 @@ describe("default auth screens", () => {
     expect(screen.getByText("Platform")).toBeDefined()
   })
 
+  // This is the screen every visitor meets before anything else in the
+  // product, so it is the busiest sign-in surface there is. A password
+  // manager that cannot recognise the fields makes every visit worse, and no
+  // other assertion here would catch the attributes going missing.
+  it("sign-in carries autocomplete hints a password manager can act on", () => {
+    mount(defaultAuthScreens.signIn)
+    expect(screen.getByLabelText(/email/i).getAttribute("autocomplete")).toBe("username")
+    expect(screen.getByLabelText(/password/i).getAttribute("autocomplete")).toBe(
+      "current-password",
+    )
+  })
+
   it("sign-in links to forgot-password under the basename", () => {
     mount(defaultAuthScreens.signIn)
     expect(
