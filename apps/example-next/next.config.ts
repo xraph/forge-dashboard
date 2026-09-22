@@ -6,6 +6,7 @@ const config: NextConfig = {
   transpilePackages: [
     "@forge-go/dashboard-host",
     "@forge-go/dashboard-kit",
+    "@forge-go/dashboard-next",
     "@forge-go/dashboard-plugin",
     "@forge-go/dashboard-plugin-authsome",
     "@forge-go/dashboard-plugin-core",

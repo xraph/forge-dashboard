@@ -1,6 +1,17 @@
+/**
+ * Environment variable read when no `target` is passed, so the common case is
+ * a route handler with no arguments at all and one variable to set.
+ */
+export const FORGE_TARGET_ENV_VAR = "FORGE_DASHBOARD_URL"
+
 export interface ForgeProxyOptions {
-  /** Base URL of the forge server. Server-side only; never sent to the browser. */
-  target: string
+  /**
+   * Base URL of the forge server. Server-side only; never sent to the browser.
+   *
+   * Defaults to `process.env.FORGE_DASHBOARD_URL`. Passing it explicitly wins,
+   * which is what a host with more than one forge server needs.
+   */
+  target?: string
   /** Headers added to every upstream request, e.g. a service token. */
   headers?: Record<string, string>
   /**
@@ -325,8 +336,20 @@ function handler(
   }
 }
 
-export function createForgeProxy(options: ForgeProxyOptions) {
-  const base = parseTarget(options.target)
+function resolveTarget(target: string | undefined): string {
+  const resolved = target ?? process.env[FORGE_TARGET_ENV_VAR]
+  if (!resolved) {
+    throw new Error(
+      `createForgeProxy: no target. Pass one, or set ${FORGE_TARGET_ENV_VAR} ` +
+        "to the forge server's dashboard mount, e.g. " +
+        "http://localhost:7901/dashboard."
+    )
+  }
+  return resolved
+}
+
+export function createForgeProxy(options: ForgeProxyOptions = {}) {
+  const base = parseTarget(resolveTarget(options.target))
   return {
     GET: handler("GET", base, options),
     POST: handler("POST", base, options),

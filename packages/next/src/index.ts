@@ -1,2 +1,6 @@
-export { createForgeProxy } from "./proxy"
+export { defineForgeDashboard } from "./define"
+export type { ForgeDashboard, ForgeDashboardOptions } from "./define"
+export { ForgeDashboardPage } from "./page"
+export type { ForgeDashboardPageProps } from "./page"
+export { createForgeProxy, FORGE_TARGET_ENV_VAR } from "./proxy"
 export type { ForgeProxyOptions } from "./proxy"

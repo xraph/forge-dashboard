@@ -2,8 +2,12 @@
   "name": "@forge-go/dashboard-next",
   "version": "0.0.0",
   "type": "module",
-  "files": ["src"],
-  "publishConfig": { "access": "public" },
+  "files": [
+    "src"
+  ],
+  "publishConfig": {
+    "access": "public"
+  },
   "scripts": {
     "test": "vitest run",
     "lint": "eslint",
@@ -12,13 +16,32 @@
   },
   "devDependencies": {
     "@eslint/js": "^10",
+    "@forge-go/dashboard-host": "workspace:*",
+    "@forge-go/dashboard-plugin": "workspace:*",
+    "@forge-go/dashboard-runtime": "workspace:*",
+    "@testing-library/react": "^16.3.2",
+    "@types/node": "^24",
+    "@types/react": "^19",
+    "@types/react-dom": "^19",
+    "@vitejs/plugin-react": "^6",
     "eslint": "^10",
     "globals": "^17",
+    "jsdom": "^25.0.1",
+    "next": "^15",
+    "react": "^19.2.6",
+    "react-dom": "^19.2.6",
     "typescript": "~6",
     "typescript-eslint": "^8",
     "vitest": "^5.0.0"
   },
   "exports": {
     ".": "./src/index.ts"
+  },
+  "peerDependencies": {
+    "@forge-go/dashboard-host": "^0.1.0",
+    "@forge-go/dashboard-plugin": "^0.1.0",
+    "@forge-go/dashboard-runtime": "^0.1.0",
+    "next": ">=15",
+    "react": "^19.2.0"
   }
 }

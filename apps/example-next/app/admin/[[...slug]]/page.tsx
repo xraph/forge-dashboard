@@ -1,38 +1,13 @@
 "use client"
 
-import dynamic from "next/dynamic"
-import corePlugin from "@forge-go/dashboard-plugin-core"
-import authsomePlugin, {
-  authsomeSubPlugins,
-} from "@forge-go/dashboard-plugin-authsome"
-import streamingPlugin from "@forge-go/dashboard-plugin-streaming"
+import { ForgeDashboardPage } from "@forge-go/dashboard-next"
+import { forge } from "../../../forge.config"
 
-// ForgeDashboard composes a BrowserRouter and base-ui portal components that
-// touch `document` during render, not just in effects. The App Router still
-// server-renders "use client" pages on first load, which crashes ("document
-// is not defined") for anything that assumes a real DOM outside an effect.
-// Loading it through next/dynamic with ssr:false skips that server pass and
-// mounts it purely on the client, which is what a browser-only SPA needs.
-const ForgeDashboard = dynamic(
-  () => import("@forge-go/dashboard-host").then((mod) => mod.ForgeDashboard),
-  { ssr: false },
-)
-
-const plugins = [corePlugin, streamingPlugin, authsomePlugin]
-// The authsome sub-plugins, gated on their own Go contributors appearing in
-// the capabilities response. The shell app passes these too; an embedder that
-// forgets them compiles all twenty-four into its bundle and renders none of
-// them, with nothing failing anywhere to say so.
-const subPlugins = authsomeSubPlugins
-const config = { basePath: "/admin", contractBase: "/api/forge/api/dashboard/v1" }
-
+/*
+ * A client component, and it has to be. `forge` carries the plugins, and a
+ * plugin is React components, which cannot cross a server-to-client prop
+ * boundary.
+ */
 export default function Page() {
-  return (
-    <ForgeDashboard
-      basename="/admin"
-      config={config}
-      plugins={plugins}
-      subPlugins={subPlugins}
-    />
-  )
+  return <ForgeDashboardPage forge={forge} />
 }
