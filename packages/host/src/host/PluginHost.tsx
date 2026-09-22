@@ -583,8 +583,24 @@ export function PluginHost({
         </Link>
       ),
       navigate: (to: string) => navigate(to),
+      // Turns a page's scope-relative path into a real one. The page writes
+      // "/users/u1"; only this layer knows which scope is mounted, which app
+      // the URL currently names, and what search to carry along.
+      //
+      // Reads the scope off the PATHNAME rather than off route params for the
+      // same reason `segmentFromPath` does: this runs above any matched Route
+      // and has no params to read. A path that belongs to no mounted scope
+      // resolves to itself, which is the honest answer.
+      resolve: (to: string) => {
+        const scope = resolved.find((s) =>
+          pathname.startsWith(`/${SCOPE_SIGIL}${namespaceOf(s.plugin)}`),
+        )
+        if (!scope) return to
+        const segment = segmentFromPath(pathname, namespaceOf(scope.plugin))
+        return `${mountPath(scope.plugin, to, segment)}${search}`
+      },
     }),
-    [navigate],
+    [navigate, resolved, pathname, search],
   )
 
   const { root, scopes } = partitionScopes(resolved)

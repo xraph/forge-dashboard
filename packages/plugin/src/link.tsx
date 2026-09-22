@@ -19,6 +19,29 @@ export interface PluginLinkProps {
 export interface Navigation {
   Link: ComponentType<PluginLinkProps>
   navigate: (to: string) => void
+  /**
+   * Turns a scope-relative path into a real one.
+   *
+   * A page writes `/users/u1` and the host decides that means
+   * `/@auth/acme/users/u1?env=prod`, because only the host knows which scope
+   * is mounted, which app the URL names and what the current search is.
+   *
+   * Optional so a host predating routed context still satisfies this
+   * interface; `PluginLink` falls back to using the path as written.
+   */
+  resolve?: (to: string) => string
+}
+
+/**
+ * Whether a path is already fully addressed.
+ *
+ * A path starting with the scope sigil names its scope outright, so it is
+ * left alone: that is how a page links ACROSS scopes, which is rare and has
+ * to stay possible. Everything else is read as scope-relative, which is what
+ * a page should be writing, because a page cannot know its own mount point.
+ */
+function isAbsolute(to: string): boolean {
+  return to.startsWith("/@") || /^[a-z]+:/i.test(to)
 }
 
 const NavigationContext = createContext<Navigation | null>(null)
@@ -40,6 +63,13 @@ export function NavigationProvider({
 /**
  * A link to somewhere else in the dashboard.
  *
+ * `to` is SCOPE-RELATIVE: write `/users/u1`, not `/@auth/users/u1`. A page
+ * cannot know its own mount point, and once an app slug sits in the path a
+ * hardcoded `/@auth/...` is wrong in the worst way available: it resolves,
+ * it renders, and it is about a different app than the one you were reading.
+ * A path that starts with the sigil is taken as already addressed and passed
+ * through, which is how a page links across scopes.
+ *
  * Falls back to a plain anchor when no host has provided a router, which is
  * what happens in a unit test and in any standalone render. The fallback is
  * deliberate rather than a stub: the href is correct, the element is a real
@@ -54,16 +84,18 @@ export function NavigationProvider({
  */
 export function PluginLink({ to, children, className, ...rest }: PluginLinkProps) {
   const nav = useContext(NavigationContext)
+  const href = nav?.resolve && !isAbsolute(to) ? nav.resolve(to) : to
+
   if (nav) {
     const Link = nav.Link
     return (
-      <Link to={to} className={className} {...rest}>
+      <Link to={href} className={className} {...rest}>
         {children}
       </Link>
     )
   }
   return (
-    <a href={to} className={className} {...rest}>
+    <a href={href} className={className} {...rest}>
       {children}
     </a>
   )
@@ -81,7 +113,10 @@ export function PluginLink({ to, children, className, ...rest }: PluginLinkProps
  */
 export function useNavigateTo(): (to: string) => void {
   const nav = useContext(NavigationContext)
-  if (nav) return nav.navigate
+  if (nav) {
+    const { navigate, resolve } = nav
+    return (to: string) => navigate(resolve && !isAbsolute(to) ? resolve(to) : to)
+  }
   return (to: string) => {
     window.location.href = to
   }
