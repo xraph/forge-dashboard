@@ -96,18 +96,20 @@ auth: {
 },
 ```
 
-That's the whole contract. The plugin ships no `SignIn` component, no form, no
-pixel of its own. It names the Go intents that carry out sign-in, and the host
-is the one that calls them. A plugin never provides auth UI, full stop.
+That's the whole contract you write. Ship no `SignIn` component, no form, not
+a pixel of your own: name the Go intents that carry out sign-in, and let the
+host call them. A plugin never provides auth UI, full stop.
 
 The host owns `/login`, `/forgot-password`, `/reset-password`, `/signup` and
-`/setup`. Which of those actually exist depends on which intents the provider
-declared. Leave `signUp` off the intents object and there is no `/signup`
-route, and no link anywhere that points at one. An undeclared capability
-produces silence, not a broken page.
+`/setup`, not the plugin and not you, and which of them actually appear
+depends entirely on which intents the provider declared, since an undeclared
+capability produces silence, not a broken page. Leave `signUp` off the intents
+object. You get no `/signup` route. No link anywhere in the dashboard points
+at one either.
 
-A host application, and only a host application, can swap in its own screens,
-through `authScreens` on `defineForgeDashboard`:
+Want your own sign-in page? As the host application, and only as the host
+application, you can have one, wired in through `authScreens` on
+`defineForgeDashboard`:
 
 ```ts
 export const forge = defineForgeDashboard({
@@ -121,18 +123,17 @@ export const forge = defineForgeDashboard({
 })
 ```
 
-Name three slots and the other two fall back to the built-in defaults, each
-one independently. The distinction underneath this option is the whole point
-of the rule above. An application choosing what its own sign-in page looks
-like is ordinary product work. A plugin forcing one on every dashboard that
-installs it is exactly what "plugins declare intents, never UI" exists to
-stop.
+Name three slots and the other two stay the built-in defaults, each one
+independently, so you end up with exactly the mix you wanted. Notice whose
+call this is. Picking what a sign-in page looks like is ordinary product work
+when it's your own app; a plugin forcing one on every dashboard that installs
+it is exactly what "plugins declare intents, never UI" exists to stop.
 
-Password reset is why the host has to own the routing at all. A reset link
-arrives by email and gets opened on a browser that has never held a session,
-so it lands cold on `/reset-password?token=...` with nobody signed in and
-nothing to ask. A gate component that swaps out the whole shell has no page to
-put that on. A route does.
+Password reset is why the host has to own the routing at all, because a reset
+link arrives by email and gets opened on a browser that has never held a
+session, landing cold on `/reset-password?token=...` with nobody signed in and
+nothing to ask you. A gate component that swaps out the whole shell has no
+page to put that on. A route does.
 
 ## Bundle budget
 
