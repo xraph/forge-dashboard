@@ -54,3 +54,39 @@ export function resolveAuthProvider(plugins: ForgePlugin[]): ForgePlugin | undef
   }
   return declaring[0]
 }
+
+/** One OAuth button the deployment has configured, from the `config` intent. */
+export interface SocialProvider {
+  id: string
+  label: string
+  authStartURL: string
+}
+
+/**
+ * What the `config` intent answers: the shape of the sign-in form this
+ * particular deployment supports.
+ *
+ * `passwordEnabled` is the one required field because a config that does not
+ * answer it has told us nothing, and the safe reading of nothing is "render no
+ * password form" and not "guess".
+ */
+export interface AuthConfig {
+  passwordEnabled: boolean
+  brand?: string
+  signupURL?: string
+  signupLabel?: string
+  termsURL?: string
+  privacyURL?: string
+  socialProviders?: SocialProvider[]
+}
+
+/** What the `signIn` intent answers. `subject` identifies whoever signed in. */
+export interface LoginResult {
+  ok: boolean
+  subject?: string
+}
+
+/** What the `signOut` intent answers. */
+export interface LogoutResult {
+  ok: boolean
+}
