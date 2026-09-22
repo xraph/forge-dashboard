@@ -103,3 +103,29 @@ which this verification pass didn't attempt. The CSS bundle grew far more
 sharply in the same window (107.67 KB to 246.98 KB) from the sibling kit
 plan's large batch of new UI primitives feeding Tailwind's source scan; that
 is the kit plan's footprint, not this one, and outside the JS figures above.
+
+## The whole dashboard (2026-09-22)
+
+Every number above is `apps/playground`, which mounts one demo plugin. That
+was the right thing to measure while the playground was the only app, and it
+stopped being the right thing once `apps/shell` existed: the shell is what
+the Go handler serves, and it compiles in core, streaming and authsome plus
+the twenty-four authsome sub-plugins.
+
+| app | raw | gzip |
+|---|---|---|
+| `apps/playground` js (one demo plugin) | 474.20 KB | 153.16 KB |
+| `apps/shell` js (three plugins, twenty-four sub-plugins) | 632.69 KB | 187.64 KB |
+| `apps/shell` css | 241.15 KB | 35.61 KB |
+
+Two things worth knowing about those figures.
+
+Wiring `subPlugins` into the shell moved the JS by 0.07 KB, from 632.62 to
+632.69. The twenty-four sub-plugins were already in the bundle before
+anything mounted them, because `src/index.tsx` imports `./sub` to re-export
+`authsomeSubPlugins`. They were costing their full size and rendering nothing.
+
+One chunk, no splitting. Vite says so on every build, and nothing here is
+lazy: `ConfirmDialog` and `SettingsForm` pull Base UI into the entry, and
+every plugin page is a static import. Route-level `lazy()` on the detail
+pages is the obvious next move and it is not this work's to make.

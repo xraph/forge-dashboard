@@ -1,7 +1,9 @@
 import { ForgeDashboard } from "@forge-go/dashboard-host"
 import { configFromWindow } from "@forge-go/dashboard-runtime"
 import corePlugin from "@forge-go/dashboard-plugin-core"
-import authsomePlugin from "@forge-go/dashboard-plugin-authsome"
+import authsomePlugin, {
+  authsomeSubPlugins,
+} from "@forge-go/dashboard-plugin-authsome"
 import streamingPlugin from "@forge-go/dashboard-plugin-streaming"
 
 // The Go handler injects window.__FORGE_DASHBOARD__ before this bundle loads,
@@ -18,12 +20,21 @@ const config = { basePath: injected.basePath ?? "/dashboard", ...injected }
 // their own namespaces. Array order is the cross-plugin nav order.
 const plugins = [corePlugin, streamingPlugin, authsomePlugin]
 
+// The twenty-four authsome sub-plugins: six carrying data of their own, and
+// eighteen that are a nav entry and a settings panel. Each one appears only
+// when the capabilities response names its own Go contributor, so a
+// deployment without the waitlist plugin has no Waitlist page and that is
+// correct rather than broken. Passing them here is the whole of the wiring;
+// everything else about them is declared in the sub-plugins themselves.
+const subPlugins = authsomeSubPlugins
+
 export function App() {
   return (
     <ForgeDashboard
       config={config}
       basename={injected.shellBase}
       plugins={plugins}
+      subPlugins={subPlugins}
     />
   )
 }

@@ -294,3 +294,51 @@ describe("App at a non-default mount", () => {
     ).toBeTruthy()
   })
 })
+
+describe("the authsome sub-plugins the shell mounts", () => {
+  /**
+   * The shell passes all twenty-four to `ForgeDashboard`. None of them is
+   * meant to appear unless the capabilities response names its own Go
+   * contributor, and that gating is the entire reason the set can be compiled
+   * in unconditionally. So both halves are asserted: absent stays absent, and
+   * present actually mounts.
+   *
+   * Without the second half, a shell that forgot to pass `subPlugins` at all
+   * would pass every other test in this file, because "renders nothing" is
+   * exactly what a correctly gated sub-plugin does.
+   */
+  it("renders none of them when no sub-plugin contributor is reported", async () => {
+    const fetchImpl = serverFetch([
+      { name: "core-contract", envelopes: ["v1"], configured: true },
+      { name: "auth", envelopes: ["v1"], configured: true },
+    ])
+    vi.stubGlobal("fetch", fetchImpl)
+    const { container } = render(<App />)
+    await waitFor(() => expect(screen.getAllByRole("link").length).toBeGreaterThan(0))
+
+    expect(within(container).queryByRole("link", { name: "Waitlist" })).toBeNull()
+    expect(within(container).queryByRole("link", { name: "Organizations" })).toBeNull()
+    expect(within(container).queryByRole("link", { name: "Multi-Factor Auth" })).toBeNull()
+  })
+
+  it("mounts one as soon as its own contributor is reported", async () => {
+    const fetchImpl = serverFetch([
+      { name: "core-contract", envelopes: ["v1"], configured: true },
+      { name: "auth", envelopes: ["v1"], configured: true },
+      { name: "waitlist", envelopes: ["v1"], configured: true },
+      { name: "mfa", envelopes: ["v1"], configured: true },
+    ])
+    vi.stubGlobal("fetch", fetchImpl)
+    const { container } = render(<App />)
+
+    // A data sub-plugin and a settings-only one, because they reach the
+    // sidebar by different routes: one declares its own intents, the other
+    // declares none and reads settings through its host.
+    await waitFor(() =>
+      expect(within(container).getByRole("link", { name: "Waitlist" })).toBeTruthy()
+    )
+    expect(within(container).getByRole("link", { name: "Multi-Factor Auth" })).toBeTruthy()
+    // Still gated: organization was not reported, so it is still absent.
+    expect(within(container).queryByRole("link", { name: "Organizations" })).toBeNull()
+  })
+})
