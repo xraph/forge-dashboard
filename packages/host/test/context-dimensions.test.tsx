@@ -1,8 +1,18 @@
+import type { ReactElement } from "react"
 import { describe, expect, it, vi } from "vitest"
 import { fireEvent, render, screen, waitFor } from "@testing-library/react"
+import { MemoryRouter } from "react-router"
 import { PluginProvider, queryStore } from "@forge-go/dashboard-plugin"
 import type { ContextDimension, ScopedClient } from "@forge-go/dashboard-plugin"
 import { ContextSwitchers } from "../src/host/ContextSwitchers"
+
+// ContextSwitchers now reads useNavigate/useLocation unconditionally -- a
+// routed dimension needs them to navigate instead of switching directly, and
+// a cookie-only one (every dimension in this file) just never uses them. A
+// bare MemoryRouter is enough; none of these tests touch the URL.
+function renderSwitchers(children: ReactElement) {
+  return render(<MemoryRouter>{children}</MemoryRouter>)
+}
 
 interface AppsContext {
   currentApp?: { id: string; name: string }
@@ -41,7 +51,7 @@ function client(command = vi.fn().mockResolvedValue({ ok: true })): ScopedClient
 describe("ContextSwitchers", () => {
   it("renders nothing for a plugin that declares no dimensions", () => {
     queryStore.clear()
-    const { container } = render(
+    const { container } = renderSwitchers(
       <PluginProvider client={client()}>
         <ContextSwitchers dimensions={[]} />
       </PluginProvider>,
@@ -51,7 +61,7 @@ describe("ContextSwitchers", () => {
 
   it("renders one labelled select per dimension, showing the current value", async () => {
     queryStore.clear()
-    render(
+    renderSwitchers(
       <PluginProvider client={client()}>
         <ContextSwitchers dimensions={[appDimension]} />
       </PluginProvider>,
@@ -68,7 +78,7 @@ describe("ContextSwitchers", () => {
     await waitFor(() => expect(queryStore.snapshot(stale).data).toBeTruthy())
 
     const command = vi.fn().mockResolvedValue({ ok: true })
-    render(
+    renderSwitchers(
       <PluginProvider client={client(command)}>
         <ContextSwitchers dimensions={[appDimension]} />
       </PluginProvider>,
@@ -106,7 +116,7 @@ describe("ContextSwitchers", () => {
       payload: (envId) => ({ envId }),
     }
 
-    render(
+    renderSwitchers(
       <PluginProvider client={{ extension: "auth", query, command: vi.fn() }}>
         <ContextSwitchers dimensions={[appDimension, envDimension]} />
       </PluginProvider>,
@@ -129,7 +139,7 @@ describe("ContextSwitchers", () => {
     // execute resolves with undefined on failure and never rejects, which is
     // the signal the component gates on.
     const command = vi.fn().mockRejectedValue(new Error("nope"))
-    render(
+    renderSwitchers(
       <PluginProvider client={client(command)}>
         <ContextSwitchers dimensions={[appDimension]} />
       </PluginProvider>,

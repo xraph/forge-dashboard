@@ -1,15 +1,36 @@
 import { useId } from "react"
-import { useCommand, useQuery, queryStore } from "@forge-go/dashboard-plugin"
-import type { ContextDimension } from "@forge-go/dashboard-plugin"
+import { useLocation, useNavigate } from "react-router"
+import { useCommand, useQuery, queryStore, mountPath, urlValueOf } from "@forge-go/dashboard-plugin"
+import type { ContextDimension, ForgePlugin } from "@forge-go/dashboard-plugin"
 import {
   NativeSelect,
   NativeSelectOption,
 } from "@forge-go/dashboard-kit/components/native-select"
 
-function Dimension({ dimension }: { dimension: ContextDimension }) {
+/**
+ * Where a routed dimension's own picker send you when you switch apps from
+ * the dropdown rather than by following a link: the target app's first nav
+ * item, the same destination `selectScope` in PluginHost lands you on when
+ * switching scope. A small local copy rather than an import from PluginHost,
+ * because that file already imports this one -- a cycle neither module needs
+ * for three lines of sorting.
+ */
+function firstNavItem(plugin: ForgePlugin) {
+  return [...plugin.nav].sort((a, b) => (a.priority ?? 0) - (b.priority ?? 0))[0]
+}
+
+function Dimension({
+  dimension,
+  plugin,
+}: {
+  dimension: ContextDimension
+  plugin?: ForgePlugin
+}) {
   const id = useId()
   const read = useQuery(dimension.query)
   const switchTo = useCommand(dimension.switchCommand)
+  const navigate = useNavigate()
+  const { pathname, search } = useLocation()
 
   // Nothing to switch between until the read lands. Rendering an empty select
   // in the meantime would let somebody pick "nothing" out of it.
@@ -19,6 +40,28 @@ function Dimension({ dimension }: { dimension: ContextDimension }) {
   if (options.length === 0) return null
 
   async function select(optionId: string) {
+    const routed = dimension.routed
+    if (routed && plugin) {
+      // A routed dimension stops sending the command from here. It
+      // navigates, and the reconciliation mounted on the routed pages does
+      // the rest -- one path in, so the URL and the server's cookie can
+      // never disagree about who decided.
+      const option = options.find((o) => o.id === optionId)
+      if (!option) return
+      const value = urlValueOf(dimension, option)
+
+      if (routed.placement === "path") {
+        const first = firstNavItem(plugin)
+        navigate(mountPath(plugin, first ? first.to : "/", value))
+        return
+      }
+
+      const next = new URLSearchParams(search)
+      next.set(routed.param, value)
+      navigate(`${pathname}?${next.toString()}`)
+      return
+    }
+
     const result = await switchTo.execute(dimension.payload(optionId))
     if (result === undefined) return
 
@@ -66,15 +109,23 @@ function Dimension({ dimension }: { dimension: ContextDimension }) {
  */
 export function ContextSwitchers({
   dimensions,
+  plugin,
 }: {
   dimensions: ContextDimension[]
+  /**
+   * The plugin these dimensions belong to. Optional because a cookie-only
+   * dimension (no `routed`) never needs it; a routed one does, to build the
+   * app-switch destination. Every real caller has a plugin to hand; tests
+   * exercising cookie-only dimensions do not need to invent one.
+   */
+  plugin?: ForgePlugin
 }) {
   if (dimensions.length === 0) return null
 
   return (
     <div className="flex flex-col gap-2 px-2 py-1">
       {dimensions.map((dimension) => (
-        <Dimension key={dimension.id} dimension={dimension} />
+        <Dimension key={dimension.id} dimension={dimension} plugin={plugin} />
       ))}
     </div>
   )

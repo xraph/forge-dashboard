@@ -31,6 +31,8 @@ import {
   resolveActiveScope,
   resolveAuthProvider,
   resolvePluginState,
+  routedPathDimension,
+  SCOPE_SIGIL,
   SetupPanel,
   SubPluginProvider,
 } from "@forge-go/dashboard-plugin"
@@ -48,6 +50,7 @@ import type {
 } from "@forge-go/dashboard-plugin"
 import { AppSidebar } from "@forge-go/dashboard-kit/components/app-sidebar"
 import { ContextSwitchers } from "./ContextSwitchers"
+import { RoutedPage, RoutedPicker, routeSegmentPattern } from "./RoutedScope"
 import { AuthRoutes, SignedInRedirect } from "../auth/AuthRoutes"
 import { isAuthPath } from "../auth/routes"
 import type { AuthScreens } from "../auth/routes"
@@ -150,14 +153,18 @@ function sortByPriority<T extends { priority?: number }>(items: T[]): T[] {
 // of its own. That is the whole point of mounting inside: "/organizations" on
 // a sub-plugin of "auth" serves at "/@auth/organizations", so `mountPath` is
 // called with the host plugin in both cases.
-function toNodes(plugin: ForgePlugin, items: PluginNavItem[]): NavNode[] {
+//
+// `segment` is the CURRENT app, read off the URL by the caller -- never the
+// ":app" pattern the route table itself is mounted with. A link has to name
+// a real app to be followable at all.
+function toNodes(plugin: ForgePlugin, items: PluginNavItem[], segment?: string): NavNode[] {
   return items.map((item) => ({
     label: item.label,
-    href: mountPath(plugin, item.to),
+    href: mountPath(plugin, item.to, segment),
     icon: item.icon,
     children: item.children?.map((child) => ({
       label: child.label,
-      href: mountPath(plugin, child.to),
+      href: mountPath(plugin, child.to, segment),
       icon: child.icon,
     })),
   }))
@@ -184,7 +191,8 @@ const UNGROUPED = Symbol("ungrouped")
  */
 export function navGroups(
   plugin: ForgePlugin,
-  subPlugins: ForgeSubPlugin[]
+  subPlugins: ForgeSubPlugin[],
+  segment?: string,
 ): NavGroup[] {
   const buckets = new Map<
     string | typeof UNGROUPED,
@@ -217,7 +225,7 @@ export function navGroups(
   return ordered.map(([key, bucket]) => ({
     label: key === UNGROUPED ? undefined : key,
     contributed: bucket.contributed || undefined,
-    items: toNodes(plugin, sortByPriority(bucket.items)),
+    items: toNodes(plugin, sortByPriority(bucket.items), segment),
   }))
 }
 
@@ -231,9 +239,15 @@ export function navGroups(
 // decided purely by extension name (ascending), so the outcome never depends
 // on the order somebody happened to write the imports. (ForgeSubPlugin has no
 // priority field, so there is no "lower priority wins" step before that.)
+// `segment` must be the SAME representation the caller used to build the
+// actual mounted <Route path> values -- the ":app" pattern for the route
+// table, never a real app slug -- or this compares paths that were never
+// going to collide at runtime against paths that were, and calls it a match
+// or a miss for the wrong reason.
 function dropCollidingRoutes(
   hostPlugin: ForgePlugin,
-  subs: { subPlugin: ForgeSubPlugin; state: PluginState }[]
+  subs: { subPlugin: ForgeSubPlugin; state: PluginState }[],
+  segment?: string
 ): {
   subPlugin: ForgeSubPlugin
   state: PluginState
@@ -247,7 +261,7 @@ function dropCollidingRoutes(
   droppedPaths: Set<string>
 }[] {
   const claimed = new Set(
-    hostPlugin.routes.map((r) => mountPath(hostPlugin, r.path))
+    hostPlugin.routes.map((r) => mountPath(hostPlugin, r.path, segment))
   )
   const ordered = [...subs].sort((a, b) =>
     a.subPlugin.extension < b.subPlugin.extension ? -1 : 1
@@ -257,7 +271,7 @@ function dropCollidingRoutes(
     const kept: PluginRoute[] = []
     const droppedPaths = new Set<string>()
     for (const route of entry.subPlugin.routes) {
-      const path = mountPath(hostPlugin, route.path)
+      const path = mountPath(hostPlugin, route.path, segment)
       if (claimed.has(path)) {
         console.warn(
           `[forge-dashboard] "${entry.subPlugin.extension}" claims "${path}", which is already mounted. That page will not be reachable. Two installed extensions disagree about this path; one of them has to change it.`
@@ -270,6 +284,34 @@ function dropCollidingRoutes(
     }
     return { ...entry, routes: kept, droppedPaths }
   })
+}
+
+// Where "/" inside a plugin's own scope actually is: its first nav item (or
+// first route, nav being optional), or -- for a plugin with a `path`-routed
+// dimension -- the namespace root itself, because nothing at the site root
+// can know which app to land on. That root is RoutedPicker's own path, and
+// it redirects further once the server names a current app, or shows the
+// dimension's picker when it does not.
+function homePathFor(plugin: ForgePlugin): string {
+  if (routedPathDimension(plugin)) return mountPath(plugin, "/", undefined)
+  return mountPath(
+    plugin,
+    sortByPriority(plugin.nav)[0]?.to ?? plugin.routes[0]?.path ?? "/"
+  )
+}
+
+/**
+ * The real app segment a URL names, read directly off the pathname -- never
+ * off react-router params, because the caller that needs this (building nav
+ * hrefs) renders one level above any matched Route and has no params of its
+ * own to read. `undefined` covers both "no segment at all" (the namespace
+ * root, or a shorter path) and "this pathname belongs to a different scope
+ * entirely," which is exactly the set of cases that should produce no nav.
+ */
+function segmentFromPath(pathname: string, namespace: string): string | undefined {
+  const prefix = `/${SCOPE_SIGIL}${namespace}/`
+  if (!pathname.startsWith(prefix)) return undefined
+  return pathname.slice(prefix.length).split("/")[0] || undefined
 }
 
 // Module scope, not a default `= []` in PluginHostProps's destructure. A
@@ -289,9 +331,28 @@ const NO_SUB_PLUGINS: ForgeSubPlugin[] = []
  * calls it here, one level above the page, and the page stays a plain
  * component.
  */
-function RouteParams({ page: Page }: { page: ComponentType<PluginPageProps> }) {
+function RouteParams({
+  page: Page,
+  stripParam,
+}: {
+  page: ComponentType<PluginPageProps>
+  /**
+   * A route param name to hide from the page, never the page's own. Set to
+   * a routed dimension's param ("app", say) when the route it belongs to was
+   * mounted under one, so react-router's own ":app" ends up in `useParams()`
+   * without a plugin page ever seeing it. A page declares "/users" and the
+   * host decides where that mounts; a page reading `params.app` would be the
+   * host deciding not to keep that promise.
+   */
+  stripParam?: string
+}) {
   const params = useParams()
-  return <Page params={params} />
+  const visible = stripParam
+    ? Object.fromEntries(
+        Object.entries(params).filter(([key]) => key !== stripParam)
+      )
+    : params
+  return <Page params={visible} />
 }
 
 export function PluginHost({
@@ -551,12 +612,18 @@ export function PluginHost({
   // path this sub-plugin never declared a route for is untouched; only paths
   // actually lost to a collision are filtered.
   function readySubPluginsFor(hostPlugin: ForgePlugin): ForgeSubPlugin[] {
-    return dropCollidingRoutes(hostPlugin, subsMountedIn(hostPlugin.extension))
+    // The ":app" pattern, not the real segment: this decision is structural
+    // (which sub-plugin's route lost to which) and has to use the same
+    // representation dropCollidingRoutes mounted its claims with, or a real
+    // collision goes undetected because the two sides never compare equal.
+    const dimension = routedPathDimension(hostPlugin)
+    const pattern = dimension ? routeSegmentPattern(dimension) : undefined
+    return dropCollidingRoutes(hostPlugin, subsMountedIn(hostPlugin.extension), pattern)
       .filter((entry) => entry.state.kind === "ready")
       .map((entry) => ({
         ...entry.subPlugin,
         nav: entry.subPlugin.nav.filter(
-          (item) => !entry.droppedPaths.has(mountPath(hostPlugin, item.to))
+          (item) => !entry.droppedPaths.has(mountPath(hostPlugin, item.to, pattern))
         ),
       }))
   }
@@ -611,9 +678,25 @@ export function PluginHost({
   // a screen reader (and a test) would find twice. That changes the day
   // sub-plugin groups arrive and there is more than one group to tell apart.
   const navOwner = activeScope ?? root
+
+  // The real value, read off the current URL -- never the ":app" pattern the
+  // route table itself is mounted with. `undefined` when `navOwner` has no
+  // routed dimension at all, which is what keeps every plugin without one
+  // (core, streaming) producing exactly the nav it always has.
+  const ownerDimension = navOwner ? routedPathDimension(navOwner.plugin) : undefined
+  const ownerSegment =
+    ownerDimension && navOwner
+      ? segmentFromPath(pathname, navOwner.namespace)
+      : undefined
+
   const groups: NavGroup[] =
     navOwner && navOwner.state.kind === "ready"
-      ? navGroups(navOwner.plugin, readySubPluginsFor(navOwner.plugin))
+      ? // Rule: no segment means no nav items for that scope. Thirty-seven
+        // links that would each answer about an app nobody picked is worse
+        // than none; the picker is what the content area shows instead.
+        ownerDimension && !ownerSegment
+        ? []
+        : navGroups(navOwner.plugin, readySubPluginsFor(navOwner.plugin), ownerSegment)
       : []
 
   // The header's title names the current page, not the product: the label of
@@ -646,8 +729,13 @@ export function PluginHost({
   const selectScope = (id: string) => {
     const target = scopes.find((scope) => scope.id === id)
     if (!target) return
-    const first = sortByPriority(target.plugin.nav)[0]
-    navigate(`${mountPath(target.plugin, first ? first.to : "/")}${search}`)
+    // homePathFor, not a bare first-nav-item mountPath: a target scope with
+    // a `path`-routed dimension has no route mounted at its unscoped first
+    // item at all (every real page lives under a segment), so landing there
+    // literally would be a dead route. homePathFor already knows to send
+    // that case to the namespace root instead, where RoutedPicker resolves
+    // it the rest of the way.
+    navigate(`${homePathFor(target.plugin)}${search}`)
   }
 
   // Sign-out is the provider's command, sent through the provider's own
@@ -685,7 +773,7 @@ export function PluginHost({
       panelSource && panelSource.state.kind === "ready" ? (
         <PluginErrorBoundary key={panelSource.id} plugin={panelSource.id}>
           <PluginProvider client={clients.get(panelSource.plugin.extension)!}>
-            <ContextSwitchers dimensions={panelSource.plugin.context} />
+            <ContextSwitchers dimensions={panelSource.plugin.context} plugin={panelSource.plugin} />
           </PluginProvider>
         </PluginErrorBoundary>
       ) : undefined,
@@ -837,12 +925,7 @@ export function PluginHost({
   // path that matches nothing.
   const landing = ready[0]
   const home = landing
-    ? mountPath(
-        landing.plugin,
-        sortByPriority(landing.plugin.nav)[0]?.to ??
-          landing.plugin.routes[0]?.path ??
-          "/"
-      )
+    ? homePathFor(landing.plugin)
     : // Nothing is ready. Falling back to undefined here is what used to
       // leave "/" stranded: no sigil, so resolveActiveScope reads it as "at
       // the root," panelSource has neither an activeScope nor a root to be,
@@ -852,6 +935,10 @@ export function PluginHost({
       // still has a namespace, so land there instead: resolveActiveScope
       // resolves "/@<namespace>" straight back to that scope, and its own
       // setup/mismatch panel renders exactly as it would from a real visit.
+      // homePathFor(scope.plugin) would work here too (it collapses to the
+      // same mountPath(..., "/") for a plugin with no routed dimension) but
+      // a not-ready scope's own dimension has nothing to answer with yet
+      // anyway, so the bare namespace root is written out directly.
       scopes[0]
       ? mountPath(scopes[0].plugin, "/")
       : undefined
@@ -905,13 +992,21 @@ export function PluginHost({
           }
         >
           <Routes>
-            {ready.flatMap(({ plugin }) =>
-              plugin.routes.map((route) => {
+            {ready.flatMap(({ plugin }) => {
+              // Static for the life of this plugin -- never the real app
+              // currently open. ":app" is what lets ONE mounted <Route>
+              // answer for every app slug; RoutedPage below is what decides,
+              // per request, whether the segment react-router actually
+              // matched names anything real.
+              const dimension = routedPathDimension(plugin)
+              const pattern = dimension ? routeSegmentPattern(dimension) : undefined
+
+              const pageRoutes = plugin.routes.map((route) => {
                 const Page = route.element
                 return (
                   <Route
                     key={`${plugin.extension}:${route.path}`}
-                    path={mountPath(plugin, route.path)}
+                    path={mountPath(plugin, route.path, pattern)}
                     element={
                       // The unit this isolates is one plugin: a third-party
                       // bundle throwing during render must take down its own
@@ -947,18 +1042,54 @@ export function PluginHost({
                         plugin={plugin.extension}
                       >
                         <PluginProvider client={clients.get(plugin.extension)!}>
-                          <RouteParams page={Page} />
+                          {dimension ? (
+                            <RoutedPage plugin={plugin} dimension={dimension}>
+                              <RouteParams page={Page} stripParam={dimension.routed!.param} />
+                            </RoutedPage>
+                          ) : (
+                            <RouteParams page={Page} />
+                          )}
                         </PluginProvider>
                       </PluginErrorBoundary>
                     }
                   />
                 )
               })
-            )}
-            {ready.flatMap(({ plugin }) =>
-              dropCollidingRoutes(
+
+              if (!dimension) return pageRoutes
+
+              // The picker's own route. "/@auth" exactly -- mountPath's "/"
+              // handling already collapses that, never "/@auth/" -- so a
+              // static parent and the ":app" pattern above never contend for
+              // the same location: one is one path segment, the other two,
+              // and react-router can only match a location to a pattern with
+              // the same segment count.
+              return [
+                ...pageRoutes,
+                <Route
+                  key={`${plugin.extension}:picker`}
+                  path={mountPath(plugin, "/", undefined)}
+                  element={
+                    <PluginErrorBoundary
+                      key={`${plugin.extension}:picker:${pathname}`}
+                      plugin={plugin.extension}
+                    >
+                      <PluginProvider client={clients.get(plugin.extension)!}>
+                        <RoutedPicker plugin={plugin} dimension={dimension} />
+                      </PluginProvider>
+                    </PluginErrorBoundary>
+                  }
+                />,
+              ]
+            })}
+            {ready.flatMap(({ plugin }) => {
+              const dimension = routedPathDimension(plugin)
+              const pattern = dimension ? routeSegmentPattern(dimension) : undefined
+
+              return dropCollidingRoutes(
                 plugin,
-                subsMountedIn(plugin.extension)
+                subsMountedIn(plugin.extension),
+                pattern
               ).flatMap((entry) =>
                 entry.routes.map((route) => {
                   // Not ready but not hidden: its route still mounts, so
@@ -969,7 +1100,7 @@ export function PluginHost({
                   // RouteParams, which exists only for a route's own page.
                   const page =
                     entry.state.kind === "ready" ? (
-                      <RouteParams page={route.element} />
+                      <RouteParams page={route.element} stripParam={dimension?.routed?.param} />
                     ) : (
                       (() => {
                         const Setup = entry.subPlugin.setup ?? SetupPanel
@@ -986,10 +1117,23 @@ export function PluginHost({
                     )
                   const client = clients.get(entry.subPlugin.extension)
                   const hostClient = clients.get(plugin.extension)
+                  const inner = (
+                    <PluginProvider client={client!}>
+                      <HostAccessProvider
+                        value={{
+                          client: hostClient!,
+                          allowed: entry.subPlugin.hostIntents,
+                          subExtension: entry.subPlugin.extension,
+                        }}
+                      >
+                        {page}
+                      </HostAccessProvider>
+                    </PluginProvider>
+                  )
                   return (
                     <Route
                       key={`${entry.subPlugin.extension}:${route.path}`}
-                      path={mountPath(plugin, route.path)}
+                      path={mountPath(plugin, route.path, pattern)}
                       element={
                         // Same reasoning as the host route boundary above:
                         // keyed on the resolved pathname, not a constant, so
@@ -1000,24 +1144,27 @@ export function PluginHost({
                           key={`${entry.subPlugin.extension}:${pathname}`}
                           plugin={entry.subPlugin.extension}
                         >
-                          <PluginProvider client={client!}>
-                            <HostAccessProvider
-                              value={{
-                                client: hostClient!,
-                                allowed: entry.subPlugin.hostIntents,
-                                subExtension: entry.subPlugin.extension,
-                              }}
-                            >
-                              {page}
-                            </HostAccessProvider>
-                          </PluginProvider>
+                          {dimension ? (
+                            // The HOST's client, not the sub-plugin's: a
+                            // routed dimension's query and switch command are
+                            // intents on the plugin that DECLARES it, and a
+                            // sub-plugin mounts inside its host's namespace,
+                            // never with a context of its own.
+                            <PluginProvider client={clients.get(plugin.extension)!}>
+                              <RoutedPage plugin={plugin} dimension={dimension}>
+                                {inner}
+                              </RoutedPage>
+                            </PluginProvider>
+                          ) : (
+                            inner
+                          )}
                         </PluginErrorBoundary>
                       }
                     />
                   )
                 })
               )
-            )}
+            })}
             {/*
             home === "/" is reachable now that a root plugin's own paths pass
             through mountPath untouched: a root plugin whose priority-first
