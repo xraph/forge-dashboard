@@ -77,6 +77,63 @@ string is worse than rendering.
 for what a working `command()` has to do and why the half-working one was
 removed.
 
+### Auth is an intent, not a component
+
+An auth plugin declares intents, nothing else:
+
+```ts
+auth: {
+  intents: {
+    config: "auth.config",
+    signIn: "auth.login",
+    signOut: "auth.logout",
+    forgotPassword: "auth.forgotPassword",
+    resetPassword: "auth.resetPassword",
+    signUp: "auth.signup",
+    setupStatus: "auth.setupStatus",
+    completeSetup: "auth.setup",
+  },
+},
+```
+
+That's the whole contract. The plugin ships no `SignIn` component, no form, no
+pixel of its own. It names the Go intents that carry out sign-in, and the host
+is the one that calls them. A plugin never provides auth UI, full stop.
+
+The host owns `/login`, `/forgot-password`, `/reset-password`, `/signup` and
+`/setup`. Which of those actually exist depends on which intents the provider
+declared. Leave `signUp` off the intents object and there is no `/signup`
+route, and no link anywhere that points at one. An undeclared capability
+produces silence, not a broken page.
+
+A host application, and only a host application, can swap in its own screens,
+through `authScreens` on `defineForgeDashboard`:
+
+```ts
+export const forge = defineForgeDashboard({
+  mountPath: "/forge",
+  plugins: [corePlugin, streamingPlugin, authsomePlugin],
+  authScreens: {
+    signIn: AuthsomeSignIn,
+    forgotPassword: AuthsomeForgot,
+    resetPassword: AuthsomeReset,
+  },
+})
+```
+
+Name three slots and the other two fall back to the built-in defaults, each
+one independently. The distinction underneath this option is the whole point
+of the rule above. An application choosing what its own sign-in page looks
+like is ordinary product work. A plugin forcing one on every dashboard that
+installs it is exactly what "plugins declare intents, never UI" exists to
+stop.
+
+Password reset is why the host has to own the routing at all. A reset link
+arrives by email and gets opened on a browser that has never held a session,
+so it lands cold on `/reset-password?token=...` with nobody signed in and
+nothing to ask. A gate component that swaps out the whole shell has no page to
+put that on. A route does.
+
 ## Bundle budget
 
 Read [BASELINE.md](./BASELINE.md) before you add a dependency. It records the
