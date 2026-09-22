@@ -8,6 +8,7 @@ import { Input } from "@forge-go/dashboard-kit/components/input"
 import { Label } from "@forge-go/dashboard-kit/components/label"
 import { CommandAlert } from "@forge-go/dashboard-kit/components/query-boundary"
 import type { AuthScreenProps } from "../routes"
+import { currentServerHost } from "../server-host"
 
 export function SetupScreen({ intents, onAuthenticated }: AuthScreenProps) {
   const config = useQuery<AuthConfig>(intents.config)
@@ -28,9 +29,10 @@ export function SetupScreen({ intents, onAuthenticated }: AuthScreenProps) {
     <AuthLayout
       brand={config.data?.brand}
       description="This account owns the server until it grants access to others."
+      serverHost={currentServerHost()}
       title="Create the first administrator"
     >
-      <CommandAlert error={complete.error} title="Setup failed" />
+      <CommandAlert error={complete.error} showCode={false} title="Setup failed" />
       <form className="flex flex-col gap-4" onSubmit={handleSubmit}>
         <div className="flex flex-col gap-1.5">
           <Label htmlFor={emailId}>Email</Label>

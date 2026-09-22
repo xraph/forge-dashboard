@@ -3,6 +3,7 @@ import type { LogoutResult } from "@forge-go/dashboard-plugin"
 import { AuthLayout } from "@forge-go/dashboard-kit/components/auth-layout"
 import { buttonVariants } from "@forge-go/dashboard-kit/components/button"
 import { CommandAlert } from "@forge-go/dashboard-kit/components/query-boundary"
+import { currentServerHost } from "../server-host"
 
 export interface DeniedScreenProps {
   requiredRoles?: string[]
@@ -38,7 +39,7 @@ function SignOutButton({
 
   return (
     <>
-      <CommandAlert error={logout.error} title="Sign out failed" />
+      <CommandAlert error={logout.error} showCode={false} title="Sign out failed" />
       <button
         className={buttonVariants({ variant: "outline", className: "mt-4 w-full" })}
         disabled={logout.loading}
@@ -69,6 +70,7 @@ export function DeniedScreen({
   return (
     <AuthLayout
       description="You are signed in, but not with an account this dashboard accepts."
+      serverHost={currentServerHost()}
       title="You do not have access"
     >
       {requiredRoles?.length ? (

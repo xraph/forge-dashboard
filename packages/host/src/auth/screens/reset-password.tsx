@@ -9,6 +9,7 @@ import { Input } from "@forge-go/dashboard-kit/components/input"
 import { Label } from "@forge-go/dashboard-kit/components/label"
 import { CommandAlert } from "@forge-go/dashboard-kit/components/query-boundary"
 import type { AuthScreenProps } from "../routes"
+import { currentServerHost } from "../server-host"
 
 export function ResetPasswordScreen({ intents, onAuthenticated }: AuthScreenProps) {
   const config = useQuery<AuthConfig>(intents.config)
@@ -34,7 +35,11 @@ export function ResetPasswordScreen({ intents, onAuthenticated }: AuthScreenProp
 
   if (!token) {
     return (
-      <AuthLayout brand={config.data?.brand} title="That link is incomplete">
+      <AuthLayout
+        brand={config.data?.brand}
+        serverHost={currentServerHost()}
+        title="That link is incomplete"
+      >
         <p className="text-muted-foreground text-sm" role="alert">
           This reset link carries no token. Request a new one from the sign-in
           page.
@@ -47,9 +52,10 @@ export function ResetPasswordScreen({ intents, onAuthenticated }: AuthScreenProp
     <AuthLayout
       brand={config.data?.brand}
       description="Choose a new password to finish signing in."
+      serverHost={currentServerHost()}
       title="Choose a new password"
     >
-      <CommandAlert error={reset.error} title="Could not reset your password" />
+      <CommandAlert error={reset.error} showCode={false} title="Could not reset your password" />
       <form className="flex flex-col gap-4" onSubmit={handleSubmit}>
         <div className="flex flex-col gap-1.5">
           <Label htmlFor={passwordId}>New password</Label>
