@@ -33,6 +33,7 @@ import { AuthRoleDetailPage } from "./pages/role-detail"
 import { AuthRolesPage } from "./pages/roles"
 import { AuthSessionDetailPage } from "./pages/session-detail"
 import { AuthSessionsPage } from "./pages/sessions"
+import { AuthDynamicClientsPage } from "./pages/dynamic-clients"
 import { AuthSettingsNamespacePage } from "./pages/settings-namespace"
 import { AuthSettingsPage } from "./pages/settings"
 import { AuthSignupFormEditorPage } from "./pages/signup-form-editor"
@@ -85,6 +86,7 @@ export type {
   SignupFormResponse,
 } from "./pages/signup-form-editor"
 export type { NamespaceSummary, NamespacesList } from "./pages/settings"
+export { AuthDynamicClientsPage } from "./pages/dynamic-clients"
 export type { CredentialsDetail } from "./pages/credentials"
 export type { FeatureToggle, FeatureTogglesResponse } from "./pages/features"
 export type { OverviewStats, RecentSignups } from "./pages/overview"
@@ -253,6 +255,13 @@ export const authsomePlugin = definePlugin({
     { path: "/settings/:namespace", element: AuthSettingsNamespacePage },
     { path: "/signup-forms", element: AuthSignupFormsPage },
     { path: "/signup-forms/edit", element: AuthSignupFormEditorPage },
+    // Reached from the signup form editor, not from the sidebar, so it
+    // declares no nav entry. It sits under /signup-forms rather than under
+    // /settings, where the spec first put it, because /settings/:namespace
+    // already owns every second segment there: a static sibling works today
+    // only because react-router ranks static above dynamic, and it would
+    // shadow a real settings namespace the day somebody names one after it.
+    { path: "/signup-forms/dynamic", element: AuthDynamicClientsPage },
     { path: "/users", element: AuthUsersPage },
     { path: "/users/create", element: AuthUserCreatePage },
     { path: "/users/:id", element: AuthUserDetailPage },

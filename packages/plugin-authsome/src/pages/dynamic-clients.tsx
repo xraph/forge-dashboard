@@ -9,7 +9,7 @@ import {
 } from "@forge-go/dashboard-kit/components/resource-table"
 
 /**
- * `/settings/dynamic-signup`: a read-only view of `auth.dynamicConfig`.
+ * `/signup-forms/dynamic`: a read-only view of `auth.dynamicConfig`.
  *
  * Two corrections to what the spec said about this page, both found by reading
  * the Go source rather than the spec.

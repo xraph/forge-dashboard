@@ -215,6 +215,7 @@ describe("authsomePlugin", () => {
       "/settings/:namespace": "No namespace selected.",
       "/signup-forms": "signup",
       "/signup-forms/edit": "Edit signup form",
+      "/signup-forms/dynamic": "Dynamic signup form",
       "/users": "ada@example.com",
       "/users/create": "New user",
       "/users/:id": "No user selected.",
@@ -262,7 +263,7 @@ describe("the finished plugin", () => {
         "/plugins", "/roles", "/roles/:id",
         "/sessions", "/sessions/:id",
         "/settings", "/settings/:namespace",
-        "/signup-forms", "/signup-forms/edit",
+        "/signup-forms", "/signup-forms/edit", "/signup-forms/dynamic",
         "/users", "/users/create", "/users/:id", "/webhooks",
       ].sort(),
     )
@@ -333,7 +334,7 @@ describe("the finished plugin", () => {
     const detailCreateOrEditRoutes = [
       "/apps/create", "/apps/:id", "/devices/:id", "/environments/:id",
       "/roles/:id", "/sessions/:id", "/settings/:namespace",
-      "/signup-forms/edit", "/users/create", "/users/:id",
+      "/signup-forms/edit", "/signup-forms/dynamic", "/users/create", "/users/:id",
     ]
     for (const path of listRoutes) {
       expect(navTargets.has(path), `list route "${path}" has no nav entry`).toBe(true)
