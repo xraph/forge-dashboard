@@ -1,43 +1,35 @@
-import type { ComponentType } from "react"
-
 import type { ForgePlugin } from "./types"
 
 /**
- * What the host hands a gate.
+ * Intents that implement auth, named by the plugin and called by the host.
  *
- * `requiredRoles` is how the gate tells the two blocked states apart. Absent
- * or empty means nobody is signed in, so render sign-in. Non-empty means
- * somebody is signed in as the wrong person and these are the roles this
- * dashboard wanted, so render an access-denied panel with a way to sign out.
- * One component covers both because a provider that owns sign-in also owns
- * "wrong account, try another", and they share all their styling.
+ * Named and not called, the same way `signOut` always was. That is what lets
+ * the host render a sign-in screen without learning which product is behind
+ * it, and lets a plugin contribute auth without shipping a single component.
+ *
+ * Optional keys are load-bearing: a provider with no `signUp` gets no
+ * `/signup` route and no link pointing at one.
  */
-export interface AuthGateProps {
-  loginPath: string
-  requiredRoles?: string[]
-  /** Call after a successful sign-in. The host re-reads /principal. */
-  onAuthenticated: () => void
+export interface AuthIntents {
+  /** Branding and which methods are enabled. Answers `AuthConfig`. */
+  config: string
+  /** Answers `LoginResult`. */
+  signIn: string
+  /** Answers `LogoutResult`. Omit it and the sidebar renders no sign-out. */
+  signOut?: string
+  forgotPassword?: string
+  resetPassword?: string
+  signUp?: string
+  setupStatus?: string
+  completeSetup?: string
 }
 
 export interface PluginAuth {
-  gate: ComponentType<AuthGateProps>
-  /**
-   * The command this provider signs out with, named rather than called.
-   *
-   * The host forwards this to the sidebar footer's sign-out item and sends it
-   * through this plugin's own scoped client, then re-reads the session. Naming
-   * it here is what keeps two layers ignorant: the kit renders a menu item and
-   * never learns an intent exists, and the host sends a string it was handed
-   * and never learns that "auth.logout" is the one that clears a cookie.
-   *
-   * Omit it and the footer renders no sign-out item at all. A dead one that
-   * looks clickable and does nothing is worse than none.
-   */
-  signOutIntent?: string
+  intents: AuthIntents
 }
 
 /**
- * Finds the one plugin that provides the auth gate.
+ * Finds the one plugin that provides auth intents.
  *
  * At most one may, the same way at most one may set `root`. Enforced here
  * rather than in the host's render so there is a single tested place for the
@@ -49,7 +41,7 @@ export function resolveAuthProvider(plugins: ForgePlugin[]): ForgePlugin | undef
   if (declaring.length > 1) {
     const names = declaring.map((plugin) => plugin.extension).join(", ")
     throw new Error(
-      `more than one plugin declares an auth gate (${names}); at most one may`,
+      `more than one plugin declares auth intents (${names}); at most one may`,
     )
   }
   return declaring[0]
