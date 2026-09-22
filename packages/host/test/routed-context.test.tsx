@@ -67,6 +67,7 @@ function fixtureServer() {
     { id: "env_demo_staging", name: "Staging", slug: "staging", appId: "app_demo" },
   ]
 
+  let contextFails = false
   let currentAppId: string | undefined
   let currentEnvId: string | undefined
   const commandOrder: string[] = []
@@ -108,6 +109,13 @@ function fixtureServer() {
     }
 
     if (body.intent === "apps.context") {
+      if (contextFails) {
+        return jsonOk({
+          ok: false,
+          envelope: "v1",
+          error: { code: "INTERNAL", message: "context unavailable" },
+        })
+      }
       return jsonOk({ ok: true, data: contextData() })
     }
     if (body.intent === "apps.switch") {
@@ -139,6 +147,10 @@ function fixtureServer() {
     commandOrder,
     setCurrentApp: (id: string | undefined) => {
       currentAppId = id
+    },
+    /** Make apps.context fail, the way a server that never registered it does. */
+    failContext: () => {
+      contextFails = true
     },
     setCurrentEnv: (id: string | undefined) => {
       currentEnvId = id
@@ -408,5 +420,43 @@ describe("the ?env query dimension", () => {
     expect(server.commandOrder.indexOf("apps.switch")).toBeLessThan(
       server.commandOrder.indexOf("environments.switch")
     )
+  })
+})
+
+describe("when the dimension's own query cannot be read", () => {
+  /**
+   * The regression this pair exists for. `!read.data` was treated as "still
+   * loading", so a query that had FAILED produced a spinner that never
+   * resolved: the whole scope became a permanent Loading row with an empty
+   * sidebar, which looks exactly like the plugin never having loaded.
+   *
+   * It matters because a server can plausibly not answer this at all. The
+   * intent is recent, and a deployment whose dashboard extension predates it,
+   * or a principal without permission, gets an error rather than data.
+   */
+  it("shows the page with a warning rather than spinning forever", async () => {
+    queryStore.clear()
+    const server = fixtureServer()
+    server.failContext()
+
+    renderAt(routedAuthPlugin(), server.fetchImpl, "/@auth/platform/users")
+
+    // The page is still there. A dashboard that works unscoped beats one that
+    // shows nothing at all, and every handler falls back to the server's own
+    // default app anyway.
+    await waitFor(() => expect(screen.getByText("users page")).toBeTruthy())
+    expect(screen.getByText(/cannot read the current app/i)).toBeTruthy()
+    expect(screen.queryByText("Loading…")).toBeNull()
+  })
+
+  it("says so at the namespace root instead of a spinner", async () => {
+    queryStore.clear()
+    const server = fixtureServer()
+    server.failContext()
+
+    renderAt(routedAuthPlugin(), server.fetchImpl, "/@auth")
+
+    await waitFor(() => expect(screen.getByText(/cannot read the current app/i)).toBeTruthy())
+    expect(screen.queryByText("Loading…")).toBeNull()
   })
 })

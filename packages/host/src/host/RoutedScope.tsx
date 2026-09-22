@@ -70,10 +70,11 @@ interface Resolved {
 }
 
 interface ReconcileState {
-  status: "loading" | "resolved"
+  status: "loading" | "resolved" | "unavailable"
   current?: ContextOption
   options: ContextOption[]
   matched?: ContextOption
+  error?: { code: string; message: string }
 }
 
 /**
@@ -155,11 +156,49 @@ function useReconcile(
   }, [urlValue, matched?.id, resolved?.current?.id])
 
   return {
-    status: resolved ? "resolved" : "loading",
+    // "unavailable" is its own state and not a flavour of loading. The
+    // difference is the whole of this fix: a query that has failed will never
+    // produce data, so treating it as still-loading renders a spinner that
+    // spins until the tab closes.
+    status: resolved ? "resolved" : read.error ? "unavailable" : "loading",
     current: resolved?.current,
     options: resolved?.options ?? [],
     matched,
+    error: read.error,
   }
+}
+
+/**
+ * Shown when the dimension's own query cannot be read at all.
+ *
+ * Not an error page. The dashboard is still usable in this state: every
+ * handler falls back to the server's default app, so the pages work, they are
+ * simply not scoped by anything this shell can confirm. Blocking all of them
+ * because a switcher query failed trades a degraded dashboard for no
+ * dashboard, which is what the first version of this did -- a permanent
+ * spinner and an empty sidebar, indistinguishable from the plugin never
+ * having loaded.
+ */
+function ContextUnavailable({
+  dimension,
+  error,
+}: {
+  dimension: ContextDimension
+  error?: { code: string; message: string }
+}) {
+  const noun = dimension.label.toLowerCase()
+  return (
+    <Alert>
+      <TriangleAlertIcon />
+      <AlertTitle>Cannot read the current {noun}</AlertTitle>
+      <AlertDescription>
+        {`${dimension.query} failed${error?.message ? `: ${error.message}` : ""}. `}
+        Pages below are whatever the server scopes them to by default, and the
+        {` ${noun} `}
+        in the address is not being applied.
+      </AlertDescription>
+    </Alert>
+  )
 }
 
 function LoadingRow() {
@@ -299,6 +338,15 @@ export function RoutedPage({
   const state = useReconcile(dimension, segment)
 
   if (state.status === "loading") return <LoadingRow />
+  if (state.status === "unavailable") {
+    // Warn and carry on. See ContextUnavailable for why this does not block.
+    return (
+      <div className="flex flex-col gap-4">
+        <ContextUnavailable dimension={dimension} error={state.error} />
+        {children}
+      </div>
+    )
+  }
   if (!state.matched) {
     return (
       <UnknownContextPanel
@@ -326,6 +374,12 @@ export function RoutedPage({
  * it, so a bare "/@auth" does not sit there unscoped. An account with no
  * current app at all sees the dimension's own picker instead.
  */
+/** The dimension's own picker, with nothing else around it. */
+function PickerOnly({ dimension }: { dimension: ContextDimension }) {
+  const Picker = dimension.routed?.picker
+  return Picker ? <Picker /> : null
+}
+
 export function RoutedPicker({
   plugin,
   dimension,
@@ -336,6 +390,17 @@ export function RoutedPicker({
   const read = useQuery<unknown>(dimension.query)
   const { search } = useLocation()
 
+  // Failed, not pending. `!read.data` alone cannot tell those apart, and
+  // treating a failure as pending is what turned an unreadable app context
+  // into a spinner nobody could get past.
+  if (read.error && !read.data) {
+    return (
+      <div className="flex flex-col gap-4">
+        <ContextUnavailable dimension={dimension} error={read.error} />
+        {dimension.routed?.picker ? <PickerOnly dimension={dimension} /> : null}
+      </div>
+    )
+  }
   if (!read.data) return <LoadingRow />
 
   const { current } = dimension.select(read.data)
