@@ -102,36 +102,90 @@ export interface PluginSlotProps {
  * declaration, not to whichever route it happened to be mounted inside.
  */
 export function PluginSlot({ name, params }: PluginSlotProps) {
+  const entries = useSlotEntries(name, params)
+  if (entries.length === 0) return null
+  return <>{entries.map((entry) => entry.node)}</>
+}
+
+/** One contribution, wrapped and ready to place. */
+export interface SlotEntry {
+  /** Unique across the slot: the contributing extension and the contribution id. */
+  key: string
+  /** The contributing sub-plugin's own extension. */
+  extension: string
+  /** The contribution's own id, unique within its sub-plugin. */
+  id: string
+  /** Set by contributions that need a label, such as a tab. */
+  label?: string
+  /**
+   * The contribution, already inside its error boundary, its host-access
+   * provider and its own plugin provider. Place it wherever the host page
+   * needs it.
+   */
+  node: ReactNode
+}
+
+/**
+ * Every contribution to a slot, wrapped, for a host page that cannot simply
+ * render them in a row.
+ *
+ * `PluginSlot` renders contributions one after another, which is right for a
+ * stack of widgets or sections and wrong for anything that splits a
+ * contribution into two places. A tab strip is the case that forced this:
+ * a tab is a trigger in one part of the DOM and a panel in another, and a
+ * component that renders both at once cannot be a tab. Dropping `PluginSlot`
+ * inside a `TabsList` renders the contribution's CONTENT into the tab strip
+ * and no tab ever appears, which is exactly what the organization detail page
+ * did until this existed.
+ *
+ * So a host page that owns a layout takes the entries and places them itself:
+ *
+ * ```tsx
+ * const tabs = useSlotEntries("org.detail.tabs", { orgId })
+ * <TabsList>
+ *   <TabsTrigger value="overview">Overview</TabsTrigger>
+ *   {tabs.map((t) => <TabsTrigger key={t.key} value={t.key}>{t.label ?? t.id}</TabsTrigger>)}
+ * </TabsList>
+ * {tabs.map((t) => <TabsContent key={t.key} value={t.key}>{t.node}</TabsContent>)}
+ * ```
+ *
+ * The wrapping is identical to `PluginSlot`'s, which is implemented in terms
+ * of this: one error boundary, one host-access provider and one plugin
+ * provider per contribution, so a contribution placed by hand is held to the
+ * same isolation as one rendered in a row.
+ */
+export function useSlotEntries(
+  name: SlotName,
+  params?: Record<string, unknown>,
+): SlotEntry[] {
   const entries = useContext(SubPluginContext)
   const resolved = contributionsFor(entries, name)
 
-  if (resolved.length === 0) return null
-
-  return (
-    <>
-      {resolved.map(({ entry, contribution }) => {
-        const Contribution = contribution.render
-        return (
-          <PluginErrorBoundary
-            key={`${entry.subPlugin.extension}:${contribution.id}`}
-            plugin={entry.subPlugin.extension}
+  return resolved.map(({ entry, contribution }) => {
+    const Contribution = contribution.render
+    const key = `${entry.subPlugin.extension}:${contribution.id}`
+    return {
+      key,
+      extension: entry.subPlugin.extension,
+      id: contribution.id,
+      label: contribution.label,
+      node: (
+        <PluginErrorBoundary key={key} plugin={entry.subPlugin.extension}>
+          <HostAccessProvider
+            value={{
+              client: entry.hostClient,
+              allowed: entry.subPlugin.hostIntents,
+              subExtension: entry.subPlugin.extension,
+            }}
           >
-            <HostAccessProvider
-              value={{
-                client: entry.hostClient,
-                allowed: entry.subPlugin.hostIntents,
-                subExtension: entry.subPlugin.extension,
-              }}
-            >
-              <PluginProvider client={entry.client}>
-                <Contribution {...(params ?? {})} />
-              </PluginProvider>
-            </HostAccessProvider>
-          </PluginErrorBoundary>
-        )
-      })}
-    </>
-  )
+            <PluginProvider client={entry.client}>
+              <Contribution {...(params ?? {})} />
+            </PluginProvider>
+          </HostAccessProvider>
+        </PluginErrorBoundary>
+      ),
+    }
+  })
 }
 
 /**

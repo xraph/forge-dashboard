@@ -7,6 +7,7 @@ import {
   useNavigateTo,
   useQuery,
   useSlotCount,
+  useSlotEntries,
 } from "@forge-go/dashboard-plugin"
 import type { PluginPageProps } from "@forge-go/dashboard-plugin"
 import { Badge } from "@forge-go/dashboard-kit/components/badge"
@@ -38,8 +39,8 @@ import { formatTimestamp } from "@forge-go/dashboard-kit/lib/format"
  * overview (`overview.widgets`, wired up in Task 8) and HOSTS three of its
  * own: `org.detail.sections`, `org.detail.tabs` and `org.create.fields`. This
  * file is the proof that hosting a slot is not something only the core
- * plugin can do - the same `PluginSlot` and `useSlotCount` a page consumes
- * elsewhere in the dashboard are what this page renders with.
+ * plugin can do: the same `PluginSlot`, `useSlotCount` and `useSlotEntries`
+ * a page consumes elsewhere in the dashboard are what this page renders with.
  *
  * Verified against `plugins/organization/contract/`:
  *
@@ -348,35 +349,49 @@ function OrgMembers({ orgId }: { orgId: string }) {
 }
 
 function OrgTabs({ org, orgId }: { org: OrgDetail; orgId: string }) {
-  const detailTabCount = useSlotCount("org.detail.tabs")
   const sectionsCount = useSlotCount("org.detail.sections")
+  /*
+    A tab is a trigger in one place and a panel in another, so a contribution
+    cannot be one on its own: dropping `PluginSlot` into the `TabsList`
+    rendered the contribution's CONTENT into the tab strip and no tab ever
+    appeared. That is what this page did until `useSlotEntries` existed, and
+    it survived every test because a slot with no contributor renders nothing
+    either way. The subscription sub-plugin's Billing tab was the first thing
+    to contribute here, and it went straight into the strip.
+
+    So the page places both halves itself, which is the only arrangement that
+    can work: the trigger carries the contribution's own `label`, and the
+    panel carries its node, both keyed on the same value.
+  */
+  const contributedTabs = useSlotEntries("org.detail.tabs", { orgId })
 
   return (
     <Tabs defaultValue="overview">
       <TabsList>
         <TabsTrigger value="overview">Overview</TabsTrigger>
         <TabsTrigger value="members">Members</TabsTrigger>
-        {/*
-          Guarded so an empty slot draws nothing extra into the strip. A
-          contribution here is expected to render its own trigger (and, for
-          its content, its own panel keyed to the same value) - PluginSlot
-          hands every contribution its own client and error boundary, and
-          this task ships with nothing contributing to it, which is exactly
-          the case this guard exists for.
-        */}
-        {detailTabCount > 0 && (
-          <PluginSlot name="org.detail.tabs" params={{ orgId }} />
-        )}
+        {contributedTabs.map((tab) => (
+          <TabsTrigger key={tab.key} value={tab.key}>
+            {tab.label ?? tab.id}
+          </TabsTrigger>
+        ))}
       </TabsList>
 
       {/*
-        keepMounted on both: orgs.detail and orgs.members are read by two
-        separate components so a slow member list never blanks out the org's
-        own fields, and that only holds if the member list actually starts
-        loading at the same time as the rest of the page rather than waiting
-        for the operator to click over to it.
+        No `keepMounted`, and that is not an oversight. It was here so the
+        members query would start with the page rather than when the operator
+        clicked over, but Base UI's panel un-hides on activation and does not
+        hide again without an exit transition to wait on, and the kit's
+        `TabsContent` defines none. The result was every panel visible at
+        once, stacked, whichever tab was selected. Two panels made that look
+        like a long page; the contributed Billing tab made it obvious.
+
+        Eager loading is worth something. It is not worth a page that shows
+        every tab's content simultaneously, and each read already has its own
+        QueryBoundary in its own component, so a slow member list never blanks
+        out the org's own fields either way.
       */}
-      <TabsContent value="overview" keepMounted>
+      <TabsContent value="overview">
         <div className="flex flex-col gap-4">
           <DescriptionList
             items={[
@@ -397,9 +412,14 @@ function OrgTabs({ org, orgId }: { org: OrgDetail; orgId: string }) {
           )}
         </div>
       </TabsContent>
-      <TabsContent value="members" keepMounted>
+      <TabsContent value="members">
         <OrgMembers orgId={orgId} />
       </TabsContent>
+      {contributedTabs.map((tab) => (
+        <TabsContent key={tab.key} value={tab.key}>
+          {tab.node}
+        </TabsContent>
+      ))}
     </Tabs>
   )
 }

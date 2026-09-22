@@ -121,6 +121,12 @@ describe("organization detail", () => {
       params: { id: "o1" },
     })
     await waitFor(() => expect(screen.getByRole("heading", { name: "Acme" })).toBeTruthy())
+    // The members panel mounts when its tab is selected, which is what an
+    // operator does. It used to mount with the page, through `keepMounted`,
+    // and that had to go: Base UI un-hides a panel on activation and does not
+    // hide it again without an exit transition to wait on, so every panel
+    // ended up visible at once.
+    fireEvent.click(screen.getByRole("tab", { name: "Members" }))
     await waitFor(() => expect(membersParams).toBeDefined())
     // The param is orgId, not id. A detail page that sends `id` here gets
     // somebody else's members or none at all.
@@ -140,6 +146,7 @@ describe("organization detail", () => {
     })
     await waitFor(() => expect(screen.getByRole("heading", { name: "Acme" })).toBeTruthy())
     fireEvent.click(screen.getByRole("tab", { name: "Members" }))
+    await waitFor(() => expect(screen.getByRole("button", { name: /remove u2/i })).toBeTruthy())
     fireEvent.click(screen.getByRole("button", { name: /remove u2/i }))
     fireEvent.click(screen.getByRole("button", { name: /^remove$/i }))
     await waitFor(() => expect(own.payloads).toHaveLength(1))

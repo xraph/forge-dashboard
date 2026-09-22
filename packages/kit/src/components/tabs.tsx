@@ -67,11 +67,36 @@ function TabsTrigger({ className, ...props }: TabsPrimitive.Tab.Props) {
   )
 }
 
+/**
+ * A tab panel.
+ *
+ * `[&[inert]]:hidden` is doing real work, not styling.
+ *
+ * Base UI keeps a closing panel in the document until its exit transition or
+ * animation finishes, so a panel can animate out. This panel defines neither,
+ * so that wait never ends: every panel keeps `data-ending-style` forever and
+ * none of them is ever hidden. Every tab you visit stays on screen, stacked
+ * under the one you are looking at, and the page quietly grows a copy of each
+ * tab's content.
+ *
+ * `inert` is the attribute to key off, not `data-ending-style`. Base UI puts
+ * `inert` on exactly the panels that are not selected and takes it off the one
+ * that is, so it tracks selection correctly in both directions; keying off
+ * `data-ending-style` hid the active panel too, because all of them carry it.
+ * `inert` already makes an unselected panel unreachable, so this only supplies
+ * the visual half that was missing.
+ *
+ * If a caller ever wants a real exit animation, define one and Base UI's wait
+ * has something to wait for.
+ */
 function TabsContent({ className, ...props }: TabsPrimitive.Panel.Props) {
   return (
     <TabsPrimitive.Panel
       data-slot="tabs-content"
-      className={cn("flex-1 text-sm outline-none", className)}
+      className={cn(
+        "flex-1 text-sm outline-none [&[inert]]:hidden",
+        className,
+      )}
       {...props}
     />
   )
