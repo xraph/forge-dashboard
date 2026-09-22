@@ -118,7 +118,11 @@ describe("StreamingRoomsPage", () => {
     // other assertion in this file still passes unchanged.
     const nameLink = screen.getByText("General")
     expect(nameLink.tagName).toBe("A")
-    expect(nameLink.getAttribute("href")).toBe("/@streaming/rooms/room_1")
+    // Scope-relative, because that is what the page writes now. A page has no
+    // way to know its own mount point, and the host resolves this against the
+    // scope it mounted. Rendered standalone, with no host, it stays as
+    // written, which is what these assertions see.
+    expect(nameLink.getAttribute("href")).toBe("/rooms/room_1")
     expect(nameLink.closest("td")?.className).toContain("font-medium")
 
     // Identifier columns carry the table's monospace vocabulary; the name
@@ -132,10 +136,10 @@ describe("StreamingRoomsPage", () => {
 
     await screen.findByText("General")
     expect(screen.getByRole("link", { name: "General" }).getAttribute("href")).toBe(
-      "/@streaming/rooms/room_1",
+      "/rooms/room_1",
     )
     expect(screen.getByRole("link", { name: "Support" }).getAttribute("href")).toBe(
-      "/@streaming/rooms/room_2",
+      "/rooms/room_2",
     )
   })
 
@@ -146,7 +150,17 @@ describe("StreamingRoomsPage", () => {
     // though it would still satisfy the href-only assertions above.
     render(
       <PluginProvider client={stubClient({ "rooms.list": rooms })}>
-        <NavigationProvider value={{ Link: RouterLink, navigate: () => {} }}>
+        <NavigationProvider
+          value={{
+            Link: RouterLink,
+            navigate: () => {},
+            // What a real host supplies. The page wrote "/rooms/room_1" and
+            // never knew its own mount point; resolving it is the host's job
+            // and this asserts the page actually goes through that path
+            // rather than building the address itself.
+            resolve: (to) => `/@streaming${to}`,
+          }}
+        >
           <StreamingRoomsPage />
         </NavigationProvider>
       </PluginProvider>,

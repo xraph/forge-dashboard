@@ -46,7 +46,7 @@ const columns: Column<RoomInfo>[] = [
     id: "name",
     header: "Name",
     cell: (r) => (
-      <PluginLink to={`/@streaming/rooms/${r.id}`} className="underline underline-offset-4">
+      <PluginLink to={`/rooms/${r.id}`} className="underline underline-offset-4">
         {r.name}
       </PluginLink>
     ),
