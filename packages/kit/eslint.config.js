@@ -28,4 +28,17 @@ export default defineConfig([
       'react-refresh/only-export-components': 'off',
     },
   },
+  {
+    // The reui data-grid and carousel are vendored from external sources and
+    // contain patterns we maintain compatibility with by not altering them.
+    files: ['src/components/carousel.tsx', 'src/components/reui/**/*.tsx'],
+    rules: {
+      'react-hooks/set-state-in-effect': 'off',
+      'react-hooks/refs': 'off',
+      'react-hooks/exhaustive-deps': 'off',
+      'react-hooks/use-memo': 'off',
+      '@typescript-eslint/no-unused-vars': 'off',
+      'no-useless-assignment': 'off',
+    },
+  },
 ])
