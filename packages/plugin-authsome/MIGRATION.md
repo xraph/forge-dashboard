@@ -148,6 +148,19 @@ so a "test registration" button here would sign the admin out, sign them in as
 an account they had just made, and leave a junk user in production. There is a
 test asserting no such control exists.
 
+## Consent can be revoked here, and not granted
+
+`consent.grant` is a real intent and this dashboard deliberately has no form
+for it. Revoking somebody's consent on their behalf is an administrative
+correction. Granting it on their behalf is not: it manufactures a record
+saying a person agreed to something, in a product whose consent log exists to
+prove exactly that. The legacy dashboard offers no such form either, so
+nothing is lost by leaving it out.
+
+If a real need turns up, say a support agent recording consent given over the
+phone, it should capture who recorded it and why, and that is a different
+feature from a button next to a table row.
+
 ## There's no reset to default in settings
 
 You can set a setting and you cannot unset it. `settings.update` passes its
