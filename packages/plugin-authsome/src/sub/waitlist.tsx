@@ -8,10 +8,7 @@ import { Input } from "@forge-go/dashboard-kit/components/input"
 import { Label } from "@forge-go/dashboard-kit/components/label"
 import { NoneCell } from "@forge-go/dashboard-kit/components/none-cell"
 import { PageHeader } from "@forge-go/dashboard-kit/components/page-header"
-import {
-  CommandAlert,
-  QueryBoundary,
-} from "@forge-go/dashboard-kit/components/query-boundary"
+import { QueryBoundary } from "@forge-go/dashboard-kit/components/query-boundary"
 import {
   ResourceTable,
   type Column,
@@ -203,8 +200,6 @@ export function WaitlistPage() {
         ]}
       />
 
-      <CommandAlert error={deleteCmd.error} title="Could not delete" />
-
       <QueryBoundary title="Waitlist" query={list} skeletonRows={5}>
         {(data) => {
           const entries = data.entries ?? []
@@ -369,7 +364,26 @@ export function WaitlistPage() {
         open={deleting !== null}
         onOpenChange={(open) => !open && setDeleting(null)}
         title={`Delete ${deleting?.email ?? ""}?`}
-        description="This entry is removed from the waitlist. This cannot be undone."
+        description={
+          <span className="flex flex-col gap-2">
+            <span>This entry is removed from the waitlist. This cannot be undone.</span>
+            {/*
+              Base UI marks everything outside an open dialog inert and
+              aria-hidden, so an error rendered on the page body (as the
+              CommandAlert above the table is) would be unreachable while this
+              dialog is open, for a sighted operator and for assistive tech
+              alike. It has to render inside the dialog itself, as a <span
+              role="alert"> rather than CommandAlert's <div>:
+              AlertDialogDescription renders a <p>, and a <div> is not valid
+              <p> content.
+            */}
+            {deleteCmd.error && (
+              <span role="alert" className="font-medium text-destructive">
+                Could not delete: {deleteCmd.error.message} ({deleteCmd.error.code})
+              </span>
+            )}
+          </span>
+        }
         confirmLabel="Delete"
         pending={deleteCmd.loading}
         onConfirm={() => void confirmDelete()}

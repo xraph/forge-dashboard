@@ -4,6 +4,7 @@ import {
   PluginSlot,
   defineSubPlugin,
   useCommand,
+  useNavigateTo,
   useQuery,
   useSlotCount,
 } from "@forge-go/dashboard-plugin"
@@ -406,6 +407,36 @@ function OrgTabs({ org, orgId }: { org: OrgDetail; orgId: string }) {
 function OrgDetailBody({ orgId }: { orgId: string }) {
   const query = useQuery<OrgDetail>("orgs.detail", { id: orgId })
   const [editing, setEditing] = useState(false)
+  const deleteOrg = useCommand<AckResponse>("orgs.delete")
+  const [deleting, setDeleting] = useState(false)
+  // `orgs.delete` invalidates `orgs.list` only, never `orgs.detail`, so
+  // there is no intent this page could refetch that would tell it the org it
+  // is showing is gone. Once a delete succeeds, this page stops rendering
+  // the org's header, its data and its live action buttons immediately
+  // (not waiting on a navigation that a test environment, or a slow
+  // browser, cannot be relied on to have completed yet), and leaves the way
+  // a page whose subject just got deleted has to: it has nowhere left to
+  // stay, which is the one case `useNavigateTo` exists for rather than a
+  // link.
+  const [deleted, setDeleted] = useState(false)
+  const navigate = useNavigateTo()
+
+  async function confirmDelete() {
+    const result = await deleteOrg.execute({ id: orgId })
+    if (result === undefined) return
+    setDeleted(true)
+    navigate("/@auth/organizations")
+  }
+
+  if (deleted) {
+    return (
+      <section className="flex flex-col gap-4">
+        <p role="status" className="text-sm text-muted-foreground">
+          This organization has been deleted.
+        </p>
+      </section>
+    )
+  }
 
   return (
     <section className="flex flex-col gap-4">
@@ -416,11 +447,59 @@ function OrgDetailBody({ orgId }: { orgId: string }) {
               title={org.name}
               description={org.slug}
               actions={
-                !editing && <Button onClick={() => setEditing(true)}>Edit</Button>
+                !editing && (
+                  <div className="flex gap-2">
+                    <Button onClick={() => setEditing(true)}>Edit</Button>
+                    <Button
+                      variant="destructive"
+                      aria-label={`Delete ${org.name}`}
+                      onClick={() => {
+                        // Reset at open, not at close: this hook is reused
+                        // if the operator cancels and reopens the dialog,
+                        // and a failure from a previous attempt must not
+                        // follow them into a fresh one.
+                        deleteOrg.reset()
+                        setDeleting(true)
+                      }}
+                    >
+                      Delete
+                    </Button>
+                  </div>
+                )
               }
             />
             {editing && <EditOrgForm org={org} onDone={() => setEditing(false)} />}
             <OrgTabs org={org} orgId={orgId} />
+
+            <ConfirmDialog
+              open={deleting}
+              onOpenChange={setDeleting}
+              title={`Delete ${org.name}?`}
+              description={
+                <>
+                  <span>
+                    This removes the organization and cannot be undone.
+                    Members, teams, invitations and subscriptions tied to it
+                    are removed as well.
+                  </span>
+                  {/*
+                    Base UI marks everything outside an open dialog inert and
+                    aria-hidden, so this has to render inside the dialog
+                    itself, as a <span> rather than CommandAlert's <div>:
+                    AlertDialogDescription renders a <p>, and a <div> is not
+                    valid <p> content.
+                  */}
+                  {deleteOrg.error && (
+                    <span role="alert" className="mt-2 block font-medium text-destructive">
+                      Could not delete: {deleteOrg.error.message} ({deleteOrg.error.code})
+                    </span>
+                  )}
+                </>
+              }
+              confirmLabel="Delete"
+              pending={deleteOrg.loading}
+              onConfirm={() => void confirmDelete()}
+            />
           </>
         )}
       </QueryBoundary>

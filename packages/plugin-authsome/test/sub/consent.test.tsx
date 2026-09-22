@@ -1,8 +1,8 @@
 import { describe, expect, it } from "vitest"
 import { fireEvent, screen, waitFor } from "@testing-library/react"
 import { ContractError } from "@forge-go/dashboard-plugin"
-import { consentSubPlugin, ConsentUserSection } from "../../src/sub/consent"
-import { renderSubPage, subStubClient } from "./harness"
+import { consentSubPlugin } from "../../src/sub/consent"
+import { renderContribution, renderSubPage, subStubClient } from "./harness"
 
 const items = {
   items: [
@@ -114,21 +114,20 @@ describe("consent list", () => {
 })
 
 describe("ConsentUserSection", () => {
+  // Rendered through `renderContribution`, not `renderSubPage`: this is a
+  // `user.detail.sections` contribution, and `PluginSlot` spreads a slot's
+  // params straight onto the contribution's own props
+  // (`<Contribution {...(params ?? {})} />`, in slots.tsx) rather than
+  // nesting them under one `params` prop the way a routed page's are.
+  // `renderContribution` goes through a real `SubPluginProvider` and a real
+  // `PluginSlot`, so the tree under test is the production one.
+  const contribution = consentSubPlugin.contributions["user.detail.sections"]![0]
+
   it("asks the userConsents intent for the user it was given", async () => {
-    // Same query-params caveat as above: `own.payloads[0]` cannot see a
-    // query, so the params are captured off a functional answer instead.
-    //
-    // The wrapper also has to bridge two different calling conventions.
-    // `renderSubPage` was built for ROUTES, which read `params.id` off one
-    // `params` prop (see harness.tsx: `<Page params={opts.params ?? {}} />`).
-    // A slot contribution is called differently - `PluginSlot` spreads the
-    // slot's params straight onto the contribution's own props
-    // (`<Contribution {...(params ?? {})} />`, in slots.tsx), so
-    // `ConsentUserSection` takes `userId` directly rather than nested under
-    // `params`. The wrapper below reads the route-shaped `params` the
-    // harness hands it and re-offers `userId` the way `PluginSlot` actually
-    // would, which is what makes this test exercise the same prop shape the
-    // real mount does.
+    // `own.payloads` (see harness.tsx) only records COMMAND payloads, never
+    // a query's params, so the params are captured off a functional answer
+    // instead, the pattern settings-panel.test.tsx and organization.test.tsx
+    // use.
     let queryParams: unknown
     const own = subStubClient({
       "consent.userConsents": (params: unknown) => {
@@ -136,10 +135,12 @@ describe("ConsentUserSection", () => {
         return items
       },
     })
-    renderSubPage(
-      ({ params }) => <ConsentUserSection userId={params.userId} />,
-      { client: own.client, hostClient: subStubClient({}).client, allowed: [], params: { userId: "u1" } },
-    )
+    renderContribution(contribution, {
+      slot: "user.detail.sections",
+      client: own.client,
+      hostClient: subStubClient({}).client,
+      params: { userId: "u1" },
+    })
     await waitFor(() => expect(screen.getByText("marketing")).toBeTruthy())
     expect(own.intents).toEqual(["consent.userConsents"])
     expect(queryParams).toEqual({ userId: "u1" })
@@ -147,10 +148,12 @@ describe("ConsentUserSection", () => {
 
   it("renders nothing at all when the user has no consents", async () => {
     const own = subStubClient({ "consent.userConsents": { items: [] } })
-    const { container } = renderSubPage(
-      ({ params }) => <ConsentUserSection userId={params.userId} />,
-      { client: own.client, hostClient: subStubClient({}).client, allowed: [], params: { userId: "u1" } },
-    )
+    const { container } = renderContribution(contribution, {
+      slot: "user.detail.sections",
+      client: own.client,
+      hostClient: subStubClient({}).client,
+      params: { userId: "u1" },
+    })
     await waitFor(() => expect(own.intents).toHaveLength(1))
     // A section on somebody else's page is a guest. An empty card headed
     // "Consent" on every user with no consent records is clutter, not

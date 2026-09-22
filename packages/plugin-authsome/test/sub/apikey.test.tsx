@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest"
 import { fireEvent, screen, waitFor } from "@testing-library/react"
+import { ContractError } from "@forge-go/dashboard-plugin"
 import { APIKeyDetailPage, apikeySubPlugin } from "../../src/sub/apikey"
 import { renderSubPage, subStubClient } from "./harness"
 
@@ -99,6 +100,67 @@ describe("api key list", () => {
       allowed: [],
     })
     await waitFor(() => expect(screen.getByText(/no api keys/i)).toBeTruthy())
+  })
+
+  it("revokes by the key id", async () => {
+    const own = subStubClient({ "apikeys.list": keys }, { "apikeys.revoke": { ok: true } })
+    renderSubPage(pageAt("/apikeys"), {
+      client: own.client,
+      hostClient: subStubClient({}).client,
+      allowed: [],
+    })
+    await waitFor(() => expect(screen.getByText("CI")).toBeTruthy())
+    fireEvent.click(screen.getByRole("button", { name: /revoke ci/i }))
+    fireEvent.click(screen.getByRole("button", { name: /^revoke$/i }))
+    await waitFor(() => expect(own.payloads).toHaveLength(1))
+    expect(own.payloads[0]).toEqual({ intent: "apikeys.revoke", payload: { id: "k1" } })
+  })
+
+  it("shows a failed revoke inside the dialog, not on the page body", async () => {
+    // execute() only resolves undefined when the client THROWS a
+    // ContractError - a plain Error or an { ok: false } answer would be
+    // returned as if it were a successful result.
+    const own = subStubClient(
+      { "apikeys.list": keys },
+      { "apikeys.revoke": new ContractError("INTERNAL", "still in use") },
+    )
+    renderSubPage(pageAt("/apikeys"), {
+      client: own.client,
+      hostClient: subStubClient({}).client,
+      allowed: [],
+    })
+    await waitFor(() => expect(screen.getByText("CI")).toBeTruthy())
+    fireEvent.click(screen.getByRole("button", { name: /revoke ci/i }))
+    fireEvent.click(screen.getByRole("button", { name: /^revoke$/i }))
+
+    // Base UI marks everything outside an open dialog inert and
+    // aria-hidden, so the error has to be reachable from inside the open
+    // dialog itself, not on the page body.
+    const alert = await screen.findByRole("alert")
+    expect(alert.textContent).toMatch(/still in use/)
+  })
+
+  it("forgets a failed revoke before the next row's dialog opens", async () => {
+    const own = subStubClient(
+      { "apikeys.list": keys },
+      { "apikeys.revoke": new ContractError("INTERNAL", "nope") },
+    )
+    renderSubPage(pageAt("/apikeys"), {
+      client: own.client,
+      hostClient: subStubClient({}).client,
+      allowed: [],
+    })
+    await waitFor(() => expect(screen.getByText("CI")).toBeTruthy())
+    fireEvent.click(screen.getByRole("button", { name: /revoke ci/i }))
+    fireEvent.click(screen.getByRole("button", { name: /^revoke$/i }))
+    await waitFor(() => expect(screen.getByRole("alert")).toBeTruthy())
+    fireEvent.click(screen.getByRole("button", { name: /cancel/i }))
+    fireEvent.click(screen.getByRole("button", { name: /revoke ci/i }))
+    // One command hook serves every row (there is only one active row here,
+    // but the same hook would serve a second one), so without reset() a
+    // failure from the previous attempt follows the operator into the next
+    // time they open this dialog.
+    expect(screen.queryByRole("alert")).toBeNull()
   })
 })
 

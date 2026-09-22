@@ -1,8 +1,7 @@
 import { describe, expect, it } from "vitest"
 import { screen, waitFor } from "@testing-library/react"
-import { subscriptionSubPlugin, SubscriptionOrgTab } from "../../src/sub/subscription"
-import { renderSubPage, subStubClient } from "./harness"
-import type { PluginPageProps } from "@forge-go/dashboard-plugin"
+import { subscriptionSubPlugin } from "../../src/sub/subscription"
+import { renderContribution, renderSubPage, subStubClient } from "./harness"
 
 const plans = {
   plans: [
@@ -86,21 +85,17 @@ describe("plans", () => {
 })
 
 describe("SubscriptionOrgTab", () => {
-  // The plan's draft rendered SubscriptionOrgTab through a lambda annotated
-  // `(props: { orgId?: string }) => <SubscriptionOrgTab {...props} />`, on
-  // the assumption that renderSubPage spreads a slot contribution's params
-  // straight onto the component the way `PluginSlot` itself does. It does
-  // not: renderSubPage's `Page` is `ComponentType<PluginPageProps>` and it
-  // always renders `<Page params={opts.params ?? {}} />`, exactly like every
-  // routed page in this file. That lambda would receive `{ params: { orgId:
-  // "o1" } }` and spread a `params` prop onto SubscriptionOrgTab, leaving its
-  // own `orgId` prop undefined regardless of what the test asked for - a
-  // fourth bug, undocumented in the plan. The fix is the same shape
-  // OrgDetailPage already uses: read `params.orgId` and hand it to the
-  // component as its own prop.
-  function OrgTabAt({ params }: PluginPageProps) {
-    return <SubscriptionOrgTab orgId={params.orgId} />
-  }
+  // Rendered through `renderContribution`, not `renderSubPage`: this is an
+  // `org.detail.tabs` contribution, and `PluginSlot` spreads a slot's params
+  // straight onto the contribution's own props
+  // (`<Contribution {...(params ?? {})} />`, in slots.tsx) rather than
+  // nesting them under one `params` prop the way a routed page's are. An
+  // earlier draft of this suite rendered SubscriptionOrgTab through
+  // `renderSubPage` with a hand-rolled wrapper that re-derived `params.orgId`
+  // itself; that happened to reproduce the right prop shape, but it skipped
+  // the real `SubPluginProvider`/`PluginSlot`/error-boundary wiring every
+  // other contribution in this package is tested through.
+  const contribution = subscriptionSubPlugin.contributions["org.detail.tabs"]![0]
 
   it("sends the org id it was handed as the tenant", async () => {
     // subscriptions.list is a QUERY, not a command, so `own.payloads` (which
@@ -116,8 +111,11 @@ describe("SubscriptionOrgTab", () => {
       },
       "plans.list": plans,
     })
-    renderSubPage(OrgTabAt, {
-      client: own.client, hostClient: subStubClient({}).client, allowed: [], params: { orgId: "o1" },
+    renderContribution(contribution, {
+      slot: "org.detail.tabs",
+      client: own.client,
+      hostClient: subStubClient({}).client,
+      params: { orgId: "o1" },
     })
     await waitFor(() => expect(screen.getByText("active")).toBeTruthy())
     // subscriptions.list answers an EMPTY LIST for an empty tenantId, with no
@@ -129,8 +127,10 @@ describe("SubscriptionOrgTab", () => {
 
   it("renders nothing when it has no org id at all", async () => {
     const own = subStubClient({})
-    const { container } = renderSubPage(OrgTabAt, {
-      client: own.client, hostClient: subStubClient({}).client, allowed: [],
+    const { container } = renderContribution(contribution, {
+      slot: "org.detail.tabs",
+      client: own.client,
+      hostClient: subStubClient({}).client,
     })
     // Never send an empty tenantId. The answer would be indistinguishable
     // from a real one.
@@ -143,11 +143,54 @@ describe("SubscriptionOrgTab", () => {
       "subscriptions.list": { subscriptions: [{ id: "s1", tenantId: "o1", planId: "p1", status: "active" }] },
       "plans.list": plans,
     })
-    renderSubPage(OrgTabAt, {
-      client: own.client, hostClient: subStubClient({}).client, allowed: [], params: { orgId: "o1" },
+    renderContribution(contribution, {
+      slot: "org.detail.tabs",
+      client: own.client,
+      hostClient: subStubClient({}).client,
+      params: { orgId: "o1" },
     })
     // SubscriptionSummary carries planId and no plan name. plans.list is the
     // only way to turn one into the other, and "p1" tells an operator nothing.
     await waitFor(() => expect(screen.getByText("Pro")).toBeTruthy())
+  })
+})
+
+describe("SubscriptionUserSection", () => {
+  // Same shape as SubscriptionOrgTab above, keyed to a `user.detail.sections`
+  // contribution instead of `org.detail.tabs`. This component had no test
+  // coverage at all before this pass.
+  const contribution = subscriptionSubPlugin.contributions["user.detail.sections"]![0]
+
+  it("sends the user id it was handed as the tenant", async () => {
+    let subscriptionsParams: unknown
+    const own = subStubClient({
+      "subscriptions.list": (params: unknown) => {
+        subscriptionsParams = params
+        return { subscriptions: [{ id: "s1", tenantId: "u1", planId: "p1", status: "trialing" }] }
+      },
+      "plans.list": plans,
+    })
+    renderContribution(contribution, {
+      slot: "user.detail.sections",
+      client: own.client,
+      hostClient: subStubClient({}).client,
+      params: { userId: "u1" },
+    })
+    await waitFor(() => expect(screen.getByText("trialing")).toBeTruthy())
+    expect(subscriptionsParams).toEqual({ tenantId: "u1" })
+  })
+
+  it("renders nothing when it has no user id at all", async () => {
+    const own = subStubClient({})
+    const { container } = renderContribution(contribution, {
+      slot: "user.detail.sections",
+      client: own.client,
+      hostClient: subStubClient({}).client,
+    })
+    // Same refusal as SubscriptionOrgTab: subscriptions.list answers an empty
+    // list for an empty tenantId, with no error, so a missing id has to stop
+    // this from querying at all.
+    expect(own.intents).toEqual([])
+    expect(container.textContent).toBe("")
   })
 })

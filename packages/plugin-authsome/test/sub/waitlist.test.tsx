@@ -1,7 +1,8 @@
 import { describe, expect, it } from "vitest"
 import { fireEvent, screen, waitFor } from "@testing-library/react"
-import { waitlistSubPlugin, WaitlistCountsWidget } from "../../src/sub/waitlist"
-import { renderSubPage, subStubClient } from "./harness"
+import { ContractError } from "@forge-go/dashboard-plugin"
+import { waitlistSubPlugin } from "../../src/sub/waitlist"
+import { renderContribution, renderSubPage, subStubClient } from "./harness"
 
 const entries = {
   entries: [
@@ -102,12 +103,70 @@ describe("waitlist", () => {
     // like data rather than like an error.
     expect(lastParams?.cursor).toBeUndefined()
   })
+
+  it("shows a failed delete inside the delete dialog, not on the page body", async () => {
+    // Found during the sub-plugin verification pass: deleteCmd.error was
+    // rendered through a page-body CommandAlert rather than inside the
+    // delete ConfirmDialog. Base UI marks everything outside an open dialog
+    // inert and aria-hidden, so that CommandAlert was unreachable to a real
+    // operator for as long as the dialog stayed open - the same class of bug
+    // as a command error rendered outside its own dialog anywhere else in
+    // this package. execute() only resolves undefined when the client
+    // throws a ContractError, so that is what this stubs.
+    const own = subStubClient(
+      { "waitlist.list": entries },
+      { "waitlist.delete": new ContractError("INTERNAL", "still referenced") },
+    )
+    renderSubPage(page, { client: own.client, hostClient: subStubClient({}).client, allowed: [] })
+    await waitFor(() => expect(screen.getByText("ada@example.com")).toBeTruthy())
+    fireEvent.click(screen.getByRole("button", { name: /delete ada@example.com/i }))
+    fireEvent.click(screen.getByRole("button", { name: /^delete$/i }))
+
+    const alert = await screen.findByRole("alert")
+    expect(alert.textContent).toMatch(/still referenced/)
+    // Reachable specifically means inside the open dialog: an aria-hidden
+    // ancestor is exactly what a page-body CommandAlert would sit under
+    // while this ConfirmDialog is open.
+    expect(alert.closest('[aria-hidden="true"]')).toBeNull()
+
+    // The dialog is still open - a failed delete should not have dismissed
+    // it out from under the alert the operator is meant to read.
+    expect(screen.getByRole("button", { name: /^delete$/i })).toBeTruthy()
+  })
+
+  it("forgets a failed delete before the next row's dialog opens", async () => {
+    const own = subStubClient(
+      { "waitlist.list": entries },
+      { "waitlist.delete": new ContractError("INTERNAL", "nope") },
+    )
+    renderSubPage(page, { client: own.client, hostClient: subStubClient({}).client, allowed: [] })
+    await waitFor(() => expect(screen.getByText("ada@example.com")).toBeTruthy())
+    fireEvent.click(screen.getByRole("button", { name: /delete ada@example.com/i }))
+    fireEvent.click(screen.getByRole("button", { name: /^delete$/i }))
+    await waitFor(() => expect(screen.getByRole("alert")).toBeTruthy())
+    fireEvent.click(screen.getByRole("button", { name: /cancel/i }))
+    fireEvent.click(screen.getByRole("button", { name: /delete bob@example.com/i }))
+    // One command hook serves every row, so without reset() the previous
+    // failure follows the operator to the next row's dialog and reads as
+    // this row's.
+    expect(screen.queryByRole("alert")).toBeNull()
+  })
 })
 
 describe("WaitlistCountsWidget", () => {
+  // Rendered through `renderContribution`, not `renderSubPage`: this is an
+  // `overview.widgets` contribution, and it belongs behind a real
+  // `SubPluginProvider`/`PluginSlot` like every other contribution in this
+  // package, rather than mounted as if it were a routed page.
+  const contribution = waitlistSubPlugin.contributions["overview.widgets"]![0]
+
   it("shows the three counts the server actually answers", async () => {
     const own = subStubClient({ "waitlist.counts": { pending: 3, approved: 10, rejected: 1 } })
-    renderSubPage(WaitlistCountsWidget, { client: own.client, hostClient: subStubClient({}).client, allowed: [] })
+    renderContribution(contribution, {
+      slot: "overview.widgets",
+      client: own.client,
+      hostClient: subStubClient({}).client,
+    })
     await waitFor(() => expect(screen.getByText("3")).toBeTruthy())
     expect(screen.getByText("10")).toBeTruthy()
     expect(screen.getByText("1")).toBeTruthy()

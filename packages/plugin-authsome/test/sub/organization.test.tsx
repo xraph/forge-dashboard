@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest"
 import { fireEvent, screen, waitFor } from "@testing-library/react"
+import { ContractError } from "@forge-go/dashboard-plugin"
 import {
   OrgDetailPage,
   organizationSubPlugin,
@@ -228,6 +229,76 @@ describe("organization detail", () => {
       allowed: [],
     })
     expect(screen.getByText(/no organization selected/i)).toBeTruthy()
+  })
+})
+
+describe("organization delete", () => {
+  // orgs.delete is a real, registered contract intent (see the file's own
+  // header comment and .superpowers/sdd/authsome-subplugins-contract.md),
+  // and the legacy templ page offers a Delete Organization control. This
+  // page shipped without one at all, silently, which is exactly the kind of
+  // gap the plan calls out elsewhere with an on-page note (see the
+  // invitations line in the Members tab) rather than leaving unexplained.
+
+  it("deletes by the org id and leaves for the list", async () => {
+    const own = subStubClient(
+      { "orgs.detail": detail, "orgs.members": members },
+      { "orgs.delete": { ok: true } },
+    )
+    renderSubPage(pageAt("/organizations/:id"), {
+      client: own.client, hostClient: subStubClient({}).client, allowed: [], params: { id: "o1" },
+    })
+    await waitFor(() => expect(screen.getByRole("heading", { name: "Acme" })).toBeTruthy())
+    fireEvent.click(screen.getByRole("button", { name: /delete acme/i }))
+    fireEvent.click(screen.getByRole("button", { name: /^delete$/i }))
+    await waitFor(() => expect(own.payloads).toHaveLength(1))
+    expect(own.payloads[0]).toEqual({ intent: "orgs.delete", payload: { id: "o1" } })
+    await waitFor(() =>
+      expect(screen.getByText(/this organization has been deleted/i)).toBeTruthy(),
+    )
+    // Nowhere left to stay once its own subject is gone: the header, the
+    // tabs and the edit/delete actions must not still be on screen.
+    expect(screen.queryByRole("heading", { name: "Acme" })).toBeNull()
+    expect(screen.queryByRole("tablist")).toBeNull()
+  })
+
+  it("shows a failed delete inside the dialog, not on the page body", async () => {
+    const own = subStubClient(
+      { "orgs.detail": detail, "orgs.members": members },
+      { "orgs.delete": new ContractError("INTERNAL", "still has active subscriptions") },
+    )
+    renderSubPage(pageAt("/organizations/:id"), {
+      client: own.client, hostClient: subStubClient({}).client, allowed: [], params: { id: "o1" },
+    })
+    await waitFor(() => expect(screen.getByRole("heading", { name: "Acme" })).toBeTruthy())
+    fireEvent.click(screen.getByRole("button", { name: /delete acme/i }))
+    fireEvent.click(screen.getByRole("button", { name: /^delete$/i }))
+
+    const alert = await screen.findByRole("alert")
+    expect(alert.textContent).toMatch(/still has active subscriptions/)
+    // The dialog itself is still open and usable: a failed delete must not
+    // have navigated away (the "deleted" gate replaces this entire tree with
+    // a status message and no dialog at all) or left the operator unable to
+    // back out.
+    expect(screen.getByRole("button", { name: /cancel/i })).toBeTruthy()
+  })
+
+  it("forgets a failed delete the next time the dialog opens", async () => {
+    const own = subStubClient(
+      { "orgs.detail": detail, "orgs.members": members },
+      { "orgs.delete": new ContractError("INTERNAL", "nope") },
+    )
+    renderSubPage(pageAt("/organizations/:id"), {
+      client: own.client, hostClient: subStubClient({}).client, allowed: [], params: { id: "o1" },
+    })
+    await waitFor(() => expect(screen.getByRole("heading", { name: "Acme" })).toBeTruthy())
+    fireEvent.click(screen.getByRole("button", { name: /delete acme/i }))
+    fireEvent.click(screen.getByRole("button", { name: /^delete$/i }))
+    await waitFor(() => expect(screen.getByRole("alert")).toBeTruthy())
+    fireEvent.click(screen.getByRole("button", { name: /cancel/i }))
+    fireEvent.click(screen.getByRole("button", { name: /delete acme/i }))
+    fireEvent.click(screen.getByRole("button", { name: /^delete$/i }))
+    expect(screen.queryByRole("alert")).toBeNull()
   })
 })
 
