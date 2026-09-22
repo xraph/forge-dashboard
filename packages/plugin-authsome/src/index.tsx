@@ -16,7 +16,6 @@ import {
   UsersIcon,
   WebhookIcon,
 } from "@forge-go/dashboard-kit/icons"
-import { AuthGate } from "./gate"
 import { AuthAppCreatePage } from "./pages/app-create"
 import { AuthAppDetailPage } from "./pages/app-detail"
 import { AuthAppsPage } from "./pages/apps"
@@ -26,7 +25,6 @@ import { AuthDevicesPage } from "./pages/devices"
 import { AuthEnvironmentDetailPage } from "./pages/environment-detail"
 import { AuthEnvironmentsPage } from "./pages/environments"
 import { AuthFeaturesPage } from "./pages/features"
-import { AuthLoginPage } from "./pages/login"
 import { AuthOverviewPage } from "./pages/overview"
 import { AuthPluginsPage } from "./pages/plugins"
 import { AuthRoleDetailPage } from "./pages/role-detail"
@@ -49,7 +47,7 @@ export type {
   LoginResult,
   LogoutResult,
   SocialProvider,
-} from "./pages/login"
+} from "@forge-go/dashboard-plugin"
 export type {
   AckResponse,
   UserSummary,
@@ -100,8 +98,6 @@ export {
   AuthEnvironmentDetailPage,
   AuthEnvironmentsPage,
   AuthFeaturesPage,
-  AuthGate,
-  AuthLoginPage,
   AuthOverviewPage,
   AuthPluginsPage,
   AuthRoleDetailPage,
@@ -192,18 +188,28 @@ const ENV_DIMENSION: ContextDimension = {
  * link to "a user" with no user chosen points nowhere, and it is reached
  * instead from its list page.
  *
- * `/login` stays out of `routes` on purpose. Sign-in is not a page here: the
- * host renders `gate` in place of the whole shell when nobody is signed in,
- * so a "Sign in" row sitting in the nav for somebody already signed in would
- * have nothing to mean. `AuthLoginPage` still exists in `./pages/login` -
- * that is the auth-gate workstream's file to retire, not this plan's.
+ * `/login` stays out of `routes` on purpose. The dashboard host owns that
+ * page now: it renders its own sign-in screen, wired to whichever intent
+ * names this plugin declares below, so a "Sign in" row sitting in the nav
+ * for somebody already signed in would have nothing to mean either way.
  */
 export const authsomePlugin = definePlugin({
   extension: "auth",
   namespace: "auth",
   label: "Auth",
   icon: <ShieldIcon />,
-  auth: { gate: AuthGate, signOutIntent: "auth.logout" },
+  auth: {
+    intents: {
+      config: "auth.config",
+      signIn: "auth.login",
+      signOut: "auth.logout",
+      forgotPassword: "auth.forgotPassword",
+      resetPassword: "auth.resetPassword",
+      signUp: "auth.signup",
+      setupStatus: "auth.setupStatus",
+      completeSetup: "auth.setup",
+    },
+  },
   nav: [
     // Identity
     { label: "Users", to: "/users", priority: 10, icon: <UsersIcon />, group: "Identity" },

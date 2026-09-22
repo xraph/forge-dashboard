@@ -74,10 +74,11 @@ describe("authsomePlugin", () => {
     expect(authsomePlugin.requires).toBeUndefined()
   })
 
-  // Sign-in is no longer a route: the host renders the gate in its place
-  // before any route table exists, so `/login` has nothing to mean here.
-  it("declares the gate rather than a sign-in page", () => {
-    expect(authsomePlugin.auth?.gate).toBeDefined()
+  // Sign-in is no longer a route: the host owns that page and renders it
+  // from the intents this plugin declares, so `/login` has nothing to mean
+  // here, in the nav or in the route table. `auth?.intents` itself is
+  // covered by test/auth-intents.test.ts.
+  it("declares no /login entry, in the nav or in the route table", () => {
     expect(authsomePlugin.nav.map((item) => item.to)).not.toContain("/login")
     expect(authsomePlugin.routes.map((route) => route.path)).not.toContain("/login")
   })

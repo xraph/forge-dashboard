@@ -10,6 +10,7 @@ import type {
   PluginInput,
 } from "@forge-go/dashboard-plugin"
 import { PluginHost } from "../src/host/PluginHost"
+import type { AuthScreens } from "../src/auth/routes"
 
 // jsdom ships no matchMedia, and the kit's sidebar reads it through
 // useIsMobile on every mount. Stubbing it here rather than in a setup file
@@ -97,13 +98,14 @@ function queryingPlugin(
 function renderHost(
   plugins: ForgePlugin[],
   fetchImpl: typeof fetch,
-  route = "/@core/overview"
+  route = "/@core/overview",
+  authScreens?: AuthScreens
 ) {
   return render(
     <MemoryRouter initialEntries={[route]}>
       <ForgeDashboardProvider config={config}>
         <SessionProvider fetchImpl={fetchImpl}>
-          <PluginHost plugins={plugins} fetchImpl={fetchImpl} />
+          <PluginHost authScreens={authScreens} plugins={plugins} fetchImpl={fetchImpl} />
         </SessionProvider>
       </ForgeDashboardProvider>
     </MemoryRouter>
@@ -744,7 +746,11 @@ describe("PluginHost auth gate", () => {
       if (url.endsWith("/capabilities")) {
         return jsonOk({ shellEnvelopes: ["v1"], contributors })
       }
-      throw new Error(`unexpected request to ${url}`)
+      // Everything else is a contract request the sign-in screen itself
+      // makes (its `auth.config` read, most often). None of the tests below
+      // care what it answers, only that the screen gets something back
+      // instead of an unhandled rejection.
+      return jsonOk({ ok: true, data: {} })
     }) as unknown as typeof fetch
   }
 
@@ -753,19 +759,19 @@ describe("PluginHost auth gate", () => {
       extension: "auth",
       namespace: "auth",
       label: "Auth",
-      auth: { gate: () => <p>gate body</p> },
+      auth: { intents: { config: "auth.config", signIn: "auth.login" } },
       nav: [{ label: "Users", to: "/users" }],
       routes: [{ path: "/users", element: () => <p>auth users body</p> }],
     })
 
-  it("renders the plugin's gate and no shell when signed out", async () => {
+  it("renders the sign-in screen and no shell when signed out", async () => {
     const { container } = renderHost(
       [rootPlugin(), GatePlugin()],
       principalFetch(401, { code: "UNAUTHENTICATED", loginPath: "/dashboard/login" }),
       "/overview",
     )
 
-    expect(await screen.findByText("gate body")).toBeTruthy()
+    expect(await screen.findByRole("heading", { name: "Sign in" })).toBeTruthy()
     // "Blocks the UI entirely" means the shell is never constructed. A route
     // painting over a mounted sidebar is a curtain: the scope names are still
     // in the DOM.
@@ -783,7 +789,7 @@ describe("PluginHost auth gate", () => {
 
     expect(await screen.findByText("root overview body")).toBeTruthy()
     expect(container.querySelector('[data-slot="sidebar-header"]')).toBeTruthy()
-    expect(screen.queryByText("gate body")).toBeNull()
+    expect(screen.queryByRole("heading", { name: "Sign in" })).toBeNull()
   })
 
   it("renders the shell when auth is switched off", async () => {
@@ -800,33 +806,27 @@ describe("PluginHost auth gate", () => {
     expect(container.querySelector('[data-slot="sidebar-header"]')).toBeTruthy()
   })
 
-  it("renders the gate's denied variant with requiredRoles", async () => {
-    const Denied = ({ requiredRoles }: { requiredRoles?: string[] }) => (
-      <p>needs {requiredRoles?.join(",")}</p>
-    )
-    const plugin = definePlugin({
-      extension: "auth",
-      namespace: "auth",
-      auth: { gate: Denied },
-      nav: [],
-      routes: [],
-    })
-
+  it("renders the host's denied screen with requiredRoles", async () => {
+    // The plugin no longer supplies its own denied UI: the host always
+    // renders its own DeniedScreen (packages/host/src/auth/screens/denied.tsx),
+    // so all this fixture has to do is declare an auth provider at all.
     renderHost(
-      [rootPlugin(), plugin],
+      [rootPlugin(), GatePlugin()],
       principalFetch(403, { code: "PERMISSION_DENIED", requiredRoles: ["admin"] }),
       "/overview",
     )
 
-    expect(await screen.findByText("needs admin")).toBeTruthy()
+    expect(
+      await screen.findByText("It needs one of these roles: admin."),
+    ).toBeTruthy()
   })
 
-  it("renders neither gate nor shell while the session is unknown", async () => {
+  it("renders neither a sign-in screen nor the shell while the session is unknown", async () => {
     const pending = vi.fn(() => new Promise<Response>(() => {})) as unknown as typeof fetch
     const { container } = renderHost([rootPlugin(), GatePlugin()], pending, "/overview")
 
     expect(container.querySelector('[data-slot="spinner"]')).toBeTruthy()
-    expect(screen.queryByText("gate body")).toBeNull()
+    expect(screen.queryByRole("heading", { name: "Sign in" })).toBeNull()
     expect(container.querySelector('[data-slot="sidebar-header"]')).toBeNull()
   })
 
@@ -837,61 +837,54 @@ describe("PluginHost auth gate", () => {
       "/overview",
     )
 
-    expect(await screen.findByRole("link", { name: /^sign in$/i })).toBeTruthy()
+    expect(
+      await screen.findByText("This dashboard cannot sign anybody in: no plugin declares auth."),
+    ).toBeTruthy()
   })
 
-  it("falls back when a plugin's gate throws", async () => {
+  it("falls back when a sign-in screen throws", async () => {
     const Boom = () => {
-      throw new Error("gate blew up")
+      throw new Error("screen blew up")
     }
-    const plugin = definePlugin({
-      extension: "auth",
-      namespace: "auth",
-      auth: { gate: Boom },
-      nav: [],
-      routes: [],
-    })
 
     renderHost(
-      [rootPlugin(), plugin],
+      [rootPlugin(), GatePlugin()],
       principalFetch(401, { code: "UNAUTHENTICATED", loginPath: "/dashboard/login" }),
       "/overview",
+      { signIn: Boom },
     )
 
-    // A throwing gate must not be able to lock you out of your own dashboard.
-    expect(await screen.findByRole("link", { name: /^sign in$/i })).toBeTruthy()
+    // A throwing screen must not be able to lock you out of your own
+    // dashboard: PluginErrorBoundary catches it and falls back to the
+    // runtime's own message instead of a blank page.
+    expect(await screen.findByText("The sign-in screen failed to render.")).toBeTruthy()
   })
 
-  it("gives the gate its plugin's scoped client", async () => {
-    // The gate renders outside the route table, so it does not inherit the
-    // PluginProvider each route gets. A gate that calls useCommand without
-    // one throws, and the only screen with a way in becomes the fallback.
+  it("gives the sign-in screen its plugin's scoped client", async () => {
+    // AuthRoutes renders inside the provider's own PluginProvider, so a
+    // screen that calls useCommand or usePluginClient without one throws,
+    // and the only screen with a way in becomes the fallback.
     const ClientProbe = () => {
       const client = usePluginClient()
       return <p>client for {client.extension}</p>
     }
-    const plugin = definePlugin({
-      extension: "auth",
-      namespace: "auth",
-      auth: { gate: ClientProbe },
-      nav: [],
-      routes: [],
-    })
 
     renderHost(
-      [rootPlugin(), plugin],
+      [rootPlugin(), GatePlugin()],
       principalFetch(401, { code: "UNAUTHENTICATED", loginPath: "/dashboard/login" }),
       "/overview",
+      { signIn: ClientProbe },
     )
 
     expect(await screen.findByText("client for auth")).toBeTruthy()
   })
 
-  it("shows the gate, not a capabilities error, when signed out", async () => {
+  it("shows the sign-in screen, not a capabilities error, when signed out", async () => {
     // The spec requires a capabilities failure to be discarded rather than
-    // rendered while signed out. This holds because the gate returns before
-    // the capabilities error branch, so it is a property of statement order
-    // and would break silently if the gate block were moved below it.
+    // rendered while signed out. This holds because the signed-out branch
+    // returns before the capabilities error branch, so it is a property of
+    // statement order and would break silently if that branch were moved
+    // below it.
     const fetchImpl = vi.fn(async (input: RequestInfo | URL) => {
       const url = String(input)
       if (url.endsWith("/principal")) {
@@ -906,7 +899,7 @@ describe("PluginHost auth gate", () => {
 
     renderHost([rootPlugin(), GatePlugin()], fetchImpl, "/overview")
 
-    expect(await screen.findByText("gate body")).toBeTruthy()
+    expect(await screen.findByRole("heading", { name: "Sign in" })).toBeTruthy()
     expect(screen.queryByText(/Could not reach the dashboard server/)).toBeNull()
   })
 
