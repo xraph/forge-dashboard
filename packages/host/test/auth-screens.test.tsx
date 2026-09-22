@@ -76,4 +76,10 @@ describe("default auth screens", () => {
     expect(screen.getByLabelText(/new password/i)).toBeDefined()
     expect(screen.getByLabelText(/confirm/i)).toBeDefined()
   })
+
+  it("reset-password refuses to collect a password with no token", () => {
+    mount(defaultAuthScreens.resetPassword, ["/reset-password"])
+    expect(screen.getByRole("heading", { name: /link is incomplete/i })).toBeDefined()
+    expect(screen.queryByLabelText(/new password/i)).toBeNull()
+  })
 })

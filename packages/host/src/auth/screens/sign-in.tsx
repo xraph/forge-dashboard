@@ -8,6 +8,7 @@ import { buttonVariants } from "@forge-go/dashboard-kit/components/button"
 import { Input } from "@forge-go/dashboard-kit/components/input"
 import { Label } from "@forge-go/dashboard-kit/components/label"
 import { CommandAlert } from "@forge-go/dashboard-kit/components/query-boundary"
+import { Spinner } from "@forge-go/dashboard-kit/components/spinner"
 import { Navigate } from "react-router"
 import type { AuthIntents } from "@forge-go/dashboard-plugin"
 import type { AuthScreenProps } from "../routes"
@@ -43,10 +44,11 @@ export function SignInScreen({ intents, basename, onAuthenticated }: AuthScreenP
     onAuthenticated()
   }
 
-  // A config that has not answered yet is not an error state. Rendering the
-  // form optimistically keeps the first paint useful, and the alert below
-  // covers a config that genuinely failed.
-  const passwordEnabled = config.data?.passwordEnabled ?? true
+  // Loading is not the same as "no password login". Until the config
+  // answers, show nothing in the method area rather than guessing; the
+  // contract on AuthConfig says the safe reading of an unanswered
+  // passwordEnabled is to render no password form.
+  const passwordEnabled = config.data?.passwordEnabled === true
 
   return (
     <AuthLayout
@@ -69,7 +71,9 @@ export function SignInScreen({ intents, basename, onAuthenticated }: AuthScreenP
         <SetupRedirect intents={intents} />
       ) : null}
       <CommandAlert error={login.error} title="Sign in failed" />
-      {passwordEnabled ? (
+      {config.loading && !config.data ? (
+        <Spinner className="mx-auto" />
+      ) : passwordEnabled ? (
         <form className="flex flex-col gap-4" onSubmit={handleSubmit}>
           <div className="flex flex-col gap-1.5">
             <Label htmlFor={emailId}>Email</Label>
