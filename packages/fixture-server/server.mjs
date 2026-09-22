@@ -2,9 +2,9 @@
 // server.mjs
 //
 // This is a development fixture, not a shipped package. It exists because
-// two plugins this wave (streaming-contract, auth) cannot be built against
-// the real thing: the demo server only registers core-contract, and the
-// authsome repo that owns "auth" is mid-flight in another session. Everything
+// the dashboard's plugins cannot be built against the real thing: the demo
+// server only registers core-contract, and the authsome repo that owns
+// "auth" plus its two dozen sub-plugins is mid-flight elsewhere. Everything
 // built against this fixture is only as trustworthy as its fidelity to the
 // real envelope, so it imitates the wire shapes and status codes of
 // extensions/dashboard/contract/transport (forge) as closely as a zero-
@@ -14,6 +14,17 @@
 // No framework, no dependencies: plain node:http. That keeps this package
 // installable with zero `pnpm install` surface and makes the whole contract
 // readable in one file.
+//
+// Contributor inventory (three top-level plugins, twenty-four sub-plugins):
+//   - core-contract       (packages/plugin-core)            1 query
+//   - streaming-contract  (packages/plugin-streaming)        9 queries, 5 commands
+//   - auth                (packages/plugin-authsome)         query+command surface
+//   - organization, apikey, waitlist, consent, subscription, password
+//                          (packages/plugin-authsome/src/sub) each its own
+//                          contributor, own intents
+//   - eighteen settings-only sub-plugins (sub/settings-only.tsx): each its
+//     own contributor name, `intents: []`, reachable only through auth's
+//     settings.namespace/settings.update via the host-intent allowlist.
 
 import { createServer } from "node:http"
 import { randomBytes } from "node:crypto"
@@ -64,6 +75,10 @@ class FixtureError extends Error {
   }
 }
 
+function notFound(kind, id) {
+  return new FixtureError(404, CODE.NOT_FOUND, `${kind} ${id} not found`)
+}
+
 // ---------------------------------------------------------------------------
 // CSRF
 // ---------------------------------------------------------------------------
@@ -86,10 +101,59 @@ function isValidCSRF(token) {
 }
 
 // ---------------------------------------------------------------------------
-// In-memory state — streaming-contract
+// Shared id counters. Seeded above the count of fixture rows so a freshly
+// created row's id never collides with a seeded one.
 // ---------------------------------------------------------------------------
 
+let idCounters = {}
+
+function resetIdCounters() {
+  idCounters = {
+    user: 7,
+    device: 2,
+    role: 2,
+    app: 2,
+    env: 2,
+    webhook: 1,
+    org: 2,
+    member: 2,
+    apikey: 2,
+    waitlist: 7,
+    consent: 7,
+    room: 2,
+    formConfig: 1,
+  }
+}
+resetIdCounters()
+
+function nextId(kind, prefix) {
+  idCounters[kind] = (idCounters[kind] ?? 0) + 1
+  return `${prefix}_${idCounters[kind]}`
+}
+
 const START = new Date().toISOString()
+
+/**
+ * Cursor pagination shared by users.list, waitlist.list and consent.list.
+ * The cursor is just an opaque stringified offset — the wire never promises
+ * anything about its format, and offset-as-cursor is enough to exercise the
+ * client's cursor stack (next/previous/reset) faithfully. `defaultLimit` is
+ * deliberately small (not the real server's 100) because none of the pages
+ * that call these intents send a `limit` at all, and a 100-row default would
+ * make the second page unreachable without seeding a hundred rows.
+ */
+function paginateCursor(list, { cursor, limit } = {}, defaultLimit) {
+  const offset = cursor ? Number(cursor) || 0 : 0
+  const lim = limit && limit > 0 ? limit : defaultLimit
+  const page = list.slice(offset, offset + lim)
+  const nextOffset = offset + lim
+  const nextCursor = nextOffset < list.length ? String(nextOffset) : undefined
+  return { page, nextCursor, total: list.length }
+}
+
+// ---------------------------------------------------------------------------
+// In-memory state — streaming-contract
+// ---------------------------------------------------------------------------
 
 function seedStreamingState() {
   return {
@@ -200,19 +264,28 @@ let streaming = seedStreamingState()
 // ---------------------------------------------------------------------------
 
 function seedAuthState() {
-  const users = new Map([
-    [
-      "usr_1",
+  const userSeed = [
+    ["usr_1", "ada@example.com", "Ada", "Lovelace", "ada", true],
+    ["usr_2", "grace@example.com", "Grace", "Hopper", "grace", true],
+    ["usr_3", "alan@example.com", "Alan", "Turing", "alan", false],
+    ["usr_4", "margaret@example.com", "Margaret", "Hamilton", "margaret", true],
+    ["usr_5", "katherine@example.com", "Katherine", "Johnson", "katherine", true],
+    ["usr_6", "radia@example.com", "Radia", "Perlman", "radia", true],
+    ["usr_7", "barbara@example.com", "Barbara", "Liskov", "barbara", true],
+  ]
+  const users = new Map(
+    userSeed.map(([id, email, firstName, lastName, username, emailVerified], i) => [
+      id,
       {
-        id: "usr_1",
-        email: "ada@example.com",
-        emailVerified: true,
-        firstName: "Ada",
-        lastName: "Lovelace",
-        username: "ada",
+        id,
+        email,
+        emailVerified,
+        firstName,
+        lastName,
+        username,
         banned: false,
-        createdAt: START,
-        displayName: "Ada Lovelace",
+        createdAt: new Date(Date.now() - (userSeed.length - i) * 3_600_000).toISOString(),
+        displayName: `${firstName} ${lastName}`,
         phone: "",
         phoneVerified: false,
         image: "",
@@ -223,54 +296,8 @@ function seedAuthState() {
         appId: "app_fixture",
         envId: "env_fixture",
       },
-    ],
-    [
-      "usr_2",
-      {
-        id: "usr_2",
-        email: "grace@example.com",
-        emailVerified: true,
-        firstName: "Grace",
-        lastName: "Hopper",
-        username: "grace",
-        banned: false,
-        createdAt: START,
-        displayName: "Grace Hopper",
-        phone: "",
-        phoneVerified: false,
-        image: "",
-        banReason: "",
-        banExpiresAt: "",
-        passwordChangedAt: "",
-        updatedAt: START,
-        appId: "app_fixture",
-        envId: "env_fixture",
-      },
-    ],
-    [
-      "usr_3",
-      {
-        id: "usr_3",
-        email: "alan@example.com",
-        emailVerified: false,
-        firstName: "Alan",
-        lastName: "Turing",
-        username: "alan",
-        banned: false,
-        createdAt: START,
-        displayName: "Alan Turing",
-        phone: "",
-        phoneVerified: false,
-        image: "",
-        banReason: "",
-        banExpiresAt: "",
-        passwordChangedAt: "",
-        updatedAt: START,
-        appId: "app_fixture",
-        envId: "env_fixture",
-      },
-    ],
-  ])
+    ]),
+  )
 
   const sessions = new Map([
     [
@@ -285,6 +312,12 @@ function seedAuthState() {
         createdAt: START,
         appId: "app_fixture",
         envId: "env_fixture",
+        orgId: "",
+        deviceId: "dev_1",
+        impersonatedBy: "",
+        refreshTokenExpiresAt: new Date(Date.now() + 7 * 86_400_000).toISOString(),
+        principalKind: "user",
+        updatedAt: START,
       },
     ],
     [
@@ -299,14 +332,704 @@ function seedAuthState() {
         createdAt: START,
         appId: "app_fixture",
         envId: "env_fixture",
+        orgId: "",
+        deviceId: "dev_2",
+        impersonatedBy: "",
+        refreshTokenExpiresAt: new Date(Date.now() + 7 * 86_400_000).toISOString(),
+        principalKind: "user",
+        updatedAt: START,
       },
     ],
   ])
 
-  return { users, sessions }
+  const devices = new Map([
+    [
+      "dev_1",
+      {
+        id: "dev_1",
+        userId: "usr_1",
+        name: "Ada's MacBook",
+        type: "desktop",
+        browser: "Chrome",
+        os: "macOS",
+        ipAddress: "127.0.0.1",
+        trusted: true,
+        lastSeenAt: START,
+        createdAt: START,
+      },
+    ],
+    [
+      "dev_2",
+      {
+        id: "dev_2",
+        userId: "usr_2",
+        name: "Grace's iPhone",
+        type: "mobile",
+        browser: "Safari",
+        os: "iOS",
+        ipAddress: "127.0.0.1",
+        trusted: false,
+        lastSeenAt: START,
+        createdAt: START,
+      },
+    ],
+  ])
+
+  const roles = new Map([
+    [
+      "role_1",
+      {
+        id: "role_1",
+        name: "Admin",
+        slug: "admin",
+        description: "Full access to every resource",
+        createdAt: START,
+        appId: "app_fixture",
+        envId: "env_fixture",
+        parentId: "",
+        permissions: [
+          { id: "perm_1", action: "*", resource: "*" },
+        ],
+        updatedAt: START,
+      },
+    ],
+    [
+      "role_2",
+      {
+        id: "role_2",
+        name: "Viewer",
+        slug: "viewer",
+        description: "Read-only access",
+        createdAt: START,
+        appId: "app_fixture",
+        envId: "env_fixture",
+        parentId: "",
+        permissions: [
+          { id: "perm_2", action: "read", resource: "*" },
+        ],
+        updatedAt: START,
+      },
+    ],
+  ])
+
+  const apps = new Map([
+    [
+      "app_1",
+      {
+        id: "app_1",
+        name: "Platform",
+        slug: "platform",
+        isPlatform: true,
+        createdAt: START,
+        logo: "",
+        publishableKey: "pk_fixture_platform",
+        metadata: {},
+        updatedAt: START,
+      },
+    ],
+    [
+      "app_2",
+      {
+        id: "app_2",
+        name: "Demo App",
+        slug: "demo-app",
+        isPlatform: false,
+        createdAt: START,
+        logo: "",
+        publishableKey: "pk_fixture_demo",
+        metadata: { tier: "free" },
+        updatedAt: START,
+      },
+    ],
+  ])
+
+  const environments = new Map([
+    [
+      "env_1",
+      {
+        id: "env_1",
+        name: "Production",
+        slug: "production",
+        type: "production",
+        isDefault: true,
+        createdAt: START,
+        appId: "app_1",
+        color: "#22c55e",
+        description: "Live environment",
+        clonedFrom: "",
+        metadata: {},
+        updatedAt: START,
+      },
+    ],
+    [
+      "env_2",
+      {
+        id: "env_2",
+        name: "Staging",
+        slug: "staging",
+        type: "staging",
+        isDefault: false,
+        createdAt: START,
+        appId: "app_1",
+        color: "#eab308",
+        description: "Pre-production environment",
+        clonedFrom: "",
+        metadata: {},
+        updatedAt: START,
+      },
+    ],
+  ])
+
+  const webhooks = new Map([
+    [
+      "webhook_1",
+      {
+        id: "webhook_1",
+        url: "https://example.com/hooks/authsome",
+        events: ["user.created", "user.banned"],
+        active: true,
+        createdAt: START,
+        appId: "app_fixture",
+        envId: "env_fixture",
+        updatedAt: START,
+      },
+    ],
+  ])
+
+  const featureToggles = new Map([
+    ["passwordAuth", { key: "passwordAuth", label: "Password sign-in", description: "Allow email+password", enabled: true, available: true }],
+    ["socialLogin", { key: "socialLogin", label: "Social login", description: "Allow OAuth providers", enabled: true, available: true }],
+    ["mfaRequired", { key: "mfaRequired", label: "Require MFA", description: "Force multi-factor for all users", enabled: false, available: true }],
+    ["waitlistMode", { key: "waitlistMode", label: "Waitlist mode", description: "Gate signups behind approval", enabled: false, available: true }],
+  ])
+
+  const formConfigs = {
+    list: [{ id: "form_1", formType: "signup", version: 1, active: true, createdAt: START }],
+    signupFields: [
+      { key: "email", label: "Email", type: "email", order: 1, validation: { required: true } },
+      { key: "password", label: "Password", type: "password", order: 2, validation: { required: true, minLen: 8 } },
+      { key: "name", label: "Full name", type: "text", order: 3, placeholder: "Ada Lovelace" },
+    ],
+    signupActive: true,
+    signupUpdatedAt: START,
+  }
+
+  return {
+    users,
+    sessions,
+    devices,
+    roles,
+    apps,
+    environments,
+    webhooks,
+    featureToggles,
+    formConfigs,
+  }
 }
 
 let auth = seedAuthState()
+
+// ---------------------------------------------------------------------------
+// In-memory state — settings (served through auth's settings.namespace /
+// settings.update / settings.enforce / settings.unenforce, and read by the
+// eighteen settings-only sub-plugins through the host-intent allowlist).
+// ---------------------------------------------------------------------------
+
+function seedSettingsState() {
+  // Real categories for several of the eighteen namespaces, plus `password`
+  // (the settings-editor link `password.tsx` points at) so the panels have
+  // something to render. Deliberately includes, across this set, at least
+  // one enforced field (riskengine.mode), one read-only field
+  // (geoip.provider) and one sensitive field whose effectiveValue is the
+  // literal "***" (geoip.apiKey) — per the contract, a secret's value never
+  // travels on the wire even in the settings surface.
+  return new Map([
+    [
+      "riskengine",
+      {
+        displayName: "Risk Engine",
+        categories: [
+          {
+            name: "Scoring",
+            settings: [
+              {
+                key: "riskengine.enabled",
+                displayName: "Enabled",
+                type: "bool",
+                default: true,
+                effectiveValue: true,
+                isOverridden: false,
+                isEnforced: false,
+                canOverride: true,
+                order: 1,
+              },
+              {
+                key: "riskengine.threshold",
+                displayName: "Block threshold",
+                type: "int",
+                default: 75,
+                effectiveValue: 80,
+                isOverridden: true,
+                isEnforced: false,
+                canOverride: true,
+                order: 2,
+                validation: { min: 0, max: 100 },
+              },
+              {
+                key: "riskengine.mode",
+                displayName: "Mode",
+                type: "string",
+                default: "monitor",
+                effectiveValue: "enforce",
+                isOverridden: true,
+                isEnforced: true,
+                canOverride: false,
+                order: 3,
+                options: [
+                  { label: "Monitor", value: "monitor" },
+                  { label: "Enforce", value: "enforce" },
+                ],
+              },
+            ],
+          },
+        ],
+      },
+    ],
+    [
+      "geoip",
+      {
+        displayName: "Geo IP",
+        categories: [
+          {
+            name: "Provider",
+            settings: [
+              {
+                key: "geoip.provider",
+                displayName: "Provider",
+                type: "string",
+                default: "maxmind",
+                effectiveValue: "maxmind",
+                isOverridden: false,
+                isEnforced: false,
+                canOverride: false,
+                readOnly: true,
+                order: 1,
+              },
+              {
+                key: "geoip.apiKey",
+                displayName: "API key",
+                type: "string",
+                effectiveValue: "***",
+                isOverridden: true,
+                isEnforced: false,
+                canOverride: true,
+                sensitive: true,
+                order: 2,
+              },
+              {
+                key: "geoip.cacheTtl",
+                displayName: "Cache TTL (seconds)",
+                type: "int",
+                default: 1800,
+                effectiveValue: 3600,
+                isOverridden: true,
+                isEnforced: false,
+                canOverride: true,
+                order: 3,
+              },
+            ],
+          },
+        ],
+      },
+    ],
+    [
+      "mfa",
+      {
+        displayName: "Multi-Factor Auth",
+        categories: [
+          {
+            name: "Policy",
+            settings: [
+              {
+                key: "mfa.required",
+                displayName: "Require MFA",
+                type: "bool",
+                default: false,
+                effectiveValue: false,
+                isOverridden: false,
+                isEnforced: false,
+                canOverride: true,
+                order: 1,
+              },
+              {
+                key: "mfa.methods",
+                displayName: "Allowed methods",
+                type: "string",
+                default: "totp",
+                effectiveValue: "totp,webauthn",
+                isOverridden: true,
+                isEnforced: false,
+                canOverride: true,
+                order: 2,
+              },
+            ],
+          },
+        ],
+      },
+    ],
+    [
+      "notification",
+      {
+        displayName: "Notifications",
+        categories: [
+          {
+            name: "Delivery",
+            settings: [
+              {
+                key: "notification.email",
+                displayName: "Email notifications",
+                type: "bool",
+                default: true,
+                effectiveValue: true,
+                isOverridden: false,
+                isEnforced: false,
+                canOverride: true,
+                order: 1,
+              },
+              {
+                key: "notification.webhookUrl",
+                displayName: "Webhook URL",
+                type: "string",
+                effectiveValue: "",
+                isOverridden: false,
+                isEnforced: false,
+                canOverride: true,
+                order: 2,
+              },
+            ],
+          },
+        ],
+      },
+    ],
+    [
+      "scim",
+      {
+        displayName: "SCIM",
+        categories: [
+          {
+            name: "Provisioning",
+            settings: [
+              {
+                key: "scim.enabled",
+                displayName: "Enabled",
+                type: "bool",
+                default: false,
+                effectiveValue: false,
+                isOverridden: false,
+                isEnforced: false,
+                canOverride: true,
+                order: 1,
+              },
+              {
+                key: "scim.token",
+                displayName: "Bearer token",
+                type: "string",
+                effectiveValue: "***",
+                isOverridden: true,
+                isEnforced: false,
+                canOverride: true,
+                sensitive: true,
+                order: 2,
+              },
+            ],
+          },
+        ],
+      },
+    ],
+    [
+      "password",
+      {
+        displayName: "Password",
+        categories: [
+          {
+            name: "Validation",
+            settings: [
+              {
+                key: "password.min_length",
+                displayName: "Minimum length",
+                type: "int",
+                default: 8,
+                effectiveValue: 10,
+                isOverridden: true,
+                isEnforced: true,
+                canOverride: false,
+                order: 1,
+                validation: { min: 8, max: 128 },
+              },
+              {
+                key: "password.require_special",
+                displayName: "Require special character",
+                type: "bool",
+                default: false,
+                effectiveValue: true,
+                isOverridden: true,
+                isEnforced: false,
+                canOverride: true,
+                order: 2,
+              },
+            ],
+          },
+        ],
+      },
+    ],
+  ])
+}
+
+let settingsData = seedSettingsState()
+
+/** A namespace this fixture has no hand-authored data for still answers a
+ * well-formed (if sparse) response instead of 404 — matching how a real
+ * namespace with nothing configured yet behaves. */
+function settingsNamespaceFor(namespace) {
+  const known = settingsData.get(namespace)
+  if (known) return known
+  return {
+    displayName: undefined,
+    categories: [
+      {
+        name: "General",
+        settings: [
+          {
+            key: `${namespace}.enabled`,
+            displayName: "Enabled",
+            type: "bool",
+            default: false,
+            effectiveValue: false,
+            isOverridden: false,
+            isEnforced: false,
+            canOverride: true,
+            order: 1,
+          },
+        ],
+      },
+    ],
+  }
+}
+
+function settingsFieldCount(entry) {
+  return entry.categories.reduce((sum, c) => sum + (c.settings?.length ?? 0), 0)
+}
+
+function findSettingField(namespace, key) {
+  const entry = settingsData.get(namespace)
+  if (!entry) return null
+  for (const category of entry.categories) {
+    const field = category.settings.find((s) => s.key === key)
+    if (field) return field
+  }
+  return null
+}
+
+// ---------------------------------------------------------------------------
+// In-memory state — organization
+// ---------------------------------------------------------------------------
+
+function seedOrganizationState() {
+  const organizations = new Map([
+    ["org_1", { id: "org_1", name: "Acme Corp", slug: "acme", createdAt: START, appId: "app_fixture", logo: "", metadata: { plan: "growth" }, updatedAt: START }],
+    ["org_2", { id: "org_2", name: "Globex", slug: "globex", createdAt: START, appId: "app_fixture", logo: "", metadata: {}, updatedAt: START }],
+  ])
+  const members = new Map([
+    ["org_1", [
+      { id: "member_1", userId: "usr_1", role: "owner", createdAt: START },
+      { id: "member_2", userId: "usr_2", role: "member", createdAt: START },
+    ]],
+    ["org_2", [{ id: "member_3", userId: "usr_2", role: "owner", createdAt: START }]],
+  ])
+  return { organizations, members }
+}
+
+let organization = seedOrganizationState()
+
+// ---------------------------------------------------------------------------
+// In-memory state — apikey
+// ---------------------------------------------------------------------------
+
+function seedApikeyState() {
+  const apikeys = new Map([
+    [
+      "key_1",
+      {
+        id: "key_1",
+        name: "CI deploy key",
+        keyPrefix: "ask_ci",
+        scopes: ["deploy:write"],
+        revoked: false,
+        expiresAt: "",
+        lastUsedAt: START,
+        createdAt: START,
+        appId: "app_fixture",
+        envId: "env_fixture",
+        userId: "usr_1",
+        serviceAccountId: "",
+        publicKey: "pk_ask_ci",
+        updatedAt: START,
+      },
+    ],
+    [
+      "key_2",
+      {
+        id: "key_2",
+        name: "Legacy integration",
+        keyPrefix: "ask_leg",
+        scopes: [],
+        revoked: true,
+        expiresAt: "",
+        lastUsedAt: "",
+        createdAt: START,
+        appId: "app_fixture",
+        envId: "env_fixture",
+        userId: "usr_2",
+        serviceAccountId: "",
+        publicKey: "pk_ask_leg",
+        updatedAt: START,
+      },
+    ],
+  ])
+  return { apikeys }
+}
+
+let apikey = seedApikeyState()
+
+// ---------------------------------------------------------------------------
+// In-memory state — waitlist
+// ---------------------------------------------------------------------------
+
+function seedWaitlistState() {
+  const statuses = ["pending", "pending", "pending", "approved", "approved", "rejected", "pending"]
+  const entries = new Map(
+    statuses.map((status, i) => {
+      const id = `wait_${i + 1}`
+      return [
+        id,
+        {
+          id,
+          email: `waitlisted-${i + 1}@example.com`,
+          name: `Waitlisted ${i + 1}`,
+          status,
+          userId: undefined,
+          ipAddress: "127.0.0.1",
+          note: "",
+          createdAt: new Date(Date.now() - (statuses.length - i) * 60_000).toISOString(),
+          updatedAt: START,
+        },
+      ]
+    }),
+  )
+  return { entries }
+}
+
+let waitlist = seedWaitlistState()
+
+// ---------------------------------------------------------------------------
+// In-memory state — consent
+// ---------------------------------------------------------------------------
+
+function seedConsentState() {
+  const purposes = ["marketing", "analytics", "marketing", "essential", "analytics", "marketing", "essential"]
+  const records = new Map(
+    purposes.map((purpose, i) => {
+      const id = `consent_${i + 1}`
+      const granted = i % 3 !== 0
+      return [
+        id,
+        {
+          id,
+          userId: `usr_${(i % 7) + 1}`,
+          appId: "app_fixture",
+          purpose,
+          granted,
+          version: "1.0",
+          ipAddress: "127.0.0.1",
+          grantedAt: granted ? START : undefined,
+          revokedAt: granted ? undefined : START,
+          createdAt: new Date(Date.now() - (purposes.length - i) * 60_000).toISOString(),
+          updatedAt: START,
+        },
+      ]
+    }),
+  )
+  return { records }
+}
+
+let consent = seedConsentState()
+
+// ---------------------------------------------------------------------------
+// In-memory state — subscription
+// ---------------------------------------------------------------------------
+
+function seedSubscriptionState() {
+  const plans = new Map([
+    [
+      "plan_1",
+      {
+        id: "plan_1",
+        name: "Starter",
+        slug: "starter",
+        description: "For small teams",
+        currency: "usd",
+        status: "active",
+        trialDays: 14,
+        features: [{ key: "seats", name: "Seats", type: "seat", limit: 5, period: "" }],
+      },
+    ],
+    [
+      "plan_2",
+      {
+        id: "plan_2",
+        name: "Growth",
+        slug: "growth",
+        description: "For growing teams",
+        currency: "usd",
+        status: "active",
+        trialDays: 14,
+        features: [{ key: "seats", name: "Seats", type: "seat", limit: 25, period: "" }],
+      },
+    ],
+    [
+      "plan_3",
+      {
+        id: "plan_3",
+        name: "Legacy",
+        slug: "legacy",
+        description: "No longer sold",
+        currency: "usd",
+        status: "archived",
+        trialDays: 0,
+        features: [],
+      },
+    ],
+  ])
+  // Keyed by tenantId, matching subscriptions.list's required param.
+  const subscriptionsByTenant = new Map([
+    [
+      "tenant_1",
+      [
+        {
+          id: "sub_1",
+          tenantId: "tenant_1",
+          planId: "plan_2",
+          status: "active",
+          currentPeriodStart: START,
+          currentPeriodEnd: new Date(Date.now() + 30 * 86_400_000).toISOString(),
+        },
+      ],
+    ],
+  ])
+  return { plans, subscriptionsByTenant }
+}
+
+let subscription = seedSubscriptionState()
 
 // ---------------------------------------------------------------------------
 // Idempotency store — mirrors the default wiring in
@@ -348,7 +1071,26 @@ function idempotencyStorePut(key, data, meta) {
 }
 
 // ---------------------------------------------------------------------------
-// Streaming-contract intents (nine queries, no commands this wave)
+// core-contract intent (one query)
+// ---------------------------------------------------------------------------
+
+const coreHandlers = {
+  overview: {
+    kind: "query",
+    handler: () => ({
+      overallHealth: "healthy",
+      totalServices: 5,
+      healthyServices: 5,
+      totalMetrics: 128,
+      uptimeSeconds: Math.floor(process.uptime()),
+      version: "0.0.0-fixture",
+      environment: "fixture",
+    }),
+  },
+}
+
+// ---------------------------------------------------------------------------
+// Streaming-contract intents (nine queries, five commands)
 // ---------------------------------------------------------------------------
 
 const streamingHandlers = {
@@ -369,34 +1111,87 @@ const streamingHandlers = {
     kind: "query",
     handler: () => ({ connections: streaming.connections }),
   },
+  "connections.kick": {
+    kind: "command",
+    invalidates: ["connections.list"],
+    handler: (payload) => {
+      const idx = streaming.connections.findIndex((c) => c.connID === payload?.connID)
+      if (idx === -1) throw notFound("connection", payload?.connID)
+      streaming.connections.splice(idx, 1)
+      return { ok: true, id: payload.connID }
+    },
+  },
   "rooms.list": {
     kind: "query",
     handler: () => ({ rooms: [...streaming.rooms.values()] }),
+  },
+  "rooms.create": {
+    kind: "command",
+    invalidates: ["rooms.list"],
+    handler: (payload) => {
+      const id = nextId("room", "room")
+      const now = new Date().toISOString()
+      const room = {
+        id,
+        name: payload?.name ?? "",
+        description: payload?.description ?? "",
+        owner: payload?.owner ?? "",
+        members: 1,
+        private: Boolean(payload?.private),
+        archived: false,
+        created: now,
+        updated: now,
+      }
+      streaming.rooms.set(id, room)
+      streaming.roomMembers.set(id, [
+        { userID: payload?.owner ?? "", role: "owner", joinedAt: now, permissions: ["*"] },
+      ])
+      streaming.moderation.set(id, [])
+      return { ok: true, id }
+    },
+  },
+  "rooms.delete": {
+    kind: "command",
+    invalidates: ["rooms.list"],
+    handler: (payload) => {
+      const id = payload?.id
+      if (!streaming.rooms.has(id)) throw notFound("room", id)
+      streaming.rooms.delete(id)
+      streaming.roomMembers.delete(id)
+      streaming.moderation.delete(id)
+      return { ok: true, id }
+    },
   },
   "rooms.detail": {
     kind: "query",
     handler: (params) => {
       const room = streaming.rooms.get(params?.id)
-      if (!room) throw new FixtureError(404, CODE.NOT_FOUND, `room ${params?.id} not found`)
+      if (!room) throw notFound("room", params?.id)
       return room
     },
   },
   "rooms.members": {
     kind: "query",
     handler: (params) => {
-      if (!streaming.rooms.has(params?.id)) {
-        throw new FixtureError(404, CODE.NOT_FOUND, `room ${params?.id} not found`)
-      }
+      if (!streaming.rooms.has(params?.id)) throw notFound("room", params?.id)
       return { members: streaming.roomMembers.get(params.id) ?? [] }
     },
   },
   "rooms.moderation": {
     kind: "query",
     handler: (params) => {
-      if (!streaming.rooms.has(params?.id)) {
-        throw new FixtureError(404, CODE.NOT_FOUND, `room ${params?.id} not found`)
-      }
+      if (!streaming.rooms.has(params?.id)) throw notFound("room", params?.id)
       return { entries: streaming.moderation.get(params.id) ?? [] }
+    },
+  },
+  "rooms.send-message": {
+    kind: "command",
+    // No corresponding read exists (no messages.list intent this wave), so
+    // there is nothing meaningful to invalidate — matching auth.logout's
+    // existing precedent of a command with no `invalidates`.
+    handler: (payload) => {
+      if (!streaming.rooms.has(payload?.roomID)) throw notFound("room", payload?.roomID)
+      return { ok: true, id: `msg_${Date.now()}` }
     },
   },
   "channels.list": {
@@ -407,6 +1202,17 @@ const streamingHandlers = {
     kind: "query",
     handler: () => ({ presence: streaming.presence }),
   },
+  "presence.set": {
+    kind: "command",
+    invalidates: ["presence.list"],
+    handler: (payload) => {
+      const entry = streaming.presence.find((p) => p.userID === payload?.userID)
+      if (!entry) throw notFound("presence", payload?.userID)
+      entry.status = payload?.status ?? entry.status
+      entry.lastSeen = new Date().toISOString()
+      return { ok: true, id: payload.userID }
+    },
+  },
   config: {
     kind: "query",
     handler: () => streaming.config,
@@ -414,7 +1220,7 @@ const streamingHandlers = {
 }
 
 // ---------------------------------------------------------------------------
-// Auth intents (the nine this wave scopes to)
+// Auth intents
 // ---------------------------------------------------------------------------
 
 function userSummary(u) {
@@ -439,6 +1245,36 @@ function sessionSummary(s) {
     lastActivityAt: s.lastActivityAt,
     expiresAt: s.expiresAt,
     createdAt: s.createdAt,
+  }
+}
+
+function deviceSummary(d) {
+  return { ...d }
+}
+
+function roleSummary(r) {
+  return { id: r.id, name: r.name, slug: r.slug, description: r.description, createdAt: r.createdAt }
+}
+
+function appSummary(a) {
+  return { id: a.id, name: a.name, slug: a.slug, isPlatform: a.isPlatform, createdAt: a.createdAt }
+}
+
+function envSummary(e) {
+  return { id: e.id, name: e.name, slug: e.slug, type: e.type, isDefault: e.isDefault, createdAt: e.createdAt }
+}
+
+function webhookSummary(w) {
+  return { id: w.id, url: w.url, events: w.events, active: w.active, createdAt: w.createdAt }
+}
+
+/** Applies pointer-semantics fields (present key = set, absent key = leave
+ * unchanged) from `payload` onto `target`, for the given field names. */
+function applyPointerFields(target, payload, fields) {
+  for (const field of fields) {
+    if (Object.prototype.hasOwnProperty.call(payload ?? {}, field)) {
+      target[field] = payload[field]
+    }
   }
 }
 
@@ -473,23 +1309,93 @@ const authHandlers = {
       ],
     }),
   },
+  "auth.featureToggles": {
+    kind: "query",
+    handler: () => ({ toggles: [...auth.featureToggles.values()] }),
+  },
+  "auth.toggleFeature": {
+    kind: "command",
+    invalidates: ["auth.featureToggles"],
+    handler: (payload) => {
+      const toggle = auth.featureToggles.get(payload?.key)
+      if (!toggle) throw notFound("feature", payload?.key)
+      toggle.enabled = Boolean(payload?.enabled)
+      return { ok: true, id: toggle.key }
+    },
+  },
+  "auth.dynamicConfig": {
+    kind: "query",
+    handler: () => ({
+      title: "Create your account",
+      description: "Fields collected on the public signup form.",
+      fields: auth.formConfigs.signupFields.map((f) => ({
+        key: f.key,
+        label: f.label,
+        type: f.type,
+        order: f.order,
+      })),
+      active: auth.formConfigs.signupActive,
+    }),
+  },
+
+  // -- users -----------------------------------------------------------
   "users.list": {
     kind: "query",
     handler: (params) => {
       let list = [...auth.users.values()]
-      if (params?.email) {
-        list = list.filter((u) => u.email.includes(params.email))
-      }
-      const limit = params?.limit && params.limit > 0 ? params.limit : list.length
-      return { users: list.slice(0, limit).map(userSummary), total: list.length }
+      if (params?.email) list = list.filter((u) => u.email.includes(params.email))
+      const { page, nextCursor, total } = paginateCursor(list, params, 5)
+      return { users: page.map(userSummary), nextCursor, total }
     },
   },
   "users.detail": {
     kind: "query",
     handler: (params) => {
       const u = auth.users.get(params?.id)
-      if (!u) throw new FixtureError(404, CODE.NOT_FOUND, `user ${params?.id} not found`)
+      if (!u) throw notFound("user", params?.id)
       return u
+    },
+  },
+  "users.create": {
+    kind: "command",
+    invalidates: ["users.list"],
+    handler: (payload) => {
+      const id = nextId("user", "usr")
+      const now = new Date().toISOString()
+      const u = {
+        id,
+        email: payload?.email ?? "",
+        emailVerified: false,
+        firstName: payload?.firstName ?? "",
+        lastName: payload?.lastName ?? "",
+        username: payload?.username ?? "",
+        banned: false,
+        createdAt: now,
+        displayName: [payload?.firstName, payload?.lastName].filter(Boolean).join(" "),
+        phone: "",
+        phoneVerified: false,
+        image: "",
+        banReason: "",
+        banExpiresAt: "",
+        passwordChangedAt: now,
+        updatedAt: now,
+        appId: "app_fixture",
+        envId: "env_fixture",
+      }
+      auth.users.set(id, u)
+      return { ok: true, id }
+    },
+  },
+  "users.update": {
+    kind: "command",
+    invalidates: ["users.list", "users.detail"],
+    handler: (payload) => {
+      const u = auth.users.get(payload?.id)
+      if (!u) throw notFound("user", payload?.id)
+      applyPointerFields(u, payload, ["firstName", "lastName", "username", "emailVerified"])
+      u.displayName = [u.firstName, u.lastName].filter(Boolean).join(" ")
+      u.updatedAt = new Date().toISOString()
+      return { ok: true, id: u.id }
     },
   },
   "users.ban": {
@@ -497,7 +1403,7 @@ const authHandlers = {
     invalidates: ["users.list", "users.detail"],
     handler: (payload) => {
       const u = auth.users.get(payload?.id)
-      if (!u) throw new FixtureError(404, CODE.NOT_FOUND, `user ${payload?.id} not found`)
+      if (!u) throw notFound("user", payload?.id)
       u.banned = true
       u.banReason = payload?.reason ?? ""
       u.banExpiresAt = payload?.expiresAt ?? ""
@@ -510,7 +1416,7 @@ const authHandlers = {
     invalidates: ["users.list", "users.detail"],
     handler: (payload) => {
       const u = auth.users.get(payload?.id)
-      if (!u) throw new FixtureError(404, CODE.NOT_FOUND, `user ${payload?.id} not found`)
+      if (!u) throw notFound("user", payload?.id)
       u.banned = false
       u.banReason = ""
       u.banExpiresAt = ""
@@ -518,12 +1424,32 @@ const authHandlers = {
       return { ok: true, id: u.id }
     },
   },
+  "users.delete": {
+    kind: "command",
+    invalidates: ["users.list"],
+    handler: (payload) => {
+      if (!auth.users.has(payload?.id)) throw notFound("user", payload?.id)
+      auth.users.delete(payload.id)
+      return { ok: true, id: payload.id }
+    },
+  },
+
+  // -- sessions ----------------------------------------------------------
   "sessions.list": {
     kind: "query",
     handler: (params) => {
       let list = [...auth.sessions.values()]
       if (params?.userId) list = list.filter((s) => s.userId === params.userId)
-      return { sessions: list.map(sessionSummary) }
+      const limit = params?.limit && params.limit > 0 ? params.limit : list.length
+      return { sessions: list.slice(0, limit).map(sessionSummary) }
+    },
+  },
+  "sessions.detail": {
+    kind: "query",
+    handler: (params) => {
+      const s = auth.sessions.get(params?.id)
+      if (!s) throw notFound("session", params?.id)
+      return s
     },
   },
   "sessions.revoke": {
@@ -531,29 +1457,909 @@ const authHandlers = {
     invalidates: ["sessions.list"],
     handler: (payload) => {
       const id = payload?.id
-      if (!auth.sessions.has(id)) {
-        throw new FixtureError(404, CODE.NOT_FOUND, `session ${id} not found`)
-      }
+      if (!auth.sessions.has(id)) throw notFound("session", id)
       auth.sessions.delete(id)
       return { ok: true, id }
+    },
+  },
+  "sessions.bulkRevoke": {
+    kind: "command",
+    invalidates: ["sessions.list"],
+    handler: (payload) => {
+      const userId = payload?.userId
+      let count = 0
+      for (const [id, s] of auth.sessions) {
+        if (s.userId === userId) {
+          auth.sessions.delete(id)
+          count += 1
+        }
+      }
+      return { ok: true, count }
+    },
+  },
+
+  // -- devices -------------------------------------------------------------
+  "devices.list": {
+    kind: "query",
+    handler: (params) => {
+      let list = [...auth.devices.values()]
+      if (params?.userId) list = list.filter((d) => d.userId === params.userId)
+      const limit = params?.limit && params.limit > 0 ? params.limit : list.length
+      return { devices: list.slice(0, limit).map(deviceSummary) }
+    },
+  },
+  "devices.detail": {
+    kind: "query",
+    handler: (params) => {
+      const d = auth.devices.get(params?.id)
+      if (!d) throw notFound("device", params?.id)
+      return d
+    },
+  },
+  "devices.trust": {
+    kind: "command",
+    invalidates: ["devices.list", "devices.detail"],
+    handler: (payload) => {
+      const d = auth.devices.get(payload?.id)
+      if (!d) throw notFound("device", payload?.id)
+      d.trusted = true
+      return { ok: true, id: d.id }
+    },
+  },
+  "devices.delete": {
+    kind: "command",
+    invalidates: ["devices.list"],
+    handler: (payload) => {
+      if (!auth.devices.has(payload?.id)) throw notFound("device", payload?.id)
+      auth.devices.delete(payload.id)
+      return { ok: true, id: payload.id }
+    },
+  },
+
+  // -- roles -----------------------------------------------------------
+  "roles.list": {
+    kind: "query",
+    handler: () => ({ roles: [...auth.roles.values()].map(roleSummary) }),
+  },
+  "roles.detail": {
+    kind: "query",
+    handler: (params) => {
+      const r = auth.roles.get(params?.id)
+      if (!r) throw notFound("role", params?.id)
+      return r
+    },
+  },
+  "roles.create": {
+    kind: "command",
+    invalidates: ["roles.list"],
+    handler: (payload) => {
+      const id = nextId("role", "role")
+      const now = new Date().toISOString()
+      auth.roles.set(id, {
+        id,
+        name: payload?.name ?? "",
+        slug: payload?.slug ?? "",
+        description: payload?.description ?? "",
+        createdAt: now,
+        appId: "app_fixture",
+        envId: "env_fixture",
+        parentId: "",
+        permissions: [],
+        updatedAt: now,
+      })
+      return { ok: true, id }
+    },
+  },
+  "roles.update": {
+    kind: "command",
+    invalidates: ["roles.list", "roles.detail"],
+    handler: (payload) => {
+      const r = auth.roles.get(payload?.id)
+      if (!r) throw notFound("role", payload?.id)
+      applyPointerFields(r, payload, ["name", "description"])
+      r.updatedAt = new Date().toISOString()
+      return { ok: true, id: r.id }
+    },
+  },
+  "roles.delete": {
+    kind: "command",
+    invalidates: ["roles.list"],
+    handler: (payload) => {
+      if (!auth.roles.has(payload?.id)) throw notFound("role", payload?.id)
+      auth.roles.delete(payload.id)
+      return { ok: true, id: payload.id }
+    },
+  },
+  "roles.assign": {
+    kind: "command",
+    handler: (payload) => {
+      if (!auth.roles.has(payload?.roleId)) throw notFound("role", payload?.roleId)
+      if (!auth.users.has(payload?.userId)) throw notFound("user", payload?.userId)
+      return { ok: true }
+    },
+  },
+  "roles.unassign": {
+    kind: "command",
+    handler: (payload) => {
+      if (!auth.roles.has(payload?.roleId)) throw notFound("role", payload?.roleId)
+      if (!auth.users.has(payload?.userId)) throw notFound("user", payload?.userId)
+      return { ok: true }
+    },
+  },
+
+  // -- apps -----------------------------------------------------------
+  "apps.list": {
+    kind: "query",
+    handler: () => ({ apps: [...auth.apps.values()].map(appSummary) }),
+  },
+  "apps.detail": {
+    kind: "query",
+    handler: (params) => {
+      const a = auth.apps.get(params?.id)
+      if (!a) throw notFound("app", params?.id)
+      return a
+    },
+  },
+  "apps.create": {
+    kind: "command",
+    invalidates: ["apps.list"],
+    handler: (payload) => {
+      const id = nextId("app", "app")
+      const now = new Date().toISOString()
+      auth.apps.set(id, {
+        id,
+        name: payload?.name ?? "",
+        slug: payload?.slug ?? "",
+        isPlatform: false,
+        createdAt: now,
+        logo: payload?.logo ?? "",
+        publishableKey: `pk_fixture_${id}`,
+        metadata: {},
+        updatedAt: now,
+      })
+      return { ok: true, id }
+    },
+  },
+  "apps.update": {
+    kind: "command",
+    invalidates: ["apps.list", "apps.detail"],
+    handler: (payload) => {
+      const a = auth.apps.get(payload?.id)
+      if (!a) throw notFound("app", payload?.id)
+      applyPointerFields(a, payload, ["name", "slug", "logo"])
+      a.updatedAt = new Date().toISOString()
+      return { ok: true, id: a.id }
+    },
+  },
+  "apps.delete": {
+    kind: "command",
+    invalidates: ["apps.list"],
+    handler: (payload) => {
+      if (!auth.apps.has(payload?.id)) throw notFound("app", payload?.id)
+      auth.apps.delete(payload.id)
+      return { ok: true, id: payload.id }
+    },
+  },
+
+  // -- environments -----------------------------------------------------
+  "environments.list": {
+    kind: "query",
+    handler: () => ({ environments: [...auth.environments.values()].map(envSummary) }),
+  },
+  "environments.detail": {
+    kind: "query",
+    handler: (params) => {
+      const e = auth.environments.get(params?.id)
+      if (!e) throw notFound("environment", params?.id)
+      return e
+    },
+  },
+  "environments.create": {
+    kind: "command",
+    invalidates: ["environments.list"],
+    handler: (payload) => {
+      const id = nextId("env", "env")
+      const now = new Date().toISOString()
+      auth.environments.set(id, {
+        id,
+        name: payload?.name ?? "",
+        slug: payload?.slug ?? "",
+        type: payload?.type ?? "development",
+        isDefault: false,
+        createdAt: now,
+        appId: "app_fixture",
+        color: payload?.color ?? "",
+        description: payload?.description ?? "",
+        clonedFrom: "",
+        metadata: {},
+        updatedAt: now,
+      })
+      return { ok: true, id }
+    },
+  },
+  "environments.update": {
+    kind: "command",
+    invalidates: ["environments.list", "environments.detail"],
+    handler: (payload) => {
+      const e = auth.environments.get(payload?.id)
+      if (!e) throw notFound("environment", payload?.id)
+      applyPointerFields(e, payload, ["name", "description", "color"])
+      e.updatedAt = new Date().toISOString()
+      return { ok: true, id: e.id }
+    },
+  },
+  "environments.delete": {
+    kind: "command",
+    invalidates: ["environments.list"],
+    handler: (payload) => {
+      if (!auth.environments.has(payload?.id)) throw notFound("environment", payload?.id)
+      auth.environments.delete(payload.id)
+      return { ok: true, id: payload.id }
+    },
+  },
+  "environments.clone": {
+    kind: "command",
+    invalidates: ["environments.list"],
+    handler: (payload) => {
+      const src = auth.environments.get(payload?.id)
+      if (!src) throw notFound("environment", payload?.id)
+      const id = nextId("env", "env")
+      const now = new Date().toISOString()
+      auth.environments.set(id, {
+        ...src,
+        id,
+        name: payload?.name ?? `${src.name} copy`,
+        slug: payload?.slug ?? `${src.slug}-copy`,
+        isDefault: false,
+        createdAt: now,
+        clonedFrom: src.id,
+        updatedAt: now,
+      })
+      return { ok: true, id }
+    },
+  },
+  "environments.setDefault": {
+    kind: "command",
+    invalidates: ["environments.list"],
+    handler: (payload) => {
+      const e = auth.environments.get(payload?.id)
+      if (!e) throw notFound("environment", payload?.id)
+      for (const env of auth.environments.values()) env.isDefault = env.id === e.id
+      return { ok: true, id: e.id }
+    },
+  },
+
+  // -- webhooks -----------------------------------------------------------
+  "webhooks.list": {
+    kind: "query",
+    handler: () => ({ webhooks: [...auth.webhooks.values()].map(webhookSummary) }),
+  },
+  "webhooks.detail": {
+    kind: "query",
+    handler: (params) => {
+      const w = auth.webhooks.get(params?.id)
+      if (!w) throw notFound("webhook", params?.id)
+      return w
+    },
+  },
+  "webhooks.create": {
+    kind: "command",
+    invalidates: ["webhooks.list"],
+    handler: (payload) => {
+      const id = nextId("webhook", "webhook")
+      const now = new Date().toISOString()
+      auth.webhooks.set(id, {
+        id,
+        url: payload?.url ?? "",
+        events: payload?.events ?? [],
+        active: true,
+        createdAt: now,
+        appId: "app_fixture",
+        envId: "env_fixture",
+        updatedAt: now,
+      })
+      return { ok: true, id }
+    },
+  },
+  "webhooks.update": {
+    kind: "command",
+    invalidates: ["webhooks.list", "webhooks.detail"],
+    handler: (payload) => {
+      const w = auth.webhooks.get(payload?.id)
+      if (!w) throw notFound("webhook", payload?.id)
+      applyPointerFields(w, payload, ["url", "events", "active"])
+      w.updatedAt = new Date().toISOString()
+      return { ok: true, id: w.id }
+    },
+  },
+  "webhooks.delete": {
+    kind: "command",
+    invalidates: ["webhooks.list"],
+    handler: (payload) => {
+      if (!auth.webhooks.has(payload?.id)) throw notFound("webhook", payload?.id)
+      auth.webhooks.delete(payload.id)
+      return { ok: true, id: payload.id }
+    },
+  },
+
+  // -- credentials, overview, formConfigs ----------------------------------
+  "credentials.detail": {
+    kind: "query",
+    handler: () => ({
+      appId: "app_1",
+      appName: "Platform",
+      appSlug: "platform",
+      publishableKey: "pk_fixture_platform",
+      envId: "env_1",
+      envName: "Production",
+      envSlug: "production",
+      isPlatform: true,
+    }),
+  },
+  "overview.stats": {
+    kind: "query",
+    handler: () => ({
+      users: auth.users.size,
+      sessions: auth.sessions.size,
+      devices: auth.devices.size,
+      plugins: 27,
+    }),
+  },
+  "overview.recentSignups": {
+    kind: "query",
+    handler: (params) => {
+      const limit = params?.limit && params.limit > 0 ? params.limit : 10
+      const list = [...auth.users.values()].sort((a, b) => (a.createdAt < b.createdAt ? 1 : -1))
+      return { users: list.slice(0, limit).map(userSummary) }
+    },
+  },
+  "formConfigs.list": {
+    kind: "query",
+    handler: () => ({ formConfigs: auth.formConfigs.list }),
+  },
+  "formConfigs.signup": {
+    kind: "query",
+    handler: () => ({
+      appId: "app_fixture",
+      fields: auth.formConfigs.signupFields,
+      updatedAt: auth.formConfigs.signupUpdatedAt,
+    }),
+  },
+  "formConfigs.saveSignup": {
+    kind: "command",
+    invalidates: ["formConfigs.signup", "formConfigs.list"],
+    handler: (payload) => {
+      auth.formConfigs.signupFields = payload?.fields ?? []
+      auth.formConfigs.signupActive = Boolean(payload?.active)
+      auth.formConfigs.signupUpdatedAt = new Date().toISOString()
+      if (auth.formConfigs.list[0]) {
+        auth.formConfigs.list[0].version += 1
+        auth.formConfigs.list[0].active = auth.formConfigs.signupActive
+      }
+      return { ok: true }
+    },
+  },
+  "formConfigs.deleteSignup": {
+    kind: "command",
+    invalidates: ["formConfigs.signup", "formConfigs.list"],
+    handler: () => {
+      auth.formConfigs.signupFields = []
+      auth.formConfigs.signupActive = false
+      auth.formConfigs.signupUpdatedAt = new Date().toISOString()
+      if (auth.formConfigs.list[0]) auth.formConfigs.list[0].active = false
+      return { ok: true }
+    },
+  },
+
+  // -- settings (also reached by the 18 settings-only sub-plugins via their
+  // hostIntents allowlist: settings.namespace, settings.update,
+  // settings.enforce, settings.unenforce) --------------------------------
+  "settings.namespaces": {
+    kind: "query",
+    handler: () => ({
+      namespaces: [...settingsData.entries()].map(([name, entry]) => ({
+        name,
+        displayName: entry.displayName,
+        settingCount: settingsFieldCount(entry),
+      })),
+      context: { appId: "app_fixture" },
+    }),
+  },
+  "settings.namespace": {
+    kind: "query",
+    handler: (params) => {
+      const namespace = params?.namespace
+      if (!namespace) throw new FixtureError(400, CODE.BAD_REQUEST, "namespace is required")
+      const entry = settingsNamespaceFor(namespace)
+      return {
+        namespace,
+        displayName: entry.displayName,
+        scope: params?.scope ?? "app",
+        categories: entry.categories,
+      }
+    },
+  },
+  "settings.update": {
+    kind: "command",
+    invalidates: ["settings.namespace", "settings.namespaces"],
+    handler: (payload) => {
+      // The fixture does not thread namespace through settings.update's
+      // payload (neither does the real contract — it resolves the field
+      // from the key), so this scans every namespace for a matching key.
+      for (const [, entry] of settingsData) {
+        for (const category of entry.categories) {
+          const field = category.settings.find((s) => s.key === payload?.key)
+          if (field) {
+            field.effectiveValue = field.sensitive ? "***" : payload?.value
+            field.isOverridden = true
+            return { ok: true }
+          }
+        }
+      }
+      // Unknown key: still ack, matching a server that persists a setting it
+      // has never seen a manifest for.
+      return { ok: true }
+    },
+  },
+  "settings.enforce": {
+    kind: "command",
+    invalidates: ["settings.namespace", "settings.namespaces"],
+    handler: (payload) => {
+      const field = findFieldAnyNamespace(payload?.key)
+      if (field) {
+        field.isEnforced = true
+        field.canOverride = false
+        field.effectiveValue = field.sensitive ? "***" : payload?.value
+      }
+      return { ok: true }
+    },
+  },
+  "settings.unenforce": {
+    kind: "command",
+    invalidates: ["settings.namespace", "settings.namespaces"],
+    handler: (payload) => {
+      const field = findFieldAnyNamespace(payload?.key)
+      if (field) {
+        field.isEnforced = false
+        field.canOverride = true
+      }
+      return { ok: true }
+    },
+  },
+}
+
+function findFieldAnyNamespace(key) {
+  for (const [, entry] of settingsData) {
+    for (const category of entry.categories) {
+      const field = category.settings.find((s) => s.key === key)
+      if (field) return field
+    }
+  }
+  return null
+}
+
+// ---------------------------------------------------------------------------
+// organization intents (its own contributor, "organization")
+// ---------------------------------------------------------------------------
+
+function orgSummary(o) {
+  return { id: o.id, name: o.name, slug: o.slug, createdAt: o.createdAt }
+}
+
+const organizationHandlers = {
+  "orgs.list": {
+    kind: "query",
+    handler: () => ({ organizations: [...organization.organizations.values()].map(orgSummary) }),
+  },
+  "orgs.detail": {
+    kind: "query",
+    handler: (params) => {
+      const o = organization.organizations.get(params?.id)
+      if (!o) throw notFound("organization", params?.id)
+      return o
+    },
+  },
+  "orgs.create": {
+    kind: "command",
+    invalidates: ["orgs.list"],
+    handler: (payload) => {
+      const id = nextId("org", "org")
+      const now = new Date().toISOString()
+      organization.organizations.set(id, {
+        id,
+        name: payload?.name ?? "",
+        slug: payload?.slug ?? "",
+        createdAt: now,
+        appId: "app_fixture",
+        logo: payload?.logo ?? "",
+        metadata: {},
+        updatedAt: now,
+      })
+      organization.members.set(id, [])
+      return { ok: true, id }
+    },
+  },
+  "orgs.update": {
+    kind: "command",
+    invalidates: ["orgs.list", "orgs.detail"],
+    handler: (payload) => {
+      const o = organization.organizations.get(payload?.id)
+      if (!o) throw notFound("organization", payload?.id)
+      applyPointerFields(o, payload, ["name", "logo"])
+      o.updatedAt = new Date().toISOString()
+      return { ok: true, id: o.id }
+    },
+  },
+  "orgs.delete": {
+    kind: "command",
+    invalidates: ["orgs.list"],
+    handler: (payload) => {
+      if (!organization.organizations.has(payload?.id)) throw notFound("organization", payload?.id)
+      organization.organizations.delete(payload.id)
+      organization.members.delete(payload.id)
+      return { ok: true, id: payload.id }
+    },
+  },
+  "orgs.members": {
+    kind: "query",
+    handler: (params) => {
+      if (!organization.organizations.has(params?.orgId)) throw notFound("organization", params?.orgId)
+      return { members: organization.members.get(params.orgId) ?? [] }
+    },
+  },
+  "orgs.removeMember": {
+    kind: "command",
+    invalidates: ["orgs.members"],
+    handler: (payload) => {
+      for (const members of organization.members.values()) {
+        const idx = members.findIndex((m) => m.id === payload?.id)
+        if (idx !== -1) {
+          members.splice(idx, 1)
+          return { ok: true, id: payload.id }
+        }
+      }
+      throw notFound("member", payload?.id)
     },
   },
 }
 
 // ---------------------------------------------------------------------------
+// apikey intents (its own contributor, "apikey")
+// ---------------------------------------------------------------------------
+
+function apikeySummary(k) {
+  return {
+    id: k.id,
+    name: k.name,
+    keyPrefix: k.keyPrefix,
+    scopes: k.scopes,
+    revoked: k.revoked,
+    expiresAt: k.expiresAt,
+    lastUsedAt: k.lastUsedAt,
+    createdAt: k.createdAt,
+  }
+}
+
+const apikeyHandlers = {
+  "apikeys.list": {
+    kind: "query",
+    handler: () => ({ apiKeys: [...apikey.apikeys.values()].map(apikeySummary) }),
+  },
+  "apikeys.detail": {
+    kind: "query",
+    handler: (params) => {
+      const k = apikey.apikeys.get(params?.id)
+      if (!k) throw notFound("apikey", params?.id)
+      // apikeys.detail is APIKeyDetail: no secret field, ever — and there
+      // never was one on `k` to begin with, since apikeys.create never
+      // stores the plaintext, only hands it back once on the wire.
+      return { ...k }
+    },
+  },
+  "apikeys.create": {
+    kind: "command",
+    invalidates: ["apikeys.list"],
+    handler: (payload) => {
+      const id = nextId("apikey", "key")
+      const now = new Date().toISOString()
+      const secret = `ask_${randomBytes(16).toString("hex")}`
+      const keyPrefix = secret.slice(0, 12)
+      apikey.apikeys.set(id, {
+        id,
+        name: payload?.name ?? "",
+        keyPrefix,
+        scopes: payload?.scopes ?? [],
+        revoked: false,
+        expiresAt: "",
+        lastUsedAt: "",
+        createdAt: now,
+        appId: "app_fixture",
+        envId: "env_fixture",
+        userId: payload?.userId ?? "",
+        serviceAccountId: "",
+        publicKey: `pk_${id}`,
+        updatedAt: now,
+      })
+      // The ONLY response anywhere carrying the plaintext secret.
+      return { ok: true, id, keyPrefix, secret }
+    },
+  },
+  "apikeys.revoke": {
+    kind: "command",
+    invalidates: ["apikeys.list", "apikeys.detail"],
+    handler: (payload) => {
+      const k = apikey.apikeys.get(payload?.id)
+      if (!k) throw notFound("apikey", payload?.id)
+      k.revoked = true
+      k.updatedAt = new Date().toISOString()
+      return { ok: true, id: k.id }
+    },
+  },
+}
+
+// ---------------------------------------------------------------------------
+// waitlist intents (its own contributor, "waitlist")
+// ---------------------------------------------------------------------------
+
+const waitlistHandlers = {
+  "waitlist.list": {
+    kind: "query",
+    handler: (params) => {
+      let list = [...waitlist.entries.values()]
+      if (params?.email) list = list.filter((e) => e.email.includes(params.email))
+      if (params?.status) list = list.filter((e) => e.status === params.status)
+      const { page, nextCursor, total } = paginateCursor(list, params, 5)
+      return { entries: page, total, nextCursor }
+    },
+  },
+  "waitlist.detail": {
+    kind: "query",
+    handler: (params) => {
+      const e = waitlist.entries.get(params?.id)
+      if (!e) throw notFound("waitlist entry", params?.id)
+      return e
+    },
+  },
+  "waitlist.approve": {
+    kind: "command",
+    invalidates: ["waitlist.list", "waitlist.counts"],
+    handler: (payload) => {
+      const e = waitlist.entries.get(payload?.id)
+      if (!e) throw notFound("waitlist entry", payload?.id)
+      e.status = "approved"
+      e.note = payload?.note ?? e.note
+      e.updatedAt = new Date().toISOString()
+      return { ok: true, id: e.id }
+    },
+  },
+  "waitlist.reject": {
+    kind: "command",
+    invalidates: ["waitlist.list", "waitlist.counts"],
+    handler: (payload) => {
+      const e = waitlist.entries.get(payload?.id)
+      if (!e) throw notFound("waitlist entry", payload?.id)
+      e.status = "rejected"
+      e.note = payload?.note ?? e.note
+      e.updatedAt = new Date().toISOString()
+      return { ok: true, id: e.id }
+    },
+  },
+  "waitlist.delete": {
+    kind: "command",
+    invalidates: ["waitlist.list", "waitlist.counts"],
+    handler: (payload) => {
+      if (!waitlist.entries.has(payload?.id)) throw notFound("waitlist entry", payload?.id)
+      waitlist.entries.delete(payload.id)
+      return { ok: true, id: payload.id }
+    },
+  },
+  "waitlist.counts": {
+    kind: "query",
+    handler: () => {
+      const list = [...waitlist.entries.values()]
+      return {
+        pending: list.filter((e) => e.status === "pending").length,
+        approved: list.filter((e) => e.status === "approved").length,
+        rejected: list.filter((e) => e.status === "rejected").length,
+      }
+    },
+  },
+}
+
+// ---------------------------------------------------------------------------
+// consent intents (its own contributor, "consent")
+// ---------------------------------------------------------------------------
+
+function consentListHandler(params) {
+  let list = [...consent.records.values()]
+  if (params?.userId) list = list.filter((c) => c.userId === params.userId)
+  if (params?.purpose) list = list.filter((c) => c.purpose === params.purpose)
+  const { page, nextCursor } = paginateCursor(list, params, 5)
+  return { items: page, nextCursor }
+}
+
+const consentHandlers = {
+  // consent.list and consent.userConsents are wire-identical in the Go
+  // contract, sharing one handler — matched here deliberately.
+  "consent.list": { kind: "query", handler: consentListHandler },
+  "consent.userConsents": { kind: "query", handler: consentListHandler },
+  "consent.grant": {
+    kind: "command",
+    invalidates: ["consent.list", "consent.userConsents"],
+    handler: (payload) => {
+      const id = nextId("consent", "consent")
+      const now = new Date().toISOString()
+      consent.records.set(id, {
+        id,
+        userId: payload?.userId ?? "",
+        appId: "app_fixture",
+        purpose: payload?.purpose ?? "",
+        granted: true,
+        version: payload?.version ?? "",
+        ipAddress: payload?.ipAddress ?? "",
+        grantedAt: now,
+        revokedAt: undefined,
+        createdAt: now,
+        updatedAt: now,
+      })
+      return { ok: true, id }
+    },
+  },
+  "consent.revoke": {
+    kind: "command",
+    invalidates: ["consent.list", "consent.userConsents"],
+    handler: (payload) => {
+      // Keyed by the (userId, purpose) composite, never by id.
+      const record = [...consent.records.values()].find(
+        (c) => c.userId === payload?.userId && c.purpose === payload?.purpose,
+      )
+      if (!record) throw new FixtureError(404, CODE.NOT_FOUND, "consent record not found")
+      record.granted = false
+      record.revokedAt = new Date().toISOString()
+      record.updatedAt = record.revokedAt
+      return { ok: true }
+    },
+  },
+}
+
+// ---------------------------------------------------------------------------
+// subscription intents (its own contributor, "subscription")
+// ---------------------------------------------------------------------------
+
+function planSummary(p) {
+  return { id: p.id, name: p.name, slug: p.slug, description: p.description, currency: p.currency, status: p.status, trialDays: p.trialDays }
+}
+
+const subscriptionHandlers = {
+  "plans.list": {
+    kind: "query",
+    handler: () => ({ plans: [...subscription.plans.values()].map(planSummary) }),
+  },
+  "plans.detail": {
+    kind: "query",
+    handler: (params) => {
+      const p = subscription.plans.get(params?.id)
+      if (!p) throw notFound("plan", params?.id)
+      return { ...planSummary(p), features: p.features }
+    },
+  },
+  "plans.archive": {
+    kind: "command",
+    invalidates: ["plans.list", "plans.detail"],
+    handler: (payload) => {
+      const p = subscription.plans.get(payload?.id)
+      if (!p) throw notFound("plan", payload?.id)
+      p.status = "archived"
+      return { ok: true, id: p.id }
+    },
+  },
+  "plans.activate": {
+    kind: "command",
+    invalidates: ["plans.list", "plans.detail"],
+    handler: (payload) => {
+      const p = subscription.plans.get(payload?.id)
+      if (!p) throw notFound("plan", payload?.id)
+      p.status = "active"
+      return { ok: true, id: p.id }
+    },
+  },
+  "subscriptions.list": {
+    kind: "query",
+    handler: (params) => {
+      // Required tenantId. An empty/missing one short-circuits to an empty
+      // list without error — do not make this forgiving.
+      if (!params?.tenantId) return { subscriptions: [] }
+      return { subscriptions: subscription.subscriptionsByTenant.get(params.tenantId) ?? [] }
+    },
+  },
+}
+
+// ---------------------------------------------------------------------------
+// password intent (its own contributor, "password")
+// ---------------------------------------------------------------------------
+
+const passwordHandlers = {
+  "password.policy": {
+    kind: "query",
+    handler: () => ({
+      minLength: 10,
+      requireSpecial: true,
+      // Hardcoded in the real handler too (hashAlgorithm() ignores the
+      // engine argument) — matching that rather than "fixing" it here.
+      hashAlgorithm: "argon2id",
+    }),
+  },
+}
+
+// ---------------------------------------------------------------------------
+// The eighteen settings-only sub-plugins. Copied from
+// packages/plugin-authsome/src/sub/settings-only.tsx's SETTINGS_ONLY table
+// (itself copied from each plugin's contract/manifest.yaml) — extension name
+// is the join key, and every one of these declares `intents: []` in Go: all
+// reads/writes flow through auth's settings.namespace/settings.update via
+// the sub-plugin's hostIntents allowlist, never through an intent of their
+// own.
+// ---------------------------------------------------------------------------
+
+const SETTINGS_ONLY_EXTENSIONS = [
+  "riskengine",
+  "anomaly",
+  "geoip",
+  "geofence",
+  "impossibletravel",
+  "ipreputation",
+  "vpndetect",
+  "deviceverify",
+  "email",
+  "phone",
+  "magiclink",
+  "mfa",
+  "passkey",
+  "social",
+  "oauth2provider",
+  "scim",
+  "sso",
+  "notification",
+]
+
+// ---------------------------------------------------------------------------
 // Registry: contributor -> intent -> definition
 // ---------------------------------------------------------------------------
 
+/**
+ * Every contributor this fixture answers for, in capabilities order. Each
+ * entry's `envPrefix` is what `contributorConfig` reads its four-state knobs
+ * from (`FIXTURE_<envPrefix>_OMIT` etc.), extending the pattern the original
+ * two contributors (STREAMING, AUTH) already used rather than replacing it.
+ */
+const CONTRIBUTORS = [
+  { name: "core-contract", envPrefix: "CORE", handlers: coreHandlers },
+  { name: "streaming-contract", envPrefix: "STREAMING", handlers: streamingHandlers },
+  { name: "auth", envPrefix: "AUTH", handlers: authHandlers },
+  { name: "organization", envPrefix: "ORGANIZATION", handlers: organizationHandlers },
+  { name: "apikey", envPrefix: "APIKEY", handlers: apikeyHandlers },
+  { name: "waitlist", envPrefix: "WAITLIST", handlers: waitlistHandlers },
+  { name: "consent", envPrefix: "CONSENT", handlers: consentHandlers },
+  { name: "subscription", envPrefix: "SUBSCRIPTION", handlers: subscriptionHandlers },
+  { name: "password", envPrefix: "PASSWORD", handlers: passwordHandlers },
+  ...SETTINGS_ONLY_EXTENSIONS.map((extension) => ({
+    name: extension,
+    envPrefix: extension.toUpperCase(),
+    // intents: [] — settings-only sub-plugins register no intents of their
+    // own. See the block comment above.
+    handlers: {},
+  })),
+]
+
+function findContributor(name) {
+  return CONTRIBUTORS.find((c) => c.name === name)
+}
+
 function findIntent(contributor, intent) {
-  if (contributor === "streaming-contract") {
-    if (contributorConfig("STREAMING").omit) return null
-    return streamingHandlers[intent] ?? null
-  }
-  if (contributor === "auth") {
-    if (contributorConfig("AUTH").omit) return null
-    return authHandlers[intent] ?? null
-  }
-  return null
+  const c = findContributor(contributor)
+  if (!c) return null
+  if (contributorConfig(c.envPrefix).omit) return null
+  return c.handlers[intent] ?? null
 }
 
 // ---------------------------------------------------------------------------
@@ -583,19 +2389,11 @@ function contributorCapability(name, envelopes, intentNames, cfg) {
 
 function buildCapabilities() {
   const contributors = []
-
-  const streamingCfg = contributorConfig("STREAMING")
-  if (!streamingCfg.omit) {
-    contributors.push(
-      contributorCapability("streaming-contract", ["v1"], Object.keys(streamingHandlers), streamingCfg),
-    )
+  for (const c of CONTRIBUTORS) {
+    const cfg = contributorConfig(c.envPrefix)
+    if (cfg.omit) continue
+    contributors.push(contributorCapability(c.name, ["v1"], Object.keys(c.handlers), cfg))
   }
-
-  const authCfg = contributorConfig("AUTH")
-  if (!authCfg.omit) {
-    contributors.push(contributorCapability("auth", ["v1"], Object.keys(authHandlers), authCfg))
-  }
-
   return { shellEnvelopes: ["v1"], contributors }
 }
 
@@ -790,8 +2588,15 @@ function handleExpireCSRF(res) {
 
 /** POST {BASE_PATH}/_fixture/reset — fixture-only, restores seed state. */
 function handleReset(res) {
+  resetIdCounters()
   streaming = seedStreamingState()
   auth = seedAuthState()
+  settingsData = seedSettingsState()
+  organization = seedOrganizationState()
+  apikey = seedApikeyState()
+  waitlist = seedWaitlistState()
+  consent = seedConsentState()
+  subscription = seedSubscriptionState()
   csrfTokens.clear()
   idempotencyStore.clear()
   return sendJSON(res, 200, { ok: true })
@@ -903,10 +2708,11 @@ server.listen(PORT, "127.0.0.1", () => {
   console.log(`[fixture-server] development fixture, not a shipped package`)
   console.log(`[fixture-server] listening on http://localhost:${PORT}`)
   console.log(`[fixture-server] contract base: http://localhost:${PORT}${BASE_PATH}`)
-  console.log(
-    `[fixture-server] streaming-contract configured=${contributorConfig("STREAMING").configured} omit=${contributorConfig("STREAMING").omit}`,
-  )
-  console.log(
-    `[fixture-server] auth              configured=${contributorConfig("AUTH").configured} omit=${contributorConfig("AUTH").omit}`,
-  )
+  console.log(`[fixture-server] ${CONTRIBUTORS.length} contributors registered:`)
+  for (const c of CONTRIBUTORS) {
+    const cfg = contributorConfig(c.envPrefix)
+    console.log(
+      `[fixture-server]   ${c.name} (${Object.keys(c.handlers).length} intents) configured=${cfg.configured} omit=${cfg.omit}`,
+    )
+  }
 })
