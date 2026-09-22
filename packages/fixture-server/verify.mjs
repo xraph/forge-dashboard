@@ -319,7 +319,17 @@ async function main() {
   const afterAppSwitch = await dispatch("auth", "apps.context", "query", {}, csrf)
   const currentIsSecondApp = afterAppSwitch.body?.data?.currentApp?.id === "app_3"
   const secondAppEnvIds = (afterAppSwitch.body?.data?.availableEnvs ?? []).map((e) => e.id).sort()
-  const envsAreSecondAppsOwn = JSON.stringify(secondAppEnvIds) === JSON.stringify(["env_5", "env_6"])
+  // app_3's own seeded pair must be there, and no other app's environment may
+  // be. Not an exact match on ["env_5","env_6"]: the intent loop above runs
+  // environments.create and environments.clone while app_3 is selected, and
+  // those now land in app_3, which is the point. This assertion used to pass
+  // only because a created environment was stamped with an app id that did
+  // not exist, so it belonged to nothing and showed up nowhere.
+  const otherAppsEnvIds = ["env_1", "env_2", "env_3", "env_4"]
+  const envsAreSecondAppsOwn =
+    secondAppEnvIds.includes("env_5") &&
+    secondAppEnvIds.includes("env_6") &&
+    !secondAppEnvIds.some((id) => otherAppsEnvIds.includes(id))
   console.log(
     `  apps.switch declares meta.invalidates apps.context: ${appSwitch.body?.meta?.invalidates?.includes("apps.context")}`,
   )

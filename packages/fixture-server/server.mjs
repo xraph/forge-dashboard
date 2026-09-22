@@ -1888,7 +1888,10 @@ const authHandlers = {
         type: payload?.type ?? "development",
         isDefault: false,
         createdAt: now,
-        appId: "app_fixture",
+        // The app the switcher currently has selected, not a constant. A
+        // hardcoded id put every new environment under an app that does not
+        // exist, so it never appeared in any app's environment list.
+        appId: currentAppId ?? platformAppId(),
         color: payload?.color ?? "",
         description: payload?.description ?? "",
         clonedFrom: "",
@@ -1942,14 +1945,18 @@ const authHandlers = {
   "environments.setDefault": {
     kind: "command",
     invalidates: ["environments.list"],
-    // NOTE: unscoped by app (clears isDefault across every environment of
-    // every app, not just the target's own app) — a pre-existing quirk of
-    // this handler, predating the per-app environments apps.context now
-    // relies on. Out of scope for the context-switcher work; left as-is.
+    // Scoped to the target's own app. It used to clear `isDefault` across
+    // every environment of every app, which left the whole fixture with a
+    // single default between them: switch to another app and its environment
+    // list claimed no default at all. That was invisible until apps.context
+    // started answering per-app environments and something read them.
     handler: (payload) => {
       const e = auth.environments.get(payload?.id)
       if (!e) throw notFound("environment", payload?.id)
-      for (const env of auth.environments.values()) env.isDefault = env.id === e.id
+      for (const env of auth.environments.values()) {
+        if (env.appId !== e.appId) continue
+        env.isDefault = env.id === e.id
+      }
       return { ok: true, id: e.id }
     },
   },
