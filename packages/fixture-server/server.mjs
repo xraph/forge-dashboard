@@ -1338,6 +1338,35 @@ const authHandlers = {
     }),
   },
 
+  /**
+   * Served because the Go contract serves it, not because anything calls it.
+   *
+   * The React dashboard deliberately offers no control that reaches this: it
+   * creates a real account and writes that account's session cookie over the
+   * caller's, so an admin pressing it would be signed out as somebody else.
+   * That is a decision about what to put on an admin page, and it is not this
+   * server's decision to make. A fixture that quietly omits an intent the
+   * contract declares is a fixture that lies about the contract, and the next
+   * person to build against it finds out the hard way.
+   */
+  "auth.dynamicRegister": {
+    kind: "command",
+    handler: (payload) => {
+      const id = `usr_${auth.users.size + 1}`
+      auth.users.set(id, {
+        id,
+        email: payload?.email ?? "",
+        emailVerified: false,
+        firstName: payload?.name ?? "",
+        lastName: "",
+        username: payload?.email ?? "",
+        banned: false,
+        createdAt: new Date().toISOString(),
+      })
+      return { data: { ok: true, subject: id }, invalidates: ["users.list"] }
+    },
+  },
+
   // -- users -----------------------------------------------------------
   "users.list": {
     kind: "query",
