@@ -5,6 +5,7 @@ import type { DashboardConfigInput } from "@forge-go/dashboard-runtime"
 import type { ForgePlugin, ForgeSubPlugin } from "@forge-go/dashboard-plugin"
 import { TooltipProvider } from "@forge-go/dashboard-kit/components/tooltip"
 import { PluginHost } from "./host/PluginHost"
+import type { AuthScreens } from "./auth/routes"
 
 export interface ForgeDashboardProps {
   /** Passed straight to ForgeDashboardProvider, which memoizes on identity. */
@@ -28,6 +29,12 @@ export interface ForgeDashboardProps {
    */
   basename?: string
   fetchImpl?: typeof fetch
+  /**
+   * Replaces any of the built-in auth screens, independently. A host app
+   * supplies these, never a plugin: an application choosing its own sign-in
+   * page is ordinary, a plugin forcing one on every dashboard is not.
+   */
+  authScreens?: AuthScreens
 }
 
 export function ForgeDashboard({
@@ -36,6 +43,7 @@ export function ForgeDashboard({
   subPlugins,
   basename,
   fetchImpl,
+  authScreens,
 }: ForgeDashboardProps): ReactNode {
   return (
     <ForgeDashboardProvider config={config}>
@@ -43,6 +51,7 @@ export function ForgeDashboard({
         <BrowserRouter basename={basename}>
           <SessionProvider fetchImpl={fetchImpl}>
             <PluginHost
+              authScreens={authScreens}
               basename={basename}
               fetchImpl={fetchImpl}
               plugins={plugins}
