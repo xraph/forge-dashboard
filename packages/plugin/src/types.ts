@@ -110,6 +110,15 @@ export interface PluginInput extends Omit<ForgePlugin, "nav" | "context"> {
 export interface ContextOption {
   id: string
   label: string
+  /**
+   * What this option looks like in the URL, when its dimension is routed.
+   *
+   * Optional because a dimension that only ever lived in a cookie never
+   * needed one. A routed dimension declaring `by: "slug"` and selecting
+   * options without one falls back to the id, which works and reads badly:
+   * `/@auth/app_01HQ3M8.../users` rather than `/@auth/acme/users`.
+   */
+  slug?: string
 }
 
 /**
@@ -127,6 +136,36 @@ export interface ContextOption {
  * of authsome's read `apps.context`, and the store collapses that to a single
  * request.
  */
+/**
+ * How a context dimension is carried in the URL.
+ *
+ * `path` is for the dimension a page cannot be read without, because a missing
+ * path segment is impossible to ignore: there is nowhere for the page to
+ * render and the host shows the picker instead. `query` is for one that
+ * refines an already-meaningful page, where an absent value means "the
+ * default" rather than "nothing".
+ */
+export interface RoutedContext {
+  /** `path` inserts a segment after the namespace; `query` sets a search param. */
+  placement: "path" | "query"
+  /**
+   * The route param name for `path`, so `app` mounts `/@auth/:app/users`.
+   * The search key for `query`, so `env` produces `?env=prod`.
+   */
+  param: string
+  /** Which field of the chosen option goes in the URL. */
+  by: "slug" | "id"
+  /**
+   * Rendered in place of the plugin's pages when a `path` dimension has no
+   * value. Required for `path` and meaningless for `query`.
+   *
+   * Without it the host has a namespace with no segment, no pages it can
+   * honestly render, and nothing to offer, which is the state that produced
+   * an empty sidebar and a blank page.
+   */
+  picker?: ComponentType
+}
+
 export interface ContextDimension {
   id: string
   label: string
@@ -143,6 +182,23 @@ export interface ContextDimension {
    * here is also what lets the host stay ignorant of what a dimension means.
    */
   payload: (optionId: string) => Record<string, unknown>
+  /**
+   * Where this dimension appears in the URL, if it appears at all.
+   *
+   * A dimension with no `routed` is cookie-only: the switcher sends its
+   * command, the server remembers, and nothing about the address changes.
+   * That was the only mode, and it is why two people looking at "the
+   * dashboard" could be looking at different apps with no way to tell, why a
+   * reload could land you somewhere else, and why a pasted link was a
+   * question rather than an answer.
+   *
+   * Routing it does not replace the server's cookie, because the envelope has
+   * no per-request field to carry context and adding one is a contract
+   * change. It makes the URL the thing that DRIVES the cookie: the host
+   * reconciles them, and when they disagree the URL wins. A cookie left over
+   * from another tab must never quietly re-scope the page you are reading.
+   */
+  routed?: RoutedContext
 }
 
 /** The six places a sub-plugin can push UI into a host plugin's pages. */

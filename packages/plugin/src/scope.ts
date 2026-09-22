@@ -1,5 +1,5 @@
 import type { ReactNode } from "react"
-import type { ForgePlugin } from "./types"
+import type { ContextDimension, ContextOption, ForgePlugin } from "./types"
 import type { PluginState } from "./resolve"
 
 /**
@@ -47,9 +47,18 @@ export function labelOf(plugin: ForgePlugin): string {
  * trailing slash makes react-router treat it as a different location from
  * "/@streaming".
  */
-export function scopePath(namespace: string, to: string): string {
+export function scopePath(
+  namespace: string,
+  to: string,
+  segment?: string,
+): string {
   const suffix = to === "/" ? "" : to
-  return `/${SCOPE_SIGIL}${namespace}${suffix}`
+  // A routed context dimension sits between the namespace and the page, so
+  // "/users" under "auth" in app "acme" is "/@auth/acme/users". An empty or
+  // absent segment collapses away, which is what keeps every plugin without
+  // a routed dimension on exactly the paths it had before.
+  const middle = segment ? `/${segment}` : ""
+  return `/${SCOPE_SIGIL}${namespace}${middle}${suffix}`
 }
 
 /**
@@ -58,8 +67,37 @@ export function scopePath(namespace: string, to: string): string {
  * A root plugin's paths are already absolute from the dashboard's point of
  * view, so they pass through untouched. Everything else gets its namespace.
  */
-export function mountPath(plugin: ForgePlugin, to: string): string {
-  return plugin.root ? to : scopePath(namespaceOf(plugin), to)
+export function mountPath(
+  plugin: ForgePlugin,
+  to: string,
+  segment?: string,
+): string {
+  return plugin.root ? to : scopePath(namespaceOf(plugin), to, segment)
+}
+
+/**
+ * The `path`-routed dimension a plugin declares, if it declares one.
+ *
+ * At most one: two dimensions both claiming a path segment would need an
+ * order nobody has defined, and the second would silently never appear. This
+ * returns the first and the host is expected to treat more than one as the
+ * authoring mistake it is.
+ */
+export function routedPathDimension(
+  plugin: ForgePlugin,
+): ContextDimension | undefined {
+  return plugin.context.find((d) => d.routed?.placement === "path")
+}
+
+/** What goes in the URL for one option under one dimension. */
+export function urlValueOf(
+  dimension: ContextDimension,
+  option: ContextOption,
+): string {
+  // Falls back to the id rather than rendering "undefined" into a path. A
+  // dimension asking for slugs whose options have none is an authoring
+  // mistake, and an ugly URL is a better way to find out than a broken one.
+  return (dimension.routed?.by === "slug" ? option.slug : option.id) ?? option.id
 }
 
 /**
