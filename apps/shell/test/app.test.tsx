@@ -123,7 +123,11 @@ describe("App at a non-default mount", () => {
     // host redirects that to the core plugin's "/overview", and the page then
     // resolves its query. All three have to work for a value to appear.
     expect(await screen.findByText("healthy")).toBeTruthy()
-    expect(screen.getByText("1h 2m")).toBeTruthy()
+    // getAllByText, not getByText: the core overview renders uptime twice,
+    // once as a stat card and once in a description list. That is the core
+    // plugin's business and not this test's, which only needs the value to
+    // have reached the page through the real fetch and the real router.
+    expect(screen.getAllByText("1h 2m").length).toBeGreaterThan(0)
     expect(screen.getByText("production")).toBeTruthy()
   })
 
@@ -235,10 +239,15 @@ describe("App at a non-default mount", () => {
 
     streaming.unmount()
 
-    // /@auth/users, not /@auth/login. Sign-in is the gate now, not a page:
-    // authsome dropped it from both nav and routes, so /@auth/login routes to
-    // nothing and "Sign in" is no longer a nav item.
-    window.history.replaceState({}, "", `${SHELL_BASE}/@auth/users`)
+    // /@auth/<app>/users, not /@auth/users. Authsome declares a path-routed
+    // context dimension now, so the first segment after the namespace is the
+    // APP, and every page lives under it. The old URL still resolves: it just
+    // means app "users" with no page, which is why this entry point had to
+    // move rather than merely being tidied.
+    //
+    // Not /@auth/login either. Sign-in is the gate, not a page: authsome
+    // dropped it from both nav and routes.
+    window.history.replaceState({}, "", `${SHELL_BASE}/@auth/platform/users`)
     const auth = render(<App />)
     const authNav = await waitFor(() => {
       const nav = auth.container.querySelector('[data-slot="sidebar-content"]')
@@ -267,19 +276,19 @@ describe("App at a non-default mount", () => {
       "Plugins",
     ])
     expect(links.map((a) => a.getAttribute("href"))).toEqual([
-      "/dashboard/ui/@auth/users",
-      "/dashboard/ui/@auth/sessions",
-      "/dashboard/ui/@auth/devices",
-      "/dashboard/ui/@auth/roles",
-      "/dashboard/ui/@auth/apps",
-      "/dashboard/ui/@auth/environments",
-      "/dashboard/ui/@auth/webhooks",
-      "/dashboard/ui/@auth/signup-forms",
-      "/dashboard/ui/@auth/settings",
-      "/dashboard/ui/@auth/credentials",
-      "/dashboard/ui/@auth/features",
-      "/dashboard/ui/@auth",
-      "/dashboard/ui/@auth/plugins",
+      "/dashboard/ui/@auth/platform/users",
+      "/dashboard/ui/@auth/platform/sessions",
+      "/dashboard/ui/@auth/platform/devices",
+      "/dashboard/ui/@auth/platform/roles",
+      "/dashboard/ui/@auth/platform/apps",
+      "/dashboard/ui/@auth/platform/environments",
+      "/dashboard/ui/@auth/platform/webhooks",
+      "/dashboard/ui/@auth/platform/signup-forms",
+      "/dashboard/ui/@auth/platform/settings",
+      "/dashboard/ui/@auth/platform/credentials",
+      "/dashboard/ui/@auth/platform/features",
+      "/dashboard/ui/@auth/platform",
+      "/dashboard/ui/@auth/platform/plugins",
     ])
 
     // The way out of a scope is a single back row above the switcher, which
@@ -292,6 +301,52 @@ describe("App at a non-default mount", () => {
     expect(
       within(authHeader).getByRole("link", { name: "Overview" })
     ).toBeTruthy()
+  })
+})
+
+describe("authsome's routed app segment", () => {
+  /**
+   * The app is a path segment now, so a URL names one. These two pin the
+   * halves that a stale test hid: the first segment after the namespace is
+   * the app and every page sits under it, and a URL with no segment at all
+   * has no pages to offer.
+   */
+  it("builds every nav href under the app in the URL", async () => {
+    vi.stubGlobal("fetch", serverFetch([
+      { name: "core-contract", envelopes: ["v1"], configured: true },
+      { name: "auth", envelopes: ["v1"], configured: true },
+    ]))
+    window.history.replaceState({}, "", `${SHELL_BASE}/@auth/acme/users`)
+    const { container } = render(<App />)
+
+    const nav = await waitFor(() => {
+      const el = container.querySelector('[data-slot="sidebar-content"]')
+      if (!el) throw new Error("sidebar-content not rendered yet")
+      return el as HTMLElement
+    })
+    await within(nav).findByRole("link", { name: "Users" })
+
+    // Not one link outside the app. A single href that forgot the segment
+    // would land somebody in another app's page and look perfectly ordinary.
+    for (const link of within(nav).getAllByRole("link")) {
+      expect(link.getAttribute("href")).toMatch(/^\/dashboard\/ui\/@auth\/acme(\/|$)/)
+    }
+  })
+
+  it("offers no pages at all when the URL names no app", async () => {
+    vi.stubGlobal("fetch", serverFetch([
+      { name: "core-contract", envelopes: ["v1"], configured: true },
+      { name: "auth", envelopes: ["v1"], configured: true },
+    ]))
+    window.history.replaceState({}, "", `${SHELL_BASE}/@auth`)
+    const { container } = render(<App />)
+    await waitFor(() => expect(screen.getAllByRole("link").length).toBeGreaterThan(0))
+
+    const nav = container.querySelector('[data-slot="sidebar-content"]') as HTMLElement
+    // Thirty-seven links that would each answer about an app nobody picked
+    // is worse than none.
+    expect(within(nav).queryByRole("link", { name: "Users" })).toBeNull()
+    expect(within(nav).queryByRole("link", { name: "Sessions" })).toBeNull()
   })
 })
 
@@ -313,6 +368,7 @@ describe("the authsome sub-plugins the shell mounts", () => {
       { name: "auth", envelopes: ["v1"], configured: true },
     ])
     vi.stubGlobal("fetch", fetchImpl)
+    window.history.replaceState({}, "", `${SHELL_BASE}/@auth/platform/users`)
     const { container } = render(<App />)
     await waitFor(() => expect(screen.getAllByRole("link").length).toBeGreaterThan(0))
 
@@ -329,6 +385,10 @@ describe("the authsome sub-plugins the shell mounts", () => {
       { name: "mfa", envelopes: ["v1"], configured: true },
     ])
     vi.stubGlobal("fetch", fetchImpl)
+    // Under an app. Authsome's nav, sub-plugins included, only renders once
+    // the URL names one, so a test landing at the bare namespace would see
+    // nothing and could not tell that from a sub-plugin that never mounted.
+    window.history.replaceState({}, "", `${SHELL_BASE}/@auth/platform/users`)
     const { container } = render(<App />)
 
     // A data sub-plugin and a settings-only one, because they reach the
