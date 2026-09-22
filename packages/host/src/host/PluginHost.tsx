@@ -741,12 +741,29 @@ export function PluginHost({
   // this visitor needs is a way out of the account they are already in.
   if (session.state.status === "denied") {
     const provider = resolveAuthProvider(plugins)
-    return (
+    const denied = (
       <DeniedScreen
         onSignedOut={session.refresh}
         requiredRoles={session.state.requiredRoles}
         signOutIntent={provider?.auth?.intents.signOut}
       />
+    )
+
+    // No provider means DeniedScreen renders with no signOutIntent, which
+    // means its SignOutButton never mounts and never calls a hook that needs
+    // a client. Nothing here to wrap a boundary or a client around.
+    if (!provider) return denied
+
+    return (
+      <PluginErrorBoundary
+        fallback={<FallbackAuthGate reason="screen-failed" />}
+        key={provider.extension}
+        plugin={provider.extension}
+      >
+        <PluginProvider client={clients.get(provider.extension)!}>
+          {denied}
+        </PluginProvider>
+      </PluginErrorBoundary>
     )
   }
 
