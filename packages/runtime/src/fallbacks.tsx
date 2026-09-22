@@ -58,59 +58,30 @@ export class PluginErrorBoundary extends Component<
 }
 
 /**
- * The sign-in screen used when no plugin declares one.
+ * What renders when the dashboard cannot show a sign-in screen at all.
  *
- * Also the error-boundary fallback for a plugin gate that throws, which is
- * why it cannot import from the kit or from any plugin: it has to be the
- * thing that still renders when the styled one did not.
- *
- * The signed-out variant links rather than posting a form. A gate with no
- * provider behind it has no login intent to call, so the only honest thing
- * it can do is send you to the path the server named.
- *
- * The denied variant offers no link and no button. This component has no
- * scoped client, by design: it has to be able to render when a plugin gate
- * threw, and a plugin gate is the only thing with a client to sign out
- * through. Pointing it at `loginPath` would not make up for that either,
- * since the only thing that ever served a dashboard-relative login path was
- * a plugin's own route, which is exactly what did not render here. Its job
- * is to say plainly what happened and what to do about it, not to pretend it
- * can act.
+ * Both cases are wiring mistakes and not states a visitor can act on, so this
+ * says what is wrong and offers nothing to click. It imports from neither the
+ * kit nor any plugin on purpose: it has to be the thing that still renders
+ * when the styled one did not.
  */
 export function FallbackAuthGate({
-  loginPath,
-  requiredRoles,
+  reason,
 }: {
-  loginPath: string
-  requiredRoles?: string[]
-  onAuthenticated: () => void
+  reason: "no-provider" | "screen-failed"
 }) {
-  const denied = (requiredRoles?.length ?? 0) > 0
-
   return (
-    <div
-      role="status"
-      className="mx-auto flex max-w-sm flex-col gap-3 rounded-md border p-6 text-sm"
-    >
-      {denied ? (
-        <>
-          <p className="font-medium">You do not have access to this dashboard.</p>
-          <p className="text-muted-foreground">
-            It needs one of these roles: {requiredRoles?.join(", ")}.
-          </p>
-          <p className="text-muted-foreground">
-            Sign out of this account, then sign in again with one that has
-            access, or ask whoever manages this dashboard to grant it.
-          </p>
-        </>
-      ) : (
-        <>
-          <p className="font-medium">Sign in to continue.</p>
-          <a className="underline" href={loginPath}>
-            Sign in
-          </a>
-        </>
-      )}
+    <div className="mx-auto flex max-w-sm flex-col gap-3 rounded-md border p-6 text-sm">
+      <p className="font-medium" role="alert">
+        {reason === "no-provider"
+          ? "This dashboard cannot sign anybody in: no plugin declares auth."
+          : "The sign-in screen failed to render."}
+      </p>
+      <p className="text-muted-foreground">
+        {reason === "no-provider"
+          ? "Add an auth provider to the plugins array, or turn authEnabled off."
+          : "Check the browser console for the error the screen threw."}
+      </p>
     </div>
   )
 }

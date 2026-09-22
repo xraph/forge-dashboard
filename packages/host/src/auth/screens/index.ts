@@ -13,3 +13,5 @@ export const defaultAuthScreens: Required<AuthScreens> = {
   signUp: SignUpScreen,
   setup: SetupScreen,
 }
+
+export { DeniedScreen } from "./denied"

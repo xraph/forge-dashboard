@@ -51,47 +51,13 @@ describe("plugin error boundary", () => {
 })
 
 describe("FallbackAuthGate", () => {
-  it("links to the login path when nobody is signed in", () => {
-    render(<FallbackAuthGate loginPath="/dashboard/login" onAuthenticated={() => {}} />)
-    const link = screen.getByRole("link", { name: /sign in/i })
-    expect(link.getAttribute("href")).toBe("/dashboard/login")
+  it("names the wiring mistake when no plugin declares auth", () => {
+    render(<FallbackAuthGate reason="no-provider" />)
+    expect(screen.getByRole("alert").textContent).toMatch(/no plugin declares auth/i)
   })
 
-  it("renders the denied variant when requiredRoles is present", () => {
-    render(
-      <FallbackAuthGate
-        loginPath="/dashboard/login"
-        requiredRoles={["admin", "auditor"]}
-        onAuthenticated={() => {}}
-      />,
-    )
-    expect(screen.getByText(/admin/)).toBeTruthy()
-    expect(screen.getByText(/auditor/)).toBeTruthy()
-  })
-
-  it("tells the reader what to do instead of offering a link nothing serves", () => {
-    // This fallback has no scoped client, unlike the plugin gates it stands
-    // in for, so it cannot actually sign anyone out. A "Sign in as someone
-    // else" link here would point at a login path nothing in a React
-    // deployment serves once authsome drops its own /login route - a fake
-    // action is worse than none, so the copy has to be honest about what it
-    // cannot do rather than dress up a dead link.
-    render(
-      <FallbackAuthGate
-        loginPath="/dashboard/login"
-        requiredRoles={["admin"]}
-        onAuthenticated={() => {}}
-      />,
-    )
-    expect(screen.getByText(/sign out/i)).toBeTruthy()
-    expect(screen.queryByRole("link", { name: /sign in as someone else/i })).toBeNull()
-  })
-
-  it("treats an empty requiredRoles as signed out, not denied", () => {
-    // The host passes requiredRoles straight through from a 403 body that may
-    // carry an empty array. Reading empty as "denied" would show an
-    // access-denied panel listing no roles, which explains nothing.
-    render(<FallbackAuthGate loginPath="/dashboard/login" requiredRoles={[]} onAuthenticated={() => {}} />)
-    expect(screen.getByRole("link", { name: /^sign in$/i })).toBeTruthy()
+  it("says the screen failed when an auth screen threw", () => {
+    render(<FallbackAuthGate reason="screen-failed" />)
+    expect(screen.getByRole("alert").textContent).toMatch(/failed to render/i)
   })
 })

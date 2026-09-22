@@ -42,7 +42,12 @@ export function ForgeDashboard({
       <TooltipProvider>
         <BrowserRouter basename={basename}>
           <SessionProvider fetchImpl={fetchImpl}>
-            <PluginHost plugins={plugins} subPlugins={subPlugins} fetchImpl={fetchImpl} />
+            <PluginHost
+              basename={basename}
+              fetchImpl={fetchImpl}
+              plugins={plugins}
+              subPlugins={subPlugins}
+            />
           </SessionProvider>
         </BrowserRouter>
       </TooltipProvider>

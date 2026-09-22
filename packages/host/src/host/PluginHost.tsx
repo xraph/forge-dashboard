@@ -48,6 +48,10 @@ import type {
 } from "@forge-go/dashboard-plugin"
 import { AppSidebar } from "@forge-go/dashboard-kit/components/app-sidebar"
 import { ContextSwitchers } from "./ContextSwitchers"
+import { AuthRoutes, SignedInRedirect } from "../auth/AuthRoutes"
+import { isAuthPath } from "../auth/routes"
+import type { AuthScreens } from "../auth/routes"
+import { DeniedScreen } from "../auth/screens"
 import type {
   NavGroup,
   NavNode,
@@ -115,6 +119,14 @@ export interface PluginHostProps {
    * whole surface and no global has to be replaced and restored.
    */
   fetchImpl?: typeof fetch
+  /**
+   * The router's mount prefix, for building links inside the auth screens.
+   * ForgeDashboard already takes this and hands it to BrowserRouter; the auth
+   * screens need it too, so it has to come down here as well.
+   */
+  basename?: string
+  /** Replaces any of the built-in auth screens. Supplied by the host app. */
+  authScreens?: AuthScreens
 }
 
 type CapabilitiesState =
@@ -286,9 +298,10 @@ export function PluginHost({
   plugins,
   subPlugins = NO_SUB_PLUGINS,
   fetchImpl,
+  basename,
+  authScreens,
 }: PluginHostProps) {
   const { contractBase } = useDashboardConfig()
-  const { loginPath } = useDashboardConfig()
   const session = useSession()
   const { pathname, search } = useLocation()
   const navigate = useNavigate()
@@ -642,7 +655,7 @@ export function PluginHost({
   // string the plugin handed over; refreshing afterwards is what puts the
   // gate back up, because /principal is the only thing that decides that.
   const authProvider = resolveAuthProvider(plugins)
-  const signOutIntent = authProvider?.auth?.signOutIntent
+  const signOutIntent = authProvider?.auth?.intents.signOut
   const onSignOut =
     authProvider && signOutIntent
       ? () => {
@@ -689,60 +702,51 @@ export function PluginHost({
     onSignOut,
   } satisfies React.ComponentProps<typeof AppSidebar>
 
-  // The gate goes here, before anything builds a route table or a sidebar.
-  // Rendering it as a route would leave the shell mounted underneath it,
-  // naming every scope the visitor is not allowed to see.
-  if (
-    session.state.status === "signedOut" ||
-    session.state.status === "denied"
-  ) {
+  // Rule 3, and it has to come before the shell. `pathname` is the one
+  // PluginHost already destructures from useLocation at the top of the
+  // component, and inside a BrowserRouter it is already basename-relative,
+  // which is why isAuthPath gets "" and not basename.
+  if (session.state.status === "signedIn" && isAuthPath(pathname, "")) {
+    return <SignedInRedirect basename={basename ?? ""} />
+  }
+
+  if (session.state.status === "signedOut") {
     const provider = resolveAuthProvider(plugins)
-    const Gate = provider?.auth?.gate ?? FallbackAuthGate
-    const gateLoginPath =
-      session.state.status === "signedOut" ? session.state.loginPath : loginPath
-    const requiredRoles =
-      session.state.status === "denied"
-        ? session.state.requiredRoles
-        : undefined
+
+    // No provider at all is a wiring mistake, not a sign-in screen. Say so
+    // plainly instead of rendering a form with nothing behind it.
+    if (!provider?.auth) {
+      return <FallbackAuthGate reason="no-provider" />
+    }
 
     return (
-      // A gate is third-party code like any other plugin component, and a
-      // throw here would blank the only screen with a way in. The fallback
-      // gate is the one thing that cannot be taken down by a plugin.
       <PluginErrorBoundary
-        key={provider?.extension ?? "fallback-gate"}
-        plugin={provider?.extension ?? "auth"}
-        fallback={
-          <FallbackAuthGate
-            loginPath={gateLoginPath}
-            requiredRoles={requiredRoles}
-            onAuthenticated={session.refresh}
-          />
-        }
+        fallback={<FallbackAuthGate reason="screen-failed" />}
+        key={provider.extension}
+        plugin={provider.extension}
       >
-        {/*
-          The gate needs its plugin's scoped client, and it cannot inherit one:
-          it renders outside the route table, and PluginProvider is normally
-          applied per route. Without this the authsome gate throws the moment
-          it calls useCommand("auth.login"), because usePlugin finds no
-          client. The fallback gate needs none, since it only ever links.
-        */}
-        {provider ? (
-          <PluginProvider client={clients.get(provider.extension)!}>
-            <Gate
-              loginPath={gateLoginPath}
-              requiredRoles={requiredRoles}
-              onAuthenticated={session.refresh}
-            />
-          </PluginProvider>
-        ) : (
-          <Gate
-            loginPath={gateLoginPath}
-            requiredRoles={requiredRoles}
+        <PluginProvider client={clients.get(provider.extension)!}>
+          <AuthRoutes
+            basename={basename ?? ""}
+            intents={provider.auth.intents}
             onAuthenticated={session.refresh}
+            screens={authScreens}
           />
-        )}
+        </PluginProvider>
       </PluginErrorBoundary>
+    )
+  }
+
+  // Signed in as the wrong person. Not a sign-in flow and not a route: what
+  // this visitor needs is a way out of the account they are already in.
+  if (session.state.status === "denied") {
+    const provider = resolveAuthProvider(plugins)
+    return (
+      <DeniedScreen
+        onSignedOut={session.refresh}
+        requiredRoles={session.state.requiredRoles}
+        signOutIntent={provider?.auth?.intents.signOut}
+      />
     )
   }
 
