@@ -38,9 +38,16 @@ vi.mock("@forge-go/dashboard-plugin", async () => {
   }
 })
 
-function mount(Screen: React.ComponentType<AuthScreenProps>, initialEntries = ["/"]) {
+// basename on MemoryRouter, not just in `props`: that is what makes
+// react-router prepend "/forge" to an absolute `to` the way a real
+// BrowserRouter does in production, the same reasoning auth-redirects.test.tsx
+// already documents on its own `at()` helper. Without it here, a screen that
+// wrongly prefixed its own links (Critical 1) would have passed every href
+// assertion below, because there would have been no basename for the double
+// prefix to show up against.
+function mount(Screen: React.ComponentType<AuthScreenProps>, initialEntries = ["/forge"]) {
   return render(
-    <MemoryRouter initialEntries={initialEntries}>
+    <MemoryRouter basename="/forge" initialEntries={initialEntries}>
       <Screen {...props} />
     </MemoryRouter>,
   )
@@ -84,13 +91,13 @@ describe("default auth screens", () => {
   it("reset-password asks for a new password twice", () => {
     // Needs a token in the URL: the screen treats a tokenless link as
     // incomplete and renders that state instead of the form, on purpose.
-    mount(defaultAuthScreens.resetPassword, ["/reset-password?token=abc123"])
+    mount(defaultAuthScreens.resetPassword, ["/forge/reset-password?token=abc123"])
     expect(screen.getByLabelText(/new password/i)).toBeDefined()
     expect(screen.getByLabelText(/confirm/i)).toBeDefined()
   })
 
   it("reset-password refuses to collect a password with no token", () => {
-    mount(defaultAuthScreens.resetPassword, ["/reset-password"])
+    mount(defaultAuthScreens.resetPassword, ["/forge/reset-password"])
     expect(screen.getByRole("heading", { name: /link is incomplete/i })).toBeDefined()
     expect(screen.queryByLabelText(/new password/i)).toBeNull()
   })

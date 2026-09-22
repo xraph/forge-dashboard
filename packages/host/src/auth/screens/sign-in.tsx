@@ -12,6 +12,8 @@ import { Spinner } from "@forge-go/dashboard-kit/components/spinner"
 import { Navigate } from "react-router"
 import type { AuthIntents } from "@forge-go/dashboard-plugin"
 import type { AuthScreenProps } from "../routes"
+import { hasSetupFlow } from "../routes"
+import { currentServerHost } from "../server-host"
 
 /**
  * Sends a first-run server to /setup instead of a sign-in form nobody can use.
@@ -26,7 +28,7 @@ function SetupRedirect({ intents }: { intents: AuthIntents }) {
   return <Navigate replace to="/setup" />
 }
 
-export function SignInScreen({ intents, basename, onAuthenticated }: AuthScreenProps) {
+export function SignInScreen({ intents, onAuthenticated }: AuthScreenProps) {
   const config = useQuery<AuthConfig>(intents.config)
   const login = useCommand<LoginResult>(intents.signIn)
   const [email, setEmail] = useState("")
@@ -55,22 +57,27 @@ export function SignInScreen({ intents, basename, onAuthenticated }: AuthScreenP
       brand={config.data?.brand}
       description="Welcome back."
       footer={
-        <Link className="text-muted-foreground hover:underline" to={`${basename}/forgot-password`}>
+        <Link className="text-muted-foreground hover:underline" to="/forgot-password">
           Forgot your password?
         </Link>
       }
+      serverHost={currentServerHost()}
       title="Sign in"
     >
       {/*
         A server with no administrator yet has nothing to sign in to, so setup
         outranks this screen. Rendered as a child and not called as a hook
         here, because `intents.setupStatus` is optional and a conditional hook
-        is illegal. A provider that never declared it mounts nothing.
+        is illegal. Gated on hasSetupFlow, not on `intents.setupStatus` alone:
+        the /setup route only exists when the provider declared BOTH
+        setupStatus and completeSetup (see authRoutesFor), and redirecting
+        here on setupStatus alone sends a visitor to a route that was never
+        mounted, which bounces them straight back to /login and loops forever.
       */}
-      {intents.setupStatus ? (
+      {hasSetupFlow(intents) ? (
         <SetupRedirect intents={intents} />
       ) : null}
-      <CommandAlert error={login.error} title="Sign in failed" />
+      <CommandAlert error={login.error} showCode={false} title="Sign in failed" />
       {config.loading && !config.data ? (
         <Spinner className="mx-auto" />
       ) : config.error ? (
@@ -82,7 +89,7 @@ export function SignInScreen({ intents, basename, onAuthenticated }: AuthScreenP
         // the same pieces QueryBoundary uses: CommandAlert for the message,
         // and refetch behind a button.
         <div className="flex flex-col gap-3">
-          <CommandAlert error={config.error} title="Sign-in options unavailable" />
+          <CommandAlert error={config.error} showCode={false} title="Sign-in options unavailable" />
           <button
             className={buttonVariants({ variant: "outline", className: "w-full" })}
             onClick={() => config.refetch()}

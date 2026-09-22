@@ -9,8 +9,9 @@ import { Input } from "@forge-go/dashboard-kit/components/input"
 import { Label } from "@forge-go/dashboard-kit/components/label"
 import { CommandAlert } from "@forge-go/dashboard-kit/components/query-boundary"
 import type { AuthScreenProps } from "../routes"
+import { currentServerHost } from "../server-host"
 
-export function SignUpScreen({ intents, basename, onAuthenticated }: AuthScreenProps) {
+export function SignUpScreen({ intents, onAuthenticated }: AuthScreenProps) {
   const config = useQuery<AuthConfig>(intents.config)
   const signUp = useCommand<{ ok: boolean }>(intents.signUp ?? "")
   const [email, setEmail] = useState("")
@@ -30,13 +31,14 @@ export function SignUpScreen({ intents, basename, onAuthenticated }: AuthScreenP
       brand={config.data?.brand}
       description={config.data?.signupLabel ?? "Create an account."}
       footer={
-        <Link className="text-muted-foreground hover:underline" to={`${basename}/login`}>
+        <Link className="text-muted-foreground hover:underline" to="/login">
           Already have one? Sign in
         </Link>
       }
+      serverHost={currentServerHost()}
       title="Create an account"
     >
-      <CommandAlert error={signUp.error} title="Could not create the account" />
+      <CommandAlert error={signUp.error} showCode={false} title="Could not create the account" />
       <form className="flex flex-col gap-4" onSubmit={handleSubmit}>
         <div className="flex flex-col gap-1.5">
           <Label htmlFor={emailId}>Email</Label>

@@ -9,8 +9,9 @@ import { Input } from "@forge-go/dashboard-kit/components/input"
 import { Label } from "@forge-go/dashboard-kit/components/label"
 import { CommandAlert } from "@forge-go/dashboard-kit/components/query-boundary"
 import type { AuthScreenProps } from "../routes"
+import { currentServerHost } from "../server-host"
 
-export function ForgotPasswordScreen({ intents, basename }: AuthScreenProps) {
+export function ForgotPasswordScreen({ intents }: AuthScreenProps) {
   const config = useQuery<AuthConfig>(intents.config)
   const request = useCommand<{ ok: boolean }>(intents.forgotPassword ?? "")
   const [email, setEmail] = useState("")
@@ -29,13 +30,14 @@ export function ForgotPasswordScreen({ intents, basename }: AuthScreenProps) {
       brand={config.data?.brand}
       description="We'll email you a link. It expires in one hour."
       footer={
-        <Link className="text-muted-foreground hover:underline" to={`${basename}/login`}>
+        <Link className="text-muted-foreground hover:underline" to="/login">
           Back to sign in
         </Link>
       }
+      serverHost={currentServerHost()}
       title="Reset your password"
     >
-      <CommandAlert error={request.error} title="Could not send the link" />
+      <CommandAlert error={request.error} showCode={false} title="Could not send the link" />
       {sent ? (
         // Deliberately the same wording whether or not the address exists.
         // Telling somebody which emails are registered is an account oracle.

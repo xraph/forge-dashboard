@@ -48,4 +48,40 @@ describe("setup precedence", () => {
     // landed on the setup route.
     expect(screen.getByTestId("setup")).toBeDefined()
   })
+
+  // Critical 2 regression: a provider that declares setupStatus without
+  // completeSetup used to still trigger the redirect, straight at a /setup
+  // route authRoutesFor never mounts for that same provider. That is not a
+  // dead end, it is a loop: /setup falls through to the catch-all, which
+  // sends the visitor to /login, whose SetupRedirect fires again. The mocked
+  // useQuery above answers `pending: true` unconditionally, so if this screen
+  // were still gating on `intents.setupStatus` alone, this test would try to
+  // redirect to a route this render tree does not even provide and the
+  // sign-in form would never appear.
+  it("does not redirect to setup when completeSetup is missing, even though setupStatus is declared", () => {
+    const SignIn = defaultAuthScreens.signIn
+    const mismatchedIntents: AuthIntents = {
+      config: "auth.config",
+      signIn: "auth.login",
+      setupStatus: "auth.setupStatus",
+    }
+    render(
+      <MemoryRouter initialEntries={["/login"]}>
+        <Routes>
+          <Route
+            element={
+              <SignIn
+                basename="/forge"
+                intents={mismatchedIntents}
+                next="/forge"
+                onAuthenticated={vi.fn()}
+              />
+            }
+            path="/login"
+          />
+        </Routes>
+      </MemoryRouter>,
+    )
+    expect(screen.getByRole("heading", { name: /sign in/i })).toBeDefined()
+  })
 })

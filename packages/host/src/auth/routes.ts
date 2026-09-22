@@ -4,7 +4,22 @@ import type { AuthIntents } from "@forge-go/dashboard-plugin"
 /** What every auth screen receives, whether a default or an override. */
 export interface AuthScreenProps {
   intents: AuthIntents
-  /** Where the dashboard is mounted. Prefix every link with it. */
+  /**
+   * Where the dashboard is mounted.
+   *
+   * Do NOT prefix a `<Link to>` or `<Navigate to>` with this. Every route
+   * inside the router (this one included, since AuthRoutes mounts under the
+   * same BrowserRouter) is already basename-relative, and react-router
+   * prepends the basename itself when it resolves an absolute `to`. A link
+   * built as `${basename}/forgot-password` therefore ends up prefixed twice:
+   * "/forge/forge/forgot-password" at basename "/forge", or a protocol-
+   * relative "//forgot-password" (which points off-site) at basename "/".
+   * Link targets inside a screen must be bare paths, e.g. `to="/login"`.
+   *
+   * This value exists only for a screen that needs to build a URL for
+   * something OUTSIDE the router: a full page reload, or a redirect to a
+   * server endpoint that is not a client-side route.
+   */
   basename: string
   /** Validated already. Navigate here after a successful sign-in. */
   next: string
@@ -77,6 +92,23 @@ export function isAuthPath(pathname: string, basename: string): boolean {
 }
 
 /**
+ * True when a provider declared everything the /setup route needs.
+ *
+ * The single source of truth for that condition. `authRoutesFor` and
+ * `SetupRedirect` (in sign-in.tsx) each have to agree on when /setup exists,
+ * and when they were two separately written boolean expressions they drifted:
+ * the route table required both `setupStatus` and `completeSetup`, but the
+ * redirect fired on `setupStatus` alone. A provider that declared one without
+ * the other sent a visitor to a /setup that had no route, which bounced them
+ * to the catch-all, which bounced them to /login, which redirected them to
+ * /setup again, forever. Both call sites use this function instead of
+ * duplicating the check, so that particular drift cannot recur.
+ */
+export function hasSetupFlow(intents: AuthIntents): boolean {
+  return Boolean(intents.setupStatus && intents.completeSetup)
+}
+
+/**
  * The routes to mount, given what the provider can actually do.
  *
  * A capability the provider never declared produces no route, so there is no
@@ -105,7 +137,7 @@ export function authRoutesFor(
   if (intents.forgotPassword) add("/forgot-password", "forgotPassword")
   if (intents.resetPassword) add("/reset-password", "resetPassword")
   if (intents.signUp) add("/signup", "signUp")
-  if (intents.setupStatus && intents.completeSetup) add("/setup", "setup")
+  if (hasSetupFlow(intents)) add("/setup", "setup")
 
   return routes
 }

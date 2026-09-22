@@ -107,6 +107,11 @@ capability produces silence, not a broken page. Leave `signUp` off the intents
 object. You get no `/signup` route. No link anywhere in the dashboard points
 at one either.
 
+`/setup` is the one exception: it needs both `setupStatus` and
+`completeSetup` declared together, since the first tells the host a server
+still needs an administrator and the second is what actually creates one, and
+declaring only one of the two gets you neither route.
+
 Want your own sign-in page? As the host application, and only as the host
 application, you can have one, wired in through `authScreens` on
 `defineForgeDashboard`:
