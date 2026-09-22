@@ -24,6 +24,7 @@ const Host = dynamic(
   config: ForgeDashboard["config"]
   plugins: ForgeDashboard["plugins"]
   subPlugins?: ForgeDashboard["subPlugins"]
+  authScreens?: ForgeDashboard["authScreens"]
   fetchImpl?: typeof fetch
 }>
 
@@ -68,6 +69,7 @@ export function ForgeDashboardPage({
       fetchImpl={fetchImpl}
       plugins={forge.plugins}
       subPlugins={forge.subPlugins}
+      authScreens={forge.authScreens}
     />
   )
 }

@@ -1,3 +1,4 @@
+import type { AuthScreens } from "@forge-go/dashboard-host"
 import type { DashboardConfigInput } from "@forge-go/dashboard-runtime"
 import type { ForgePlugin, ForgeSubPlugin } from "@forge-go/dashboard-plugin"
 
@@ -24,6 +25,16 @@ export interface ForgeDashboardOptions {
   plugins: ForgePlugin[]
   /** Sub-plugins, each naming the plugin it mounts inside. */
   subPlugins?: ForgeSubPlugin[]
+  /**
+   * Replaces any of the built-in auth screens, independently. Name three and
+   * the other two stay default.
+   *
+   * This belongs to the host app and never to a plugin. An application
+   * choosing what its own sign-in page looks like is ordinary, a plugin
+   * forcing one on every dashboard that installs it is the thing the rule
+   * against plugin UI exists to stop.
+   */
+  authScreens?: AuthScreens
 }
 
 export interface ForgeDashboard {
@@ -35,6 +46,7 @@ export interface ForgeDashboard {
   config: DashboardConfigInput
   plugins: ForgePlugin[]
   subPlugins?: ForgeSubPlugin[]
+  authScreens?: AuthScreens
 }
 
 function assertRoutePath(name: string, value: string): void {
@@ -77,7 +89,7 @@ function assertRoutePath(name: string, value: string): void {
 export function defineForgeDashboard(
   options: ForgeDashboardOptions
 ): ForgeDashboard {
-  const { mountPath, plugins, subPlugins } = options
+  const { mountPath, plugins, subPlugins, authScreens } = options
 
   assertRoutePath("mountPath", mountPath)
 
@@ -110,5 +122,6 @@ export function defineForgeDashboard(
     },
     plugins,
     subPlugins,
+    authScreens,
   }
 }

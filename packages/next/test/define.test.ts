@@ -92,4 +92,21 @@ describe("defineForgeDashboard", () => {
       ).toThrow(/apiPath/)
     })
   })
+
+  describe("authScreens", () => {
+    it("carries an override through to the result", () => {
+      const Custom = () => null
+      const forge = defineForgeDashboard({
+        mountPath: "/forge",
+        plugins: [],
+        authScreens: { signIn: Custom },
+      })
+      expect(forge.authScreens?.signIn).toBe(Custom)
+    })
+
+    it("is undefined when nothing is passed, so the defaults apply", () => {
+      expect(defineForgeDashboard({ mountPath: "/forge", plugins: [] }).authScreens)
+        .toBeUndefined()
+    })
+  })
 })
