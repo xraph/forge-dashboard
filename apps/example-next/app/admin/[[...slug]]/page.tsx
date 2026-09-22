@@ -2,7 +2,9 @@
 
 import dynamic from "next/dynamic"
 import corePlugin from "@forge-go/dashboard-plugin-core"
-import authsomePlugin from "@forge-go/dashboard-plugin-authsome"
+import authsomePlugin, {
+  authsomeSubPlugins,
+} from "@forge-go/dashboard-plugin-authsome"
 import streamingPlugin from "@forge-go/dashboard-plugin-streaming"
 
 // ForgeDashboard composes a BrowserRouter and base-ui portal components that
@@ -17,8 +19,20 @@ const ForgeDashboard = dynamic(
 )
 
 const plugins = [corePlugin, streamingPlugin, authsomePlugin]
+// The authsome sub-plugins, gated on their own Go contributors appearing in
+// the capabilities response. The shell app passes these too; an embedder that
+// forgets them compiles all twenty-four into its bundle and renders none of
+// them, with nothing failing anywhere to say so.
+const subPlugins = authsomeSubPlugins
 const config = { basePath: "/admin", contractBase: "/api/forge/api/dashboard/v1" }
 
 export default function Page() {
-  return <ForgeDashboard basename="/admin" config={config} plugins={plugins} />
+  return (
+    <ForgeDashboard
+      basename="/admin"
+      config={config}
+      plugins={plugins}
+      subPlugins={subPlugins}
+    />
+  )
 }
