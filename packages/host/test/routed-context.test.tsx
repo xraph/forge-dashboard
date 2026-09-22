@@ -375,15 +375,21 @@ describe("the ?env query dimension", () => {
     expect(server.commandOrder).not.toContain("environments.switch")
   })
 
-  it("is dropped from the URL when switching apps, because the server clears it too", async () => {
+  it("survives an app switch when the new app has it, and reaches the server", async () => {
     queryStore.clear()
     const server = fixtureServer()
     server.setCurrentApp("app_platform")
     server.setCurrentEnv("env_platform_prod")
 
-    // "production" exists for both apps, so if the stale query value were
-    // left in place it would look valid for demo-app too and this test
-    // would not catch the bug it exists to catch.
+    // Switching app AND naming an environment in one URL. The server clears
+    // the environment cookie as a side effect of the app switch, so this used
+    // to strip the query param on the grounds that it named something the
+    // server had just forgotten.
+    //
+    // That was wrong. The gate sends it straight back, so the server ends up
+    // holding exactly what the URL asked for, and stripping it only robbed
+    // the address of it: the page was right and the link you could copy out
+    // of the bar was not.
     const view = renderAt(
       routedAuthPlugin(),
       server.fetchImpl,
@@ -393,8 +399,14 @@ describe("the ?env query dimension", () => {
     await waitFor(() => expect(screen.getByText("users page")).toBeTruthy())
     await waitFor(() =>
       expect(view.getByRole("link", { name: "Overview" }).getAttribute("href")).toBe(
-        "/@auth/demo-app/overview"
+        "/@auth/demo-app/overview?env=production"
       )
+    )
+    // Not merely left in the address: actually applied. The app switch runs
+    // first, then the environment, which is the order the server requires.
+    await waitFor(() => expect(server.commandOrder).toContain("environments.switch"))
+    expect(server.commandOrder.indexOf("apps.switch")).toBeLessThan(
+      server.commandOrder.indexOf("environments.switch")
     )
   })
 })

@@ -3,7 +3,6 @@ import type { ComponentType, ReactNode } from "react"
 import {
   Navigate,
   useLocation,
-  useNavigate,
   useParams,
   useSearchParams,
 } from "react-router"
@@ -196,8 +195,15 @@ function UnknownContextPanel({
         <TriangleAlertIcon />
         <AlertTitle>Unknown {noun}</AlertTitle>
         <AlertDescription>
-          {slug ? `"${slug}"` : "This URL"} does not name a {noun} available to
-          you.
+          {/*
+            Phrased to need no article. The noun comes from whatever the
+            plugin called its dimension, so "a {noun}" produces "a app" for
+            App and "a environment" for Environment, and no amount of
+            guessing at the first letter survives a dimension called "Org"
+            or one named in another language.
+          */}
+          No {noun.toLowerCase()} matching{" "}
+          {slug ? `"${slug}"` : "this URL"} is available to you.
         </AlertDescription>
       </Alert>
       {Picker && <Picker />}
@@ -260,7 +266,6 @@ export function RoutedPage({
 }) {
   const params = useParams()
   const segment = params[routeParam(dimension)]
-  const navigate = useNavigate()
   const location = useLocation()
   const locationRef = useRef(location)
   // Same reasoning as onSwitchedRef above: kept current in an effect so the
@@ -270,26 +275,28 @@ export function RoutedPage({
     locationRef.current = location
   }, [location])
 
-  const queryParams = plugin.context
-    .filter((d) => d.routed?.placement === "query")
-    .map((d) => d.routed!.param)
 
-  const state = useReconcile(dimension, segment, () => {
-    if (queryParams.length === 0) return
-    const next = new URLSearchParams(locationRef.current.search)
-    let changed = false
-    for (const name of queryParams) {
-      if (next.has(name)) {
-        next.delete(name)
-        changed = true
-      }
-    }
-    if (!changed) return
-    const qs = next.toString()
-    navigate(`${locationRef.current.pathname}${qs ? `?${qs}` : ""}`, {
-      replace: true,
-    })
-  })
+  /*
+    No query params are stripped on a switch, and that is a deliberate
+    reversal.
+
+    Stripping them looked right: the server clears the environment cookie as a
+    side effect of switching app, so an environment left in the URL would name
+    something the server had just forgotten. But the query dimension has its
+    own gate below, and it reconciles in both directions. An environment the
+    new app HAS gets sent straight back, so the server ends up holding exactly
+    what the URL asked for and the strip only robbed the address of it. An
+    environment the new app does NOT have renders an error, which is what
+    should happen to a URL naming something unavailable.
+
+    So the strip was wrong whenever the operator had asked for that
+    environment, and unnecessary whenever they had not. It cost the thing this
+    whole change exists to provide: paste "/@auth/platform/users?env=staging"
+    and the page was right, but the address bar had quietly dropped the
+    environment, so passing that link on handed the next person a different
+    one.
+  */
+  const state = useReconcile(dimension, segment)
 
   if (state.status === "loading") return <LoadingRow />
   if (!state.matched) {
