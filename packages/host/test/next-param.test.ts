@@ -35,4 +35,20 @@ describe("safeNext", () => {
   it("keeps a query string and a fragment", () => {
     expect(safeNext("/forge/apps?tab=live#top", "/forge")).toBe("/forge/apps?tab=live#top")
   })
+
+  it("rejects a tab that the URL parser would strip", () => {
+    expect(safeNext("/\t/evil.example.com", "/forge")).toBe("/forge")
+  })
+
+  it("rejects a newline that the URL parser would strip", () => {
+    expect(safeNext("/\n/evil.example.com", "/forge")).toBe("/forge")
+  })
+
+  it("rejects a carriage return that the URL parser would strip", () => {
+    expect(safeNext("/\r/evil.example.com", "/forge")).toBe("/forge")
+  })
+
+  it("rejects a control character before a backslash", () => {
+    expect(safeNext("/\t\\evil.example.com", "/forge")).toBe("/forge")
+  })
 })
