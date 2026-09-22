@@ -54,12 +54,22 @@ const INPUT = {
   "auth::apps.create": { name: "Verify App", slug: "verify-app" },
   "auth::apps.update": { id: "app_2", name: "Demo App (renamed)" },
   "auth::apps.delete": { id: "app_2" },
+  // app_3 (Storefront) on purpose, not app_2: apps.delete above removes
+  // app_2 earlier in this same intent loop, and apps.switch running after
+  // that would 404 on it. app_3's own environments (env_5/env_6) are also
+  // untouched by every other auth::environments.* entry in this table, so
+  // environments.switch below can target one without racing them.
+  "auth::apps.switch": { appId: "app_3" },
   "auth::environments.detail": { id: "env_1" },
   "auth::environments.create": { name: "QA", slug: "qa" },
   "auth::environments.update": { id: "env_2", name: "Staging (renamed)" },
   "auth::environments.delete": { id: "env_2" },
   "auth::environments.clone": { id: "env_1", name: "Production copy", slug: "production-copy" },
   "auth::environments.setDefault": { id: "env_1" },
+  // Relies on auth::apps.switch (above, and earlier in intent order) having
+  // already switched to app_3, so env_6 (Staging, app_3) validates as
+  // belonging to the current app.
+  "auth::environments.switch": { envId: "env_6" },
   "auth::webhooks.detail": { id: "webhook_1" },
   "auth::webhooks.create": { url: "https://example.com/hooks/verify", events: ["user.created"] },
   "auth::webhooks.update": { id: "webhook_1", active: false },
@@ -297,6 +307,53 @@ async function main() {
   console.log(`  subscriptions.list with no tenantId returns an empty list (not an error): ${emptyWithoutTenant}`)
   if (!emptyWithoutTenant) {
     failures.push({ key: "spot-check::subscriptions.list no tenantId", reason: "did not short-circuit to empty list" })
+  }
+
+  // apps.context / apps.switch / environments.switch: prove the switch
+  // state actually holds rather than a fixture that acks the command and
+  // answers the same context forever. Targets app_3/env_5 — app_2 is gone
+  // by this point (the generic loop above ran auth::apps.delete on it), so
+  // the "second app" here is app_3, untouched by anything earlier in this
+  // script.
+  const appSwitch = await dispatch("auth", "apps.switch", "command", { appId: "app_3" }, csrf)
+  const afterAppSwitch = await dispatch("auth", "apps.context", "query", {}, csrf)
+  const currentIsSecondApp = afterAppSwitch.body?.data?.currentApp?.id === "app_3"
+  const secondAppEnvIds = (afterAppSwitch.body?.data?.availableEnvs ?? []).map((e) => e.id).sort()
+  const envsAreSecondAppsOwn = JSON.stringify(secondAppEnvIds) === JSON.stringify(["env_5", "env_6"])
+  console.log(
+    `  apps.switch declares meta.invalidates apps.context: ${appSwitch.body?.meta?.invalidates?.includes("apps.context")}`,
+  )
+  console.log(`  apps.context reports app_3 as currentApp after switching to it: ${currentIsSecondApp}`)
+  console.log(`  availableEnvs after switching to app_3 are app_3's own (env_5, env_6), not every env: ${envsAreSecondAppsOwn}`)
+  if (!appSwitch.body?.meta?.invalidates?.includes("apps.context")) {
+    failures.push({ key: "spot-check::apps.switch invalidation", reason: "apps.switch did not declare meta.invalidates apps.context" })
+  }
+  if (!currentIsSecondApp) {
+    failures.push({ key: "spot-check::apps.switch currentApp", reason: "apps.context did not report app_3 as currentApp after switching" })
+  }
+  if (!envsAreSecondAppsOwn) {
+    failures.push({ key: "spot-check::apps.switch availableEnvs", reason: `got availableEnvs ${JSON.stringify(secondAppEnvIds)}` })
+  }
+
+  // environments.switch, still scoped to app_3 from the switch above.
+  const envSwitch = await dispatch("auth", "environments.switch", "command", { envId: "env_5" }, csrf)
+  const afterEnvSwitch = await dispatch("auth", "apps.context", "query", {}, csrf)
+  const currentEnvChanged = afterEnvSwitch.body?.data?.currentEnv?.id === "env_5"
+  console.log(`  environments.switch changes apps.context's currentEnv: ${currentEnvChanged}`)
+  if (!envSwitch.body?.meta?.invalidates?.includes("apps.context")) {
+    failures.push({ key: "spot-check::environments.switch invalidation", reason: "environments.switch did not declare meta.invalidates apps.context" })
+  }
+  if (!currentEnvChanged) {
+    failures.push({ key: "spot-check::environments.switch currentEnv", reason: "currentEnv did not change to env_5 after environments.switch" })
+  }
+
+  // apps.switch("") clears back to the default (platform) app.
+  await dispatch("auth", "apps.switch", "command", { appId: "" }, csrf)
+  const afterClear = await dispatch("auth", "apps.context", "query", {}, csrf)
+  const backToDefaultApp = afterClear.body?.data?.currentApp?.isPlatform === true
+  console.log(`  apps.switch with "" returns currentApp to the default (platform) app: ${backToDefaultApp}`)
+  if (!backToDefaultApp) {
+    failures.push({ key: "spot-check::apps.switch clear", reason: "empty appId did not return currentApp to the platform app" })
   }
 
   // users.list is cursor-paged and a second page exists.

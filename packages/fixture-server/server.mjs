@@ -112,8 +112,8 @@ function resetIdCounters() {
     user: 7,
     device: 2,
     role: 2,
-    app: 2,
-    env: 2,
+    app: 3,
+    env: 6,
     webhook: 1,
     org: 2,
     member: 2,
@@ -441,6 +441,20 @@ function seedAuthState() {
         updatedAt: START,
       },
     ],
+    [
+      "app_3",
+      {
+        id: "app_3",
+        name: "Storefront",
+        slug: "storefront",
+        isPlatform: false,
+        createdAt: START,
+        logo: "",
+        publishableKey: "pk_fixture_storefront",
+        metadata: { tier: "growth" },
+        updatedAt: START,
+      },
+    ],
   ])
 
   const environments = new Map([
@@ -471,6 +485,78 @@ function seedAuthState() {
         isDefault: false,
         createdAt: START,
         appId: "app_1",
+        color: "#eab308",
+        description: "Pre-production environment",
+        clonedFrom: "",
+        metadata: {},
+        updatedAt: START,
+      },
+    ],
+    // app_2 and app_3 each get their own production/staging pair, scoped by
+    // `appId` — needed so apps.context's availableEnvs (filtered to the
+    // current app) has something to show for every app the switcher lists,
+    // not only app_1.
+    [
+      "env_3",
+      {
+        id: "env_3",
+        name: "Production",
+        slug: "production",
+        type: "production",
+        isDefault: true,
+        createdAt: START,
+        appId: "app_2",
+        color: "#22c55e",
+        description: "Live environment",
+        clonedFrom: "",
+        metadata: {},
+        updatedAt: START,
+      },
+    ],
+    [
+      "env_4",
+      {
+        id: "env_4",
+        name: "Staging",
+        slug: "staging",
+        type: "staging",
+        isDefault: false,
+        createdAt: START,
+        appId: "app_2",
+        color: "#eab308",
+        description: "Pre-production environment",
+        clonedFrom: "",
+        metadata: {},
+        updatedAt: START,
+      },
+    ],
+    [
+      "env_5",
+      {
+        id: "env_5",
+        name: "Production",
+        slug: "production",
+        type: "production",
+        isDefault: true,
+        createdAt: START,
+        appId: "app_3",
+        color: "#22c55e",
+        description: "Live environment",
+        clonedFrom: "",
+        metadata: {},
+        updatedAt: START,
+      },
+    ],
+    [
+      "env_6",
+      {
+        id: "env_6",
+        name: "Staging",
+        slug: "staging",
+        type: "staging",
+        isDefault: false,
+        createdAt: START,
+        appId: "app_3",
         color: "#eab308",
         description: "Pre-production environment",
         clonedFrom: "",
@@ -528,6 +614,30 @@ function seedAuthState() {
 }
 
 let auth = seedAuthState()
+
+// ---------------------------------------------------------------------------
+// In-memory state — app/environment switcher (apps.context, apps.switch,
+// environments.switch). Kept separate from `auth` because it models
+// something different: which app/env THIS caller is scoped to right now,
+// not seeded data.
+//
+// The real server keeps this in the `authsome_app` / `authsome_env`
+// cookies, read back through the principal's claims. This fixture has no
+// per-request identity, so module state stands in for "the one session
+// this fixture serves." `null` means "unset," which resolves to the
+// platform app / that app's default environment — the same fallback
+// handlers_context.go applies when the claim is missing.
+// ---------------------------------------------------------------------------
+
+let currentAppId = null
+let currentEnvId = null
+
+function platformAppId() {
+  for (const a of auth.apps.values()) {
+    if (a.isPlatform) return a.id
+  }
+  return undefined
+}
 
 // ---------------------------------------------------------------------------
 // In-memory state — settings (served through auth's settings.namespace /
@@ -1264,6 +1374,22 @@ function envSummary(e) {
   return { id: e.id, name: e.name, slug: e.slug, type: e.type, isDefault: e.isDefault, createdAt: e.createdAt }
 }
 
+/** Projects to SwitcherApp (handlers_context.go): id, name, slug, logo?, isPlatform. */
+function switcherApp(a) {
+  const out = { id: a.id, name: a.name, slug: a.slug }
+  if (a.logo) out.logo = a.logo
+  out.isPlatform = a.isPlatform
+  return out
+}
+
+/** Projects to SwitcherEnv (handlers_context.go): id, name, slug, type?, isDefault. */
+function switcherEnv(e) {
+  const out = { id: e.id, name: e.name, slug: e.slug }
+  if (e.type) out.type = e.type
+  out.isDefault = e.isDefault
+  return out
+}
+
 function webhookSummary(w) {
   return { id: w.id, url: w.url, events: w.events, active: w.active, createdAt: w.createdAt }
 }
@@ -1670,6 +1796,72 @@ const authHandlers = {
     },
   },
 
+  // -- app/environment switcher (handlers_context.go) --------------------
+  //
+  // Backs ContextSwitchers.tsx's two dimensions, both of which read this
+  // one query (`apps.context`) and each send their own command. See the
+  // module-state block near the top of this file for what `currentAppId`
+  // / `currentEnvId` mean and why they live outside `auth`.
+  "apps.context": {
+    kind: "query",
+    handler: () => {
+      const availableApps = [...auth.apps.values()].map(switcherApp)
+
+      // Falls back to the platform app when nothing has been switched yet —
+      // the same fallback AppIDFromPrincipal applies when the claim/cookie
+      // is missing.
+      const resolvedAppId = currentAppId ?? platformAppId()
+      let currentApp
+      if (resolvedAppId) {
+        const a = auth.apps.get(resolvedAppId)
+        if (a) currentApp = switcherApp(a)
+      }
+
+      // availableEnvs is scoped to the CURRENT app, not every environment —
+      // that's what lets a switch away from an app prove the old app's env
+      // doesn't leak into the new app's list.
+      let availableEnvs = []
+      let currentEnv
+      if (resolvedAppId) {
+        availableEnvs = [...auth.environments.values()]
+          .filter((e) => e.appId === resolvedAppId)
+          .map(switcherEnv)
+        if (currentEnvId) {
+          currentEnv = availableEnvs.find((e) => e.id === currentEnvId)
+        }
+        if (!currentEnv) {
+          currentEnv = availableEnvs.find((e) => e.isDefault)
+        }
+      }
+
+      return { currentApp, currentEnv, availableApps, availableEnvs }
+    },
+  },
+  "apps.switch": {
+    kind: "command",
+    invalidates: ["apps.context"],
+    handler: (payload) => {
+      const raw = String(payload?.appId ?? "").trim()
+      if (raw === "") {
+        // Empty string clears the selection back to the default (the
+        // platform app), per the Go comment on AppSwitchInput.
+        currentAppId = null
+        currentEnvId = null
+        return { ok: true }
+      }
+      if (!auth.apps.has(raw)) throw notFound("app", raw)
+      currentAppId = raw
+      // The old env belongs to the old app. Rather than let a stale envId
+      // silently carry over (or silently re-resolve to a same-slug env in
+      // the new app, which the real contract has no concept of), clear it —
+      // matching appsSwitchHandler's clearSwitcherCookie(envSwitcherCookie)
+      // call. apps.context re-resolves it to the new app's default env on
+      // the next read.
+      currentEnvId = null
+      return { ok: true }
+    },
+  },
+
   // -- environments -----------------------------------------------------
   "environments.list": {
     kind: "query",
@@ -1750,11 +1942,38 @@ const authHandlers = {
   "environments.setDefault": {
     kind: "command",
     invalidates: ["environments.list"],
+    // NOTE: unscoped by app (clears isDefault across every environment of
+    // every app, not just the target's own app) — a pre-existing quirk of
+    // this handler, predating the per-app environments apps.context now
+    // relies on. Out of scope for the context-switcher work; left as-is.
     handler: (payload) => {
       const e = auth.environments.get(payload?.id)
       if (!e) throw notFound("environment", payload?.id)
       for (const env of auth.environments.values()) env.isDefault = env.id === e.id
       return { ok: true, id: e.id }
+    },
+  },
+  "environments.switch": {
+    kind: "command",
+    invalidates: ["apps.context"],
+    handler: (payload) => {
+      const raw = String(payload?.envId ?? "").trim()
+      if (raw === "") {
+        // Empty string clears back to the current app's default env.
+        currentEnvId = null
+        return { ok: true }
+      }
+      const env = auth.environments.get(raw)
+      if (!env) throw notFound("environment", raw)
+      // Guards against a stale envId from before an app switch, matching
+      // environmentsSwitchHandler's "does not belong to the current app"
+      // check in handlers_context.go.
+      const resolvedAppId = currentAppId ?? platformAppId()
+      if (resolvedAppId && env.appId !== resolvedAppId) {
+        throw new FixtureError(400, CODE.BAD_REQUEST, "environment does not belong to the current app")
+      }
+      currentEnvId = raw
+      return { ok: true }
     },
   },
 
@@ -2620,6 +2839,8 @@ function handleReset(res) {
   resetIdCounters()
   streaming = seedStreamingState()
   auth = seedAuthState()
+  currentAppId = null
+  currentEnvId = null
   settingsData = seedSettingsState()
   organization = seedOrganizationState()
   apikey = seedApikeyState()
