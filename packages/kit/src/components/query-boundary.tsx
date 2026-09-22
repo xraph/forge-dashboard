@@ -111,6 +111,16 @@ export interface CommandAlertProps {
   /** What was being attempted. "Ban failed". */
   title: string
   className?: string
+  /**
+   * Shows the raw error code (`TRANSPORT`, `UNAUTHENTICATED`, `NOT_FOUND`, ...)
+   * beneath the message. Defaults to true, which is right inside the
+   * dashboard: the reader there is an operator, and the code tells them
+   * whether a bug is theirs or the network's. It is wrong on the auth
+   * screens, where the reader is not signed in yet and may not be technical:
+   * a wrong password does not need to end with "UNAUTHENTICATED" in mono
+   * underneath it. Auth screens pass `showCode={false}`.
+   */
+  showCode?: boolean
 }
 
 /**
@@ -126,7 +136,7 @@ export interface CommandAlertProps {
  * Renders nothing when there is no error, so callers drop it in
  * unconditionally.
  */
-export function CommandAlert({ error, title, className }: CommandAlertProps) {
+export function CommandAlert({ error, title, className, showCode = true }: CommandAlertProps) {
   if (!error) return null
 
   return (
@@ -139,7 +149,7 @@ export function CommandAlert({ error, title, className }: CommandAlertProps) {
     >
       <span className="font-medium">{title}</span>
       <span>{error.message}</span>
-      <span className="font-mono text-xs opacity-70">{error.code}</span>
+      {showCode ? <span className="font-mono text-xs opacity-70">{error.code}</span> : null}
     </div>
   )
 }

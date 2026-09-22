@@ -67,4 +67,28 @@ describe("CommandAlert", () => {
     expect(alert.textContent).toContain("user is already banned")
     expect(alert.textContent).toContain("BAD_REQUEST")
   })
+
+  it("still shows the code with showCode left unset, the dashboard default", () => {
+    render(
+      <CommandAlert
+        title="Ban failed"
+        error={{ code: "BAD_REQUEST", message: "user is already banned" }}
+        showCode={true}
+      />,
+    )
+    expect(screen.getByRole("alert").textContent).toContain("BAD_REQUEST")
+  })
+
+  it("hides the code when showCode is false, for a reader who is not signed in", () => {
+    render(
+      <CommandAlert
+        title="Sign in failed"
+        error={{ code: "UNAUTHENTICATED", message: "Incorrect email or password" }}
+        showCode={false}
+      />,
+    )
+    const alert = screen.getByRole("alert")
+    expect(alert.textContent).toContain("Incorrect email or password")
+    expect(alert.textContent).not.toContain("UNAUTHENTICATED")
+  })
 })
