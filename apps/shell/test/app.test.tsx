@@ -203,15 +203,24 @@ describe("App at a non-default mount", () => {
     })
     await within(streamingNav).findByRole("link", { name: "Overview" })
     let links = within(streamingNav).getAllByRole("link")
+    // The whole streaming nav, in order, not a subset. This assertion caught
+    // three pages that landed in the plugin while nothing here noticed,
+    // because a per-package test run never renders the shell.
     expect(links.map((a) => a.textContent)).toEqual([
       "Overview",
       "Rooms",
       "Connections",
+      "Channels",
+      "Presence",
+      "Configuration",
     ])
     expect(links.map((a) => a.getAttribute("href"))).toEqual([
       "/dashboard/ui/@streaming",
       "/dashboard/ui/@streaming/rooms",
       "/dashboard/ui/@streaming/connections",
+      "/dashboard/ui/@streaming/channels",
+      "/dashboard/ui/@streaming/presence",
+      "/dashboard/ui/@streaming/config",
     ])
 
     // core's pinned nav stays visible while inside this scope, against the
@@ -238,10 +247,39 @@ describe("App at a non-default mount", () => {
     })
     await within(authNav).findByRole("link", { name: "Users" })
     links = within(authNav).getAllByRole("link")
-    expect(links.map((a) => a.textContent)).toEqual(["Users", "Sessions"])
+    // Every auth nav entry, in the order the sidebar groups them. The list is
+    // long and it is written out anyway: the point of this assertion is that
+    // a page appearing or vanishing fails here, and a subset check would let
+    // either through.
+    expect(links.map((a) => a.textContent)).toEqual([
+      "Users",
+      "Sessions",
+      "Devices",
+      "Roles",
+      "Apps",
+      "Environments",
+      "Webhooks",
+      "Signup forms",
+      "Settings",
+      "Credentials",
+      "Features",
+      "Overview",
+      "Plugins",
+    ])
     expect(links.map((a) => a.getAttribute("href"))).toEqual([
       "/dashboard/ui/@auth/users",
       "/dashboard/ui/@auth/sessions",
+      "/dashboard/ui/@auth/devices",
+      "/dashboard/ui/@auth/roles",
+      "/dashboard/ui/@auth/apps",
+      "/dashboard/ui/@auth/environments",
+      "/dashboard/ui/@auth/webhooks",
+      "/dashboard/ui/@auth/signup-forms",
+      "/dashboard/ui/@auth/settings",
+      "/dashboard/ui/@auth/credentials",
+      "/dashboard/ui/@auth/features",
+      "/dashboard/ui/@auth",
+      "/dashboard/ui/@auth/plugins",
     ])
 
     // The way out of a scope is a single back row above the switcher, which
