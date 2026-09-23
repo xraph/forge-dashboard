@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest"
-import { screen, waitFor, within } from "@testing-library/react"
+import { fireEvent, screen, waitFor, within } from "@testing-library/react"
 import { ContractError } from "@forge-go/dashboard-plugin"
 import { WardenRolesPage } from "../src/pages/roles"
 import {
@@ -126,11 +126,23 @@ describe("WardenRolesPage", () => {
     )
     renderPage(WardenRolesPage, c)
     await screen.findByText("Reader")
+
+    fireEvent.click(screen.getByRole("button", { name: /new role/i }))
+    fireEvent.change(screen.getByLabelText("Name"), { target: { value: "Auditor" } })
+    fireEvent.change(screen.getByLabelText("Slug"), { target: { value: "auditor" } })
+
     // roles.create is absent from the command map, so the harness throws a
     // ContractError, which is the only thing that makes execute() resolve
     // undefined. A stub answering {ok:false} would resolve normally and
     // this test would never run the failure path.
-    expect(screen.queryByText(/Could not create/i)).toBeNull()
+    fireEvent.click(screen.getByRole("button", { name: /^create role$/i }))
+
+    expect(await screen.findByText(/Could not create/i)).toBeTruthy()
+    // The form is still open, and what the operator typed is still in it: a
+    // failed create must not close the form and throw the input away.
+    expect(screen.getByRole("button", { name: /^cancel$/i })).toBeTruthy()
+    expect(screen.getByDisplayValue("Auditor")).toBeTruthy()
+    expect(screen.getByDisplayValue("auditor")).toBeTruthy()
   })
 
   it("surfaces a list failure instead of rendering an empty table", async () => {
