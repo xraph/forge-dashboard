@@ -244,6 +244,115 @@ git commit -m "feat(audit): accept day and hour as aggregate group-by fields"
 
 ---
 
+### Task 2b: Pin what an empty scope actually does, per backend
+
+The contract refuses an unresolvable `app_id` (Task 7). This task records WHY,
+in the repository rather than only in the spec, so the reason survives whoever
+later decides the refusal is over-strict.
+
+It asserts nothing about what empty SHOULD do. It records what it does, per
+backend, with a comment naming which. If the four disagree, that disagreement
+is the finding and the test says so rather than weakening until all four pass.
+
+**Files:**
+- Test: `store/scope_behaviour_test.go` (new, package `store_test`)
+
+**Interfaces:**
+- Consumes: nothing.
+- Produces: nothing importable. This is a characterization test.
+
+- [ ] **Step 1: Write the test**
+
+```go
+package store_test
+
+// An empty AppID on a query is not "the current app". This pins what each
+// backend actually returns for one, because extension/contract/scope.go
+// refuses an unresolvable app claim on the strength of it, and a future
+// contributor who thinks that refusal is over-strict should be able to find
+// out here what the alternative does rather than reason about it.
+//
+// This asserts observed behaviour, not desired behaviour. If a backend
+// changes, this test failing is the notification.
+func TestEmptyAppIDScopeBehaviour(t *testing.T) {
+	for name, open := range backends(t) {
+		t.Run(name, func(t *testing.T) {
+			s := open(t)
+			ctx := context.Background()
+
+			seedEventIn(t, s, "app-1", "tenant-a")
+			seedEventIn(t, s, "app-2", "tenant-b")
+
+			res, err := s.Query(ctx, &audit.Query{Limit: 100})
+			if err != nil {
+				t.Fatalf("Query with empty scope: %v", err)
+			}
+
+			apps := map[string]bool{}
+			for _, e := range res.Events {
+				apps[e.AppID] = true
+			}
+
+			// Record the answer plainly. Two apps means an empty AppID
+			// matches EVERY app, which is the behaviour the contract's
+			// PERMISSION_DENIED exists to prevent reaching.
+			if len(apps) == 2 {
+				t.Logf("%s: empty AppID returns every app (%d events across %d apps)",
+					name, len(res.Events), len(apps))
+			} else {
+				t.Errorf("%s: empty AppID returned %d apps, not the 2 seeded. "+
+					"If this backend now scopes an empty AppID to nothing, that is a "+
+					"behaviour change worth knowing about: update this test and check "+
+					"whether extension/contract/scope.go's refusal is still needed",
+					name, len(apps))
+			}
+
+			// The same question for tenant, which is the dimension the
+			// contract allows to be empty on purpose.
+			res, err = s.Query(ctx, &audit.Query{AppID: "app-1", Limit: 100})
+			if err != nil {
+				t.Fatalf("Query with empty tenant: %v", err)
+			}
+			t.Logf("%s: AppID set and TenantID empty returns %d events", name, len(res.Events))
+			for _, e := range res.Events {
+				if e.AppID != "app-1" {
+					t.Errorf("%s: an empty TenantID reached outside its app, to %q. "+
+						"That is a cross-app leak, not an app-wide view", name, e.AppID)
+				}
+			}
+		})
+	}
+}
+```
+
+`backends(t)` returns a map of backend name to an opener, skipping any that
+needs a service that is not running. sqlite always runs. `seedEventIn` builds
+an event in the given scope with a unique stream and sequence. Write both in
+the same file.
+
+- [ ] **Step 2: Run it**
+
+Run: `go test ./store/ -run TestEmptyAppIDScopeBehaviour -v`
+Expected: PASS, with a `t.Logf` line per available backend recording what it
+does. Read those lines. They are the output that matters, not the pass.
+
+- [ ] **Step 3: If the backends disagree, stop and report**
+
+If one backend scopes an empty AppID to nothing while others match everything,
+that is a finding about the library and not a test to soften. Record it and
+raise it before continuing, because `verify` and retention enforcement both
+run scoped queries and a divergence there means enforcement purges a different
+set of rows depending on the backend.
+
+- [ ] **Step 4: Commit**
+
+```bash
+git add store/scope_behaviour_test.go
+git commit -m "test(store): pin what an empty scope returns, per backend"
+```
+
+---
+
 ### Task 3: Bucket by day and hour on postgres
 
 **Files:**
@@ -522,6 +631,7 @@ This is the task that matters most. `scope.go` is the security boundary for ever
   - `viewScope{AppID, TenantID string}`
   - `scopeFromPrincipal(p contract.Principal) (viewScope, error)`
   - `(viewScope) owns(appID, tenantID string) bool`
+  - `tenantFromClaims(p contract.Principal) (string, error)`
   - `StreamSummary{ID, AppID, TenantID, HeadHash string; HeadSeq uint64; Scheme string; SchemeSince uint64; CoverageCeiling string; LatestCheckpoint *CheckpointSummary; CheckpointingConfigured bool}`
   - `CheckpointSummary{ID string; FromSeq, ToSeq uint64; EventCount int64; CreatedAt string; SignKeyID string}`. Defined HERE, in `project.go`, not in Task 9, because `StreamSummary` embeds it. Task 9 reuses this exact type and must not declare a second one.
 
@@ -595,6 +705,20 @@ func TestScopeFromPrincipalFallsBackToOrgID(t *testing.T) {
 // An absent tenant is allowed and means an app-wide view. The dashboard
 // operator is app-scoped, and TenantID is a dimension inside their own app.
 // It cannot widen past the app because AppID is already required.
+// The bug this pins: a tenant claim that is PRESENT but unreadable must not
+// fall through to app-wide. Absent means an app-wide operator; unreadable
+// means a tenant-scoped session whose scoping we failed to parse, and
+// widening that one hands them every other tenant in their app.
+func TestScopeFromPrincipalRefusesAnUnreadableTenant(t *testing.T) {
+	_, err := scopeFromPrincipal(principalWith(map[string]any{
+		"app_id":    "app-1",
+		"tenant_id": 42,
+	}))
+	if err == nil {
+		t.Fatal("scopeFromPrincipal widened an unreadable tenant claim to app-wide")
+	}
+}
+
 func TestScopeFromPrincipalAllowsAbsentTenant(t *testing.T) {
 	v, err := scopeFromPrincipal(principalWith(map[string]any{"app_id": "app-1"}))
 	if err != nil {
@@ -679,13 +803,44 @@ func scopeFromPrincipal(p fcontract.Principal) (viewScope, error) {
 		}
 	}
 
-	tenantID, _ := p.Claims["tenant_id"].(string)
-	if tenantID == "" {
-		// authsome's spelling for the same dimension.
-		tenantID, _ = p.Claims["org_id"].(string)
+	tenantID, err := tenantFromClaims(p)
+	if err != nil {
+		return viewScope{}, err
 	}
 
 	return viewScope{AppID: appID, TenantID: tenantID}, nil
+}
+
+// tenantFromClaims resolves the tenant dimension, distinguishing a claim that
+// is ABSENT from one that is PRESENT AND UNUSABLE.
+//
+// Those two look identical through a bare `v, _ := claims[k].(string)` and
+// they mean opposite things. Absent is a legitimate app-wide operator, and
+// widening to app-wide is correct for them. Present but unusable is a session
+// that was scoped to a tenant by something upstream, whose scoping this
+// handler then failed to read: widening THAT to app-wide hands one tenant's
+// operator every other tenant's audit events inside the same app.
+//
+// So an absent claim falls back and an unusable one is refused.
+func tenantFromClaims(p fcontract.Principal) (string, error) {
+	for _, key := range []string{"tenant_id", "org_id"} {
+		raw, present := p.Claims[key]
+		if !present || raw == nil {
+			continue // absent: try the next spelling, then app-wide
+		}
+		s, ok := raw.(string)
+		if !ok {
+			return "", &fcontract.Error{
+				Code:    fcontract.CodePermissionDenied,
+				Message: "tenant scope on this session is unreadable",
+			}
+		}
+		if s == "" {
+			continue // explicitly empty reads as app-wide, same as absent
+		}
+		return s, nil
+	}
+	return "", nil
 }
 
 // owns reports whether a record fetched by ID belongs to this viewer.

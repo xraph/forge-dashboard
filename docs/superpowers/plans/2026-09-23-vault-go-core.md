@@ -517,7 +517,7 @@ func TestRotatorKeysListsRegisteredRotatorsSorted(t *testing.T) {
 }
 ```
 
-If `rotation/manager_test.go` does not already import `context` and `github.com/xraph/vault/store/memory`, add them.
+`rotation/manager_test.go` already imports `context` and `store/memory` and already declares `testApp`, so this test needs no new imports and must not redeclare that constant.
 
 - [ ] **Step 2: Run the test to verify it fails**
 
@@ -824,21 +824,17 @@ Create `store/memory/count_test.go`:
 package memory_test
 
 import (
-	"context"
 	"testing"
 
-	"github.com/xraph/vault/config"
 	"github.com/xraph/vault/core"
 	"github.com/xraph/vault/flag"
 	"github.com/xraph/vault/id"
-	"github.com/xraph/vault/override"
-	"github.com/xraph/vault/rotation"
 	"github.com/xraph/vault/secret"
 	"github.com/xraph/vault/store/memory"
-	"github.com/xraph/vault/audit"
 )
 
-func ctx() context.Context { return context.Background() }
+// store_test.go in this package already declares bg(); reuse it rather than
+// adding a second context helper to the same package.
 
 // An app with nothing in it counts zero and does not error. Every list
 // handler calls these for its caption, so an error here would break a page
@@ -846,12 +842,12 @@ func ctx() context.Context { return context.Background() }
 func TestCountsAreZeroForAnEmptyApp(t *testing.T) {
 	s := memory.New()
 	checks := map[string]func() (int64, error){
-		"secrets":   func() (int64, error) { return s.CountSecrets(ctx(), "nobody") },
-		"flags":     func() (int64, error) { return s.CountFlagDefinitions(ctx(), "nobody") },
-		"config":    func() (int64, error) { return s.CountConfig(ctx(), "nobody") },
-		"overrides": func() (int64, error) { return s.CountOverrides(ctx(), "nobody") },
-		"rotation":  func() (int64, error) { return s.CountRotationPolicies(ctx(), "nobody") },
-		"audit":     func() (int64, error) { return s.CountAudit(ctx(), "nobody") },
+		"secrets":   func() (int64, error) { return s.CountSecrets(bg(), "nobody") },
+		"flags":     func() (int64, error) { return s.CountFlagDefinitions(bg(), "nobody") },
+		"config":    func() (int64, error) { return s.CountConfig(bg(), "nobody") },
+		"overrides": func() (int64, error) { return s.CountOverrides(bg(), "nobody") },
+		"rotation":  func() (int64, error) { return s.CountRotationPolicies(bg(), "nobody") },
+		"audit":     func() (int64, error) { return s.CountAudit(bg(), "nobody") },
 	}
 	for name, fn := range checks {
 		got, err := fn()
@@ -868,7 +864,7 @@ func TestCountsAreZeroForAnEmptyApp(t *testing.T) {
 func TestCountsAreScopedToTheApp(t *testing.T) {
 	s := memory.New()
 	for _, app := range []string{"a", "a", "b"} {
-		if err := s.SetSecret(ctx(), &secret.Secret{
+		if err := s.SetSecret(bg(), &secret.Secret{
 			Entity: core.NewEntity(), ID: id.NewSecretID(),
 			Key: app + "-" + id.NewSecretID().String(), AppID: app,
 			EncryptedValue: []byte("x"),
@@ -876,14 +872,14 @@ func TestCountsAreScopedToTheApp(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
-	got, err := s.CountSecrets(ctx(), "a")
+	got, err := s.CountSecrets(bg(), "a")
 	if err != nil {
 		t.Fatal(err)
 	}
 	if got != 2 {
 		t.Errorf("app a: got %d, want 2", got)
 	}
-	got, err = s.CountSecrets(ctx(), "b")
+	got, err = s.CountSecrets(bg(), "b")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -892,26 +888,62 @@ func TestCountsAreScopedToTheApp(t *testing.T) {
 	}
 }
 
+// An empty appID must match only rows whose app_id is literally empty, never
+// every row. This is pinned rather than assumed: if a backend ever answers a
+// blank scope with the whole table, a list handler that fails to resolve a
+// tenant would hand one caller every tenant's secrets. Assert on identity,
+// because a count assertion passes when the wrong rows arrive in the right
+// quantity.
+func TestEmptyAppIDMatchesOnlyEmptyScopedRows(t *testing.T) {
+	s := memory.New()
+	for _, app := range []string{"a", "b"} {
+		if err := s.SetSecret(bg(), &secret.Secret{
+			Entity: core.NewEntity(), ID: id.NewSecretID(),
+			Key: "k-" + app, AppID: app, EncryptedValue: []byte("x"),
+		}); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	n, err := s.CountSecrets(bg(), "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if n != 0 {
+		t.Errorf("empty appID counted %d rows, want 0; a blank scope must not match every row", n)
+	}
+
+	list, err := s.ListSecrets(bg(), "", secret.ListOpts{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, m := range list {
+		if m.AppID != "" {
+			t.Errorf("empty appID returned a row scoped to %q", m.AppID)
+		}
+	}
+}
+
 // A count is the whole set, not one page. Paging must not change it, or the
 // caption would report the page size forever.
 func TestCountIgnoresPaging(t *testing.T) {
 	s := memory.New()
 	for i := 0; i < 5; i++ {
-		if err := s.DefineFlag(ctx(), &flag.Definition{
+		if err := s.DefineFlag(bg(), &flag.Definition{
 			Entity: core.NewEntity(), ID: id.NewFlagID(),
 			Key: id.NewFlagID().String(), Type: flag.TypeBool, AppID: "a",
 		}); err != nil {
 			t.Fatal(err)
 		}
 	}
-	page, err := s.ListFlagDefinitions(ctx(), "a", flag.ListOpts{Limit: 2})
+	page, err := s.ListFlagDefinitions(bg(), "a", flag.ListOpts{Limit: 2})
 	if err != nil {
 		t.Fatal(err)
 	}
 	if len(page) != 2 {
 		t.Fatalf("page: got %d, want 2", len(page))
 	}
-	count, err := s.CountFlagDefinitions(ctx(), "a")
+	count, err := s.CountFlagDefinitions(bg(), "a")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -919,13 +951,6 @@ func TestCountIgnoresPaging(t *testing.T) {
 		t.Errorf("count: got %d, want 5", count)
 	}
 }
-
-var (
-	_ = config.ListOpts{}
-	_ = override.Override{}
-	_ = rotation.Policy{}
-	_ = audit.Entry{}
-)
 ```
 
 - [ ] **Step 2: Run the test to verify it fails**
@@ -1288,14 +1313,10 @@ import (
 	"context"
 	"testing"
 
-	"github.com/xraph/vault/core"
 	"github.com/xraph/vault/crypto"
-	"github.com/xraph/vault/id"
 	"github.com/xraph/vault/secret"
 	"github.com/xraph/vault/store/memory"
 )
-
-const keyHex = "000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f"
 
 // A secret written with no encryptor is plaintext in EncryptedValue, and the
 // metadata must say so. Anything less lets a page call it encrypted.
@@ -1383,11 +1404,6 @@ func TestMetaDistinguishesRowsWrittenUnderDifferentConfig(t *testing.T) {
 		t.Errorf("after: got %q, want AES-256-GCM", byKey["after"])
 	}
 }
-
-var (
-	_ = core.NewEntity
-	_ = id.NewSecretID
-)
 ```
 
 - [ ] **Step 2: Run the test to verify it fails**

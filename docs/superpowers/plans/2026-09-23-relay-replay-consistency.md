@@ -42,7 +42,14 @@ There is no shared store test suite in this repository today. `store/memory/stor
 
 **Interfaces:**
 - Consumes: nothing from earlier tasks.
-- Produces: `storetest.ReplayBackend` (the interface a backend must satisfy to be tested) and `storetest.RunReplaySuite(t *testing.T, newStore func() ReplayBackend, cfg storetest.Config)`. Tasks 4 and 5 call `RunReplaySuite` from each backend's own test file.
+- Produces: `storetest.ReplayBackend` (the interface a backend must satisfy to be tested), `storetest.NewEntry()`, and `storetest.RunReplaySuite(t *testing.T, newStore func(t *testing.T) ReplayBackend)`. Task 4 calls `RunReplaySuite` from each backend's own test file.
+
+The suite has two kinds of subtest. Most assert the semantics the fix
+establishes. Two of them pin behaviour instead: they record what a backend
+actually does with an empty tenant filter and with tenant isolation, and fail
+when backends disagree with each other rather than asserting something weak
+enough that all five pass. The replay divergence was found by reading five
+stores by hand; this is that discovery made permanent.
 
 - [ ] **Step 1: Write the suite**
 
@@ -153,6 +160,76 @@ func RunReplaySuite(t *testing.T, newStore func(t *testing.T) ReplayBackend) {
 		}
 		if list[0].ReplayedAt == nil {
 			t.Fatal("ListDLQ dropped ReplayedAt on the way back out")
+		}
+	})
+
+	// Pinning subtests. These do not assert a behaviour chosen in advance;
+	// they record what this backend actually does and fail when backends
+	// disagree with each other. Reading five stores by hand is how the
+	// replay divergence was found in the first place. This makes that
+	// discovery automatic, and it would have caught the MaxAttempts case
+	// as a byproduct.
+	t.Run("pin: what an empty tenant filter returns", func(t *testing.T) {
+		ctx := context.Background()
+		s := newStore(t)
+		a := NewEntry()
+		a.TenantID = "tenant-1"
+		b := NewEntry()
+		b.TenantID = "tenant-2"
+		for _, e := range []*dlq.Entry{a, b} {
+			if err := s.Push(ctx, e); err != nil {
+				t.Fatalf("push: %v", err)
+			}
+		}
+
+		got, err := s.ListDLQ(ctx, dlq.ListOpts{Limit: 10, TenantID: ""})
+		if err != nil {
+			t.Fatalf("list: %v", err)
+		}
+		// An empty tenant filter means "every tenant" on every backend that
+		// has been checked. If a backend returns zero here it is treating
+		// empty as a literal match, which makes a page that forgot to send
+		// a tenant id look perfectly correct.
+		if len(got) != 2 {
+			t.Fatalf("an empty TenantID returned %d of 2 entries. If this "+
+				"backend intends empty to mean 'no tenant', say so here and "+
+				"raise it: the backends disagree and callers cannot tell",
+				len(got))
+		}
+		ids := map[string]bool{}
+		for _, e := range got {
+			ids[e.ID.String()] = true
+		}
+		// Identity, not count. A count assertion passes when the wrong rows
+		// come back in the right quantity.
+		if !ids[a.ID.String()] || !ids[b.ID.String()] {
+			t.Fatalf("an empty TenantID returned two entries but not the two "+
+				"that were pushed: got %v", ids)
+		}
+	})
+
+	t.Run("pin: tenant isolation by identity", func(t *testing.T) {
+		ctx := context.Background()
+		s := newStore(t)
+		mine := NewEntry()
+		mine.TenantID = "tenant-1"
+		theirs := NewEntry()
+		theirs.TenantID = "tenant-2"
+		for _, e := range []*dlq.Entry{mine, theirs} {
+			if err := s.Push(ctx, e); err != nil {
+				t.Fatalf("push: %v", err)
+			}
+		}
+
+		got, err := s.ListDLQ(ctx, dlq.ListOpts{Limit: 10, TenantID: "tenant-1"})
+		if err != nil {
+			t.Fatalf("list: %v", err)
+		}
+		if len(got) != 1 {
+			t.Fatalf("got %d entries for tenant-1, want 1", len(got))
+		}
+		if got[0].ID != mine.ID {
+			t.Fatalf("tenant-1's filter returned tenant-2's entry: %s", got[0].ID)
 		}
 	})
 
