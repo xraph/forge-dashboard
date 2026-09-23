@@ -1,4 +1,4 @@
-import { useEffect, useRef } from "react"
+import { useEffect, useRef, useState } from "react"
 import type { ComponentType, ReactNode } from "react"
 import {
   Navigate,
@@ -75,6 +75,8 @@ interface ReconcileState {
   options: ContextOption[]
   matched?: ContextOption
   error?: { code: string; message: string }
+  /** The switch succeeded and the server still reports a different value. */
+  stale?: boolean
 }
 
 /**
@@ -103,6 +105,12 @@ function useReconcile(
   const read = useQuery<unknown>(dimension.query)
   const switchTo = useCommand(dimension.switchCommand)
   const requestedRef = useRef<string | undefined>(undefined)
+  // State, not a ref, and the distinction matters. `stale` below is computed
+  // during render from this value, and a ref render reads is a value React
+  // cannot see changing -- the disagreement would sit there until something
+  // unrelated re-rendered the page. Setting state is what schedules the
+  // render that puts the alert on screen.
+  const [switched, setSwitched] = useState<string | undefined>(undefined)
   const onSwitchedRef = useRef(onSwitched)
   // Kept current in an effect, not written during render: a ref is not a
   // value render is allowed to touch, only something an effect or an event
@@ -143,6 +151,10 @@ function useReconcile(
 
     void switchTo.execute(dimension.payload(matched.id)).then((result) => {
       if (result === undefined) return
+      // Remember that this option was successfully switched to. If the server
+      // still reports something else after the re-read below, the switch did
+      // not take, and that is a state worth surfacing rather than living with.
+      setSwitched(matched.id)
       // Every cached answer is about the option that was current a moment
       // ago. See queryStore.clear's own docs for why invalidates alone is
       // not enough.
@@ -165,6 +177,23 @@ function useReconcile(
     options: resolved?.options ?? [],
     matched,
     error: read.error,
+    // The switch was accepted and the server still reports something else.
+    //
+    // Not hypothetical. Authsome's `apps.switch` writes a cookie that nothing
+    // reads back: `AppIDFromPrincipal` resolves from `Principal.Claims`, and
+    // nothing on the dashboard path ever populates claims, so `apps.context`
+    // answers with the default app whatever was switched to. The command
+    // succeeds, the store clears, the re-read says the same thing as before,
+    // and the URL and the server disagree permanently.
+    //
+    // A fixture server holding its own state hides this completely, which is
+    // how it reached a browser and passed.
+    stale:
+      resolved !== undefined &&
+      switched !== undefined &&
+      matched !== undefined &&
+      switched === matched.id &&
+      resolved.current?.id !== matched.id,
   }
 }
 
@@ -338,6 +367,26 @@ export function RoutedPage({
   const state = useReconcile(dimension, segment)
 
   if (state.status === "loading") return <LoadingRow />
+  if (state.stale) {
+    // Show the page, with the disagreement named. The operator is looking at
+    // the default scope's data under a URL that names a different one, and
+    // saying nothing is the one option that leaves them believing the URL.
+    return (
+      <div className="flex flex-col gap-4">
+        <Alert variant="destructive">
+          <TriangleAlertIcon />
+          <AlertTitle>This {dimension.label.toLowerCase()} did not take</AlertTitle>
+          <AlertDescription>
+            The switch was accepted and the server still reports
+            {` ${state.current?.label ?? "something else"}`}. What is below is
+            that one, not the {dimension.label.toLowerCase()} named in the
+            address.
+          </AlertDescription>
+        </Alert>
+        {children}
+      </div>
+    )
+  }
   if (state.status === "unavailable") {
     // Warn and carry on. See ContextUnavailable for why this does not block.
     return (

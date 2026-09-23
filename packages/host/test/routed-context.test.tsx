@@ -68,6 +68,7 @@ function fixtureServer() {
   ]
 
   let contextFails = false
+  let ignoreSwitch = false
   let currentAppId: string | undefined
   let currentEnvId: string | undefined
   const commandOrder: string[] = []
@@ -120,6 +121,12 @@ function fixtureServer() {
     }
     if (body.intent === "apps.switch") {
       commandOrder.push("apps.switch")
+      if (ignoreSwitch) {
+        // Accepted, and nothing changes. Authsome writes a cookie here that
+        // nothing reads back, so the next apps.context answers exactly as it
+        // did before.
+        return jsonOk({ ok: true, data: { ok: true } })
+      }
       const appId = (body.payload as { appId?: string } | undefined)?.appId
       currentAppId = apps.some((a) => a.id === appId) ? appId : undefined
       // handlers_context.go: appsSwitchHandler clears the env cookie right
@@ -147,6 +154,10 @@ function fixtureServer() {
     commandOrder,
     setCurrentApp: (id: string | undefined) => {
       currentAppId = id
+    },
+    /** Accept apps.switch and change nothing, the way authsome does today. */
+    ignoreAppSwitch: () => {
+      ignoreSwitch = true
     },
     /** Make apps.context fail, the way a server that never registered it does. */
     failContext: () => {
@@ -458,5 +469,48 @@ describe("when the dimension's own query cannot be read", () => {
 
     await waitFor(() => expect(screen.getByText(/cannot read the current app/i)).toBeTruthy())
     expect(screen.queryByText("Loading…")).toBeNull()
+  })
+})
+
+describe("a server that accepts a switch and ignores it", () => {
+  /**
+   * Authsome's real behaviour, and the reason this test exists.
+   *
+   * `apps.switch` writes an `authsome_app` cookie that nothing reads back.
+   * `AppIDFromPrincipal` resolves from `Principal.Claims`, and nothing on the
+   * dashboard path populates claims, so `apps.context` answers with the
+   * default app whatever was switched to. The command succeeds. The re-read
+   * says the same thing it said before. The URL and the server then disagree
+   * permanently, and every page answers for an app the address does not name.
+   *
+   * The fixture server used by every other test in this file holds its own
+   * state, so it switches correctly and hides this completely. That is how
+   * the behaviour reached a browser and passed.
+   */
+  it("says so rather than showing the default app under the URL's name", async () => {
+    queryStore.clear()
+    const server = fixtureServer()
+    server.setCurrentApp("app_platform")
+    // Accept the command, change nothing. No cookie is read on the way back.
+    server.ignoreAppSwitch()
+
+    renderAt(routedAuthPlugin(), server.fetchImpl, "/@auth/demo-app/users")
+
+    await waitFor(() => expect(screen.getByText(/did not take/i)).toBeTruthy())
+    // The page still renders. The operator is looking at platform's data and
+    // now knows it, which is the whole difference.
+    expect(screen.getByText("users page")).toBeTruthy()
+    expect(screen.getByText(/still reports Platform/i)).toBeTruthy()
+  })
+
+  it("stays quiet when the server does accept it", async () => {
+    queryStore.clear()
+    const server = fixtureServer()
+    server.setCurrentApp("app_platform")
+
+    renderAt(routedAuthPlugin(), server.fetchImpl, "/@auth/demo-app/users")
+
+    await waitFor(() => expect(screen.getByText("users page")).toBeTruthy())
+    expect(screen.queryByText(/did not take/i)).toBeNull()
   })
 })
