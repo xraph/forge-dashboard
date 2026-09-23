@@ -349,6 +349,23 @@ what switching it on would buy. That is the page, for most deployments.
 "protected" and a green badge all claim more than an unkeyed digest earns.
 Name the level.
 
+**Check the primitive, and run it rather than reading it.** Relay found that
+`signature.Sign` HMACs with whatever secret it is handed, and an empty secret
+produces a perfectly well-formed `v1=` and 64 hex characters that `Verify`
+returns true for. Nothing in the header distinguishes it from a real one. So
+an endpoint with no secret receives signed-looking deliveries that anyone with
+the payload and timestamp can forge, and a receiver verifying correctly still
+accepts them.
+
+A primitive that does not refuse a null key makes every caller responsible for
+a check they will forget, and the normal path being safe is not much comfort
+when the store interface is public and the extension's own dashboard reaches
+past the service. The general version: where a guarantee bottoms out in a
+crypto primitive, find out what that primitive does with an absent key, and
+find out by calling it. Relay ran both cases and compared the output, which is
+how you get an answer you can trust rather than one you inferred from the
+signature of a function.
+
 This inverts the usual advice to design the good case as the common case. Here
 the common case is the weak one, and designing for the configured deployment
 first produces a dashboard that is most reassuring to exactly the people who
@@ -454,6 +471,26 @@ need a field adding before your page can be honest. And where you cannot get
 the distinction, say less: "no relation matched within the graph budget" is
 worse copy than "no relation matched" and it is true, which is the trade to
 make every time.
+
+**A list has three empty states, not two.** Nothing here at all, nothing
+matching this filter, and nothing found with the search incomplete. Most pages
+get the first two and stop. Relay added the third after finding that its own
+design had introduced the problem: redis post-filtering over a bounded scan
+window, which is an abandoned search reported as a completed one, written
+without noticing. `ListDeliveries` now answers an envelope with a `Complete`
+flag rather than a bare slice, false whenever a backend post-filtered instead
+of filtering at the index.
+
+Worth noticing that the flaw arrived in the design rather than in the library.
+A backend that cannot express a filter at its index, so you filter after
+reading a window, is a very ordinary thing to write and it manufactures this
+bug from nothing.
+
+One aside from the same design, useful elsewhere: cursor paging with no total
+count sidesteps the exact-versus-estimate problem entirely, because the
+question never gets asked. On an append-mostly log a total is expensive and
+usually an estimate, and "1 of about 12,000" supports different decisions from
+"1 of 12,000".
 
 ## Fixtures
 
