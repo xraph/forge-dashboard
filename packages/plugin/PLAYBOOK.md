@@ -340,6 +340,50 @@ The same shape is worth checking anywhere protection is optional: webhook
 signature verification, encryption at rest, audit logging, rate limiting,
 policy enforcement modes that default to permissive.
 
+### Protection is a property of the row, not of the config
+
+The version of this rule above is not strong enough, and Vault found where it
+breaks. I had told that session to check what an unconfigured Vault does with
+a secret. The answer turned the rule inside out.
+
+`secret/service.go` branches on whether an encryptor exists. With one, it
+stores ciphertext and sets `EncryptionAlg` to `"AES-256-GCM"`. Without one, it
+assigns the plaintext directly to `EncryptedValue` and leaves the algorithm
+empty. Plaintext, in a column called `EncryptedValue`.
+
+Then two things compound it. `secret.Meta`, which is what `ListSecrets`
+returns and the only thing a list page ever sees, carries no algorithm field
+at all, and none of the backend projections copies one. So encrypted and
+plaintext rows are byte-identical in every field a page could render. And
+nothing re-encrypts on read, so a key added later leaves everything written
+before it in plaintext permanently.
+
+That last part is the general lesson. **A configuration flag describes the
+system now. Rows carry whatever protection was in force when they were
+written.** A correctly configured deployment can be full of unprotected
+records, and an `encryptionEnabled: true` on an overview page is a true
+statement that an operator will read as a claim about their data. Vault's
+session was one commit away from shipping exactly that.
+
+So for any protection applied at write time and never revisited:
+
+**Report it per record, not per configuration.** If the projection a list page
+receives cannot carry the fact, that is a field to add before the page can be
+honest, not a nuance to render around.
+
+**Decide what an absent marker means and write it down.** Vault's rule is that
+an empty algorithm means not encrypted rather than unknown, which is the safe
+reading and the one that makes the page useful.
+
+**Ban the strong words per row.** Encrypted, secure, protected and verified
+belong only on a row that carries the evidence.
+
+The same question applies anywhere a guarantee was switched on partway through
+a system's life: events recorded before tamper evidence was keyed, deliveries
+made before signature verification was enabled, actions taken before audit
+logging was turned on. In every case the config says yes and the old rows do
+not.
+
 ### The other half: an abandoned search is not an answer
 
 Warden found the mirror image, and it is the more dangerous of the two because
