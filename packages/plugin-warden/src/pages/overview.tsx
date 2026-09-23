@@ -8,6 +8,7 @@ import {
 } from "@forge-go/dashboard-kit/components/resource-table"
 import { StatGrid } from "@forge-go/dashboard-kit/components/stat-grid"
 import { Timestamp } from "@forge-go/dashboard-kit/components/timestamp"
+import { NamespaceCell } from "../components/namespace-filter"
 
 export interface OverviewStats {
   roles: number
@@ -36,22 +37,6 @@ export interface CheckSummary {
 
 export interface RecentChecks {
   checks: CheckSummary[]
-}
-
-/**
- * The tenant root is a real namespace where things live, not an absent
- * value, so it does not use NoneCell. It renders as "/" rather than the word
- * "root" because namespaceSegmentRegex permits "root" as an ordinary segment
- * name, and a namespace actually called root would then be indistinguishable
- * from the tenant root. ValidateNamespacePath forbids a leading or trailing
- * slash, so "/" is a token no real path can produce.
- */
-export function NamespaceCell({ path }: { path: string }) {
-  return (
-    <span className="font-mono text-xs" title={path === "" ? "Tenant root" : path}>
-      {path === "" ? "/" : path}
-    </span>
-  )
 }
 
 /**

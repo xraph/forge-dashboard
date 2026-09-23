@@ -9,6 +9,8 @@ import { WardenOverviewPage } from "./pages/overview"
 export type { ConfigDetail } from "./pages/config"
 export type { OverviewStats, RecentChecks, CheckSummary } from "./pages/overview"
 export { WardenConfigPage, WardenOverviewPage }
+export { NamespaceCell, useNamespaceFilter, namespaceParam } from "./components/namespace-filter"
+export type { NamespaceValue } from "./components/namespace-filter"
 
 /**
  * The first-party UI for the `warden` extension.
