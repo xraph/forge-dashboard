@@ -400,6 +400,113 @@ git commit -m "test(store): pin what an empty scope returns, per backend"
 
 ---
 
+### Tasks 3 to 6 run as one batch, against one cross-backend test
+
+**This supersedes the per-backend test instructions in Tasks 3 to 6 below.**
+Read it first. The four task sections that follow remain the reference for
+each backend's bucket expression, which is still correct, but their test
+guidance is not.
+
+Two things the per-backend design got wrong, both found once live databases
+were running:
+
+1. `store/postgres`, `store/mongo` and `store/redis` have no test files at all.
+   There is no "existing skip-if-unavailable helper" to reuse, whatever the
+   text below says. The only DSN convention in the repo is the one Task 2b
+   introduced in `store/scope_behaviour_test.go`.
+2. Four independent per-package tests cannot enforce the property the spec
+   actually requires. The spec says all four backends must produce
+   byte-identical bucket strings, so the contract layer needs no per-backend
+   branch. Four tests can each pass while disagreeing with each other, since
+   each only checks its own backend against a literal.
+
+So implement the bucket expression in all four backends in one change, and
+pin it with ONE test in package `store_test`, in a new file
+`store/aggregate_bucket_test.go`, reusing `backends(t)` and the per-run
+seeding helpers from `store/scope_behaviour_test.go`:
+
+```go
+// All four backends must render a bucket as the identical string, because the
+// dashboard contract carries it to the browser with no per-backend branch. A
+// test per backend could pass four times while the four disagreed; this one
+// runs them side by side and compares them to each other as well as to the
+// expected value.
+func TestAggregateBucketsAgreeAcrossBackends(t *testing.T) {
+	day1 := time.Date(2026, 9, 20, 10, 0, 0, 0, time.UTC)
+	day3 := time.Date(2026, 9, 22, 10, 0, 0, 0, time.UTC)
+
+	got := map[string][]string{} // backend -> ordered buckets
+	for name, open := range backends(t) {
+		t.Run(name, func(t *testing.T) {
+			s := open(t)
+			app := seedScope(t) // per-run unique app id; see scope_behaviour_test.go
+			seedEventAt(t, s, app, day1)
+			seedEventAt(t, s, app, day1.Add(time.Hour))
+			seedEventAt(t, s, app, day3)
+
+			res, err := s.Aggregate(context.Background(), &audit.AggregateQuery{
+				After: day1.Add(-time.Hour), Before: day3.Add(time.Hour),
+				AppID: app, GroupBy: []string{"day"},
+			})
+			if err != nil {
+				t.Fatalf("Aggregate: %v", err)
+			}
+			// Two groups, not three. The empty day is ABSENT rather than
+			// present with count zero, because the dashboard renders that
+			// absence as the gap it is looking for.
+			if len(res.Groups) != 2 {
+				t.Fatalf("%s: %d groups, want 2 (the empty day must be absent, not zero): %+v",
+					name, len(res.Groups), res.Groups)
+			}
+			var buckets []string
+			for _, g := range res.Groups {
+				buckets = append(buckets, g.Bucket)
+			}
+			sort.Strings(buckets)
+			if buckets[0] != "2026-09-20" || buckets[1] != "2026-09-22" {
+				t.Errorf("%s: buckets %v, want [2026-09-20 2026-09-22]", name, buckets)
+			}
+			got[name] = buckets
+		})
+	}
+
+	// The cross-backend assertion the per-package design could not make.
+	var ref string
+	var refBuckets []string
+	for name, b := range got {
+		if ref == "" {
+			ref, refBuckets = name, b
+			continue
+		}
+		if !reflect.DeepEqual(b, refBuckets) {
+			t.Errorf("backends disagree: %s rendered %v, %s rendered %v", name, b, ref, refBuckets)
+		}
+	}
+}
+```
+
+Write the same shape again for `hour`, and a third subtest for a timestamp on
+an exact second boundary, because sqlite stores time.RFC3339Nano, which omits
+the fraction entirely on an exact second, and both `...:03Z` and
+`...:03.123456789Z` must bucket to the same hour.
+
+Run it against all four live backends, using ONLY these DSNs:
+
+```
+CHRONICLE_TEST_POSTGRES_DSN=postgres://chronicle:chronicle@localhost:55432/chronicle_test?sslmode=disable
+CHRONICLE_TEST_MONGO_DSN=mongodb://localhost:57017/chronicle_test
+CHRONICLE_TEST_REDIS_DSN=redis://localhost:56379/0
+```
+
+Never localhost:5432 or localhost:6379: those are an unrelated project's live
+databases. Run the test twice in a row with no cleanup between, since a
+persistent database is exactly where seeding collisions show up.
+
+One commit per backend is still fine and makes the history easier to read, but
+the test lands with the first and grows as each backend joins it.
+
+---
+
 ### Task 3: Bucket by day and hour on postgres
 
 **Files:**
