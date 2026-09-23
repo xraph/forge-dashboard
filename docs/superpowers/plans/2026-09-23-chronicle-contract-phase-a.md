@@ -674,7 +674,7 @@ This is the task that matters most. `scope.go` is the security boundary for ever
   - `viewScope{AppID, TenantID string}`
   - `scopeFromPrincipal(p contract.Principal) (viewScope, error)`
   - `(viewScope) owns(appID, tenantID string) bool`
-  - `(viewScope) applyQuery(q *audit.Query) *audit.Query` — stamps the viewer's scope onto an event query. Task 10 consumes this.
+  - `(viewScope) applyQuery(q *audit.Query) *audit.Query`, which stamps the viewer's scope onto an event query. Task 10 consumes this.
   - `tenantFromClaims(p contract.Principal) (string, error)`
   - `StreamSummary{ID, AppID, TenantID, HeadHash string; HeadSeq uint64; Scheme string; SchemeSince uint64; CoverageCeiling string; LatestCheckpoint *CheckpointSummary; CheckpointingConfigured bool}`
   - `CheckpointSummary{ID string; FromSeq, ToSeq uint64; EventCount int64; CreatedAt string; SignKeyID string}`. Defined HERE, in `project.go`, not in Task 9, because `StreamSummary` embeds it. Task 9 reuses this exact type and must not declare a second one.
@@ -1116,14 +1116,14 @@ Write ALL of the shared test helpers in `extension/contract/helpers_test.go`,
 not just the three this test uses. Every later task's tests depend on them and
 this is the one place they are defined:
 
-- `newTestDispatcher(t)` — a dispatcher to register against
-- `dispatcherIntents(t, d, contributor)` — the set of registered intent names
-- `newStubStore()` — a `store.Store` whose methods return zero values
-- `storeReturning(err)` — a `store.Store` whose reads return that error, used
+- `newTestDispatcher(t)`: a dispatcher to register against
+- `dispatcherIntents(t, d, contributor)`: the set of registered intent names
+- `newStubStore()`: a `store.Store` whose methods return zero values
+- `storeReturning(err)`: a `store.Store` whose reads return that error, used
   by this task's no-chain test and by Task 8's
-- `stubCheckpointStore{}` and `stubSigner{}` — used by this task's coverage
+- `stubCheckpointStore{}` and `stubSigner{}`: used by this task's coverage
   ceiling test and by Task 9's
-- `principalWith(claims)` — move it here from `scope_test.go`, so later tasks
+- `principalWith(claims)`: move it here from `scope_test.go`, so later tasks
   have one place to look for it
 
 Later tasks add their own spies under task-specific names and must not
