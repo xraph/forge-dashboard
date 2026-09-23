@@ -517,7 +517,35 @@ func endpointsListHandler(deps Deps) func(context.Context, ListEndpointsInput, c
 }
 ```
 
-An empty `TenantID` lists every tenant, which is what `dashboard/data.go:fetchAllEndpoints` already relies on. Preserve that: it is the server's existing behaviour and the fixture must match it.
+**Correction, found while executing the signature plan.** An earlier draft of
+this step said an empty `TenantID` lists every tenant. It does not, on any
+backend. `ListEndpoints` compares `tenant_id` for equality on all five
+(postgres and sqlite `WHERE tenant_id = ?`, mongo `{"tenant_id": tenantID}`,
+redis a per-tenant sorted set, memory `!=`), so `""` returns only endpoints
+whose tenant is literally the empty string, which in practice is none. This is
+pinned in relay by `TestListEndpointsTreatsAnEmptyTenantLiterally`.
+
+`dashboard/data.go:fetchAllEndpoints` passes `""` with a comment claiming it
+returns every tenant. That is why the templ overview count, endpoints page,
+both widgets and the whole deliveries page render empty. `ListDLQ` does the
+opposite and treats `""` as every tenant, on all five backends, so the two
+list methods disagree with each other. That disagreement is the likely root
+cause.
+
+Do not write a handler that relies on `""` meaning "all".
+
+**OPEN DECISION, blocks this task and Task 7.** An endpoints page that lists
+every endpoint needs one of these, and it is Rex's call:
+
+1. Fix `ListEndpoints` so `""` means every tenant, matching `ListDLQ`. A
+   cross-backend semantic change, so it gets its own plan and a conformance
+   subtest like the replay one, and it lands before this slice.
+2. Make `endpoints.list` require a `tenantId`, and have the page pick a tenant
+   first. There is no list-tenants capability anywhere in relay, so the page
+   would need one too, or a free-text tenant field.
+
+Until that is decided, `endpoints.list` passes `in.TenantID` straight through
+and inherits whatever the store does.
 
 `endpointsUpdateHandler` reads the endpoint, applies only the non-nil fields, and calls `deps.Relay.Store().UpdateEndpoint`. Do not route through `endpoint.Service.Update`.
 
@@ -678,13 +706,18 @@ const relayHandlers = {
   "endpoints.list": {
     kind: "query",
     handler: (payload) => {
-      let rows = relayState.endpoints
-      // An empty tenantId lists every tenant. That is the real server's
-      // behaviour and a fixture that required one would turn "this page
-      // forgot to send it" into a page that looks correct.
-      if (payload?.tenantId) {
-        rows = rows.filter((e) => e.tenantId === payload.tenantId)
-      }
+      // Models the real server: tenant_id is matched literally on every
+      // backend, so an empty or missing tenantId returns only endpoints whose
+      // tenant is the empty string, which is none of the seeded ones.
+      //
+      // Do not make this forgiving. A fixture that returned every endpoint for
+      // an empty tenant would let a page that forgot to send one look correct
+      // in development and render empty in production. That is exactly how the
+      // templ deliveries page stayed broken. If the OPEN DECISION in Task 3
+      // goes to option 1, change this to match the fixed server, per the
+      // playbook's rule to model the contract being shipped.
+      const tenantId = payload?.tenantId ?? ""
+      let rows = relayState.endpoints.filter((e) => e.tenantId === tenantId)
       if (typeof payload?.enabled === "boolean") {
         rows = rows.filter((e) => e.enabled === payload.enabled)
       }
@@ -1098,7 +1131,11 @@ Run the fixture server and the shell dev server, then open the dashboard.
 - [ ] **Step 3: Click through every one of these**
 
 - [ ] The Relay nav group appears, with Endpoints under it.
-- [ ] `/endpoints` lists three endpoints with a live count in the caption.
+- [ ] `/endpoints` shows the right thing for the OPEN DECISION in Task 3. Under
+      option 1 it lists all three seeded endpoints with a live count. Under
+      option 2 it asks for a tenant first, and `acme` lists two. If it shows
+      three endpoints with no tenant selected and option 1 was not chosen, the
+      fixture has been made forgiving: fix the fixture, not the checklist.
 - [ ] The globex endpoint shows **Unsigned** in destructive.
 - [ ] Filtering to tenant `nobody` shows "No endpoints match", not "No endpoints yet".
 - [ ] Clicking a row navigates without a full page reload. Watch the network tab: a reload here means a plain `<a>` slipped in instead of `PluginLink`.
