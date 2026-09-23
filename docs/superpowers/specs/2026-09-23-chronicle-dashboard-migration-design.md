@@ -700,6 +700,22 @@ keeps saying valid after a row is rewritten. `verify.run` and `verify.event`
 are queries because they have no side effects, not because their answers
 last.
 
+**`erasures.request` is held out of the dashboard.** Rex's decision, after a
+probe confirmed that an erasure destroys other apps' and tenants' data.
+`crypto.KeyStore` is keyed by subject ID alone, so every scope using the same
+subject ID shares one key, and `erasure.Service.Erase` deletes it unscoped
+while scoping everything else. Erasing `user-42` in one app made another app's
+event for `user-42` read `[ERASED]`, with `Erased` false, no erasure ID and no
+erasure record in its own scope. The list, detail and preview intents ship.
+The command returns once the library scopes its keys, which puts the manifest
+at 28 intents instead of 29.
+
+**Not every `[ERASED]` has an erasure behind it.** Until that fix lands, and on
+any data written before it, an event can read `[ERASED]` with `Erased` false
+and no `ErasureID`. That is the victim side of the bug above. The page renders
+it as destroyed with no recorded erasure in this scope, and never implies an
+erasure was requested here.
+
 **Found in the library while building, fixed or raised separately:**
 three of the four production backends had no tests; the redis backend lets
 two tenants share one hash chain when their IDs contain a colon; sqlite
@@ -707,7 +723,8 @@ compares timestamps as strings, so a time-range search can drop or include
 events within a second of its edges; and a sqlite store wired directly,
 outside the extension, silently writes plain digests under an HMAC
 configuration, caught only when verification later reports every event as a
-downgrade.
+downgrade; and a GDPR erasure in one scope destroys every other scope's data
+for the same subject ID, because encryption keys are keyed by subject alone.
 
 ## Testing
 

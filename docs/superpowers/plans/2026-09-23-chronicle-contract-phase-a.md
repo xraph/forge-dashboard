@@ -2287,6 +2287,19 @@ git commit -m "feat(contract): add the overview stats intent"
 ---
 ### Task 12: The erasures group
 
+**Scope reduced by Rex's decision on 2026-09-23. Build erasures.list,
+erasures.detail and erasures.preview only. Do NOT build erasures.request.**
+While preparing this task, a probe confirmed that `crypto.KeyStore` is keyed by
+subject ID alone, so every app and tenant using the same subject ID shares one
+encryption key. `erasure.Service.Erase` scopes its count and its mark but
+deletes that shared key unscoped. An erasure requested in one app therefore
+irreversibly destroys another app's data for the same subject, which then reads
+`[ERASED]` with `Erased` false and no erasure record in its own scope. The
+request command stays out of the dashboard until the library scopes its keys.
+Everything below about `erasures.request`, its manifest entry and its tests is
+superseded; the rest stands.
+
+
 This group and the next are the two that destroy audit history. Both get a
 preview query the confirm dialog runs before the command fires.
 
@@ -2911,13 +2924,16 @@ Expected: PASS, and the parity test from Task 7 now covers all 29.
 Add one assertion to `manifest_test.go` while you are here:
 
 ```go
-func TestManifestDeclaresTwentyNineIntents(t *testing.T) {
+// 28, not the 29 the spec lists: erasures.request is held out until
+// crypto.KeyStore scopes its keys by app and tenant, because an erasure
+// currently destroys every scope's data for the same subject ID.
+func TestManifestDeclaresTwentyEightIntents(t *testing.T) {
 	m, err := loader.Load(bytes.NewReader(manifestYAML), "manifest.yaml")
 	if err != nil {
 		t.Fatalf("load manifest: %v", err)
 	}
-	if len(m.Intents) != 29 {
-		t.Fatalf("manifest declares %d intents, want 29. If you added or removed one "+
+	if len(m.Intents) != 28 {
+		t.Fatalf("manifest declares %d intents, want 28. If you added or removed one "+
 			"deliberately, update this number and the spec's intent table together",
 			len(m.Intents))
 	}
