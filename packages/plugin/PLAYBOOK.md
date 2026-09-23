@@ -224,6 +224,45 @@ test that reads a source file with `fs`; use `import.meta.glob` with
 `{ query: "?raw", eager: true }`. And run both: only `tsc` sees the barrel, so a
 renamed export breaks the build while every test stays green.
 
+## Check the write path before you trust it
+
+Three sessions have now found that something they were about to build a UI on
+does not do what it appears to do. The pattern is the same each time: a layer
+exists, looks complete, and is not wired to anything that would reveal it. Run
+these three checks before designing any page that writes.
+
+**Is the thing that stores this actually constructed?** Vault's extension
+advertises a `vault.Vault` that a later phase never delivered, so the extension
+wires a store and nothing else. Two live bugs fall out: secret create persists
+a blank value because the form sets `Value` while the store writes only
+`EncryptedValue`, and `audit.NewLogger` is never constructed anywhere, so every
+audit surface reads a table nothing writes. An audit page that renders an empty
+table beautifully is worse than no page, because it reads as "nothing
+happened". Grep for the constructor, not the type.
+
+**Does the same write behave the same on every backend?** Relay's DLQ replay
+differs across all five stores. Three leave `MaxAttempts` at zero, so the
+retrier evaluates `1 < 0` and sends a replayed delivery straight back to the
+queue it came out of. Only the in-memory store is correct, which means every
+developer sees behaviour no production deployment has. Check a write that
+reconstructs an entity against each backend rather than against memory.
+
+**Does the conformance suite populate the fields you are about to write?**
+This is the subtlest of the three and Warden found it. It has a proper
+cross-backend suite covering tenant isolation, uniqueness, junction integrity
+and expiry, run by all four backends. It looks like exactly the thing that
+would catch a parity bug. But every policy it constructs leaves five fields
+empty, and those five are `db:"-"`, persisted as postgres jsonb, sqlite JSON
+strings, mongo native arrays and a memory deep copy. Three serializations,
+zero coverage of the populated round trip, which is precisely what a policy
+editor writes.
+
+So the question is never "is there a conformance suite". It is "does it
+populate the fields my new write path populates". A suite that only ever
+builds empty structs is the same class of problem as a fixture that accepts a
+write and changes nothing: it passes, and it is testing the absence of your
+feature.
+
 ## Fixtures
 
 `packages/fixture-server` is what you develop against, and a bad fixture hides
@@ -282,10 +321,26 @@ dashboard is worse than no charts.
 
 **Worth adding, per domain**, and none of these is present yet:
 
-- A code editor for anything structured a person edits or reads: a policy
-  document, a JSON payload, a config file, an event body. Monaco or CodeMirror.
-  Read-only counts: a delivery response body in a viewer with folding beats a
-  `<pre>`.
+- A code editor for anything structured a person edits or reads: a JSON
+  payload, a config file, an event body. Read-only counts: a response body in
+  a viewer with folding beats a `<pre>`.
+
+  **First check the thing has a text form at all.** Warden was told to put an
+  editor on policies and found that a policy has no text representation: it is
+  structured, with subjects, actions, resources and conditions over eighteen
+  operators. An editor there means inventing a format the server never parses.
+  The editor belonged on Warden's DSL instead, which is a real language with a
+  real parser that reports `Pos{Line, Col}`, so gutter markers mean something.
+  Structure gets a structured editor. Text gets a text editor.
+
+  **CodeMirror unless you can justify Monaco.** They read as interchangeable
+  and are not. Monaco is 3 to 5 MB raw against a 632 KB shell, so it is a lazy
+  chunk five to eight times the size of the entire application. Two sessions
+  reached for Monaco on my advice, read the domain, and independently landed
+  on CodeMirror 6: Warden's DSL is 47 flat keywords with no context-sensitive
+  lexing, about forty lines of `StreamLanguage`, and Vault's config values are
+  small blobs rather than files. Monaco earns its weight for a large language
+  with real tooling expectations. For a small custom one it does not.
 - A graph canvas where the domain is genuinely a graph. Resource types and
   relations are a graph. A hash chain is a chain. React Flow is the usual
   answer. Do not reach for one because a list feels boring.
