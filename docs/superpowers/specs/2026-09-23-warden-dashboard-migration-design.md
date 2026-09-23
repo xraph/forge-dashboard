@@ -200,6 +200,40 @@ survive the postgres and sqlite paths intact.
 
 This is a risk to close with a test, not a bug to fix blind.
 
+### Three absences this dashboard could render as answers
+
+Warden's defaults are good and it is not the "weakest state is the default"
+case. `RequireTenant`, `EnableRBAC`, `EnableABAC`, `EnableReBAC` and
+`EnableCheckLog` all default true, and with every model disabled
+`mergeDecisions` still returns `DecisionDenyDefault`. The engine denies by
+default and denies on a store error through `failCheck`.
+
+Three places would still let a page state something it does not know.
+
+**A graph walk that gave up reports as a definite no.** `evaluateReBAC`
+swallows `ErrGraphDepthExceeded` and `ErrGraphBudgetExceeded` into empty case
+bodies, then returns `DecisionDenyRelation` with the reason "no relation grants
+X access to Y". So a check that stopped walking at `MaxGraphVisited` tells every
+caller it looked and found nothing. `CheckResult` carries no signal that the
+search was incomplete, which makes this invisible from outside the engine and
+arguably a bug in warden independent of any dashboard.
+
+**An empty check log is ambiguous.** When `EnableCheckLog` is false no writer
+is constructed at all (engine.go:100), so the table is empty. That is
+indistinguishable from a system where nothing has been checked, and the
+difference is "you have no audit trail" versus "you are idle".
+
+**A dropped entry leaves no gap.** The writer's queue is bounded and drops on
+overflow, incrementing `Metrics.CheckLogDropped`. A busy system logs less than
+it decided and the page cannot tell.
+
+The first is handled in the playground section below. The second and third are
+cheap: `config.detail` already reports `EnableCheckLog`, so the check log
+renders a banner when logging is off instead of an ordinary empty state, and
+surfaces the dropped counter beside the row count when the metrics backend can
+answer for it. An empty table that says "check logging is disabled, nothing is
+being recorded" costs one query that is already being made.
+
 ### Beware the name collision
 
 `forge/extensions/dashboard/contract/warden.go` defines `contract.Warden`, a
@@ -432,7 +466,23 @@ did not run" and "ReBAC ran and found nothing" are different facts:
 | `deny` | evaluated, nothing matched, with the specific reason |
 | `skipped` | ReBAC only: RBAC already allowed and `EvaluateAllModels` is off |
 | `disabled` | turned off in `Config` |
-| `error` | store failure, or graph depth or budget exceeded, so a partial answer |
+| `error` | store failure, so no answer rather than a negative one |
+
+The ReBAC lane cannot be fully honest in phase one, and the label has to admit
+it. As recorded above, the engine swallows `ErrGraphDepthExceeded` and
+`ErrGraphBudgetExceeded` and returns an ordinary `DecisionDenyRelation`, so a
+walk that gave up is indistinguishable from a walk that finished, from anywhere
+outside the engine.
+
+So a denied ReBAC lane reads "no relation matched within the graph budget"
+rather than "no relation matched". That is slightly worse copy and it is true,
+which is the trade to make on a page whose whole job is explaining a decision.
+The contract could run its own walk to disambiguate, but that means
+reimplementing the most expensive and most subtle part of the engine to produce
+an inference, so it is not worth it.
+
+`Engine.Explain` fixes this properly by reporting budget exhaustion as its own
+lane state, and that is now a second reason to do it rather than a nicety.
 
 ```
 ┌─ Build a check ────────┐  ┌─ Result ──────────────────────────────┐
