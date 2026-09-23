@@ -1,7 +1,8 @@
 import { describe, expect, it } from "vitest"
 import { fireEvent, screen, waitFor } from "@testing-library/react"
+import { ContractError } from "@forge-go/dashboard-plugin"
 import { WardenConfigPage } from "../src/pages/config"
-import { recordingCommandClient, renderPage, stubClient } from "./harness"
+import { failingClient, recordingCommandClient, renderPage, stubClient } from "./harness"
 
 const CONFIG = {
   maxGraphDepth: 10,
@@ -124,5 +125,50 @@ describe("WardenConfigPage", () => {
     fireEvent.click(await screen.findByRole("button", { name: /^clear$/i }))
 
     expect(await screen.findByText(/cleared the decision cache for this tenant/i)).toBeTruthy()
+  })
+
+  /**
+   * doRun returns early when execute() resolves undefined, which only
+   * happens when the client throws a ContractError - a stub that answers
+   * `{ok: false}` resolves normally and never exercises this path. Base UI
+   * marks everything outside an open dialog inert and aria-hidden, so the
+   * error has to be reachable from inside the still-open dialog, not
+   * findable only with `hidden: true`.
+   */
+  it("leaves the run-maintenance dialog open and shows the error when the command fails", async () => {
+    renderPage(
+      WardenConfigPage,
+      failingClient(new ContractError("INTERNAL", "store unavailable"))
+    )
+
+    fireEvent.click(await screen.findByRole("button", { name: /run maintenance/i }))
+    fireEvent.click(await screen.findByRole("button", { name: /^run$/i }))
+
+    const alert = await screen.findByRole("alert")
+    expect(alert.textContent).toContain("store unavailable")
+    // Reachable specifically means inside the open dialog: an aria-hidden
+    // ancestor is exactly what the alert would sit under if it had been
+    // rendered on the page body instead of inside this ConfirmDialog.
+    expect(alert.closest('[aria-hidden="true"]')).toBeNull()
+
+    // Still open, not dismissed out from under the alert the operator is
+    // meant to read.
+    expect(screen.getByRole("button", { name: /^run$/i })).toBeTruthy()
+  })
+
+  /** Same failure shape as the run-maintenance dialog above, for the other write on this page. */
+  it("leaves the clear-cache dialog open and shows the error when the command fails", async () => {
+    renderPage(
+      WardenConfigPage,
+      failingClient(new ContractError("INTERNAL", "cache backend unreachable"))
+    )
+
+    fireEvent.click(await screen.findByRole("button", { name: /clear cache/i }))
+    fireEvent.click(await screen.findByRole("button", { name: /^clear$/i }))
+
+    const alert = await screen.findByRole("alert")
+    expect(alert.textContent).toContain("cache backend unreachable")
+    expect(alert.closest('[aria-hidden="true"]')).toBeNull()
+    expect(screen.getByRole("button", { name: /^clear$/i })).toBeTruthy()
   })
 })
