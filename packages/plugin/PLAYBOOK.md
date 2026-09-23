@@ -340,6 +340,41 @@ The same shape is worth checking anywhere protection is optional: webhook
 signature verification, encryption at rest, audit logging, rate limiting,
 policy enforcement modes that default to permissive.
 
+### The other half: an abandoned search is not an answer
+
+Warden found the mirror image, and it is the more dangerous of the two because
+it hides in the direction people check least.
+
+Warden's defaults are good. It requires a tenant, enables all three models and
+check logging, and denies by default and on store error. Fail closed, which
+looks safe. But `evaluateReBAC` has two empty case bodies, one for
+`ErrGraphDepthExceeded` and one for `ErrGraphBudgetExceeded`, and then falls
+through to a definite `DecisionDenyRelation` carrying the reason "no relation
+grants this access". So a check that stopped walking at its visit cap tells
+every caller it looked and found nothing. Not "I gave up". Not "partial". A
+definite negative with a reason string that is false, and `CheckResult` carries
+no signal, so it is invisible from outside the engine.
+
+Chronicle renders an absence of protection as a pass. Warden renders an
+incomplete search as a definite answer. Same root: a system reporting
+confidence it has not earned. The fail-closed direction gets checked less
+because denying looks conservative, and it is not conservative when the denial
+is wrong and the reason sends somebody hunting a missing relation that is
+actually there.
+
+So the question is not only "does an unconfigured system look configured". It
+is also **can this surface distinguish a completed search from an abandoned
+one**. Budgets, depth caps, timeouts, visit limits and truncated result sets
+all produce this, and a UI that renders a capped walk as an empty result is
+telling the same lie the engine told it.
+
+Two consequences for the page. If the backend cannot distinguish the two,
+that is a finding to raise rather than a nuance to render around, and it may
+need a field adding before your page can be honest. And where you cannot get
+the distinction, say less: "no relation matched within the graph budget" is
+worse copy than "no relation matched" and it is true, which is the trade to
+make every time.
+
 ## Fixtures
 
 `packages/fixture-server` is what you develop against, and a bad fixture hides
