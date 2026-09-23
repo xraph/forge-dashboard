@@ -145,6 +145,29 @@ life of the process:
 - `sessions.revoke` deletes the session outright — a following
   `sessions.list` no longer has it.
 
+**`relay`**: webhook endpoints, mirroring `relay/extension/contract` in the
+relay repo. Three queries (`endpoints.list`, `endpoints.detail`,
+`endpoints.resolve`) and five commands (`endpoints.create`, `endpoints.update`,
+`endpoints.delete`, `endpoints.setEnabled`, `endpoints.rotateSecret`).
+
+Seeded with three endpoints: two for `acme` (one disabled) and one for
+`globex` that has no signing secret, so the list has an unsigned row to show.
+The fixture copies the real server's behaviour where a page could otherwise
+get away with relying on something the server does not do:
+
+- An empty or missing `tenantId` lists every tenant.
+- A validation error carries `details.field` in snake_case (`tenant_id`,
+  `event_types`), because that is the Go field name, even though the inputs are
+  camelCase. A form has to map one to the other.
+- An id without the `ep_` prefix is `BAD_REQUEST`, not `NOT_FOUND`.
+- Globs match segment for segment, like relay's `catalog.Match`, so
+  `invoice.*` does not match `invoice.created.v2`.
+- `rotateSecret` returns the secret once, flips an unsigned endpoint to
+  signed, and invalidates the list as well as the detail.
+
+`FixtureError` and `sendError` also forward an optional `details` object now,
+as the real server's `contract.Error.Details` does. Nothing else uses it yet.
+
 `auth.login` is not real authentication: any password validates, and an
 unknown email still succeeds (falling back to `usr_1`'s id as the subject).
 That's an intentional fixture shortcut, not an oversight — modelling

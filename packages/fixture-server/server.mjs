@@ -25,6 +25,8 @@
 //   - eighteen settings-only sub-plugins (sub/settings-only.tsx): each its
 //     own contributor name, `intents: []`, reachable only through auth's
 //     settings.namespace/settings.update via the host-intent allowlist.
+//   - relay               (packages/plugin-relay)            3 queries, 5 commands
+//                          mirrors relay/extension/contract (webhook endpoints)
 
 import { createServer } from "node:http"
 import { randomBytes } from "node:crypto"
@@ -68,10 +70,14 @@ const CODE = {
 
 /** Thrown by intent handlers when they need a specific status+code pair. */
 class FixtureError extends Error {
-  constructor(status, code, message) {
+  // `details` mirrors contract.Error.Details. The real server puts the field a
+  // validation error is about there (details.field), and a fixture that drops
+  // it would hide a form that fails to map the error onto the right input.
+  constructor(status, code, message, details) {
     super(message)
     this.status = status
     this.code = code
+    this.details = details
   }
 }
 
@@ -2578,6 +2584,222 @@ const SETTINGS_ONLY_EXTENSIONS = [
 ]
 
 // ---------------------------------------------------------------------------
+// relay: webhook endpoints (packages/plugin-relay)
+// ---------------------------------------------------------------------------
+//
+// Mirrors relay/extension/contract. Field names are the Go JSON tags. Where the
+// real server behaves unhelpfully the fixture does too, so a page that relies
+// on something the server does not do fails here and not in production:
+//
+//   - validation errors carry details.field in snake_case (the Go
+//     ValidationError field), even though the inputs are camelCase;
+//   - an id without the ep_ prefix is BAD_REQUEST, not NOT_FOUND;
+//   - an empty or missing tenantId lists every tenant (ListEndpoints since
+//     the list-endpoints fix);
+//   - glob matching is relay's catalog.Match, segment for segment, so
+//     "invoice.*" does not match "invoice.created.v2".
+
+function seedRelayState() {
+  return {
+    endpoints: [
+      {
+        id: "ep_01hq2k3m4n5p6q7r8s9t0v1w2x",
+        tenantId: "acme",
+        url: "https://acme.example/webhooks/relay",
+        description: "Production receiver",
+        eventTypes: ["invoice.*", "customer.created"],
+        enabled: true,
+        rateLimit: 0,
+        signed: true,
+        headers: {},
+        metadata: {},
+        createdAt: "2026-08-14T09:12:00Z",
+        updatedAt: "2026-09-02T16:40:00Z",
+      },
+      {
+        id: "ep_01hq2k3m4n5p6q7r8s9t0v1w2y",
+        tenantId: "acme",
+        url: "https://acme.example/webhooks/staging",
+        description: "",
+        eventTypes: ["*"],
+        enabled: false,
+        rateLimit: 10,
+        signed: true,
+        headers: {},
+        metadata: {},
+        createdAt: "2026-09-01T11:05:00Z",
+        updatedAt: "2026-09-01T11:05:00Z",
+      },
+      {
+        // Deliberately unsigned. The real server sends such an endpoint no
+        // deliveries now, but one written before that fix, or straight to the
+        // store, can still exist, and the list has to surface it.
+        id: "ep_01hq2k3m4n5p6q7r8s9t0v1w2z",
+        tenantId: "globex",
+        url: "https://globex.example/hooks",
+        description: "Imported, no secret",
+        eventTypes: ["deployment.completed"],
+        enabled: true,
+        rateLimit: 0,
+        signed: false,
+        headers: {},
+        metadata: {},
+        createdAt: "2026-09-18T08:00:00Z",
+        updatedAt: "2026-09-18T08:00:00Z",
+      },
+    ],
+  }
+}
+
+let relayState = seedRelayState()
+
+/** relay's catalog.Match, ported: "*" matches all; otherwise segment for segment. */
+function relayGlobMatches(pattern, eventType) {
+  if (pattern === "*" || pattern === eventType) return true
+  const p = pattern.split(".")
+  const e = eventType.split(".")
+  if (p.length !== e.length) return false
+  return p.every((seg, i) => seg === "*" || seg === e[i])
+}
+
+function relayValidation(field, message) {
+  return new FixtureError(400, CODE.BAD_REQUEST, message, { field })
+}
+
+function relayFindEndpoint(rawId) {
+  const id = typeof rawId === "string" ? rawId.trim() : ""
+  if (!id) throw new FixtureError(400, CODE.BAD_REQUEST, "endpoint id is required")
+  if (!id.startsWith("ep_")) throw new FixtureError(400, CODE.BAD_REQUEST, "malformed endpoint id")
+  const ep = relayState.endpoints.find((e) => e.id === id)
+  if (!ep) throw new FixtureError(404, CODE.NOT_FOUND, "endpoint not found")
+  return ep
+}
+
+function relayValidURL(raw) {
+  try {
+    const u = new URL(raw)
+    return u.protocol === "http:" || u.protocol === "https:"
+  } catch {
+    return false
+  }
+}
+
+/** The list row: no headers or metadata, and never a secret. */
+function relaySummary(ep) {
+  const { headers: _h, metadata: _m, ...row } = ep
+  return row
+}
+
+const relayHandlers = {
+  "endpoints.list": {
+    kind: "query",
+    handler: (payload) => {
+      const tenantId = payload?.tenantId ?? ""
+      let rows = tenantId === "" ? relayState.endpoints : relayState.endpoints.filter((e) => e.tenantId === tenantId)
+      if (typeof payload?.enabled === "boolean") rows = rows.filter((e) => e.enabled === payload.enabled)
+      return { endpoints: rows.map(relaySummary) }
+    },
+  },
+  "endpoints.detail": {
+    kind: "query",
+    handler: (payload) => ({ ...relayFindEndpoint(payload?.id) }),
+  },
+  "endpoints.resolve": {
+    kind: "query",
+    handler: (payload) => {
+      const type = payload?.eventType ?? ""
+      const rows = relayState.endpoints.filter(
+        (e) => e.enabled && e.tenantId === (payload?.tenantId ?? "") && e.eventTypes.some((p) => relayGlobMatches(p, type)),
+      )
+      return { endpoints: rows.map(relaySummary) }
+    },
+  },
+  "endpoints.create": {
+    kind: "command",
+    invalidates: ["endpoints.list"],
+    handler: (payload) => {
+      if (!relayValidURL(payload?.url ?? "")) throw relayValidation("url", "invalid URL")
+      if (!(payload?.tenantId ?? "")) throw relayValidation("tenant_id", "required")
+      if (!Array.isArray(payload?.eventTypes) || payload.eventTypes.length === 0) {
+        throw relayValidation("event_types", "at least one event type pattern required")
+      }
+      const now = new Date().toISOString()
+      const ep = {
+        id: `ep_${randomBytes(13).toString("hex")}`,
+        tenantId: payload.tenantId,
+        url: payload.url,
+        description: payload.description ?? "",
+        eventTypes: payload.eventTypes,
+        enabled: true,
+        rateLimit: payload.rateLimit ?? 0,
+        signed: true,
+        headers: payload.headers ?? {},
+        metadata: payload.metadata ?? {},
+        createdAt: now,
+        updatedAt: now,
+      }
+      relayState.endpoints.push(ep)
+      return { ok: true, id: ep.id }
+    },
+  },
+  "endpoints.update": {
+    kind: "command",
+    invalidates: ["endpoints.list", "endpoints.detail"],
+    handler: (payload) => {
+      const ep = relayFindEndpoint(payload?.id)
+      // A field present in the payload is applied, and "" clears it; an absent
+      // field leaves the value alone. That is what the Go handler's pointers do.
+      if (payload?.url !== undefined && payload.url !== null) {
+        if (!relayValidURL(payload.url)) throw relayValidation("url", "invalid URL")
+        ep.url = payload.url
+      }
+      if (payload?.eventTypes !== undefined && payload.eventTypes !== null) {
+        if (!Array.isArray(payload.eventTypes) || payload.eventTypes.length === 0) {
+          throw relayValidation("event_types", "at least one event type pattern required")
+        }
+        ep.eventTypes = payload.eventTypes
+      }
+      for (const k of ["description", "rateLimit", "headers", "metadata"]) {
+        if (payload?.[k] !== undefined && payload[k] !== null) ep[k] = payload[k]
+      }
+      ep.updatedAt = new Date().toISOString()
+      return { ok: true, id: ep.id }
+    },
+  },
+  "endpoints.delete": {
+    kind: "command",
+    invalidates: ["endpoints.list"],
+    handler: (payload) => {
+      const ep = relayFindEndpoint(payload?.id)
+      relayState.endpoints = relayState.endpoints.filter((e) => e.id !== ep.id)
+      return { ok: true, id: ep.id }
+    },
+  },
+  "endpoints.setEnabled": {
+    kind: "command",
+    invalidates: ["endpoints.list", "endpoints.detail"],
+    handler: (payload) => {
+      const ep = relayFindEndpoint(payload?.id)
+      ep.enabled = Boolean(payload?.enabled)
+      ep.updatedAt = new Date().toISOString()
+      return { ok: true, id: ep.id }
+    },
+  },
+  "endpoints.rotateSecret": {
+    kind: "command",
+    // The list as well as the detail: rotating gives an unsigned endpoint a
+    // secret, which flips its badge on the list row.
+    invalidates: ["endpoints.list", "endpoints.detail"],
+    handler: (payload) => {
+      const ep = relayFindEndpoint(payload?.id)
+      ep.signed = true
+      ep.updatedAt = new Date().toISOString()
+      return { id: ep.id, secret: `whsec_${randomBytes(32).toString("hex")}` }
+    },
+  },
+}
+
+// ---------------------------------------------------------------------------
 // Registry: contributor -> intent -> definition
 // ---------------------------------------------------------------------------
 
@@ -2597,6 +2819,7 @@ const CONTRIBUTORS = [
   { name: "consent", envPrefix: "CONSENT", handlers: consentHandlers },
   { name: "subscription", envPrefix: "SUBSCRIPTION", handlers: subscriptionHandlers },
   { name: "password", envPrefix: "PASSWORD", handlers: passwordHandlers },
+  { name: "relay", envPrefix: "RELAY", handlers: relayHandlers },
   ...SETTINGS_ONLY_EXTENSIONS.map((extension) => ({
     name: extension,
     envPrefix: extension.toUpperCase(),
@@ -2671,9 +2894,15 @@ function sendJSON(res, status, obj) {
   res.end(body)
 }
 
-/** Mirrors contract.ErrorResponse: {ok:false, envelope:"v1", error:{code,message}}. */
-function sendError(res, status, code, message) {
-  sendJSON(res, status, { ok: false, envelope: "v1", error: { code, message } })
+/**
+ * Mirrors contract.ErrorResponse: {ok:false, envelope:"v1",
+ * error:{code,message,details?}}. details is omitted when empty, as the real
+ * server's omitempty does.
+ */
+function sendError(res, status, code, message, details) {
+  const error = { code, message }
+  if (details && Object.keys(details).length > 0) error.details = details
+  sendJSON(res, status, { ok: false, envelope: "v1", error })
 }
 
 const MAX_BODY_BYTES = 5 * 1024 * 1024
@@ -2792,7 +3021,7 @@ async function handleContractRequest(req, res) {
     data = def.handler(input ?? {})
   } catch (err) {
     if (err instanceof FixtureError) {
-      return sendError(res, err.status, err.code, err.message)
+      return sendError(res, err.status, err.code, err.message, err.details)
     }
     return sendError(res, 400, CODE.BAD_REQUEST, err.message)
   }

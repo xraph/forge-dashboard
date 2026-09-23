@@ -109,6 +109,19 @@ const INPUT = {
   "subscription::plans.activate": { id: "plan_1" },
   "subscription::subscriptions.list": { tenantId: "tenant_1" },
 
+  // relay: delete takes the staging endpoint so setEnabled and rotateSecret,
+  // which run after it, still have the production one to act on.
+  "relay::endpoints.detail": { id: "ep_01hq2k3m4n5p6q7r8s9t0v1w2x" },
+  "relay::endpoints.resolve": { tenantId: "acme", eventType: "invoice.created" },
+  "relay::endpoints.create": {
+    tenantId: "acme",
+    url: "https://verify.example/hook",
+    eventTypes: ["invoice.*"],
+  },
+  "relay::endpoints.update": { id: "ep_01hq2k3m4n5p6q7r8s9t0v1w2x", description: "updated by verify.mjs" },
+  "relay::endpoints.delete": { id: "ep_01hq2k3m4n5p6q7r8s9t0v1w2y" },
+  "relay::endpoints.setEnabled": { id: "ep_01hq2k3m4n5p6q7r8s9t0v1w2x", enabled: false },
+  "relay::endpoints.rotateSecret": { id: "ep_01hq2k3m4n5p6q7r8s9t0v1w2z" },
   "streaming-contract::rooms.detail": { id: "room_1" },
   "streaming-contract::rooms.create": { name: "Verify room", description: "d", owner: "usr_1", private: false },
   "streaming-contract::rooms.delete": { id: "room_2" },
