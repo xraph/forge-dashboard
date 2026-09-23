@@ -110,6 +110,57 @@ describe("createScopedClient", () => {
     })
   })
 
+  // `contract.Error` carries `Details map[string]any` next to the code, and
+  // relay's validation errors put the offending field there. Without it a
+  // page can say "bad request" but not which input to mark. Both failure
+  // branches have to keep it, because the server uses both.
+  it("keeps the server's details on a non-ok response carrying an error envelope", async () => {
+    const fetchMock = mockFetch(
+      {
+        ok: false,
+        envelope: "v1",
+        error: { code: "BAD_REQUEST", message: "tenant_id is required", details: { field: "tenant_id" } },
+      },
+      400,
+    )
+    const client = createScopedClient(BASE, "relay", fetchMock)
+
+    const err = await client.query("endpoints.create").catch((e: unknown) => e)
+    expect(err).toBeInstanceOf(ContractError)
+    expect((err as ContractError).details).toEqual({ field: "tenant_id" })
+  })
+
+  it("keeps the server's details on a 200 whose envelope is not ok", async () => {
+    const fetchMock = mockFetch({
+      ok: false,
+      envelope: "v1",
+      error: { code: "BAD_REQUEST", message: "tenant_id is required", details: { field: "tenant_id" } },
+    })
+    const client = createScopedClient(BASE, "relay", fetchMock)
+
+    const err = await client.query("endpoints.create").catch((e: unknown) => e)
+    expect(err).toBeInstanceOf(ContractError)
+    expect((err as ContractError).details).toEqual({ field: "tenant_id" })
+  })
+
+  // Absent means undefined on both branches, not `{}`. A page checking
+  // `err.details?.field` should not have to tell "no details" from "empty".
+  it("leaves details undefined when the server sends none", async () => {
+    const envelope = { ok: false, envelope: "v1", error: { code: "NOT_FOUND", message: "nope" } }
+
+    const viaStatus = await createScopedClient(BASE, "relay", mockFetch(envelope, 404))
+      .query("x.y")
+      .catch((e: unknown) => e)
+    const viaEnvelope = await createScopedClient(BASE, "relay", mockFetch(envelope))
+      .query("x.y")
+      .catch((e: unknown) => e)
+
+    expect(viaStatus).toMatchObject({ code: "NOT_FOUND" })
+    expect((viaStatus as ContractError).details).toBeUndefined()
+    expect(viaEnvelope).toMatchObject({ code: "NOT_FOUND" })
+    expect((viaEnvelope as ContractError).details).toBeUndefined()
+  })
+
   // A `Response` whose body is empty (no content at all) rejects `res.json()`
   // rather than resolving to something with no `error` field - this is the
   // bare 403 the auth middleware sends (Task 1), and any other endpoint that
