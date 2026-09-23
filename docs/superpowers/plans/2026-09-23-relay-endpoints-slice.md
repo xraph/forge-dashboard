@@ -534,8 +534,12 @@ cause.
 
 Do not write a handler that relies on `""` meaning "all".
 
-**OPEN DECISION, blocks this task and Task 7.** An endpoints page that lists
-every endpoint needs one of these, and it is Rex's call:
+**RESOLVED: option 1.** Rex chose to fix `ListEndpoints` first, and it landed in
+relay as its own plan (`2026-09-23-relay-list-endpoints.md`). An empty tenant now
+lists every tenant on all five backends, pinned by a conformance suite against real
+databases, and postgres and sqlite now honour `ListOpts.Enabled`, which they used to
+ignore. So `endpoints.list` passes `in.TenantID` straight through, and an empty one
+means every endpoint. The options as they were, kept for the record:
 
 1. Fix `ListEndpoints` so `""` means every tenant, matching `ListDLQ`. A
    cross-backend semantic change, so it gets its own plan and a conformance
@@ -544,8 +548,9 @@ every endpoint needs one of these, and it is Rex's call:
    first. There is no list-tenants capability anywhere in relay, so the page
    would need one too, or a free-text tenant field.
 
-Until that is decided, `endpoints.list` passes `in.TenantID` straight through
-and inherits whatever the store does.
+`endpoints.list` passes `in.TenantID` straight through. Do not re-derive "all
+tenants" in the handler: the store answers it now, and a second implementation is
+how the two drifted apart in the first place.
 
 `endpointsUpdateHandler` reads the endpoint, applies only the non-nil fields, and calls `deps.Relay.Store().UpdateEndpoint`. Do not route through `endpoint.Service.Update`.
 
@@ -706,18 +711,17 @@ const relayHandlers = {
   "endpoints.list": {
     kind: "query",
     handler: (payload) => {
-      // Models the real server: tenant_id is matched literally on every
-      // backend, so an empty or missing tenantId returns only endpoints whose
-      // tenant is the empty string, which is none of the seeded ones.
+      // Models the fixed server: an empty or missing tenantId lists every
+      // tenant, as ListEndpoints does on all five backends since the
+      // list-endpoints plan landed. A non-empty one matches exactly.
       //
-      // Do not make this forgiving. A fixture that returned every endpoint for
-      // an empty tenant would let a page that forgot to send one look correct
-      // in development and render empty in production. That is exactly how the
-      // templ deliveries page stayed broken. If the OPEN DECISION in Task 3
-      // goes to option 1, change this to match the fixed server, per the
-      // playbook's rule to model the contract being shipped.
+      // This is the playbook's rule to model the contract being shipped. Keep
+      // the two branches in step with the server. If this ever disagrees with
+      // ListEndpoints, the fixture is the one that is wrong.
       const tenantId = payload?.tenantId ?? ""
-      let rows = relayState.endpoints.filter((e) => e.tenantId === tenantId)
+      let rows = tenantId === ""
+        ? relayState.endpoints
+        : relayState.endpoints.filter((e) => e.tenantId === tenantId)
       if (typeof payload?.enabled === "boolean") {
         rows = rows.filter((e) => e.enabled === payload.enabled)
       }
@@ -1131,11 +1135,9 @@ Run the fixture server and the shell dev server, then open the dashboard.
 - [ ] **Step 3: Click through every one of these**
 
 - [ ] The Relay nav group appears, with Endpoints under it.
-- [ ] `/endpoints` shows the right thing for the OPEN DECISION in Task 3. Under
-      option 1 it lists all three seeded endpoints with a live count. Under
-      option 2 it asks for a tenant first, and `acme` lists two. If it shows
-      three endpoints with no tenant selected and option 1 was not chosen, the
-      fixture has been made forgiving: fix the fixture, not the checklist.
+- [ ] `/endpoints` with no tenant selected lists all three seeded endpoints,
+      across `acme` and `globex`, with a live count in the caption. Filtering to
+      `acme` lists two.
 - [ ] The globex endpoint shows **Unsigned** in destructive.
 - [ ] Filtering to tenant `nobody` shows "No endpoints match", not "No endpoints yet".
 - [ ] Clicking a row navigates without a full page reload. Watch the network tab: a reload here means a plain `<a>` slipped in instead of `PluginLink`.
