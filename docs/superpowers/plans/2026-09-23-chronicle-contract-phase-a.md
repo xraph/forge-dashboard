@@ -69,6 +69,12 @@ Five conditions the spec implies that no task's happy path exercises. Each has i
 | `store/redis/audit.go` | bucket expression |
 | `extension/extension.go` | register the contract contributor |
 
+**Created outside the contract package:**
+
+| File | Responsibility |
+|---|---|
+| `store/scope_behaviour_test.go` | Characterization test pinning what an empty scope returns per backend, so the reason for the contract's refusal survives in the repository |
+
 ---
 
 ### Task 1: Bump forge so the contract packages resolve
@@ -1250,30 +1256,1324 @@ git commit -m "feat(contract): add the chronicle contributor, scope boundary and
 
 ---
 
-### Tasks 8 through 15: the remaining intent groups
+### Task 8: The verify group
 
-Each follows Task 7's shape exactly: add the group's intents to `manifest.yaml`, write `handlers_<group>.go` with a `register<Group>` function, add that function to `registerAll`, write the tests, run the full suite, commit. The parity test from Task 7 Step 7 keeps the manifest and the handlers honest at every commit.
+The page this feeds is the reason the whole dashboard exists. The rule for
+every projection here: copy each field across unchanged, including every
+`*Checked` flag. Collapsing one server-side is the exact bug the design
+exists to avoid, and it cannot be recovered in the browser.
 
-They are listed here with their intents, their Review Focus obligations and the traps specific to each. Write each task's detailed steps when you reach it, from the spec's intent table and the shape above. Do not start a group before the one before it is committed and green.
+**Files:**
+- Create: `extension/contract/handlers_verify.go`
+- Modify: `extension/contract/manifest.yaml`
+- Modify: `extension/contract/contract.go` (add `registerVerify` to `registerAll`)
+- Test: `extension/contract/handlers_verify_test.go`
 
-**Task 8: verify** (`verify.run`, `verify.event`). Both queries. Build the verifier exactly as `dashboard/contributor.go`'s `newVerifier` does, checkpoints and signer together or neither, because the page and the admin API must not disagree about what evidence they consulted. Project every `*Checked` field onto the wire unchanged; collapsing one server-side is the bug the whole design exists to avoid. **Review Focus 4:** a scope whose stream does not exist answers "no chain yet", not a nil dereference.
+**Interfaces:**
+- Consumes: `viewScope`, `scopeFromPrincipal`, `mapStoreError` (Task 7).
+- Produces: `VerifyInput{FromSeq, ToSeq uint64}`, `VerifyReport`, `CoverageSpan`, `CheckpointResult`, `VerifyEventInput{EventID string}`, `VerifyEventResponse{Valid bool, Checked bool}`.
 
-**Task 9: checkpoints** (`checkpoints.list`, `.detail`, `.take`). `.take` is a command, capability write, invalidating `checkpoints.list` and `streams.mine`. **Review Focus 5:** every handler treats `checkpoint.ErrUnsupported` as "this backend holds none", answering an empty list rather than an error, because redis implements the interface and refuses every call. **Review Focus 2:** `.detail` checks `owns` after fetching.
+- [ ] **Step 1: Add the intents to the manifest**
 
-**Task 10: events** (`events.list`, `.detail`, `.aggregate`, `.byUser`). `.list` carries the whole of `audit.Query` plus limit, offset and order, and returns `total` and `hasMore` from `QueryResult` so the UI can caption a true count. **Review Focus 2:** `.detail` checks `owns` after fetching, which is the check `contributor.go` calls security-critical.
+```yaml
+  # Both are queries: verification has no side effects and is cacheable per
+  # (stream, from, to). They are lazy on the client, which is why plan B adds
+  # an `enabled` option to useQuery rather than making these commands.
+  - { name: verify.run,   kind: query, version: 1, capability: read }
+  - { name: verify.event, kind: query, version: 1, capability: read }
+```
 
-**Task 11: overview** (`overview.stats`). Counts plus category, severity and outcome breakdowns through `Aggregate`. One call, not four.
+- [ ] **Step 2: Write the failing tests**
 
-**Task 12: erasures** (`.list`, `.detail`, `.preview`, `.request`). `.preview` wraps `CountBySubject` and is the query the confirm dialog runs before the command fires. `.request` is a command, capability admin, taking `subjectId` and `reason` only: `requestedBy` comes from `p.User.Subject` and is never read from the request. **Review Focus 2** on `.detail`.
+```go
+// Every checked flag has to survive the projection. This is the one test
+// that would catch somebody "simplifying" the DTO by dropping a flag whose
+// value looked redundant next to its partner.
+func TestVerifyReportCarriesEveryCheckedFlag(t *testing.T) {
+	src := &verify.Report{
+		Valid: false, Verified: 9, FirstEvent: 1, LastEvent: 9, HeadSeq: 12,
+		Partial:               true,
+		Gaps:                  []uint64{4},
+		Tampered:              []uint64{7},
+		Downgrades:            []uint64{8},
+		Tolerant:              []uint64{2},
+		HeadMatch:             false,
+		HeadChecked:           true,
+		CheckpointsChecked:    true,
+		CheckpointHeadOK:      false,
+		CheckpointHeadChecked: true,
+		Coverage: []verify.Coverage{
+			{FromSeq: 1, ToSeq: 5, Level: verify.LevelUnkeyed, Note: "below the pin"},
+			{FromSeq: 6, ToSeq: 9, Level: verify.LevelKeyed},
+		},
+		Checkpoints: []verify.CheckpointResult{{
+			ID: "cp_1", FromSeq: 1, ToSeq: 5,
+			SignatureValid: true,
+			HashMatch:      false, HashChecked: false,
+			ContinuityOK:   true,  ContinuityChecked: true,
+			Note:           "to_seq falls outside the verified range; hash not re-checked",
+		}},
+	}
 
-**Task 13: retention** (`.policies`, `.policyDetail`, `.savePolicy`, `.deletePolicy`, `.preview`, `.enforce`, `.archives`). `.savePolicy` takes `*string` and `*bool` for optional fields. `.enforce` is admin and calls `EnforceScope` with the viewer's scope, never `Enforce`, which covers every app and belongs to the background scheduler. `.preview` wraps `EventsOlderThan`. **Review Focus 2** on `.policyDetail` and on `.deletePolicy`, which must confirm ownership before deleting or any caller can disable another tenant's retention by guessing an ID.
+	got := projectReport(src)
 
-**Task 14: reports** (`.list`, `.detail`, `.generate`, `.generateCustom`, `.export`). `.generate` takes `type` as one of `soc2`, `hipaa`, `euaiact` and rejects anything else with `CodeBadRequest`. The engine persists the report itself, so do not save it again: doing that stored every dashboard-generated report twice in the templ path. `generatedBy` comes from the principal. **Review Focus 2** on `.detail` and `.export`.
+	if !got.Partial || !got.HeadChecked || got.HeadMatch {
+		t.Error("head fields did not survive projection")
+	}
+	if !got.CheckpointsChecked || !got.CheckpointHeadChecked || got.CheckpointHeadOK {
+		t.Error("checkpoint head fields did not survive projection")
+	}
+	if len(got.Coverage) != 2 {
+		t.Fatalf("coverage spans = %d, want 2: a chain with a pin has more than one level", len(got.Coverage))
+	}
+	if got.Coverage[0].Note == "" {
+		t.Error("the coverage note was dropped; it is what explains a span below the pin")
+	}
+	cp := got.Checkpoints[0]
+	if cp.HashChecked || cp.HashMatch {
+		t.Error("an unchecked hash must project as unchecked, not as a mismatch")
+	}
+	if !cp.ContinuityChecked || !cp.ContinuityOK {
+		t.Error("continuity fields did not survive projection")
+	}
+	if cp.Note == "" {
+		t.Error("the checkpoint note was dropped; it is what tells the operator why it was not checked")
+	}
+}
 
-**Task 15: settings** (`settings.detail`). Reports the config fields the templ page showed, plus three the spec adds: the digest scheme in force, whether checkpointing is configured, and the backend name with whether it supports checkpoints. That last one is how an operator learns their verification result means less on redis than on postgres.
+// Review Focus 4: a scope whose chain does not exist yet. Chronicle creates
+// a stream on the first Record, so a fresh app has none, and asking to
+// verify it must answer "no chain yet" rather than dereferencing nil.
+func TestVerifyRunOnAScopeWithNoChain(t *testing.T) {
+	h := verifyRunHandler(Deps{Store: storeReturning(chronicle.ErrStreamNotFound)})
+	out, err := h(context.Background(), VerifyInput{}, principalWith(map[string]any{"app_id": "app-1"}))
+	if err != nil {
+		t.Fatalf("verify on a scope with no chain errored: %v", err)
+	}
+	if out.Report != nil {
+		t.Error("expected no report for a scope that has never recorded an event")
+	}
+	if !out.NoChain {
+		t.Error("NoChain must say so explicitly; a nil report alone is ambiguous")
+	}
+}
+
+func TestVerifyRunRefusesAPrincipalWithNoApp(t *testing.T) {
+	h := verifyRunHandler(Deps{Store: newStubStore()})
+	if _, err := h(context.Background(), VerifyInput{}, principalWith(nil)); err == nil {
+		t.Fatal("verify served a principal with no app scope")
+	}
+}
+```
+
+- [ ] **Step 3: Run them to verify they fail**
+
+Run: `go test ./extension/contract/ -run TestVerify -v`
+Expected: FAIL to compile, `undefined: projectReport`.
+
+- [ ] **Step 4: Implement**
+
+```go
+package contract
+
+// CoverageSpan is one graded span of a chain. It is a slice on the report
+// and not a single level, because a chain that had HMAC turned on later is
+// unkeyed below its pin and keyed above it, and flattening that into one
+// level misdescribes the oldest events, which are the ones an investigation
+// usually cares about.
+type CoverageSpan struct {
+	FromSeq uint64 `json:"fromSeq"`
+	ToSeq   uint64 `json:"toSeq"`
+	Level   string `json:"level"`
+	Note    string `json:"note,omitempty"`
+}
+
+// CheckpointResult mirrors verify.CheckpointResult field for field. Each
+// *Checked flag travels with its value because false alone cannot say
+// whether the check ran.
+type CheckpointResult struct {
+	ID      string `json:"id"`
+	FromSeq uint64 `json:"fromSeq"`
+	ToSeq   uint64 `json:"toSeq"`
+
+	SignatureValid bool `json:"signatureValid"`
+
+	HashMatch   bool `json:"hashMatch"`
+	HashChecked bool `json:"hashChecked"`
+
+	ContinuityOK      bool `json:"continuityOk"`
+	ContinuityChecked bool `json:"continuityChecked"`
+
+	Note string `json:"note,omitempty"`
+}
+
+// VerifyReport is verify.Report on the wire. Nothing is summarised and no
+// flag is dropped: the page renders three states from each checked pair and
+// cannot reconstruct one that did not cross.
+type VerifyReport struct {
+	Valid      bool     `json:"valid"`
+	Verified   int64    `json:"verified"`
+	Gaps       []uint64 `json:"gaps,omitempty"`
+	Tampered   []uint64 `json:"tampered,omitempty"`
+	Downgrades []uint64 `json:"downgrades,omitempty"`
+	Tolerant   []uint64 `json:"tolerant,omitempty"`
+	FirstEvent uint64   `json:"firstEvent"`
+	LastEvent  uint64   `json:"lastEvent"`
+	HeadSeq    uint64   `json:"headSeq"`
+
+	Partial     bool `json:"partial"`
+	HeadMatch   bool `json:"headMatch"`
+	HeadChecked bool `json:"headChecked"`
+
+	CheckpointsChecked    bool `json:"checkpointsChecked"`
+	CheckpointHeadOK      bool `json:"checkpointHeadOk"`
+	CheckpointHeadChecked bool `json:"checkpointHeadChecked"`
+
+	Coverage    []CoverageSpan     `json:"coverage,omitempty"`
+	Checkpoints []CheckpointResult `json:"checkpoints,omitempty"`
+}
+
+// VerifyInput bounds the range. Both zero means genesis to head, which is
+// the whole chain. The React page sends an explicit bounded window by
+// default, because VerifyChain holds every event in the range in memory at
+// once and an unbounded walk on a large chain is an out-of-memory crash.
+type VerifyInput struct {
+	FromSeq uint64 `json:"fromSeq,omitempty"`
+	ToSeq   uint64 `json:"toSeq,omitempty"`
+}
+
+// VerifyResponse carries NoChain rather than only a nil Report, because
+// "this scope has never recorded an event" and "verification produced
+// nothing" are different answers and the page says which.
+type VerifyResponse struct {
+	Report  *VerifyReport `json:"report,omitempty"`
+	NoChain bool          `json:"noChain"`
+}
+
+func registerVerify(d *dispatcher.Dispatcher, deps Deps) error {
+	if err := dispatcher.RegisterQuery(d, contributorName, "verify.run", 1, verifyRunHandler(deps)); err != nil {
+		return err
+	}
+	return dispatcher.RegisterQuery(d, contributorName, "verify.event", 1, verifyEventHandler(deps))
+}
+
+// newVerifier mirrors dashboard/contributor.go's newVerifier deliberately.
+// The contract path and the templ page answer the same question and must not
+// disagree about what evidence they consulted. Checkpoints and signer travel
+// together or not at all: a checkpoint store without a signer proves nothing,
+// since whoever could write the row could write a fabricated one.
+func newVerifier(deps Deps) *verify.Verifier {
+	chain := deps.HashChain
+	if chain == nil {
+		chain = &hash.Chain{}
+	}
+	if deps.CheckpointStore == nil || deps.CheckpointSigner == nil {
+		return verify.NewVerifierWithChain(deps.Store, chain)
+	}
+	return verify.NewVerifierWithCheckpoints(deps.Store, chain, deps.CheckpointStore, deps.CheckpointSigner)
+}
+
+func verifyRunHandler(deps Deps) func(context.Context, VerifyInput, fcontract.Principal) (VerifyResponse, error) {
+	return func(ctx context.Context, in VerifyInput, p fcontract.Principal) (VerifyResponse, error) {
+		v, err := scopeFromPrincipal(p)
+		if err != nil {
+			return VerifyResponse{}, err
+		}
+
+		st, err := deps.Store.GetStreamByScope(ctx, v.AppID, v.TenantID)
+		if err != nil {
+			if errors.Is(err, chronicle.ErrStreamNotFound) {
+				return VerifyResponse{NoChain: true}, nil
+			}
+			return VerifyResponse{}, mapStoreError(err)
+		}
+
+		// The pin and the head come off the stream row, never from the
+		// request. A caller that could name its own pin could declare a
+		// keyed chain plain and walk past every downgrade check.
+		report, err := newVerifier(deps).VerifyChain(ctx, &verify.Input{
+			StreamID: st.ID,
+			FromSeq:  in.FromSeq,
+			ToSeq:    in.ToSeq,
+			AppID:    v.AppID,
+			TenantID: v.TenantID,
+			Pin:      hash.Pin{Scheme: hash.Scheme(st.Scheme), Since: st.SchemeSince},
+			HeadSeq:  st.HeadSeq,
+			HeadHash: st.HeadHash,
+		})
+		if err != nil {
+			return VerifyResponse{}, mapStoreError(err)
+		}
+
+		return VerifyResponse{Report: projectReport(report)}, nil
+	}
+}
+```
+
+Write `projectReport` as a field-for-field copy. Do not write it as a loop
+over reflected fields, and do not omit a false bool for brevity: `json:"-"`
+on nothing here, and no `omitempty` on any of the six checked flags or their
+partners, because `omitempty` on a false bool erases the distinction this
+whole design protects.
+
+`verifyEventHandler` wraps `Chronicle.VerifyEvent(eventID)`. It fetches the
+event first and calls `v.owns(event.AppID, event.TenantID)`, answering
+`CodeNotFound` when it does not, because an event must not be verifiable by
+ID alone any more than it is readable by ID alone.
+
+- [ ] **Step 5: Add `registerVerify` to `registerAll`**
+
+```go
+	if err := registerVerify(d, deps); err != nil {
+		return err
+	}
+```
+
+- [ ] **Step 6: Run everything**
+
+Run: `go build ./... && go test ./...`
+Expected: PASS, including the manifest parity test, which now sees two more
+declared and two more registered.
+
+- [ ] **Step 7: Commit**
+
+```bash
+git add extension/contract/
+git commit -m "feat(contract): add the verify intents"
+```
 
 ---
 
+### Task 9: The checkpoints group
+
+**Files:**
+- Create: `extension/contract/handlers_checkpoints.go`
+- Modify: `extension/contract/manifest.yaml`, `extension/contract/contract.go`
+- Test: `extension/contract/handlers_checkpoints_test.go`
+
+**Interfaces:**
+- Consumes: `viewScope`, `scopeFromPrincipal`, `CheckpointSummary`, `mapStoreError` (Task 7).
+- Produces: `CheckpointListInput{Limit, Offset int}`, `CheckpointListResponse{Checkpoints []CheckpointSummary, Supported bool}`, `TakeCheckpointResponse`.
+
+- [ ] **Step 1: Add the intents**
+
+```yaml
+  - { name: checkpoints.list,   kind: query, version: 1, capability: read }
+  - { name: checkpoints.detail, kind: query, version: 1, capability: read }
+  # Write, not admin: taking a checkpoint creates a record and destroys
+  # nothing. It is the one write that makes future verification stronger.
+  - { name: checkpoints.take, kind: command, version: 1, capability: write,
+      invalidates: [checkpoints.list, streams.mine, verify.run] }
+```
+
+`verify.run` is in that list on purpose. A new checkpoint changes what a
+subsequent verification can prove, so a cached report taken before it is
+stale in a way the operator would otherwise not see.
+
+- [ ] **Step 2: Write the failing tests**
+
+```go
+// Review Focus 5. Redis implements checkpoint.Store and refuses every call
+// with ErrUnsupported. verify treats that as "no opinion" and so must this:
+// a backend that holds no checkpoints is a normal deployment, not an error
+// page, and the difference from "this chain has none yet" is what Supported
+// carries.
+func TestCheckpointsListTreatsUnsupportedAsUnsupportedNotAnError(t *testing.T) {
+	h := checkpointsListHandler(Deps{
+		Store:            newStubStore(),
+		CheckpointStore:  storeRefusingCheckpoints(checkpoint.ErrUnsupported),
+		CheckpointSigner: stubSigner{},
+	})
+	out, err := h(context.Background(), CheckpointListInput{}, principalWith(map[string]any{"app_id": "app-1"}))
+	if err != nil {
+		t.Fatalf("an unsupported checkpoint store produced an error: %v", err)
+	}
+	if out.Supported {
+		t.Error("Supported must be false so the page can say 'this backend holds none' rather than 'none yet'")
+	}
+	if len(out.Checkpoints) != 0 {
+		t.Error("expected no checkpoints")
+	}
+}
+
+// A deployment that never configured checkpointing has no store at all.
+// Same answer, different cause, same need to distinguish it from empty.
+func TestCheckpointsListWithNoStoreConfigured(t *testing.T) {
+	h := checkpointsListHandler(Deps{Store: newStubStore()})
+	out, err := h(context.Background(), CheckpointListInput{}, principalWith(map[string]any{"app_id": "app-1"}))
+	if err != nil {
+		t.Fatalf("unconfigured checkpointing produced an error: %v", err)
+	}
+	if out.Supported {
+		t.Error("Supported must be false when this deployment takes no checkpoints")
+	}
+}
+
+// Review Focus 2: a checkpoint belonging to another tenant, fetched by ID.
+func TestCheckpointsDetailRefusesAnotherTenantsCheckpoint(t *testing.T) {
+	h := checkpointsDetailHandler(Deps{
+		Store:            newStubStore(),
+		CheckpointStore:  checkpointStoreWith(&checkpoint.Checkpoint{AppID: "app-2", TenantID: "tenant-b"}),
+		CheckpointSigner: stubSigner{},
+	})
+	_, err := h(context.Background(), GetCheckpointInput{ID: "cp_1"},
+		principalWith(map[string]any{"app_id": "app-1", "tenant_id": "tenant-a"}))
+	if err == nil {
+		t.Fatal("served another tenant's checkpoint to a caller who guessed its ID")
+	}
+}
+
+func TestCheckpointsTakeWithoutACheckpointerIsUnavailable(t *testing.T) {
+	h := checkpointsTakeHandler(Deps{Store: newStubStore()})
+	_, err := h(context.Background(), struct{}{}, principalWith(map[string]any{"app_id": "app-1"}))
+	if err == nil {
+		t.Fatal("take succeeded on a deployment that configured no checkpointer")
+	}
+}
+```
+
+- [ ] **Step 3: Run them to verify they fail**
+
+Run: `go test ./extension/contract/ -run TestCheckpoints -v`
+Expected: FAIL to compile.
+
+- [ ] **Step 4: Implement**
+
+Every handler here follows the same three-part shape: resolve scope, resolve
+the viewer's stream, then call the checkpoint store treating
+`checkpoint.ErrUnsupported` and `checkpoint.ErrNotFound` as "nothing here"
+rather than failure.
+
+```go
+// checkpointsAvailable reports whether this deployment can answer checkpoint
+// questions at all. Nil store or nil signer both mean no: a store without a
+// signer cannot prove a checkpoint is genuine, so reporting its rows would
+// present unverifiable data as evidence.
+func checkpointsAvailable(deps Deps) bool {
+	return deps.CheckpointStore != nil && deps.CheckpointSigner != nil
+}
+```
+
+`checkpointsTakeHandler` resolves the viewer's stream, then calls
+`deps.Checkpointer.CheckpointStream(ctx, checkpoint.StreamHead{...})` built
+from the stream row. A nil `Checkpointer` answers `CodeUnavailable` with
+"this deployment takes no checkpoints", matching how `handler/checkpoints.go`
+answers 503 for the same case.
+
+- [ ] **Step 5: Add `registerCheckpoints` to `registerAll`**
+
+- [ ] **Step 6: Run everything**
+
+Run: `go build ./... && go test ./...`
+Expected: PASS.
+
+- [ ] **Step 7: Commit**
+
+```bash
+git add extension/contract/
+git commit -m "feat(contract): add the checkpoint intents"
+```
+
+---
+
+### Task 10: The events group
+
+**Files:**
+- Create: `extension/contract/handlers_events.go`
+- Modify: `extension/contract/manifest.yaml`, `extension/contract/contract.go`
+- Test: `extension/contract/handlers_events_test.go`
+
+**Interfaces:**
+- Consumes: `viewScope`, `scopeFromPrincipal`, `applyQuery`, `mapStoreError` (Task 7).
+- Produces: `EventSummary`, `EventDetail`, `EventListInput`, `EventListResponse{Events []EventSummary, Total int64, HasMore bool}`, `AggregateInput`, `AggregateResponse`.
+
+- [ ] **Step 1: Add the intents**
+
+```yaml
+  - { name: events.list,      kind: query, version: 1, capability: read }
+  - { name: events.detail,    kind: query, version: 1, capability: read }
+  - { name: events.aggregate, kind: query, version: 1, capability: read }
+  - { name: events.byUser,    kind: query, version: 1, capability: read }
+```
+
+- [ ] **Step 2: Write the failing tests**
+
+```go
+// Total comes from the store's own count and not from len(Events). The page
+// captions "50 of 12,431 events", and counting the rows on screen would make
+// that caption a lie on every page after the first.
+func TestEventListReportsTheStoreTotalNotThePageLength(t *testing.T) {
+	h := eventsListHandler(Deps{Store: storeQuerying(&audit.QueryResult{
+		Events:  make([]*audit.Event, 50),
+		Total:   12431,
+		HasMore: true,
+	})})
+	out, err := h(context.Background(), EventListInput{Limit: 50}, principalWith(map[string]any{"app_id": "app-1"}))
+	if err != nil {
+		t.Fatalf("events.list: %v", err)
+	}
+	if out.Total != 12431 {
+		t.Errorf("Total = %d, want 12431", out.Total)
+	}
+	if !out.HasMore {
+		t.Error("HasMore did not survive")
+	}
+}
+
+// The scope on the outgoing query must come from the principal. A request
+// that could set its own AppID could read every tenant's audit log.
+func TestEventListStampsTheViewersScope(t *testing.T) {
+	spy := &querySpy{}
+	h := eventsListHandler(Deps{Store: spy})
+	_, _ = h(context.Background(), EventListInput{},
+		principalWith(map[string]any{"app_id": "app-1", "tenant_id": "tenant-a"}))
+	if spy.last.AppID != "app-1" || spy.last.TenantID != "tenant-a" {
+		t.Fatalf("outgoing query scope = %q/%q, want app-1/tenant-a", spy.last.AppID, spy.last.TenantID)
+	}
+}
+
+// Review Focus 2. contributor.go calls this check security-critical, in
+// those words, because a detail intent resolves by ID and bypasses every
+// list filter.
+func TestEventDetailRefusesAnotherTenantsEvent(t *testing.T) {
+	h := eventsDetailHandler(Deps{Store: storeWithEvent(&audit.Event{
+		AppID: "app-2", TenantID: "tenant-b",
+	})})
+	_, err := h(context.Background(), GetEventInput{ID: "evt_1"},
+		principalWith(map[string]any{"app_id": "app-1", "tenant_id": "tenant-a"}))
+	if err == nil {
+		t.Fatal("served another tenant's event to a caller who guessed its ID")
+	}
+}
+
+func TestEventAggregateRejectsAnUnsupportedGroupBy(t *testing.T) {
+	h := eventsAggregateHandler(Deps{Store: newStubStore()})
+	_, err := h(context.Background(), AggregateInput{GroupBy: []string{"week"}},
+		principalWith(map[string]any{"app_id": "app-1"}))
+	if err == nil {
+		t.Fatal("accepted an unwhitelisted group_by field")
+	}
+}
+
+// Task 2's bucketing, reaching the wire.
+func TestEventAggregateCarriesTheBucket(t *testing.T) {
+	h := eventsAggregateHandler(Deps{Store: storeAggregating(&audit.AggregateResult{
+		Groups: []audit.AggregateGroup{{Bucket: "2026-09-20", Count: 2}},
+		Total:  2,
+	})})
+	out, err := h(context.Background(), AggregateInput{GroupBy: []string{"day"}},
+		principalWith(map[string]any{"app_id": "app-1"}))
+	if err != nil {
+		t.Fatalf("events.aggregate: %v", err)
+	}
+	if out.Groups[0].Bucket != "2026-09-20" {
+		t.Errorf("bucket = %q, want 2026-09-20", out.Groups[0].Bucket)
+	}
+}
+```
+
+- [ ] **Step 3: Run them to verify they fail**
+
+Run: `go test ./extension/contract/ -run TestEvent -v`
+Expected: FAIL to compile.
+
+- [ ] **Step 4: Implement**
+
+```go
+// EventSummary is one row of the log. Metadata is deliberately absent: it is
+// freeform and can be large, and sending it for every row of a virtualised
+// table would dominate the response. events.detail carries it.
+type EventSummary struct {
+	ID         string `json:"id"`
+	Timestamp  string `json:"timestamp"`
+	Sequence   uint64 `json:"sequence"`
+	Action     string `json:"action"`
+	Resource   string `json:"resource"`
+	ResourceID string `json:"resourceId,omitempty"`
+	Category   string `json:"category"`
+	Outcome    string `json:"outcome"`
+	Severity   string `json:"severity"`
+	UserID     string `json:"userId,omitempty"`
+	IP         string `json:"ip,omitempty"`
+	Erased     bool   `json:"erased"`
+}
+
+// EventDetail adds what the detail page needs: the payload, the chain
+// position, and the scheme provenance that tells an operator which level
+// THIS event was written under, which is not necessarily the level the
+// chain is pinned to now.
+type EventDetail struct {
+	EventSummary
+	StreamID   string         `json:"streamId"`
+	Hash       string         `json:"hash"`
+	PrevHash   string         `json:"prevHash"`
+	HashScheme string         `json:"hashScheme,omitempty"`
+	HashKeyID  string         `json:"hashKeyId,omitempty"`
+	Reason     string         `json:"reason,omitempty"`
+	SubjectID  string         `json:"subjectId,omitempty"`
+	Metadata   map[string]any `json:"metadata,omitempty"`
+	ErasedAt   string         `json:"erasedAt,omitempty"`
+	ErasureID  string         `json:"erasureId,omitempty"`
+}
+
+// EventListInput is audit.Query's filter set on the wire. Every filter is
+// multi-value except the time bounds, matching the Go type: the templ page
+// allowed one value each and that was a limitation of the page, not the store.
+//
+// There is no appId or tenantId field, on purpose. Scope comes from the
+// principal.
+type EventListInput struct {
+	After      string   `json:"after,omitempty"`
+	Before     string   `json:"before,omitempty"`
+	UserID     string   `json:"userId,omitempty"`
+	Categories []string `json:"categories,omitempty"`
+	Actions    []string `json:"actions,omitempty"`
+	Resources  []string `json:"resources,omitempty"`
+	Severity   []string `json:"severity,omitempty"`
+	Outcome    []string `json:"outcome,omitempty"`
+	Limit      int      `json:"limit,omitempty"`
+	Offset     int      `json:"offset,omitempty"`
+	Order      string   `json:"order,omitempty"`
+}
+```
+
+Parse `After` and `Before` as RFC3339, answering `CodeBadRequest` on a
+malformed value rather than silently treating it as the zero time, which
+would widen the query to the beginning of time instead of narrowing it.
+
+Clamp `Limit` the way `handler/requests.go` does: zero or less becomes 50,
+above 1000 becomes 1000. Reuse the same numbers so the two paths agree.
+
+- [ ] **Step 5: Add `registerEvents` to `registerAll`**
+
+- [ ] **Step 6: Run everything**
+
+Run: `go build ./... && go test ./...`
+Expected: PASS.
+
+- [ ] **Step 7: Commit**
+
+```bash
+git add extension/contract/
+git commit -m "feat(contract): add the event intents"
+```
+
+---
+
+### Task 11: The overview group
+
+**Files:**
+- Create: `extension/contract/handlers_overview.go`
+- Modify: `extension/contract/manifest.yaml`, `extension/contract/contract.go`
+- Test: `extension/contract/handlers_overview_test.go`
+
+**Interfaces:**
+- Consumes: `viewScope`, `scopeFromPrincipal` (Task 7), `AggregateGroupDTO` (Task 10).
+- Produces: `OverviewStats{TotalEvents, CriticalEvents, FailedEvents, ErasureCount int64, Categories, Severities, Outcomes []AggregateGroupDTO}`.
+
+- [ ] **Step 1: Add the intent**
+
+```yaml
+  - { name: overview.stats, kind: query, version: 1, capability: read }
+```
+
+- [ ] **Step 2: Write the failing test**
+
+```go
+// The templ overview ran four separate queries and counted criticals by
+// fetching them. One Aggregate answers the breakdowns, and Count answers
+// the total without loading a row.
+func TestOverviewStatsUsesAggregateRatherThanCountingFetchedRows(t *testing.T) {
+	spy := &aggregateSpy{result: &audit.AggregateResult{
+		Groups: []audit.AggregateGroup{
+			{Severity: "critical", Count: 3},
+			{Severity: "info", Count: 900},
+		},
+	}}
+	h := overviewStatsHandler(Deps{Store: spy})
+	out, err := h(context.Background(), struct{}{}, principalWith(map[string]any{"app_id": "app-1"}))
+	if err != nil {
+		t.Fatalf("overview.stats: %v", err)
+	}
+	if spy.calls == 0 {
+		t.Fatal("overview.stats did not call Aggregate")
+	}
+	if out.CriticalEvents != 3 {
+		t.Errorf("CriticalEvents = %d, want 3", out.CriticalEvents)
+	}
+}
+
+func TestOverviewStatsRefusesAPrincipalWithNoApp(t *testing.T) {
+	h := overviewStatsHandler(Deps{Store: newStubStore()})
+	if _, err := h(context.Background(), struct{}{}, principalWith(nil)); err == nil {
+		t.Fatal("overview served a principal with no app scope")
+	}
+}
+```
+
+- [ ] **Step 3: Run it to verify it fails**
+
+Run: `go test ./extension/contract/ -run TestOverview -v`
+Expected: FAIL to compile.
+
+- [ ] **Step 4: Implement**
+
+Aggregate once grouping by severity, once by category, once by outcome, and
+derive `CriticalEvents` and `FailedEvents` from the severity and outcome
+groups rather than running separate filtered queries. `ErasureCount` comes
+from `CountErasures`, which exists precisely so callers do not count a list
+that is bounded by its own limit.
+
+- [ ] **Step 5: Add `registerOverview` to `registerAll`**
+
+- [ ] **Step 6: Run everything**
+
+Run: `go build ./... && go test ./...`
+Expected: PASS.
+
+- [ ] **Step 7: Commit**
+
+```bash
+git add extension/contract/
+git commit -m "feat(contract): add the overview stats intent"
+```
+
+---
+### Task 12: The erasures group
+
+This group and the next are the two that destroy audit history. Both get a
+preview query the confirm dialog runs before the command fires, and both are
+capability `admin`.
+
+**Files:**
+- Create: `extension/contract/handlers_erasures.go`
+- Modify: `extension/contract/manifest.yaml`, `extension/contract/contract.go`
+- Test: `extension/contract/handlers_erasures_test.go`
+
+**Interfaces:**
+- Consumes: `viewScope`, `scopeFromPrincipal`, `mapStoreError` (Task 7).
+- Produces: `ErasureSummary`, `ErasurePreviewInput{SubjectID string}`, `ErasurePreviewResponse{SubjectID string, EventsAffected int64}`, `RequestErasureInput{SubjectID, Reason string}`, `ErasureResult`.
+
+- [ ] **Step 1: Add the intents**
+
+```yaml
+  - { name: erasures.list,    kind: query, version: 1, capability: read }
+  - { name: erasures.detail,  kind: query, version: 1, capability: read }
+  # The count the confirm dialog shows before the command fires. A query, so
+  # it is lazy on the client and runs when the dialog opens, not on the list.
+  - { name: erasures.preview, kind: query, version: 1, capability: read }
+  # admin, not write: this destroys a subject's key and flags their events.
+  - { name: erasures.request, kind: command, version: 1, capability: admin,
+      invalidates: [erasures.list, overview.stats, events.list] }
+```
+
+`events.list` is invalidated because erasure marks events erased, and a list
+rendered before the erasure would still show them unflagged.
+
+- [ ] **Step 2: Write the failing tests**
+
+```go
+// requestedBy identifies who ordered a GDPR erasure. It is the one field in
+// this contract most tempting to accept from the request, and accepting it
+// would let any caller attribute a destruction to somebody else.
+func TestErasureRequestTakesRequestedByFromThePrincipal(t *testing.T) {
+	spy := &erasureSpy{}
+	h := erasuresRequestHandler(Deps{Store: newStubStore(), Erasure: spy.service()})
+	_, err := h(context.Background(),
+		RequestErasureInput{SubjectID: "subj-1", Reason: "gdpr article 17"},
+		principalWith(map[string]any{"app_id": "app-1"}))
+	if err != nil {
+		t.Fatalf("erasures.request: %v", err)
+	}
+	if spy.lastInput.RequestedBy != "operator-1" {
+		t.Fatalf("RequestedBy = %q, want the principal's subject", spy.lastInput.RequestedBy)
+	}
+}
+
+// The erasure must be confined to the viewer's scope. erasure.Scope's own
+// doc says a zero scope matches every app and tenant and is only for trusted
+// in-process callers; a dashboard request is not one.
+func TestErasureRequestIsConfinedToTheViewersScope(t *testing.T) {
+	spy := &erasureSpy{}
+	h := erasuresRequestHandler(Deps{Store: newStubStore(), Erasure: spy.service()})
+	_, _ = h(context.Background(),
+		RequestErasureInput{SubjectID: "subj-1", Reason: "r"},
+		principalWith(map[string]any{"app_id": "app-1", "tenant_id": "tenant-a"}))
+	if spy.lastAppID != "app-1" || spy.lastTenantID != "tenant-a" {
+		t.Fatalf("erase scope = %q/%q, want app-1/tenant-a", spy.lastAppID, spy.lastTenantID)
+	}
+}
+
+func TestErasureRequestRequiresASubjectAndReason(t *testing.T) {
+	h := erasuresRequestHandler(Deps{Store: newStubStore(), Erasure: stubErasureService()})
+	for name, in := range map[string]RequestErasureInput{
+		"no subject": {Reason: "r"},
+		"no reason":  {SubjectID: "subj-1"},
+	} {
+		t.Run(name, func(t *testing.T) {
+			if _, err := h(context.Background(), in, principalWith(map[string]any{"app_id": "app-1"})); err == nil {
+				t.Fatal("accepted an incomplete erasure request")
+			}
+		})
+	}
+}
+
+// The preview is what makes the command safe to offer. It must be scoped
+// too: CountBySubject's doc says an unscoped count reveals how much data
+// other tenants hold on that subject.
+func TestErasurePreviewIsScoped(t *testing.T) {
+	spy := &countSpy{}
+	h := erasuresPreviewHandler(Deps{Store: spy})
+	_, _ = h(context.Background(), ErasurePreviewInput{SubjectID: "subj-1"},
+		principalWith(map[string]any{"app_id": "app-1", "tenant_id": "tenant-a"}))
+	if spy.lastQuery.AppID != "app-1" || spy.lastQuery.TenantID != "tenant-a" {
+		t.Fatal("CountBySubject ran outside the viewer's scope")
+	}
+}
+
+// Review Focus 2.
+func TestErasureDetailRefusesAnotherTenantsRecord(t *testing.T) {
+	h := erasuresDetailHandler(Deps{Store: storeWithErasure(&erasure.Erasure{
+		AppID: "app-2", TenantID: "tenant-b",
+	})})
+	_, err := h(context.Background(), GetErasureInput{ID: "ers_1"},
+		principalWith(map[string]any{"app_id": "app-1", "tenant_id": "tenant-a"}))
+	if err == nil {
+		t.Fatal("served another tenant's erasure record")
+	}
+}
+```
+
+That last test is worth noting: the templ `renderErasureDetail` does NOT
+check scope, unlike every other detail renderer in that file. It is the one
+place the templ dashboard forgot, and this contract does not inherit the
+omission. Record it in `MIGRATION.md` in Plan C as a bug fixed in passing
+rather than a feature migrated.
+
+- [ ] **Step 3: Run them to verify they fail**
+
+Run: `go test ./extension/contract/ -run TestErasure -v`
+Expected: FAIL to compile.
+
+- [ ] **Step 4: Implement**
+
+`erasuresRequestHandler` validates both fields, resolves scope, then calls
+`deps.Erasure.Erase(ctx, &erasure.Input{SubjectID, Reason, RequestedBy}, v.AppID, v.TenantID)`.
+A nil `deps.Erasure` answers `CodeUnavailable`: without the service an
+erasure only flags events and does not destroy the key, and silently doing
+half a GDPR erasure is worse than refusing.
+
+- [ ] **Step 5: Add `registerErasures` to `registerAll`**
+
+- [ ] **Step 6: Run everything**
+
+Run: `go build ./... && go test ./...`
+Expected: PASS.
+
+- [ ] **Step 7: Commit**
+
+```bash
+git add extension/contract/
+git commit -m "feat(contract): add the erasure intents"
+```
+
+---
+
+### Task 13: The retention group
+
+Seven intents, and the one that permanently deletes audit history.
+
+**Files:**
+- Create: `extension/contract/handlers_retention.go`
+- Modify: `extension/contract/manifest.yaml`, `extension/contract/contract.go`
+- Test: `extension/contract/handlers_retention_test.go`
+
+**Interfaces:**
+- Consumes: `viewScope`, `scopeFromPrincipal`, `mapStoreError` (Task 7).
+- Produces: `PolicySummary`, `SavePolicyInput{ID *string, Category *string, Duration *string, Archive *bool}`, `RetentionPreviewResponse{EventCount int64, Oldest, Newest string, ByCategory []AggregateGroupDTO}`, `EnforceResponse`, `ArchiveSummary`.
+
+- [ ] **Step 1: Add the intents**
+
+```yaml
+  - { name: retention.policies,     kind: query, version: 1, capability: read }
+  - { name: retention.policyDetail, kind: query, version: 1, capability: read }
+  - { name: retention.savePolicy,   kind: command, version: 1, capability: write,
+      invalidates: [retention.policies, retention.policyDetail] }
+  - { name: retention.deletePolicy, kind: command, version: 1, capability: admin,
+      invalidates: [retention.policies] }
+  - { name: retention.preview,      kind: query, version: 1, capability: read }
+  # admin: this purges audit events permanently.
+  - { name: retention.enforce, kind: command, version: 1, capability: admin,
+      invalidates: [retention.policies, retention.archives, events.list, overview.stats, streams.mine] }
+  - { name: retention.archives,     kind: query, version: 1, capability: read }
+```
+
+- [ ] **Step 2: Write the failing tests**
+
+```go
+// The single most dangerous call in this contract. Enforce() covers every
+// app and belongs to the background scheduler; a dashboard request must use
+// EnforceScope with the viewer's own scope. Getting this wrong purges every
+// tenant's audit history.
+func TestEnforceUsesTheViewersScopeAndNotTheGlobalEnforce(t *testing.T) {
+	spy := &enforcerSpy{}
+	h := retentionEnforceHandler(Deps{Store: newStubStore(), Enforcer: spy.enforcer()})
+	_, err := h(context.Background(), struct{}{},
+		principalWith(map[string]any{"app_id": "app-1", "tenant_id": "tenant-a"}))
+	if err != nil {
+		t.Fatalf("retention.enforce: %v", err)
+	}
+	if spy.globalEnforceCalls != 0 {
+		t.Fatal("retention.enforce called the global Enforce, which purges every app")
+	}
+	if spy.lastScope.AppID != "app-1" || spy.lastScope.TenantID != "tenant-a" {
+		t.Fatalf("enforced scope = %+v, want app-1/tenant-a", spy.lastScope)
+	}
+}
+
+// A policy with an empty AppID matches every app in the purge query, so an
+// unscoped policy created here would delete every tenant's audit history on
+// the next enforcement run. contributor.go carries this warning verbatim.
+func TestSavePolicyStampsTheViewersScope(t *testing.T) {
+	spy := &policySpy{}
+	h := retentionSavePolicyHandler(Deps{Store: spy})
+	cat, dur := "auth", "720h"
+	_, err := h(context.Background(), SavePolicyInput{Category: &cat, Duration: &dur},
+		principalWith(map[string]any{"app_id": "app-1", "tenant_id": "tenant-a"}))
+	if err != nil {
+		t.Fatalf("savePolicy: %v", err)
+	}
+	if spy.saved.AppID != "app-1" || spy.saved.TenantID != "tenant-a" {
+		t.Fatalf("saved policy scope = %q/%q, want app-1/tenant-a", spy.saved.AppID, spy.saved.TenantID)
+	}
+}
+
+// Pointers distinguish "leave alone" from "set to empty". A non-pointer
+// Archive would clear the flag on every update that did not mention it.
+func TestSavePolicyLeavesUnsuppliedFieldsAlone(t *testing.T) {
+	existing := &retention.Policy{
+		ID: parsePolicyID(t, "pol_1"), Category: "auth",
+		Duration: 720 * time.Hour, Archive: true,
+		AppID: "app-1", TenantID: "tenant-a",
+	}
+	spy := &policySpy{existing: existing}
+	h := retentionSavePolicyHandler(Deps{Store: spy})
+
+	id := "pol_1"
+	dur := "1440h"
+	_, err := h(context.Background(), SavePolicyInput{ID: &id, Duration: &dur},
+		principalWith(map[string]any{"app_id": "app-1", "tenant_id": "tenant-a"}))
+	if err != nil {
+		t.Fatalf("savePolicy: %v", err)
+	}
+	if !spy.saved.Archive {
+		t.Error("Archive was cleared by an update that never mentioned it")
+	}
+	if spy.saved.Category != "auth" {
+		t.Errorf("Category = %q, want auth: an unsupplied field must not be erased", spy.saved.Category)
+	}
+}
+
+// Review Focus 2, on the delete path. Without this any viewer could disable
+// another tenant's retention by guessing an ID.
+func TestDeletePolicyRefusesAnotherTenantsPolicy(t *testing.T) {
+	spy := &policySpy{existing: &retention.Policy{AppID: "app-2", TenantID: "tenant-b"}}
+	h := retentionDeletePolicyHandler(Deps{Store: spy})
+	_, err := h(context.Background(), DeletePolicyInput{ID: "pol_1"},
+		principalWith(map[string]any{"app_id": "app-1", "tenant_id": "tenant-a"}))
+	if err == nil {
+		t.Fatal("deleted another tenant's retention policy")
+	}
+	if spy.deleteCalls != 0 {
+		t.Fatal("DeletePolicy was called before the ownership check")
+	}
+}
+
+// The preview is what makes enforce offerable. It has to describe the same
+// rows enforcement would purge, so it runs the same scoped query.
+func TestRetentionPreviewIsScopedAndCounts(t *testing.T) {
+	h := retentionPreviewHandler(Deps{Store: storeWithOldEvents(3, "app-1")})
+	out, err := h(context.Background(), struct{}{},
+		principalWith(map[string]any{"app_id": "app-1"}))
+	if err != nil {
+		t.Fatalf("retention.preview: %v", err)
+	}
+	if out.EventCount != 3 {
+		t.Errorf("EventCount = %d, want 3", out.EventCount)
+	}
+}
+
+// A deployment with no policies would purge nothing, and the preview must
+// say that rather than showing an empty list that reads as "still loading".
+func TestRetentionPreviewWithNoPoliciesReportsZero(t *testing.T) {
+	h := retentionPreviewHandler(Deps{Store: storeWithPolicies()})
+	out, err := h(context.Background(), struct{}{}, principalWith(map[string]any{"app_id": "app-1"}))
+	if err != nil {
+		t.Fatalf("retention.preview: %v", err)
+	}
+	if out.EventCount != 0 || !out.NoPolicies {
+		t.Error("a scope with no policies must say so, not return an ambiguous empty result")
+	}
+}
+```
+
+- [ ] **Step 3: Run them to verify they fail**
+
+Run: `go test ./extension/contract/ -run "TestEnforce|TestSavePolicy|TestDeletePolicy|TestRetention" -v`
+Expected: FAIL to compile.
+
+- [ ] **Step 4: Implement**
+
+```go
+// SavePolicyInput uses pointers for every mutable field so an update can
+// leave one alone. ID absent means create; ID present means update, and the
+// handler fetches the existing policy, checks ownership, and applies only
+// the fields that were supplied.
+type SavePolicyInput struct {
+	ID       *string `json:"id,omitempty"`
+	Category *string `json:"category,omitempty"`
+	Duration *string `json:"duration,omitempty"`
+	Archive  *bool   `json:"archive,omitempty"`
+}
+```
+
+Parse `Duration` with `time.ParseDuration`, answering `CodeBadRequest` on a
+malformed value. On create, both `Category` and `Duration` are required.
+
+`retentionPreviewHandler` lists the viewer's policies, and for each one calls
+`EventsOlderThan` with a `PurgeQuery` carrying the viewer's scope and the
+policy's category and cutoff. Sum the counts. Set `NoPolicies` when the
+viewer has none, because zero-because-nothing-is-configured and
+zero-because-nothing-is-old-enough are different answers.
+
+- [ ] **Step 5: Add `registerRetention` to `registerAll`**
+
+- [ ] **Step 6: Run everything**
+
+Run: `go build ./... && go test ./...`
+Expected: PASS.
+
+- [ ] **Step 7: Commit**
+
+```bash
+git add extension/contract/
+git commit -m "feat(contract): add the retention intents"
+```
+
+---
+
+### Task 14: The reports group
+
+**Files:**
+- Create: `extension/contract/handlers_reports.go`
+- Modify: `extension/contract/manifest.yaml`, `extension/contract/contract.go`
+- Test: `extension/contract/handlers_reports_test.go`
+
+**Interfaces:**
+- Consumes: `viewScope`, `scopeFromPrincipal`, `mapStoreError` (Task 7), `VerifyReport` (Task 8).
+- Produces: `ReportSummary`, `ReportDetail`, `GenerateReportInput{Type string, From, To string}`, `GenerateCustomInput`, `ExportReportInput{ID, Format string}`, `ExportReportResponse{Filename, ContentType, Content string}`.
+
+- [ ] **Step 1: Add the intents**
+
+```yaml
+  - { name: reports.list,   kind: query, version: 1, capability: read }
+  - { name: reports.detail, kind: query, version: 1, capability: read }
+  - { name: reports.generate, kind: command, version: 1, capability: write,
+      invalidates: [reports.list] }
+  - { name: reports.generateCustom, kind: command, version: 1, capability: write,
+      invalidates: [reports.list] }
+  - { name: reports.export, kind: query, version: 1, capability: read }
+```
+
+- [ ] **Step 2: Write the failing tests**
+
+```go
+// The engine persists the report itself. Saving it again stored every
+// dashboard-generated report twice in the templ path, which is a bug that
+// file's own comment records. Do not inherit it.
+func TestGenerateDoesNotSaveTheReportASecondTime(t *testing.T) {
+	spy := &reportStoreSpy{}
+	h := reportsGenerateHandler(Deps{Store: spy, Engine: stubEngine()})
+	_, err := h(context.Background(), GenerateReportInput{Type: "soc2"},
+		principalWith(map[string]any{"app_id": "app-1"}))
+	if err != nil {
+		t.Fatalf("reports.generate: %v", err)
+	}
+	if spy.saveCalls != 0 {
+		t.Fatalf("SaveReport called %d times; the engine already persisted it", spy.saveCalls)
+	}
+}
+
+func TestGenerateRejectsAnUnknownType(t *testing.T) {
+	h := reportsGenerateHandler(Deps{Store: newStubStore(), Engine: stubEngine()})
+	_, err := h(context.Background(), GenerateReportInput{Type: "pci"},
+		principalWith(map[string]any{"app_id": "app-1"}))
+	if err == nil {
+		t.Fatal("accepted an unknown report type")
+	}
+}
+
+// The scope confines what the report aggregates. Generating unscoped
+// produced a report describing every tenant's events, saved under an empty
+// scope so nobody could see it again. contributor.go records that too.
+func TestGenerateIsConfinedToTheViewersScope(t *testing.T) {
+	spy := &engineSpy{}
+	h := reportsGenerateHandler(Deps{Store: newStubStore(), Engine: spy.engine()})
+	_, _ = h(context.Background(), GenerateReportInput{Type: "soc2"},
+		principalWith(map[string]any{"app_id": "app-1", "tenant_id": "tenant-a"}))
+	if spy.lastAppID != "app-1" || spy.lastTenantID != "tenant-a" {
+		t.Fatalf("report scope = %q/%q, want app-1/tenant-a", spy.lastAppID, spy.lastTenantID)
+	}
+}
+
+// Review Focus 2, on export. A report is evidence about a tenant's events,
+// so exporting one by ID must check ownership exactly as reading it does.
+func TestExportRefusesAnotherTenantsReport(t *testing.T) {
+	h := reportsExportHandler(Deps{
+		Store:  storeWithReport(&compliance.Report{AppID: "app-2", TenantID: "tenant-b"}),
+		Engine: stubEngine(),
+	})
+	_, err := h(context.Background(), ExportReportInput{ID: "rep_1", Format: "csv"},
+		principalWith(map[string]any{"app_id": "app-1", "tenant_id": "tenant-a"}))
+	if err == nil {
+		t.Fatal("exported another tenant's compliance report")
+	}
+}
+
+func TestExportRejectsAnUnknownFormat(t *testing.T) {
+	h := reportsExportHandler(Deps{
+		Store:  storeWithReport(&compliance.Report{AppID: "app-1"}),
+		Engine: stubEngine(),
+	})
+	_, err := h(context.Background(), ExportReportInput{ID: "rep_1", Format: "pdf"},
+		principalWith(map[string]any{"app_id": "app-1"}))
+	if err == nil {
+		t.Fatal("accepted an unsupported export format")
+	}
+}
+
+// A report can embed a verification. When it does, the detail page renders
+// it with the same three-state rules as the verify page, so it has to cross
+// the wire in the same shape rather than as a boolean.
+func TestReportDetailCarriesAnEmbeddedVerificationInFull(t *testing.T) {
+	h := reportsDetailHandler(Deps{Store: storeWithReport(&compliance.Report{
+		AppID:        "app-1",
+		Verification: &verify.Report{Valid: true, HeadChecked: true, CheckpointsChecked: false},
+	})})
+	out, err := h(context.Background(), GetReportInput{ID: "rep_1"},
+		principalWith(map[string]any{"app_id": "app-1"}))
+	if err != nil {
+		t.Fatalf("reports.detail: %v", err)
+	}
+	if out.Verification == nil {
+		t.Fatal("the embedded verification was dropped")
+	}
+	if !out.Verification.HeadChecked || out.Verification.CheckpointsChecked {
+		t.Error("the embedded verification's checked flags did not survive")
+	}
+}
+```
+
+- [ ] **Step 3: Run them to verify they fail**
+
+Run: `go test ./extension/contract/ -run TestGenerate -v` and
+`go test ./extension/contract/ -run TestExport -v`
+Expected: FAIL to compile.
+
+- [ ] **Step 4: Implement**
+
+```go
+// GenerateReportInput covers the three fixed frameworks, which share an
+// identical input shape: a period plus scope plus who asked. Custom reports
+// take a title and section definitions, so they get their own intent rather
+// than a partly-ignored field here.
+type GenerateReportInput struct {
+	Type string `json:"type"` // soc2 | hipaa | euaiact
+	From string `json:"from,omitempty"`
+	To   string `json:"to,omitempty"`
+}
+```
+
+Default the period to the last 90 days when `From` and `To` are empty,
+matching what the templ page did, and parse both as RFC3339 otherwise.
+`GeneratedBy` comes from `p.User.Subject`, never the request.
+
+Switch on `Type` over exactly `"soc2"`, `"hipaa"`, `"euaiact"` and return
+`CodeBadRequest` in the default branch. Do not accept a capitalised variant:
+a whitelist that quietly normalises is a whitelist somebody later widens.
+
+`reportsExportHandler` fetches the report, checks `owns`, then calls
+`deps.Engine.Export(ctx, r, compliance.Format(in.Format), &buf)` into a
+`bytes.Buffer` and returns the bytes as a string with a filename and content
+type. Validate `Format` against exactly `json`, `csv`, `markdown`, `html`.
+
+- [ ] **Step 5: Add `registerReports` to `registerAll`**
+
+- [ ] **Step 6: Run everything**
+
+Run: `go build ./... && go test ./...`
+Expected: PASS.
+
+- [ ] **Step 7: Commit**
+
+```bash
+git add extension/contract/
+git commit -m "feat(contract): add the report intents"
+```
+
+---
+
+### Task 15: The settings group
+
+One intent, and it carries three facts the templ settings page never showed.
+Those three are what let an operator tell what their verification result is
+actually worth on their deployment.
+
+**Files:**
+- Create: `extension/contract/handlers_settings.go`
+- Modify: `extension/contract/manifest.yaml`, `extension/contract/contract.go`
+- Test: `extension/contract/handlers_settings_test.go`
+
+**Interfaces:**
+- Consumes: `Deps`, `SurfaceConfig`, `scopeFromPrincipal` (Task 7).
+- Produces: `SettingsDetail`.
+
+- [ ] **Step 1: Add the intent**
+
+```yaml
+  - { name: settings.detail, kind: query, version: 1, capability: read }
+```
+
+- [ ] **Step 2: Write the failing tests**
+
+```go
+// The default deployment: plain digest, no checkpoints. The settings panel
+// is where an operator finds out, and it must not describe that state with
+// a word stronger than it earns.
+func TestSettingsReportsADefaultDeploymentHonestly(t *testing.T) {
+	h := settingsDetailHandler(Deps{
+		Store:  newStubStore(),
+		Config: SurfaceConfig{BackendName: "sqlite"},
+	})
+	out, err := h(context.Background(), struct{}{}, principalWith(map[string]any{"app_id": "app-1"}))
+	if err != nil {
+		t.Fatalf("settings.detail: %v", err)
+	}
+	if out.CheckpointingConfigured {
+		t.Error("reported checkpointing as configured when no store or signer was supplied")
+	}
+	if out.DigestScheme != string(hash.SchemePlainV4) {
+		t.Errorf("DigestScheme = %q, want the plain default", out.DigestScheme)
+	}
+}
+
+func TestSettingsReportsCheckpointingOnlyWhenBothStoreAndSignerExist(t *testing.T) {
+	// A store without a signer proves nothing: whoever could write the
+	// checkpoint row could write a fabricated one. So it is not
+	// "configured" until both are present.
+	h := settingsDetailHandler(Deps{Store: newStubStore(), CheckpointStore: stubCheckpointStore{}})
+	out, _ := h(context.Background(), struct{}{}, principalWith(map[string]any{"app_id": "app-1"}))
+	if out.CheckpointingConfigured {
+		t.Error("a checkpoint store without a signer was reported as configured")
+	}
+}
+
+// The backend determines what a verification result is worth. Redis neither
+// recomputes the chain under a lock nor holds checkpoints, so an operator
+// reading a result there deserves to know it means less than the same result
+// on postgres.
+func TestSettingsReportsTheBackendAndWhetherItHoldsCheckpoints(t *testing.T) {
+	h := settingsDetailHandler(Deps{
+		Store:  newStubStore(),
+		Config: SurfaceConfig{BackendName: "redis"},
+	})
+	out, _ := h(context.Background(), struct{}{}, principalWith(map[string]any{"app_id": "app-1"}))
+	if out.BackendName != "redis" {
+		t.Errorf("BackendName = %q, want redis", out.BackendName)
+	}
+	if out.BackendHoldsCheckpoints {
+		t.Error("redis returns ErrUnsupported for every checkpoint call and must not be reported as holding them")
+	}
+}
+```
+
+- [ ] **Step 3: Run them to verify they fail**
+
+Run: `go test ./extension/contract/ -run TestSettings -v`
+Expected: FAIL to compile.
+
+- [ ] **Step 4: Implement**
+
+```go
+// SettingsDetail is what this deployment is configured to do, which for
+// Chronicle is mostly a statement about how much its verification is worth.
+//
+// The last four fields are new and are the reason this intent exists. The
+// templ settings page showed batch sizes and intervals, which nobody needs,
+// and said nothing about the digest scheme, checkpointing or the backend,
+// which is everything.
+type SettingsDetail struct {
+	BatchSize           int    `json:"batchSize"`
+	FlushInterval       string `json:"flushInterval"`
+	RetentionInterval   string `json:"retentionInterval"`
+	EnableCryptoErasure bool   `json:"enableCryptoErasure"`
+
+	// DigestScheme is what this process writes under now. It is not
+	// necessarily what existing events were written under: a chain that had
+	// HMAC turned on later is unkeyed below its pin forever, which
+	// streams.mine reports per span.
+	DigestScheme string `json:"digestScheme"`
+
+	// CheckpointingConfigured is true only when a store AND a signer are
+	// both present.
+	CheckpointingConfigured bool `json:"checkpointingConfigured"`
+
+	BackendName             string `json:"backendName"`
+	BackendHoldsCheckpoints bool   `json:"backendHoldsCheckpoints"`
+}
+```
+
+Derive `DigestScheme` from `deps.HashChain`, defaulting to the plain scheme
+when it is nil, because nil is what an unconfigured deployment has and that
+is exactly a plain chain.
+
+Determine `BackendHoldsCheckpoints` by probing:
+`deps.Store.LatestCheckpoint(ctx, id.Nil)` and treating
+`checkpoint.ErrUnsupported` as false and anything else, including
+`ErrNotFound`, as true. That is the same probe `buildCheckpointer` uses, so
+the two agree.
+
+- [ ] **Step 5: Add `registerSettings` to `registerAll`**
+
+- [ ] **Step 6: Run everything, and confirm all 29 intents are present**
+
+Run: `go build ./... && go test ./...`
+Expected: PASS, and the parity test from Task 7 now covers all 29.
+
+Add one assertion to `manifest_test.go` while you are here:
+
+```go
+func TestManifestDeclaresTwentyNineIntents(t *testing.T) {
+	m, err := loader.Load(bytes.NewReader(manifestYAML), "manifest.yaml")
+	if err != nil {
+		t.Fatalf("load manifest: %v", err)
+	}
+	if len(m.Intents) != 29 {
+		t.Fatalf("manifest declares %d intents, want 29. If you added or removed one "+
+			"deliberately, update this number and the spec's intent table together",
+			len(m.Intents))
+	}
+}
+```
+
+- [ ] **Step 7: Commit**
+
+```bash
+git add extension/contract/
+git commit -m "feat(contract): add the settings intent and complete the 29"
+```
+
+---
 ### Task 16: Register the contract contributor from the extension
 
 **Files:**
