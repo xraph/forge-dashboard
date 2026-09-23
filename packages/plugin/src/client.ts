@@ -17,14 +17,22 @@ export interface ContractEnvelopeRequest {
  * A contract-level failure. `code` is the server's error code, or "TRANSPORT"
  * when the request never reached the contract layer. Callers need to tell those
  * apart: one means your request was wrong, the other means the network was.
+ *
+ * `details` is `contract.Error.Details`, passed through untouched. It is how a
+ * server says which part of the request was wrong (relay's validation errors
+ * send `{field: "tenant_id"}`), so a page can put the message next to the
+ * input it belongs to. Undefined when the server sent none, and always
+ * undefined on TRANSPORT, which never heard from the contract layer.
  */
 export class ContractError extends Error {
   readonly code: string
+  readonly details?: Record<string, unknown>
 
-  constructor(code: string, message: string) {
+  constructor(code: string, message: string, details?: Record<string, unknown>) {
     super(message)
     this.name = "ContractError"
     this.code = code
+    this.details = details
   }
 }
 
@@ -245,9 +253,11 @@ export function createScopedClient(
    */
   async function parseErrorBody(
     res: Response,
-  ): Promise<{ error?: { code?: string; message?: string } } | null> {
+  ): Promise<{
+    error?: { code?: string; message?: string; details?: Record<string, unknown> }
+  } | null> {
     return ((await res.json?.()?.catch(() => null)) ?? null) as {
-      error?: { code?: string; message?: string }
+      error?: { code?: string; message?: string; details?: Record<string, unknown> }
     } | null
   }
 
@@ -307,7 +317,7 @@ export function createScopedClient(
 
       // The Go transport sends the same envelope shape on a non-ok response
       // as it does on a 200 that failed at the contract layer (the `!envelope
-      // .ok` branch below) - `{error: {code, message}}`. Surface that when
+      // .ok` branch below) - `{error: {code, message, details}}`. Surface that when
       // it's there, exactly as that branch does, so a handler-level failure
       // (BAD_REQUEST, NOT_FOUND, a login rejection) reads as itself instead
       // of as an undifferentiated transport error. Fall back to TRANSPORT
@@ -315,7 +325,11 @@ export function createScopedClient(
       // middleware, Task 1), an unparseable one (a proxy's HTML 502 page), or
       // a parsed body with no `error.code`.
       if (body?.error?.code) {
-        throw new ContractError(body.error.code, body.error.message ?? "contract request failed")
+        throw new ContractError(
+          body.error.code,
+          body.error.message ?? "contract request failed",
+          body.error.details,
+        )
       }
       throw new ContractError("TRANSPORT", `contract request failed with HTTP ${res.status}`)
     }
@@ -330,7 +344,7 @@ export function createScopedClient(
       ok: boolean
       data?: T
       meta?: ResponseMeta
-      error?: { code: string; message: string }
+      error?: { code: string; message: string; details?: Record<string, unknown> }
     } | null
 
     if (!envelope) {
@@ -344,6 +358,7 @@ export function createScopedClient(
       throw new ContractError(
         envelope.error?.code ?? "UNKNOWN",
         envelope.error?.message ?? "contract request failed",
+        envelope.error?.details,
       )
     }
 
