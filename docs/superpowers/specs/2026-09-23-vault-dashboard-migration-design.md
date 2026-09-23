@@ -138,6 +138,7 @@ Taken with the human partner, 2026-09-23.
 | Row counts | Add `Count*` to the store interfaces | Makes `overview.stats` honest and offset paging real |
 | Plaintext rows | Report `encryptionAlg` per secret, empty means not encrypted | A key added later never re-encrypts old rows, so one app holds both kinds and only the row knows |
 | Import cycle | Move `Entity` and the errors to `vault/core` | Package `vault` cannot import the subsystems that import it; four symbols and two files are the whole entanglement |
+| App scope | The configured app only; no request carries an app id | A request-supplied id lets any operator reach any app, and the principal's authsome app id is a different namespace |
 | Sequencing | Vertical slices per subsystem | Wire-shape mistakes surface after 7 handlers, not 35 |
 
 ## The Go half
@@ -271,6 +272,13 @@ distinct.
 
 ### The 35 intents
 
+No request carries an app id. Every handler operates on the one app the vault
+extension is configured with (`Config.AppID`), which is the human partner's
+decision of 2026-09-23. A request cannot name another app, so no operator can
+reach another app's secrets, flags or config by guessing its id, and the
+dashboard principal's authsome app id, which has no reason to match a vault
+app id, never enters the question.
+
 Every command names the queries it invalidates. Queries are cacheable and free
 of side effects.
 
@@ -278,13 +286,13 @@ of side effects.
 
 | Intent | Kind | Request | Notes |
 |---|---|---|---|
-| `secrets.list` | query | `{appId?, key?, limit, offset}` | `{secrets[], total}` |
-| `secrets.detail` | query | `{key, appId?}` | meta, rotation policy, recent audit |
-| `secrets.versions` | query | `{key, appId?}` | metadata only; no values |
-| `secrets.create` | command | `{key, value, appId?, metadata?, expiresAt?}` | → `secrets.list` |
-| `secrets.update` | command | `{key, value, appId?}` | new version → `list`, `detail`, `versions` |
-| `secrets.delete` | command | `{key, appId?}` | → `secrets.list` |
-| `secrets.setExpiry` | command | `{key, appId?, expiresAt *string}` | → `detail`, `list` |
+| `secrets.list` | query | `{key?, limit, offset}` | `{secrets[], total}` |
+| `secrets.detail` | query | `{key}` | meta, rotation policy, recent audit |
+| `secrets.versions` | query | `{key}` | metadata only; no values |
+| `secrets.create` | command | `{key, value, metadata?, expiresAt?}` | → `secrets.list` |
+| `secrets.update` | command | `{key, value}` | new version → `list`, `detail`, `versions` |
+| `secrets.delete` | command | `{key}` | → `secrets.list` |
+| `secrets.setExpiry` | command | `{key, expiresAt *string}` | → `detail`, `list` |
 
 `SecretSummary` mirrors `secret.Meta` exactly: `id, key, version,
 encryptionAlg, expiresAt, appId, metadata, createdAt, updatedAt`. There is no field a value could occupy,
@@ -295,11 +303,11 @@ decision expressed in the type, not in a comment.
 
 | Intent | Kind | Request | Notes |
 |---|---|---|---|
-| `rotation.policies` | query | `{appId?, limit, offset}` | each row carries `rotatable: bool` |
-| `rotation.detail` | query | `{key, appId?}` | policy plus records |
-| `rotation.savePolicy` | command | `{key, appId?, intervalSeconds, enabled}` | → `policies`, `detail` |
-| `rotation.deletePolicy` | command | `{key, appId?}` | → `rotation.policies` |
-| `rotation.rotateNow` | command | `{key, appId?}` | → `detail`, `secrets.detail`, `secrets.versions` |
+| `rotation.policies` | query | `{limit, offset}` | each row carries `rotatable: bool` |
+| `rotation.detail` | query | `{key}` | policy plus records |
+| `rotation.savePolicy` | command | `{key, intervalSeconds, enabled}` | → `policies`, `detail` |
+| `rotation.deletePolicy` | command | `{key}` | → `rotation.policies` |
+| `rotation.rotateNow` | command | `{key}` | → `detail`, `secrets.detail`, `secrets.versions` |
 
 `rotatable` comes from `RotatorKeys()`. `rotateNow` is offered only where it is
 true, and the row says why when it is false.
@@ -308,16 +316,16 @@ true, and the row says why when it is false.
 
 | Intent | Kind | Request | Notes |
 |---|---|---|---|
-| `flags.list` | query | `{appId?, type?, tag?, limit, offset}` | `{flags[], total}` |
-| `flags.detail` | query | `{key, appId?}` | definition, rules, tenant overrides |
-| `flags.evaluate` | query | `{key, appId?, tenantId?, userId?}` | `EvaluateDetail` projection |
-| `flags.create` | command | `{key, type, defaultValue, description?, tags?, enabled, appId?}` | → `flags.list` |
-| `flags.update` | command | `{key, appId?, description *string, defaultValue *any, tags *[]string}` | → `list`, `detail` |
-| `flags.delete` | command | `{key, appId?}` | → `flags.list` |
-| `flags.setEnabled` | command | `{key, appId?, enabled}` | → `list`, `detail`, `evaluate` |
-| `flags.setRules` | command | `{key, appId?, rules[]}` | whole-list replace → `detail`, `evaluate` |
-| `flags.setTenantOverride` | command | `{key, appId?, tenantId, value}` | → `detail`, `evaluate` |
-| `flags.deleteTenantOverride` | command | `{key, appId?, tenantId}` | → `detail`, `evaluate` |
+| `flags.list` | query | `{type?, tag?, limit, offset}` | `{flags[], total}` |
+| `flags.detail` | query | `{key}` | definition, rules, tenant overrides |
+| `flags.evaluate` | query | `{key, tenantId?, userId?}` | `EvaluateDetail` projection |
+| `flags.create` | command | `{key, type, defaultValue, description?, tags?, enabled}` | → `flags.list` |
+| `flags.update` | command | `{key, description *string, defaultValue *any, tags *[]string}` | → `list`, `detail` |
+| `flags.delete` | command | `{key}` | → `flags.list` |
+| `flags.setEnabled` | command | `{key, enabled}` | → `list`, `detail`, `evaluate` |
+| `flags.setRules` | command | `{key, rules[]}` | whole-list replace → `detail`, `evaluate` |
+| `flags.setTenantOverride` | command | `{key, tenantId, value}` | → `detail`, `evaluate` |
+| `flags.deleteTenantOverride` | command | `{key, tenantId}` | → `detail`, `evaluate` |
 
 `flags.evaluate` is a query because it has no side effects. `setRules` replaces
 the whole list because `SetFlagRules` does; the request carries rules in
@@ -328,14 +336,14 @@ never sends a priority number and the two cannot disagree.
 
 | Intent | Kind | Request | Notes |
 |---|---|---|---|
-| `config.list` | query | `{appId?, key?, limit, offset}` | `{entries[], total}` |
-| `config.detail` | query | `{key, appId?}` | entry plus its overrides |
-| `config.versions` | query | `{key, appId?}` | values included; config is not secret |
-| `config.resolve` | query | `{key, appId?, tenantId?}` | `{value, source, overrideValue?, appValue}` |
-| `config.create` | command | `{key, value, valueType?, description?, appId?}` | → `config.list` |
-| `config.update` | command | `{key, appId?, value *any, valueType *string, description *string}` | → `list`, `detail`, `versions`, `resolve` |
-| `config.delete` | command | `{key, appId?}` | → `config.list` |
-| `config.rollback` | command | `{key, appId?, version}` | reads then re-sets → `detail`, `versions`, `resolve` |
+| `config.list` | query | `{key?, limit, offset}` | `{entries[], total}` |
+| `config.detail` | query | `{key}` | entry plus its overrides |
+| `config.versions` | query | `{key}` | values included; config is not secret |
+| `config.resolve` | query | `{key, tenantId?}` | `{value, source, overrideValue?, appValue}` |
+| `config.create` | command | `{key, value, valueType?, description?}` | → `config.list` |
+| `config.update` | command | `{key, value *any, valueType *string, description *string}` | → `list`, `detail`, `versions`, `resolve` |
+| `config.delete` | command | `{key}` | → `config.list` |
+| `config.rollback` | command | `{key, version}` | reads then re-sets → `detail`, `versions`, `resolve` |
 
 `rollback` produces a new version rather than rewriting history, because
 `SetConfig` auto-versions and there is no other honest option.
@@ -345,9 +353,9 @@ never sends a priority number and the two cannot disagree.
 
 | Intent | Kind | Request | Notes |
 |---|---|---|---|
-| `overrides.list` | query | `{appId?, tenantId?, key?, limit, offset}` | requires tenantId or key; see below |
-| `overrides.set` | command | `{key, appId?, tenantId, value}` | → `overrides.list`, `config.resolve`, `config.detail` |
-| `overrides.delete` | command | `{key, appId?, tenantId}` | the explicit unset → same |
+| `overrides.list` | query | `{tenantId?, key?, limit, offset}` | requires tenantId or key; see below |
+| `overrides.set` | command | `{key, tenantId, value}` | → `overrides.list`, `config.resolve`, `config.detail` |
+| `overrides.delete` | command | `{key, tenantId}` | the explicit unset → same |
 
 `overrides.delete` is the affordance the config-unset decision buys: a distinct
 intent with a distinct verb, so "revert to the app default" and "set this to an
@@ -375,8 +383,8 @@ helpers, not per handler.
 
 | Intent | Kind | Request | Notes |
 |---|---|---|---|
-| `audit.list` | query | `{appId?, resource?, key?, outcome?, limit, offset}` | `{entries[], total}` |
-| `overview.stats` | query | `{appId?}` | six counts from the new `Count*` methods |
+| `audit.list` | query | `{resource?, key?, outcome?, limit, offset}` | `{entries[], total}` |
+| `overview.stats` | query | `{}` | six counts from the new `Count*` methods |
 
 There is deliberately no settings intent. The templ settings page renders
 eight fields its contributor never passes plus a hardcoded encryption blurb. It
@@ -610,61 +618,79 @@ by a test.
 
 ## What slice 1 found that slice 2 must know
 
-Slice 1, the Go core, landed on vault's `main` as fifteen commits from
-`90a6f4b` to `4c00fed`. Building it turned up facts that change how the
-contract handlers have to be written. They are recorded here because the
-execution ledger that first held them does not outlive the slice.
+Slice 1, the Go core, and a follow-up batch landed on vault's `main`, from
+`90a6f4b` to `fa3f84f` (27 commits ahead of origin, not pushed). Several things
+this section used to warn about are now fixed; what follows is the state slice
+2 builds on.
 
-**Tenant context keys do not match.** `scope.ContextKey`, `flag.ContextKey`
-and `override.contextKey` are three different Go types that share the string
-value `"vault.tenant_id"`. Go matches a context key by type as well as value,
-so a tenant set with `scope.WithTenantID` is invisible to the flag engine and
-to the override resolver, despite what the comment in `scope/scope.go` says.
-Every handler that evaluates a flag or resolves config for a tenant must put
-the tenant on the context with `flag.ContextKeyTenantID` and
-`override.ContextKeyTenantID`, or the key types must be unified first. A
-handler written the obvious way returns the app default for every tenant and
-no test on a single tenant will notice.
+### Fixed by the follow-ups
 
-**The audit logger reads scope keys.** `audit.Logger.LogAccess` takes its app,
-tenant and user from `scope.FromContext`. So audit attribution uses the scope
-keys while evaluation uses the flag and override keys. A handler that sets one
-kind and not the other gets correct audit rows for the wrong evaluation, or the
-reverse.
+The tenant and user context keys are one type. `flag.ContextKey` and
+`override`'s key are aliases of `scope.ContextKey`, so a tenant set with
+`scope.WithTenantID` reaches flag evaluation, config resolution and audit
+alike. confy reads and writes through the secret service, so it no longer
+returns an empty string for every secret on real backends. The memory store no
+longer keeps a decrypted `Value`, so it behaves like postgres, sqlite and mongo
+and can no longer hide a read bug. The flag cache is bounded, and
+`FlagEngine().Invalidate(key)` drops a flag's cached results, with a generation
+counter so an evaluation already in flight cannot put a stale value back. A
+named key env var that is missing now refuses to start. Audit is always on.
 
-**A flag change reaches the SDK only after the cache TTL.** The engine never
-calls its cache's invalidate. A dashboard toggle takes effect for
-`Flags().Bool` callers up to 30 seconds later. `flags.evaluate` uses
-`EvaluateDetail`, which bypasses the cache, so the dashboard shows the new
-answer immediately while applications still serve the old one. The evaluate
-surface should say so rather than imply the change is already live everywhere.
+### What slice 2 handlers must do
 
-**The flag cache never evicts.** Its key now includes app, tenant and user,
-which closed a bleed where one user's rule result was served to another. The
-cost is one entry per flag, tenant and user, kept forever. This needs an expiry
-sweep or a size cap before a deployment with many users, and it is the one
-residual from slice 1 that is load-bearing.
+**Evaluate on a fresh context.** Because the key types are now unified, any
+tenant or user sitting on the incoming request context, such as the operator's
+own identity placed there for auditing, will drive `when_user` and
+`when_tenant` rules, rollouts and override resolution. `flags.evaluate` and
+`config.resolve` must build a new context from `context.Background()` carrying
+only the tenant and user in the request, never inherit the request's.
 
-**confy reads the raw store.** `confy/provider.go` and `confy/source.go`
-return `sec.Value` straight from the store. No real backend populates `Value`,
-so confy's secret provider returns an empty string for every secret on
-postgres, sqlite and mongo, encrypted or not. The in-memory store keeps
-`Value`, which is why confy's tests pass. The fix is for confy to read through
-`secret.Service`, which changes its constructor.
+**Invalidate after every flag write.** Flag commands write through the store,
+which does not touch the engine's cache. Each of `flags.update`,
+`flags.setEnabled`, `flags.setRules`, `flags.setTenantOverride`,
+`flags.deleteTenantOverride` and `flags.delete` must call
+`FlagEngine().Invalidate(key)`. It affects only the local process: other
+replicas serve the old answer until their TTL expires, and the evaluate
+surface should say so rather than imply the change is live everywhere.
 
-**Version rows have no algorithm of their own.** `GetVersion` applies the
-secret's current `EncryptionAlg` to every version. If a secret's history spans
-a change of key configuration, an older version can fail to read, or in one
-case (a lost key followed by a keyless rewrite) come back as ciphertext with no
-error. The dashboard is write-only and never reads versions, so this does not
-block slice 2, but no surface may show a version's value.
+**Never read a secret value to render a list.** `Secrets().Get` decrypts and
+writes an audit row on every call. List and detail pages use `List`, `GetMeta`
+and `ListVersions`, which return metadata only. Under the write-only decision
+no handler calls `Get` at all.
 
-**What slice 2 can rely on.** `vault.New` composes every service, and
-`WithConfig` now overlays rather than replaces. `EvaluateDetail` returns a
-reason, the matched rule and a trace that is never null, and
-`RolloutBucket` gives the exact bucket. `RotatorKeys` says which secrets are
-rotatable. There are six `Count` methods, and an empty app id matches only
-empty-scoped rows on every backend. `secret.Meta.EncryptionAlg` reports each
-row's own state, and empty means not encrypted. `Get` reads correctly whatever
-key a row was written with, and an encrypted row with no key is an error rather
-than an empty value.
+**Use the configured app.** Every handler reads the vault's configured app id
+and ignores anything else. No request carries one.
+
+**Never port the templ secret create.** `dashboard/contributor.go` writes a
+secret by calling `store.SetSecret` with only `Value` set. Every backend
+discards `Value`, so it stores an empty, unencrypted, unaudited row.
+`secrets.create` goes through `Secrets().Set`.
+
+### Still open, and not blocking slice 2
+
+Version rows carry no algorithm of their own. `GetVersion` applies the secret's
+current `EncryptionAlg` to every version, so a history spanning a key change
+reads wrongly: keyless after keyed returns ciphertext as `Value`. The dashboard
+is write-only and never reads versions, so no surface may show a version's
+value. The fix is a per-version column across four backends.
+
+Invalidation is per process. A multi-replica deployment sees a flag change on
+other replicas only after the cache TTL, 30 seconds by default.
+
+`WithCacheMaxEntries` is not reachable from `vault.Config` or the extension
+config, so the default cap of 10000 applies everywhere.
+
+The `EncryptionKeyEnv` doc comment in `config.go` still calls it a fallback.
+Slice 2's first task corrects it.
+
+### What slice 2 can rely on
+
+`vault.New` composes every service, and `WithConfig` overlays rather than
+replaces. `FlagEngine().EvaluateDetail` returns a reason, the matched rule and
+a trace that is never null; `flag.RolloutBucket` gives the exact bucket.
+`Rotation().RotatorKeys()` says which secrets are rotatable. Six `Count`
+methods exist on every backend, and an empty app id matches only empty-scoped
+rows. `secret.Meta.EncryptionAlg` reports each row's own state, and empty means
+not encrypted. `Secrets().Get` reads correctly whatever key a row was written
+with, and an encrypted row read with no key is an error rather than an empty
+value.
