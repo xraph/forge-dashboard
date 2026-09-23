@@ -4,6 +4,8 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
+    "dev:preview": "vite --open /design-preview.html",
+    "build:preview": "tsc -p tsconfig.preview.json --noEmit && vite build --config vite.preview.config.ts",
     "build": "tsc -b && vite build",
     "lint": "eslint",
     "test": "vitest run",
@@ -18,6 +20,7 @@
     "@forge-go/dashboard-plugin-authsome": "workspace:*",
     "@forge-go/dashboard-plugin-core": "workspace:*",
     "@forge-go/dashboard-plugin-streaming": "workspace:*",
+    "@forge-go/dashboard-plugin-warden": "workspace:*",
     "@forge-go/dashboard-runtime": "workspace:*",
     "lucide-react": "^1.40.0",
     "react": "^19.2.6",

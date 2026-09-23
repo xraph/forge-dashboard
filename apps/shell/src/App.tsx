@@ -1,3 +1,6 @@
+import { Button } from "@forge-go/dashboard-kit/components/button"
+import { MoonIcon, SunIcon } from "@forge-go/dashboard-kit/icons"
+import { useTheme } from "./components/theme-provider"
 import { ForgeDashboard } from "@forge-go/dashboard-host"
 import { configFromWindow } from "@forge-go/dashboard-runtime"
 import corePlugin from "@forge-go/dashboard-plugin-core"
@@ -5,6 +8,7 @@ import authsomePlugin, {
   authsomeSubPlugins,
 } from "@forge-go/dashboard-plugin-authsome"
 import streamingPlugin from "@forge-go/dashboard-plugin-streaming"
+import wardenPlugin from "@forge-go/dashboard-plugin-warden"
 
 // The Go handler injects window.__FORGE_DASHBOARD__ before this bundle loads,
 // so the shell works on any BasePath. `pnpm dev` has no such handler, hence
@@ -18,7 +22,7 @@ const config = { basePath: injected.basePath ?? "/dashboard", ...injected }
 
 // core carries root: true and claims "/". streaming and authsome mount under
 // their own namespaces. Array order is the cross-plugin nav order.
-const plugins = [corePlugin, streamingPlugin, authsomePlugin]
+const plugins = [corePlugin, streamingPlugin, authsomePlugin, wardenPlugin]
 
 // The twenty-four authsome sub-plugins: six carrying data of their own, and
 // eighteen that are a nav entry and a settings panel. Each one appears only
@@ -29,8 +33,23 @@ const plugins = [corePlugin, streamingPlugin, authsomePlugin]
 const subPlugins = authsomeSubPlugins
 
 export function App() {
+  const { theme, setTheme } = useTheme()
+  const dark =
+    theme === "dark" ||
+    (theme === "system" &&
+      window.matchMedia("(prefers-color-scheme: dark)").matches)
   return (
     <ForgeDashboard
+      headerActions={
+        <Button
+          variant="ghost"
+          size="icon"
+          aria-label={dark ? "Use light theme" : "Use dark theme"}
+          onClick={() => setTheme(dark ? "light" : "dark")}
+        >
+          {dark ? <SunIcon /> : <MoonIcon />}
+        </Button>
+      }
       config={config}
       basename={injected.shellBase}
       plugins={plugins}
