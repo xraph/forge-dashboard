@@ -216,12 +216,35 @@ existing `LocalContributor`, so both dashboards run until phase 7 removes one.
 Contributor name is `chronicle`. Field names on the wire are camelCase, matching
 authsome's contract DTOs rather than the Go domain's snake_case.
 
-**Scope is stamped from the Principal and never read from the request.** No
-request DTO in this contract carries an `appId` or `tenantId` field.
+**Scope comes from the Principal's claims and is never read from the request.**
+No request DTO in this contract carries an `appId` or `tenantId` field.
 `contributor.go` already carries the comment explaining why, on policy creation:
 a policy with an empty `AppID` "matches every app in the purge query", so an
 unscoped policy "would delete every tenant's audit history on the next
 enforcement run". The same hazard applies to reports, erasures and enforcement.
+
+The mechanism needs stating precisely, because it is not the one the templ path
+uses. Templ resolves scope from the request context through `forge.ScopeFrom`.
+Nothing in the dispatcher, server or transport propagates a forge scope, so a
+contract handler's context does not carry one. The convention on this path is
+`Principal.Claims`, which `AppIDFromPrincipal` in authsome documents as "the
+canonical surface for per-request scoping", keyed `app_id`.
+
+So chronicle reads `app_id` from claims for `AppID`, and `tenant_id` for
+`TenantID`, falling back to `org_id` for the latter.
+
+**An unresolvable `app_id` is refused, not defaulted.** This is the single most
+important line in the contract package. An empty `AppID` does not mean "this
+app", it means every app belonging to every operator, and the handlers below it
+will happily list another customer's audit events or purge their history. So
+`scopeFromPrincipal` returns `CodePermissionDenied` when `app_id` is missing or
+unparseable, and every handler calls it before touching the store.
+
+An absent `tenant_id` is different and is allowed. The dashboard operator is
+app-scoped, which is what authsome's own handlers assume in having no tenant
+dimension at all, and `TenantID` is a dimension inside their own app. An empty
+tenant means an app-wide view, which is the view an app operator is entitled
+to. It never widens past the app, because `AppID` is already required.
 
 **Capability follows `handler/guard.go`.** That file already classifies the HTTP
 API into read, write and admin, and the contract uses the same split. Erasure
@@ -350,6 +373,37 @@ Three cases the page has to get right that the templ page cannot:
   the chain." `Partial` qualifies the verdict, it is not a footnote.
 - No checkpoint store renders as "Not checked, this deployment stores no
   checkpoints", never as "No".
+- A mixed-level chain names its boundary: "No alteration detected in sequences
+  1 to 61,004. Keyed from 48,201 onward, and everything below that predates the
+  key and rests on an unkeyed digest."
+
+### A chain is not one level, and the page must not claim it is
+
+`gradeCoverage` returns spans rather than a level, and that is the most
+important thing about the shape of `Report`. A deployment that turns HMAC on
+after running for a year does not rebuild its chain, since rebuilding would
+invalidate every hash already written. `reconcileStreamPin` moves the stream's
+pin up and stamps `SchemeSince`, so everything below that sequence stays
+unkeyed forever and everything above it is keyed.
+
+Chronicle already models that properly and the page has to carry it through.
+`Event.HashScheme` records the scheme each event was written under, so
+verification reproduces what was written rather than what today's config would
+write. `upgradeCoverage` refuses to lift a span below the pin to `signed` even
+when a checkpoint covers it, because a signature over an unkeyed digest proves
+only that the digest has not changed since, not that it was ever tamper-evident.
+`ErrSchemeWeakeningRefused` stops a pin moving down at all.
+
+So the verdict never states one level for a chain that has two. It names the
+boundary. The oldest events are usually the ones an investigation cares about,
+and they are exactly the ones a single-level summary would misdescribe.
+
+The same caution applies to a bounded range, and the two compound. Verifying
+from the last checkpoint forward can honestly report `signed` for a window that
+sits entirely above the pin while everything beneath it is unkeyed. Both
+statements are true and the pair is misleading, which is why the verdict always
+carries its range and its `Partial` flag alongside its level rather than any one
+of the three alone.
 
 ### The span ribbon
 
