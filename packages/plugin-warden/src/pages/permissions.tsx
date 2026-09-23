@@ -1,5 +1,5 @@
 import { useState } from "react"
-import { PluginLink, useCommand, useQuery } from "@forge-go/dashboard-plugin"
+import { useCommand, useQuery } from "@forge-go/dashboard-plugin"
 import { Badge } from "@forge-go/dashboard-kit/components/badge"
 import { Button } from "@forge-go/dashboard-kit/components/button"
 import { ConfirmDialog } from "@forge-go/dashboard-kit/components/confirm-dialog"
@@ -213,35 +213,31 @@ export function WardenPermissionsPage() {
               emptyMessage="No permissions yet."
               pagination={{ page, pageSize: data.limit, total: data.total }}
               onPageChange={setPage}
-              rowActions={(p) => (
-                <>
-                  <PluginLink
-                    to={`/permissions/${p.id}`}
-                    className="text-sm underline underline-offset-4"
+              // No Details link here: `/permissions/:id` has no route yet.
+              // The intent behind it (`permissions.detail`, with the
+              // `grantedBy` list a detail page would show) is real and
+              // waiting, but the page itself is a later plan's scope.
+              rowActions={(p) =>
+                // No delete on a system permission: the contract refuses
+                // it, so offering the button would promise a rejection.
+                !p.isSystem && (
+                  <Button
+                    variant="destructive"
+                    size="sm"
+                    aria-label={`Delete ${p.name}`}
+                    onClick={() => {
+                      // Reset at open, not at close: the operator is about
+                      // to read whatever this dialog shows for THIS
+                      // permission, so a failure from a previous row must
+                      // not be attributed to one they have not touched.
+                      remove.reset()
+                      setDeleting(p)
+                    }}
                   >
-                    Details
-                  </PluginLink>
-                  {/* No delete on a system permission: the contract refuses
-                      it, so offering the button would promise a rejection. */}
-                  {!p.isSystem && (
-                    <Button
-                      variant="destructive"
-                      size="sm"
-                      aria-label={`Delete ${p.name}`}
-                      onClick={() => {
-                        // Reset at open, not at close: the operator is about
-                        // to read whatever this dialog shows for THIS
-                        // permission, so a failure from a previous row must
-                        // not be attributed to one they have not touched.
-                        remove.reset()
-                        setDeleting(p)
-                      }}
-                    >
-                      Delete
-                    </Button>
-                  )}
-                </>
-              )}
+                    Delete
+                  </Button>
+                )
+              }
             />
           )
         }}

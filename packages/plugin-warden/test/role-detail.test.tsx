@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest"
-import { fireEvent, screen } from "@testing-library/react"
+import { fireEvent, screen, waitFor, within } from "@testing-library/react"
 import { ContractError } from "@forge-go/dashboard-plugin"
 import { WardenRoleDetailPage } from "../src/pages/role-detail"
 import { failingClient, recordingCommandClient, renderPage, stubClient } from "./harness"
@@ -94,9 +94,36 @@ describe("WardenRoleDetailPage", () => {
     expect(await screen.findByText(/grants nothing/i)).toBeTruthy()
   })
 
+  it("does not link a grant to a permission detail page, because none exists yet", async () => {
+    // /permissions/:id has no route: the intent behind it (permissions.detail)
+    // is real and waiting on a later plan, but the page itself is not built.
+    // A Details link here would be dead. Scoped to the grant's own row,
+    // because the children table below carries a real Details link to
+    // /roles/:id and an unscoped query would be ambiguous between the two.
+    renderPage(WardenRoleDetailPage, client(), { id: "role_01hq" })
+    const row = (await screen.findByText("document:read")).closest("tr")
+    expect(row).toBeTruthy()
+    expect(within(row as HTMLElement).queryByRole("link", { name: /Details/i })).toBeNull()
+    expect(
+      within(row as HTMLElement).getByRole("button", { name: /Revoke document:read/i })
+    ).toBeTruthy()
+  })
+
   it("lists the roles that inherit from this one", async () => {
     renderPage(WardenRoleDetailPage, client(), { id: "role_01hq" })
     expect(await screen.findByText("Editor")).toBeTruthy()
+  })
+
+  it("still links a child role to its real detail route", async () => {
+    // The regression above is specific to the dead /permissions/:id link;
+    // /roles/:id is a real route and this link must not have been swept
+    // away along with it.
+    renderPage(WardenRoleDetailPage, client(), { id: "role_01hq" })
+    const row = (await screen.findByText("Editor")).closest("tr")
+    expect(row).toBeTruthy()
+    expect(
+      within(row as HTMLElement).getByRole("link", { name: /Details/i }).getAttribute("href")
+    ).toBe("/roles/role_01hr")
   })
 
   it("says which kind of empty a role with no children is", async () => {
@@ -118,7 +145,7 @@ describe("WardenRoleDetailPage", () => {
     fireEvent.click(detach)
     const confirm = await screen.findByRole("button", { name: /^Revoke$/i })
     fireEvent.click(confirm)
-    await new Promise((r) => setTimeout(r, 0))
+    await waitFor(() => expect(sent).toHaveLength(1))
     expect(sent[0]?.intent).toBe("roles.detachPermission")
     expect(sent[0]?.payload).toEqual({
       roleId: "role_01hq",
@@ -127,17 +154,28 @@ describe("WardenRoleDetailPage", () => {
     })
   })
 
-  it("offers no edit or revoke on a system role", async () => {
+  it("offers no attach or revoke on a system role", async () => {
     renderPage(
       WardenRoleDetailPage,
       client({ ...DETAIL, isSystem: true, name: "System" }),
       { id: "role_01hs" }
     )
     await screen.findByText("System")
-    expect(screen.queryByRole("button", { name: /Edit/i })).toBeNull()
+    // The page has no Edit control at all, for any role, so asserting its
+    // absence would prove nothing about the system guard specifically.
+    // Attach permission is the real conditional: the contract refuses it on
+    // a system role, so it must not be offered. Paired with the next test,
+    // which shows both controls present on an ordinary role.
+    expect(screen.queryByRole("button", { name: /Attach permission/i })).toBeNull()
     expect(screen.queryByRole("button", { name: /Revoke/i })).toBeNull()
     // And it says why, rather than just hiding the controls.
     expect(await screen.findByText(/system role/i)).toBeTruthy()
+  })
+
+  it("offers attach and revoke on an ordinary role", async () => {
+    renderPage(WardenRoleDetailPage, client(), { id: "role_01hq" })
+    expect(await screen.findByRole("button", { name: /Attach permission/i })).toBeTruthy()
+    expect(await screen.findByRole("button", { name: /Revoke document:read/i })).toBeTruthy()
   })
 
   it("surfaces a read failure instead of a blank page", async () => {

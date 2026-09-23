@@ -240,26 +240,22 @@ function GrantsTable({
       rowKey={(p) => p.id}
       caption={`${grants.length} ${grants.length === 1 ? "permission" : "permissions"}`}
       emptyMessage="This role grants nothing."
-      rowActions={(p) => (
-        <>
-          <PluginLink
-            to={`/permissions/${p.id}`}
-            className="text-sm underline underline-offset-4"
+      // No Details link here: `/permissions/:id` has no route yet. The
+      // intent behind it (`permissions.detail`, with the `grantedBy` list a
+      // detail page would show) is real and waiting, but the page itself is
+      // a later plan's scope.
+      rowActions={(p) =>
+        !role.isSystem && (
+          <Button
+            variant="destructive"
+            size="sm"
+            aria-label={`Revoke ${p.name}`}
+            onClick={() => onRevoke(p)}
           >
-            Details
-          </PluginLink>
-          {!role.isSystem && (
-            <Button
-              variant="destructive"
-              size="sm"
-              aria-label={`Revoke ${p.name}`}
-              onClick={() => onRevoke(p)}
-            >
-              Revoke
-            </Button>
-          )}
-        </>
-      )}
+            Revoke
+          </Button>
+        )
+      }
     />
   )
 }

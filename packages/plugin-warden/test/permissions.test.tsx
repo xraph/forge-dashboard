@@ -58,6 +58,16 @@ describe("WardenPermissionsPage", () => {
     expect(screen.getByText("read")).toBeTruthy()
   })
 
+  it("does not link a row to a permission detail page, because none exists yet", async () => {
+    // /permissions/:id has no route: the intent behind it (permissions.detail)
+    // is real and waiting on a later plan, but the page itself is not built.
+    // A Details link here would be dead, so the row's only action is Delete.
+    renderPage(WardenPermissionsPage, client())
+    await screen.findByText("document:read")
+    expect(screen.queryByRole("link", { name: /Details/i })).toBeNull()
+    expect(screen.getByRole("button", { name: /Delete document:read/i })).toBeTruthy()
+  })
+
   it("says which kind of empty an empty list is, and still counts", async () => {
     renderPage(
       WardenPermissionsPage,
