@@ -1,8 +1,11 @@
 import { definePlugin } from "@forge-go/dashboard-plugin"
 import { WebhookIcon } from "@forge-go/dashboard-kit/icons"
 import { RelayEndpointsPage } from "./pages/endpoints"
+import { RelayEndpointCreatePage } from "./pages/endpoint-create"
+import { RelayEndpointDetailPage } from "./pages/endpoint-detail"
 
 export type { EndpointSummary, EndpointsList } from "./pages/endpoints"
+export type { EndpointDetail } from "./pages/endpoint-detail"
 
 /**
  * Relay is the webhook delivery engine: endpoints subscribe to event types
@@ -29,7 +32,13 @@ export const relayPlugin = definePlugin({
       group: "Webhooks",
     },
   ],
-  routes: [{ path: "/endpoints", element: RelayEndpointsPage }],
+  // The two endpoint children have no nav entry: you reach them from the
+  // list, by its New endpoint button or by a row's URL.
+  routes: [
+    { path: "/endpoints", element: RelayEndpointsPage },
+    { path: "/endpoints/new", element: RelayEndpointCreatePage },
+    { path: "/endpoints/:id", element: RelayEndpointDetailPage },
+  ],
 })
 
 export default relayPlugin

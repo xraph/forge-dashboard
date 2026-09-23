@@ -30,13 +30,16 @@ beforeEach(() => {
  */
 export function stubClient(
   answers: Record<string, unknown>,
-  commands: Record<string, unknown> = {},
+  commands: Record<string, unknown> = {}
 ): ScopedClient {
   return {
     extension: "relay",
     query: async (intent: string) => {
       if (!(intent in answers)) {
-        throw new ContractError("NOT_FOUND", `no handler for intent "${intent}"`)
+        throw new ContractError(
+          "NOT_FOUND",
+          `no handler for intent "${intent}"`
+        )
       }
       return answers[intent]
     },
@@ -45,7 +48,10 @@ export function stubClient(
     // resolve to undefined and look like a success.
     command: async (intent: string) => {
       if (!(intent in commands)) {
-        throw new ContractError("NOT_FOUND", `no handler for command "${intent}"`)
+        throw new ContractError(
+          "NOT_FOUND",
+          `no handler for command "${intent}"`
+        )
       }
       return commands[intent]
     },
@@ -55,7 +61,7 @@ export function stubClient(
 /** Records every command a page sends, with its payload, in order. */
 export function recordingCommandClient(
   answers: Record<string, unknown>,
-  commands: Record<string, unknown> = {},
+  commands: Record<string, unknown> = {}
 ): { client: ScopedClient; sent: { intent: string; payload: unknown }[] } {
   const sent: { intent: string; payload: unknown }[] = []
   const inner = stubClient(answers, commands)
@@ -118,7 +124,7 @@ export function recordingClient(answers: Record<string, unknown>): {
 export function renderPage(
   Page: ComponentType<PluginPageProps>,
   client: ScopedClient,
-  params: PluginPageProps["params"] = {},
+  params: PluginPageProps["params"] = {}
 ) {
   return render(
     <PluginProvider client={client}>
@@ -149,4 +155,35 @@ export function paramsRecordingClient(answers: Record<string, unknown>): {
       command: inner.command,
     } as ScopedClient,
   }
+}
+
+/**
+ * Queries answer; every command THROWS the given ContractError. A stub that
+ * answered { ok: false } would resolve normally and `execute` would treat it
+ * as a success, so a failure test built on one never runs the failure path.
+ */
+export function commandFailingClient(
+  answers: Record<string, unknown>,
+  error: ContractError
+): ScopedClient {
+  const inner = stubClient(answers)
+  return {
+    extension: inner.extension,
+    query: inner.query,
+    command: async () => {
+      throw error
+    },
+  } as ScopedClient
+}
+
+/** Queries answer; every command never settles, to observe the pending state. */
+export function commandPendingClient(
+  answers: Record<string, unknown>
+): ScopedClient {
+  const inner = stubClient(answers)
+  return {
+    extension: inner.extension,
+    query: inner.query,
+    command: () => new Promise<never>(() => {}),
+  } as ScopedClient
 }
