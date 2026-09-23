@@ -6,7 +6,10 @@ import { FilterBar } from "@forge-go/dashboard-kit/components/filter-bar"
 import { NoneCell } from "@forge-go/dashboard-kit/components/none-cell"
 import { PageHeader } from "@forge-go/dashboard-kit/components/page-header"
 import { QueryBoundary } from "@forge-go/dashboard-kit/components/query-boundary"
-import { ResourceTable, type Column } from "@forge-go/dashboard-kit/components/resource-table"
+import {
+  ResourceTable,
+  type Column,
+} from "@forge-go/dashboard-kit/components/resource-table"
 import { TagList } from "@forge-go/dashboard-kit/components/tag-list"
 import { Timestamp } from "@forge-go/dashboard-kit/components/timestamp"
 
@@ -44,7 +47,10 @@ const columns: Column<EndpointSummary>[] = [
     header: "URL",
     className: "font-medium",
     cell: (r) => (
-      <PluginLink to={`/endpoints/${r.id}`} className="underline underline-offset-4">
+      <PluginLink
+        to={`/endpoints/${r.id}`}
+        className="underline underline-offset-4"
+      >
         {r.url}
       </PluginLink>
     ),
@@ -63,14 +69,18 @@ const columns: Column<EndpointSummary>[] = [
     id: "state",
     header: "State",
     cell: (r) => (
-      <Badge variant={r.enabled ? "outline" : "secondary"}>{r.enabled ? "Enabled" : "Disabled"}</Badge>
+      <Badge variant={r.enabled ? "outline" : "secondary"}>
+        {r.enabled ? "Enabled" : "Disabled"}
+      </Badge>
     ),
   },
   {
     id: "signing",
     header: "Signing",
     cell: (r) => (
-      <Badge variant={r.signed ? "outline" : "destructive"}>{r.signed ? "Signed" : "Unsigned"}</Badge>
+      <Badge variant={r.signed ? "outline" : "destructive"}>
+        {r.signed ? "Signed" : "Unsigned"}
+      </Badge>
     ),
   },
   {
@@ -78,7 +88,8 @@ const columns: Column<EndpointSummary>[] = [
     header: "Rate limit",
     align: "end",
     className: "tabular-nums",
-    cell: (r) => (r.rateLimit > 0 ? `${r.rateLimit}/s` : <NoneCell label="rate limit" />),
+    cell: (r) =>
+      r.rateLimit > 0 ? `${r.rateLimit}/s` : <NoneCell label="rate limit" />,
   },
   {
     id: "created",
@@ -111,7 +122,12 @@ export function RelayEndpointsPage() {
         }
       />
       <FilterBar
-        search={{ value: tenant, onChange: setTenant, label: "Tenant", placeholder: "Filter by tenant" }}
+        search={{
+          value: tenant,
+          onChange: setTenant,
+          label: "Tenant",
+          placeholder: "Filter by tenant",
+        }}
         filters={[
           {
             id: "state",
