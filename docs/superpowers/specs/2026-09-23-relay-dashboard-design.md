@@ -292,6 +292,21 @@ mapped, and colour alone is the scan signal:
 
 `destructive` is rare and it is what you are looking for at 2am.
 
+This diverges from the playbook's table on two rows, and deliberately. That
+table lists `delivered` as an example of `default`, the affirmative variant,
+and would put `retrying` under `secondary`. It also says `outline` is for the
+state most rows are in. On a delivery log those two instructions point in
+opposite directions, because the state most rows are in *is* delivered, and
+usually by a very long way. Give a solid filled badge to ninety-five percent of
+a page and the colour has stopped signalling anything at all.
+
+So the mapping above ramps by visual weight instead of by semantic category:
+`outline` for the majority that should recede, then `secondary`, then
+`default`, then `destructive` for the row you came to find. Weight tracks how
+much a row should interrupt you, which is the axis that matters on a log. The
+playbook already asks for exactly this, a considered mapping written down with
+its reasons, whenever a domain carries more states than the table anticipates.
+
 ### The delivery log
 
 Cursor-paged and virtualised with `@tanstack/react-virtual`, which is already
@@ -406,6 +421,14 @@ answering `{ ok: false }` resolves normally.
 
 On the Go side the replay change needs a test per backend asserting the same
 semantics, since that divergence is what this is fixing.
+
+The fixture server needs care on one point. A fixture that accepts a replay,
+returns success and changes nothing will hide the backend divergence rather
+than expose it, and it will do so while every test passes. Relay's fixtures
+should model what a real backend does: mark the row replayed, leave it in the
+list, create a pending delivery, and refuse a second replay of the same entry.
+Otherwise the thing you develop against behaves like the in-memory store, which
+is the one store no production deployment uses.
 
 Then run it. Start the fixture server and the shell and click through. Every
 serious bug in the authsome migration was found that way and not by a test.
