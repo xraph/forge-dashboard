@@ -1510,6 +1510,80 @@ git commit -m "feat(contract): add the chronicle contributor, scope boundary and
 
 ---
 
+### Conventions Task 7 established, which supersede the code samples below
+
+**Read this before any of Tasks 8 to 16.** Task 7 was built, reviewed and
+revised, and its real shapes differ from what the samples in the task sections
+below were written against. Where a sample disagrees with this section, this
+section wins. It was taken from the committed code, not written from memory.
+
+**Registering a group.** Use the constructors, which take the handler FACTORY
+and derive the kind, so each intent name is written exactly once:
+
+```go
+func verifyRegistrations() []registration {
+	return []registration{
+		query("verify.run", verifyRunHandler),
+		query("verify.event", verifyEventHandler),
+	}
+}
+```
+
+`command(name, factory)` is the counterpart for commands. Do not hand-write
+`registration{...}` literals or call `dispatcher.RegisterQuery` directly;
+wherever a sample below does, use the constructor instead. Append the group's
+function to `registrations()` in `contract.go`.
+
+**Mapping store errors.** It is a method now, and it takes an operation name so
+it can log the cause:
+
+```go
+return VerifyResponse{}, deps.mapStoreError("verify.run", err)
+```
+
+Known not-found sentinels map to `CodeNotFound`; everything else maps to
+`CodeInternal` with a generic message, and the underlying error is logged
+through `deps.logger()`, never returned. A contract error passes through
+unchanged. Wherever a sample below writes `mapStoreError(err)`, write
+`deps.mapStoreError("<intent name>", err)`.
+
+**Resolving the viewer's own chain.** Use the existing helper, never
+`GetStreamByScope` directly:
+
+```go
+st, err := scopedStream(ctx, deps, "verify.run", v)
+```
+
+It carries the post-check that refuses a stream whose AppID or TenantID does
+not match the viewer's. That post-check is the dashboard's only defence
+against a real bug in `store/redis`, which builds its scope key as
+`appID + ":" + tenantID` so that app `a:b`/tenant `c` and app `a`/tenant
+`b:c` collide. Calling `GetStreamByScope` directly loses that guard. Handle
+`chronicle.ErrStreamNotFound` from it as "no chain yet", never as an error.
+
+**Ownership is strict.** `v.owns(appID, tenantID)` compares AppID first. A
+viewer with an empty TenantID (app-wide) owns every record in its app,
+including tenantless ones. A viewer with a non-empty TenantID owns a record
+only if its TenantID matches exactly, so a tenant operator does NOT own
+app-level records. Lists built with `applyQuery` pin the tenant exactly, and
+detail handlers must agree with them. Every detail handler fetches, then
+checks `owns`, then answers `CodeNotFound` rather than `CodePermissionDenied`
+when it fails, so a caller cannot probe which IDs exist in other tenants.
+
+**Test helpers in `helpers_test.go`, which you must reuse and not redefine:**
+`principalWith(claims)`, `newStubStore()`, `storeReturning(err)` (every
+`store.Store` method returns that error), `newSQLiteStore(t)` (a real migrated
+sqlite store on a temp file), and `newTestDispatcher(t)`. `stubStore`
+implements the whole `store.Store` interface, so a test double can embed it
+and override only the methods it cares about. Name your own spies after your
+task so they cannot collide.
+
+**Also available:** `projectCheckpoint(cp)`, `formatTime(t)` for wire
+timestamps, `deps.checkpointingConfigured()` (store AND signer both present),
+and `coverageCeiling(deps, st)`.
+
+---
+
 ### Task 8: The verify group
 
 The page this feeds is the reason the whole dashboard exists. The rule for
