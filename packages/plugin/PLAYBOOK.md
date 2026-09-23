@@ -121,8 +121,29 @@ Five conventions, each of which has been lost and restored at least once:
    bare dash. A blank cell reads as "still loading" or "broken", and is silent
    to a screen reader. A possibly-absent timestamp uses `Timestamp`, because
    `formatTimestamp` returns an unlabelled dash you cannot attach a label to.
-5. A badge's colour is the scan signal, not its text. This project settled on
-   `outline` for true or normal and `secondary` for false.
+5. A badge's colour is the scan signal, not its text.
+
+An earlier version of this rule said "outline for true or normal, secondary
+for false". That was a bad summary of a binary, and it does not survive a
+domain with more than two states. Relay hit the wall first with four:
+delivered, queued, retrying and failed. Counting the badges actually in
+`plugin-authsome` and `plugin-streaming` gives outline 51, destructive 27,
+default 5, secondary 4, so the code was already using all four while the rule
+described two.
+
+The vocabulary, as used:
+
+| variant | means | examples |
+|---|---|---|
+| `outline` | ordinary, the state most rows are in | active, enabled, verified |
+| `default` | affirmative, the healthy outcome | delivered, granted, succeeded |
+| `secondary` | notable but not wrong | draft, paused, queued, pending |
+| `destructive` | the one an operator is hunting | failed, banned, revoked, rejected |
+
+**Reserve `destructive` for the state somebody came to the page to find.** If
+three of your four states are destructive, none of them is, and the scan is
+gone. A domain with more states than this needs a considered mapping and not a
+fifth colour, so write down which state maps to which and why.
 
 ## Things that went wrong last time
 
