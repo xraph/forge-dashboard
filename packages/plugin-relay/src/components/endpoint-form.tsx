@@ -1,4 +1,4 @@
-import { useId, useState, type ReactNode } from "react"
+import { useEffect, useId, useState, type ReactNode } from "react"
 import type { ContractError } from "@forge-go/dashboard-plugin"
 import { Button } from "@forge-go/dashboard-kit/components/button"
 import { Input } from "@forge-go/dashboard-kit/components/input"
@@ -91,6 +91,24 @@ export function pairsToText(m?: Record<string, string>): string {
     .join("\n")
 }
 
+/**
+ * Relay's validation fields, as its Go ValidationError names them, mapped to
+ * the input each one belongs to. A field not listed here marks nothing.
+ */
+const SERVER_FIELDS: Record<string, "tenantId" | "url" | "eventTypes"> = {
+  tenant_id: "tenantId",
+  url: "url",
+  event_types: "eventTypes",
+}
+
+const FIELD_LABELS = {
+  tenantId: "Tenant ID",
+  url: "URL",
+  eventTypes: "Event types",
+}
+
+type ServerFieldKey = (typeof SERVER_FIELDS)[string]
+
 interface FieldProps {
   id: string
   label: string
@@ -147,9 +165,41 @@ export function EndpointForm({
 }: EndpointFormProps) {
   const [values, setValues] = useState(initial)
   const id = useId()
+  // The refusal whose field has since been edited. Compared by identity, so
+  // the next refusal marks its field again even if it names the same one.
+  const [answered, setAnswered] = useState<ContractError | undefined>()
+
+  const rawField = error?.details?.field
+  const refusedField: ServerFieldKey | undefined =
+    typeof rawField === "string" && error !== answered
+      ? SERVER_FIELDS[rawField]
+      : undefined
+  // The alert already names the field, so the copy beside it drops the
+  // "URL: " the message leads with.
+  const refusedMessage =
+    refusedField && error
+      ? error.message.replace(`${FIELD_LABELS[refusedField]}: `, "")
+      : undefined
+  const refusal = (key: ServerFieldKey) =>
+    refusedField === key ? refusedMessage : undefined
+
+  const inputId: Record<ServerFieldKey, string> = {
+    tenantId: `${id}-tenant`,
+    url: `${id}-url`,
+    eventTypes: `${id}-events`,
+  }
+  // Focus moves to the refused field, which scrolls it into view: the
+  // button that sent the form is at its bottom and the alert at its top.
+  const focusTarget = refusedField ? inputId[refusedField] : undefined
+  useEffect(() => {
+    if (focusTarget) document.getElementById(focusTarget)?.focus()
+  }, [error, focusTarget])
+
   const set =
-    (key: keyof EndpointFormValues) => (e: { target: { value: string } }) =>
+    (key: keyof EndpointFormValues) => (e: { target: { value: string } }) => {
+      if (error && key === refusedField) setAnswered(error)
       setValues((v) => ({ ...v, [key]: e.target.value }))
+    }
 
   // Parsed on every render, so the button and the inline errors can never
   // disagree about whether the form is sendable.
@@ -181,22 +231,24 @@ export function EndpointForm({
 
   return (
     <form className="flex max-w-xl flex-col gap-4" onSubmit={submit} noValidate>
-      {/* Relay's validation messages name their field ("URL: invalid URL"),
-          so one alert above the form is enough to say what to fix. */}
+      {/* Relay's messages name their field ("URL: invalid URL"), so the
+          alert reads on its own; the field it names is marked as well. */}
       <CommandAlert error={error} title={errorTitle} />
       {mode === "create" && (
         <Field
           id={`${id}-tenant`}
           label="Tenant ID"
           help="The tenant this endpoint delivers for. It cannot change later."
+          error={refusal("tenantId")}
         >
-          {(d) => (
+          {(d, invalid) => (
             <Input
               id={`${id}-tenant`}
               className="font-mono"
               value={values.tenantId}
               onChange={set("tenantId")}
               aria-describedby={d}
+              aria-invalid={invalid || undefined}
             />
           )}
         </Field>
@@ -205,8 +257,9 @@ export function EndpointForm({
         id={`${id}-url`}
         label="URL"
         help="Where Relay POSTs each delivery."
+        error={refusal("url")}
       >
-        {(d) => (
+        {(d, invalid) => (
           <Input
             id={`${id}-url`}
             type="url"
@@ -214,6 +267,7 @@ export function EndpointForm({
             value={values.url}
             onChange={set("url")}
             aria-describedby={d}
+            aria-invalid={invalid || undefined}
           />
         )}
       </Field>
@@ -237,14 +291,16 @@ export function EndpointForm({
             event, and <code className="font-mono">*</code> matches everything.
           </>
         }
+        error={refusal("eventTypes")}
       >
-        {(d) => (
+        {(d, invalid) => (
           <Textarea
             id={`${id}-events`}
             className="font-mono"
             value={values.eventTypes}
             onChange={set("eventTypes")}
             aria-describedby={d}
+            aria-invalid={invalid || undefined}
           />
         )}
       </Field>

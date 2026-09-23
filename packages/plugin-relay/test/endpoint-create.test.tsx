@@ -169,6 +169,88 @@ describe("RelayEndpointCreatePage", () => {
     )
   })
 
+  // The alert sits at the top of a long form and the button is at the
+  // bottom, so a refusal naming a field also marks that field and moves
+  // focus there, which scrolls it into view.
+  it("marks the field Relay refused, beside it, and focuses it", async () => {
+    renderPage(
+      RelayEndpointCreatePage,
+      commandFailingClient(
+        {},
+        new ContractError("BAD_REQUEST", "URL: invalid URL", { field: "url" })
+      )
+    )
+    fillRequired()
+    fireEvent.click(createButton())
+    await screen.findByRole("alert")
+    const url = screen.getByLabelText("URL")
+    await waitFor(() => expect(url.getAttribute("aria-invalid")).toBe("true"))
+    expect(document.activeElement).toBe(url)
+    // The field's own error drops the label prefix: it sits under the label.
+    const describedBy = (url.getAttribute("aria-describedby") ?? "").split(" ")
+    const texts = describedBy.map(
+      (id) => document.getElementById(id)?.textContent
+    )
+    expect(texts).toContain("invalid URL")
+    // The other fields are not accused of anything.
+    expect(
+      screen.getByLabelText("Tenant ID").getAttribute("aria-invalid")
+    ).toBeNull()
+  })
+
+  it("maps relay's snake_case field names onto the form's inputs", async () => {
+    renderPage(
+      RelayEndpointCreatePage,
+      commandFailingClient(
+        {},
+        new ContractError(
+          "BAD_REQUEST",
+          "Event types: at least one event type pattern required",
+          { field: "event_types" }
+        )
+      )
+    )
+    fillRequired()
+    fireEvent.click(createButton())
+    await screen.findByRole("alert")
+    await waitFor(() =>
+      expect(
+        screen.getByLabelText(/Event types/).getAttribute("aria-invalid")
+      ).toBe("true")
+    )
+  })
+
+  it("stops accusing a field once it has been edited", async () => {
+    renderPage(
+      RelayEndpointCreatePage,
+      commandFailingClient(
+        {},
+        new ContractError("BAD_REQUEST", "URL: invalid URL", { field: "url" })
+      )
+    )
+    fillRequired()
+    fireEvent.click(createButton())
+    const url = screen.getByLabelText("URL")
+    await waitFor(() => expect(url.getAttribute("aria-invalid")).toBe("true"))
+    type("URL", "https://acme.example/hook2")
+    expect(url.getAttribute("aria-invalid")).toBeNull()
+  })
+
+  it("marks no field when the refusal names none", async () => {
+    renderPage(
+      RelayEndpointCreatePage,
+      commandFailingClient({}, new ContractError("INTERNAL", "store down"))
+    )
+    fillRequired()
+    fireEvent.click(createButton())
+    await screen.findByRole("alert")
+    for (const label of ["Tenant ID", "URL"]) {
+      expect(
+        screen.getByLabelText(label).getAttribute("aria-invalid")
+      ).toBeNull()
+    }
+  })
+
   it("shows an example pattern next to the event types field", () => {
     renderPage(RelayEndpointCreatePage, recordingCommandClient({}).client)
     expect(screen.getByText(/invoice\.\*/)).toBeDefined()
