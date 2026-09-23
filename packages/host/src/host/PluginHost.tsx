@@ -670,7 +670,12 @@ export function PluginHost({
           pathname.startsWith(`/${SCOPE_SIGIL}${namespaceOf(s.plugin)}`),
         )
         if (!scope) return to
-        const segment = segmentFromPath(pathname, namespaceOf(scope.plugin))
+        // Only a plugin with a routed path dimension has a context segment
+        // after its namespace. For any other, the first segment is the page
+        // itself, and reading it as context doubled it into the link.
+        const segment = routedPathDimension(scope.plugin)
+          ? segmentFromPath(pathname, namespaceOf(scope.plugin))
+          : undefined
         return `${mountPath(scope.plugin, to, segment)}${search}`
       },
     }),
