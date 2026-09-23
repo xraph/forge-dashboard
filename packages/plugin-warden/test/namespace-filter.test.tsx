@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest"
-import { render, screen } from "@testing-library/react"
+import { fireEvent, render, screen } from "@testing-library/react"
 import { PluginProvider } from "@forge-go/dashboard-plugin"
 import {
   NamespaceCell,
@@ -77,7 +77,11 @@ describe("namespaceOptions", () => {
   })
 })
 
-/** Renders the hook's output so it can be asserted on. */
+/**
+ * Renders the hook's output so it can be asserted on, plus three buttons
+ * that drive `filterConfig.onChange` the way the FilterBar's select would:
+ * one per state the hook distinguishes.
+ */
 function Probe() {
   const { value, filterConfig, param } = useNamespaceFilter()
   return (
@@ -87,6 +91,9 @@ function Probe() {
       <span data-testid="options">
         {filterConfig.options.map((o) => o.label).join("|")}
       </span>
+      <button onClick={() => filterConfig.onChange("all")}>pick-all</button>
+      <button onClick={() => filterConfig.onChange("")}>pick-root</button>
+      <button onClick={() => filterConfig.onChange("eng")}>pick-eng</button>
     </div>
   )
 }
@@ -111,6 +118,40 @@ describe("useNamespaceFilter", () => {
     expect((await screen.findByTestId("options")).textContent).toBe(
       "All namespaces|Tenant root|eng"
     )
+  })
+
+  /**
+   * The hook has no caller yet (the list pages arrive in a later plan), so
+   * this test is the only thing proving `onChange` actually drives `param`
+   * through its three states. "all" must produce an ABSENT field and "" must
+   * produce an empty-string field: a builder that sent "" for "all" would
+   * silently scope every list to the tenant root, and the root usually has
+   * rows, so nobody would notice from the screen.
+   */
+  it("moves param through all, root and a named namespace as onChange fires", async () => {
+    render(
+      <PluginProvider client={stubClient({ "namespaces.list": { namespaces: ["", "eng"] } })}>
+        <Probe />
+      </PluginProvider>
+    )
+    await screen.findByTestId("value")
+    expect(screen.getByTestId("param").textContent).toBe("{}")
+
+    fireEvent.click(screen.getByText("pick-root"))
+    expect(screen.getByTestId("value").textContent).toBe("")
+    expect(screen.getByTestId("param").textContent).toBe(
+      JSON.stringify({ namespacePath: "" })
+    )
+
+    fireEvent.click(screen.getByText("pick-eng"))
+    expect(screen.getByTestId("value").textContent).toBe("eng")
+    expect(screen.getByTestId("param").textContent).toBe(
+      JSON.stringify({ namespacePath: "eng" })
+    )
+
+    fireEvent.click(screen.getByText("pick-all"))
+    expect(screen.getByTestId("value").textContent).toBe("all")
+    expect(screen.getByTestId("param").textContent).toBe("{}")
   })
 
   it("still filters when the namespace list cannot be read", async () => {
