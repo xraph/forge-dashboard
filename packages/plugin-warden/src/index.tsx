@@ -6,12 +6,14 @@ import {
 } from "@forge-go/dashboard-kit/icons"
 import { WardenConfigPage } from "./pages/config"
 import { WardenOverviewPage } from "./pages/overview"
+import { WardenRoleDetailPage } from "./pages/role-detail"
 import { WardenRolesPage } from "./pages/roles"
 
 export type { ConfigDetail } from "./pages/config"
 export type { OverviewStats, RecentChecks, CheckSummary } from "./pages/overview"
 export type { RoleSummary, RolesList, AckResponse } from "./pages/roles"
-export { WardenConfigPage, WardenOverviewPage, WardenRolesPage }
+export type { RoleDetail, PermissionSummary } from "./pages/role-detail"
+export { WardenConfigPage, WardenOverviewPage, WardenRolesPage, WardenRoleDetailPage }
 export { NamespaceCell, useNamespaceFilter, namespaceParam } from "./components/namespace-filter"
 export type { NamespaceValue } from "./components/namespace-filter"
 
@@ -63,6 +65,9 @@ export const wardenPlugin = definePlugin({
   routes: [
     { path: "/", element: WardenOverviewPage },
     { path: "/roles", element: WardenRolesPage },
+    // No nav entry: a sidebar link to "a role" with no role chosen points
+    // nowhere. This route is reached only from a row's Details link.
+    { path: "/roles/:id", element: WardenRoleDetailPage },
     { path: "/config", element: WardenConfigPage },
   ],
 })
