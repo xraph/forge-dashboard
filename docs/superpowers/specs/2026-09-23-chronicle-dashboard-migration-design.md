@@ -181,14 +181,26 @@ finding. This spec adds the capability. See "Two domain additions".
 
 ## The Go half
 
-### Phase 0, the version gate
+### Phase 0, the version bump
 
-Chronicle is on `forge v1.9.13`. Authsome is on `v1.11.1`, and
-`extensions/dashboard/contract` lives in the main forge module, so you cannot
-import the dispatcher or the loader until chronicle catches up. Bump it to
-v1.11.1 or later before anything else. Two minors is enough to ripple through a
-295-file module, and if it does, you want to find that out on its own commit
-with nothing else in flight rather than tangled up with a new contract package.
+Chronicle is on `forge v1.9.13` and authsome is on `v1.11.1`.
+
+This was written up as a gate and it is not one. Checking the module cache
+rather than inferring from the version numbers, v1.9.13 already ships
+`extensions/dashboard/contract` along with its `dispatcher` and `loader`
+subpackages, and `RegisterQuery` has a byte-identical signature in both. So
+the contract package would compile against the version chronicle already has.
+
+Bump anyway, for a different and smaller reason. `extensions/auth` is a
+separate module with its own version line, it shares types with the main
+module, and running it a release behind gives you two versions of the same
+types in one build. Moving both to v1.11.1 also puts chronicle on the version
+authsome's contract contributor is known to work against, which is worth
+having when something later misbehaves and you want one less variable.
+
+Do it on its own commit regardless. Two minors across a 295-file module can
+ripple, and finding that out with nothing else in flight is cheaper than
+finding it out tangled up with a new package.
 
 ### Two domain additions
 

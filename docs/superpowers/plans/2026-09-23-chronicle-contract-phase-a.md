@@ -107,10 +107,14 @@ import (
 )
 ```
 
-- [ ] **Step 2: Run it to verify it fails**
+- [ ] **Step 2: Run it and record what actually happens**
 
 Run: `go build ./extension/contract/`
-Expected: FAIL, `no required module provides package github.com/xraph/forge/extensions/dashboard/contract` (forge is at v1.9.13, which predates it).
+
+This was written expecting a failure and it does not fail. v1.9.13 already
+ships all three packages. Record the actual result in your report and carry on
+with the bump: it is justified by the `extensions/auth` module sharing types
+with the main module, not by resolvability.
 
 - [ ] **Step 3: Bump forge**
 
