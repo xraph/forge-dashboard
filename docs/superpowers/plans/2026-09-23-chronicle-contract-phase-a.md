@@ -226,6 +226,43 @@ and add both to `groupByColumns`, mapping to the timestamp column:
 	"hour": "timestamp",
 ```
 
+Both bucket fields map to the SAME column, which creates a problem Tasks 3 to
+6 depend on you solving here. `ResolveGroupBy` returns columns, so a backend
+handed `["timestamp"]` cannot tell whether `day` or `hour` was asked for.
+
+What saves it is the ordering guarantee already in `ResolveGroupBy`'s doc
+comment: it returns columns "in the order requested" and rejects duplicates,
+so `fields[i]` and `columns[i]` correspond exactly. Backends recover the field
+name by zipping `q.GroupBy[i]` with `columns[i]`.
+
+That promise was prose nobody depended on. It is now load-bearing for four
+backends, so pin it:
+
+```go
+func TestResolveGroupByPreservesRequestOrder(t *testing.T) {
+	// Tasks 3 to 6 zip the returned columns against the requested fields to
+	// recover which bucket unit was asked for, because "day" and "hour" share
+	// the "timestamp" column. That zip is only valid if order is preserved
+	// one-for-one, so this test is what makes it safe to rely on.
+	fields := []string{"category", "day", "outcome"}
+	cols, err := ResolveGroupBy(fields)
+	if err != nil {
+		t.Fatalf("ResolveGroupBy: %v", err)
+	}
+	if len(cols) != len(fields) {
+		t.Fatalf("got %d columns for %d fields; the zip in every backend assumes one-for-one",
+			len(cols), len(fields))
+	}
+	if cols[0] != "category" || cols[1] != "timestamp" || cols[2] != "outcome" {
+		t.Fatalf("columns = %v, want [category timestamp outcome] in request order", cols)
+	}
+}
+```
+
+Do NOT change `ResolveGroupBy`'s signature to return pairs. It has four
+existing backend callers and widening the return type to avoid one zip breaks
+all of them for no gain.
+
 Then extend the `switch` around line 84 so a resolved bucket field assigns to `Bucket`:
 
 ```go
@@ -637,6 +674,7 @@ This is the task that matters most. `scope.go` is the security boundary for ever
   - `viewScope{AppID, TenantID string}`
   - `scopeFromPrincipal(p contract.Principal) (viewScope, error)`
   - `(viewScope) owns(appID, tenantID string) bool`
+  - `(viewScope) applyQuery(q *audit.Query) *audit.Query` — stamps the viewer's scope onto an event query. Task 10 consumes this.
   - `tenantFromClaims(p contract.Principal) (string, error)`
   - `StreamSummary{ID, AppID, TenantID, HeadHash string; HeadSeq uint64; Scheme string; SchemeSince uint64; CoverageCeiling string; LatestCheckpoint *CheckpointSummary; CheckpointingConfigured bool}`
   - `CheckpointSummary{ID string; FromSeq, ToSeq uint64; EventCount int64; CreatedAt string; SignKeyID string}`. Defined HERE, in `project.go`, not in Task 9, because `StreamSummary` embeds it. Task 9 reuses this exact type and must not declare a second one.
@@ -1074,7 +1112,23 @@ func TestEveryCommandDeclaresInvalidations(t *testing.T) {
 }
 ```
 
-`newTestDispatcher`, `dispatcherIntents` and `newStubStore` do not exist yet. Write them in `extension/contract/helpers_test.go`. For `dispatcherIntents`, read the `dispatcher` package to find how to enumerate what is registered; if it exposes nothing, track registrations through a small test double instead of reaching into its internals. `newStubStore` returns a `store.Store` whose methods return zero values, which is enough for registration.
+Write ALL of the shared test helpers in `extension/contract/helpers_test.go`,
+not just the three this test uses. Every later task's tests depend on them and
+this is the one place they are defined:
+
+- `newTestDispatcher(t)` — a dispatcher to register against
+- `dispatcherIntents(t, d, contributor)` — the set of registered intent names
+- `newStubStore()` — a `store.Store` whose methods return zero values
+- `storeReturning(err)` — a `store.Store` whose reads return that error, used
+  by this task's no-chain test and by Task 8's
+- `stubCheckpointStore{}` and `stubSigner{}` — used by this task's coverage
+  ceiling test and by Task 9's
+- `principalWith(claims)` — move it here from `scope_test.go`, so later tasks
+  have one place to look for it
+
+Later tasks add their own spies under task-specific names and must not
+redefine any of these. Two definitions of the same helper in one package is a
+compile error, so the first `go build` will tell you. For `dispatcherIntents`, read the `dispatcher` package to find how to enumerate what is registered; if it exposes nothing, track registrations through a small test double instead of reaching into its internals. `newStubStore` returns a `store.Store` whose methods return zero values, which is enough for registration.
 
 - [ ] **Step 8: Write the streams handlers**
 
@@ -1685,7 +1739,8 @@ git commit -m "feat(contract): add the checkpoint intents"
 
 **Interfaces:**
 - Consumes: `viewScope`, `scopeFromPrincipal`, `applyQuery`, `mapStoreError` (Task 7).
-- Produces: `EventSummary`, `EventDetail`, `EventListInput`, `EventListResponse{Events []EventSummary, Total int64, HasMore bool}`, `AggregateInput`, `AggregateResponse`.
+- Produces: `EventSummary`, `EventDetail`, `EventListInput`, `EventListResponse{Events []EventSummary, Total int64, HasMore bool}`, `AggregateInput{After, Before string; GroupBy []string}`, `AggregateResponse{Groups []AggregateGroupDTO, Total int64}`, and
+  `AggregateGroupDTO{Bucket, Category, Action, Outcome, Severity, Resource string; Count int64}`. Tasks 11 and 13 consume that last type, so define it here and do not declare a second one.
 
 - [ ] **Step 1: Add the intents**
 
@@ -2090,7 +2145,10 @@ Seven intents, and the one that permanently deletes audit history.
 
 **Interfaces:**
 - Consumes: `viewScope`, `scopeFromPrincipal`, `mapStoreError` (Task 7).
-- Produces: `PolicySummary`, `SavePolicyInput{ID *string, Category *string, Duration *string, Archive *bool}`, `RetentionPreviewResponse{EventCount int64, Oldest, Newest string, ByCategory []AggregateGroupDTO}`, `EnforceResponse`, `ArchiveSummary`.
+- Produces: `PolicySummary`, `SavePolicyInput{ID *string, Category *string, Duration *string, Archive *bool}`, `RetentionPreviewResponse{EventCount int64, Oldest, Newest string, ByCategory []AggregateGroupDTO, NoPolicies bool}`, `EnforceResponse`, `ArchiveSummary`.
+  `NoPolicies` exists because zero-because-nothing-is-configured and
+  zero-because-nothing-is-old-enough are different answers, and the spec's
+  empty-state rule requires the page to tell them apart.
 
 - [ ] **Step 1: Add the intents**
 
