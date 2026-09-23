@@ -292,20 +292,14 @@ mapped, and colour alone is the scan signal:
 
 `destructive` is rare and it is what you are looking for at 2am.
 
-This diverges from the playbook's table on two rows, and deliberately. That
-table lists `delivered` as an example of `default`, the affirmative variant,
-and would put `retrying` under `secondary`. It also says `outline` is for the
-state most rows are in. On a delivery log those two instructions point in
-opposite directions, because the state most rows are in *is* delivered, and
-usually by a very long way. Give a solid filled badge to ninety-five percent of
-a page and the colour has stopped signalling anything at all.
-
-So the mapping above ramps by visual weight instead of by semantic category:
-`outline` for the majority that should recede, then `secondary`, then
-`default`, then `destructive` for the row you came to find. Weight tracks how
-much a row should interrupt you, which is the axis that matters on a log. The
-playbook already asks for exactly this, a considered mapping written down with
-its reasons, whenever a domain carries more states than the table anticipates.
+The ramp goes by proportion, not by meaning, which is the playbook's fifth
+convention. Whatever state holds most of the rows takes `outline` whatever it
+signifies, and the rest climb by how much a row should interrupt somebody
+scanning. On a delivery log the majority state is `delivered`, so the healthy
+outcome takes the quietest variant. That reads wrong for about a second, until
+you remember what the page is for: nobody opens a delivery log to count
+successes, and a solid filled badge on ninety-five percent of the rows is not a
+signal, it is a background.
 
 ### The delivery log
 
