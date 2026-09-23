@@ -38,7 +38,7 @@ Six things the spec implies, that no task's happy-path tests would catch, ordere
 ### Task 1: `EvaluateDetail` on the flag engine
 
 **Files:**
-- Modify: `flag/engine.go`
+- Modify: `flag/engine.go`, `store/memory/store.go:309`
 - Test: `flag/engine_detail_test.go` (create)
 
 **Interfaces:**
@@ -444,20 +444,70 @@ func ruleNote(rule *Rule, flagKey, tenantID, userID string) string {
 
 Add `"fmt"` to `flag/engine.go`'s imports.
 
-- [ ] **Step 6: Run the tests to verify they pass**
+- [ ] **Step 6: Fix the memory store so rules actually arrive in priority order**
 
-Run: `go test ./flag/ -v`
+The engine's contract is that rules evaluate in priority order, and it relies
+entirely on the store returning them sorted. `store/postgres/flag.go:168`
+orders by `priority ASC`. `store/memory/store.go:309` does not: it returns
+insertion order. So the contract holds against SQL and not against the memory
+store, which is where every engine test runs. A trace is only as ordered as
+its input.
+
+Add this test to `flag/engine_detail_test.go`:
+
+```go
+func TestRulesEvaluateInPriorityOrderNotInsertionOrder(t *testing.T) {
+	s := memory.New()
+	defineFlag(t, s, "f", "default", true)
+
+	// Inserted worst-priority first, on purpose.
+	low := flag.WhenTenant("t-1").Return("low")
+	low.Priority = 10
+	high := flag.WhenTenant("t-1").Return("high")
+	high.Priority = 0
+	setRules(t, s, "f", low, high)
+
+	e := flag.NewEngine(s)
+	d, err := e.EvaluateDetail(withTenant("t-1"), "f", testApp)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if d.Value != "high" {
+		t.Errorf("got %v, want \"high\"; priority 0 must win over priority 10 regardless of insertion order", d.Value)
+	}
+	if len(d.Trace) == 0 || d.Trace[0].Priority != 0 {
+		t.Errorf("trace starts at priority %v, want 0", d.Trace)
+	}
+}
+```
+
+Then sort in `store/memory/store.go`, inside `GetFlagRules`, after the copy
+loop and before the return:
+
+```go
+	// Priority order is the engine's evaluation order, and the SQL backends
+	// return it sorted (store/postgres/flag.go orders by priority ASC).
+	// Returning insertion order here would make every in-memory test
+	// disagree with production about which rule wins.
+	sort.SliceStable(result, func(i, j int) bool { return result[i].Priority < result[j].Priority })
+```
+
+`sort` is already imported in that file.
+
+- [ ] **Step 7: Run the tests to verify they pass**
+
+Run: `go test ./flag/ ./store/memory/ -v`
 Expected: PASS, including every pre-existing test in `engine_test.go` and `cache_test.go`. The cache tests are the ones that prove `Evaluate` kept its behaviour.
 
-- [ ] **Step 7: Run the full build and suite**
+- [ ] **Step 8: Run the full build and suite**
 
 Run: `go build ./... && go test ./...`
 Expected: PASS.
 
-- [ ] **Step 8: Commit**
+- [ ] **Step 9: Commit**
 
 ```bash
-git add flag/engine.go flag/engine_detail_test.go
+git add flag/engine.go flag/engine_detail_test.go store/memory/store.go
 git commit -m "feat(flag): explain an evaluation with EvaluateDetail
 
 Evaluate returned a bare value, so nothing could answer why a flag came
@@ -472,7 +522,11 @@ EvaluateDetail always bypasses the cache, since a cached answer is the
 wrong answer to a debugging question.
 
 RolloutBucket is exported so a trace can quote the same bucket the
-verdict used instead of recomputing it."
+verdict used instead of recomputing it.
+
+The memory store returned rules in insertion order while the SQL
+backends order by priority, so the engine's stated evaluation order
+held in production and not in any test that used it. It sorts now."
 ```
 
 ---
@@ -1875,13 +1929,28 @@ Expected: PASS, all eight tests including the two Review Focus cases and the aud
 
 - [ ] **Step 6: Run the full build, suite and linter**
 
+`extension/extension.go` still calls `vault.NewVault`, which Step 3 deleted, so the build fails there until it is updated. The Global Constraints say the tree builds at the end of every task, so fix the call site here, minimally:
+
+```go
+	if e.store != nil {
+		e.vaultOpts = append(e.vaultOpts, vault.WithStore(e.store))
+	}
+	v, err := vault.New(e.vaultOpts...)
+	if err != nil {
+		return fmt.Errorf("vault: %w", err)
+	}
+	e.v = v
+```
+
+Nothing else in that file changes here. Task 7 owns the option-ordering fix, the startup warning and the test.
+
 Run: `go build ./... && go test ./... && golangci-lint run ./...`
-Expected: all clean. `extension/extension.go` still calls `vault.NewVault`, which Step 3 deleted, so the build will fail there. That is Task 7's job; if you want a green tree at this commit, do Task 7 before committing and combine the two. Otherwise expect this one failure and only this one.
+Expected: all clean.
 
 - [ ] **Step 7: Commit**
 
 ```bash
-git add vault.go options.go vault_test.go
+git add vault.go options.go vault_test.go extension/extension.go
 git commit -m "feat: build the Vault the package has always documented
 
 doc.go has described vault.New with Secrets, Flags and Config accessors
@@ -1948,32 +2017,15 @@ func TestComposedVaultFromAStoreHasEverySubsystem(t *testing.T) {
 - [ ] **Step 2: Run the build to see the real failure**
 
 Run: `go build ./...`
-Expected: FAIL in `extension/extension.go` with `undefined: vault.NewVault`, because Task 6 deleted it.
+Expected: the build PASSES (Task 6 already repointed the call site) and the new test fails only if a subsystem is nil. If the build fails here, Task 6 was left incomplete; fix that first.
 
 - [ ] **Step 3: Rewire the constructor**
 
-In `extension/extension.go`, find the block that reads:
+Task 6 already replaced `vault.NewVault` with `vault.New` here. This task finishes the job.
+
+Add the startup warning immediately after `e.v = v`:
 
 ```go
-	v := vault.NewVault(e.vaultOpts...)
-	e.v = v
-```
-
-Replace it with:
-
-```go
-	// The store has to reach New as an option now: a Vault composes its
-	// services at construction and cannot do that without one.
-	if e.store != nil {
-		e.vaultOpts = append(e.vaultOpts, vault.WithStore(e.store))
-	}
-
-	v, err := vault.New(e.vaultOpts...)
-	if err != nil {
-		return fmt.Errorf("vault: %w", err)
-	}
-	e.v = v
-
 	if !v.EncryptionEnabled() {
 		e.Logger().Warn("vault: no encryption key configured; secrets are stored unencrypted",
 			forge.F("encryption_key_env", e.config.EncryptionKeyEnv),
@@ -1981,9 +2033,16 @@ Replace it with:
 	}
 ```
 
-`fmt` is already imported in that file.
+Storing secrets in the clear should be visible to whoever reads the logs, not only to whoever reads the config. It is a warning and not an error because the fallback is the documented behaviour and a deployment may rely on it.
 
-The `vault.WithConfig(...)` option that the surrounding code appends when `FlagCacheTTL != 0` overwrites the whole `Config`, including any `EncryptionKey` set earlier. Move the `WithStore` append to after every other option so a later `WithConfig` cannot clobber it, and check whether that `WithConfig` branch should be setting individual fields instead. If it should, change it to append `WithAppID`, `WithEncryptionKeyEnv` and a new option per duration rather than replacing `Config` wholesale.
+Then fix the option ordering. The surrounding code appends `vault.WithConfig(...)` when `FlagCacheTTL != 0`, and that option replaces the whole `Config` struct, discarding any `EncryptionKey` an earlier option set. Two things follow:
+
+- Move the `WithStore` append so it runs after every other option, so a later `WithConfig` cannot clobber the store.
+- Change that `WithConfig` branch to set individual fields rather than replacing `Config` wholesale. Append `WithAppID` and `WithEncryptionKeyEnv` and add the two duration options it needs, instead of one option that overwrites everything.
+
+If adding per-field duration options is larger than it looks, the smaller correct fix is to have the `WithConfig` branch carry `EncryptionKey: e.config.EncryptionKey` through explicitly. Either is acceptable; silently dropping a configured key is not.
+
+`fmt` is already imported in that file.
 
 - [ ] **Step 4: Run the test and build**
 

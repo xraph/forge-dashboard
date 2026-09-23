@@ -607,3 +607,64 @@ carries no Node types and such a test passes vitest while failing typecheck.
 Finally, run it: fixture server and shell up, every page opened and clicked
 through. Every serious bug in the authsome migration was found that way and not
 by a test.
+
+## What slice 1 found that slice 2 must know
+
+Slice 1, the Go core, landed on vault's `main` as fifteen commits from
+`90a6f4b` to `4c00fed`. Building it turned up facts that change how the
+contract handlers have to be written. They are recorded here because the
+execution ledger that first held them does not outlive the slice.
+
+**Tenant context keys do not match.** `scope.ContextKey`, `flag.ContextKey`
+and `override.contextKey` are three different Go types that share the string
+value `"vault.tenant_id"`. Go matches a context key by type as well as value,
+so a tenant set with `scope.WithTenantID` is invisible to the flag engine and
+to the override resolver, despite what the comment in `scope/scope.go` says.
+Every handler that evaluates a flag or resolves config for a tenant must put
+the tenant on the context with `flag.ContextKeyTenantID` and
+`override.ContextKeyTenantID`, or the key types must be unified first. A
+handler written the obvious way returns the app default for every tenant and
+no test on a single tenant will notice.
+
+**The audit logger reads scope keys.** `audit.Logger.LogAccess` takes its app,
+tenant and user from `scope.FromContext`. So audit attribution uses the scope
+keys while evaluation uses the flag and override keys. A handler that sets one
+kind and not the other gets correct audit rows for the wrong evaluation, or the
+reverse.
+
+**A flag change reaches the SDK only after the cache TTL.** The engine never
+calls its cache's invalidate. A dashboard toggle takes effect for
+`Flags().Bool` callers up to 30 seconds later. `flags.evaluate` uses
+`EvaluateDetail`, which bypasses the cache, so the dashboard shows the new
+answer immediately while applications still serve the old one. The evaluate
+surface should say so rather than imply the change is already live everywhere.
+
+**The flag cache never evicts.** Its key now includes app, tenant and user,
+which closed a bleed where one user's rule result was served to another. The
+cost is one entry per flag, tenant and user, kept forever. This needs an expiry
+sweep or a size cap before a deployment with many users, and it is the one
+residual from slice 1 that is load-bearing.
+
+**confy reads the raw store.** `confy/provider.go` and `confy/source.go`
+return `sec.Value` straight from the store. No real backend populates `Value`,
+so confy's secret provider returns an empty string for every secret on
+postgres, sqlite and mongo, encrypted or not. The in-memory store keeps
+`Value`, which is why confy's tests pass. The fix is for confy to read through
+`secret.Service`, which changes its constructor.
+
+**Version rows have no algorithm of their own.** `GetVersion` applies the
+secret's current `EncryptionAlg` to every version. If a secret's history spans
+a change of key configuration, an older version can fail to read, or in one
+case (a lost key followed by a keyless rewrite) come back as ciphertext with no
+error. The dashboard is write-only and never reads versions, so this does not
+block slice 2, but no surface may show a version's value.
+
+**What slice 2 can rely on.** `vault.New` composes every service, and
+`WithConfig` now overlays rather than replaces. `EvaluateDetail` returns a
+reason, the matched rule and a trace that is never null, and
+`RolloutBucket` gives the exact bucket. `RotatorKeys` says which secrets are
+rotatable. There are six `Count` methods, and an empty app id matches only
+empty-scoped rows on every backend. `secret.Meta.EncryptionAlg` reports each
+row's own state, and empty means not encrypted. `Get` reads correctly whatever
+key a row was written with, and an encrypted row with no key is an error rather
+than an empty value.
