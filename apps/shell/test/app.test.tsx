@@ -4,6 +4,7 @@ import type {
   Capabilities,
   ContributorCapability,
 } from "@forge-go/dashboard-plugin"
+import { ThemeProvider } from "../src/components/theme-provider"
 
 // jsdom ships no matchMedia, and the kit's sidebar reads it through
 // useIsMobile on every mount.
@@ -301,6 +302,77 @@ describe("App at a non-default mount", () => {
     expect(
       within(authHeader).getByRole("link", { name: "Overview" })
     ).toBeTruthy()
+  })
+})
+
+describe("relay in the shell", () => {
+  it("mounts at @relay, lists its endpoints, and reads them from the relay contributor", async () => {
+    const intents: string[] = []
+    const base = serverFetch([
+      { name: "core-contract", envelopes: ["v1"], configured: true },
+      { name: "relay", envelopes: ["v1"], configured: true },
+    ])
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+        if (String(input) === CONTRACT_BASE && init?.body) {
+          const req = JSON.parse(String(init.body)) as {
+            contributor?: string
+            intent?: string
+          }
+          if (req.contributor === "relay") {
+            intents.push(req.intent ?? "")
+            return jsonOk({
+              ok: true,
+              data: {
+                endpoints: [
+                  {
+                    id: "ep_01hq2k3m4n5p6q7r8s9t0v1w2x",
+                    tenantId: "acme",
+                    url: "https://acme.example/hook",
+                    eventTypes: ["invoice.*"],
+                    enabled: true,
+                    rateLimit: 0,
+                    signed: true,
+                    createdAt: "2026-09-01T00:00:00Z",
+                    updatedAt: "2026-09-01T00:00:00Z",
+                  },
+                ],
+              },
+            })
+          }
+        }
+        return base(input, init)
+      })
+    )
+
+    window.history.replaceState({}, "", `${SHELL_BASE}/@relay/endpoints`)
+    // Wrapped here because App reads useTheme. The older tests in this file
+    // render App bare and fail on main for that reason; this one should not
+    // depend on how that gets fixed.
+    const relay = render(
+      <ThemeProvider>
+        <App />
+      </ThemeProvider>
+    )
+    const nav = await waitFor(() => {
+      const el = relay.container.querySelector('[data-slot="sidebar-content"]')
+      if (!el) throw new Error("sidebar-content not rendered yet")
+      return el as HTMLElement
+    })
+    await within(nav).findByRole("link", { name: "Endpoints" })
+    const links = within(nav).getAllByRole("link")
+    expect(links.map((a) => a.getAttribute("href"))).toEqual([
+      "/dashboard/ui/@relay/endpoints",
+    ])
+    // The row's link goes to the detail page inside the same scope.
+    const row = await screen.findByRole("link", {
+      name: "https://acme.example/hook",
+    })
+    expect(row.getAttribute("href")).toBe(
+      "/dashboard/ui/@relay/endpoints/ep_01hq2k3m4n5p6q7r8s9t0v1w2x"
+    )
+    expect(intents).toContain("endpoints.list")
   })
 })
 

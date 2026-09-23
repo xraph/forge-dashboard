@@ -169,6 +169,9 @@ importers:
       '@forge-go/dashboard-plugin-core':
         specifier: workspace:*
         version: link:../../packages/plugin-core
+      '@forge-go/dashboard-plugin-relay':
+        specifier: workspace:*
+        version: link:../../packages/plugin-relay
       '@forge-go/dashboard-plugin-streaming':
         specifier: workspace:*
         version: link:../../packages/plugin-streaming
