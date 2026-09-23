@@ -53,6 +53,20 @@ function purgeSummary(r: MaintenanceResult): string {
   return `Maintenance ran. Purged ${parts.join(" and ")}.`
 }
 
+/**
+ * The clear-cache command answers with the scope it actually cleared, and
+ * this page only ever sends the tenant-wide flush, but the sentence still
+ * names what happened rather than saying "done": that field exists on the
+ * wire specifically so an operator reads what was cleared, not just that
+ * something was.
+ */
+function clearSummary(r: { scope: string }): string {
+  if (r.scope === "subject") {
+    return "Cleared the decision cache for one subject."
+  }
+  return "Cleared the decision cache for this tenant."
+}
+
 function ModelBadge({ label, on }: { label: string; on: boolean }) {
   // Most engines run with all three models on, so enabled is the majority
   // state and takes outline. A disabled model is the thing somebody scanning
@@ -73,6 +87,7 @@ export function WardenConfigPage() {
   const [confirmingRun, setConfirmingRun] = useState(false)
   const [confirmingClear, setConfirmingClear] = useState(false)
   const [runResult, setRunResult] = useState<MaintenanceResult | null>(null)
+  const [clearResult, setClearResult] = useState<{ scope: string } | null>(null)
 
   async function doRun() {
     const result = await runMaintenance.execute({})
@@ -89,6 +104,7 @@ export function WardenConfigPage() {
     // than the tenant-wide flush this button means.
     const result = await clearCache.execute({})
     if (result === undefined) return
+    setClearResult(result)
     setConfirmingClear(false)
   }
 
@@ -114,7 +130,11 @@ export function WardenConfigPage() {
             <Button
               variant="outline"
               onClick={() => {
+                // Same reasoning as the run-maintenance button above: reset
+                // at open, so a result from a previous clear is not read as
+                // belonging to this one.
                 clearCache.reset()
+                setClearResult(null)
                 setConfirmingClear(true)
               }}
             >
@@ -125,6 +145,7 @@ export function WardenConfigPage() {
       />
 
       {runResult && <Alert>{purgeSummary(runResult)}</Alert>}
+      {clearResult && <Alert>{clearSummary(clearResult)}</Alert>}
 
       <QueryBoundary title="Config" query={config} skeletonRows={4}>
         {(c) => (

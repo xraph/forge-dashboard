@@ -106,4 +106,23 @@ describe("WardenConfigPage", () => {
     // either field would be a BAD_REQUEST rather than a tenant flush.
     expect(sent[0].payload).toEqual({})
   })
+
+  /**
+   * The contract returns the scope it cleared specifically so the operator
+   * reads what happened rather than a bare "done". This button only ever
+   * sends the tenant-wide flush, so the message it shows on success names
+   * the tenant.
+   */
+  it("reports the tenant scope after clearing the cache", async () => {
+    const { client } = recordingCommandClient(
+      { "config.detail": CONFIG },
+      { "maintenance.cacheInvalidate": { scope: "tenant" } }
+    )
+    renderPage(WardenConfigPage, client)
+
+    fireEvent.click(await screen.findByRole("button", { name: /clear cache/i }))
+    fireEvent.click(await screen.findByRole("button", { name: /^clear$/i }))
+
+    expect(await screen.findByText(/cleared the decision cache for this tenant/i)).toBeTruthy()
+  })
 })
