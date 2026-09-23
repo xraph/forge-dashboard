@@ -1,5 +1,6 @@
 import { useQuery } from "@forge-go/dashboard-plugin"
 import { Badge } from "@forge-go/dashboard-kit/components/badge"
+import { NoneCell } from "@forge-go/dashboard-kit/components/none-cell"
 import { PageHeader } from "@forge-go/dashboard-kit/components/page-header"
 import { QueryBoundary } from "@forge-go/dashboard-kit/components/query-boundary"
 import {
@@ -86,11 +87,35 @@ export function WardenOverviewPage() {
       cell: (c) => <Badge variant={decisionVariant(c.decision)}>{c.decision}</Badge>,
     },
     {
+      id: "detail",
+      header: "Detail",
+      // The bar is "every failure is visible to a person": an error badge
+      // that does not say what happened is half of that. `error` always
+      // wins when present, because it is the one state that interrupts;
+      // `reason` explains an ordinary deny; a row with neither (a plain
+      // allow, most of them) means none.
+      cell: (c) =>
+        c.error ? (
+          <span className="text-destructive">{c.error}</span>
+        ) : c.reason ? (
+          <span className="text-muted-foreground">{c.reason}</span>
+        ) : (
+          <NoneCell label="detail" />
+        ),
+    },
+    {
       id: "cached",
       header: "Cached",
-      // A cached row is the most common real answer to "why did my
-      // permission change not take effect", and nothing surfaced it before.
-      cell: (c) => (c.cached ? <Badge variant="secondary">cached</Badge> : null),
+      // Most checks are not cached, so "not cached" is the majority and
+      // takes `outline`; `cached` is the minority worth the stronger signal,
+      // since it is the most common real answer to "why did my permission
+      // change not take effect". Never a blank cell for either state, per
+      // this table's own convention (see `devices.tsx`'s trusted column).
+      cell: (c) => (
+        <Badge variant={c.cached ? "secondary" : "outline"}>
+          {c.cached ? "cached" : "not cached"}
+        </Badge>
+      ),
     },
     {
       id: "createdAt",

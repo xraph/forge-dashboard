@@ -42,6 +42,33 @@ const CHECKS = {
       error: "store unavailable",
       createdAt: "2026-09-23T10:01:00Z",
     },
+    {
+      id: "chk_01c",
+      namespacePath: "",
+      subjectKind: "user",
+      subjectId: "dave",
+      action: "delete",
+      resourceType: "document",
+      resourceId: "readme",
+      decision: "deny_explicit",
+      reason: 'denied by policy "contractor-lockout"',
+      evalTimeNs: 902_000,
+      cached: false,
+      createdAt: "2026-09-23T10:02:00Z",
+    },
+    {
+      id: "chk_01d",
+      namespacePath: "",
+      subjectKind: "user",
+      subjectId: "alice",
+      action: "read",
+      resourceType: "document",
+      resourceId: "readme",
+      decision: "allow",
+      evalTimeNs: 1_800,
+      cached: true,
+      createdAt: "2026-09-23T10:03:00Z",
+    },
   ],
 }
 
@@ -72,7 +99,34 @@ describe("WardenOverviewPage", () => {
 
   it("carries a live row count on the recent checks caption", async () => {
     renderPage(WardenOverviewPage, client())
-    expect(await screen.findByText(/2 checks/)).toBeTruthy()
+    expect(await screen.findByText(/4 checks/)).toBeTruthy()
+  })
+
+  it("shows what went wrong on an errored check, not just that one did", async () => {
+    renderPage(WardenOverviewPage, client())
+    // The badge alone ("error") only says something failed; the sentence
+    // is what makes the failure visible to a person, per the spec's bar.
+    expect(await screen.findByText("store unavailable")).toBeTruthy()
+  })
+
+  it("shows the deny reason on an explicit-deny check", async () => {
+    renderPage(WardenOverviewPage, client())
+    expect(
+      await screen.findByText('denied by policy "contractor-lockout"')
+    ).toBeTruthy()
+  })
+
+  it("says none rather than leaving the detail cell blank on a plain allow", async () => {
+    renderPage(WardenOverviewPage, client())
+    const noneCells = await screen.findAllByLabelText("no detail")
+    expect(noneCells.length).toBeGreaterThan(0)
+  })
+
+  it("badges both cached and not-cached rows, never a blank cell", async () => {
+    renderPage(WardenOverviewPage, client())
+    expect(await screen.findByText("cached")).toBeTruthy()
+    // Uncached is the majority state, so more than one row carries it here.
+    expect(screen.getAllByText("not cached").length).toBeGreaterThan(0)
   })
 
   it("says which kind of empty an empty check list is", async () => {
