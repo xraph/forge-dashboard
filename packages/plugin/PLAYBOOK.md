@@ -263,6 +263,83 @@ builds empty structs is the same class of problem as a fixture that accepts a
 write and changes nothing: it passes, and it is testing the absence of your
 feature.
 
+## Your dashboard inherits the extension's correctness
+
+Before you build anything, find out what the extension's own tests cover. Your
+plugin will be well tested, because this playbook insists on it, and that
+counts for nothing if the thing underneath it has never been checked.
+
+Ledger is the case. The repo has three test files: ids, a money type, and a
+docs test. There are no tests on the engine, none on any of the four store
+backends, and none on invoice generation. Its own implementation plan targets
+eighty to ninety percent coverage, and the phase that computes money is
+entirely unchecked boxes. A billing dashboard sitting on that is displaying
+numbers nobody has verified, confidently, in the place where being wrong costs
+the most.
+
+That does not mean stop. It means three things.
+
+**Test what you add, properly, including the Go you write.** New pure functions
+and at least one real store backend. You are adding to the foundation, so add
+something sound.
+
+**Say what you did not cover, in the extension's `MIGRATION.md`, in plain
+words.** "The three SQL and document backends get compile-time conformance
+only" is worth more than silence, and far more than a green test badge that
+implies a coverage nobody has. Ledger's session wrote exactly that and it is
+the right instinct.
+
+**Do not let your own coverage imply the stack's.** A plugin package at a
+hundred percent, sitting on an engine at zero, produces a dashboard that looks
+trustworthy for reasons that have nothing to do with whether its numbers are
+right.
+
+There is also no harness to borrow when this is the situation, so budget for
+building one rather than discovering it halfway through. And if the gap is
+severe enough, which for money it is, say so to whoever owns the extension
+rather than only recording it. That conversation outranks the migration.
+
+## Never render an absence as a pass
+
+The sharpest failure in this batch is not a bug in a write path. It is a
+dashboard truthfully reporting a green state that means nothing is protecting
+you.
+
+Chronicle found it. `TamperEvidenceConfig.Digest` defaults to `"plain"` and
+`CheckpointConfig.Enabled` defaults to `false`, with the checkpointer builder
+returning nothing when it is. So an unconfigured Chronicle verifies at
+`LevelUnkeyed` with zero checkpoints, and that level's own doc comment says it
+detects corruption, not tampering. The weakest state the library supports is
+the state every deployment starts in.
+
+A verification page built the obvious way says "verified" there, and it is not
+lying. It is answering a question nobody asked. The operator wants to know
+whether the record can be trusted, and at that level the honest answer is that
+nothing would catch somebody who edited it deliberately.
+
+So, for any feature whose value is protection:
+
+**Find the defaults before you design the page.** A security capability that is
+off unless configured is the common case, not the exotic one, because nobody
+configures what they have not been told about.
+
+**Make the coverage ceiling the content, not a footnote.** When protection is
+partial, the most useful thing the page can say is what is switched off and
+what switching it on would buy. That is the page, for most deployments.
+
+**Do not let a strong word describe a weak state.** "Verified", "secure",
+"protected" and a green badge all claim more than an unkeyed digest earns.
+Name the level.
+
+This inverts the usual advice to design the good case as the common case. Here
+the common case is the weak one, and designing for the configured deployment
+first produces a dashboard that is most reassuring to exactly the people who
+should be least reassured.
+
+The same shape is worth checking anywhere protection is optional: webhook
+signature verification, encryption at rest, audit logging, rate limiting,
+policy enforcement modes that default to permissive.
+
 ## Fixtures
 
 `packages/fixture-server` is what you develop against, and a bad fixture hides
