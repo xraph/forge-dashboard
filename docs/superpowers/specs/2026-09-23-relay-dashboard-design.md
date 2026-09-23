@@ -181,9 +181,35 @@ see on an endpoint that has gone away, so it gets its own name rather than
 falling quietly into one of the other buckets. Every field is optional, and a
 call with none of them set returns the whole log newest first.
 
-Postgres, sqlite, mongo and memory serve all of it. Redis does not, and
-pretending otherwise would hand you a filter that silently returns the wrong
-page. It indexes deliveries by endpoint, by event and by pending, so it needs a
+`ListDeliveries` returns a result envelope rather than a bare slice, because a
+page of rows cannot say whether the search behind it finished:
+
+```go
+type ListResult struct {
+    Deliveries []*Delivery `json:"deliveries"`
+    NextCursor string      `json:"next_cursor,omitempty"`
+
+    // Complete reports whether every row in the requested range was
+    // actually examined. It is false when a backend post-filtered over a
+    // bounded scan window instead of filtering at the index, which redis
+    // does for the filters its sorted sets cannot express.
+    Complete bool `json:"complete"`
+}
+```
+
+This exists because of what an empty result means. "No deliveries match" tells
+an operator to stop looking, and if the true answer was "none matched in the
+part I searched" then they have stopped looking at a failure that is still
+there. That is the highest-stakes empty state in this dashboard, and a list
+that cannot distinguish a completed search from an abandoned one is reporting
+confidence it has not earned. The page therefore carries three empty states and
+not two: no deliveries at all, none matching this filter, and none found with
+the search incomplete, the last one naming what was searched and offering to
+narrow the window.
+
+Postgres, sqlite, mongo and memory serve all of it and always return
+`Complete: true`. Redis does not, and pretending otherwise would hand you a
+filter that silently returns the wrong page. It indexes deliveries by endpoint, by event and by pending, so it needs a
 new global time-ordered set before it can list anything at all, and even with
 that it can only serve `EndpointID`, `EventID`, `State` and the time range from
 its indexes, leaving the rest to a best-effort pass over the scan window. You
