@@ -172,3 +172,51 @@ through. Every serious bug in the authsome migration was found by running it
 and not by a test: a page whose errors were invisible, a tab strip where the
 contributed tab never appeared, every panel visible at once, twenty-one links
 that reloaded the whole app. The tests were green through all of it.
+
+## Retiring the templ dashboard
+
+The migration is not finished when the React pages work. It is finished when
+the templ dashboard is gone from the extension.
+
+Leaving both is the worst outcome available. Two dashboards drift, operators
+find whichever one their bookmark points at, and every future change has to be
+made twice or gets made once and silently disagrees. The templ pages exist to
+tell you what to build. Once you have built it, they are a liability.
+
+So: **delete the extension's `dashboard/` directory, and every templ page,
+component and widget in it, along with the `LocalContributor` that registers
+them.** Do it in the extension's own repo.
+
+Five things to do first, in this order, because after deletion there is no
+reference to go back to.
+
+**1. Write the feature inventory down while the pages still exist.** Every
+page, every column, every action, every filter, every badge, every empty state.
+This is the only record of what the old dashboard did, and you are about to
+remove the source. Put it in the extension's `MIGRATION.md`, not in a scratch
+file.
+
+**2. Account for every item.** Migrated, deliberately dropped, or blocked on
+work nobody has done. Name which, per item. "Deliberately dropped" needs a
+reason in the file: a page that always said the same thing, a stat computed
+in-process that no intent can answer. A feature nobody can account for is a
+feature you are deleting by accident.
+
+**3. Find what else imports it.** `grep -rn "<ext>/dashboard" --include='*.go'`
+across the extension. The dashboard package usually exports more than pages:
+widgets other plugins mount, nav items, sometimes helpers that leaked. Removing
+it can break compilation somewhere unrelated, and that is better found now than
+in a build.
+
+**4. Check the extension still builds and its tests pass** with the directory
+gone. `go build ./... && go test ./...`, not a partial run.
+
+**5. Delete it as its own commit**, separate from the migration. A commit that
+adds a contract, adds a React plugin and removes several thousand lines of
+templ is a commit nobody can review or revert cleanly.
+
+If something in the templ dashboard turns out to have no contract equivalent
+and no way to build one, do not delete that page and do not quietly drop it.
+Stop, record it in `MIGRATION.md`, and say so in your report. Authsome shipped
+with fourteen such surfaces and the honest list is what makes its dashboard
+trustworthy.
