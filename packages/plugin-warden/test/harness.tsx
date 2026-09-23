@@ -94,6 +94,35 @@ export function pendingClient(): ScopedClient {
   } as ScopedClient
 }
 
+/**
+ * Records every query a page sends, with its params, in order.
+ *
+ * `recordingClient` below only keeps the intent name, not the params, so it
+ * cannot answer "what did this query actually send". This mirrors
+ * `recordingCommandClient`'s `{intent, payload}` shape for queries instead of
+ * commands: it exists specifically so a test can assert a query's param
+ * object, such as confirming that "all namespaces" sends no `namespacePath`
+ * field at all rather than an empty string.
+ */
+export function recordingQueryClient(answers: Record<string, unknown>): {
+  client: ScopedClient
+  sent: { intent: string; params?: unknown }[]
+} {
+  const sent: { intent: string; params?: unknown }[] = []
+  const inner = stubClient(answers)
+  return {
+    sent,
+    client: {
+      extension: inner.extension,
+      query: (intent: string, params?: Record<string, unknown>) => {
+        sent.push({ intent, params })
+        return inner.query(intent, params)
+      },
+      command: inner.command,
+    } as ScopedClient,
+  }
+}
+
 /** Records every intent a page asks for, in order. */
 export function recordingClient(answers: Record<string, unknown>): {
   client: ScopedClient

@@ -2,13 +2,16 @@ import { definePlugin } from "@forge-go/dashboard-plugin"
 import {
   HouseIcon,
   SettingsIcon,
+  UserCogIcon,
 } from "@forge-go/dashboard-kit/icons"
 import { WardenConfigPage } from "./pages/config"
 import { WardenOverviewPage } from "./pages/overview"
+import { WardenRolesPage } from "./pages/roles"
 
 export type { ConfigDetail } from "./pages/config"
 export type { OverviewStats, RecentChecks, CheckSummary } from "./pages/overview"
-export { WardenConfigPage, WardenOverviewPage }
+export type { RoleSummary, RolesList, AckResponse } from "./pages/roles"
+export { WardenConfigPage, WardenOverviewPage, WardenRolesPage }
 export { NamespaceCell, useNamespaceFilter, namespaceParam } from "./components/namespace-filter"
 export type { NamespaceValue } from "./components/namespace-filter"
 
@@ -43,6 +46,13 @@ export const wardenPlugin = definePlugin({
       group: "Overview",
     },
     {
+      label: "Roles",
+      to: "/roles",
+      priority: 10,
+      icon: <UserCogIcon />,
+      group: "Authorization",
+    },
+    {
       label: "Config",
       to: "/config",
       priority: 40,
@@ -52,6 +62,7 @@ export const wardenPlugin = definePlugin({
   ],
   routes: [
     { path: "/", element: WardenOverviewPage },
+    { path: "/roles", element: WardenRolesPage },
     { path: "/config", element: WardenConfigPage },
   ],
 })
