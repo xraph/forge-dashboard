@@ -171,6 +171,26 @@ It reads like a rule about meaning and it is really a rule about proportion.
 Write your mapping down with its reasons. A domain that needs something these
 four cannot express needs a considered answer, not a fifth colour.
 
+**When the majority state is not knowable at design time, colour cannot carry
+the scan, so stop asking it to.** Volume is often a property of the deployment
+rather than of the domain. Delivered dominates a webhook log in every healthy
+installation, so that mapping is safe to fix. Allow-versus-deny in an
+authorization log is not: on a permissive system the denies are the
+interesting minority, on a restrictive one they are the wallpaper, and a
+mapping that is right on your data is inverted on a customer's.
+
+Three things follow. Pick a stable semantic mapping from the table above and
+accept that the badge is weak on that page. Put the work into filtering, so
+the rare case is findable by query rather than by eye. And do NOT compute
+weight from the distribution of the page currently on screen: a state that is
+outline on page one and destructive on page two is worse than any fixed
+mapping, because the operator can no longer learn the page at all.
+
+The underlying mistake generalises past badges. Any time a design maps a
+visual property to a CATEGORY when it should map to a FREQUENCY, the same
+thing happens: row striping, icon weight, anything whose job is to decide how
+much of the screen a thing gets.
+
 ## Things that went wrong last time
 
 Every one of these shipped, and most passed their tests.
@@ -203,6 +223,34 @@ so a test importing `node:fs` passes vitest and fails typecheck. Never write a
 test that reads a source file with `fs`; use `import.meta.glob` with
 `{ query: "?raw", eager: true }`. And run both: only `tsc` sees the barrel, so a
 renamed export breaks the build while every test stays green.
+
+## Fixtures
+
+`packages/fixture-server` is what you develop against, and a bad fixture hides
+exactly the bug it should expose.
+
+**A write must visibly change the next read.** A fixture that accepts a command
+and answers the same data forever cannot demonstrate that invalidation works,
+and `meta.invalidates` is the only refresh mechanism this client has. Create a
+room, see the list grow. Issue an invoice, see it leave draft.
+
+**Model the contract you are shipping, not the behaviour deployed today.** If
+your spec includes a server fix, the fixture implements the fixed contract.
+Relay hit this first: its real backends fail a second replay with not-found,
+because the first replay deleted the row, and the fix marks the row and refuses
+on purpose. The fixture models the refusal. That is a fixture deliberately
+disagreeing with production, which is right, and it has to be written down in
+the spec or somebody later reads it as a bug and helpfully corrects it back to
+the broken behaviour.
+
+**Preserve the server's unhelpful behaviours.** If an intent answers an empty
+list for a missing parameter rather than an error, the fixture does too. A
+forgiving fixture turns "the page forgot to send a tenant id" into a page that
+looks perfectly correct.
+
+**Exercise it over HTTP, not by reading it.** Walk every intent you added and
+check each answers a well-formed response. A handler that exists and throws on
+its first call is worse than a missing one, because the missing one is obvious.
 
 ## The bar
 
