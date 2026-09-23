@@ -23,6 +23,16 @@ function seedWardenState() {
   const now = new Date().toISOString()
   const hourAgo = new Date(Date.now() - 3600_000).toISOString()
 
+  // Spread out and distinct, newest first, matching the array order below.
+  // A real store bug (warden's memory store returns check logs
+  // oldest-first, and does not sort at all at committed HEAD) is invisible
+  // against a fixture where every row shares one timestamp: "recent" would
+  // show whatever the handler slices first regardless of ordering, and a
+  // regression there would pass this fixture silently.
+  const checkAt = [0, 5, 10, 15].map(
+    (minutesAgo) => new Date(Date.now() - minutesAgo * 60_000).toISOString()
+  )
+
   return {
     roles: [
       { id: "role_01hq", namespacePath: "", name: "Reader", slug: "reader", isSystem: false, isDefault: true, parentSlug: "", maxMembers: 0, createdAt: hourAgo, updatedAt: hourAgo },
@@ -49,13 +59,18 @@ function seedWardenState() {
     resourceTypes: [
       { id: "rt_01a", namespacePath: "", name: "document", description: "A document", createdAt: hourAgo, updatedAt: hourAgo },
     ],
+    // Newest first, matching what a correctly-ordered "Recent checks" panel
+    // must show. Distinct createdAt values are the point: a fixture where
+    // every row shares one timestamp cannot tell an ordering regression from
+    // correct behaviour, because slicing from index 0 looks the same either
+    // way.
     checkLogs: [
-      { id: "chk_01a", namespacePath: "", subjectKind: "user", subjectId: "alice", action: "read", resourceType: "document", resourceId: "readme", decision: "allow", reason: "", evalTimeNs: 412_000, cached: false, error: "", createdAt: now },
+      { id: "chk_01a", namespacePath: "", subjectKind: "user", subjectId: "alice", action: "read", resourceType: "document", resourceId: "readme", decision: "allow", reason: "", evalTimeNs: 412_000, cached: false, error: "", createdAt: checkAt[0] },
       // Cached: the most common real answer to "why did my permission change
       // not take effect", and the page's scan signal.
-      { id: "chk_01b", namespacePath: "", subjectKind: "user", subjectId: "alice", action: "read", resourceType: "document", resourceId: "readme", decision: "allow", reason: "", evalTimeNs: 1_800, cached: true, error: "", createdAt: now },
-      { id: "chk_01c", namespacePath: "", subjectKind: "user", subjectId: "dave", action: "delete", resourceType: "document", resourceId: "readme", decision: "deny_explicit", reason: 'denied by policy "contractor-lockout"', evalTimeNs: 902_000, cached: false, error: "", createdAt: now },
-      { id: "chk_01d", namespacePath: "eng/platform", subjectKind: "service", subjectId: "deployer", action: "admin", resourceType: "cluster", resourceId: "prod", decision: "error", reason: "", evalTimeNs: 0, cached: false, error: "store unavailable", createdAt: now },
+      { id: "chk_01b", namespacePath: "", subjectKind: "user", subjectId: "alice", action: "read", resourceType: "document", resourceId: "readme", decision: "allow", reason: "", evalTimeNs: 1_800, cached: true, error: "", createdAt: checkAt[1] },
+      { id: "chk_01c", namespacePath: "", subjectKind: "user", subjectId: "dave", action: "delete", resourceType: "document", resourceId: "readme", decision: "deny_explicit", reason: 'denied by policy "contractor-lockout"', evalTimeNs: 902_000, cached: false, error: "", createdAt: checkAt[2] },
+      { id: "chk_01d", namespacePath: "eng/platform", subjectKind: "service", subjectId: "deployer", action: "admin", resourceType: "cluster", resourceId: "prod", decision: "error", reason: "", evalTimeNs: 0, cached: false, error: "store unavailable", createdAt: checkAt[3] },
     ],
     config: {
       maxGraphDepth: 10,
