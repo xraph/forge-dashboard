@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react"
+import { Suspense, useEffect, useMemo, useRef, useState } from "react"
 import type { ComponentType, ReactNode } from "react"
 import type * as React from "react"
 import {
@@ -49,6 +49,7 @@ import type {
   ScopedClient,
 } from "@forge-go/dashboard-plugin"
 import { AppSidebar } from "@forge-go/dashboard-kit/components/app-sidebar"
+import { NavigationSearch } from "./NavigationSearch"
 import { ContextSwitchers } from "./ContextSwitchers"
 import { RoutedPage, RoutedPicker, routeSegmentPattern } from "./RoutedScope"
 import { AuthRoutes, SignedInRedirect } from "../auth/AuthRoutes"
@@ -64,6 +65,7 @@ import { SiteHeader } from "@forge-go/dashboard-kit/components/site-header"
 import {
   SidebarInset,
   SidebarProvider,
+  useSidebar,
 } from "@forge-go/dashboard-kit/components/sidebar"
 import {
   Alert,
@@ -82,16 +84,21 @@ function HostShell({
   children,
   sidebar,
   title,
+  scope,
+  actions,
 }: {
   children: ReactNode
   sidebar: React.ComponentProps<typeof AppSidebar>
   title?: string
+  scope?: string
+  actions?: ReactNode
 }) {
   return (
     <SidebarProvider>
-      <AppSidebar variant="inset" {...sidebar} />
+      <SidebarRouteSync />
+      <AppSidebar variant="sidebar" collapsible="icon" navigationLayout="collapsible" {...sidebar} />
       <SidebarInset>
-        <SiteHeader title={title} />
+        <SiteHeader title={title} scope={scope} actions={actions} />
         {/*
           `@container/main` is load-bearing, not decoration. dashboard-01's
           SectionCards sizes itself with container queries scoped to a container
@@ -99,7 +106,7 @@ function HostShell({
           this declaration those variants never match and the cards stack in a
           single column at every width.
         */}
-        <div className="@container/main flex flex-1 flex-col gap-4 p-4">
+        <div id="dashboard-main" className="@container/main flex min-w-0 flex-1 flex-col gap-6 p-4 md:p-6 xl:p-8">
           {children}
         </div>
       </SidebarInset>
@@ -107,8 +114,16 @@ function HostShell({
   )
 }
 
+function SidebarRouteSync() {
+  const { pathname } = useLocation()
+  const { setOpenMobile } = useSidebar()
+  useEffect(() => setOpenMobile(false), [pathname, setOpenMobile])
+  return null
+}
+
 export interface PluginHostProps {
   plugins: ForgePlugin[]
+  headerActions?: ReactNode
   /**
    * Sub-plugins, each naming the plugin it mounts inside. Resolved against the
    * same capabilities document as plugins, so an absent Go contributor hides a
@@ -143,6 +158,34 @@ type CapabilitiesState =
 // already sorted must still land you on the item the sidebar shows first.
 function sortByPriority<T extends { priority?: number }>(items: T[]): T[] {
   return [...items].sort((a, b) => (a.priority ?? 0) - (b.priority ?? 0))
+}
+
+function foldClusters(items: PluginNavItem[]): PluginNavItem[] {
+  const sorted = sortByPriority(items)
+  const clusters = new Map<string, PluginNavItem[]>()
+  for (const item of sorted) {
+    if (!item.cluster || item.children?.length) continue
+    const members = clusters.get(item.cluster.label) ?? []
+    members.push(item)
+    clusters.set(item.cluster.label, members)
+  }
+
+  const emitted = new Set<string>()
+  return sorted.flatMap((item) => {
+    const label = item.cluster?.label
+    if (!label || item.children?.length) return [item]
+    if (emitted.has(label)) return []
+    emitted.add(label)
+    const members = clusters.get(label) ?? [item]
+    if (members.length < 2) return [item]
+    return [{
+      label,
+      to: members[0].to,
+      priority: members[0].priority,
+      icon: item.cluster?.icon,
+      children: members.map((member) => ({ ...member, cluster: undefined })),
+    }]
+  })
 }
 
 // One mapper for the host plugin's nav and every sub-plugin's nav together.
@@ -225,7 +268,7 @@ export function navGroups(
   return ordered.map(([key, bucket]) => ({
     label: key === UNGROUPED ? undefined : key,
     contributed: bucket.contributed || undefined,
-    items: toNodes(plugin, sortByPriority(bucket.items), segment),
+    items: toNodes(plugin, foldClusters(bucket.items), segment),
   }))
 }
 
@@ -352,7 +395,37 @@ function RouteParams({
         Object.entries(params).filter(([key]) => key !== stripParam)
       )
     : params
-  return <Page params={visible} />
+  /*
+    Suspense here, at the one place every plugin and sub-plugin page passes
+    through, is what makes a lazy route legal.
+
+    Without it `element: lazy(() => import("./pages/policy-editor"))` throws
+    the moment the chunk is still in flight, so every page in the dashboard
+    had to be a static import and the whole shell was one eager chunk. That is
+    fine until a plugin wants a code editor or a graph canvas, at which point
+    everybody pays for it on first paint whether they open that page or not.
+
+    Per page rather than one boundary around the router: a page that suspends
+    should show a spinner where the page goes, not blank the chrome around it.
+  */
+  return (
+    <Suspense fallback={<PageLoading />}>
+      <Page params={visible} />
+    </Suspense>
+  )
+}
+
+/** Shown while a lazily-loaded page's chunk is still arriving. */
+function PageLoading() {
+  return (
+    <div
+      role="status"
+      className="flex items-center gap-2 p-4 text-sm text-muted-foreground"
+    >
+      <Spinner />
+      Loading…
+    </div>
+  )
 }
 
 export function PluginHost({
@@ -361,6 +434,7 @@ export function PluginHost({
   fetchImpl,
   basename,
   authScreens,
+  headerActions,
 }: PluginHostProps) {
   const { contractBase } = useDashboardConfig()
   const session = useSession()
@@ -665,21 +739,6 @@ export function PluginHost({
     badge: scope.state.kind === "ready" ? undefined : scope.state.kind,
   }))
 
-  // The way out of the active scope: the root plugin's own home.
-  //
-  // Offered only from inside a scope. At the root this row would point at the
-  // page you are already on, and the root plugin's nav is reachable in the
-  // body there anyway. Taking navNodes()[0] rather than plugin.nav[0] is
-  // deliberate and matches `home` and `selectScope`: the sidebar sorts by
-  // priority, so a root plugin whose nav is not already in priority order
-  // must still send you to the item the sidebar shows first. A ready root
-  // with no nav at all yields undefined here, so there is no row pointing
-  // nowhere.
-  const back: NavNode | undefined =
-    activeScope && root && root.state.kind === "ready"
-      ? navGroups(root.plugin, [])[0]?.items[0]
-      : undefined
-
   // The body shows the nav of wherever you are, which is the same question
   // `panelSource` asks and therefore the same answer: the active scope, or
   // the root when no scope is active.
@@ -724,15 +783,11 @@ export function PluginHost({
   // matches nothing in either (its own root, or a route the plugin never
   // listed).
   const pageTitle: string | undefined = (() => {
-    for (const group of groups) {
-      for (const item of group.items) {
-        if (item.href === pathname) return item.label
-        for (const child of item.children ?? []) {
-          if (child.href === pathname) return child.label
-        }
-      }
-    }
-    return (activeScope ?? root)?.label
+    const destinations = groups.flatMap((group) => group.items.flatMap((item) => [item, ...(item.children ?? [])]))
+    const match = destinations
+      .filter((item) => item.href === pathname || (item.href !== "/" && pathname.startsWith(`${item.href}/`)))
+      .sort((a, b) => b.href.length - a.href.length)[0]
+    return match?.label ?? (activeScope ?? root)?.label
   })()
 
   // Switching scope is a navigation, never a state write. A scope with no nav
@@ -777,22 +832,33 @@ export function PluginHost({
       : undefined
 
   const sidebar = {
-    back,
+    scopeHome: root ? {
+      label: root.label,
+      icon: root.icon,
+      onSelect: () => navigate(`${homePathFor(root.plugin)}${search}`),
+    } : undefined,
     scopes: scopeOptions,
     activeScopeId: activeScope?.id,
     onScopeSelect: selectScope,
     groups,
     currentPath: pathname,
     search,
-    renderLink: (_node: NavNode, href: string) => <Link to={href} />,
-    header:
-      panelSource && panelSource.state.kind === "ready" ? (
-        <PluginErrorBoundary key={panelSource.id} plugin={panelSource.id}>
-          <PluginProvider client={clients.get(panelSource.plugin.extension)!}>
-            <ContextSwitchers dimensions={panelSource.plugin.context} plugin={panelSource.plugin} />
-          </PluginProvider>
-        </PluginErrorBoundary>
-      ) : undefined,
+    renderLink: (node: NavNode, href: string) => <Link to={href} aria-current={node.href === pathname ? "page" : undefined}>{node.icon}<span>{node.label}</span></Link>,
+    header: <>
+      {panelSource && panelSource.state.kind === "ready" && (
+        <div className="group-data-[collapsible=icon]:hidden">
+          <PluginErrorBoundary key={panelSource.id} plugin={panelSource.id}>
+            <PluginProvider client={clients.get(panelSource.plugin.extension)!}>
+              <ContextSwitchers dimensions={panelSource.plugin.context} plugin={panelSource.plugin} />
+            </PluginProvider>
+          </PluginErrorBoundary>
+        </div>
+      )}
+      <NavigationSearch groups={groups} search={search} scopes={[
+        ...(root ? [{ label: root.label, href: homePathFor(root.plugin) }] : []),
+        ...scopes.map(scope => ({ label: scope.label, href: homePathFor(scope.plugin) })),
+      ]} />
+    </>,
     user:
       session.state.status === "signedIn"
         ? {
@@ -907,7 +973,7 @@ export function PluginHost({
 
   if (state.status === "loading") {
     return (
-      <HostShell sidebar={sidebar} title={pageTitle}>
+      <HostShell sidebar={sidebar} title={pageTitle} scope={navOwner?.label} actions={headerActions}>
         <div className="flex items-center gap-2 text-sm text-muted-foreground">
           <Spinner />
           Loading dashboard capabilities…
@@ -918,7 +984,7 @@ export function PluginHost({
 
   if (state.status === "error") {
     return (
-      <HostShell sidebar={sidebar} title={pageTitle}>
+      <HostShell sidebar={sidebar} title={pageTitle} scope={navOwner?.label} actions={headerActions}>
         <Alert variant="destructive">
           <TriangleAlertIcon />
           <AlertTitle>Could not reach the dashboard server</AlertTitle>
@@ -960,7 +1026,7 @@ export function PluginHost({
       : undefined
 
   return (
-    <HostShell sidebar={sidebar} title={pageTitle}>
+    <HostShell sidebar={sidebar} title={pageTitle} scope={navOwner?.label} actions={headerActions}>
       {panelSource && panelSource.state.kind === "mismatch" && (
         <MismatchPanel
           required={panelSource.state.required}

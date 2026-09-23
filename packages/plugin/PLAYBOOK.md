@@ -173,6 +173,60 @@ and not by a test: a page whose errors were invisible, a tab strip where the
 contributed tab never appeared, every panel visible at once, twenty-one links
 that reloaded the whole app. The tests were green through all of it.
 
+## Reach for a library, but load it lazily
+
+You are not restricted to hand-rolled UI. Several of these domains need a real
+editor, a real graph canvas, a real chart. Use one.
+
+**Already in the kit**, so import rather than add: `recharts` for charts,
+`@tanstack/react-table` and `@tanstack/react-virtual` for large or virtualised
+tables, `@dnd-kit/*` for drag and drop, `cmdk` for a command palette, `sonner`
+for toasts, `date-fns`, `zod`, `react-day-picker`, `react-resizable-panels`.
+Check kit before adding anything; a second charting library in the same
+dashboard is worse than no charts.
+
+**Worth adding, per domain**, and none of these is present yet:
+
+- A code editor for anything structured a person edits or reads: a policy
+  document, a JSON payload, a config file, an event body. Monaco or CodeMirror.
+  Read-only counts: a delivery response body in a viewer with folding beats a
+  `<pre>`.
+- A graph canvas where the domain is genuinely a graph. Resource types and
+  relations are a graph. A hash chain is a chain. React Flow is the usual
+  answer. Do not reach for one because a list feels boring.
+- A diff view where two versions of a thing exist, which is most places with
+  versioning or rotation.
+
+**The constraint that matters: the shell is one eager chunk.** `BASELINE.md`
+records it at 632 KB raw and 187 KB gzip with nothing lazy. Monaco alone is
+several times that. Five extensions each adding an editor statically would
+make first paint unusable for every operator, including the ones who never
+open that page.
+
+So load them at the route:
+
+```tsx
+const PolicyEditor = lazy(() => import("./pages/policy-editor"))
+
+routes: [{ path: "/policies/:id", element: PolicyEditor }]
+```
+
+`PluginHost` wraps every page in `Suspense`, so a lazy route is legal and shows
+a spinner where the page goes while its chunk arrives. That is recent: before
+it, a lazy element threw, which is why nothing in the dashboard is split today.
+Suspense stays transparent for a page that does not suspend, so ordinary pages
+cost nothing.
+
+Two obligations if you add one. Re-measure and write the new numbers into
+`BASELINE.md`, because "one chunk" stops being true the moment you split and
+the file should say what the eager entry now is. And check the chunk actually
+splits in `pnpm build` output rather than assuming: a stray static import of
+the same module anywhere else pulls it straight back into the entry.
+
+For charts specifically, invoke the `dataviz` skill before writing the first
+line of chart code. For anything you are designing rather than porting,
+`frontend-design`.
+
 ## Retiring the templ dashboard
 
 The migration is not finished when the React pages work. It is finished when
