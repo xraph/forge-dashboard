@@ -1578,6 +1578,16 @@ implements the whole `store.Store` interface, so a test double can embed it
 and override only the methods it cares about. Name your own spies after your
 task so they cannot collide.
 
+**Tests that exercise a store read or an ownership check must use a real,
+parseable ID.** Generate one with the `id` package's constructor for that
+kind (`id.NewAuditID()`, `id.NewErasureID()`, `id.NewPolicyID()`,
+`id.NewReportID()`, `id.NewCheckpointID()`) or take it from a seeded row.
+A literal like `"cp_1"` or `"evt_1"` fails ID parsing before the store is
+reached, so a test named for an ownership check passes whether or not that
+check exists. Tasks 9 and 10 each shipped such a test straight from this
+plan's samples. If you also want to test the parse refusal, write it as its
+own test, named for what it tests, and assert the store was never touched.
+
 **Also available:** `projectCheckpoint(cp)`, `formatTime(t)` for wire
 timestamps, `deps.checkpointingConfigured()` (store AND signer both present),
 and `coverageCeiling(deps, st)`.
@@ -2379,7 +2389,7 @@ func TestErasureDetailRefusesAnotherTenantsRecord(t *testing.T) {
 	h := erasuresDetailHandler(Deps{Store: storeWithErasure(&erasure.Erasure{
 		AppID: "app-2", TenantID: "tenant-b",
 	})})
-	_, err := h(context.Background(), GetErasureInput{ID: "ers_1"},
+	_, err := h(context.Background(), GetErasureInput{ID: id.NewErasureID().String()},
 		principalWith(map[string]any{"app_id": "app-1", "tenant_id": "tenant-a"}))
 	if err == nil {
 		t.Fatal("served another tenant's erasure record")
@@ -2500,14 +2510,14 @@ func TestSavePolicyStampsTheViewersScope(t *testing.T) {
 // Archive would clear the flag on every update that did not mention it.
 func TestSavePolicyLeavesUnsuppliedFieldsAlone(t *testing.T) {
 	existing := &retention.Policy{
-		ID: parsePolicyID(t, "pol_1"), Category: "auth",
+		ID: id.NewPolicyID(), Category: "auth",
 		Duration: 720 * time.Hour, Archive: true,
 		AppID: "app-1", TenantID: "tenant-a",
 	}
 	spy := &policySpy{existing: existing}
 	h := retentionSavePolicyHandler(Deps{Store: spy})
 
-	id := "pol_1"
+	id := existing.ID.String()
 	dur := "1440h"
 	_, err := h(context.Background(), SavePolicyInput{ID: &id, Duration: &dur},
 		principalWith(map[string]any{"app_id": "app-1", "tenant_id": "tenant-a"}))
@@ -2527,7 +2537,7 @@ func TestSavePolicyLeavesUnsuppliedFieldsAlone(t *testing.T) {
 func TestDeletePolicyRefusesAnotherTenantsPolicy(t *testing.T) {
 	spy := &policySpy{existing: &retention.Policy{AppID: "app-2", TenantID: "tenant-b"}}
 	h := retentionDeletePolicyHandler(Deps{Store: spy})
-	_, err := h(context.Background(), DeletePolicyInput{ID: "pol_1"},
+	_, err := h(context.Background(), DeletePolicyInput{ID: id.NewPolicyID().String()},
 		principalWith(map[string]any{"app_id": "app-1", "tenant_id": "tenant-a"}))
 	if err == nil {
 		t.Fatal("deleted another tenant's retention policy")
@@ -2681,7 +2691,7 @@ func TestExportRefusesAnotherTenantsReport(t *testing.T) {
 		Store:  storeWithReport(&compliance.Report{AppID: "app-2", TenantID: "tenant-b"}),
 		Engine: stubEngine(),
 	})
-	_, err := h(context.Background(), ExportReportInput{ID: "rep_1", Format: "csv"},
+	_, err := h(context.Background(), ExportReportInput{ID: id.NewReportID().String(), Format: "csv"},
 		principalWith(map[string]any{"app_id": "app-1", "tenant_id": "tenant-a"}))
 	if err == nil {
 		t.Fatal("exported another tenant's compliance report")
@@ -2693,7 +2703,7 @@ func TestExportRejectsAnUnknownFormat(t *testing.T) {
 		Store:  storeWithReport(&compliance.Report{AppID: "app-1"}),
 		Engine: stubEngine(),
 	})
-	_, err := h(context.Background(), ExportReportInput{ID: "rep_1", Format: "pdf"},
+	_, err := h(context.Background(), ExportReportInput{ID: id.NewReportID().String(), Format: "pdf"},
 		principalWith(map[string]any{"app_id": "app-1"}))
 	if err == nil {
 		t.Fatal("accepted an unsupported export format")
@@ -2708,7 +2718,7 @@ func TestReportDetailCarriesAnEmbeddedVerificationInFull(t *testing.T) {
 		AppID:        "app-1",
 		Verification: &verify.Report{Valid: true, HeadChecked: true, CheckpointsChecked: false},
 	})})
-	out, err := h(context.Background(), GetReportInput{ID: "rep_1"},
+	out, err := h(context.Background(), GetReportInput{ID: id.NewReportID().String()},
 		principalWith(map[string]any{"app_id": "app-1"}))
 	if err != nil {
 		t.Fatalf("reports.detail: %v", err)
