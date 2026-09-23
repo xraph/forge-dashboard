@@ -63,6 +63,27 @@ No secret value can be returned at all. `Secret.Value` and `Secret.EncryptedValu
 are both `json:"-"`. `secret.Meta` has no value field at all. Decryption exists
 only in `secret.Service.Get`, and that service is never built.
 
+### An unconfigured Vault stores plaintext and cannot say so
+
+With no encryptor, `secret.Service.Set` puts the plaintext straight into
+`EncryptedValue` and leaves `EncryptionAlg` empty (`secret/service.go:152`).
+The fallback itself is documented and fine. The problem is that `secret.Meta`
+carries no `EncryptionAlg` field, and neither `ToMeta` nor any backend's
+`toMeta` projects one, so `ListSecrets` returns encrypted and plaintext rows
+that no caller can tell apart.
+
+It has to be reported per row, not per Vault. Nothing re-encrypts on read, so
+a key added later leaves everything written before it in plaintext forever. One
+app can hold both kinds at once, and a Vault with a perfectly good key can
+still be full of plaintext rows. A single "encryption is on" flag describes the
+current configuration and says nothing about the data.
+
+So `secret.Meta` gains `EncryptionAlg`, the contract projects it as
+`encryptionAlg`, and the rule for the UI is that empty means **not encrypted**
+rather than unknown. No secrets surface may use the words encrypted, secure or
+protected for a row whose algorithm is empty, and the list shows the state per
+row rather than once at the top.
+
 ### Flag evaluation answers "what", never "why"
 
 `Engine.Evaluate(ctx, key, appID)` reads tenant and user from context values
@@ -115,15 +136,47 @@ Taken with the human partner, 2026-09-23.
 | Flag evaluation | Add `EvaluateDetail` to the engine | Precedence stays in one place; reimplementing it in a handler would drift |
 | Config unset | Build explicit unset | The domain distinguishes override-present from override-absent, so the UI should too |
 | Row counts | Add `Count*` to the store interfaces | Makes `overview.stats` honest and offset paging real |
+| Plaintext rows | Report `encryptionAlg` per secret, empty means not encrypted | A key added later never re-encrypts old rows, so one app holds both kinds and only the row knows |
+| Import cycle | Move `Entity` and the errors to `vault/core` | Package `vault` cannot import the subsystems that import it; four symbols and two files are the whole entanglement |
 | Sequencing | Vertical slices per subsystem | Wire-shape mistakes surface after 7 handlers, not 35 |
 
 ## The Go half
 
+### First, break the import cycle
+
+Package `vault` cannot import `secret`, `flag`, `config`, `override` or
+`rotation`, because all five import `vault`. That is almost certainly why
+`vault.go` was never written, and it makes the constructor below impossible
+until it is fixed.
+
+The entanglement is four symbols: `Entity` and `NewEntity` from `entity.go`,
+and `ErrSecretNotFound` and `ErrOverrideNotFound` from `errors.go`. Nothing
+else crosses.
+
+So both files move to a new leaf package, `vault/core`, alongside the existing
+leaf `vault/id`. The five subsystem packages import `core`. Root `vault` then
+re-exports everything it moved:
+
+```go
+type Entity = core.Entity                    // a true alias, so embeds are unchanged
+func NewEntity() Entity { return core.NewEntity() }
+var ErrSecretNotFound = core.ErrSecretNotFound   // same value, so errors.Is still matches
+```
+
+Every existing caller keeps working, inside the repo and out. `vault.Entity`
+composite literals, struct embedding and field promotion all behave as before,
+because a type alias is the same type. The sentinel errors are the same values,
+so `errors.Is` is unaffected.
+
+Move the whole of `errors.go`, not only the two errors the subsystems use. A
+package holding four of six sentinel errors is a worse thing to maintain than
+one holding all of them.
+
 ### `vault.go`
 
-`New(opts ...Option) (*Vault, error)`, the signature `doc.go` already documents.
-`Vault` and `NewVault` move out of `options.go`, which keeps only `Option` and
-the option functions.
+With the cycle gone, `New(opts ...Option) (*Vault, error)` is the signature
+`doc.go` already documents. `Vault` and `NewVault` move out of `options.go`,
+which keeps only `Option` and the option functions.
 
 Construction order, each from the store and the resolved `Config`:
 
@@ -138,8 +191,10 @@ config.Service   store + resolver
 rotation.Manager store + secret.Service
 ```
 
-Accessors: `Secrets()`, `Flags()`, `Config()`, `Overrides()`, `Rotation()`,
-`Audit()`, `Store()`.
+Accessors: `Secrets()`, `Flags()`, `FlagEngine()`, `Config()`, `Overrides()`,
+`Rotation()`, `Audit()`, `Store()`, `EncryptionEnabled()`. `FlagEngine()` is
+separate from `Flags()` because `EvaluateDetail` lives on the engine while the
+typed read path lives on the service.
 
 An absent encryption key is not an error. It degrades to the documented
 unencrypted fallback and the contract reports it, so the dashboard can say so
@@ -231,8 +286,8 @@ of side effects.
 | `secrets.delete` | command | `{key, appId?}` | → `secrets.list` |
 | `secrets.setExpiry` | command | `{key, appId?, expiresAt *string}` | → `detail`, `list` |
 
-`SecretSummary` mirrors `secret.Meta` exactly: `id, key, version, expiresAt,
-appId, metadata, createdAt, updatedAt`. There is no field a value could occupy,
+`SecretSummary` mirrors `secret.Meta` exactly: `id, key, version,
+encryptionAlg, expiresAt, appId, metadata, createdAt, updatedAt`. There is no field a value could occupy,
 in any request or response, in either direction. That is the write-only
 decision expressed in the type, not in a comment.
 
