@@ -633,6 +633,73 @@ destructive-action previews, report export, custom reports, per-event
 verification, aggregation, by-user, and the three `Report` fields the templ
 verify page drops.
 
+## Amendments from implementation
+
+Everything above is the design as approved. This section records where
+building Plan A changed it, taken from the code and its reviews rather than
+from intent. Where this section and the text above disagree, this section is
+right. Plan B is written against it.
+
+**Scope rules, tightened.** A tenant claim that is present with an empty, nil
+or non-string value is refused, not widened. Only a claim missing from the map
+reads as an app-wide operator, since an empty value means an upstream wrote a
+tenant and its value was lost. If either `tenant_id` or `org_id` is present
+and unusable, the request is refused even when the other is good.
+
+**A tenant operator does not own app-level records.** An app-wide viewer owns
+everything in its app, including records with no tenant. A tenant viewer owns
+a record only if its tenant matches exactly. The earlier rule let a tenant
+viewer open an app-level record by ID while every list hid it, which is an
+inconsistency the templ dashboard had too. Detail handlers answer not-found on
+an ownership failure, so nobody can probe which IDs exist in other tenants.
+
+**`streams.list` is scoped to the viewer**, not cross-tenant. A tenant viewer
+gets its one chain directly. An app-wide viewer gets every tenant chain in its
+own app. A genuinely cross-tenant platform list would need a platform-scope
+predicate that nobody has defined.
+
+**The coverage ceiling follows the verifier.** A checkpointed plain chain
+verifies as `signed`, because an attacker can recompute plain digests but
+cannot re-sign a checkpoint, so the checkpoint still proves the range up to it
+was not rewritten. chronicle's own `TestIntactCheckpointedChainReportsSigned`
+asserts this. The ceiling is capped at `unkeyed` when the head sits below the
+scheme pin, which covers an empty stream and a pin move with no append since.
+
+**Coverage describes the pin, not what verified.** A span whose every event is
+a downgrade still grades `keyed`, because coverage is computed from the
+stream's pin. The page must never render coverage on its own. It always sits
+beside `valid` and `downgrades`, and a failed result outranks the level.
+
+**`verify.run` caps its span at 100,000 events per call.** Verification holds
+every event in the range in memory at once, so without a cap one read-capable
+request could crash the process. Over the cap is a bad request naming the cap
+and the chain head, and the page offers a bounded window. A reversed range is
+refused only when the caller supplied it explicitly. A chain wiped to head
+zero still runs, because that is exactly the case where a surviving signed
+checkpoint contradicting the head is the evidence.
+
+**`verify.event` returns `{valid, hashScheme, keyed}` and nothing more.** The
+library returns a bare boolean and checks only the event's own digest against
+its claimed predecessor, not its place in the chain. On an unkeyed chain
+somebody who rewrites an event can recompute its digest, so `valid` there does
+not rule out a rewrite. A downgrade shows up only as `valid: false`, looking
+the same as edited content. The page says both, and links to a chain check
+around the event.
+
+**Never cache a verification result on the client.** A verdict cached by range
+keeps saying valid after a row is rewritten. `verify.run` and `verify.event`
+are queries because they have no side effects, not because their answers
+last.
+
+**Found in the library while building, fixed or raised separately:**
+three of the four production backends had no tests; the redis backend lets
+two tenants share one hash chain when their IDs contain a colon; sqlite
+compares timestamps as strings, so a time-range search can drop or include
+events within a second of its edges; and a sqlite store wired directly,
+outside the extension, silently writes plain digests under an HMAC
+configuration, caught only when verification later reports every event as a
+downgrade.
+
 ## Testing
 
 Per package: `test`, `typecheck` and `lint` clean, and `pnpm -r test` across the
