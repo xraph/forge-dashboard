@@ -686,6 +686,15 @@ not rule out a rewrite. A downgrade shows up only as `valid: false`, looking
 the same as edited content. The page says both, and links to a chain check
 around the event.
 
+**`valid: true` with `verified: 0` is not a pass.** On a deployment without
+checkpoints, a chain wiped to head zero verifies as valid, with nothing
+verified and every checked flag false. That is the library's rule that an
+empty stream is vacuously valid, and it is legitimate, since a stream sits at
+head zero before its first event. The page renders it as "no events
+verified", with the ceiling beside it, and never as a pass. With checkpoints
+the same wipe is caught, because a surviving signed checkpoint contradicts the
+head.
+
 **Never cache a verification result on the client.** A verdict cached by range
 keeps saying valid after a row is rewritten. `verify.run` and `verify.event`
 are queries because they have no side effects, not because their answers
