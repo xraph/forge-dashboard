@@ -42,7 +42,19 @@ function seedWardenState() {
     permissions: [
       { id: "perm_01a", namespacePath: "", name: "document:read", resource: "document", action: "read", isSystem: false, createdAt: hourAgo, updatedAt: hourAgo },
       { id: "perm_01b", namespacePath: "", name: "document:write", resource: "document", action: "write", isSystem: false, createdAt: hourAgo, updatedAt: hourAgo },
-      { id: "perm_01c", namespacePath: "eng/platform", name: "cluster:admin", resource: "cluster", action: "admin", isSystem: false, createdAt: hourAgo, updatedAt: hourAgo },
+      // System, on purpose: the only seeded way to reach permissions.update
+      // and permissions.delete's system-permission refusal by hand. Already
+      // granted to role_01hr below, so the isSystem guard (which the real
+      // handler checks first) is what fires on it, not the holder conflict
+      // guard; perm_01a stays available, granted and non-system, to reach
+      // that conflict refusal on its own.
+      { id: "perm_01c", namespacePath: "eng/platform", name: "cluster:admin", resource: "cluster", action: "admin", isSystem: true, createdAt: hourAgo, updatedAt: hourAgo },
+    ],
+    // The role-permission junction, keyed by natural key exactly as the
+    // store keys it: (roleId, namespacePath, name).
+    grants: [
+      { roleId: "role_01hq", namespacePath: "", name: "document:read" },
+      { roleId: "role_01hr", namespacePath: "eng/platform", name: "cluster:admin" },
     ],
     assignments: [
       { id: "asgn_01a", namespacePath: "", roleId: "role_01hq", subjectKind: "user", subjectId: "alice", expiresAt: null, createdAt: hourAgo },
@@ -95,7 +107,85 @@ function seedWardenState() {
 let warden = seedWardenState()
 
 // ---------------------------------------------------------------------------
-// Warden intents (four queries, two commands in this plan)
+// Errors
+//
+// notFound, badRequest, permissionDenied, and conflict give the roles and
+// permissions handlers below the same four refusal shapes the Go contract
+// throws (extensions/dashboard/contract/errors.go: CodeNotFound,
+// CodeBadRequest, CodePermissionDenied, CodeConflict). They stay local to
+// this module for the same reason maintenance.cacheInvalidate's plain Error
+// does: importing server.mjs's own FixtureError back into this file would
+// create the circular import this module exists to avoid.
+//
+// That choice has one real consequence, worth naming rather than hiding.
+// server.mjs's dispatch catch tests `err instanceof FixtureError` against
+// its OWN class, and a class of the same name and shape declared in a
+// second ES module is still a distinct constructor: the check fails, every
+// time, for anything thrown from here. So every refusal below reaches the
+// wire as 400/BAD_REQUEST, and the intended status and code survive only on
+// the thrown object itself (.status, .code) and in the message text, not in
+// the HTTP response. That is not a step down from the real backend, though:
+// extensions/dashboard/contract/transport/http.go writes every handler
+// error as 500 and puts the real distinction in the JSON body's error.code,
+// never in the status line either. Neither a fixed 400 nor a fixed 500
+// tells a caller apart from the status alone; both push that job to the
+// body. What the caller actually depends on, a refused write leaving state
+// unchanged, holds either way.
+class WardenFixtureError extends Error {
+  constructor(status, code, message) {
+    super(message)
+    this.status = status
+    this.code = code
+  }
+}
+
+function notFound(kind, id) {
+  return new WardenFixtureError(404, "NOT_FOUND", `${kind} ${id} not found`)
+}
+
+function badRequest(message) {
+  return new WardenFixtureError(400, "BAD_REQUEST", message)
+}
+
+function permissionDenied(message) {
+  return new WardenFixtureError(403, "PERMISSION_DENIED", message)
+}
+
+function conflict(message) {
+  return new WardenFixtureError(409, "CONFLICT", message)
+}
+
+/**
+ * Pages an array the way every warden list intent pages a store: clamped
+ * limit, clamped offset, and a total that counts the filtered set rather
+ * than the returned page. A pager reading items.length would think there
+ * was one page.
+ */
+function pageOf(rows, params) {
+  const limit = Math.min(Math.max(Number(params?.limit) || 25, 1), 200)
+  const offset = Math.max(Number(params?.offset) || 0, 0)
+  return {
+    items: rows.slice(offset, offset + limit),
+    total: rows.length,
+    limit,
+    offset,
+  }
+}
+
+/**
+ * Applies the three-state namespace filter. An absent namespacePath means
+ * every namespace; an empty string means the tenant root. Those are
+ * different queries and collapsing them would scope every list to the root.
+ */
+function byNamespace(rows, params) {
+  if (params?.namespacePath === undefined) return rows
+  return rows.filter((r) => r.namespacePath === params.namespacePath)
+}
+
+// ---------------------------------------------------------------------------
+// Warden intents (eight queries, eleven commands: the original four queries
+// and two commands, plus the thirteen roles and permissions intents added
+// here)
 // ---------------------------------------------------------------------------
 
 /** Every distinct namespace on any warden entity, plus the tenant root. */
@@ -168,6 +258,277 @@ export const wardenHandlers = {
         )
       }
       return { scope: hasKind ? "subject" : "tenant" }
+    },
+  },
+
+  // -------------------------------------------------------------------------
+  // Roles
+  // -------------------------------------------------------------------------
+
+  "roles.list": {
+    kind: "query",
+    handler: (params) => {
+      let rows = byNamespace(warden.roles, params)
+      if (params?.search) {
+        const q = String(params.search).toLowerCase()
+        rows = rows.filter(
+          (r) => r.name.toLowerCase().includes(q) || r.slug.toLowerCase().includes(q)
+        )
+      }
+      if (params?.isSystem !== undefined) {
+        rows = rows.filter((r) => r.isSystem === params.isSystem)
+      }
+      if (params?.isDefault !== undefined) {
+        rows = rows.filter((r) => r.isDefault === params.isDefault)
+      }
+      return pageOf(rows, params)
+    },
+  },
+  "roles.detail": {
+    kind: "query",
+    handler: (params) => {
+      const r = warden.roles.find((x) => x.id === params?.id)
+      if (!r) throw notFound("role", params?.id)
+      const names = warden.grants.filter((g) => g.roleId === r.id)
+      return {
+        ...r,
+        permissions: warden.permissions.filter((p) =>
+          names.some((g) => g.name === p.name && g.namespacePath === p.namespacePath)
+        ),
+        children: warden.roles.filter((c) => c.parentSlug === r.slug),
+      }
+    },
+  },
+  "roles.create": {
+    kind: "command",
+    invalidates: ["roles.list", "roles.detail", "overview.stats", "namespaces.list"],
+    handler: (payload) => {
+      if (!payload?.name || !payload?.slug) {
+        throw badRequest("a role needs a name and a slug")
+      }
+      const now = new Date().toISOString()
+      const row = {
+        id: "role_" + Math.random().toString(36).slice(2, 10),
+        namespacePath: payload.namespacePath ?? "",
+        name: payload.name,
+        slug: payload.slug,
+        description: payload.description ?? "",
+        parentSlug: payload.parentSlug ?? "",
+        isSystem: false,
+        isDefault: Boolean(payload.isDefault),
+        maxMembers: payload.maxMembers ?? 0,
+        createdAt: now,
+        updatedAt: now,
+      }
+      warden.roles.push(row)
+      return { id: row.id }
+    },
+  },
+  "roles.update": {
+    kind: "command",
+    invalidates: ["roles.list", "roles.detail"],
+    handler: (payload) => {
+      const r = warden.roles.find((x) => x.id === payload?.id)
+      if (!r) throw notFound("role", payload?.id)
+      // The system guard, matching the Go handler. Nothing below the
+      // contract layer enforces this, so the fixture must not either.
+      if (r.isSystem) {
+        throw permissionDenied(`"${r.name}" is a system role and cannot be changed or deleted`)
+      }
+      // Only the fields present in the payload change. A fixture that
+      // overwrote everything would hide the read-patch-write bug.
+      for (const field of ["name", "description", "parentSlug"]) {
+        if (payload[field] !== undefined) r[field] = payload[field]
+      }
+      if (payload.maxMembers !== undefined) r.maxMembers = payload.maxMembers
+      if (payload.isDefault !== undefined) r.isDefault = payload.isDefault
+      r.updatedAt = new Date().toISOString()
+      return { id: r.id }
+    },
+  },
+  "roles.delete": {
+    kind: "command",
+    invalidates: ["roles.list", "roles.detail", "overview.stats"],
+    handler: (payload) => {
+      const i = warden.roles.findIndex((x) => x.id === payload?.id)
+      if (i === -1) throw notFound("role", payload?.id)
+      const r = warden.roles[i]
+      if (r.isSystem) {
+        throw permissionDenied(`"${r.name}" is a system role and cannot be changed or deleted`)
+      }
+      warden.roles.splice(i, 1)
+      // The store cascades DeleteAssignmentsByRole, so the fixture does too.
+      warden.assignments = warden.assignments.filter((a) => a.roleId !== r.id)
+      warden.grants = warden.grants.filter((g) => g.roleId !== r.id)
+      return {}
+    },
+  },
+  "roles.attachPermission": {
+    kind: "command",
+    invalidates: ["roles.detail"],
+    handler: (payload) => {
+      const r = warden.roles.find((x) => x.id === payload?.roleId)
+      if (!r) throw notFound("role", payload?.roleId)
+      if (r.isSystem) {
+        throw permissionDenied(`"${r.name}" is a system role and cannot be changed or deleted`)
+      }
+      const ns = payload.permissionNamespacePath ?? ""
+      const pm = warden.permissions.find(
+        (p) => p.name === payload?.permissionName && p.namespacePath === ns
+      )
+      if (!pm) throw notFound("permission", payload?.permissionName)
+      const already = warden.grants.some(
+        (g) => g.roleId === r.id && g.name === pm.name && g.namespacePath === ns
+      )
+      if (!already) warden.grants.push({ roleId: r.id, namespacePath: ns, name: pm.name })
+      return { id: r.id }
+    },
+  },
+  "roles.detachPermission": {
+    kind: "command",
+    invalidates: ["roles.detail"],
+    handler: (payload) => {
+      const r = warden.roles.find((x) => x.id === payload?.roleId)
+      if (!r) throw notFound("role", payload?.roleId)
+      if (r.isSystem) {
+        throw permissionDenied(`"${r.name}" is a system role and cannot be changed or deleted`)
+      }
+      const ns = payload.permissionNamespacePath ?? ""
+      const i = warden.grants.findIndex(
+        (g) => g.roleId === r.id && g.name === payload?.permissionName && g.namespacePath === ns
+      )
+      // A detach of a grant the role does not hold must not read as
+      // success, exactly as the Go handler refuses it.
+      if (i === -1) {
+        throw notFound("grant", `${r.slug} does not grant ${payload?.permissionName}`)
+      }
+      warden.grants.splice(i, 1)
+      return { id: r.id }
+    },
+  },
+  "roles.setPermissions": {
+    kind: "command",
+    invalidates: ["roles.detail"],
+    handler: (payload) => {
+      const r = warden.roles.find((x) => x.id === payload?.roleId)
+      if (!r) throw notFound("role", payload?.roleId)
+      if (r.isSystem) {
+        throw permissionDenied(`"${r.name}" is a system role and cannot be changed or deleted`)
+      }
+      const refs = payload?.permissions ?? []
+      // Resolve every reference before writing any: all or nothing, so a
+      // typo cannot leave the role with a set nobody chose.
+      const resolved = refs.map((ref) => {
+        const ns = ref.namespacePath ?? ""
+        const pm = warden.permissions.find((p) => p.name === ref.name && p.namespacePath === ns)
+        if (!pm) throw notFound("permission", ref.name)
+        return { roleId: r.id, namespacePath: ns, name: pm.name }
+      })
+      warden.grants = warden.grants.filter((g) => g.roleId !== r.id).concat(resolved)
+      return { id: r.id }
+    },
+  },
+
+  // -------------------------------------------------------------------------
+  // Permissions
+  // -------------------------------------------------------------------------
+
+  "permissions.list": {
+    kind: "query",
+    handler: (params) => {
+      let rows = byNamespace(warden.permissions, params)
+      if (params?.resource) rows = rows.filter((p) => p.resource === params.resource)
+      if (params?.action) rows = rows.filter((p) => p.action === params.action)
+      if (params?.search) {
+        const q = String(params.search).toLowerCase()
+        rows = rows.filter((p) => p.name.toLowerCase().includes(q))
+      }
+      return pageOf(rows, params)
+    },
+  },
+  "permissions.detail": {
+    kind: "query",
+    handler: (params) => {
+      const pm = warden.permissions.find((x) => x.id === params?.id)
+      if (!pm) throw notFound("permission", params?.id)
+      const holderIds = warden.grants
+        .filter((g) => g.name === pm.name && g.namespacePath === pm.namespacePath)
+        .map((g) => g.roleId)
+      return {
+        ...pm,
+        grantedBy: warden.roles.filter((r) => holderIds.includes(r.id)),
+      }
+    },
+  },
+  "permissions.create": {
+    kind: "command",
+    invalidates: ["permissions.list", "overview.stats", "namespaces.list"],
+    handler: (payload) => {
+      if (!payload?.resource || !payload?.action) {
+        throw badRequest("a permission needs a resource and an action")
+      }
+      const want = `${payload.resource}:${payload.action}`
+      const name = payload.name || want
+      if (name !== want) {
+        throw badRequest(
+          `name ${name} disagrees with ${want}: checks match on resource and action, so this permission would be unreachable by name`
+        )
+      }
+      const now = new Date().toISOString()
+      const row = {
+        id: "perm_" + Math.random().toString(36).slice(2, 10),
+        namespacePath: payload.namespacePath ?? "",
+        name,
+        resource: payload.resource,
+        action: payload.action,
+        description: payload.description ?? "",
+        isSystem: false,
+        createdAt: now,
+        updatedAt: now,
+      }
+      warden.permissions.push(row)
+      return { id: row.id }
+    },
+  },
+  "permissions.update": {
+    kind: "command",
+    invalidates: ["permissions.list", "permissions.detail"],
+    handler: (payload) => {
+      const pm = warden.permissions.find((x) => x.id === payload?.id)
+      if (!pm) throw notFound("permission", payload?.id)
+      if (pm.isSystem) {
+        throw permissionDenied(
+          `"${pm.name}" is a system permission and cannot be changed or deleted`
+        )
+      }
+      if (payload.description !== undefined) pm.description = payload.description
+      pm.updatedAt = new Date().toISOString()
+      return { id: pm.id }
+    },
+  },
+  "permissions.delete": {
+    kind: "command",
+    invalidates: ["permissions.list", "permissions.detail", "roles.detail", "overview.stats"],
+    handler: (payload) => {
+      const i = warden.permissions.findIndex((x) => x.id === payload?.id)
+      if (i === -1) throw notFound("permission", payload?.id)
+      const pm = warden.permissions[i]
+      if (pm.isSystem) {
+        throw permissionDenied(
+          `"${pm.name}" is a system permission and cannot be changed or deleted`
+        )
+      }
+      const holders = warden.grants
+        .filter((g) => g.name === pm.name && g.namespacePath === pm.namespacePath)
+        .map((g) => warden.roles.find((r) => r.id === g.roleId)?.slug)
+        .filter(Boolean)
+      if (holders.length > 0) {
+        throw conflict(
+          `${pm.name} is still granted by ${holders.join(", ")}. Detach it from those roles first.`
+        )
+      }
+      warden.permissions.splice(i, 1)
+      return {}
     },
   },
 }
