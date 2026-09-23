@@ -36,12 +36,14 @@ export interface PluginAuth {
  * rule, and so the failure is a thrown wiring error at resolve time instead
  * of a silent pick that depends on array order.
  */
-export function resolveAuthProvider(plugins: ForgePlugin[]): ForgePlugin | undefined {
+export function resolveAuthProvider(
+  plugins: ForgePlugin[]
+): ForgePlugin | undefined {
   const declaring = plugins.filter((plugin) => plugin.auth !== undefined)
   if (declaring.length > 1) {
     const names = declaring.map((plugin) => plugin.extension).join(", ")
     throw new Error(
-      `more than one plugin declares auth intents (${names}); at most one may`,
+      `more than one plugin declares auth intents (${names}); at most one may`
     )
   }
   return declaring[0]
@@ -76,6 +78,55 @@ export interface AuthConfig {
 export interface LoginResult {
   ok: boolean
   subject?: string
+}
+
+export type SetupEnvironmentType = "development" | "staging" | "production"
+
+/** Public platform fields returned by the anonymous setup-status intent. */
+export interface SetupPlatformDefaults {
+  name: string
+  slug: string
+  logo?: string
+}
+
+/** Public default-environment fields returned during first-run setup. */
+export interface SetupEnvironmentDefaults {
+  name: string
+  slug: string
+  type: SetupEnvironmentType
+  isDefault?: boolean
+  color?: string
+  description?: string
+}
+
+export interface SetupStatus {
+  pending: boolean
+  platform?: SetupPlatformDefaults
+  environment?: SetupEnvironmentDefaults
+}
+
+export type SetupMetadata = Record<string, string>
+
+export interface SetupPlatformInput extends SetupPlatformDefaults {
+  metadata?: SetupMetadata
+}
+
+export interface SetupEnvironmentInput {
+  name: string
+  slug: string
+  type: SetupEnvironmentType
+  color?: string
+  description?: string
+  metadata?: SetupMetadata
+}
+
+export interface CompleteSetupInput {
+  email: string
+  password: string
+  name?: string
+  organizationName?: string
+  platform?: SetupPlatformInput
+  environment?: SetupEnvironmentInput
 }
 
 /** What the `signOut` intent answers. */

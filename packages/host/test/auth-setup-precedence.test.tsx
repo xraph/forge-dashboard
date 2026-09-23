@@ -1,15 +1,32 @@
-import { render, screen } from "@testing-library/react"
-import { MemoryRouter, Route, Routes } from "react-router"
-import { describe, expect, it, vi } from "vitest"
+import { fireEvent, render, screen } from "@testing-library/react"
+import { MemoryRouter, Route, Routes, useLocation } from "react-router"
+import { beforeEach, describe, expect, it, vi } from "vitest"
 import type { AuthIntents } from "@forge-go/dashboard-plugin"
+
+const mocks = vi.hoisted(() => ({
+  setupQuery: {
+    data: { pending: true } as { pending: boolean } | undefined,
+    loading: false,
+    error: undefined as { code: string; message: string } | undefined,
+    refetch: vi.fn(),
+  },
+}))
 
 vi.mock("@forge-go/dashboard-plugin", async () => {
   const actual = await vi.importActual<Record<string, unknown>>(
-    "@forge-go/dashboard-plugin",
+    "@forge-go/dashboard-plugin"
   )
   return {
     ...actual,
-    useQuery: () => ({ data: { pending: true }, loading: false, error: undefined }),
+    useQuery: (intent: string) =>
+      intent === "auth.setupStatus"
+        ? mocks.setupQuery
+        : {
+            data: { passwordEnabled: true, brand: "Forge" },
+            loading: false,
+            error: undefined,
+            refetch: vi.fn(),
+          },
     useCommand: () => ({ execute: vi.fn(), loading: false, error: undefined }),
   }
 })
@@ -23,7 +40,21 @@ const intents: AuthIntents = {
   completeSetup: "auth.setup",
 }
 
+function LocationProbe() {
+  const location = useLocation()
+  return (
+    <div data-testid="setup-location">{`${location.pathname}${location.search}`}</div>
+  )
+}
+
 describe("setup precedence", () => {
+  beforeEach(() => {
+    mocks.setupQuery.data = { pending: true }
+    mocks.setupQuery.loading = false
+    mocks.setupQuery.error = undefined
+    mocks.setupQuery.refetch.mockReset()
+  })
+
   it("sends a first-run server from login to setup", () => {
     const SignIn = defaultAuthScreens.signIn
     render(
@@ -42,11 +73,58 @@ describe("setup precedence", () => {
           />
           <Route element={<div data-testid="setup" />} path="/setup" />
         </Routes>
-      </MemoryRouter>,
+      </MemoryRouter>
     )
     // Navigate renders nothing itself, so the assertion is that the router
     // landed on the setup route.
     expect(screen.getByTestId("setup")).toBeDefined()
+  })
+
+  it("preserves the validated destination when login redirects to setup", () => {
+    const SignIn = defaultAuthScreens.signIn
+    render(
+      <MemoryRouter initialEntries={["/login?next=%2Fprojects%3Ftab%3Drecent"]}>
+        <Routes>
+          <Route
+            element={
+              <SignIn
+                basename="/forge"
+                intents={intents}
+                next="/projects?tab=recent"
+                onAuthenticated={vi.fn()}
+              />
+            }
+            path="/login"
+          />
+          <Route element={<LocationProbe />} path="/setup" />
+        </Routes>
+      </MemoryRouter>
+    )
+
+    expect(screen.getByTestId("setup-location").textContent).toBe(
+      "/setup?next=%2Fprojects%3Ftab%3Drecent"
+    )
+  })
+
+  it("blocks credential entry and retries when setup status is unavailable", () => {
+    mocks.setupQuery.data = undefined
+    mocks.setupQuery.error = { code: "UNAVAILABLE", message: "not ready" }
+    const SignIn = defaultAuthScreens.signIn
+    render(
+      <MemoryRouter initialEntries={["/login"]}>
+        <SignIn
+          basename="/forge"
+          intents={intents}
+          next="/"
+          onAuthenticated={vi.fn()}
+        />
+      </MemoryRouter>
+    )
+
+    expect(screen.getByText("Setup status unavailable")).toBeDefined()
+    expect(screen.queryByLabelText("Password")).toBeNull()
+    fireEvent.click(screen.getByRole("button", { name: "Retry" }))
+    expect(mocks.setupQuery.refetch).toHaveBeenCalledOnce()
   })
 
   // Critical 2 regression: a provider that declares setupStatus without
@@ -80,7 +158,7 @@ describe("setup precedence", () => {
             path="/login"
           />
         </Routes>
-      </MemoryRouter>,
+      </MemoryRouter>
     )
     expect(screen.getByRole("heading", { name: /sign in/i })).toBeDefined()
   })
