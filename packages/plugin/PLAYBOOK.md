@@ -94,6 +94,27 @@ than defaulting, which is the right instinct. Work out what empty means in
 your queries before you rely on any resolution path, and make the failure
 loud.
 
+**Do not let a legitimate default cover for a failed resolution.** Ledger
+caught this in its own spec, which already had an app id fallback. A fallback
+for a dimension with no claim to check against is reasonable. A fallback for a
+tenant whose claim failed to resolve is the bug, wearing the same clothes.
+Conflating them is how somebody reintroduces empty-matches-everything while
+following the spec correctly, so write the two rules separately and say which
+is which.
+
+**Pin what empty actually does, per backend, as a test.** This is the best
+version of the check and it is Ledger's. Rather than asserting the behaviour
+you would prefer, call the query with an empty tenant, observe what comes
+back, and write that down as an assertion with a comment saying which it is.
+If empty returns everything, the test says so plainly. That turns a warning
+into a recorded fact the contract layer is defending against, and if your
+backends disagree with each other the harness reports the disagreement as a
+finding rather than asserting something weak enough to satisfy all of them.
+
+Then test isolation properly alongside it: write rows under two tenants, list
+under one, and assert on identity rather than on count. A count assertion
+passes when the wrong rows come back in the right quantity.
+
 ## The React plugin
 
 ```tsx
