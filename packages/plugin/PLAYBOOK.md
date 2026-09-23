@@ -121,29 +121,55 @@ Five conventions, each of which has been lost and restored at least once:
    bare dash. A blank cell reads as "still loading" or "broken", and is silent
    to a screen reader. A possibly-absent timestamp uses `Timestamp`, because
    `formatTimestamp` returns an unlabelled dash you cannot attach a label to.
-5. A badge's colour is the scan signal, not its text.
+5. A badge's colour is an attention budget, not a label.
 
-An earlier version of this rule said "outline for true or normal, secondary
-for false". That was a bad summary of a binary, and it does not survive a
-domain with more than two states. Relay hit the wall first with four:
-delivered, queued, retrying and failed. Counting the badges actually in
-`plugin-authsome` and `plugin-streaming` gives outline 51, destructive 27,
-default 5, secondary 4, so the code was already using all four while the rule
-described two.
+This rule has been wrong twice and the second version was wrong in a more
+interesting way than the first, so both corrections are kept here.
 
-The vocabulary, as used:
+It began as "outline for true or normal, secondary for false", which is a
+binary and does not survive a domain with four states. Counting the badges
+actually rendered in `plugin-authsome` and `plugin-streaming` gives outline
+51, destructive 27, default 5, secondary 4, so the code was already using all
+four while the rule described two.
 
-| variant | means | examples |
-|---|---|---|
-| `outline` | ordinary, the state most rows are in | active, enabled, verified |
-| `default` | affirmative, the healthy outcome | delivered, granted, succeeded |
-| `secondary` | notable but not wrong | draft, paused, queued, pending |
-| `destructive` | the one an operator is hunting | failed, banned, revoked, rejected |
+The replacement was a table mapping variant to meaning, and Relay found that it
+contradicted itself. It listed `delivered` as an example of `default` while
+also saying `outline` is for "the state most rows are in". On a delivery log
+those are the same state, usually by a very long way. Give a solid filled badge
+to ninety five percent of a page and the colour has stopped signalling
+anything, because ninety five percent of anything is background.
 
-**Reserve `destructive` for the state somebody came to the page to find.** If
-three of your four states are destructive, none of them is, and the scan is
-gone. A domain with more states than this needs a considered mapping and not a
-fifth colour, so write down which state maps to which and why.
+The mistake was conflating two axes: what a state MEANS, and how much of the
+page it OCCUPIES. Only the second one decides a badge.
+
+So the rule is proportion first:
+
+**Whatever state holds most of the rows takes `outline`, whatever its
+semantics.** The majority recedes. Then the rest ramp up by how much a row
+should interrupt somebody who is scanning, with `destructive` reserved for
+what they came to find.
+
+Relay's delivery log, as the worked example: outline for delivered, secondary
+for queued, default for retrying, destructive for failed. Note that the
+healthy outcome takes the quietest variant there, which reads wrong until you
+remember what the page is for.
+
+When states are roughly balanced, as in a bounded resource list, semantics is
+a reasonable tie-break and this table is a starting point rather than a lookup:
+
+| variant | typically |
+|---|---|
+| `outline` | the ordinary state, and always the majority one |
+| `secondary` | notable but not wrong: draft, paused, queued |
+| `default` | affirmative, or the one worth a second look |
+| `destructive` | the state somebody came to the page to find |
+
+The corollary I wrote earlier, that if three of four states are destructive
+then none of them is, turns out to be the same observation from the other end.
+It reads like a rule about meaning and it is really a rule about proportion.
+
+Write your mapping down with its reasons. A domain that needs something these
+four cannot express needs a considered answer, not a fifth colour.
 
 ## Things that went wrong last time
 
