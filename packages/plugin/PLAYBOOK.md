@@ -82,9 +82,33 @@ written against a single tenant.
 
 `forge.ScopeFrom(ctx)` does not work here. Nothing in the dispatcher, the
 server or the transport propagates a forge scope into a handler's context, so
-a scope helper carried over from the templ path silently returns empty. The
-canonical surface on the contract path is `Principal.Claims` keyed `app_id`,
-which authsome's `AppIDFromPrincipal` documents.
+a scope helper carried over from the templ path silently returns empty.
+
+**And neither does the thing it tells you to use instead.** This is the part
+that matters, and an earlier version of this playbook got it wrong. The
+documented surface is `Principal.Claims` keyed `app_id`, which authsome's
+`AppIDFromPrincipal` reads. Nothing populates it. `contract.PrincipalFor`
+copies claims from `dashauth.UserInfo`, and authsome's `userToUserInfo` sets
+Subject, DisplayName, Email and AvatarURL, and no claims at all. Grep the
+extension for an assignment to `Claims` on that path and there is none.
+
+The cookie half is the same story from the other end. `apps.switch` writes an
+`authsome_app` cookie and the file's own comment says the dashboard's auth
+resolver reads it back into the principal's claims. Nothing does. The cookie
+is written, it is cleared, and it is never read.
+
+So `AppIDFromPrincipal` always falls through to `defaultAppID`, every time, on
+every deployment. The canonical surface is canonical by convention only, and
+"use `Principal.Claims`" reads as "there is a working mechanism, use that one"
+when there is not.
+
+Two consequences. Any contributor that reads a claim and falls back is, in
+practice, always taking the fallback, so the fallback is your real behaviour
+and deserves to be designed rather than written as a safety net. And an
+extension with no sensible default to fall back on cannot resolve a tenant at
+all yet: Warden's answer is claim, then an explicit config setting, then
+refuse with `PERMISSION_DENIED`, never empty. That is the right shape until
+something populates claims.
 
 The damage depends on what an empty value means to your store, and it is
 usually the worst option: an empty app id frequently matches EVERY app rather
@@ -101,6 +125,15 @@ tenant whose claim failed to resolve is the bug, wearing the same clothes.
 Conflating them is how somebody reintroduces empty-matches-everything while
 following the spec correctly, so write the two rules separately and say which
 is which.
+
+Warden then found the same bug in its own fix for this, which is the best
+argument that the distinction is worth stating. The first version read
+`p.Claims["tenant_id"].(string)` and fell through to a default whenever the
+type assertion failed. A claim present as a number, or as an empty string,
+takes the default: a tenant whose claim failed to resolve, answered with a
+different tenant's data. Absent means the default is reasonable. Present and
+unusable must refuse. Test the three cases, empty string, wrong type and nil,
+because the happy path covers none of them.
 
 **Pin what empty actually does, per backend, as a test.** This is the best
 version of the check and it is Ledger's. Rather than asserting the behaviour
