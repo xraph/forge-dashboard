@@ -675,6 +675,7 @@ This is the task that matters most. `scope.go` is the security boundary for ever
 - Produces:
   - `Deps{Store store.Store, Chronicle *chronicle.Chronicle, Engine *compliance.Engine, Enforcer *retention.Enforcer, Erasure *erasure.Service, Checkpointer *checkpoint.Checkpointer, CheckpointStore checkpoint.Store, CheckpointSigner checkpoint.Signer, HashChain *hash.Chain, Config SurfaceConfig}`
   - `Register(d *dispatcher.Dispatcher, reg contract.Registry, wreg contract.WardenRegistry, deps Deps) error`
+  - `registration{name string, kind intentKind, bind func(*dispatcher.Dispatcher, Deps) error}` and `registrations() []registration`. Every later task appends its group's `<group>Registrations()` to `registrations()`. This slice, not the dispatcher, is what the manifest parity test compares against.
   - `viewScope{AppID, TenantID string}`
   - `scopeFromPrincipal(p contract.Principal) (viewScope, error)`
   - `(viewScope) owns(appID, tenantID string) bool`
@@ -937,7 +938,7 @@ contributor:
   envelope:
     supports: [v1]
     preferred: v1
-  capabilities: [chronicle.read, chronicle.write, chronicle.admin]
+  capabilities: [chronicle.read, chronicle.write]
 
 intents:
   # The viewer's own chain. There is exactly one per app and tenant, so this
@@ -1073,25 +1074,41 @@ func TestManifestAndHandlersAgree(t *testing.T) {
 		t.Fatalf("load manifest: %v", err)
 	}
 
-	declared := map[string]bool{}
+	declared := map[string]struct{}{}
 	for _, in := range m.Intents {
-		declared[in.Name] = true
+		declared[in.Name] = struct{}{}
 	}
 
-	d := newTestDispatcher(t)
-	if err := registerAll(d, Deps{Store: newStubStore()}); err != nil {
-		t.Fatalf("registerAll: %v", err)
+	registered := map[string]intentKind{}
+	for _, r := range registrations() {
+		if _, dup := registered[r.name]; dup {
+			t.Errorf("intent %q is registered twice", r.name)
+		}
+		registered[r.name] = r.kind
 	}
-	registered := dispatcherIntents(t, d, contributorName)
 
 	for name := range declared {
-		if !registered[name] {
+		if _, ok := registered[name]; !ok {
 			t.Errorf("intent %q is declared in the manifest but no handler registers it", name)
 		}
 	}
 	for name := range registered {
-		if !declared[name] {
+		if _, ok := declared[name]; !ok {
 			t.Errorf("intent %q has a handler but is not declared in the manifest", name)
+		}
+	}
+
+	// The kinds must agree too. A query registered against an intent the
+	// manifest calls a command would pass the name comparison above and then
+	// fail the envelope's kind check at runtime, which is a much worse place
+	// to find out.
+	for _, in := range m.Intents {
+		got, ok := registered[in.Name]
+		if !ok {
+			continue // already reported above
+		}
+		if string(got) != string(in.Kind) {
+			t.Errorf("intent %q: manifest says kind=%s, registration says %s", in.Name, in.Kind, got)
 		}
 	}
 }
@@ -1121,7 +1138,6 @@ not just the three this test uses. Every later task's tests depend on them and
 this is the one place they are defined:
 
 - `newTestDispatcher(t)`: a dispatcher to register against
-- `dispatcherIntents(t, d, contributor)`: the set of registered intent names
 - `newStubStore()`: a `store.Store` whose methods return zero values
 - `storeReturning(err)`: a `store.Store` whose reads return that error, used
   by this task's no-chain test and by Task 8's
@@ -1132,7 +1148,80 @@ this is the one place they are defined:
 
 Later tasks add their own spies under task-specific names and must not
 redefine any of these. Two definitions of the same helper in one package is a
-compile error, so the first `go build` will tell you. For `dispatcherIntents`, read the `dispatcher` package to find how to enumerate what is registered; if it exposes nothing, track registrations through a small test double instead of reaching into its internals. `newStubStore` returns a `store.Store` whose methods return zero values, which is enough for registration.
+compile error, so the first `go build` will tell you. `newStubStore` returns a
+`store.Store` whose methods return zero values, which is enough for
+registration.
+
+`dispatcherIntents` needs a different approach than reading the dispatcher,
+and this is settled rather than left to you: `*dispatcher.Dispatcher` exposes
+no way to enumerate what has been registered. Its public methods are
+`Register`, `RegisterContributor`, `RegisterSubscription`, `SetRemoteDispatcher`,
+`Dispatch` and `Subscribe`, and none of them lists anything.
+
+So make the registration table the source of truth instead of the dispatcher.
+Restructure `registerAll` around a declarative slice, in `contract.go`:
+
+```go
+// intentKind distinguishes a query from a command at registration time. The
+// dispatcher's RegisterQuery and RegisterCommand are aliases for each other,
+// so this exists for the manifest parity test rather than for dispatch.
+type intentKind string
+
+const (
+	kindQuery   intentKind = "query"
+	kindCommand intentKind = "command"
+)
+
+// registration is one intent and the function that binds it.
+type registration struct {
+	name string
+	kind intentKind
+	bind func(*dispatcher.Dispatcher, Deps) error
+}
+
+// registrations is every intent this contributor answers. It is the single
+// source of truth: registerAll walks it to bind handlers, and the manifest
+// parity test walks it to compare against the manifest. Adding an intent in
+// one place and forgetting the other is what that test exists to catch, and
+// it can only catch it if both read from here.
+func registrations() []registration {
+	var out []registration
+	out = append(out, streamsRegistrations()...)
+	// Each later task appends its group's function here.
+	return out
+}
+
+func registerAll(d *dispatcher.Dispatcher, deps Deps) error {
+	for _, r := range registrations() {
+		if err := r.bind(d, deps); err != nil {
+			return fmt.Errorf("chronicle/contract: register %s: %w", r.name, err)
+		}
+	}
+	return nil
+}
+```
+
+and `handlers_streams.go` supplies its own group:
+
+```go
+func streamsRegistrations() []registration {
+	return []registration{
+		{name: "streams.mine", kind: kindQuery, bind: func(d *dispatcher.Dispatcher, deps Deps) error {
+			return dispatcher.RegisterQuery(d, contributorName, "streams.mine", 1, streamsMineHandler(deps))
+		}},
+		{name: "streams.list", kind: kindQuery, bind: func(d *dispatcher.Dispatcher, deps Deps) error {
+			return dispatcher.RegisterQuery(d, contributorName, "streams.list", 1, streamsListHandler(deps))
+		}},
+	}
+}
+```
+
+Then `dispatcherIntents` is not needed at all. The parity test reads
+`registrations()` directly, and it gains a second assertion for free: that
+each intent's declared kind in the manifest matches the kind it registers
+under. Write the test against `registrations()` rather than against a
+dispatcher, and drop `newTestDispatcher` from the helper list unless another
+test needs one.
 
 - [ ] **Step 8: Write the streams handlers**
 
@@ -1579,13 +1668,20 @@ event first and calls `v.owns(event.AppID, event.TenantID)`, answering
 `CodeNotFound` when it does not, because an event must not be verifiable by
 ID alone any more than it is readable by ID alone.
 
-- [ ] **Step 5: Add `registerVerify` to `registerAll`**
+- [ ] **Step 5: Add this group to the registration table**
+
+Append the group's own function to `registrations()` in `contract.go`:
 
 ```go
-	if err := registerVerify(d, deps); err != nil {
-		return err
-	}
+	out = append(out, verifyRegistrations()...)
 ```
+
+and supply `verifyRegistrations()` in this task's handler file, following the
+shape `streamsRegistrations()` established in Task 7: one `registration` per
+intent, each naming its intent, its kind, and a `bind` closure calling
+`dispatcher.RegisterQuery` or `RegisterCommand`. The manifest parity test
+reads this table, so an intent added to the manifest without a matching entry
+here fails the build.
 
 - [ ] **Step 6: Run everything**
 
@@ -1718,7 +1814,7 @@ from the stream row. A nil `Checkpointer` answers `CodeUnavailable` with
 "this deployment takes no checkpoints", matching how `handler/checkpoints.go`
 answers 503 for the same case.
 
-- [ ] **Step 5: Add `registerCheckpoints` to `registerAll`**
+- [ ] **Step 5: Add this group to the registration table**
 
 - [ ] **Step 6: Run everything**
 
@@ -1903,7 +1999,7 @@ would widen the query to the beginning of time instead of narrowing it.
 Clamp `Limit` the way `handler/requests.go` does: zero or less becomes 50,
 above 1000 becomes 1000. Reuse the same numbers so the two paths agree.
 
-- [ ] **Step 5: Add `registerEvents` to `registerAll`**
+- [ ] **Step 5: Add this group to the registration table**
 
 - [ ] **Step 6: Run everything**
 
@@ -1983,7 +2079,7 @@ groups rather than running separate filtered queries. `ErasureCount` comes
 from `CountErasures`, which exists precisely so callers do not count a list
 that is bounded by its own limit.
 
-- [ ] **Step 5: Add `registerOverview` to `registerAll`**
+- [ ] **Step 5: Add this group to the registration table**
 
 - [ ] **Step 6: Run everything**
 
@@ -2001,8 +2097,13 @@ git commit -m "feat(contract): add the overview stats intent"
 ### Task 12: The erasures group
 
 This group and the next are the two that destroy audit history. Both get a
-preview query the confirm dialog runs before the command fires, and both are
-capability `admin`.
+preview query the confirm dialog runs before the command fires.
+
+Note the capability shape, which the plan originally got wrong.
+`contract.Capability` has only `read` and `write`, and `loader.Validate`
+requires a command to be `write`. "Admin" is expressed through the separate
+`requires` predicate instead, as `all: [scope:chronicle.admin]`. A manifest
+saying `capability: admin` fails to load.
 
 **Files:**
 - Create: `extension/contract/handlers_erasures.go`
@@ -2021,8 +2122,10 @@ capability `admin`.
   # The count the confirm dialog shows before the command fires. A query, so
   # it is lazy on the client and runs when the dialog opens, not on the list.
   - { name: erasures.preview, kind: query, version: 1, capability: read }
-  # admin, not write: this destroys a subject's key and flags their events.
-  - { name: erasures.request, kind: command, version: 1, capability: admin,
+  # Destroys a subject's key and flags their events, so it carries the
+  # explicit admin scope on top of the write capability every command has.
+  - { name: erasures.request, kind: command, version: 1, capability: write,
+      requires: { all: [scope:chronicle.admin] },
       invalidates: [erasures.list, overview.stats, events.list] }
 ```
 
@@ -2122,7 +2225,7 @@ A nil `deps.Erasure` answers `CodeUnavailable`: without the service an
 erasure only flags events and does not destroy the key, and silently doing
 half a GDPR erasure is worse than refusing.
 
-- [ ] **Step 5: Add `registerErasures` to `registerAll`**
+- [ ] **Step 5: Add this group to the registration table**
 
 - [ ] **Step 6: Run everything**
 
@@ -2161,11 +2264,13 @@ Seven intents, and the one that permanently deletes audit history.
   - { name: retention.policyDetail, kind: query, version: 1, capability: read }
   - { name: retention.savePolicy,   kind: command, version: 1, capability: write,
       invalidates: [retention.policies, retention.policyDetail] }
-  - { name: retention.deletePolicy, kind: command, version: 1, capability: admin,
+  - { name: retention.deletePolicy, kind: command, version: 1, capability: write,
+      requires: { all: [scope:chronicle.admin] },
       invalidates: [retention.policies] }
   - { name: retention.preview,      kind: query, version: 1, capability: read }
-  # admin: this purges audit events permanently.
-  - { name: retention.enforce, kind: command, version: 1, capability: admin,
+  # Purges audit events permanently, so it carries the explicit admin scope.
+  - { name: retention.enforce, kind: command, version: 1, capability: write,
+      requires: { all: [scope:chronicle.admin] },
       invalidates: [retention.policies, retention.archives, events.list, overview.stats, streams.mine] }
   - { name: retention.archives,     kind: query, version: 1, capability: read }
 ```
@@ -2308,7 +2413,7 @@ policy's category and cutoff. Sum the counts. Set `NoPolicies` when the
 viewer has none, because zero-because-nothing-is-configured and
 zero-because-nothing-is-old-enough are different answers.
 
-- [ ] **Step 5: Add `registerRetention` to `registerAll`**
+- [ ] **Step 5: Add this group to the registration table**
 
 - [ ] **Step 6: Run everything**
 
@@ -2469,7 +2574,7 @@ a whitelist that quietly normalises is a whitelist somebody later widens.
 `bytes.Buffer` and returns the bytes as a string with a filename and content
 type. Validate `Format` against exactly `json`, `csv`, `markdown`, `html`.
 
-- [ ] **Step 5: Add `registerReports` to `registerAll`**
+- [ ] **Step 5: Add this group to the registration table**
 
 - [ ] **Step 6: Run everything**
 
@@ -2605,7 +2710,7 @@ Determine `BackendHoldsCheckpoints` by probing:
 `ErrNotFound`, as true. That is the same probe `buildCheckpointer` uses, so
 the two agree.
 
-- [ ] **Step 5: Add `registerSettings` to `registerAll`**
+- [ ] **Step 5: Add this group to the registration table**
 
 - [ ] **Step 6: Run everything, and confirm all 29 intents are present**
 

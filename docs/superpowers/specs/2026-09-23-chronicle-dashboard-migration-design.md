@@ -258,10 +258,28 @@ dimension at all, and `TenantID` is a dimension inside their own app. An empty
 tenant means an app-wide view, which is the view an app operator is entitled
 to. It never widens past the app, because `AppID` is already required.
 
-**Capability follows `handler/guard.go`.** That file already classifies the HTTP
-API into read, write and admin, and the contract uses the same split. Erasure
-requests, policy deletion and retention enforcement are admin. Policy save,
-checkpoint take and report generation are write. Everything else is read.
+**Capability is binary, and "admin" is a predicate rather than a capability.**
+This was specified wrongly and is corrected here from the forge source.
+`contract.Capability` has exactly two values, `read` and `write`, and
+`loader.Validate` hard-enforces the pairing through `validateKindCapability`:
+a query must be `read`, a command must be `write`. A manifest declaring
+`capability: admin` does not degrade gracefully, it fails to load.
+
+Finer-grained authorization is a separate field. `Intent.Requires` is a
+`Predicate{All, Any, Not []string, Warden string}`, evaluated by
+`Predicate.Allow` against tokens of the form `role:X`, `scope:X` or
+`claim:K=V`.
+
+So the three operations that permanently destroy audit history, which
+`handler/guard.go` classifies as admin, are declared as commands with
+capability `write` plus `requires: { all: [scope:chronicle.admin] }`. Those
+three are `erasures.request`, `retention.deletePolicy` and
+`retention.enforce`.
+
+`all` with a single explicit scope, rather than `any` with a global admin
+role alongside it. Purging a tenant's audit history should take a grant
+somebody made on purpose, and accepting whoever already holds a general admin
+role is the kind of quiet widening the rest of this document refuses.
 
 ### The 29 intents
 
@@ -300,7 +318,7 @@ store method with its own `TimeRange`.
 
 `erasures.list`, `erasures.detail` (query, read).
 `erasures.preview` (query, read, lazy). `{subjectId}` onto `CountBySubject`.
-`erasures.request` (command, admin). `{subjectId, reason}`. `requestedBy` comes
+`erasures.request` (command, write, requires `scope:chronicle.admin`). `{subjectId, reason}`. `requestedBy` comes
 from the Principal. Invalidates `erasures.list`, `overview.stats`,
 `events.list`.
 
@@ -309,10 +327,10 @@ from the Principal. Invalidates `erasures.list`, `overview.stats`,
 policy is unique per app, tenant and category, and an update that cannot tell
 "leave alone" from "set empty" will silently clear `Archive`. Invalidates
 `retention.policies` and `retention.policyDetail`.
-`retention.deletePolicy` (command, admin). Invalidates `retention.policies`.
+`retention.deletePolicy` (command, write, requires `scope:chronicle.admin`). Invalidates `retention.policies`.
 `retention.preview` (query, read, lazy). Onto `EventsOlderThan`. What
 enforcement would purge, before it purges it.
-`retention.enforce` (command, admin). Invalidates `retention.policies`,
+`retention.enforce` (command, write, requires `scope:chronicle.admin`). Invalidates `retention.policies`,
 `retention.archives`, `events.list`, `overview.stats`, `streams.mine`.
 `retention.archives` (query, read).
 
