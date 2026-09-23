@@ -598,17 +598,53 @@ system logs mostly allows and the denials are the interesting minority. A
 restrictive one logs mostly denials and an unexpected allow is what somebody is
 hunting. Both are ordinary configurations of the same engine.
 
-So the decision column gets a quiet badge with no fixed semantic mapping, and
-the scan signal on this page is carried by two fields that do not vary with
-posture. `Error` is a genuine evaluation failure and takes `destructive`.
-`Cached` takes `secondary`, because a cached row is the single most common
-answer to "why did my permission change not take effect", and nothing surfaces
-it today.
+So the decision column takes a stable semantic mapping, `outline` for allow and
+`secondary` for deny, and the page accepts that the badge is weak there rather
+than pretending otherwise. `Error` is a genuine evaluation failure and takes
+`destructive`, because that one does not vary with posture.
 
-Finding a particular decision is then the filters' job, which is the right
-device for a distinction the page cannot know in advance. That reasoning is
-written here because the playbook asks for it whenever the default mapping does
-not fit.
+What is explicitly ruled out is computing badge weight from the distribution of
+the rows currently on screen. It is the clever answer and it is worse than any
+fixed mapping, because a decision rendered `outline` on page one and
+`destructive` on page two is a page nobody can learn.
+
+The scan therefore moves off colour and onto the filter bar, which becomes the
+primary instrument on this page instead of a control above the table. That is
+the right device for a distinction the page cannot know in advance.
+
+### What the check log cannot be filtered by
+
+Having decided the filters carry the page, here is the constraint on them.
+`checklog.QueryFilter` offers tenant, namespace, subject kind, subject ID,
+action, resource type, resource ID, decision, and a time window. That is a good
+set and it covers most of what an operator wants.
+
+It does not cover `Cached`, `Error`, `MatchedBy` or `Obligations`, all of which
+`Entry` stores and none of which is queryable. Three consequences, and they are
+the interesting queries:
+
+- You cannot ask for evaluation failures, though `Error` is the one field whose
+  meaning does not depend on deployment posture.
+- You cannot ask which decisions came from cache, which is the most common real
+  answer to "why did my permission change not take effect".
+- You cannot ask which checks a given policy or role decided, though `MatchedBy`
+  records exactly that. This is the query that closes the loop from a policy
+  page back to its effect, and it is the one worth having most.
+
+Adding `Cached *bool`, `HasError *bool` and a `MatchedRuleID string` to
+`QueryFilter` is the fix. It is a warden core change touching all four store
+backends plus the conformance suite, which is larger than `WithCallDryRun` and
+larger than anything else proposed here.
+
+Recommendation: do the first two, which are plain column predicates in every
+backend. Defer `MatchedRuleID`, which needs a JSON containment query and reads
+differently on postgres `jsonb`, sqlite JSON strings and mongo arrays, so it is
+its own piece of work. Until then the check log renders both fields as columns
+and says in the filter bar that they cannot be filtered, which is better than
+offering a control that silently does nothing.
+
+This is flagged as a decision rather than taken, because it is the second core
+change and the first one was scoped as small.
 
 ## Testing and verification
 
@@ -654,6 +690,11 @@ nothing hides the bug it exists to expose, so `schema.plan` returns a diff that
 differs from the current state, `maintenance.run` reports non-zero purges
 against seeded expired assignments, and a second `relations.create` with the
 same tuple conflicts.
+
+And the fixture must not forgive a missing parameter. `Check` requires a
+subject ID, an action name and a resource type, and returns an error when any
+is absent. A fixture that answers a decision anyway lets a page ship with a
+field it never sends, and the bug then appears only against a real server.
 
 Re-measure the bundle after CodeMirror and React Flow land, write the numbers
 into `BASELINE.md`, and check `pnpm build` output to confirm both actually
