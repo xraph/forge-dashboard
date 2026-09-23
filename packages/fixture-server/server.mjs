@@ -2662,8 +2662,12 @@ function relayGlobMatches(pattern, eventType) {
   return p.every((seg, i) => seg === "*" || seg === e[i])
 }
 
+// relay's mapRelayError prefixes the message with the field's label, because
+// the dashboard client drops details and the message is all a page sees.
+const RELAY_FIELD_LABELS = { tenant_id: "Tenant ID", url: "URL", event_types: "Event types" }
+
 function relayValidation(field, message) {
-  return new FixtureError(400, CODE.BAD_REQUEST, message, { field })
+  return new FixtureError(400, CODE.BAD_REQUEST, `${RELAY_FIELD_LABELS[field] ?? field}: ${message}`, { field })
 }
 
 function relayFindEndpoint(rawId) {
