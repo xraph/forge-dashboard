@@ -76,6 +76,24 @@ difference, and the UI will silently erase values the operator never touched.
 a value the server will never repeat, the response type says so and the stored
 row keeps only a hash, tagged `json:"-"`.
 
+**Do not port a templ scope helper onto the contract path without checking it.**
+This one is a cross-tenant read waiting to happen and it passes every test
+written against a single tenant.
+
+`forge.ScopeFrom(ctx)` does not work here. Nothing in the dispatcher, the
+server or the transport propagates a forge scope into a handler's context, so
+a scope helper carried over from the templ path silently returns empty. The
+canonical surface on the contract path is `Principal.Claims` keyed `app_id`,
+which authsome's `AppIDFromPrincipal` documents.
+
+The damage depends on what an empty value means to your store, and it is
+usually the worst option: an empty app id frequently matches EVERY app rather
+than none, so a handler that fails to resolve a tenant returns every tenant's
+rows. Chronicle refuses an unresolvable claim with `PERMISSION_DENIED` rather
+than defaulting, which is the right instinct. Work out what empty means in
+your queries before you rely on any resolution path, and make the failure
+loud.
+
 ## The React plugin
 
 ```tsx
@@ -383,6 +401,24 @@ a system's life: events recorded before tamper evidence was keyed, deliveries
 made before signature verification was enabled, actions taken before audit
 logging was turned on. In every case the config says yes and the old rows do
 not.
+
+**And where the library already records provenance, carry it through rather
+than summarising it away.** Chronicle is the counterexample to Vault and the
+contrast is the lesson. It records the scheme and key generation on every
+event, pins a scheme per stream with the sequence it applies from, refuses to
+let that pin weaken, returns coverage as an ARRAY of spans split at the pin,
+and refuses to upgrade a span below the pin even when a valid checkpoint
+covers it, because a signature over an unkeyed digest proves only that the
+digest has not changed since, not that it was ever tamper-evident.
+
+Every part of the honest answer was already there. The gap was in the page,
+whose verdict copy handled only the uniform case and would have flattened two
+spans into one level at the last step.
+
+So there are two failures, not one. Vault cannot be honest until the
+projection carries the fact. Chronicle could be honest and the page was about
+to throw the fact away. The second is one layer later, easier to miss, and
+probably the more common of the two.
 
 ### The other half: an abandoned search is not an answer
 
