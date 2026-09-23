@@ -522,7 +522,8 @@ This is the task that matters most. `scope.go` is the security boundary for ever
   - `viewScope{AppID, TenantID string}`
   - `scopeFromPrincipal(p contract.Principal) (viewScope, error)`
   - `(viewScope) owns(appID, tenantID string) bool`
-  - `StreamSummary{ID, AppID, TenantID, HeadHash string; HeadSeq uint64; Scheme string; SchemeSince uint64; CoverageCeiling string; LatestCheckpoint *CheckpointSummary}`
+  - `StreamSummary{ID, AppID, TenantID, HeadHash string; HeadSeq uint64; Scheme string; SchemeSince uint64; CoverageCeiling string; LatestCheckpoint *CheckpointSummary; CheckpointingConfigured bool}`
+  - `CheckpointSummary{ID string; FromSeq, ToSeq uint64; EventCount int64; CreatedAt string; SignKeyID string}`. Defined HERE, in `project.go`, not in Task 9, because `StreamSummary` embeds it. Task 9 reuses this exact type and must not declare a second one.
 
 - [ ] **Step 1: Write the failing scope test**
 
