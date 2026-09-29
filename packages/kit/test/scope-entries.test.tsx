@@ -119,5 +119,7 @@ describe("ScopeEntries rows", () => {
       "GGateway (needs setup)",
     ])
     expect(within(menu).getByRole("link", { name: "Gateway (needs setup)" }).hasAttribute("data-active")).toBe(true)
+    expect(within(menu).getByRole("link", { name: "Gateway (needs setup)" }).getAttribute("aria-current")).toBe("page")
+    expect(within(menu).getByRole("link", { name: "Auth" }).getAttribute("aria-current")).toBeNull()
   })
 })

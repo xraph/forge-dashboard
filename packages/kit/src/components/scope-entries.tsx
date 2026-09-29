@@ -182,6 +182,7 @@ export function ScopeEntries({
             <SidebarMenuButton
               size="lg"
               isActive={isActive(scope)}
+              aria-current={isActive(scope) ? "page" : undefined}
               render={renderLink(nodeFor(scope), scope.href)}
             />
           </SidebarMenuItem>
