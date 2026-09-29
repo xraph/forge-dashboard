@@ -56,6 +56,18 @@ import { AuthRoutes, SignedInRedirect } from "../auth/AuthRoutes"
 import { isAuthPath } from "../auth/routes"
 import type { AuthScreens } from "../auth/routes"
 import { DeniedScreen } from "../auth/screens"
+
+// packages/host has no Node types and the Vite dev build has no `process`
+// global. A production build still replaces `process.env.NODE_ENV`
+// statically, so this reads "production" there and throws, caught, in dev.
+declare const process: { env: { NODE_ENV?: string } }
+function isProductionBuild(): boolean {
+  try {
+    return process.env.NODE_ENV === "production"
+  } catch {
+    return false
+  }
+}
 import type {
   NavGroup,
   NavNode,
@@ -726,6 +738,31 @@ export function PluginHost({
           }))
           .filter((entry) => entry.state.kind !== "hidden")
       : []
+
+  // A plugin capabilities does not list is hidden, and that is by design: a
+  // deployment without the organization extension has no Organizations page.
+  // But a typo in `extension`, or a server that never shipped the
+  // contributor, looks exactly the same, and until now nothing said so. One
+  // line per name per capabilities document, in development only.
+  const warnedHidden = useRef<{ capabilities: Capabilities | undefined; names: Set<string> }>({
+    capabilities: undefined,
+    names: new Set(),
+  })
+  useEffect(() => {
+    if (isProductionBuild() || state.status !== "ready") return
+    if (warnedHidden.current.capabilities !== state.capabilities) {
+      warnedHidden.current = { capabilities: state.capabilities, names: new Set() }
+    }
+    const present = state.capabilities.contributors.map((c) => c.name)
+    for (const candidate of [...plugins, ...subPlugins]) {
+      if (present.includes(candidate.extension)) continue
+      if (warnedHidden.current.names.has(candidate.extension)) continue
+      warnedHidden.current.names.add(candidate.extension)
+      console.warn(
+        `[forge-dashboard] plugin "${candidate.extension}" is hidden: capabilities lists no contributor named "${candidate.extension}". Contributors: ${present.join(", ")}`,
+      )
+    }
+  }, [state, plugins, subPlugins])
 
   // The root plugin (if any) is not one scope among several: it is pinned
   // nav, not a switcher entry, so it is split out before anything downstream

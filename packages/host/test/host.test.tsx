@@ -1896,3 +1896,69 @@ describe("PluginHost auth gate", () => {
     expect(screen.getByText("Secret says alice")).toBeTruthy()
   })
 })
+
+describe("PluginHost hidden-plugin diagnostics", () => {
+  function ghostPlugin(): ForgePlugin {
+    return definePlugin({
+      extension: "ghost",
+      nav: [{ label: "Ghost", to: "/ghost" }],
+      routes: [{ path: "/ghost", element: () => null }],
+    })
+  }
+
+  const hiddenLines = (warn: { mock: { calls: unknown[][] } }) =>
+    warn.mock.calls.map((call) => String(call[0])).filter((line) => line.includes("[forge-dashboard]"))
+
+  it("warns once, naming the plugin and the contributors that did arrive", async () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {})
+    try {
+      const fetchImpl = capabilitiesFetch([{ name: "core-contract", envelopes: ["v1"], configured: true }])
+      const plugins = [demoPlugin(), ghostPlugin()]
+      const { rerender } = renderHost(plugins, fetchImpl)
+      await screen.findByText("overview page body")
+      expect(hiddenLines(warn)).toEqual([
+        '[forge-dashboard] plugin "ghost" is hidden: capabilities lists no contributor named "ghost". Contributors: core-contract',
+      ])
+      // A re-render with the same fetch and plugins is not a new capabilities document.
+      rerender(
+        <MemoryRouter initialEntries={["/@core/overview"]}>
+          <ForgeDashboardProvider config={config}>
+            <SessionProvider fetchImpl={fetchImpl}>
+              <PluginHost plugins={plugins} fetchImpl={fetchImpl} />
+            </SessionProvider>
+          </ForgeDashboardProvider>
+        </MemoryRouter>,
+      )
+      expect(hiddenLines(warn)).toHaveLength(1)
+    } finally {
+      warn.mockRestore()
+    }
+  })
+
+  it("stays silent in production", async () => {
+    vi.stubEnv("NODE_ENV", "production")
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {})
+    try {
+      renderHost(
+        [demoPlugin(), ghostPlugin()],
+        capabilitiesFetch([{ name: "core-contract", envelopes: ["v1"], configured: true }]),
+      )
+      await screen.findByText("overview page body")
+      expect(hiddenLines(warn)).toHaveLength(0)
+    } finally {
+      warn.mockRestore()
+      vi.unstubAllEnvs()
+    }
+  })
+
+  it("does not warn about a plugin that is present", async () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {})
+    try {
+      renderHost([demoPlugin()], capabilitiesFetch([{ name: "core-contract", envelopes: ["v1"], configured: true }]))
+      await screen.findByText("overview page body")
+      expect(hiddenLines(warn)).toHaveLength(0)
+    } finally {
+      warn.mockRestore()
+    }
+  })
+})
