@@ -159,6 +159,39 @@ describe("FlagCreatePage", () => {
     })
   })
 
+  it("sends an empty string default as \"\", not omitted", async () => {
+    const { client, sent } = recordingCommandClient({}, { "flags.create": CREATED })
+    renderCreate(client)
+    setKey("banner-text")
+    setType("string")
+    // Nothing typed into Default.
+    expect(defaultBox().value).toBe("")
+    expect(submit().disabled).toBe(false)
+    fireEvent.click(submit())
+    await waitFor(() => expect(sent).toHaveLength(1))
+    const payload = sent[0]?.payload as Record<string, unknown>
+    expect("defaultValue" in payload).toBe(true)
+    expect(payload.defaultValue).toBe("")
+    expect(payload).toEqual({
+      key: "banner-text",
+      type: "string",
+      defaultValue: "",
+      enabled: true,
+    })
+  })
+
+  it("keeps an empty string default after switching away from string and back", () => {
+    const { client } = recordingCommandClient({}, { "flags.create": CREATED })
+    renderCreate(client)
+    setKey("k")
+    setType("string")
+    expect(submit().disabled).toBe(false)
+    setType("int")
+    expect(submit().disabled).toBe(true)
+    setType("string")
+    expect(submit().disabled).toBe(false)
+  })
+
   it("sends a string default that looks like a boolean as a string", async () => {
     const { client, sent } = recordingCommandClient({}, { "flags.create": CREATED })
     renderCreate(client)

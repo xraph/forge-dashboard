@@ -1,4 +1,4 @@
-import { useState } from "react"
+import { useEffect, useRef, useState } from "react"
 import { Input } from "@forge-go/dashboard-kit/components/input"
 import { Textarea } from "@forge-go/dashboard-kit/components/textarea"
 import {
@@ -21,8 +21,10 @@ export interface ValueInputProps {
   /**
    * Called with the typed value on every change, and with `undefined` while
    * what is on screen is not a value: empty, half-typed, or invalid. A caller
-   * gates submit on it not being `undefined`. Note `null` is a value: it is a
-   * valid json default.
+   * gates submit on it not being `undefined`. Note `null` is a value (a valid
+   * json default), and so is "" for a string. A string field that starts with
+   * no string in it reports "" once on mount, so a string can be submitted
+   * without typing anything.
    */
   onChange: (value: unknown) => void
   /** Goes on the control itself, so a `<Label htmlFor>` reaches it. */
@@ -55,7 +57,8 @@ function accepts(type: FlagType, text: string): boolean {
 function parse(type: FlagType, text: string): Parsed {
   switch (type) {
     case "string":
-      return { value: text === "" ? undefined : text }
+      // The empty string is a value: a string flag may default to "".
+      return { value: text }
     case "int": {
       if (!INT.test(text)) return { value: undefined }
       const n = Number(text)
@@ -135,6 +138,16 @@ function TextInput({
 }: ValueInputProps) {
   const [text, setText] = useState(() => initialText(type, value))
   const [error, setError] = useState<string | undefined>(undefined)
+
+  // The field shows "" for a string flag with no value, and "" is a value, so
+  // say so once. Without this the caller holds `undefined` for a field that
+  // visibly holds a valid default, and an empty-string default is unreachable.
+  const reported = useRef(false)
+  useEffect(() => {
+    if (reported.current) return
+    reported.current = true
+    if (type === "string" && typeof value !== "string") onChange("")
+  }, [type, value, onChange])
 
   function change(next: string) {
     // A character that can never be part of a value is refused outright, so

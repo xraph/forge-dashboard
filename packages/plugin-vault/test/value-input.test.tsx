@@ -1,6 +1,6 @@
 import { useState } from "react"
 import { describe, expect, it, vi } from "vitest"
-import { fireEvent, render, screen } from "@testing-library/react"
+import { cleanup, fireEvent, render, screen } from "@testing-library/react"
 import { ValueInput, type FlagType } from "../src/components/value-input"
 
 /**
@@ -76,11 +76,33 @@ describe("ValueInput string", () => {
     expect(onChange).toHaveBeenLastCalledWith("true")
   })
 
-  it("reports undefined while empty", () => {
+  it("reports the empty string, not undefined, once the text is cleared", () => {
     const { onChange } = setup("string")
     fireEvent.change(box(), { target: { value: "x" } })
     fireEvent.change(box(), { target: { value: "" } })
-    expect(onChange).toHaveBeenLastCalledWith(undefined)
+    expect(onChange).toHaveBeenLastCalledWith("")
+  })
+
+  it("reports the empty string on mount when it starts with no value", () => {
+    const { onChange } = setup("string")
+    expect(onChange).toHaveBeenCalledTimes(1)
+    expect(onChange).toHaveBeenCalledWith("")
+  })
+
+  it("does not overwrite a string it was given on mount", () => {
+    const { onChange } = setup("string", "kept")
+    expect(onChange).not.toHaveBeenCalled()
+    expect(box().value).toBe("kept")
+  })
+
+  it("does not report anything on mount for the other types", () => {
+    for (const type of ["int", "float", "json"] as const) {
+      const { onChange } = setup(type)
+      expect(onChange).not.toHaveBeenCalled()
+      cleanup()
+    }
+    const { onChange } = setup("bool")
+    expect(onChange).not.toHaveBeenCalled()
   })
 })
 
