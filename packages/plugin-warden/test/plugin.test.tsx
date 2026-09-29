@@ -66,4 +66,15 @@ describe("wardenPlugin", () => {
     expect(at("Roles")?.priority).toBeLessThan(30)
     expect(at("Permissions")?.priority).toBeLessThan(30)
   })
+
+  it("puts Relations in a Relationships group of its own", () => {
+    // Its own group, not Authorization: tuples are a different model from
+    // roles and assignments. Resource types join it at priority 10.
+    const nav = wardenPlugin.nav ?? []
+    expect(nav.find((n) => n.label === "Relations")).toMatchObject({
+      to: "/relations",
+      priority: 20,
+      group: "Relationships",
+    })
+  })
 })

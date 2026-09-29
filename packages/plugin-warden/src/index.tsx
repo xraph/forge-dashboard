@@ -2,6 +2,7 @@ import { definePlugin } from "@forge-go/dashboard-plugin"
 import {
   HouseIcon,
   KeyIcon,
+  LinkIcon,
   SettingsIcon,
   UserCogIcon,
   UsersIcon,
@@ -10,6 +11,7 @@ import { WardenAssignmentsPage } from "./pages/assignments"
 import { WardenConfigPage } from "./pages/config"
 import { WardenOverviewPage } from "./pages/overview"
 import { WardenPermissionsPage } from "./pages/permissions"
+import { WardenRelationsPage } from "./pages/relations"
 import { WardenRoleDetailPage } from "./pages/role-detail"
 import { WardenRolesPage } from "./pages/roles"
 
@@ -19,11 +21,13 @@ export type { AssignmentSummary, AssignmentsList } from "./pages/assignments"
 export type { RoleSummary, RolesList, AckResponse } from "./pages/roles"
 export type { RoleDetail, PermissionSummary } from "./pages/role-detail"
 export type { PermissionsList } from "./pages/permissions"
+export type { RelationSummary, RelationsList } from "./pages/relations"
 export {
   WardenAssignmentsPage,
   WardenConfigPage,
   WardenOverviewPage,
   WardenPermissionsPage,
+  WardenRelationsPage,
   WardenRolesPage,
   WardenRoleDetailPage,
 }
@@ -82,6 +86,13 @@ export const wardenPlugin = definePlugin({
       group: "Authorization",
     },
     {
+      label: "Relations",
+      to: "/relations",
+      priority: 20,
+      icon: <LinkIcon />,
+      group: "Relationships",
+    },
+    {
       label: "Config",
       to: "/config",
       priority: 40,
@@ -97,6 +108,7 @@ export const wardenPlugin = definePlugin({
     { path: "/roles/:id", element: WardenRoleDetailPage },
     { path: "/permissions", element: WardenPermissionsPage },
     { path: "/assignments", element: WardenAssignmentsPage },
+    { path: "/relations", element: WardenRelationsPage },
     { path: "/config", element: WardenConfigPage },
   ],
 })
