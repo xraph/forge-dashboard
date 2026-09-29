@@ -50,7 +50,8 @@ function iso(date) {
 //     parameters and query keys survive the characters real keys contain.
 //   - legacy/ftp.password, unencrypted (encryptionAlg ""), the row the
 //     destructive badge exists for.
-//   - Expiries: one comfortably in the future, one soon, one already passed.
+//   - Expiries: future, soon, already passed, and one on the rotatable
+//     db/primary.password so a rotation that drops the expiry shows.
 //   - Metadata on two secrets.
 //   - Three policies: enabled with a rotator, enabled WITHOUT a rotator (it
 //     will never rotate), and disabled (no next rotation to show).
@@ -137,6 +138,9 @@ function seedVaultState() {
     // Already passed: the Go handlers refuse to SET a past expiry, but a row
     // written while it was still in the future gets there by waiting.
     if (key === "vpn/gateway.psk") row.expiresAt = iso(nowMs - 2 * day)
+    // db/primary.password is rotatable and has an expiry, so a rotation that
+    // dropped it (the bug Manager.RotateNow used to have) shows.
+    if (key === "db/primary.password") row.expiresAt = iso(nowMs + 60 * day)
     if (key === "ci/deploy.key") row.metadata = { owner: "platform", environment: "production" }
     if (key === "api/stripe.key") row.metadata = { owner: "payments", runbook: "https://wiki.example/runbooks/stripe" }
     state.secrets.set(key, row)
@@ -198,9 +202,9 @@ function seedVaultState() {
   ]
   smtp.updatedAt = iso(nowMs - 30 * day)
 
-  pushAudit("db/primary.password", "secret.rotated", nowMs - 2 * hour, "")
-  pushAudit("db/primary.password", "secret.accessed", nowMs - 90 * 60_000, "usr_1")
-  pushAudit("api/stripe.key", "secret.accessed", nowMs - 30 * 60_000, "usr_1")
+  pushAudit("db/primary.password", "secret.set", nowMs - 2 * hour, "")
+  pushAudit("db/primary.password", "secret.get", nowMs - 2 * hour - 1000, "usr_1")
+  pushAudit("api/stripe.key", "secret.get", nowMs - 30 * 60_000, "usr_1")
   pushAudit("legacy/ftp.password", "secret.set", nowMs - 5 * 60_000, "usr_1")
   state.audit.sort((a, b) => Date.parse(b.createdAt) - Date.parse(a.createdAt))
 
@@ -426,9 +430,11 @@ export function createVaultHandlers(FixtureError) {
           metadata = { ...rawMetadata }
         }
 
-        // encryptionAlg is left as it was. A keyed vault would re-encrypt the
-        // legacy unencrypted row on rewrite; the fixture keeps that row
-        // unencrypted so the state stays reachable after an edit.
+        // This fixture models a keyed vault, and Secrets().Set stamps the
+        // algorithm on every write when a key is configured. So replacing the
+        // value re-encrypts the legacy unencrypted row; _fixture/reset brings
+        // that row back for demos.
+        row.encryptionAlg = ENCRYPTION_ALG
         row.expiresAt = expiresAt
         row.metadata = metadata
         row.version += 1
@@ -452,10 +458,9 @@ export function createVaultHandlers(FixtureError) {
         }
         vault.secrets.delete(key)
         vault.policies.delete(key)
-        // The fixture also drops the secret's rotation records, so a key
-        // created again later does not inherit a history it never had.
-        vault.records.delete(key)
-        recordAudit(key, "secret.deleted")
+        // Rotation records stay: the store deletes the secret's versions and,
+        // through this handler, its policy, and nothing else.
+        recordAudit(key, "secret.delete")
         return { ok: true, key }
       },
     },
@@ -540,8 +545,12 @@ export function createVaultHandlers(FixtureError) {
         }
         const row = findSecret(key)
 
-        // Expiry and metadata are carried forward, untouched.
+        // Expiry and metadata are carried forward, untouched. The rewrite goes
+        // through Secrets().Set, so it is stamped with the keyed algorithm, as
+        // in secrets.update. Go reads the current value first (an access
+        // audit entry) and then sets the new one.
         const oldVersion = row.version
+        row.encryptionAlg = ENCRYPTION_ALG
         const nowMs = Date.now()
         const now = iso(nowMs)
         row.version += 1
@@ -560,7 +569,8 @@ export function createVaultHandlers(FixtureError) {
           policy.nextRotationAt = iso(nowMs + policy.intervalSeconds * 1000)
           policy.updatedAt = now
         }
-        recordAudit(key, "secret.rotated")
+        recordAudit(key, "secret.get")
+        recordAudit(key, "secret.set")
         return { key, oldVersion, newVersion: row.version }
       },
     },

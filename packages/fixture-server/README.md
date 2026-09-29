@@ -184,12 +184,16 @@ vault repo, with its own module (`vault-fixtures.mjs`). Six secret intents
 - A policy needs an interval of at least 60 seconds. `nextRotationAt` is set
   when the policy is new, its interval changes, or it goes from disabled to
   enabled, and is left out of the answer whenever the policy is disabled.
+- The fixture models a keyed vault: `create`, `update` and `rotateNow` stamp
+  `AES-256-GCM`, so replacing the legacy unencrypted row encrypts it until the
+  next `_fixture/reset`. Deleting a secret leaves its rotation records, as the
+  Go store does.
 - `rotateNow` is `BAD_REQUEST` for a key with no registered rotator.
   `db/primary.password` and `smtp/relay.password` have one.
 
 Seeded with 33 secrets (two pages at the default limit), including a slashed
-and dotted key, an unencrypted one (`encryptionAlg` is `""`, not absent), three
-with an expiry (future, soon, passed) and two with metadata. Three policies:
+and dotted key, an unencrypted one (`encryptionAlg` is `""`, not absent), four
+with an expiry (future, soon, passed, and the rotatable one) and two with metadata. Three policies:
 enabled with a rotator, enabled without one, and disabled. `_fixture/reset`
 restores all of it.
 
