@@ -1,4 +1,3 @@
-// packages/kit/src/components/app-sidebar.tsx
 import * as React from "react"
 import type { ReactElement, ReactNode } from "react"
 

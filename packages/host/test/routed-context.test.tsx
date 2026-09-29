@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest"
-import { render, screen, waitFor } from "@testing-library/react"
+import { render, screen, waitFor, within } from "@testing-library/react"
 import { MemoryRouter } from "react-router"
 import { ForgeDashboardProvider, SessionProvider } from "@forge-go/dashboard-runtime"
 import { definePlugin, queryStore } from "@forge-go/dashboard-plugin"
@@ -224,6 +224,27 @@ function routedAuthPlugin() {
   })
 }
 
+function sectionedRoutedAuthPlugin() {
+  return definePlugin({
+    extension: "auth",
+    namespace: "auth",
+    label: "Auth",
+    sections: [
+      { group: "Identity", icon: "I" },
+      { group: "Other", icon: "O" },
+    ],
+    nav: [
+      { label: "Users", to: "/users", group: "Identity" },
+      { label: "Overview", to: "/overview", group: "Other" },
+    ],
+    routes: [
+      { path: "/users", element: () => <p>users page</p> },
+      { path: "/overview", element: () => <p>overview page</p> },
+    ],
+    context: [appDimension, envDimension],
+  })
+}
+
 function plainPlugin() {
   return definePlugin({
     extension: "streaming-contract",
@@ -309,6 +330,31 @@ describe("a plugin with a path-routed dimension", () => {
     expect(screen.queryByRole("link", { name: "Users" })).toBeNull()
     expect(screen.queryByRole("link", { name: "Overview" })).toBeNull()
     expect(screen.getByText("Pick an app to see its pages.")).toBeTruthy()
+  })
+
+  it("renders no Sections rail for a sectioned scope when the URL names no app", async () => {
+    queryStore.clear()
+    const server = fixtureServer()
+
+    renderAt(sectionedRoutedAuthPlugin(), server.fetchImpl, "/@auth")
+
+    await waitFor(() => expect(screen.getByText("choose an app")).toBeTruthy())
+    expect(screen.queryByRole("navigation", { name: "Sections" })).toBeNull()
+    expect(screen.getByText("Pick an app to see its pages.")).toBeTruthy()
+  })
+
+  it("mounts the Sections rail under the URL's segment and marks the active section", async () => {
+    queryStore.clear()
+    const server = fixtureServer()
+    server.setCurrentApp("app_platform")
+
+    renderAt(sectionedRoutedAuthPlugin(), server.fetchImpl, "/@auth/platform/users")
+
+    await waitFor(() => expect(screen.getByText("users page")).toBeTruthy())
+    const rail = screen.getByRole("navigation", { name: "Sections" })
+    const identity = within(rail).getByRole("link", { name: "Identity" })
+    expect(identity.getAttribute("href")?.startsWith("/@auth/platform/")).toBe(true)
+    expect(identity.getAttribute("aria-current")).toBe("page")
   })
 
   it("redirects a bare namespace root to the server's known current app", async () => {

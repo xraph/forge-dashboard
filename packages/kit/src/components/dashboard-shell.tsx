@@ -1,4 +1,3 @@
-// packages/kit/src/components/dashboard-shell.tsx
 import type { CSSProperties, ReactNode } from "react"
 
 import { AppSidebar } from "@forge-go/dashboard-kit/components/app-sidebar"
@@ -8,7 +7,10 @@ import { SidebarInset, SidebarProvider } from "@forge-go/dashboard-kit/component
 import { SiteHeader } from "@forge-go/dashboard-kit/components/site-header"
 import { useRailExpanded } from "@forge-go/dashboard-kit/hooks/use-rail-expanded"
 
-export interface DashboardShellProps extends Omit<AppSidebarProps, "children"> {
+export interface DashboardShellProps extends Omit<
+  AppSidebarProps,
+  "children" | "variant" | "collapsible" | "navigationLayout"
+> {
   title?: string
   scope?: string
   actions?: ReactNode

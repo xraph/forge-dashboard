@@ -11,7 +11,7 @@ function readStored(): boolean {
 }
 
 /**
- * Whether the scope rail shows labels. Per browser, not per scope, and
+ * Whether the section rail shows labels. Per browser, not per scope, and
  * collapsed until somebody widens it. Storage that throws (private windows,
  * blocked site data) leaves the rail working and merely forgetful.
  */

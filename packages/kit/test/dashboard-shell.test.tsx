@@ -81,8 +81,8 @@ describe("DashboardShell", () => {
     expect(wrapperStyle(container)).toContain("--sidebar-offset: 0px")
   })
 
-  it("keeps the pane icon-collapsible, whatever the caller passes", () => {
-    const { container } = renderShell({ collapsible: "offcanvas" })
+  it("keeps the pane icon-collapsible", () => {
+    const { container } = renderShell()
     const sidebar = container.querySelector('[data-slot="sidebar"]') as HTMLElement
     expect(sidebar.getAttribute("data-variant")).toBe("sidebar")
     expect(sidebar.getAttribute("data-collapsible")).toBe("")

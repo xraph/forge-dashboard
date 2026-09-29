@@ -56,18 +56,6 @@ import { AuthRoutes, SignedInRedirect } from "../auth/AuthRoutes"
 import { isAuthPath } from "../auth/routes"
 import type { AuthScreens } from "../auth/routes"
 import { DeniedScreen } from "../auth/screens"
-
-// packages/host has no Node types and the Vite dev build has no `process`
-// global. A production build still replaces `process.env.NODE_ENV`
-// statically, so this reads "production" there and throws, caught, in dev.
-declare const process: { env: { NODE_ENV?: string } }
-function isProductionBuild(): boolean {
-  try {
-    return process.env.NODE_ENV === "production"
-  } catch {
-    return false
-  }
-}
 import type {
   NavGroup,
   NavNode,
@@ -82,6 +70,18 @@ import {
 } from "@forge-go/dashboard-kit/components/alert"
 import { Spinner } from "@forge-go/dashboard-kit/components/spinner"
 import { MoreHorizontalIcon, TriangleAlertIcon } from "@forge-go/dashboard-kit/icons"
+
+// packages/host has no Node types and the Vite dev build has no `process`
+// global. A production build still replaces `process.env.NODE_ENV`
+// statically, so this reads "production" there and throws, caught, in dev.
+declare const process: { env: { NODE_ENV?: string } }
+function isProductionBuild(): boolean {
+  try {
+    return process.env.NODE_ENV === "production"
+  } catch {
+    return false
+  }
+}
 
 type HostSidebar = Omit<
   React.ComponentProps<typeof DashboardShell>,
@@ -153,10 +153,11 @@ type CapabilitiesState =
   | { status: "ready"; capabilities: Capabilities }
   | { status: "error"; message: string }
 
-// The order the sidebar actually shows a scope's nav in. `homePathFor`, the
-// target of every link in the scope rail, needs "the item a scope displays
-// first," and that is this order's [0], not declaration order -- a plugin whose nav is not
-// already sorted must still land you on the item the sidebar shows first.
+// The order the sidebar actually shows a scope's nav in. `homePathFor`, where
+// `selectScope`, `scopeHome` and the search palette's scope entries land,
+// needs "the item a scope displays first," and that is this order's [0], not
+// declaration order -- a plugin whose nav is not already sorted must still
+// land you on the item the sidebar shows first.
 function sortByPriority<T extends { priority?: number }>(items: T[]): T[] {
   return [...items].sort((a, b) => (a.priority ?? 0) - (b.priority ?? 0))
 }
@@ -1039,7 +1040,7 @@ export function PluginHost({
     search,
     // aria-current only when true. The section rail merges its own aria-current onto
     // this element through base-ui's render prop, and an explicit undefined
-    // here would win over it and strip the active scope's marker.
+    // here would win over it and strip the active section's marker.
     renderLink: (node: NavNode, href: string) => (
       <Link to={href} {...(node.href === pathname ? { "aria-current": "page" as const } : {})}>
         {node.icon}
