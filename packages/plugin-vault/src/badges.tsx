@@ -25,6 +25,21 @@ import { Badge } from "@forge-go/dashboard-kit/components/badge"
  *   A registered rotator is `default` ("Rotator registered"). None is
  *   `outline` ("No rotator"). Most secrets have no rotator, so the common
  *   case recedes and the exception stands out.
+ *
+ * Flags
+ *   Enabled is `outline` ("On"), disabled is `secondary` ("Off"): a flag that
+ *   is off is a deliberate state, not a fault. The type is an `outline` in
+ *   mono, since it is a raw value an operator might copy. A default that does
+ *   not match its declared type is `destructive` ("Wrong type"): the flag
+ *   will not evaluate the way its type promises, which is what an operator
+ *   opens the page to find, and it is rare.
+ *
+ * Rules and evaluation
+ *   A rule that can never match is `secondary` ("Never matches"). When a flag
+ *   is evaluated, the rung that decided the answer is `default` ("Decided
+ *   here"), the one worth a second look. Rungs below it are `secondary`
+ *   ("Not reached"). Nothing on the ladder is `destructive`: nothing on it is
+ *   an error.
  */
 
 export function EncryptionBadge({ alg }: { alg: string }) {
@@ -48,4 +63,36 @@ export function RotatorBadge({ rotatable }: { rotatable: boolean }) {
   ) : (
     <Badge variant="outline">No rotator</Badge>
   )
+}
+
+export function FlagEnabledBadge({ enabled }: { enabled: boolean }) {
+  return (
+    <Badge variant={enabled ? "outline" : "secondary"}>
+      {enabled ? "On" : "Off"}
+    </Badge>
+  )
+}
+
+export function FlagTypeBadge({ type }: { type: string }) {
+  return (
+    <Badge variant="outline" className="font-mono text-xs">
+      {type}
+    </Badge>
+  )
+}
+
+export function WrongTypeBadge() {
+  return <Badge variant="destructive">Wrong type</Badge>
+}
+
+export function NeverMatchesBadge() {
+  return <Badge variant="secondary">Never matches</Badge>
+}
+
+export function DecidedHereBadge() {
+  return <Badge variant="default">Decided here</Badge>
+}
+
+export function NotReachedBadge() {
+  return <Badge variant="secondary">Not reached</Badge>
 }

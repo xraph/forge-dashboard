@@ -46,6 +46,16 @@ describe("vaultPlugin", () => {
     ).toBe("hidden")
   })
 
+  it("puts Flags in the nav at /flags with priority 20, and routes its pages", () => {
+    const flags = vaultPlugin.nav?.find((n) => n.label === "Flags")
+    expect(flags?.to).toBe("/flags")
+    expect(flags?.priority).toBe(20)
+    const paths = vaultPlugin.routes.map((r) => r.path)
+    expect(paths).toContain("/flags")
+    expect(paths).toContain("/new-flag")
+    expect(paths).toContain("/flags/:key")
+  })
+
   it("names a route for every nav entry", () => {
     // A nav link pointing at a path no route serves is a dead link that no
     // other test would catch, because nav and routes are independent lists.

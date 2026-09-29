@@ -14,3 +14,12 @@ export function secretPath(key: string): string {
 export function rotationPath(key: string): string {
   return `/rotation/${encodeURIComponent(key)}`
 }
+
+/**
+ * The path to one flag's page. Flag keys are operator-chosen and routinely
+ * hold `/` ("checkout/new-flow"), so the key is encoded for the same reason
+ * secretPath encodes its own.
+ */
+export function flagPath(key: string): string {
+  return `/flags/${encodeURIComponent(key)}`
+}

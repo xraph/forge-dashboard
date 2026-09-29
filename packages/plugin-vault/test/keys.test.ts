@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest"
-import { rotationPath, secretPath } from "../src/keys"
+import { flagPath, rotationPath, secretPath } from "../src/keys"
 
 describe("secretPath", () => {
   it("encodes a slash so the key stays one route segment", () => {
@@ -22,5 +22,16 @@ describe("rotationPath", () => {
       "/rotation/db%2Fprimary.password",
     )
     expect(rotationPath("apikey")).toBe("/rotation/apikey")
+  })
+})
+
+describe("flagPath", () => {
+  it("encodes a slash so the key stays one route segment", () => {
+    expect(flagPath("checkout/new-flow")).toBe("/flags/checkout%2Fnew-flow")
+    expect(flagPath("a b?c#d")).toBe("/flags/a%20b%3Fc%23d")
+  })
+
+  it("leaves a plain key unchanged", () => {
+    expect(flagPath("dark-mode")).toBe("/flags/dark-mode")
   })
 })
