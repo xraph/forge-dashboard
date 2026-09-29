@@ -129,3 +129,25 @@ One chunk, no splitting. Vite says so on every build, and nothing here is
 lazy: `ConfirmDialog` and `SettingsForm` pull Base UI into the entry, and
 every plugin page is a static import. Route-level `lazy()` on the detail
 pages is the obvious next move and it is not this work's to make.
+
+## Relay, and the first lazy chunk in the shell
+
+Measured with `vite build` in `apps/shell` on 2026-09-29, with core,
+streaming, authsome, warden, vault and relay registered. The shell's own
+`build` script stops at `tsc -b` on type errors in `packages/host` that are
+not relay's, so these numbers come from the Vite step alone.
+
+| chunk | raw | gzip | loaded |
+|---|---|---|---|
+| entry, without relay | 697.08 KB | 206.48 KB | eager |
+| entry, with relay | 748.02 KB | 218.17 KB | eager |
+| `json-editor` (CodeMirror, JSON, folding, search) | 336.80 KB | 108.90 KB | lazy |
+
+Relay's fifteen pages cost 50.94 KB raw and 11.69 KB gzip in the entry. The
+read-only JSON viewer is the shell's first real split: `JsonView` renders
+the text as a `<pre>` at once and swaps in CodeMirror from a `lazy()` import
+when the chunk arrives, so a page that shows no structured data never loads
+it. The entry names the chunk only in its `__vite__mapDeps` table; there is
+no static `from"./json-editor-*.js"` import in it, which was checked, because
+one stray static import anywhere would pull the whole editor back into the
+entry.
