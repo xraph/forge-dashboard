@@ -122,6 +122,19 @@ const INPUT = {
   "relay::endpoints.delete": { id: "ep_01hq2k3m4n5p6q7r8s9t0v1w2y" },
   "relay::endpoints.setEnabled": { id: "ep_01hq2k3m4n5p6q7r8s9t0v1w2x", enabled: false },
   "relay::endpoints.rotateSecret": { id: "ep_01hq2k3m4n5p6q7r8s9t0v1w2z" },
+
+  // vault: keys that exist in vault-fixtures.mjs's seed. create runs before
+  // delete (intent order), so delete removes the row create made; savePolicy
+  // runs before deletePolicy, on a secret that starts with no policy.
+  "vault::secrets.detail": { key: "db/primary.password" },
+  "vault::secrets.versions": { key: "db/primary.password" },
+  "vault::secrets.create": { key: "verify/new.secret", value: "verify-canary-value", expiresAt: "2099-01-01T00:00:00Z" },
+  "vault::secrets.update": { key: "api/stripe.key", value: "verify-canary-value" },
+  "vault::secrets.delete": { key: "verify/new.secret" },
+  "vault::rotation.detail": { key: "db/primary.password" },
+  "vault::rotation.savePolicy": { key: "api/stripe.key", intervalSeconds: 3600, enabled: true },
+  "vault::rotation.deletePolicy": { key: "api/stripe.key" },
+  "vault::rotation.rotateNow": { key: "db/primary.password" },
   "streaming-contract::rooms.detail": { id: "room_1" },
   "streaming-contract::rooms.create": { name: "Verify room", description: "d", owner: "usr_1", private: false },
   "streaming-contract::rooms.delete": { id: "room_2" },
@@ -385,6 +398,105 @@ async function main() {
   console.log(`  users.list has a reachable second page: ${hasNextCursor}`)
   if (!hasNextCursor) {
     failures.push({ key: "spot-check::users.list pagination", reason: "no nextCursor on first page" })
+  }
+
+  // vault: the rules the Go handlers enforce, not just "answered".
+  {
+    const vaultCall = (intent, kind, input) => dispatch("vault", intent, kind, input, csrf)
+    const vaultCheck = (name, ok, detail) => {
+      console.log(`  vault ${name}: ${ok}`)
+      if (!ok) failures.push({ key: `spot-check::vault ${name}`, reason: detail })
+    }
+    const canary = "spot-check-canary-value"
+
+    const page1 = await vaultCall("secrets.list", "query", {})
+    const page2 = await vaultCall("secrets.list", "query", { offset: 25 })
+    const listed = page1.body?.data
+    vaultCheck(
+      "secrets.list pages (25 then the rest, exact total)",
+      listed?.secrets?.length === 25 && page2.body?.data?.secrets?.length === listed.total - 25 && listed.total >= 30,
+      `got ${listed?.secrets?.length} then ${page2.body?.data?.secrets?.length} of ${listed?.total}`,
+    )
+
+    const all = await vaultCall("secrets.list", "query", { limit: 500 })
+    const rows = all.body?.data?.secrets ?? []
+    vaultCheck(
+      "every row carries encryptionAlg, and one is empty",
+      rows.length > 0 && rows.every((r) => typeof r.encryptionAlg === "string") && rows.some((r) => r.encryptionAlg === ""),
+      "encryptionAlg missing or no unencrypted seed row",
+    )
+
+    const created = await vaultCall("secrets.create", "command", { key: "spot/check.key", value: canary, expiresAt: "2099-01-01T00:00:00Z" })
+    const again = await vaultCall("secrets.create", "command", { key: "spot/check.key", value: canary })
+    vaultCheck("secrets.create refuses an existing key with 409 CONFLICT", again.status === 409 && again.body?.error?.code === "CONFLICT", `${again.status} ${again.body?.error?.code}`)
+    const noValue = await vaultCall("secrets.create", "command", { key: "spot/other.key", value: "" })
+    vaultCheck("secrets.create refuses an empty value with BAD_REQUEST", noValue.body?.error?.code === "BAD_REQUEST", `${noValue.body?.error?.code}`)
+    const past = await vaultCall("secrets.create", "command", { key: "spot/past.key", value: canary, expiresAt: "2001-01-01T00:00:00Z" })
+    vaultCheck("secrets.create refuses a past expiry with BAD_REQUEST", past.body?.error?.code === "BAD_REQUEST", `${past.body?.error?.code}`)
+
+    const grown = await vaultCall("secrets.list", "query", {})
+    vaultCheck("secrets.create grows the list total", grown.body?.data?.total === listed.total + 1, `${grown.body?.data?.total} vs ${listed.total}`)
+
+    const kept = await vaultCall("secrets.update", "command", { key: "spot/check.key", value: canary })
+    vaultCheck(
+      "secrets.update keeps the expiry and bumps the version",
+      kept.body?.data?.secret?.expiresAt === created.body?.data?.secret?.expiresAt && kept.body?.data?.secret?.version === 2,
+      JSON.stringify(kept.body?.data?.secret),
+    )
+    const cleared = await vaultCall("secrets.update", "command", { key: "spot/check.key", value: canary, expiresAt: "" })
+    vaultCheck("secrets.update with expiresAt \"\" clears it", cleared.body?.data?.secret && !("expiresAt" in cleared.body.data.secret), JSON.stringify(cleared.body?.data?.secret))
+    const missing = await vaultCall("secrets.update", "command", { key: "spot/none.key", value: canary })
+    vaultCheck("secrets.update on a missing key is 404 NOT_FOUND", missing.status === 404 && missing.body?.error?.code === "NOT_FOUND", `${missing.status} ${missing.body?.error?.code}`)
+
+    const versions = await vaultCall("secrets.versions", "query", { key: "spot/check.key" })
+    const versionNumbers = (versions.body?.data?.versions ?? []).map((v) => v.version)
+    vaultCheck("secrets.versions is newest first", JSON.stringify(versionNumbers) === "[3,2,1]", JSON.stringify(versionNumbers))
+
+    const detail = await vaultCall("secrets.detail", "query", { key: "spot/check.key" })
+    vaultCheck("secrets.detail answers rotation: null when there is no policy", detail.body?.data && detail.body.data.rotation === null && Array.isArray(detail.body.data.recentAudit), JSON.stringify(detail.body?.data?.rotation))
+
+    const shortInterval = await vaultCall("rotation.savePolicy", "command", { key: "spot/check.key", intervalSeconds: 30, enabled: true })
+    vaultCheck("rotation.savePolicy refuses under 60s with BAD_REQUEST", shortInterval.body?.error?.code === "BAD_REQUEST", `${shortInterval.body?.error?.code}`)
+    const disabled = await vaultCall("rotation.savePolicy", "command", { key: "spot/check.key", intervalSeconds: 3600, enabled: false })
+    vaultCheck("a disabled policy omits nextRotationAt", disabled.body?.data?.policy && !("nextRotationAt" in disabled.body.data.policy), JSON.stringify(disabled.body?.data?.policy))
+    const enabled = await vaultCall("rotation.savePolicy", "command", { key: "spot/check.key", intervalSeconds: 3600, enabled: true })
+    vaultCheck("re-enabling a policy gives it a nextRotationAt", typeof enabled.body?.data?.policy?.nextRotationAt === "string", JSON.stringify(enabled.body?.data?.policy))
+    const notRotatable = await vaultCall("rotation.rotateNow", "command", { key: "spot/check.key" })
+    vaultCheck("rotation.rotateNow refuses a key with no rotator with BAD_REQUEST", notRotatable.body?.error?.code === "BAD_REQUEST", `${notRotatable.body?.error?.code}`)
+
+    const before = await vaultCall("secrets.detail", "query", { key: "db/primary.password" })
+    const rotated = await vaultCall("rotation.rotateNow", "command", { key: "db/primary.password" })
+    const after = await vaultCall("secrets.detail", "query", { key: "db/primary.password" })
+    vaultCheck(
+      "rotation.rotateNow bumps the version and keeps the expiry",
+      rotated.body?.data?.newVersion === before.body?.data?.secret?.version + 1 &&
+        after.body?.data?.secret?.version === rotated.body?.data?.newVersion &&
+        after.body?.data?.secret?.expiresAt === before.body?.data?.secret?.expiresAt,
+      JSON.stringify(rotated.body?.data),
+    )
+
+    const removed = await vaultCall("secrets.delete", "command", { key: "spot/check.key" })
+    const policies = await vaultCall("rotation.policies", "query", {})
+    vaultCheck(
+      "secrets.delete removes the secret and its policy",
+      removed.body?.data?.ok === true && !(policies.body?.data?.policies ?? []).some((p) => p.secretKey === "spot/check.key"),
+      JSON.stringify(policies.body?.data),
+    )
+    const gone = await vaultCall("secrets.delete", "command", { key: "spot/check.key" })
+    vaultCheck("secrets.delete on a missing key is 404 NOT_FOUND", gone.status === 404 && gone.body?.error?.code === "NOT_FOUND", `${gone.status} ${gone.body?.error?.code}`)
+
+    const invalidates = (r) => (r.body?.meta?.invalidates ?? []).slice().sort().join(",")
+    vaultCheck(
+      "commands declare the manifest's invalidates",
+      invalidates(created) === "secrets.list" &&
+        invalidates(kept) === "secrets.detail,secrets.list,secrets.versions" &&
+        invalidates(rotated) === "rotation.detail,rotation.policies,secrets.detail,secrets.list,secrets.versions",
+      `${invalidates(created)} | ${invalidates(kept)} | ${invalidates(rotated)}`,
+    )
+
+    // No response, from any vault intent, may carry the value.
+    const everything = JSON.stringify([page1.body, all.body, created.body, kept.body, cleared.body, versions.body, detail.body, rotated.body])
+    vaultCheck("no response carries a secret value", !everything.includes(canary), "the canary value came back")
   }
 
   console.log(`\nFinal: ${passed + (failures.length === 0 ? 0 : 0)} handler calls verified, ${failures.length} total failures (including spot checks).`)
