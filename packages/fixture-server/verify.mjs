@@ -492,6 +492,29 @@ async function main() {
     const notRotatable = await vaultCall("rotation.rotateNow", "command", { key: "spot/check.key" })
     vaultCheck("rotation.rotateNow refuses a key with no rotator with BAD_REQUEST", notRotatable.body?.error?.code === "BAD_REQUEST", `${notRotatable.body?.error?.code}`)
 
+    // Saving an enabled policy unchanged keeps its due time. api/github.token's
+    // seed due time is 12 days out on a 30-day interval, so a save that wrongly
+    // reset it to now plus the interval would move it by 18 days, not by the
+    // second or so between two calls.
+    const githubBefore = await vaultCall("rotation.detail", "query", { key: "api/github.token" })
+    const githubPolicy = githubBefore.body?.data?.policy
+    const resaved = await vaultCall("rotation.savePolicy", "command", {
+      key: "api/github.token",
+      intervalSeconds: githubPolicy?.intervalSeconds,
+      enabled: true,
+    })
+    vaultCheck(
+      "saving an enabled policy unchanged keeps nextRotationAt byte for byte",
+      githubPolicy?.enabled === true &&
+        typeof githubPolicy.nextRotationAt === "string" &&
+        resaved.body?.data?.policy?.nextRotationAt === githubPolicy.nextRotationAt,
+      `before ${githubPolicy?.nextRotationAt}, after ${resaved.body?.data?.policy?.nextRotationAt}`,
+    )
+    // The other half of the rule, an enabled policy with no due time getting
+    // one on save, has no state to start from here: every path through the
+    // contract that stores a policy also gives it a due time, and nothing
+    // clears one. Only a row written before the rule existed has none.
+
     // db/primary.password carries an expiry in the seed, so "unchanged" is a
     // real comparison and not undefined === undefined.
     const before = await vaultCall("secrets.detail", "query", { key: "db/primary.password" })
@@ -564,7 +587,7 @@ async function main() {
     // The manifest's invalidates, for all six commands.
     const invalidates = (r) => (r.body?.meta?.invalidates ?? []).slice().sort().join(",")
     const expectedInvalidates = [
-      ["secrets.create", created, "secrets.list"],
+      ["secrets.create", created, "secrets.detail,secrets.list,secrets.versions"],
       ["secrets.update", kept, "secrets.detail,secrets.list,secrets.versions"],
       ["secrets.delete", removed, "rotation.detail,rotation.policies,secrets.detail,secrets.list,secrets.versions"],
       ["rotation.savePolicy", savedMeta, "rotation.detail,rotation.policies,secrets.detail"],

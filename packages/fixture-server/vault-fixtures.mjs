@@ -374,7 +374,9 @@ export function createVaultHandlers(FixtureError) {
 
     "secrets.create": {
       kind: "command",
-      invalidates: ["secrets.list"],
+      // detail and versions too: a page that read the key before it existed
+      // holds a NOT_FOUND for it, and the create has to replace that.
+      invalidates: ["secrets.list", "secrets.detail", "secrets.versions"],
       handler: (payload) => {
         const key = requireKey(payload?.key)
         // The value is checked and dropped, never stored.
@@ -509,9 +511,11 @@ export function createVaultHandlers(FixtureError) {
         let giveNextDueTime
         if (existing) {
           policy = existing
-          // New, interval changed, or disabled-to-enabled gets a first due
-          // time; every other save keeps the stored one, and lastRotatedAt.
-          giveNextDueTime = policy.intervalSeconds !== interval || (!policy.enabled && enabled)
+          // New, interval changed, disabled-to-enabled, or enabled with no due
+          // time at all gets now plus the interval; every other save keeps the
+          // stored one, and lastRotatedAt.
+          giveNextDueTime =
+            policy.intervalSeconds !== interval || (!policy.enabled && enabled) || (enabled && !policy.nextRotationAt)
           policy.intervalSeconds = interval
           policy.enabled = enabled
           policy.updatedAt = now
