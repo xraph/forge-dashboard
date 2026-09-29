@@ -111,7 +111,11 @@ page-number intents, and no translation layer in the UI.
 Every entity carries `NamespacePath`. Every `ListFilter` has both
 `NamespacePath *string` and `NamespacePrefix string`. `AncestorNamespaces`
 resolves roles, permissions, policies and resource types up the whole ancestor
-chain at check time, and relations deliberately do not cascade.
+chain at check time. Relation tuples cascade too: the engine hands the same
+ancestor chain to every tuple lookup a check makes, so a tuple applies in its
+own namespace and in every namespace below it. What does not cascade is the
+list filter. Filter relations by one namespace and you see only what is stored
+there, not the parent's tuples that also apply.
 
 `dashboard/contributor.go` never passes a namespace filter and no templ page
 displays one. An operator looking at two roles both called `admin` cannot see
