@@ -3,7 +3,8 @@ import { describe, expect, it } from "vitest"
 import { render, screen, within } from "@testing-library/react"
 import { useEffect } from "react"
 import { SidebarProvider, useSidebar } from "../src/components/sidebar"
-import { AppSidebar } from "../src/components/app-sidebar"
+import { AppSidebar, stackSections } from "../src/components/app-sidebar"
+import type { NavSection } from "../src/components/nav-tree"
 
 window.matchMedia ??= ((query: string) => ({
   matches: false,
@@ -23,14 +24,36 @@ const renderLink = (node: { label: string; href: string; icon?: React.ReactNode 
   </a>
 )
 
+const sections: NavSection[] = [
+  {
+    id: "Identity",
+    label: "Identity",
+    icon: null,
+    href: "/@auth/users",
+    groups: [{ items: [{ label: "Users", href: "/@auth/users" }] }],
+  },
+  {
+    id: "Billing",
+    label: "Billing",
+    icon: null,
+    href: "/@auth/plans",
+    groups: [
+      { items: [{ label: "Credits", href: "/@auth/credits" }] },
+      { label: "Plans", contributed: true, items: [
+        { label: "Plans", href: "/@auth/plans" },
+        { label: "Invoices", href: "/@auth/invoices" },
+      ] },
+    ],
+  },
+]
+
 function renderSidebar(overrides: Partial<React.ComponentProps<typeof AppSidebar>> = {}) {
   return render(
     <SidebarProvider>
       <AppSidebar
-        scopes={[{ id: "auth", label: "Auth", namespace: "auth", href: "/@auth" }]}
-        home={{ id: "core-contract", label: "System", namespace: "core", href: "/overview" }}
+        scopes={[{ id: "auth", label: "Auth", namespace: "auth" }]}
         activeScopeId="auth"
-        heading={{ label: "Auth", namespace: "auth" }}
+        onScopeSelect={() => {}}
         groups={[{ label: "Identity", items: [{ label: "Users", href: "/@auth/users" }] }]}
         currentPath="/@auth/users"
         renderLink={renderLink}
@@ -63,21 +86,21 @@ describe("AppSidebar", () => {
     expect(screen.queryByText("Data Library")).toBeNull()
   })
 
-  it("names the active scope in a heading that is not a control", () => {
+  it("puts the scope switcher back in the header", () => {
     const { container } = renderSidebar()
-    const h = header(container)
-    const heading = h.querySelector('[data-slot="scope-heading"]') as HTMLElement
-    expect(within(heading).getByText("Auth")).toBeTruthy()
-    expect(within(heading).getByText("@auth")).toBeTruthy()
-    expect(within(h).queryByRole("button")).toBeNull()
-    expect(within(h).queryByRole("link")).toBeNull()
+    expect(within(header(container)).getByText("@auth")).toBeTruthy()
+    expect(within(header(container)).getByRole("button", { name: /Auth/ })).toBeTruthy()
   })
 
-  it("renders no heading and no namespace line when none is given", () => {
-    const { container } = renderSidebar({ heading: undefined })
-    expect(header(container).querySelector('[data-slot="scope-heading"]')).toBeNull()
-    const withoutNamespace = renderSidebar({ heading: { label: "System" } })
-    expect(within(header(withoutNamespace.container)).queryByText(/^@/)).toBeNull()
+  it("renders no switcher when there are no scopes and no home", () => {
+    const { container } = renderSidebar({ scopes: [] })
+    expect(within(header(container)).queryByRole("button")).toBeNull()
+  })
+
+  it("puts the user menu in the footer", () => {
+    const { container } = renderSidebar()
+    const footer = container.querySelector('[data-slot="sidebar-footer"]') as HTMLElement
+    expect(within(footer).getByText("Dashboard user")).toBeTruthy()
   })
 
   it("renders the empty notice with a link that carries the search string", () => {
@@ -98,14 +121,30 @@ describe("AppSidebar", () => {
     expect(within(c).queryByRole("link")).toBeNull()
   })
 
-  it("keeps scope rows and the user menu out of the desktop pane", () => {
-    const { container } = renderSidebar()
-    expect(container.querySelector('[data-slot="scope-rows"]')).toBeNull()
-    expect(container.querySelector('[data-slot="sidebar-footer"]')).toBeNull()
-    expect(screen.queryByText("Dashboard user")).toBeNull()
+  it("shows only the active section's groups on desktop, with sub-plugin headings", () => {
+    const { container } = renderSidebar({ sections, activeSectionId: "Billing", currentPath: "/@auth/plans" })
+    const c = content(container)
+    expect(within(c).queryByRole("link", { name: "Users" })).toBeNull()
+    expect(within(c).getByRole("link", { name: "Credits" })).toBeTruthy()
+    expect(within(c).getByRole("link", { name: "Invoices" })).toBeTruthy()
+    expect(within(c).getAllByText("Plans").length).toBe(2)
   })
 
-  it("lists the scopes and the user menu in the mobile sheet", async () => {
+  it("falls back to the first section when the active id matches none", () => {
+    const { container } = renderSidebar({ sections, activeSectionId: "Nope" })
+    expect(within(content(container)).getByRole("link", { name: "Users" })).toBeTruthy()
+  })
+
+  it("ignores groups when sections are given", () => {
+    const { container } = renderSidebar({
+      sections,
+      activeSectionId: "Identity",
+      groups: [{ items: [{ label: "Stale", href: "/stale" }] }],
+    })
+    expect(within(content(container)).queryByRole("link", { name: "Stale" })).toBeNull()
+  })
+
+  it("stacks every section in the mobile sheet", async () => {
     Object.defineProperty(window, "innerWidth", { value: 500, configurable: true })
     try {
       function OpenSheet() {
@@ -117,22 +156,37 @@ describe("AppSidebar", () => {
         <SidebarProvider>
           <OpenSheet />
           <AppSidebar
-            scopes={[{ id: "auth", label: "Auth", namespace: "auth", href: "/@auth" }]}
-            home={{ id: "core-contract", label: "System", namespace: "core", href: "/overview" }}
+            scopes={[{ id: "auth", label: "Auth", namespace: "auth" }]}
             activeScopeId="auth"
-            heading={{ label: "Auth", namespace: "auth" }}
-            groups={[{ label: "Identity", items: [{ label: "Users", href: "/@auth/users" }] }]}
-            currentPath="/@auth/users"
+            onScopeSelect={() => {}}
+            groups={[]}
+            sections={sections}
+            activeSectionId="Billing"
+            currentPath="/@auth/plans"
             renderLink={renderLink}
             user={{ name: "Dashboard user", email: "user@example.com" }}
           />
         </SidebarProvider>,
       )
-      const rows = (await screen.findByRole("dialog")).querySelector('[data-slot="scope-rows"]') as HTMLElement
-      expect(within(rows).getAllByRole("link").map((a) => a.getAttribute("href"))).toEqual(["/overview", "/@auth"])
-      expect(screen.getAllByText("Dashboard user").length).toBeGreaterThan(0)
+      const sheet = await screen.findByRole("dialog")
+      expect(within(sheet).getByRole("link", { name: "Users" })).toBeTruthy()
+      expect(within(sheet).getByRole("link", { name: "Invoices" })).toBeTruthy()
+      expect(within(sheet).getByText("Billing · Plans")).toBeTruthy()
     } finally {
       Object.defineProperty(window, "innerWidth", { value: 1024, configurable: true })
     }
+  })
+})
+
+describe("stackSections", () => {
+  it("labels each section's first unlabelled group with the section, and prefixes headed groups", () => {
+    expect(stackSections(sections).map((g) => g.label)).toEqual(["Identity", "Billing", "Billing · Plans"])
+  })
+
+  it("labels a section whose first group is headed through the prefix alone", () => {
+    const onlyHeaded: NavSection[] = [
+      { id: "Billing", label: "Billing", icon: null, href: "/p", groups: [{ label: "Plans", items: [{ label: "Plans", href: "/p" }] }] },
+    ]
+    expect(stackSections(onlyHeaded).map((g) => g.label)).toEqual(["Billing · Plans"])
   })
 })

@@ -1,8 +1,9 @@
+// packages/kit/src/components/dashboard-shell.tsx
 import type { CSSProperties, ReactNode } from "react"
 
 import { AppSidebar } from "@forge-go/dashboard-kit/components/app-sidebar"
 import type { AppSidebarProps } from "@forge-go/dashboard-kit/components/app-sidebar"
-import { ScopeRail } from "@forge-go/dashboard-kit/components/scope-rail"
+import { SectionRail } from "@forge-go/dashboard-kit/components/section-rail"
 import { SidebarInset, SidebarProvider } from "@forge-go/dashboard-kit/components/sidebar"
 import { SiteHeader } from "@forge-go/dashboard-kit/components/site-header"
 import { useRailExpanded } from "@forge-go/dashboard-kit/hooks/use-rail-expanded"
@@ -15,54 +16,51 @@ export interface DashboardShellProps extends Omit<AppSidebarProps, "children"> {
 }
 
 /**
- * The dashboard's chrome: a rail of scopes, the active scope's pane, and the
- * content with its header. The shell owns the arrangement, so the only thing
- * the pane needs to know about the rail is how wide it is, and it learns that
- * through `--sidebar-offset` on the provider.
+ * The dashboard's chrome: the active scope's section rail when it declares
+ * sections, the pane, and the content with its header. The only thing the
+ * pane needs to know about the rail is how wide it is, and it learns that
+ * through `--sidebar-offset` on the provider: 0 when there is no rail.
  */
 export function DashboardShell({
   title,
   scope,
   actions,
   children,
-  home,
-  scopes,
-  activeScopeId,
-  renderLink,
-  user,
-  onSignOut,
+  sections,
+  activeSectionId,
   ...pane
 }: DashboardShellProps) {
   const { expanded, toggle } = useRailExpanded()
+  const hasRail = !!sections && sections.length > 0
+  const offset = !hasRail
+    ? "0px"
+    : expanded
+      ? "var(--sidebar-width)"
+      : "var(--sidebar-width-icon)"
   return (
-    <SidebarProvider
-      style={
-        {
-          "--sidebar-offset": expanded ? "var(--sidebar-width)" : "var(--sidebar-width-icon)",
-        } as CSSProperties
-      }
-    >
-      <ScopeRail
-        home={home}
-        scopes={scopes}
-        activeScopeId={activeScopeId}
-        renderLink={renderLink}
-        expanded={expanded}
-        onToggle={toggle}
-        user={user}
-        onSignOut={onSignOut}
-      />
+    <SidebarProvider style={{ "--sidebar-offset": offset } as CSSProperties}>
+      {hasRail ? (
+        <SectionRail
+          items={sections.map((section) => ({
+            id: section.id,
+            label: section.label,
+            href: section.href,
+            icon: section.icon,
+          }))}
+          activeId={activeSectionId ?? sections[0].id}
+          renderLink={pane.renderLink}
+          search={pane.search}
+          expanded={expanded}
+          onToggle={toggle}
+        />
+      ) : null}
       <AppSidebar
+        {...pane}
+        sections={sections}
+        activeSectionId={activeSectionId}
         variant="sidebar"
         collapsible="icon"
         navigationLayout="collapsible"
-        home={home}
-        scopes={scopes}
-        activeScopeId={activeScopeId}
-        renderLink={renderLink}
-        user={user}
-        onSignOut={onSignOut}
-        {...pane}
       />
       <SidebarInset>
         <SiteHeader title={title} scope={scope} actions={actions} />
