@@ -369,7 +369,7 @@ export const wardenHandlers = {
   },
   "roles.update": {
     kind: "command",
-    invalidates: ["roles.list", "roles.detail"],
+    invalidates: ["roles.list", "roles.detail", "permissions.detail"],
     handler: (payload) => {
       const r = warden.roles.find((x) => x.id === payload?.id)
       if (!r) throw notFound("role", payload?.id)
@@ -397,7 +397,7 @@ export const wardenHandlers = {
   },
   "roles.delete": {
     kind: "command",
-    invalidates: ["roles.list", "roles.detail", "overview.stats"],
+    invalidates: ["roles.list", "roles.detail", "permissions.detail", "overview.stats", "namespaces.list"],
     handler: (payload) => {
       const i = warden.roles.findIndex((x) => x.id === payload?.id)
       if (i === -1) throw notFound("role", payload?.id)
@@ -414,7 +414,7 @@ export const wardenHandlers = {
   },
   "roles.attachPermission": {
     kind: "command",
-    invalidates: ["roles.detail"],
+    invalidates: ["roles.detail", "permissions.detail"],
     handler: (payload) => {
       const r = warden.roles.find((x) => x.id === payload?.roleId)
       if (!r) throw notFound("role", payload?.roleId)
@@ -435,7 +435,7 @@ export const wardenHandlers = {
   },
   "roles.detachPermission": {
     kind: "command",
-    invalidates: ["roles.detail"],
+    invalidates: ["roles.detail", "permissions.detail"],
     handler: (payload) => {
       const r = warden.roles.find((x) => x.id === payload?.roleId)
       if (!r) throw notFound("role", payload?.roleId)
@@ -464,7 +464,7 @@ export const wardenHandlers = {
   },
   "roles.setPermissions": {
     kind: "command",
-    invalidates: ["roles.detail"],
+    invalidates: ["roles.detail", "permissions.detail"],
     handler: (payload) => {
       const r = warden.roles.find((x) => x.id === payload?.roleId)
       if (!r) throw notFound("role", payload?.roleId)
@@ -579,7 +579,7 @@ export const wardenHandlers = {
   },
   "permissions.delete": {
     kind: "command",
-    invalidates: ["permissions.list", "permissions.detail", "roles.detail", "overview.stats"],
+    invalidates: ["permissions.list", "permissions.detail", "roles.detail", "overview.stats", "namespaces.list"],
     handler: (payload) => {
       const i = warden.permissions.findIndex((x) => x.id === payload?.id)
       if (i === -1) throw notFound("permission", payload?.id)
