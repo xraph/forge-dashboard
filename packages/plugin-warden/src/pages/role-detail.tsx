@@ -9,6 +9,8 @@ import {
   DescriptionList,
   DetailLayout,
 } from "@forge-go/dashboard-kit/components/detail-layout"
+import { Input } from "@forge-go/dashboard-kit/components/input"
+import { Label } from "@forge-go/dashboard-kit/components/label"
 import { NativeSelect } from "@forge-go/dashboard-kit/components/native-select"
 import { NoneCell } from "@forge-go/dashboard-kit/components/none-cell"
 import { PageHeader } from "@forge-go/dashboard-kit/components/page-header"
@@ -57,6 +59,12 @@ export interface PermissionsList {
   offset: number
 }
 
+/** Mirrors the Go `PermissionRef`: how `roles.setPermissions` names a grant. */
+interface PermissionRef {
+  name: string
+  namespacePath: string
+}
+
 /** The picker reads a wide page because it is a chooser, not a browser. */
 const PICKER_LIMIT = 200
 
@@ -83,9 +91,12 @@ export function WardenRoleDetailPage({ params }: PluginPageProps) {
   const id = params.id as string
   const detail = useQuery<RoleDetail>("roles.detail", { id })
   const detach = useCommand<AckResponse>("roles.detachPermission")
+  const replace = useCommand<AckResponse>("roles.setPermissions")
 
   const [revoking, setRevoking] = useState<PermissionSummary | null>(null)
   const [attaching, setAttaching] = useState(false)
+  const [replacing, setReplacing] = useState(false)
+  const [editing, setEditing] = useState(false)
 
   async function confirmRevoke() {
     if (!revoking) return
@@ -101,6 +112,13 @@ export function WardenRoleDetailPage({ params }: PluginPageProps) {
     if (result !== undefined) setRevoking(null)
   }
 
+  async function confirmReplace(permissions: PermissionRef[]) {
+    // The key is roleId, not id, unlike roles.update. An id would leave
+    // roleId empty and the server would have no role to write to.
+    const result = await replace.execute({ roleId: id, permissions })
+    if (result !== undefined) setReplacing(false)
+  }
+
   return (
     <QueryBoundary title="Role" query={detail} skeletonRows={4}>
       {(role) => (
@@ -108,8 +126,28 @@ export function WardenRoleDetailPage({ params }: PluginPageProps) {
           <PageHeader
             title={role.name}
             actions={
-              !role.isSystem && (
-                <Button onClick={() => setAttaching(true)}>Attach permission</Button>
+              // The contract refuses every one of these on a system role,
+              // so none is offered there. While the form is open they
+              // would be acting on a page the operator is mid-edit on.
+              !role.isSystem &&
+              !editing && (
+                <>
+                  <Button variant="outline" onClick={() => setEditing(true)}>
+                    Edit
+                  </Button>
+                  <Button
+                    variant="outline"
+                    onClick={() => {
+                      // Reset at open, not at close, so a refusal from an
+                      // earlier attempt is not shown against this one.
+                      replace.reset()
+                      setReplacing(true)
+                    }}
+                  >
+                    Replace all
+                  </Button>
+                  <Button onClick={() => setAttaching(true)}>Attach permission</Button>
+                </>
               )
             }
           />
@@ -163,20 +201,24 @@ export function WardenRoleDetailPage({ params }: PluginPageProps) {
               />
             }
             main={
-              <div className="flex flex-col gap-6">
-                <GrantsTable
-                  role={role}
-                  onRevoke={(p) => {
-                    // Reset at open, not at close: the operator is about to
-                    // read whatever this dialog shows for THIS grant, so a
-                    // failure from a previous one must not be attributed to
-                    // it.
-                    detach.reset()
-                    setRevoking(p)
-                  }}
-                />
-                <ChildrenTable role={role} />
-              </div>
+              editing ? (
+                <EditForm role={role} onDone={() => setEditing(false)} />
+              ) : (
+                <div className="flex flex-col gap-6">
+                  <GrantsTable
+                    role={role}
+                    onRevoke={(p) => {
+                      // Reset at open, not at close: the operator is about to
+                      // read whatever this dialog shows for THIS grant, so a
+                      // failure from a previous one must not be attributed to
+                      // it.
+                      detach.reset()
+                      setRevoking(p)
+                    }}
+                  />
+                  <ChildrenTable role={role} />
+                </div>
+              )
             }
           />
 
@@ -212,6 +254,19 @@ export function WardenRoleDetailPage({ params }: PluginPageProps) {
               roleName={role.name}
               held={role.permissions}
               onClose={() => setAttaching(false)}
+            />
+          )}
+
+          {/* Mounted only while open for the same reason as the picker
+              above: it reads the wide permissions page. */}
+          {replacing && (
+            <ReplaceDialog
+              roleName={role.name}
+              held={role.permissions ?? []}
+              pending={replace.loading}
+              error={replace.error}
+              onSubmit={(permissions) => void confirmReplace(permissions)}
+              onClose={() => setReplacing(false)}
             />
           )}
         </section>
@@ -394,6 +449,263 @@ function AttachDialog({
       pending={attach.loading}
       confirmDisabled={chosen === ""}
       onConfirm={() => void confirmAttach()}
+    />
+  )
+}
+
+/**
+ * Reads the member-cap field. Blank means unlimited, which warden stores as
+ * 0, so blank is a real value and not a missing one. Anything that is not a
+ * whole number of zero or more is `null`, and the form refuses to save it.
+ */
+function parseCap(text: string): number | null {
+  const t = text.trim()
+  if (t === "") return 0
+  return /^\d+$/.test(t) ? Number(t) : null
+}
+
+/**
+ * Edits the fields the aside shows.
+ *
+ * `roles.update` reads each optional field as a pointer: an absent key means
+ * leave it alone, and a present zero value is an instruction (an empty
+ * `parentSlug` clears the parent, `maxMembers: 0` removes the cap,
+ * `isDefault: false` unsets the default). So the payload carries only what
+ * the operator changed, and a change back to the zero value is sent as that
+ * value rather than dropped.
+ */
+function EditForm({ role, onDone }: { role: RoleDetail; onDone: () => void }) {
+  const update = useCommand<AckResponse>("roles.update")
+  const [name, setName] = useState(role.name)
+  const [description, setDescription] = useState(role.description ?? "")
+  const [parentSlug, setParentSlug] = useState(role.parentSlug ?? "")
+  // A string, so the operator can clear it. Unlimited is shown as blank.
+  const [cap, setCap] = useState(role.maxMembers ? String(role.maxMembers) : "")
+  const [isDefault, setIsDefault] = useState(role.isDefault)
+
+  const parsedCap = parseCap(cap)
+  const changed: Record<string, unknown> = {}
+  if (name.trim() !== role.name.trim()) changed.name = name.trim()
+  if (description.trim() !== (role.description ?? "").trim()) {
+    changed.description = description.trim()
+  }
+  if (parentSlug.trim() !== (role.parentSlug ?? "").trim()) {
+    changed.parentSlug = parentSlug.trim()
+  }
+  if (parsedCap !== null && parsedCap !== (role.maxMembers ?? 0)) {
+    changed.maxMembers = parsedCap
+  }
+  if (isDefault !== role.isDefault) changed.isDefault = isDefault
+  const dirty = Object.keys(changed).length > 0
+
+  const nameBlank = name.trim() === ""
+  const capInvalid = parsedCap === null
+
+  async function submit() {
+    if (!dirty || nameBlank || capInvalid) return
+    const result = await update.execute({ id: role.id, ...changed })
+    // execute() resolves undefined only when the client throws, so this is
+    // the success check. A refused save must leave the form open with what
+    // the operator typed.
+    if (result === undefined) return
+    onDone()
+  }
+
+  return (
+    <div className="flex flex-col gap-4 rounded-md border p-4">
+      <p className="text-sm text-muted-foreground">
+        The slug and namespace cannot change. Only what you change is saved.
+      </p>
+
+      <div className="flex flex-col gap-1.5">
+        <Label htmlFor="role-edit-name">Name</Label>
+        <Input
+          id="role-edit-name"
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+        />
+      </div>
+      <div className="flex flex-col gap-1.5">
+        <Label htmlFor="role-edit-description">Description</Label>
+        <Input
+          id="role-edit-description"
+          value={description}
+          onChange={(e) => setDescription(e.target.value)}
+        />
+      </div>
+      <div className="flex flex-col gap-1.5">
+        <Label htmlFor="role-edit-parent">Inherits from</Label>
+        <Input
+          id="role-edit-parent"
+          className="font-mono text-xs"
+          placeholder="reader"
+          value={parentSlug}
+          onChange={(e) => setParentSlug(e.target.value)}
+        />
+        <p className="text-xs text-muted-foreground">
+          The slug of another role in this namespace. Leave it empty for no parent.
+        </p>
+      </div>
+      <div className="flex flex-col gap-1.5">
+        <Label htmlFor="role-edit-cap">Member cap</Label>
+        <Input
+          id="role-edit-cap"
+          inputMode="numeric"
+          placeholder="Unlimited"
+          aria-invalid={capInvalid || undefined}
+          value={cap}
+          onChange={(e) => setCap(e.target.value)}
+        />
+        <p className="text-xs text-muted-foreground">
+          Leave it empty for no limit. Clearing a cap you had removes it.
+        </p>
+      </div>
+      <div className="flex items-center gap-2">
+        <input
+          id="role-edit-default"
+          type="checkbox"
+          className="size-4"
+          checked={isDefault}
+          onChange={(e) => setIsDefault(e.target.checked)}
+        />
+        <Label htmlFor="role-edit-default">Default role</Label>
+      </div>
+
+      {nameBlank && (
+        <p className="text-sm text-muted-foreground">A role needs a name.</p>
+      )}
+      {capInvalid && (
+        <p className="text-sm text-muted-foreground">
+          The member cap is a whole number, or empty for no limit.
+        </p>
+      )}
+      <CommandAlert error={update.error} title="Could not save the role" />
+
+      <div className="flex gap-2">
+        <Button
+          onClick={() => void submit()}
+          disabled={update.loading || !dirty || nameBlank || capInvalid}
+        >
+          {update.loading ? "Saving…" : "Save changes"}
+        </Button>
+        <Button variant="ghost" onClick={onDone} disabled={update.loading}>
+          Cancel
+        </Button>
+      </div>
+    </div>
+  )
+}
+
+/**
+ * Replaces the role's whole grant set with the checked permissions.
+ *
+ * Starts from what the role holds. Anything held stays listed even when the
+ * picker's page did not include it, because dropping it from the list would
+ * drop it from the set on confirm, and nobody chose to. An empty selection is
+ * a real instruction (revoke everything) and is confirmable once it says so.
+ */
+function ReplaceDialog({
+  roleName,
+  held,
+  pending,
+  error,
+  onSubmit,
+  onClose,
+}: {
+  roleName: string
+  held: PermissionSummary[]
+  pending: boolean
+  error: { code: string; message: string } | undefined
+  onSubmit: (permissions: PermissionRef[]) => void
+  onClose: () => void
+}) {
+  const list = useQuery<PermissionsList>("permissions.list", { limit: PICKER_LIMIT })
+  const [chosen, setChosen] = useState<Set<string>>(
+    () => new Set(held.map((p) => joinRef(p.namespacePath, p.name)))
+  )
+
+  const heldKeys = new Set(held.map((p) => joinRef(p.namespacePath, p.name)))
+  const loaded = list.data?.items ?? []
+  const options = [
+    ...held,
+    ...loaded.filter((p) => !heldKeys.has(joinRef(p.namespacePath, p.name))),
+  ]
+  const total = list.data?.total ?? 0
+  const truncated = list.data !== undefined && total > loaded.length
+
+  const selected = options.filter((p) => chosen.has(joinRef(p.namespacePath, p.name)))
+  const unchanged =
+    selected.length === held.length && held.every((p) => chosen.has(joinRef(p.namespacePath, p.name)))
+
+  function toggle(p: PermissionSummary) {
+    const key = joinRef(p.namespacePath, p.name)
+    setChosen((prev) => {
+      const next = new Set(prev)
+      if (next.has(key)) next.delete(key)
+      else next.add(key)
+      return next
+    })
+  }
+
+  return (
+    <ConfirmDialog
+      open
+      onOpenChange={(open) => !open && !pending && onClose()}
+      title={`Replace all permissions on ${roleName}`}
+      description={
+        <span className="flex flex-col gap-2">
+          <span>
+            The role will grant exactly the permissions checked here. Anything
+            unchecked is revoked, from everyone holding the role and from any
+            role inheriting from it.
+          </span>
+          <span
+            role="group"
+            aria-label="Permissions to grant"
+            className="flex max-h-64 flex-col gap-1 overflow-y-auto rounded-md border p-2"
+          >
+            {options.map((p) => {
+              const label = p.namespacePath === "" ? p.name : `${p.name} (${p.namespacePath})`
+              return (
+                <label key={p.id} className="flex items-center gap-2 text-sm">
+                  <input
+                    type="checkbox"
+                    className="size-4"
+                    aria-label={label}
+                    checked={chosen.has(joinRef(p.namespacePath, p.name))}
+                    disabled={pending}
+                    onChange={() => toggle(p)}
+                  />
+                  <span className="font-mono text-xs">{label}</span>
+                </label>
+              )
+            })}
+          </span>
+          <CommandAlert error={list.error} title="Could not load permissions" />
+          {truncated && (
+            <span className="text-sm text-muted-foreground">
+              Showing the first {loaded.length} of {total} permissions, so a
+              permission past that is not listed. Everything the role holds is
+              listed, and stays granted while it is checked.
+            </span>
+          )}
+          {selected.length === 0 && held.length > 0 && (
+            <span className="text-sm text-destructive">
+              Nothing is checked. This revokes all {held.length}{" "}
+              {held.length === 1 ? "permission" : "permissions"} from the role.
+            </span>
+          )}
+          <CommandAlert error={error} title="Could not replace the permissions" />
+        </span>
+      }
+      confirmLabel="Replace grants"
+      pending={pending}
+      confirmDisabled={unchanged}
+      onConfirm={() =>
+        onSubmit(
+          selected.map((p) => ({ name: p.name, namespacePath: p.namespacePath }))
+        )
+      }
     />
   )
 }
