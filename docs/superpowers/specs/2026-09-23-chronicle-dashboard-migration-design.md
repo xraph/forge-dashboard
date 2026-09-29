@@ -631,9 +631,8 @@ does not exist.
 Also deliberately not exposed: `compliance.ReportStore.DeleteReport`. Deleting
 compliance evidence shouldn't be one click in a dashboard, and neither the HTTP
 API nor the templ dashboard ever offered it, so record it as a choice and not
-an oversight. `erasures.request` is held until the library scopes its keys (see
-the amendments below). The templ dashboard never offered an erasure request
-either, so nothing regresses.
+an oversight. `erasures.request` is new rather than migrated: the templ
+dashboard never offered an erasure request.
 
 **Bugs the templ dashboard had, closed by the migration.** Record these as
 fixed in passing, so nobody reads their absence as a lost feature:
@@ -725,12 +724,28 @@ probe confirmed that an erasure destroys other apps' and tenants' data.
 subject ID shares one key, and `erasure.Service.Erase` deletes it unscoped
 while scoping everything else. Erasing `user-42` in one app made another app's
 event for `user-42` read `[ERASED]`, with `Erased` false, no erasure ID and no
-erasure record in its own scope. The list, detail and preview intents ship.
-The command returns once the library scopes its keys, which puts the manifest
-at 28 intents instead of 29.
+erasure record in its own scope. The list, detail and preview intents shipped
+first, and the command waited.
 
-**Not every `[ERASED]` has an erasure behind it.** Until that fix lands, and on
-any data written before it, an event can read `[ERASED]` with `Erased` false
+It's back now. chronicle main's `3c92355` names each key by app, tenant and
+subject, length-prefixed so a colon in an ID can't make two scopes share one.
+The command runs the erasure in exactly the viewer's scope, takes
+`requestedBy` from the signed-in user and never from the payload, needs
+`scope:chronicle.admin`, and answers unavailable when crypto-erasure is off.
+Its end-to-end test is the original bug: two apps record events for the same
+subject, one erases it, and the other's events still decrypt. The manifest is
+at 29 intents.
+
+The result carries `keyDestroyed` and `legacyKeyRetained`. An event sealed
+before the fix sits under a key that other scopes may still depend on. Then
+the erasure marks your events erased, and no read path shows their payload,
+but it keeps the key and says so with `keyDestroyed: false` and
+`legacyKeyRetained: true`. The page has to say that plainly. It must not
+report the key as destroyed, and it must not report the erasure as failed.
+The key goes the first time an erasure finds no other scope still using it.
+
+**Not every `[ERASED]` has an erasure behind it.** On data another scope
+erased before that fix, an event can read `[ERASED]` with `Erased` false
 and no `ErasureID`. That is the victim side of the bug above. The page renders
 it as destroyed with no recorded erasure in this scope, and never implies an
 erasure was requested here.
@@ -802,13 +817,16 @@ for streams and checkpoints, 1,000 for the rest).
 Nothing populates claims today, so without configuration every intent is
 denied. A single-app deployment can set `chronicle.dashboard.app_id`, and
 optionally `chronicle.dashboard.tenant_id`, and the dashboard works now. This
-is the same shape Warden uses. Each dimension resolves on its own: a claim
+starts from Warden's shape and is stricter about the tenant. Each dimension resolves on its own: a claim
 that's present and readable wins, a claim that's present but unreadable is
 refused and never falls back to the config, and only an absent claim takes the
 configured value. The tenant counts as absent only when both `tenant_id` and
-`org_id` are missing. The configured tenant applies only inside the configured
-app, so a session whose claim names a different app is never narrowed to a
-tenant from somebody else's app. A tenant with no app is refused at startup,
+`org_id` are missing. The configured tenant applies only to a session with no
+app claim at all. A session whose `app_id` came from a claim never takes it, even when the claim
+names the configured app, because an org member who clears their active org
+would otherwise land in that tenant and read it. With no tenant claim, that
+session falls to the app-wide rule below: `chronicle.admin` sees the whole
+app, and anyone else is refused. A tenant with no app is refused at startup,
 and so is a value with edge whitespace or control characters. The two
 settings are one unit: if YAML sets either of them, YAML's whole section wins,
 so a tenant from code never ends up paired with an app from YAML. A request
@@ -821,19 +839,30 @@ that wrote the tenant and lost the app has failed to resolve the scope.
 When authsome starts filling claims in, these shapes decide whether the
 contract is safe:
 
-- An org-bound user must always carry `org_id`. The contract treats a missing
-  tenant key as an app-wide operator, so a user whose org claim is only written
-  while an org is selected would see every tenant in the app the moment they
-  deselect it. The safer alternative is to make app-wide access an explicit
-  grant.
+- An app-wide view is an explicit grant. When `app_id` comes from a claim and
+  no tenant claim comes with it, the session needs `chronicle.admin`, and
+  anyone else is refused. Authsome sends `org_id` from the session's active
+  org, and a user can clear that, so without this rule an org member who
+  cleared their org would see every tenant in the app. A non-admin app member
+  with no org gets nothing from chronicle until authsome gives them an org or
+  a scope. Authsome still has to decide who counts as org-bound, because
+  refusing is better than widening but it isn't the same as scoping them
+  correctly. An app-wide view from the configured `chronicle.dashboard.app_id`,
+  with no claims at all, needs no scope: that's the single-app operator's own
+  setting.
 - Scopes have to be resolved for the active app only, and switching apps has to
   check membership. `scope:chronicle.admin` matches a flat list of scopes, while
   `app_id` follows the app switcher, so an admin in one app who can switch into
   another would carry admin there too.
-- The environment dimension needs settling before anything is wired. Neither
-  forge's scope nor chronicle has one, so if authsome's `app_id` is per app and
-  sessions are per environment, an operator scoped to one environment reads
-  every environment's audit log.
+- The environment dimension needs settling before anything is wired.
+  Neither forge's scope nor chronicle has one, and authsome's audit adapter
+  writes only the org as the tenant, so chronicle can't isolate environments
+  at all. Worse, authsome stamps session roles by slug across every namespace
+  in the app, so an environment-scoped "admin" looks exactly like the
+  app-level one and gets app-wide `chronicle.admin`. That's confirmed in
+  authsome, not a guess. Until authsome either skips environment-scoped roles
+  when it stamps a session or keeps their environment, no environment-scoped
+  role should be treated as safe for the dashboard.
 - `app_id` travels with every tenant claim. A session carrying `org_id` or
   `tenant_id` without `app_id` is refused, even in a deployment with
   `chronicle.dashboard.app_id` set, and there's no setting that works around
@@ -877,6 +906,13 @@ answer that a careless page could still turn into a misleading one.
   the engine's `notes` too, since every export does. A report with neither
   field predates verification and says "this report contains no integrity
   verification". Don't drop the section silently.
+- The erasure confirm button mints a fresh idempotency key every time you
+  confirm. forge caches a command's result by subject and intent, not by
+  scope, so a retry with an old key after switching org would replay the first
+  scope's result and erase nothing in the new one.
+- A report generated with no tenant verified only the app's untenanted chain,
+  never a tenant's, and the engine says so in its notes. "Verified, not
+  capped" on an app-wide report is not a pass for the tenants.
 - The HTML export goes out as a download or inside a sandboxed iframe, never
   injected into the page. `html/template` already escapes it; this is defence in
   depth.
