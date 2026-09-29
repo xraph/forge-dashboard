@@ -1,5 +1,7 @@
 # Scope rail: a two-column sidebar for the dashboard shell
 
+> **Superseded** by `2026-09-29-section-rail-design.md`. The rail belongs inside a scope, for its own sections and sub-plugins, not across scopes.
+
 Design for replacing the scope dropdown in the dashboard sidebar with an icon
 rail of scopes beside a pane that holds the active scope's pages. The pattern is
 the "rail" mode of TwinOS Studio's navigation
