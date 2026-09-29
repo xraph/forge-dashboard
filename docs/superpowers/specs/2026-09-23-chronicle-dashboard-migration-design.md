@@ -869,9 +869,14 @@ answer that a careless page could still turn into a misleading one.
   spells that out.
 - A policy an app-wide operator saves has no tenant, and it purges every tenant
   in the app. The save form and the policy row both say so.
-- A report whose verification is null says "this report contains no integrity
-  verification". Don't drop the section silently. Today that's every report,
-  because the library never fills the field in.
+- A report's verification comes with `verificationScope`, and the page reads
+  the two together. A valid verdict on a capped scope proves only the window
+  from `fromSeq` to `toSeq`, so the page shows that range and says the
+  sequences before it went unchecked. `no_chain` and `not_configured` are
+  reasons nothing was verified, never passes, and the page says which. Render
+  the engine's `notes` too, since every export does. A report with neither
+  field predates verification and says "this report contains no integrity
+  verification". Don't drop the section silently.
 - The HTML export goes out as a download or inside a sandboxed iframe, never
   injected into the page. `html/template` already escapes it; this is defence in
   depth.
