@@ -59,6 +59,7 @@ import { DeniedScreen } from "../auth/screens"
 import type {
   NavGroup,
   NavNode,
+  NavSection,
 } from "@forge-go/dashboard-kit/components/nav-tree"
 import type { ScopeOption } from "@forge-go/dashboard-kit/components/scope-entries"
 import { useSidebar } from "@forge-go/dashboard-kit/components/sidebar"
@@ -68,7 +69,7 @@ import {
   AlertTitle,
 } from "@forge-go/dashboard-kit/components/alert"
 import { Spinner } from "@forge-go/dashboard-kit/components/spinner"
-import { TriangleAlertIcon } from "@forge-go/dashboard-kit/icons"
+import { MoreHorizontalIcon, TriangleAlertIcon } from "@forge-go/dashboard-kit/icons"
 
 type HostSidebar = Omit<
   React.ComponentProps<typeof DashboardShell>,
@@ -258,6 +259,108 @@ export function navGroups(
     contributed: bucket.contributed || undefined,
     items: toNodes(plugin, foldClusters(bucket.items), segment),
   }))
+}
+
+/** The id of the trailing section that collects items no declared section names. */
+export const MORE_SECTION = "__more"
+
+/**
+ * A scope's sections, for the rail beside its pane. Empty for a plugin that
+ * declares none, which is what keeps every other scope rendering the single
+ * pane it always has.
+ *
+ * Inside a section the host's own items come first. A sub-plugin with one
+ * item there joins that list; one with two or more gets its own group,
+ * headed with the sub-plugin's label, so Billing reads "Plans" over its
+ * pages. Both lists go through foldClusters and toNodes, so clusters fold
+ * exactly as they do in navGroups.
+ *
+ * Items whose group names no section, and items with no group, go to a
+ * trailing "More" section, so a sub-plugin with a group nobody declared is
+ * still reachable. A section with no items is dropped.
+ */
+export function navSections(
+  plugin: ForgePlugin,
+  subPlugins: ForgeSubPlugin[],
+  segment?: string,
+): NavSection[] {
+  const declared = plugin.sections ?? []
+  if (declared.length === 0) return []
+
+  const known = new Set(declared.map((section) => section.group))
+  const sectionOf = (item: PluginNavItem) =>
+    item.group !== undefined && known.has(item.group) ? item.group : MORE_SECTION
+
+  const specs = [
+    ...declared.map((section) => ({
+      id: section.group,
+      label: section.label ?? section.group,
+      icon: section.icon,
+    })),
+    { id: MORE_SECTION, label: "More", icon: <MoreHorizontalIcon /> },
+  ]
+
+  return specs.flatMap((spec) => {
+    const own = plugin.nav.filter((item) => sectionOf(item) === spec.id)
+    let joined = false
+    const headed: NavGroup[] = []
+    for (const sub of subPlugins) {
+      const items = sub.nav.filter((item) => sectionOf(item) === spec.id)
+      if (items.length === 1) {
+        own.push(items[0])
+        joined = true
+      } else if (items.length > 1) {
+        headed.push({
+          label: sub.label ?? sub.extension,
+          contributed: true,
+          items: toNodes(plugin, foldClusters(items), segment),
+        })
+      }
+    }
+
+    const groups: NavGroup[] = []
+    if (own.length > 0) {
+      groups.push({
+        contributed: joined || undefined,
+        items: toNodes(plugin, foldClusters(own), segment),
+      })
+    }
+    groups.push(...headed)
+
+    const first = groups[0]?.items[0]
+    if (!first) return []
+    return [{
+      id: spec.id,
+      label: spec.label,
+      icon: spec.icon,
+      href: first.children?.[0]?.href ?? first.href,
+      groups,
+    }]
+  })
+}
+
+/**
+ * The section holding the current page: the node whose href is the pathname
+ * or its longest prefix, the rule `pageTitle` uses. A route no nav item names
+ * lands on the first section, never on none, so the pane is never blank.
+ */
+export function activeSectionId(sections: NavSection[], pathname: string): string | undefined {
+  let best: { id: string; length: number } | undefined
+  for (const section of sections) {
+    for (const group of section.groups) {
+      for (const node of group.items) {
+        for (const candidate of [node, ...(node.children ?? [])]) {
+          const matches =
+            candidate.href === pathname ||
+            (candidate.href !== "/" && pathname.startsWith(`${candidate.href}/`))
+          if (matches && (!best || candidate.href.length > best.length)) {
+            best = { id: section.id, length: candidate.href.length }
+          }
+        }
+      }
+    }
+  }
+  return best?.id ?? sections[0]?.id
 }
 
 // Two sub-plugins of one host can both claim a path, and so can a sub-plugin
