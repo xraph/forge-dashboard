@@ -376,11 +376,11 @@ describe("RotationDetailPage save preview", () => {
     await ready()
     const line = preview()
     expect(line).toBeTruthy()
-    expect(line!.textContent).toMatch(/^This secret will rotate every 1 day, first at about /)
+    expect(line!.textContent).toMatch(/^This secret will rotate every 1 day, next at about /)
     expect(line!.textContent).toMatch(/Applications must pick up each new value\.$/)
   })
 
-  it("computes the first time as now plus the interval, formatted like the other times", async () => {
+  it("computes the next time as now plus the interval, formatted like the other times", async () => {
     vi.useFakeTimers({ toFake: ["Date"] })
     try {
       vi.setSystemTime(new Date("2026-10-01T00:00:00Z"))
@@ -389,8 +389,81 @@ describe("RotationDetailPage save preview", () => {
       setInterval("6", "hours")
       const expected = new Date("2026-10-01T06:00:00Z").toLocaleString()
       expect(preview()!.textContent).toBe(
-        `This secret will rotate every 6 hours, first at about ${expected}. Applications must pick up each new value.`
+        `This secret will rotate every 6 hours, next at about ${expected}. Applications must pick up each new value.`
       )
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  // The server resets the due time only for a new policy, a changed interval,
+  // a disabled policy being enabled, or an enabled policy with no due time.
+  // Anything else keeps the stored one, and the line must say so.
+  const keeps = () => screen.queryByText(/^Saving keeps the next rotation at/)
+  const NOW = new Date("2026-10-01T00:00:00Z")
+  const STORED = "2026-09-29T04:00:00Z"
+  const nowPlus = (seconds: number) => new Date(NOW.getTime() + seconds * 1000).toLocaleString()
+
+  it("says saving keeps the stored next rotation for an unchanged enabled policy", async () => {
+    vi.useFakeTimers({ toFake: ["Date"] })
+    try {
+      vi.setSystemTime(NOW)
+      renderDetail(harness(detail({ policy: policy({ nextRotationAt: STORED }) })).client)
+      await ready()
+      expect(keeps()!.textContent).toBe(
+        `Saving keeps the next rotation at ${new Date(STORED).toLocaleString()}. This secret rotates every 6 hours. Applications must pick up each new value.`
+      )
+      expect(preview()).toBeNull()
+      expect(document.body.textContent).not.toContain(nowPlus(21600))
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  it("switches to a now-based next rotation when the interval changes", async () => {
+    vi.useFakeTimers({ toFake: ["Date"] })
+    try {
+      vi.setSystemTime(NOW)
+      renderDetail(harness(detail({ policy: policy({ nextRotationAt: STORED }) })).client)
+      await ready()
+      setInterval("12", "hours")
+      expect(keeps()).toBeNull()
+      expect(preview()!.textContent).toBe(
+        `This secret will rotate every 12 hours, next at about ${nowPlus(43200)}. Applications must pick up each new value.`
+      )
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  it("gives a now-based next rotation to an enabled policy with no due time", async () => {
+    vi.useFakeTimers({ toFake: ["Date"] })
+    try {
+      vi.setSystemTime(NOW)
+      renderDetail(harness(detail({ policy: policy({ nextRotationAt: undefined }) })).client)
+      await ready()
+      expect(keeps()).toBeNull()
+      expect(preview()!.textContent).toBe(
+        `This secret will rotate every 6 hours, next at about ${nowPlus(21600)}. Applications must pick up each new value.`
+      )
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  it("gives a now-based next rotation when a disabled policy is enabled", async () => {
+    vi.useFakeTimers({ toFake: ["Date"] })
+    try {
+      vi.setSystemTime(NOW)
+      renderDetail(
+        harness(detail({ policy: policy({ enabled: false, nextRotationAt: undefined }) })).client
+      )
+      await ready()
+      expect(preview()).toBeNull()
+      expect(keeps()).toBeNull()
+      fireEvent.click(enabledBox())
+      expect(keeps()).toBeNull()
+      expect(preview()!.textContent).toMatch(/next at about /)
     } finally {
       vi.useRealTimers()
     }

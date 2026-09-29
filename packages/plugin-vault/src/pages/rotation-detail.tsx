@@ -360,6 +360,13 @@ function PolicyForm({
   const seconds = toSeconds(amount, unit)
   const tooShort = seconds !== undefined && seconds < MIN_INTERVAL_SECONDS
   const canSubmit = !saving && seconds !== undefined && !tooShort
+  // Mirrors the server's savePolicy: only these give the policy a fresh due
+  // time of now plus the interval. Any other save keeps the stored one.
+  const resets =
+    policy === null ||
+    seconds !== policy.intervalSeconds ||
+    (enabled && !policy.enabled) ||
+    (enabled && !policy.nextRotationAt)
 
   function submit(event: FormEvent) {
     event.preventDefault()
@@ -419,9 +426,18 @@ function PolicyForm({
       </div>
       {rotatable && enabled && seconds !== undefined && !tooShort && (
         <p className="text-sm text-muted-foreground">
-          This secret will rotate every {formatInterval(seconds)}, first at about{" "}
-          {formatTimestamp(new Date(now + seconds * 1000).toISOString())}. Applications
-          must pick up each new value.
+          {resets ? (
+            <>
+              This secret will rotate every {formatInterval(seconds)}, next at about{" "}
+              {formatTimestamp(new Date(now + seconds * 1000).toISOString())}.
+            </>
+          ) : (
+            <>
+              Saving keeps the next rotation at {formatTimestamp(policy?.nextRotationAt)}. This
+              secret rotates every {formatInterval(seconds)}.
+            </>
+          )}{" "}
+          Applications must pick up each new value.
         </p>
       )}
       <div>
