@@ -245,3 +245,22 @@ describe("ValueInput chrome", () => {
     expect(box().value).toBe("")
   })
 })
+
+describe("ValueInput reportEmptyOnMount", () => {
+  it("reports an empty string once on mount by default, for a string with no string in it", () => {
+    const onChange = vi.fn()
+    render(<ValueInput id="v" type="string" value={undefined} onChange={onChange} />)
+    expect(onChange).toHaveBeenCalledTimes(1)
+    expect(onChange).toHaveBeenCalledWith("")
+  })
+
+  it("reports nothing on mount when told not to, and still reports what is typed", () => {
+    const onChange = vi.fn()
+    render(<ValueInput id="v" type="string" value={5} reportEmptyOnMount={false} onChange={onChange} />)
+    expect(onChange).not.toHaveBeenCalled()
+    fireEvent.change(screen.getByRole("textbox"), { target: { value: "a" } })
+    expect(onChange).toHaveBeenLastCalledWith("a")
+    fireEvent.change(screen.getByRole("textbox"), { target: { value: "" } })
+    expect(onChange).toHaveBeenLastCalledWith("")
+  })
+})

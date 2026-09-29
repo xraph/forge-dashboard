@@ -986,3 +986,138 @@ describe("rule editor: leaving with unsaved changes", () => {
     expect(window.confirm).not.toHaveBeenCalled()
   })
 })
+
+describe("rule editor: a saved return value is never rewritten on open", () => {
+  const STRING_FLAG = flag({ type: "string", defaultValue: "off" })
+  const WRONG = rule({
+    id: "rul_w",
+    priority: 0,
+    type: "when_user",
+    userIds: ["u-1"],
+    returnValue: 5,
+    returnMatchesType: false,
+  })
+  const OK = rule({
+    id: "rul_ok",
+    priority: 1,
+    type: "when_tenant",
+    tenantIds: ["t-1"],
+    returnValue: "on",
+  })
+  const NEEDS = "Rule 1: It needs a return value."
+
+  function beforeUnloadPrevented(): boolean {
+    const event = new Event("beforeunload", { cancelable: true })
+    window.dispatchEvent(event)
+    return event.defaultPrevented
+  }
+
+  it("keeps a wrong-type return value on a string flag unset: blocked, unchanged, never sent as an empty string", async () => {
+    stackRows()
+    const { saves } = setup(detail({ flag: STRING_FLAG, rules: [WRONG, OK] }))
+    await edit()
+    // Blocked with no action from the operator.
+    expect(save().disabled).toBe(true)
+    expect(screen.getByText(NEEDS)).toBeTruthy()
+    // And not a change: no prompt on leave.
+    expect(beforeUnloadPrevented()).toBe(false)
+    // Reordering does not unblock it, so "" cannot go out.
+    await drag(1, ["ArrowDown"])
+    expect(save().disabled).toBe(true)
+    fireEvent.click(save())
+    await new Promise((r) => setTimeout(r, 20))
+    expect(saves()).toHaveLength(0)
+    // The reorder itself is a change, so now the guard applies.
+    expect(beforeUnloadPrevented()).toBe(true)
+  })
+
+  it("closes Discard with no confirm when only the wrong-type rule was opened", async () => {
+    setup(detail({ flag: STRING_FLAG, rules: [WRONG, OK] }))
+    await edit()
+    fireEvent.click(screen.getByRole("button", { name: "Discard" }))
+    expect(screen.queryByRole("alertdialog")).toBeNull()
+    expect(screen.queryByRole("button", { name: "Save rules" })).toBeNull()
+  })
+
+  it("does the same for a dead rule, and keeps it as read once a value is chosen", async () => {
+    const dead = rule({
+      id: "rul_c",
+      priority: 0,
+      type: "custom",
+      implemented: false,
+      evaluator: "beta-users",
+      params: { n: 1 },
+      returnValue: 5,
+      returnMatchesType: false,
+    })
+    const { saves } = setup(detail({ flag: STRING_FLAG, rules: [dead, OK] }))
+    await edit()
+    expect(save().disabled).toBe(true)
+    expect(screen.getByText(NEEDS)).toBeTruthy()
+    expect(beforeUnloadPrevented()).toBe(false)
+    openRow(1)
+    fireEvent.change(within(rows()[0]!).getByLabelText("Return value"), { target: { value: "x" } })
+    expect(save().disabled).toBe(false)
+    fireEvent.click(save())
+    await waitFor(() => expect(saves()).toHaveLength(1))
+    expect(saves()[0]!.rules[0]).toEqual({
+      type: "custom",
+      evaluator: "beta-users",
+      params: { n: 1 },
+      returnValue: "x",
+    })
+  })
+
+  it("lets the operator choose a value for the wrong-type row, including the empty string", async () => {
+    setup(detail({ flag: STRING_FLAG, rules: [WRONG] }))
+    await edit()
+    openRow(1)
+    const box = within(rows()[0]!).getByLabelText("Return value")
+    fireEvent.change(box, { target: { value: "a" } })
+    expect(save().disabled).toBe(false)
+    fireEvent.change(box, { target: { value: "" } })
+    // "" is a value once somebody has typed and cleared it.
+    expect(save().disabled).toBe(false)
+  })
+
+  it("sends saved string return values, the empty string included, back unchanged after a reorder", async () => {
+    stackRows()
+    const empty = rule({ id: "rul_e", priority: 0, type: "when_user", userIds: ["u-1"], returnValue: "" })
+    const dead = rule({
+      id: "rul_c",
+      priority: 2,
+      type: "custom",
+      implemented: false,
+      evaluator: "beta-users",
+      params: { n: 1 },
+      returnValue: "",
+    })
+    const { saves } = setup(detail({ flag: STRING_FLAG, rules: [empty, OK, dead] }))
+    await edit()
+    // Untouched: nothing to save, nothing to lose.
+    expect(beforeUnloadPrevented()).toBe(false)
+    await drag(1, ["ArrowDown"])
+    expect(save().disabled).toBe(false)
+    fireEvent.click(save())
+    await waitFor(() => expect(saves()).toHaveLength(1))
+    expect(saves()[0]!.rules).toEqual([
+      { type: "when_tenant", tenantIds: ["t-1"], returnValue: "on" },
+      { type: "when_user", userIds: ["u-1"], returnValue: "" },
+      { type: "custom", evaluator: "beta-users", params: { n: 1 }, returnValue: "" },
+    ])
+  })
+
+  it("still starts a NEW rule on a string flag at the empty string", async () => {
+    const { saves } = setup(detail({ flag: STRING_FLAG, rules: [] }))
+    await edit()
+    fireEvent.click(screen.getByRole("button", { name: "Add rule" }))
+    fireEvent.click(await screen.findByRole("menuitem", { name: "Tenant is one of" }))
+    const ids = within(rows()[0]!).getByLabelText("Tenant ids")
+    fireEvent.change(ids, { target: { value: "t-acme" } })
+    fireEvent.keyDown(ids, { key: "Enter" })
+    expect(save().disabled).toBe(false)
+    fireEvent.click(save())
+    await waitFor(() => expect(saves()).toHaveLength(1))
+    expect(saves()[0]!.rules).toEqual([{ type: "when_tenant", tenantIds: ["t-acme"], returnValue: "" }])
+  })
+})

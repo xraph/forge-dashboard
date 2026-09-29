@@ -31,6 +31,14 @@ export interface ValueInputProps {
   id: string
   invalid?: boolean
   /**
+   * Whether a string field with no string in it reports "" once on mount.
+   * Default true: a new value starts as "" and can be submitted as it is. Pass
+   * false when the value came from somewhere that must not be rewritten (a
+   * saved rule whose value is the wrong type): the field then stays at
+   * `undefined` until somebody types.
+   */
+  reportEmptyOnMount?: boolean
+  /**
    * For a label that cannot use `htmlFor`. The bool control is a group of
    * buttons, not a labelable element, so it needs this to be named.
    */
@@ -134,6 +142,7 @@ function TextInput({
   onChange,
   id,
   invalid,
+  reportEmptyOnMount = true,
   "aria-labelledby": labelledBy,
 }: ValueInputProps) {
   const [text, setText] = useState(() => initialText(type, value))
@@ -146,8 +155,8 @@ function TextInput({
   useEffect(() => {
     if (reported.current) return
     reported.current = true
-    if (type === "string" && typeof value !== "string") onChange("")
-  }, [type, value, onChange])
+    if (reportEmptyOnMount && type === "string" && typeof value !== "string") onChange("")
+  }, [type, value, onChange, reportEmptyOnMount])
 
   function change(next: string) {
     // A character that can never be part of a value is refused outright, so

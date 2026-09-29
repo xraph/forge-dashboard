@@ -214,6 +214,10 @@ export function RuleForm({ rule, flagType, onChange }: RuleFormProps) {
           aria-labelledby={`${valueId}-label`}
           type={flagType}
           value={rule.returnValue}
+          // A rule read from the server keeps the value it has, right or
+          // wrong. Reporting "" for it on open would rewrite a saved value
+          // (or a dead rule's) with nobody having touched it.
+          reportEmptyOnMount={rule.isNew}
           onChange={(returnValue) => onChange({ returnValue })}
         />
       </Field>
