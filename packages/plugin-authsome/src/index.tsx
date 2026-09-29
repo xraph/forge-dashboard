@@ -2,12 +2,17 @@ import { definePlugin } from "@forge-go/dashboard-plugin"
 import type { ContextDimension } from "@forge-go/dashboard-plugin"
 import {
   AppWindowIcon,
+  Building2Icon,
   ClipboardListIcon,
   ClockIcon,
+  CreditCardIcon,
   HomeIcon,
   KeyIcon,
+  KeyRoundIcon,
   LayersIcon,
   PuzzleIcon,
+  ScaleIcon,
+  ServerIcon,
   SettingsIcon,
   ShieldIcon,
   SmartphoneIcon,
@@ -212,6 +217,19 @@ export const authsomePlugin = definePlugin({
   namespace: "auth",
   label: "Auth",
   icon: <ShieldIcon />,
+  // The rail beside the pane, one icon per group. Sub-plugins keep naming
+  // their own group; a group added later without a section here still shows
+  // up, in "More".
+  sections: [
+    { group: "Identity", icon: <UsersIcon /> },
+    { group: "Authentication", icon: <KeyRoundIcon /> },
+    { group: "Security", icon: <ShieldIcon /> },
+    { group: "Billing", icon: <CreditCardIcon /> },
+    { group: "Compliance", icon: <ScaleIcon /> },
+    { group: "Enterprise", icon: <Building2Icon /> },
+    { group: "Configuration", icon: <SettingsIcon /> },
+    { group: "System", icon: <ServerIcon /> },
+  ],
   auth: {
     intents: {
       config: "auth.config",
