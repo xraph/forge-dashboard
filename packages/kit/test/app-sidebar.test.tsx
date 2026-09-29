@@ -1,7 +1,8 @@
 // packages/kit/test/app-sidebar.test.tsx
 import { describe, expect, it } from "vitest"
 import { render, screen, within } from "@testing-library/react"
-import { SidebarProvider } from "../src/components/sidebar"
+import { useEffect } from "react"
+import { SidebarProvider, useSidebar } from "../src/components/sidebar"
 import { AppSidebar } from "../src/components/app-sidebar"
 
 window.matchMedia ??= ((query: string) => ({
@@ -15,16 +16,24 @@ window.matchMedia ??= ((query: string) => ({
   dispatchEvent: () => false,
 })) as unknown as typeof window.matchMedia
 
+const renderLink = (node: { label: string; href: string; icon?: React.ReactNode }, href: string) => (
+  <a href={href}>
+    {node.icon}
+    <span>{node.label}</span>
+  </a>
+)
+
 function renderSidebar(overrides: Partial<React.ComponentProps<typeof AppSidebar>> = {}) {
   return render(
     <SidebarProvider>
       <AppSidebar
-        scopes={[{ id: "auth", label: "Auth", namespace: "auth" }]}
+        scopes={[{ id: "auth", label: "Auth", namespace: "auth", href: "/@auth" }]}
+        home={{ id: "core-contract", label: "System", namespace: "core", href: "/overview" }}
         activeScopeId="auth"
-        onScopeSelect={() => {}}
-        groups={[{ label: "@auth", items: [{ label: "Users", href: "/@auth/users" }] }]}
+        heading={{ label: "Auth", namespace: "auth" }}
+        groups={[{ label: "Identity", items: [{ label: "Users", href: "/@auth/users" }] }]}
         currentPath="/@auth/users"
-        renderLink={(node, href) => <a href={href}>{node.label}</a>}
+        renderLink={renderLink}
         user={{ name: "Dashboard user", email: "user@example.com" }}
         {...overrides}
       />
@@ -32,10 +41,13 @@ function renderSidebar(overrides: Partial<React.ComponentProps<typeof AppSidebar
   )
 }
 
+const header = (c: HTMLElement) => c.querySelector('[data-slot="sidebar-header"]') as HTMLElement
+const content = (c: HTMLElement) => c.querySelector('[data-slot="sidebar-content"]') as HTMLElement
+
 describe("AppSidebar", () => {
   it("renders contributed nav", () => {
     renderSidebar()
-    expect(screen.getByText("Users")).toBeTruthy()
+    expect(screen.getByRole("link", { name: "Users" })).toBeTruthy()
   })
 
   it("renders the header slot when one is passed", () => {
@@ -51,58 +63,76 @@ describe("AppSidebar", () => {
     expect(screen.queryByText("Data Library")).toBeNull()
   })
 
-  it("renders the back row above the switcher", () => {
+  it("names the active scope in a heading that is not a control", () => {
+    const { container } = renderSidebar()
+    const h = header(container)
+    const heading = h.querySelector('[data-slot="scope-heading"]') as HTMLElement
+    expect(within(heading).getByText("Auth")).toBeTruthy()
+    expect(within(heading).getByText("@auth")).toBeTruthy()
+    expect(within(h).queryByRole("button")).toBeNull()
+    expect(within(h).queryByRole("link")).toBeNull()
+  })
+
+  it("renders no heading and no namespace line when none is given", () => {
+    const { container } = renderSidebar({ heading: undefined })
+    expect(header(container).querySelector('[data-slot="scope-heading"]')).toBeNull()
+    const withoutNamespace = renderSidebar({ heading: { label: "System" } })
+    expect(within(header(withoutNamespace.container)).queryByText(/^@/)).toBeNull()
+  })
+
+  it("renders the empty notice with a link that carries the search string", () => {
     const { container } = renderSidebar({
-      back: { label: "Overview", href: "/overview" },
+      groups: [],
+      search: "?env=staging",
+      empty: { message: "This extension needs configuring.", href: "/@auth", label: "Open setup" },
     })
-    const header = container.querySelector('[data-slot="sidebar-header"]') as HTMLElement
-    const back = within(header).getByRole("link", { name: "Overview" })
-    const switcher = within(header).getByText("@auth")
-    // Ordering is the point of this component's header, not an incidental
-    // detail: the switcher is the sidebar's anchor and the way out of a scope
-    // sits above it. DOCUMENT_POSITION_FOLLOWING means switcher comes after
-    // back in document order.
-    expect(
-      back.compareDocumentPosition(switcher) & Node.DOCUMENT_POSITION_FOLLOWING,
-    ).toBeTruthy()
+    const c = content(container)
+    expect(within(c).getByText("This extension needs configuring.")).toBeTruthy()
+    expect(within(c).getByRole("link", { name: "Open setup" }).getAttribute("href")).toBe("/@auth?env=staging")
   })
 
-  it("renders no back row when there is nothing to go back to", () => {
-    renderSidebar()
-    expect(screen.queryByRole("link", { name: "Overview" })).toBeNull()
+  it("renders a message-only empty notice without a link", () => {
+    const { container } = renderSidebar({ groups: [], empty: { message: "Pick an app to see its pages." } })
+    const c = content(container)
+    expect(within(c).getByText("Pick an app to see its pages.")).toBeTruthy()
+    expect(within(c).queryByRole("link")).toBeNull()
   })
 
-  it("carries the search string forward on the back row", () => {
-    // Every other link the sidebar draws preserves the query string, because
-    // dropping it silently swaps the data under the person. The way out of a
-    // scope is not exempt.
-    renderSidebar({
-      back: { label: "Overview", href: "/overview" },
-      search: "?ctx.org=acme",
-    })
-    expect(
-      screen.getByRole("link", { name: "Overview" }).getAttribute("href"),
-    ).toBe("/overview?ctx.org=acme")
+  it("keeps scope rows and the user menu out of the desktop pane", () => {
+    const { container } = renderSidebar()
+    expect(container.querySelector('[data-slot="scope-rows"]')).toBeNull()
+    expect(container.querySelector('[data-slot="sidebar-footer"]')).toBeNull()
+    expect(screen.queryByText("Dashboard user")).toBeNull()
   })
 
-  it("renders no switcher when there are no scopes", () => {
-    // Asserting on "@auth" text here would pass even if the `scopes.length >
-    // 0` gate were deleted: `ScopeSwitcher` only renders that text once it
-    // finds an active scope (scope-switcher.tsx's `active` lookup), and with
-    // `scopes: []` there is never an active scope to find regardless of the
-    // gate. The switcher's `SidebarMenuButton` trigger, by contrast, renders
-    // unconditionally whenever `ScopeSwitcher` mounts at all, so its absence
-    // is what actually proves the gate is doing something. With no `pinned`
-    // and no `header` slot passed, the header renders nothing else, so a
-    // plain button query is unambiguous here.
-    const { container } = renderSidebar({ scopes: [] })
-    const header = container.querySelector('[data-slot="sidebar-header"]') as HTMLElement
-    expect(within(header).queryByRole("button")).toBeNull()
-  })
-
-  it("still renders the switcher when scopes exist", () => {
-    const { container } = renderSidebar({})
-    const header = container.querySelector('[data-slot="sidebar-header"]') as HTMLElement
-    expect(within(header).getByText("@auth")).toBeTruthy()
+  it("lists the scopes and the user menu in the mobile sheet", async () => {
+    Object.defineProperty(window, "innerWidth", { value: 500, configurable: true })
+    try {
+      function OpenSheet() {
+        const { setOpenMobile } = useSidebar()
+        useEffect(() => setOpenMobile(true), [setOpenMobile])
+        return null
+      }
+      render(
+        <SidebarProvider>
+          <OpenSheet />
+          <AppSidebar
+            scopes={[{ id: "auth", label: "Auth", namespace: "auth", href: "/@auth" }]}
+            home={{ id: "core-contract", label: "System", namespace: "core", href: "/overview" }}
+            activeScopeId="auth"
+            heading={{ label: "Auth", namespace: "auth" }}
+            groups={[{ label: "Identity", items: [{ label: "Users", href: "/@auth/users" }] }]}
+            currentPath="/@auth/users"
+            renderLink={renderLink}
+            user={{ name: "Dashboard user", email: "user@example.com" }}
+          />
+        </SidebarProvider>,
+      )
+      const rows = (await screen.findByRole("dialog")).querySelector('[data-slot="scope-rows"]') as HTMLElement
+      expect(within(rows).getAllByRole("link").map((a) => a.getAttribute("href"))).toEqual(["/overview", "/@auth"])
+      expect(screen.getAllByText("Dashboard user").length).toBeGreaterThan(0)
+    } finally {
+      Object.defineProperty(window, "innerWidth", { value: 1024, configurable: true })
+    }
   })
 })

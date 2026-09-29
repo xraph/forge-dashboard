@@ -1,65 +1,92 @@
+// packages/kit/src/components/app-sidebar.tsx
 import * as React from "react"
 import type { ReactElement, ReactNode } from "react"
 
 import { NavTree } from "@forge-go/dashboard-kit/components/nav-tree"
+import { NavMain } from "@forge-go/dashboard-kit/components/nav-main"
 import type { NavGroup, NavNode } from "@forge-go/dashboard-kit/components/nav-tree"
 import { NavUser } from "@forge-go/dashboard-kit/components/nav-user"
-import { ScopeSwitcher } from "@forge-go/dashboard-kit/components/scope-switcher"
-import type { ScopeOption } from "@forge-go/dashboard-kit/components/scope-switcher"
+import { ScopeEntries, ScopeGlyph } from "@forge-go/dashboard-kit/components/scope-entries"
+import type { ScopeOption } from "@forge-go/dashboard-kit/components/scope-entries"
 import {
   Sidebar,
   SidebarContent,
   SidebarFooter,
   SidebarHeader,
-  SidebarMenu,
-  SidebarMenuButton,
-  SidebarMenuItem,
+  SidebarRail,
+  useSidebar,
 } from "@forge-go/dashboard-kit/components/sidebar"
-import { ChevronLeftIcon } from "lucide-react"
 
-export interface AppSidebarProps
-  extends React.ComponentProps<typeof Sidebar> {
-  /**
-   * The way out of the active scope, rendered above the switcher.
-   *
-   * Present only when there is somewhere to go back to, which means only
-   * inside a scope. The root plugin's own nav is not this: at the root it is
-   * the sidebar's ordinary nav, in `groups`, because that is where you are
-   * rather than one context among several. This is the single row that gets
-   * you there from inside an extension.
-   */
-  back?: NavNode
+export interface AppSidebarProps extends React.ComponentProps<typeof Sidebar> {
+  /** Still needed here: the mobile sheet lists them, because the rail is absent there. */
   scopes: ScopeOption[]
+  home?: ScopeOption
   activeScopeId?: string
-  onScopeSelect: (id: string) => void
+  /** The scope whose pages this pane shows. A label, not a control; the rail is the control. */
+  heading?: { label: string; namespace?: string; icon?: ReactNode }
+  /** Shown when the scope has no pages to list and there is a reason to say so. */
+  empty?: { message: string; href?: string; label?: string }
+  navigationLayout?: "tree" | "collapsible"
   groups: NavGroup[]
   currentPath: string
   search?: string
   renderLink: (node: NavNode, href: string) => ReactElement
-  /**
-   * Rendered under the switcher. Reserved for the per-scope context selectors
-   * (organisation, app, environment), which are a later wave. The host passes
-   * a plugin's context switchers here.
-   */
+  /** Rendered under the heading. The host puts the context switchers and search here. */
   header?: ReactNode
+  /** Used by the mobile footer only; the rail carries the user menu on desktop. */
   user: { name: string; email: string; avatar?: string }
   onSignOut?: () => void
 }
 
+function ScopeHeading({ label, namespace, icon }: NonNullable<AppSidebarProps["heading"]>) {
+  return (
+    <div data-slot="scope-heading" className="flex items-center gap-2 px-1 py-1">
+      <ScopeGlyph icon={icon} label={label} />
+      <div className="grid min-w-0 flex-1 text-left leading-tight group-data-[collapsible=icon]:hidden">
+        <span className="truncate font-semibold">{label}</span>
+        {namespace ? (
+          <span className="truncate text-xs text-muted-foreground">@{namespace}</span>
+        ) : null}
+      </div>
+    </div>
+  )
+}
+
+function EmptyNotice({
+  message,
+  href,
+  label,
+  search,
+  renderLink,
+}: NonNullable<AppSidebarProps["empty"]> & Pick<AppSidebarProps, "search" | "renderLink">) {
+  return (
+    <div
+      data-slot="scope-empty"
+      className="px-3 py-2 text-sm text-muted-foreground group-data-[collapsible=icon]:hidden"
+    >
+      <p>{message}</p>
+      {href && label ? (
+        <p className="mt-1 [&_a]:text-foreground [&_a]:underline">
+          {renderLink({ label, href }, `${href}${search ?? ""}`)}
+        </p>
+      ) : null}
+    </div>
+  )
+}
+
 /**
- * The dashboard sidebar.
- *
- * Every item it draws arrives as a prop. The previous version held a `data`
- * object lifted from the shadcn dashboard-01 template, so the sidebar showed
- * twelve entries that belonged to a demo and pointed at "#", while real
- * contributed navigation rendered as a row of pills above the content because
- * there was no way in here.
+ * The pane: the active scope's heading, its context switchers and search
+ * (through `header`), and its nav. Scope switching lives in the rail beside
+ * it, except on mobile, where this sheet is all the navigation there is and
+ * so lists the scopes and the user menu itself.
  */
 export function AppSidebar({
-  back,
   scopes,
+  home,
   activeScopeId,
-  onScopeSelect,
+  heading,
+  empty,
+  navigationLayout = "tree",
   groups,
   currentPath,
   search,
@@ -69,41 +96,38 @@ export function AppSidebar({
   onSignOut,
   ...props
 }: AppSidebarProps) {
+  const { isMobile } = useSidebar()
+  const Navigation = navigationLayout === "collapsible" ? NavMain : NavTree
   return (
     <Sidebar collapsible="offcanvas" {...props}>
       <SidebarHeader>
-        {back ? (
-          <SidebarMenu>
-            <SidebarMenuItem>
-              <SidebarMenuButton
-                render={renderLink(back, `${back.href}${search ?? ""}`)}
-              >
-                <ChevronLeftIcon aria-hidden="true" />
-                <span>{back.label}</span>
-              </SidebarMenuButton>
-            </SidebarMenuItem>
-          </SidebarMenu>
-        ) : null}
-        {scopes.length > 0 ? (
-          <ScopeSwitcher
+        {isMobile ? (
+          <ScopeEntries
+            presentation="rows"
+            home={home}
             scopes={scopes}
-            activeId={activeScopeId}
-            onSelect={onScopeSelect}
+            activeScopeId={activeScopeId}
+            renderLink={renderLink}
           />
         ) : null}
+        {heading ? <ScopeHeading {...heading} /> : null}
         {header}
       </SidebarHeader>
       <SidebarContent>
-        <NavTree
+        {empty ? <EmptyNotice {...empty} search={search} renderLink={renderLink} /> : null}
+        <Navigation
           groups={groups}
           currentPath={currentPath}
           search={search}
           renderLink={renderLink}
         />
       </SidebarContent>
-      <SidebarFooter>
-        <NavUser user={user} onSignOut={onSignOut} />
-      </SidebarFooter>
+      {isMobile ? (
+        <SidebarFooter>
+          <NavUser user={user} onSignOut={onSignOut} />
+        </SidebarFooter>
+      ) : null}
+      {navigationLayout === "collapsible" && <SidebarRail />}
     </Sidebar>
   )
 }
