@@ -320,6 +320,20 @@ describe("SecretDetailPage rotation pane, untrusted server", () => {
   })
 })
 
+describe("SecretDetailPage rotation pane, no rotator", () => {
+  it("shows no next-rotation time for an enabled policy that has no rotator, even if the payload carries one", async () => {
+    renderDetail(
+      harness({
+        ...DETAIL,
+        rotation: { ...POLICY, rotatable: false, nextRotationAt: "2026-10-01T04:00:00Z" },
+      }).client
+    )
+    await screen.findByText(/this policy will not rotate it/)
+    expect(screen.getByLabelText("no next rotation")).toBeTruthy()
+    expect(screen.queryByText(new Date("2026-10-01T04:00:00Z").toLocaleString())).toBeNull()
+  })
+})
+
 describe("SecretDetailPage recent activity", () => {
   it("lists the recent audit entries", async () => {
     renderDetail(

@@ -61,10 +61,14 @@ const columns: Column<RotationPolicy>[] = [
   {
     id: "next",
     header: "Next rotation",
-    // A disabled policy never rotates, so no time is shown for it whatever
-    // the payload carries. Not trusting the server to omit it is the point.
+    // A disabled policy never rotates, and neither does one with no rotator
+    // (the loop logs an error each minute and changes nothing), so no time is
+    // shown for either, whatever the payload carries.
     cell: (p) => (
-      <Timestamp value={p.enabled ? p.nextRotationAt : undefined} label="next rotation" />
+      <Timestamp
+        value={p.enabled && p.rotatable ? p.nextRotationAt : undefined}
+        label="next rotation"
+      />
     ),
   },
   {

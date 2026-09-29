@@ -352,6 +352,82 @@ describe("RotationDetailPage edit (policy present)", () => {
   })
 })
 
+describe("RotationDetailPage next rotation needs a rotator", () => {
+  it("shows no next rotation for an enabled policy with no rotator, even when the payload carries one", async () => {
+    renderDetail(
+      harness(
+        detail({
+          rotatable: false,
+          policy: policy({ rotatable: false, nextRotationAt: "2026-10-05T04:00:00Z" }),
+        })
+      ).client
+    )
+    await ready()
+    expect(screen.getByLabelText(/no next rotation/i)).toBeTruthy()
+    expect(screen.queryByText(new Date("2026-10-05T04:00:00Z").toLocaleString())).toBeNull()
+  })
+})
+
+describe("RotationDetailPage save preview", () => {
+  const preview = () => screen.queryByText(/^This secret will rotate every/)
+
+  it("states what saving does for a rotatable secret with the box checked", async () => {
+    renderDetail(harness(NO_POLICY).client)
+    await ready()
+    const line = preview()
+    expect(line).toBeTruthy()
+    expect(line!.textContent).toMatch(/^This secret will rotate every 1 day, first at about /)
+    expect(line!.textContent).toMatch(/Applications must pick up each new value\.$/)
+  })
+
+  it("computes the first time as now plus the interval, formatted like the other times", async () => {
+    vi.useFakeTimers({ toFake: ["Date"] })
+    try {
+      vi.setSystemTime(new Date("2026-10-01T00:00:00Z"))
+      renderDetail(harness(NO_POLICY).client)
+      await ready()
+      setInterval("6", "hours")
+      const expected = new Date("2026-10-01T06:00:00Z").toLocaleString()
+      expect(preview()!.textContent).toBe(
+        `This secret will rotate every 6 hours, first at about ${expected}. Applications must pick up each new value.`
+      )
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  it("updates with the interval", async () => {
+    renderDetail(harness(NO_POLICY).client)
+    await ready()
+    setInterval("2", "days")
+    expect(preview()!.textContent).toMatch(/rotate every 2 days,/)
+  })
+
+  it("hides when the enabled box is unchecked and returns when it is checked again", async () => {
+    renderDetail(harness(NO_POLICY).client)
+    await ready()
+    fireEvent.click(enabledBox())
+    expect(preview()).toBeNull()
+    fireEvent.click(enabledBox())
+    expect(preview()).toBeTruthy()
+  })
+
+  it("hides when the secret has no rotator", async () => {
+    renderDetail(harness(detail({ policy: null, rotatable: false })).client)
+    await ready()
+    expect(preview()).toBeNull()
+  })
+
+  it("hides while the interval is not submittable", async () => {
+    renderDetail(harness(NO_POLICY).client)
+    await ready()
+    setInterval("0.01", "hours")
+    expect(preview()).toBeNull()
+    fireEvent.change(interval(), { target: { value: "" } })
+    expect(preview()).toBeNull()
+  })
+})
+
 describe("RotationDetailPage rotate now", () => {
   it("is disabled with an explanation when no rotator is registered", async () => {
     renderDetail(harness(detail({ rotatable: false })).client)

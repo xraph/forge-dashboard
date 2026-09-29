@@ -186,6 +186,33 @@ describe("RotationPage", () => {
     expect(within(rowFor("api-token")).queryByText(shown)).toBeNull()
   })
 
+  it("shows no next rotation for an enabled policy with no rotator, even when the payload carries one", async () => {
+    renderPage(
+      RotationPage,
+      stubClient({
+        "rotation.policies": {
+          policies: [
+            policy(),
+            policy({
+              id: "pol_02",
+              secretKey: "api-token",
+              enabled: true,
+              rotatable: false,
+              nextRotationAt: "2026-10-05T04:00:00Z",
+            }),
+          ],
+          total: 2,
+        },
+      })
+    )
+    await screen.findByText("api-token")
+    expect(within(rowFor("api-token")).getByLabelText(/no next rotation/i)).toBeTruthy()
+    const shown = new Date("2026-10-05T04:00:00Z").toLocaleString()
+    expect(within(rowFor("api-token")).queryByText(shown)).toBeNull()
+    // A rotatable, enabled policy still shows its time.
+    expect(within(rowFor("db/primary.password")).queryByLabelText(/no next rotation/i)).toBeNull()
+  })
+
   it("reads a policy that never rotated as no last rotation", async () => {
     renderPage(RotationPage, stubClient({ "rotation.policies": POLICIES }))
     await screen.findByText("api-token")

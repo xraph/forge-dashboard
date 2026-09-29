@@ -27,6 +27,7 @@ import {
   type Column,
 } from "@forge-go/dashboard-kit/components/resource-table"
 import { Timestamp } from "@forge-go/dashboard-kit/components/timestamp"
+import { formatTimestamp } from "@forge-go/dashboard-kit/lib/format"
 import { PolicyStatusBadge, RotatorBadge } from "../badges"
 import { formatInterval } from "../interval"
 import { secretPath } from "../keys"
@@ -221,6 +222,7 @@ function RotationDetailBody({ secretKey }: { secretKey: string }) {
                 // what was saved and not what was typed before the refetch.
                 key={policy === null ? "new" : `${policy.id}:${policy.updatedAt}`}
                 policy={policy}
+                rotatable={data.rotatable}
                 saving={save.loading}
                 onSave={savePolicy}
               />
@@ -316,11 +318,12 @@ function PolicySummary({ policy }: { policy: RotationPolicy }) {
         { term: "Rotator", value: <RotatorBadge rotatable={policy.rotatable} /> },
         {
           term: "Next rotation",
-          // A disabled policy never rotates, so show "none" whatever the
-          // payload carries rather than a time that will not happen.
+          // Only a policy that will really rotate shows a time: enabled, with
+          // a rotator registered. Otherwise show "none" whatever the payload
+          // carries rather than a time that will not happen.
           value: (
             <Timestamp
-              value={policy.enabled ? policy.nextRotationAt : undefined}
+              value={policy.enabled && policy.rotatable ? policy.nextRotationAt : undefined}
               label="next rotation"
             />
           ),
@@ -337,10 +340,12 @@ function PolicySummary({ policy }: { policy: RotationPolicy }) {
  */
 function PolicyForm({
   policy,
+  rotatable,
   saving,
   onSave,
 }: {
   policy: RotationPolicy | null
+  rotatable: boolean
   saving: boolean
   onSave: (intervalSeconds: number, enabled: boolean) => Promise<void>
 }) {
@@ -348,6 +353,9 @@ function PolicyForm({
   const [amount, setAmount] = useState(seed.amount)
   const [unit, setUnit] = useState<Unit>(seed.unit)
   const [enabled, setEnabled] = useState(policy ? policy.enabled : true)
+  // The clock as of the last edit. Reading it in an event handler keeps render
+  // pure; the preview says "about", so it need not tick.
+  const [now, setNow] = useState(() => Date.now())
 
   const seconds = toSeconds(amount, unit)
   const tooShort = seconds !== undefined && seconds < MIN_INTERVAL_SECONDS
@@ -373,14 +381,20 @@ function PolicyForm({
             step="any"
             className="w-28"
             value={amount}
-            onChange={(e) => setAmount(e.target.value)}
+            onChange={(e) => {
+              setNow(Date.now())
+              setAmount(e.target.value)
+            }}
             aria-invalid={tooShort || undefined}
           />
         </div>
         <NativeSelect
           aria-label="Interval unit"
           value={unit}
-          onChange={(e) => setUnit(e.target.value as Unit)}
+          onChange={(e) => {
+            setNow(Date.now())
+            setUnit(e.target.value as Unit)
+          }}
         >
           <NativeSelectOption value="hours">hours</NativeSelectOption>
           <NativeSelectOption value="days">days</NativeSelectOption>
@@ -396,10 +410,20 @@ function PolicyForm({
         <Checkbox
           id="rotation-enabled"
           checked={enabled}
-          onCheckedChange={(checked) => setEnabled(checked === true)}
+          onCheckedChange={(checked) => {
+            setNow(Date.now())
+            setEnabled(checked === true)
+          }}
         />
         <Label htmlFor="rotation-enabled">Enable this policy</Label>
       </div>
+      {rotatable && enabled && seconds !== undefined && !tooShort && (
+        <p className="text-sm text-muted-foreground">
+          This secret will rotate every {formatInterval(seconds)}, first at about{" "}
+          {formatTimestamp(new Date(now + seconds * 1000).toISOString())}. Applications
+          must pick up each new value.
+        </p>
+      )}
       <div>
         <Button type="submit" disabled={!canSubmit}>
           {saving ? "Saving…" : policy ? "Save policy" : "Create policy"}

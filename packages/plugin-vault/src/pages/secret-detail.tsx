@@ -37,6 +37,7 @@ import {
 import { TagList } from "@forge-go/dashboard-kit/components/tag-list"
 import { Timestamp } from "@forge-go/dashboard-kit/components/timestamp"
 import { EncryptionBadge, PolicyStatusBadge, RotatorBadge } from "../badges"
+import { formatInterval } from "../interval"
 import { rotationPath } from "../keys"
 import type { SecretSummary } from "./secrets"
 
@@ -92,18 +93,6 @@ interface UpdateResponse {
 interface DeleteResponse {
   ok: boolean
   key: string
-}
-
-function plural(n: number, one: string, many: string): string {
-  return `${n} ${n === 1 ? one : many}`
-}
-
-/** "86400" becomes "1 day". Only exact units are folded, so nothing is rounded. */
-function formatInterval(seconds: number): string {
-  if (seconds > 0 && seconds % 86400 === 0) return plural(seconds / 86400, "day", "days")
-  if (seconds > 0 && seconds % 3600 === 0) return plural(seconds / 3600, "hour", "hours")
-  if (seconds > 0 && seconds % 60 === 0) return plural(seconds / 60, "minute", "minutes")
-  return plural(seconds, "second", "seconds")
 }
 
 /** `datetime-local` string to the RFC3339 UTC instant the contract takes. */
@@ -341,12 +330,13 @@ function RotationPane({
               { term: "Rotator", value: <RotatorBadge rotatable={policy.rotatable} /> },
               {
                 term: "Next rotation",
-                // The server omits it for a disabled policy, but a disabled
-                // policy never rotates, so do not depend on that: show "none"
-                // rather than a time that will not happen.
+                // A time is shown only for a policy that will really rotate:
+                // enabled, with a rotator registered. Do not depend on the
+                // server omitting it; show "none" rather than a time that
+                // will not happen.
                 value: (
                   <Timestamp
-                    value={policy.enabled ? policy.nextRotationAt : undefined}
+                    value={policy.enabled && policy.rotatable ? policy.nextRotationAt : undefined}
                     label="next rotation"
                   />
                 ),
