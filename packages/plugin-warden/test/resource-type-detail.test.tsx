@@ -261,46 +261,108 @@ describe("WardenResourceTypeDetailPage", () => {
     })
   })
 
-  describe("expressions that can never match", () => {
-    it("marks an expression that references an undeclared relation", async () => {
+  describe("expressions with something wrong in them", () => {
+    // What an undeclared reference does at check time (warden dsl/eval.go): a
+    // bare reference is a raw tuple lookup that never consults the type's
+    // declared relations, and relations.create does not validate names against
+    // a schema. So `ghost` matches a subject holding a stray ghost tuple and
+    // is false for everyone else, and a not turns that false into true. The
+    // warnings are about the reference, and must be true whatever surrounds it.
+    const GHOST =
+      "ghost is not declared on this type, so it is probably a typo. It only takes effect through a stray ghost tuple, so for almost every subject it is false."
+    const GHOST_NEGATED =
+      "Because ghost is negated here, that part of the expression is true for almost every subject, which can grant this permission far more widely than intended."
+
+    async function rowFor(expression: string) {
+      render(withExpression("read", expression))
+      return within(await rowOf(expression))
+    }
+
+    it("warns about a bare undeclared reference, in words true of the reference", async () => {
       // The server refuses this on write, but a type written through the DSL
-      // or the REST API can carry one. The page must not render it as though
-      // it works, because it can never match.
-      render(withExpression("read", "viewer or ghost"))
-      const row = await rowOf("viewer or ghost")
-      expect(
-        within(row).getByText("ghost is not declared on this type, so this expression can never match.")
-      ).toBeTruthy()
+      // or the REST API can carry one.
+      const row = await rowFor("ghost")
+      expect(row.getByText(GHOST)).toBeTruthy()
+      expect(row.queryByText(GHOST_NEGATED)).toBeNull()
+    })
+
+    it("does not call the permission dead when one term of an or is undeclared", async () => {
+      // `viewer or ghost` still grants through viewer. The warning is about
+      // ghost only, and must not say the expression cannot match.
+      const row = await rowFor("viewer or ghost")
+      expect(row.getByText(GHOST)).toBeTruthy()
+      expect(row.queryByText(GHOST_NEGATED)).toBeNull()
+      expect(row.queryByText(/never match/i)).toBeNull()
+      expect(row.queryByText(/inert|dead|cannot match/i)).toBeNull()
+    })
+
+    it.each(["ghost or viewer", "viewer + ghost", "viewer and ghost", "viewer & ghost", "(ghost)", "ghost->read"])(
+      "warns about the reference and claims nothing about the whole of %j",
+      async (expression) => {
+        const row = await rowFor(expression)
+        expect(row.getByText(GHOST)).toBeTruthy()
+        expect(row.queryByText(GHOST_NEGATED)).toBeNull()
+        expect(row.queryByText(/never match/i)).toBeNull()
+      }
+    )
+
+    it.each(["not ghost", "!ghost", "-ghost", "viewer and not ghost", "viewer and !ghost", "not (viewer or ghost)"])(
+      "adds the broad-grant warning when the reference is negated, in %j",
+      async (expression) => {
+        const row = await rowFor(expression)
+        expect(row.getByText(GHOST)).toBeTruthy()
+        expect(row.getByText(GHOST_NEGATED)).toBeTruthy()
+        // A negated undeclared reference is true, not inert.
+        expect(row.queryByText(/never match/i)).toBeNull()
+      }
+    )
+
+    it.each(["not not ghost", "!!ghost", "not (not ghost)", "viewer and not not ghost"])(
+      "does not add the broad-grant warning under an even number of negations, in %j",
+      async (expression) => {
+        const row = await rowFor(expression)
+        expect(row.getByText(GHOST)).toBeTruthy()
+        expect(row.queryByText(GHOST_NEGATED)).toBeNull()
+      }
+    )
+
+    it("adds it again for three negations", async () => {
+      const row = await rowFor("not not not ghost")
+      expect(row.getByText(GHOST_NEGATED)).toBeTruthy()
+    })
+
+    it("does not put the broad-grant warning on a different, non-negated reference", async () => {
+      // `not ghost or spectre`: the not binds to ghost alone.
+      const row = await rowFor("not ghost or spectre")
+      expect(row.getByText(GHOST_NEGATED)).toBeTruthy()
+      expect(row.getByText(/spectre is not declared/)).toBeTruthy()
+      expect(row.queryByText(/Because spectre is negated/)).toBeNull()
+    })
+
+    it("warns about a negated first hop of a traversal", async () => {
+      const row = await rowFor("not ghost->read")
+      expect(row.getByText(GHOST)).toBeTruthy()
+      expect(row.getByText(GHOST_NEGATED)).toBeTruthy()
     })
 
     it("marks only the expression that is wrong", async () => {
       render(withExpression("read", "viewer or ghost"))
       await screen.findByText("viewer or ghost")
-      expect(screen.getAllByText(/can never match/)).toHaveLength(1)
+      expect(screen.getAllByText(/is not declared on this type/)).toHaveLength(1)
       const write = await rowOf("write")
-      expect(within(write).queryByText(/can never match/)).toBeNull()
+      expect(within(write).queryByText(/is not declared on this type/)).toBeNull()
     })
 
     it("marks every undeclared relation once, however often it is named", async () => {
-      render(withExpression("read", "ghost or viewer or ghost or spectre"))
-      const row = await rowOf("ghost or viewer or ghost or spectre")
-      expect(within(row).getAllByText(/ghost is not declared/)).toHaveLength(1)
-      expect(within(row).getAllByText(/spectre is not declared/)).toHaveLength(1)
+      const row = await rowFor("ghost or viewer or ghost or spectre")
+      expect(row.getAllByText(/ghost is not declared/)).toHaveLength(1)
+      expect(row.getAllByText(/spectre is not declared/)).toHaveLength(1)
     })
 
-    it("marks an undeclared relation whatever operator surrounds it", async () => {
-      for (const expression of ["viewer and ghost", "viewer and not ghost", "(ghost)", "!ghost", "viewer + ghost", "viewer & ghost"]) {
-        const { unmount } = render(withExpression("read", expression))
-        const row = await rowOf(expression)
-        expect(within(row).getByText(/ghost is not declared/), expression).toBeTruthy()
-        unmount()
-      }
-    })
-
-    it("marks the first hop of a traversal when that is what is undeclared", async () => {
-      render(withExpression("read", "ghost->read"))
-      const row = await rowOf("ghost->read")
-      expect(within(row).getByText(/ghost is not declared/)).toBeTruthy()
+    it("warns about negation once when a name is negated in one place and not another", async () => {
+      const row = await rowFor("ghost or not ghost")
+      expect(row.getAllByText(/ghost is not declared/)).toHaveLength(1)
+      expect(row.getAllByText(GHOST_NEGATED)).toHaveLength(1)
     })
 
     it("does not warn about the second hop of a traversal", async () => {
@@ -308,52 +370,72 @@ describe("WardenResourceTypeDetailPage", () => {
       // or permission on whatever type the parent hop lands on, which this
       // type cannot know. The server checks the first hop only, so a page
       // that checked both would warn about an expression the server accepts.
-      render(withExpression("read", "parent->approve"))
-      const row = await rowOf("parent->approve")
-      expect(within(row).queryByText(/can never match/)).toBeNull()
+      const row = await rowFor("parent->approve")
+      expect(row.queryByText(/is not declared on this type/)).toBeNull()
       expect(screen.queryByText(/approve is not declared/)).toBeNull()
     })
 
     it("checks only the first step of a longer traversal", async () => {
-      render(withExpression("read", "parent->owner->read"))
-      const row = await rowOf("parent->owner->read")
-      expect(within(row).queryByText(/can never match/)).toBeNull()
+      const row = await rowFor("parent->owner->read")
+      expect(row.queryByText(/is not declared on this type/)).toBeNull()
     })
 
-    it("says so when the expression names a permission rather than a relation", async () => {
-      // `write` is declared, but as a permission. An expression can only
-      // reference relations, so the server refuses this too.
-      render(withExpression("read", "viewer or write"))
-      const row = await rowOf("viewer or write")
-      expect(within(row).getByText(/write is a permission, not a relation/)).toBeTruthy()
+    it("does not flag a negated declared relation", async () => {
+      const row = await rowFor("viewer and not editor")
+      expect(row.queryByText(/negated here/)).toBeNull()
+      expect(row.queryByText(/is not declared on this type/)).toBeNull()
+    })
+
+    it("says a permission name is not a relation, and is honest about what happens to it", async () => {
+      // `write` is declared, but as a permission. The evaluator looks the name
+      // up as a relation tuple, so it matches only a stray `write` tuple.
+      const row = await rowFor("viewer or write")
+      expect(
+        row.getByText(
+          "write is a permission on this type, not a relation, and an expression can only reference relations. It only takes effect through a stray write tuple, so for almost every subject it is false."
+        )
+      ).toBeTruthy()
+      expect(row.queryByText(/never match/i)).toBeNull()
+      expect(row.queryByText(/negated here/)).toBeNull()
+    })
+
+    it("warns about the broad grant when a permission name is negated", async () => {
+      const row = await rowFor("not write")
+      expect(row.getByText(/write is a permission on this type, not a relation/)).toBeTruthy()
+      expect(
+        row.getByText(
+          "Because write is negated here, that part of the expression is true for almost every subject, which can grant this permission far more widely than intended."
+        )
+      ).toBeTruthy()
     })
 
     it("marks an expression that does not parse", async () => {
-      // It never matches either. The server skips the reference check for an
-      // expression that failed to parse, and so does this.
-      render(withExpression("read", "viewer or or"))
-      const row = await rowOf("viewer or or")
-      expect(within(row).getByText("This expression does not parse, so it can never match.")).toBeTruthy()
+      // An expression that fails to compile is refused at check time and
+      // never matches, so this one IS about the whole expression.
+      const row = await rowFor("viewer or or")
+      expect(row.getByText("This expression does not parse, so it can never match.")).toBeTruthy()
     })
 
     it("does not also blame a relation in an expression that does not parse", async () => {
-      render(withExpression("read", "ghost or"))
-      const row = await rowOf("ghost or")
-      expect(within(row).getByText(/does not parse/)).toBeTruthy()
-      expect(within(row).queryByText(/ghost is not declared/)).toBeNull()
+      const row = await rowFor("ghost or")
+      expect(row.getByText(/does not parse/)).toBeTruthy()
+      expect(row.queryByText(/ghost is not declared/)).toBeNull()
+      expect(row.queryByText(/negated here/)).toBeNull()
     })
 
     it("labels an empty expression instead of rendering a blank", async () => {
       render(withExpression("read", ""))
       const row = (await screen.findByText("read")).closest("tr")!
       expect(within(row).getByLabelText("no expression")).toBeTruthy()
-      expect(within(row).getByText(/does not parse/)).toBeTruthy()
+      expect(within(row).getByText("This expression does not parse, so it can never match.")).toBeTruthy()
     })
 
     it("marks nothing on a healthy type", async () => {
       render()
       await screen.findByText("viewer or editor")
-      expect(screen.queryByText(/can never match/)).toBeNull()
+      expect(screen.queryByText(/is not declared on this type/)).toBeNull()
+      expect(screen.queryByText(/negated here/)).toBeNull()
+      expect(screen.queryByText(/does not parse/)).toBeNull()
     })
   })
 
@@ -440,9 +522,45 @@ describe("WardenResourceTypeDetailPage", () => {
     it("flags a sibling permission as a permission, and an unknown name as neither", () => {
       const result = analyseExpression("read or ghost", relations, permissions)
       expect(result.undeclared).toEqual([
-        { name: "read", isPermission: true },
-        { name: "ghost", isPermission: false },
+        { name: "read", isPermission: true, negated: false },
+        { name: "ghost", isPermission: false, negated: false },
       ])
+    })
+
+    // Negation is decided from the tree: one flip per not, and an even number
+    // of flips is not negated. This mirrors NotExpr in dsl/eval.go.
+    it.each([
+      ["ghost", false],
+      ["not ghost", true],
+      ["!ghost", true],
+      ["-ghost", true],
+      ["not not ghost", false],
+      ["!!ghost", false],
+      ["- - ghost", false],
+      ["not not not ghost", true],
+      ["viewer and not ghost", true],
+      ["not viewer and ghost", false],
+      ["not (viewer or ghost)", true],
+      ["not (viewer or not ghost)", false],
+      ["not ghost->read", true],
+      ["ghost or not ghost", true],
+      ["not ghost or ghost", true],
+    ])("says whether the reference in %j is negated", (expression, negated) => {
+      const result = analyseExpression(expression, relations, permissions)
+      expect(result.undeclared).toHaveLength(1)
+      expect(result.undeclared[0]?.negated, expression).toBe(negated)
+    })
+
+    it("negates only the reference a not binds to", () => {
+      const result = analyseExpression("not ghost or spectre", relations, permissions)
+      expect(result.undeclared).toEqual([
+        { name: "ghost", isPermission: false, negated: true },
+        { name: "spectre", isPermission: false, negated: false },
+      ])
+    })
+
+    it("never marks a declared relation as negated", () => {
+      expect(analyseExpression("not viewer", relations, permissions).undeclared).toEqual([])
     })
 
     it("flags every name when the type declares no relations at all", () => {

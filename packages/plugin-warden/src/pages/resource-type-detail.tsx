@@ -71,11 +71,21 @@ export interface ExpressionDiagnostic {
 // Expression analysis
 //
 // A client-side mirror of the parts of warden's expression handling that decide
-// whether an expression can ever match: `dsl.CompileExpr` (lexer and parser in
+// whether an expression is sound: `dsl.CompileExpr` (lexer and parser in
 // warden/dsl) and `referencedRelations` (extension/contract/
 // handlers_resourcetypes.go). The server refuses a bad expression on write, but
 // a type written through the DSL or the REST API before that check existed can
-// carry one, and nothing else says it never matches.
+// carry one, and nothing else says so.
+//
+// What a bad reference actually does at check time (dsl/eval.go): a bare
+// reference is a raw tuple lookup, CheckDirectRelation, and never consults the
+// type's declared relations. So an undeclared name is not "dead". It matches a
+// subject holding a stray tuple with that exact relation name (relations.create
+// does not validate names against a schema), and is false for everyone else. A
+// NotExpr negates that, so `not ghost` is TRUE for almost every subject. The
+// warnings are written about the reference, never about the whole expression,
+// because only the reference's behaviour is certain: `viewer or ghost` still
+// grants through viewer, and `not ghost` grants broadly.
 //
 // It is a mirror and not a shared library, so it has to be checked against the
 // Go rather than trusted. The rules that matter:
@@ -87,7 +97,11 @@ export interface ExpressionDiagnostic {
 //    lands on, which this type's own definition cannot know. Checking both
 //    hops would warn about expressions the server accepts.
 //  - A permission name is not a relation. An expression can only reference
-//    relations, so naming a sibling permission is the same failure.
+//    relations, so naming a sibling permission is the same failure, and the
+//    evaluator likewise looks it up as a relation tuple.
+//  - A reference under an odd number of negations (not, !, unary -) is
+//    negated; under an even number it is not. The evaluator negates once per
+//    NotExpr, so `not not ghost` is false for almost everyone again.
 //  - When an expression does not parse, its references are not worth checking,
 //    exactly as the server skips them.
 // ---------------------------------------------------------------------------
@@ -208,12 +222,18 @@ function tokenize(src: string): Token[] {
  * shape as the Go `referencedRelations`: a bare identifier is itself, and a
  * traversal is its first step only.
  */
-function parseReferences(tokens: Token[]): string[] {
+/** A relation an expression names, and whether an odd number of nots sit over it. */
+interface Reference {
+  name: string
+  negated: boolean
+}
+
+function parseReferences(tokens: Token[]): Reference[] {
   let at = 0
   const cur = () => tokens[at]!
   const advance = () => void at++
 
-  function parseOr(): string[] {
+  function parseOr(): Reference[] {
     let refs = parseAnd()
     while (cur().kind === "or" || cur().kind === "plus") {
       advance()
@@ -221,7 +241,7 @@ function parseReferences(tokens: Token[]): string[] {
     }
     return refs
   }
-  function parseAnd(): string[] {
+  function parseAnd(): Reference[] {
     let refs = parseNot()
     while (cur().kind === "and" || cur().kind === "amp") {
       advance()
@@ -229,15 +249,17 @@ function parseReferences(tokens: Token[]): string[] {
     }
     return refs
   }
-  function parseNot(): string[] {
+  function parseNot(): Reference[] {
     const k = cur().kind
     if (k === "not" || k === "bang" || k === "minus") {
       advance()
-      return parseNot()
+      // One NotExpr flips every reference under it, at any depth, so the
+      // parity of the flips is what says whether a reference is negated.
+      return parseNot().map((r) => ({ ...r, negated: !r.negated }))
     }
     return parsePrimary()
   }
-  function parsePrimary(): string[] {
+  function parsePrimary(): Reference[] {
     const t = cur()
     if (t.kind === "lparen") {
       advance()
@@ -254,7 +276,7 @@ function parseReferences(tokens: Token[]): string[] {
         if (cur().kind !== "ident") throw new ParseFailure("expected identifier after ->")
         advance()
       }
-      return [t.value]
+      return [{ name: t.value, negated: false }]
     }
     throw new ParseFailure(`expected expression, got ${t.kind}`)
   }
@@ -269,6 +291,12 @@ export interface UndeclaredReference {
   name: string
   /** True when the name is one of this type's permissions rather than nothing. */
   isPermission: boolean
+  /**
+   * True when at least one occurrence sits under an odd number of negations.
+   * An undeclared reference is false for almost every subject, so a negated
+   * one is true for almost every subject.
+   */
+  negated: boolean
 }
 
 export interface ExpressionAnalysis {
@@ -279,7 +307,8 @@ export interface ExpressionAnalysis {
 }
 
 /**
- * Says whether an expression can ever match, judged against its own type.
+ * Finds the references in an expression that its own type does not declare,
+ * and whether each sits under a negation.
  *
  * Exported so the check can be tested on its own, against the cases the Go
  * `referencedRelations` documents, without rendering a page.
@@ -289,7 +318,7 @@ export function analyseExpression(
   relations: RelationDef[],
   permissions: PermissionDef[]
 ): ExpressionAnalysis {
-  let refs: string[]
+  let refs: Reference[]
   try {
     refs = parseReferences(tokenize(expression))
   } catch (e) {
@@ -299,11 +328,13 @@ export function analyseExpression(
   const declared = new Set(relations.map((r) => r.name))
   const permissionNames = new Set(permissions.map((p) => p.name))
   const undeclared: UndeclaredReference[] = []
-  const seen = new Set<string>()
-  for (const name of refs) {
-    if (declared.has(name) || seen.has(name)) continue
-    seen.add(name)
-    undeclared.push({ name, isPermission: permissionNames.has(name) })
+  for (const { name, negated } of refs) {
+    if (declared.has(name)) continue
+    const already = undeclared.find((u) => u.name === name)
+    // Each name once. Negated if any occurrence is: `ghost or not ghost` has
+    // a broad-granting term in it whichever occurrence is met first.
+    if (already) already.negated ||= negated
+    else undeclared.push({ name, isPermission: permissionNames.has(name), negated })
   }
   return { parses: true, undeclared }
 }
@@ -489,8 +520,12 @@ function PermissionsTable({
 /**
  * An expression, in monospace because it is a raw value, and whatever is
  * wrong with it. The server refuses these on write, but a type written before
- * that check existed can carry one, and a bad expression never matches:
- * nothing else on the page would say the permission is dead.
+ * that check existed can carry one, and nothing else on the page would say so.
+ *
+ * An expression that does not parse is refused at check time and never
+ * matches, so that warning is about the whole expression. An undeclared
+ * reference is different: the evaluator still looks it up as a raw tuple, so
+ * only the reference's own behaviour is certain and the warning is about it.
  */
 function ExpressionCell({
   expression,
@@ -513,14 +548,31 @@ function ExpressionCell({
         <Warning>This expression does not parse, so it can never match.</Warning>
       )}
       {analysis.undeclared.map((u) => (
-        <Warning key={u.name}>
-          {u.isPermission
-            ? `${u.name} is a permission, not a relation, and an expression can only reference relations, so this expression can never match.`
-            : `${u.name} is not declared on this type, so this expression can never match.`}
-        </Warning>
+        <div key={u.name} className="flex flex-col gap-1">
+          <Warning>{undeclaredWarning(u)}</Warning>
+          {u.negated && <Warning>{negatedWarning(u.name)}</Warning>}
+        </div>
       ))}
     </div>
   )
+}
+
+/**
+ * Written about the reference, and true for every expression it can sit in.
+ * The evaluator looks a bare reference up as a raw tuple, so an undeclared
+ * name matches a subject holding a stray tuple of that name and nobody else.
+ * A permission name is looked up the same way, as a relation tuple.
+ */
+function undeclaredWarning(u: UndeclaredReference): string {
+  const effect = `It only takes effect through a stray ${u.name} tuple, so for almost every subject it is false.`
+  return u.isPermission
+    ? `${u.name} is a permission on this type, not a relation, and an expression can only reference relations. ${effect}`
+    : `${u.name} is not declared on this type, so it is probably a typo. ${effect}`
+}
+
+/** Under a negation the false becomes true, which widens the grant. */
+function negatedWarning(name: string): string {
+  return `Because ${name} is negated here, that part of the expression is true for almost every subject, which can grant this permission far more widely than intended.`
 }
 
 function Warning({ children }: { children: string }) {
