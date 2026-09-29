@@ -256,6 +256,23 @@ describe("SecretDetailPage versions", () => {
     expect(screen.getByText("usr_1")).toBeTruthy()
   })
 
+  it("separates a missing author's dash from the date, so it cannot read as a minus sign", async () => {
+    renderDetail(harness().client)
+    await screen.findByText(/Versions \(3\)/)
+    const dash = screen.getByLabelText("no author")
+    const row = dash.closest("li") as HTMLElement
+    const time = within(row).getByText(new Date("2026-09-21T10:00:00Z").toLocaleString())
+    // Something visible sits between the dash and the date, in document order.
+    const between = Array.from(row.querySelectorAll("*")).filter(
+      (el) =>
+        dash.compareDocumentPosition(el) & Node.DOCUMENT_POSITION_FOLLOWING &&
+        el.compareDocumentPosition(time) & Node.DOCUMENT_POSITION_FOLLOWING &&
+        !el.contains(dash) &&
+        (el.textContent ?? "").trim() !== ""
+    )
+    expect(between.length).toBeGreaterThan(0)
+  })
+
   it("keeps the count live for a single version", async () => {
     renderDetail(harness(DETAIL, {}, { versions: [VERSIONS.versions[0]] }).client)
     await screen.findByText(/Versions \(1\)/)
@@ -564,11 +581,19 @@ describe("SecretDetailPage delete", () => {
     return await screen.findByRole("alertdialog")
   }
 
-  it("names the key and says the rotation policy goes too", async () => {
-    renderDetail(harness().client)
+  it("names the key and says the rotation policy goes too when there is one", async () => {
+    renderDetail(harness({ ...DETAIL, rotation: POLICY }).client)
     const dialog = await openDelete()
     expect(dialog.textContent).toContain(KEY)
     expect(dialog.textContent).toMatch(/rotation policy is deleted too/i)
+  })
+
+  it("says nothing about a rotation policy when there is none", async () => {
+    renderDetail(harness().client)
+    const dialog = await openDelete()
+    expect(dialog.textContent).toContain(KEY)
+    expect(dialog.textContent).toMatch(/every version of it/)
+    expect(dialog.textContent).not.toMatch(/policy/i)
   })
 
   it("sends the key and navigates to the list on success", async () => {

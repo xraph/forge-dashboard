@@ -194,6 +194,22 @@ describe("SecretCreatePage", () => {
     expectValueNotInMarkup()
   })
 
+  it("keeps the CONFLICT message and link on the submitted key when the key field is edited", async () => {
+    const failing = failingClient(
+      new ContractError("CONFLICT", "secret already exists")
+    )
+    renderCreate(failing)
+    fill("db/primary.password", CANARY)
+    fireEvent.click(submitButton())
+    await screen.findByRole("alert")
+    fireEvent.change(screen.getByLabelText("Key"), { target: { value: "db/typo" } })
+    const link = screen.getByRole("link", { name: "Open the existing secret" })
+    expect(link.getAttribute("href")).toBe(secretPath("db/primary.password"))
+    const alert = screen.getByRole("alert")
+    expect(alert.textContent).toContain('"db/primary.password"')
+    expect(alert.textContent).not.toContain("db/typo")
+  })
+
   it("does not offer the existing-secret link for other failures", async () => {
     const failing = failingClient(new ContractError("INTERNAL", "boom"))
     renderCreate(failing)

@@ -64,6 +64,9 @@ export const SecretCreatePage: ComponentType<PluginPageProps> = () => {
   const valueRef = useRef<HTMLInputElement>(null)
   const [hasValue, setHasValue] = useState(false)
   const [expires, setExpires] = useState("")
+  // The key as it was sent. A CONFLICT is about this key, not whatever the
+  // field holds now, so its message and link must not follow later edits.
+  const [submittedKey, setSubmittedKey] = useState("")
 
   const trimmedKey = key.trim()
   const expiresAt = toRFC3339(expires)
@@ -88,6 +91,7 @@ export const SecretCreatePage: ComponentType<PluginPageProps> = () => {
     }
     if (expiresAt !== undefined) payload.expiresAt = expiresAt
 
+    setSubmittedKey(trimmedKey)
     const result = await create.execute(payload)
     // execute resolves undefined only when the client throws, so this is the
     // failure check. Key, expiry and value all stay put for a retry.
@@ -114,14 +118,14 @@ export const SecretCreatePage: ComponentType<PluginPageProps> = () => {
           create.error && conflict
             ? {
                 code: create.error.code,
-                message: `A secret with the key "${trimmedKey}" already exists. Creating it again would not change it. To give it a new value, open it and update it.`,
+                message: `A secret with the key "${submittedKey}" already exists. Creating it again would not change it. To give it a new value, open it and update it.`,
               }
             : create.error
         }
       />
       {conflict ? (
         <p className="text-sm">
-          <PluginLink to={secretPath(trimmedKey)} className="underline">
+          <PluginLink to={secretPath(submittedKey)} className="underline">
             Open the existing secret
           </PluginLink>
         </p>

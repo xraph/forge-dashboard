@@ -39,22 +39,8 @@ import { Timestamp } from "@forge-go/dashboard-kit/components/timestamp"
 import { EncryptionBadge, PolicyStatusBadge, RotatorBadge } from "../badges"
 import { formatInterval } from "../interval"
 import { rotationPath } from "../keys"
+import type { RotationPolicy } from "./rotation"
 import type { SecretSummary } from "./secrets"
-
-/** Mirrors the Go `RotationPolicySummary`. */
-interface RotationPolicy {
-  id: string
-  secretKey: string
-  intervalSeconds: number
-  enabled: boolean
-  /** Whether an application registered a rotator for this key. */
-  rotatable: boolean
-  lastRotatedAt?: string
-  /** The server omits it when the policy is disabled. */
-  nextRotationAt?: string
-  createdAt: string
-  updatedAt: string
-}
 
 /** Mirrors the Go `AuditSummary`. */
 interface AuditEntry {
@@ -203,8 +189,9 @@ function SecretDetailBody({ secretKey }: { secretKey: string }) {
             description={
               <span className="flex flex-col gap-2">
                 <span>
-                  This deletes {secretKey} and every version of it. Its rotation
-                  policy is deleted too. This cannot be undone.
+                  This deletes {secretKey} and every version of it.
+                  {data.rotation !== null && " Its rotation policy is deleted too."} This
+                  cannot be undone.
                 </span>
                 <CommandAlert error={remove.error} title="Could not delete" />
               </span>
@@ -287,6 +274,11 @@ function VersionTimeline({
                       ) : (
                         <NoneCell label="author" />
                       )}
+                    </span>
+                    {/* Without it, a missing author's dash sits against the
+                        date and reads as a minus sign: "-9/29/2026". */}
+                    <span aria-hidden="true" className="text-muted-foreground">
+                      ·
                     </span>
                     <Timestamp
                       value={v.createdAt}
