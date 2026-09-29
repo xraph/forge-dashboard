@@ -2987,6 +2987,54 @@ git commit -m "feat(extension): register the chronicle contract contributor"
 
 ---
 
+### Task 17: Fall back to a configured app when no claim carries one
+
+Added on 2026-09-29 by Rex's decision, after all sixteen tasks had shipped.
+Nothing upstream populates `Principal.Claims` yet: authsome's dashboard auth
+builds its user with a subject, name, email and avatar and no claims at all.
+So against a real deployment every intent in this contract answers
+`PERMISSION_DENIED`. A separate authsome task fixes the source. This task lets
+a single-app deployment run the dashboard now, the way Warden already does.
+
+Run it after the final review's fix wave, because both can touch
+`scope.go`, and that file is the security core of the package.
+
+**Files:**
+- Modify: `extension/config.go` (a dashboard section with `app_id` and `tenant_id`)
+- Modify: `extension/contract/contract.go` (`Deps.DefaultAppID`, `Deps.DefaultTenantID`)
+- Modify: `extension/contract/scope.go`
+- Modify: `extension/extension.go` (pass the config values into `Deps`)
+- Test: `extension/contract/scope_test.go`, `extension/contract_registration_test.go`
+
+**Interfaces:**
+- Consumes: `scopeFromPrincipal`, `tenantFromClaims` and `viewScope` from Task 7; `RegisterContractContributor` from Task 16.
+- Produces: `scopeFromPrincipal(p, deps)` taking the defaults, or an equivalent that every handler already reaches.
+
+The model to copy is Warden's, in `forgery/warden/extension/contract/errors.go`
+around lines 99 to 135: the claim first, then `Deps.DefaultTenantID`, then a
+refusal whose message names the setting to add. Mirror its config key shape as
+`chronicle.dashboard.app_id` and `chronicle.dashboard.tenant_id`.
+
+Resolve each dimension on its own, in this order:
+
+1. A claim that is present and usable wins.
+2. A claim that is PRESENT but unusable (empty, nil, or not a string) still
+   refuses. It never falls back to the configured value. An upstream that wrote
+   a scope and lost its value is a failed resolution, and letting a legitimate
+   default cover it is the bug the playbook names under "Do not let a
+   legitimate default cover for a failed resolution".
+3. A claim that is absent takes the configured default.
+4. An app still unresolved answers `PERMISSION_DENIED` with a message naming
+   `chronicle.dashboard.app_id`. A tenant still unresolved means an app-wide
+   view, as it does today.
+
+Test every cell of that table for both dimensions: claim usable, claim present
+and unusable, claim absent with a default, claim absent with no default. Add
+one test through the Register-wired extension from Task 16 proving a
+deployment configured with `dashboard.app_id` and a principal with no claims
+can call `streams.mine`. Prove by mutation, in a scratch copy, that letting a
+present-but-unusable claim fall back to the default fails a test.
+
 ## Done when
 
 `go build ./... && go test ./...` passes, all 29 intents are declared and registered with the parity test proving it, every command names its invalidations, and a `Register`-wired extension answers `streams.mine` for an app-scoped principal and refuses one with no app claim.
