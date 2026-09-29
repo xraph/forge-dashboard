@@ -1,10 +1,7 @@
 import { definePlugin } from "@forge-go/dashboard-plugin"
 import { FlagIcon, KeyRoundIcon, RefreshCwIcon } from "@forge-go/dashboard-kit/icons"
-import { PageHeader } from "@forge-go/dashboard-kit/components/page-header"
-import { PluginLink } from "@forge-go/dashboard-plugin"
-import type { ComponentType } from "react"
-import type { PluginPageProps } from "@forge-go/dashboard-plugin"
 import { FlagCreatePage } from "./pages/flag-create"
+import { FlagDetailPage } from "./pages/flag-detail"
 import { FlagsPage } from "./pages/flags"
 import { RotationDetailPage } from "./pages/rotation-detail"
 import { RotationPage } from "./pages/rotation"
@@ -14,6 +11,7 @@ import { SecretsPage } from "./pages/secrets"
 
 export {
   FlagCreatePage,
+  FlagDetailPage,
   FlagsPage,
   RotationDetailPage,
   RotationPage,
@@ -37,24 +35,6 @@ export { ValueInput } from "./components/value-input"
 export { FLAG_TYPES } from "./flag-types"
 export type { FlagType } from "./flag-types"
 export { flagPath, rotationPath, secretPath } from "./keys"
-
-/**
- * Stands in for the flag detail page until it lands, so a key in the list has
- * somewhere to go. It says so instead of rendering an empty ladder.
- */
-const FlagDetailPlaceholder: ComponentType<PluginPageProps> = ({ params }) => (
-  <div className="flex flex-col gap-4">
-    <PageHeader
-      title={params.key ?? "Flag"}
-      description="The page for a single flag is not available yet."
-    />
-    <p className="text-sm">
-      <PluginLink to="/flags" className="underline">
-        Back to flags
-      </PluginLink>
-    </p>
-  </div>
-)
 
 /**
  * The first-party UI for the `vault` extension.
@@ -112,7 +92,7 @@ export const vaultPlugin = definePlugin({
     // Create lives at /new-flag for the same reason /new-secret does: a flag
     // keyed "new" encodes to /flags/new.
     { path: "/new-flag", element: FlagCreatePage },
-    { path: "/flags/:key", element: FlagDetailPlaceholder },
+    { path: "/flags/:key", element: FlagDetailPage },
   ],
 })
 

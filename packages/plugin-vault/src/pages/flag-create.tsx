@@ -20,6 +20,7 @@ import { ValueInput } from "../components/value-input"
 import { FLAG_TYPES, isFlagType } from "../flag-types"
 import type { FlagType } from "../flag-types"
 import { flagPath } from "../keys"
+import { parseTags } from "../tags"
 import type { FlagSummary } from "./flags"
 
 /** Mirrors the Go `flagResponse`. */
@@ -35,14 +36,6 @@ interface CreatePayload {
   description?: string
   tags?: string[]
   enabled: boolean
-}
-
-/** "a, b ,, c" becomes ["a", "b", "c"]. */
-function parseTags(text: string): string[] {
-  return text
-    .split(",")
-    .map((t) => t.trim())
-    .filter((t) => t !== "")
 }
 
 /**

@@ -43,7 +43,7 @@ import type { RotationPolicy } from "./rotation"
 import type { SecretSummary } from "./secrets"
 
 /** Mirrors the Go `AuditSummary`. */
-interface AuditEntry {
+export interface AuditEntry {
   id: string
   action: string
   outcome: string
