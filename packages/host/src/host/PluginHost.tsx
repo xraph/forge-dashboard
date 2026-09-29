@@ -48,7 +48,7 @@ import type {
   Scope,
   ScopedClient,
 } from "@forge-go/dashboard-plugin"
-import { AppSidebar } from "@forge-go/dashboard-kit/components/app-sidebar"
+import { DashboardShell } from "@forge-go/dashboard-kit/components/dashboard-shell"
 import { NavigationSearch } from "./NavigationSearch"
 import { ContextSwitchers } from "./ContextSwitchers"
 import { RoutedPage, RoutedPicker, routeSegmentPattern } from "./RoutedScope"
@@ -60,13 +60,8 @@ import type {
   NavGroup,
   NavNode,
 } from "@forge-go/dashboard-kit/components/nav-tree"
-import type { ScopeOption } from "@forge-go/dashboard-kit/components/scope-switcher"
-import { SiteHeader } from "@forge-go/dashboard-kit/components/site-header"
-import {
-  SidebarInset,
-  SidebarProvider,
-  useSidebar,
-} from "@forge-go/dashboard-kit/components/sidebar"
+import type { ScopeOption } from "@forge-go/dashboard-kit/components/scope-entries"
+import { useSidebar } from "@forge-go/dashboard-kit/components/sidebar"
 import {
   Alert,
   AlertDescription,
@@ -74,6 +69,11 @@ import {
 } from "@forge-go/dashboard-kit/components/alert"
 import { Spinner } from "@forge-go/dashboard-kit/components/spinner"
 import { TriangleAlertIcon } from "@forge-go/dashboard-kit/icons"
+
+type HostSidebar = Omit<
+  React.ComponentProps<typeof DashboardShell>,
+  "children" | "title" | "scope" | "actions"
+>
 
 /**
  * The chrome every host state renders inside: sidebar, header, and the content
@@ -88,29 +88,17 @@ function HostShell({
   actions,
 }: {
   children: ReactNode
-  sidebar: React.ComponentProps<typeof AppSidebar>
+  sidebar: HostSidebar
   title?: string
   scope?: string
   actions?: ReactNode
 }) {
   return (
-    <SidebarProvider>
+    <DashboardShell {...sidebar} title={title} scope={scope} actions={actions}>
+      {/* Renders nothing; it only needs the sidebar context the shell provides. */}
       <SidebarRouteSync />
-      <AppSidebar variant="sidebar" collapsible="icon" navigationLayout="collapsible" {...sidebar} />
-      <SidebarInset>
-        <SiteHeader title={title} scope={scope} actions={actions} />
-        {/*
-          `@container/main` is load-bearing, not decoration. dashboard-01's
-          SectionCards sizes itself with container queries scoped to a container
-          named `main` (@xl/main:grid-cols-2, @5xl/main:grid-cols-4). Without
-          this declaration those variants never match and the cards stack in a
-          single column at every width.
-        */}
-        <div id="dashboard-main" className="@container/main flex min-w-0 flex-1 flex-col gap-6 p-4 md:p-6 xl:p-8">
-          {children}
-        </div>
-      </SidebarInset>
-    </SidebarProvider>
+      {children}
+    </DashboardShell>
   )
 }
 
@@ -152,9 +140,9 @@ type CapabilitiesState =
   | { status: "ready"; capabilities: Capabilities }
   | { status: "error"; message: string }
 
-// The order the sidebar actually shows a scope's nav in. `home` and
-// `selectScope` both need "the item a scope displays first," and that is
-// this order's [0], not declaration order -- a plugin whose nav is not
+// The order the sidebar actually shows a scope's nav in. `homePathFor`, the
+// target of every link in the scope rail, needs "the item a scope displays
+// first," and that is this order's [0], not declaration order -- a plugin whose nav is not
 // already sorted must still land you on the item the sidebar shows first.
 function sortByPriority<T extends { priority?: number }>(items: T[]): T[] {
   return [...items].sort((a, b) => (a.priority ?? 0) - (b.priority ?? 0))
@@ -746,7 +734,24 @@ export function PluginHost({
     namespace: scope.namespace,
     icon: scope.icon,
     badge: scope.state.kind === "ready" ? undefined : scope.state.kind,
+    // homePathFor, not a bare first-nav-item mountPath: a scope with a
+    // `path`-routed dimension has no route at its unscoped first item, so
+    // landing there would be a dead route. homePathFor sends that case to
+    // the namespace root, where RoutedPicker resolves it the rest of the way.
+    href: homePathFor(scope.plugin),
   }))
+
+  // The rail's home entry. Not `home`: that name is taken further down by the
+  // landing path the "/" redirect goes to, which is a different thing.
+  const homeScope: ScopeOption | undefined = root
+    ? {
+        id: root.id,
+        label: root.label,
+        namespace: root.namespace,
+        icon: root.icon,
+        href: homePathFor(root.plugin),
+      }
+    : undefined
 
   // The body shows the nav of wherever you are, which is the same question
   // `panelSource` asks and therefore the same answer: the active scope, or
@@ -757,7 +762,7 @@ export function PluginHost({
   // the switcher everywhere else. One nav, in the body, belonging to the
   // place you are.
   //
-  // No group label: the switcher above already names the active scope by
+  // No group label: the pane heading above already names the active scope by
   // label and by "@namespace", so a section heading repeating either is text
   // a screen reader (and a test) would find twice. That changes the day
   // sub-plugin groups arrive and there is more than one group to tell apart.
@@ -783,6 +788,41 @@ export function PluginHost({
         : navGroups(navOwner.plugin, readySubPluginsFor(navOwner.plugin), ownerSegment)
       : []
 
+  // The pane's heading names the place you are. Namespace only for a scope:
+  // the root is the dashboard's home, not "@core".
+  const heading = navOwner
+    ? {
+        label: navOwner.label,
+        namespace: activeScope ? activeScope.namespace : undefined,
+        icon: navOwner.icon,
+      }
+    : undefined
+
+  // The two cases that used to leave the pane silently blank. A ready scope
+  // with a segment and no nav is a plugin with no nav, which is legal and
+  // stays quiet.
+  const empty = (() => {
+    if (!navOwner) return undefined
+    if (navOwner.state.kind === "setup") {
+      return {
+        message: navOwner.state.message ?? "This extension needs configuring.",
+        href: homePathFor(navOwner.plugin),
+        label: "Open setup",
+      }
+    }
+    if (navOwner.state.kind === "mismatch") {
+      return {
+        message: "This extension needs a newer server.",
+        href: homePathFor(navOwner.plugin),
+        label: "Open setup",
+      }
+    }
+    if (ownerDimension && !ownerSegment) {
+      return { message: "Pick an app to see its pages." }
+    }
+    return undefined
+  })()
+
   // The header's title names the current page, not the product: the label of
   // whichever nav item's href matches the current pathname, checking children
   // too since a deep link can land straight on one. One nav to scan now: the
@@ -798,25 +838,6 @@ export function PluginHost({
       .sort((a, b) => b.href.length - a.href.length)[0]
     return match?.label ?? (activeScope ?? root)?.label
   })()
-
-  // Switching scope is a navigation, never a state write. A scope with no nav
-  // (one that needs setup) goes to its bare namespace root, where its panel
-  // renders. Search is carried over for now, but that is provisional: no
-  // `ctx.` params exist yet, so there is nothing to drop and nothing to prove
-  // this against. Per-scope context dimensions belong to the plugin that
-  // declares them, so once `ctx.` params land, switching scope should DROP
-  // any dimension the new scope never declared, not carry it over blind.
-  const selectScope = (id: string) => {
-    const target = scopes.find((scope) => scope.id === id)
-    if (!target) return
-    // homePathFor, not a bare first-nav-item mountPath: a target scope with
-    // a `path`-routed dimension has no route mounted at its unscoped first
-    // item at all (every real page lives under a segment), so landing there
-    // literally would be a dead route. homePathFor already knows to send
-    // that case to the namespace root instead, where RoutedPicker resolves
-    // it the rest of the way.
-    navigate(`${homePathFor(target.plugin)}${search}`)
-  }
 
   // Sign-out is the provider's command, sent through the provider's own
   // client, and this host never learns what it does. `signOutIntent` is a
@@ -841,18 +862,23 @@ export function PluginHost({
       : undefined
 
   const sidebar = {
-    scopeHome: root ? {
-      label: root.label,
-      icon: root.icon,
-      onSelect: () => navigate(`${homePathFor(root.plugin)}${search}`),
-    } : undefined,
+    home: homeScope,
     scopes: scopeOptions,
     activeScopeId: activeScope?.id,
-    onScopeSelect: selectScope,
+    heading,
+    empty,
     groups,
     currentPath: pathname,
     search,
-    renderLink: (node: NavNode, href: string) => <Link to={href} aria-current={node.href === pathname ? "page" : undefined}>{node.icon}<span>{node.label}</span></Link>,
+    // aria-current only when true. The rail merges its own aria-current onto
+    // this element through base-ui's render prop, and an explicit undefined
+    // here would win over it and strip the active scope's marker.
+    renderLink: (node: NavNode, href: string) => (
+      <Link to={href} {...(node.href === pathname ? { "aria-current": "page" as const } : {})}>
+        {node.icon}
+        <span>{node.label}</span>
+      </Link>
+    ),
     header: <>
       {panelSource && panelSource.state.kind === "ready" && (
         <div className="group-data-[collapsible=icon]:hidden">
@@ -879,7 +905,7 @@ export function PluginHost({
           }
         : { name: "Dashboard user", email: "" },
     onSignOut,
-  } satisfies React.ComponentProps<typeof AppSidebar>
+  } satisfies HostSidebar
 
   // Rule 3, and it has to come before the shell. `pathname` is the one
   // PluginHost already destructures from useLocation at the top of the
@@ -946,7 +972,7 @@ export function PluginHost({
     )
   }
 
-  // Neutral chrome, not the shell. HostShell's AppSidebar always renders a
+  // Neutral chrome, not the shell. HostShell's pane always renders a
   // sidebar-header div, gate or no gate, so putting the spinner inside
   // HostShell here would put sidebar chrome on screen before the session
   // says whether this visitor may see it at all.

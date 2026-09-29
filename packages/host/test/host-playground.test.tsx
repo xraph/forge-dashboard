@@ -12,6 +12,11 @@ import type {
 import { PluginHost } from "../src/host/PluginHost"
 import type { AuthScreens } from "../src/auth/routes"
 
+// The setup message now shows twice by design: once in the page's own setup
+// panel and once in the pane's empty notice. These tests are about the page,
+// so they look in the content area.
+const dashboardMain = () => document.getElementById("dashboard-main") as HTMLElement
+
 // jsdom ships no matchMedia, and the kit's sidebar reads it through
 // useIsMobile on every mount. Stubbing it here rather than in a setup file
 // keeps the whole fixture in one place; nothing else in this app needs it.
@@ -187,9 +192,9 @@ describe("PluginHost", () => {
 
     renderHost([demoPlugin()], fetchImpl)
 
-    expect(
-      await screen.findByText("no storage backend configured")
-    ).toBeTruthy()
+    await waitFor(() =>
+      expect(within(dashboardMain()).getByText("no storage backend configured")).toBeTruthy(),
+    )
     expect(screen.queryByText("overview page body")).toBeNull()
     expect(screen.queryByRole("link", { name: "Overview" })).toBeNull()
   })
@@ -604,7 +609,9 @@ describe("a root plugin that is not ready", () => {
       </ForgeDashboardProvider>,
     )
 
-    expect(await screen.findByText(/needs a database/)).toBeTruthy()
+    await waitFor(() =>
+      expect(within(dashboardMain()).getByText(/needs a database/)).toBeTruthy(),
+    )
     expect(screen.queryByText("root page")).toBeNull()
   })
 })
@@ -650,7 +657,9 @@ describe("no root plugin, with a scope that is not ready", () => {
       </ForgeDashboardProvider>,
     )
 
-    expect(await screen.findByText(/needs a database/)).toBeTruthy()
+    await waitFor(() =>
+      expect(within(dashboardMain()).getByText(/needs a database/)).toBeTruthy(),
+    )
     expect(screen.queryByText("rooms page")).toBeNull()
   })
 })

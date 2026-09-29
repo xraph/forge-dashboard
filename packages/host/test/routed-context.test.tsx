@@ -308,6 +308,7 @@ describe("a plugin with a path-routed dimension", () => {
     await waitFor(() => expect(screen.getByText("choose an app")).toBeTruthy())
     expect(screen.queryByRole("link", { name: "Users" })).toBeNull()
     expect(screen.queryByRole("link", { name: "Overview" })).toBeNull()
+    expect(screen.getByText("Pick an app to see its pages.")).toBeTruthy()
   })
 
   it("redirects a bare namespace root to the server's known current app", async () => {

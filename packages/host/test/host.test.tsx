@@ -12,6 +12,11 @@ import type {
 import { PluginHost } from "../src/host/PluginHost"
 import type { AuthScreens } from "../src/auth/routes"
 
+// The setup message now shows twice by design: once in the page's own setup
+// panel and once in the pane's empty notice. These tests are about the page,
+// so they look in the content area.
+const dashboardMain = () => document.getElementById("dashboard-main") as HTMLElement
+
 // jsdom ships no matchMedia, and the kit's sidebar reads it through
 // useIsMobile on every mount. Stubbing it here rather than in a setup file
 // keeps the whole fixture in one place; nothing else in this app needs it.
@@ -187,9 +192,9 @@ describe("PluginHost", () => {
 
     renderHost([demoPlugin()], fetchImpl)
 
-    expect(
-      await screen.findByText("no storage backend configured")
-    ).toBeTruthy()
+    await waitFor(() =>
+      expect(within(dashboardMain()).getByText("no storage backend configured")).toBeTruthy(),
+    )
     expect(screen.queryByText("overview page body")).toBeNull()
     expect(screen.queryByRole("link", { name: "Overview" })).toBeNull()
   })
@@ -483,10 +488,9 @@ describe("PluginHost", () => {
     expect(await screen.findByText("overview page body")).toBeTruthy()
 
     fireEvent.click(
-      await screen.findByRole("button", { name: /core-contract/ })
-    )
-    fireEvent.click(
-      screen.getByRole("menuitem", { name: /gateway-contract/ })
+      within(screen.getByRole("navigation", { name: "Scopes" })).getByRole("link", {
+        name: /gateway-contract/,
+      }),
     )
 
     expect(await screen.findByText("gateway first page")).toBeTruthy()
@@ -627,9 +631,9 @@ describe("PluginHost", () => {
     // Now the unconfigured plugin's own scope is active: its panel shows,
     // and the ready plugin's page and nav are gone because they belong to a
     // different scope.
-    expect(
-      await screen.findByText("setup-ext has no backend configured")
-    ).toBeTruthy()
+    await waitFor(() =>
+      expect(within(dashboardMain()).getByText("setup-ext has no backend configured")).toBeTruthy(),
+    )
     expect(screen.queryByText("ready page body")).toBeNull()
     expect(screen.queryByText("Ready One")).toBeNull()
     expect(screen.queryByText("setup page body")).toBeNull()
@@ -705,9 +709,9 @@ describe("PluginHost", () => {
     // The panel-only neighbour is unaffected: its own scope still shows its
     // setup panel, not any trace of boom's crash.
     const needyRender = renderHost(plugins, fetchImpl, "/@needy-ext")
-    expect(
-      await screen.findByText("needy-ext has no backend configured")
-    ).toBeTruthy()
+    await waitFor(() =>
+      expect(within(dashboardMain()).getByText("needy-ext has no backend configured")).toBeTruthy(),
+    )
     expect(screen.queryByText(/failed to render/)).toBeNull()
     needyRender.unmount()
 
@@ -933,12 +937,14 @@ describe("scoped routing", () => {
     )
 
     expect(await screen.findByText("rooms page")).toBeTruthy()
-    expect(screen.getByText("Streaming")).toBeTruthy()
+    expect(
+      within(screen.getByRole("navigation", { name: "Scopes" })).getByRole("link", { name: "Streaming" }),
+    ).toBeTruthy()
     expect(screen.getByText("@streaming")).toBeTruthy()
     expect(
       screen.getByRole("link", { name: "Rooms" }).closest("[data-active]"),
     ).toBeTruthy()
-    expect(screen.getByRole("heading", { name: "Rooms" })).toBeTruthy()
+    expect(within(screen.getByRole("navigation", { name: "Breadcrumb" })).getByText("Rooms")).toBeTruthy()
   })
 
   it("renders no pill nav above the content", async () => {
@@ -997,7 +1003,9 @@ describe("a root plugin that is not ready", () => {
       </ForgeDashboardProvider>,
     )
 
-    expect(await screen.findByText(/needs a database/)).toBeTruthy()
+    await waitFor(() =>
+      expect(within(dashboardMain()).getByText(/needs a database/)).toBeTruthy(),
+    )
     expect(screen.queryByText("root page")).toBeNull()
   })
 })
@@ -1043,7 +1051,9 @@ describe("no root plugin, with a scope that is not ready", () => {
       </ForgeDashboardProvider>,
     )
 
-    expect(await screen.findByText(/needs a database/)).toBeTruthy()
+    await waitFor(() =>
+      expect(within(dashboardMain()).getByText(/needs a database/)).toBeTruthy(),
+    )
     expect(screen.queryByText("rooms page")).toBeNull()
   })
 })
@@ -1145,8 +1155,8 @@ const header = (c: HTMLElement) =>
 const content = (c: HTMLElement) =>
   c.querySelector('[data-slot="sidebar-content"]') as HTMLElement
 
-describe("PluginHost back row", () => {
-  it("puts one back row, not a nav tree, in the header inside a scope", async () => {
+describe("PluginHost root destination", () => {
+  it("puts the root in the scope rail inside a scope, and names the scope in the pane heading", async () => {
     const { container } = renderHost(
       [rootPlugin(), authScopePlugin()],
       bothReady(),
@@ -1154,26 +1164,39 @@ describe("PluginHost back row", () => {
     )
     await screen.findByText("auth users body")
 
+    const rail = screen.getByRole("navigation", { name: "Scopes" })
+    expect(within(rail).getByRole("link", { name: "System" }).getAttribute("href")).toBe("/overview")
+    expect(within(rail).getByRole("link", { name: "Auth" }).getAttribute("aria-current")).toBe("page")
+    expect(within(rail).getByRole("link", { name: "System" }).getAttribute("aria-current")).toBeNull()
+
     const h = header(container)
-    expect(within(h).getByRole("link", { name: "Overview" })).toBeTruthy()
-    // The old pinned nav rendered the root plugin's whole NavTree up here,
-    // which emits a SidebarGroup. The way out of a scope is a single row.
+    expect(within(h).queryByRole("link", { name: "Overview" })).toBeNull()
+    expect(within(h).getByText("Auth")).toBeTruthy()
+    expect(within(h).getByText("@auth")).toBeTruthy()
+    // The heading is a label. Every control for changing scope is in the rail.
+    expect(
+      within(h.querySelector('[data-slot="scope-heading"]') as HTMLElement).queryByRole("button"),
+    ).toBeNull()
+    expect(within(h).queryByRole("button", { name: /Auth|System/ })).toBeNull()
     expect(h.querySelector('[data-slot="sidebar-group"]')).toBeNull()
   })
 
-  it("points the back row at the root plugin's first nav item", async () => {
-    const { container } = renderHost(
-      [rootPlugin(), authScopePlugin()],
-      bothReady(),
-      "/@auth/users",
-    )
+  it("returns to the root from the scope rail", async () => {
+    renderHost([rootPlugin(), authScopePlugin()], bothReady(), "/@auth/users")
     await screen.findByText("auth users body")
+    fireEvent.click(
+      within(screen.getByRole("navigation", { name: "Scopes" })).getByRole("link", { name: "System" }),
+    )
+    expect(await screen.findByText("root overview body")).toBeTruthy()
+  })
 
-    expect(
-      within(header(container))
-        .getByRole("link", { name: "Overview" })
-        .getAttribute("href"),
-    ).toBe("/overview")
+  it("marks home in the rail on the root's own pages, with no namespace in the heading", async () => {
+    const { container } = renderHost([rootPlugin(), authScopePlugin()], bothReady(), "/overview")
+    await screen.findByText("root overview body")
+    const rail = screen.getByRole("navigation", { name: "Scopes" })
+    expect(within(rail).getByRole("link", { name: "System" }).getAttribute("aria-current")).toBe("page")
+    expect(within(header(container)).getByText("System")).toBeTruthy()
+    expect(within(header(container)).queryByText(/^@/)).toBeNull()
   })
 
   it("shows no back row at the root, and puts the root nav in the body", async () => {
@@ -1200,6 +1223,37 @@ describe("PluginHost back row", () => {
     await screen.findByText("auth users body")
 
     expect(within(header(container)).queryByRole("link")).toBeNull()
+  })
+
+  it("says a setup scope needs configuring in the pane, with a link to its setup", async () => {
+    const { container } = renderHost(
+      [rootPlugin(), authScopePlugin()],
+      capabilitiesFetch([
+        { name: "core-contract", envelopes: ["v1"], configured: true },
+        { name: "auth", envelopes: ["v1"], configured: false, message: "Set AUTH_SECRET first." },
+      ]),
+      "/@auth/users",
+    )
+    await waitFor(() =>
+      expect(within(content(container)).getByText("Set AUTH_SECRET first.")).toBeTruthy(),
+    )
+    const c = content(container)
+    expect(within(c).getByRole("link", { name: "Open setup" }).getAttribute("href")).toBe("/@auth/users")
+    expect(within(c).queryByRole("link", { name: "Users" })).toBeNull()
+  })
+
+  it("falls back to a fixed sentence when the setup scope has no message", async () => {
+    const { container } = renderHost(
+      [rootPlugin(), authScopePlugin()],
+      capabilitiesFetch([
+        { name: "core-contract", envelopes: ["v1"], configured: true },
+        { name: "auth", envelopes: ["v1"], configured: false },
+      ]),
+      "/@auth/users",
+    )
+    await waitFor(() =>
+      expect(within(content(container)).getByText("This extension needs configuring.")).toBeTruthy(),
+    )
   })
 })
 
