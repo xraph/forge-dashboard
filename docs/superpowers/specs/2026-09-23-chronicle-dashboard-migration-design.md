@@ -745,6 +745,81 @@ configuration, caught only when verification later reports every event as a
 downgrade; and a GDPR erasure in one scope destroys every other scope's data
 for the same subject ID, because encryption keys are keyed by subject alone.
 
+### Changed by the final review
+
+"Your chain, singular" holds for a tenant viewer and nobody else. An app-wide
+operator has one chain per tenant in the app, and before this change they could
+list those chains but not verify or checkpoint any of them. Verify told them
+they had no chain while the event log showed events. `verify.run`,
+`checkpoints.list`, `checkpoints.take` and `streams.mine` now take an optional
+`streamId`. Leave it empty and you get the viewer's own scope, as before. Pass
+one and the contract fetches that stream, checks the viewer owns it under the
+strict rule, and then re-resolves it by its own scope so the redis collision
+guard still runs. A tenant viewer can only ever select its own chain, and a
+foreign or garbled ID is not-found. Everything downstream uses the selected
+chain's scope, including the retention-policy count. `checkpoints.detail`
+re-resolves the stream from the checkpoint's own scope, which is how
+`verify.event` already worked. For Plan B, the verify page for an app-wide
+operator starts from `streams.list` and passes the chosen chain's ID.
+
+A tenant viewer used to get contradictory retention answers. Verify said one
+policy could purge the chain, and the policy list and preview both said none,
+because the purging policy was app-level. `retention.policies` now returns the
+app-level policies that govern the tenant as well, each row carrying
+`editable`, which is false for those. Saving or deleting one is still
+not-found for a tenant viewer. `retention.preview` still counts only what
+`retention.enforce` would purge for this viewer, since enforce runs the
+viewer's own policies, and adds `governingAppPolicies` so the dialog can say
+the scheduler also purges this tenant under app-level policies.
+
+`failedEvents` counts `failure` outcomes only, on the overview and on reports
+alike. Before, the overview counted failures plus denials, and the same key
+disagreed between two pages for the same data. `deniedEvents` is separate, and
+the page adds the two for its "failed or denied" tile.
+
+`reports.generate`, `reports.generateCustom` and `checkpoints.take` require
+`scope:chronicle.write` or `scope:chronicle.admin`. Without that, any read-only
+viewer could store reports and checkpoints under their own name. The custom
+report's title is capped at 200 characters and each section's filter lists at
+50 values. Every command in the manifest now has a `requires`, and a test
+enforces it.
+
+A report's embedded verification carries `retentionPolicies: -1`, meaning
+unknown, since nothing on the report path counts policies. Zero would claim
+that no policy can purge the chain.
+
+If `tenant_id` and `org_id` are both present and disagree, the request is
+refused. Before, `tenant_id` silently won.
+
+Every list pages the same way now. A negative limit or offset is a bad
+request, zero means the default, and each list documents its own maximum (200
+for streams and checkpoints, 1,000 for the rest).
+
+### What authsome has to produce
+
+Nothing populates claims today, so every one of these intents is denied. When
+authsome starts filling them in, these shapes decide whether the contract is
+safe:
+
+- An org-bound user must always carry `org_id`. The contract treats a missing
+  tenant key as an app-wide operator, so a user whose org claim is only written
+  while an org is selected would see every tenant in the app the moment they
+  deselect it. The safer alternative is to make app-wide access an explicit
+  grant.
+- Scopes have to be resolved for the active app only, and switching apps has to
+  check membership. `scope:chronicle.admin` matches a flat list of scopes, while
+  `app_id` follows the app switcher, so an admin in one app who can switch into
+  another would carry admin there too.
+- The environment dimension needs settling before anything is wired. Neither
+  forge's scope nor chronicle has one, so if authsome's `app_id` is per app and
+  sessions are per environment, an operator scoped to one environment reads
+  every environment's audit log.
+- Claims are plain non-empty strings, and "no org" means the key is absent.
+  `"org_id": null` locks out every app-wide operator, and a typed ID or a
+  padded string fails closed.
+- The write and admin scopes are matched as the bare names `chronicle.write`
+  and `chronicle.admin`.
+
 ### What the React plugin has to get right
 
 These came out of the Plan A reviews. In each case the contract gives an honest
