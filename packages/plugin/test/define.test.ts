@@ -396,3 +396,53 @@ describe("definePlugin duplicate nav destinations", () => {
     expect(plugin.context).toEqual([])
   })
 })
+
+describe("definePlugin sections", () => {
+  it("keeps declared sections as given", () => {
+    const p = definePlugin({
+      extension: "auth",
+      routes: [],
+      sections: [
+        { group: "Identity", icon: "I" },
+        { group: "Billing", label: "Money", icon: "B" },
+      ],
+    })
+    expect(p.sections).toEqual([
+      { group: "Identity", icon: "I" },
+      { group: "Billing", label: "Money", icon: "B" },
+    ])
+  })
+
+  it("leaves sections undefined when none are declared", () => {
+    expect(definePlugin({ extension: "vault", routes: [] }).sections).toBeUndefined()
+  })
+
+  it("refuses a section with an empty group", () => {
+    expect(() =>
+      definePlugin({ extension: "auth", routes: [], sections: [{ group: "", icon: "I" }] }),
+    ).toThrow(/needs a `group`/)
+  })
+
+  it("refuses two sections collecting the same group", () => {
+    expect(() =>
+      definePlugin({
+        extension: "auth",
+        routes: [],
+        sections: [
+          { group: "Identity", icon: "I" },
+          { group: "Identity", icon: "J" },
+        ],
+      }),
+    ).toThrow(/both collect the group "Identity"/)
+  })
+
+  it("refuses a section with no icon", () => {
+    expect(() =>
+      definePlugin({
+        extension: "auth",
+        routes: [],
+        sections: [{ group: "Identity", icon: undefined as unknown as string }],
+      }),
+    ).toThrow(/section "Identity" needs an `icon`/)
+  })
+})

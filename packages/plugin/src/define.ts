@@ -129,5 +129,25 @@ export function definePlugin(input: PluginInput): ForgePlugin {
     seenDimensions.set(dimension.id, dimension.label)
   }
 
+  const seenSections = new Set<string>()
+  for (const section of input.sections ?? []) {
+    if (!section.group) {
+      throw new Error(
+        `definePlugin: a section needs a \`group\` naming the nav group it collects (plugin "${input.extension}")`,
+      )
+    }
+    if (seenSections.has(section.group)) {
+      throw new Error(
+        `definePlugin: two sections both collect the group "${section.group}", so the rail cannot tell which one owns its items (plugin "${input.extension}")`,
+      )
+    }
+    if (section.icon === undefined || section.icon === null) {
+      throw new Error(
+        `definePlugin: section "${section.group}" needs an \`icon\`, because a narrow rail shows nothing else (plugin "${input.extension}")`,
+      )
+    }
+    seenSections.add(section.group)
+  }
+
   return { ...input, nav: input.nav ?? [], context: input.context ?? [] }
 }

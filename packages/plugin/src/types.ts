@@ -9,8 +9,10 @@ export interface PluginNavItem {
   /** Lower sorts earlier within this plugin's own group. */
   priority?: number
   icon?: ReactNode
-  /** Nested entries. Rendered expanded; the kit has no collapsible primitive. */
+  /** Nested entries rendered by the sidebar's collapsible branch. */
   children?: PluginNavItem[]
+  /** Join related ready sub-plugin links into one collapsible sidebar entry. */
+  cluster?: { label: string; icon?: ReactNode }
   /**
    * The sidebar heading this item sorts under. Items with no group render
    * first, in one unlabelled group, which is what every plugin does today.
@@ -51,6 +53,23 @@ export type PluginPageProps = {
 export interface PluginRoute {
   path: string
   element: ComponentType<PluginPageProps>
+}
+
+/**
+ * One entry in a scope's section rail.
+ *
+ * A section collects every nav item, the plugin's own and its sub-plugins',
+ * whose `group` equals `group`. Nothing else in the contract changes: items
+ * keep naming their group, and a plugin that declares no sections renders the
+ * single pane it always has.
+ */
+export interface PluginSection {
+  /** The nav `group` this section collects. Matches `PluginNavItem.group` exactly. */
+  group: string
+  /** Rail and heading label. Defaults to `group`. */
+  label?: string
+  /** Required: a narrow rail shows nothing else. */
+  icon: ReactNode
 }
 
 export interface ForgePlugin {
@@ -99,6 +118,12 @@ export interface ForgePlugin {
   setup?: ComponentType<{ message?: string }>
   /** Scope-wide selectors rendered in the sidebar. Most plugins declare none. */
   context: ContextDimension[]
+  /**
+   * Sections for a rail beside the pane, in rail order. Omit it and the scope
+   * gets no rail. Items whose group no section names land in a trailing
+   * "More" section, so none disappear.
+   */
+  sections?: PluginSection[]
 }
 
 /** What an author passes to definePlugin. nav is optional; the rest mirrors ForgePlugin. */
@@ -201,10 +226,11 @@ export interface ContextDimension {
   routed?: RoutedContext
 }
 
-/** The six places a sub-plugin can push UI into a host plugin's pages. */
+/** Places a sub-plugin can add UI to a host plugin's pages. */
 export const SLOT_NAMES = [
   "overview.widgets",
   "user.detail.sections",
+  "org.detail.summary",
   "org.detail.sections",
   "org.detail.tabs",
   "org.create.fields",
@@ -222,7 +248,8 @@ export interface SlotContribution {
   label?: string
   /**
    * Receives the slot's params: `{ userId }` for user.detail.sections,
-   * `{ orgId }` for the org slots, nothing for the rest.
+   * `{ orgId }` for the org slots. The organization summary also receives
+   * `onOpenTab` with a contributed tab key such as `subscription:billing`.
    *
    * Typed loosely on purpose, and this is the one place in the platform that
    * is. `PluginSlot` spreads params a contribution declares for itself, so a
