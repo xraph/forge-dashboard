@@ -1,5 +1,7 @@
 # Scope Rail Sidebar Implementation Plan
 
+> **Superseded** by `2026-09-29-section-rail.md` after Task 6. Tasks 7 to 9 were not run; the section-rail plan reworks what Tasks 1 to 6 committed.
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Replace the sidebar's scope dropdown with an icon rail of scopes beside a pane that holds the active scope's context switchers and nav, so every scope is one click away and authsome's 35 entries get a full column.
