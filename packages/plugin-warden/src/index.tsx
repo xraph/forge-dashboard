@@ -2,6 +2,7 @@ import { definePlugin } from "@forge-go/dashboard-plugin"
 import {
   HouseIcon,
   KeyIcon,
+  LayersIcon,
   LinkIcon,
   SettingsIcon,
   UserCogIcon,
@@ -12,6 +13,8 @@ import { WardenConfigPage } from "./pages/config"
 import { WardenOverviewPage } from "./pages/overview"
 import { WardenPermissionsPage } from "./pages/permissions"
 import { WardenRelationsPage } from "./pages/relations"
+import { WardenResourceTypeDetailPage } from "./pages/resource-type-detail"
+import { WardenResourceTypesPage } from "./pages/resource-types"
 import { WardenRoleDetailPage } from "./pages/role-detail"
 import { WardenRolesPage } from "./pages/roles"
 
@@ -22,12 +25,21 @@ export type { RoleSummary, RolesList, AckResponse } from "./pages/roles"
 export type { RoleDetail, PermissionSummary } from "./pages/role-detail"
 export type { PermissionsList } from "./pages/permissions"
 export type { RelationSummary, RelationsList } from "./pages/relations"
+export type { ResourceTypeSummary, ResourceTypesList } from "./pages/resource-types"
+export type {
+  ExpressionDiagnostic,
+  PermissionDef,
+  RelationDef,
+  ResourceTypeDetail,
+} from "./pages/resource-type-detail"
 export {
   WardenAssignmentsPage,
   WardenConfigPage,
   WardenOverviewPage,
   WardenPermissionsPage,
   WardenRelationsPage,
+  WardenResourceTypeDetailPage,
+  WardenResourceTypesPage,
   WardenRolesPage,
   WardenRoleDetailPage,
 }
@@ -86,6 +98,13 @@ export const wardenPlugin = definePlugin({
       group: "Authorization",
     },
     {
+      label: "Resource types",
+      to: "/resource-types",
+      priority: 10,
+      icon: <LayersIcon />,
+      group: "Relationships",
+    },
+    {
       label: "Relations",
       to: "/relations",
       priority: 20,
@@ -109,6 +128,10 @@ export const wardenPlugin = definePlugin({
     { path: "/permissions", element: WardenPermissionsPage },
     { path: "/assignments", element: WardenAssignmentsPage },
     { path: "/relations", element: WardenRelationsPage },
+    { path: "/resource-types", element: WardenResourceTypesPage },
+    // No nav entry: a sidebar link to "a resource type" with none chosen
+    // points nowhere. This route is reached only from a row's Details link.
+    { path: "/resource-types/:id", element: WardenResourceTypeDetailPage },
     { path: "/config", element: WardenConfigPage },
   ],
 })

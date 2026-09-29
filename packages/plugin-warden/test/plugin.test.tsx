@@ -77,4 +77,19 @@ describe("wardenPlugin", () => {
       group: "Relationships",
     })
   })
+
+  it("puts Resource types in Relationships ahead of Relations, with no nav entry for the detail page", () => {
+    const nav = wardenPlugin.nav ?? []
+    const at = (label: string) => nav.find((n) => n.label === label)
+    expect(at("Resource types")).toMatchObject({
+      to: "/resource-types",
+      priority: 10,
+      group: "Relationships",
+    })
+    expect(at("Resource types")?.priority).toBeLessThan(at("Relations")?.priority ?? 0)
+    // The detail route exists, but a sidebar link to "a resource type" with
+    // none chosen would point nowhere.
+    expect(wardenPlugin.routes.map((r) => r.path)).toContain("/resource-types/:id")
+    expect(nav.map((n) => n.to)).not.toContain("/resource-types/:id")
+  })
 })
