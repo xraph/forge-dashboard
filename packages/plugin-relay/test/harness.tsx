@@ -187,3 +187,58 @@ export function commandPendingClient(
     command: () => new Promise<never>(() => {}),
   } as ScopedClient
 }
+
+type Answer = ((input: Record<string, unknown>) => unknown) | object
+
+/**
+ * Queries and commands both answered by intent, each answer either a value
+ * or a function of the call's input. An answer that is (or returns) a
+ * ContractError is thrown, which is the only way a command's failure path
+ * runs: execute() resolves undefined on a throw, never on a resolved value.
+ * Every call is recorded in order.
+ */
+export function scriptedClient(
+  queries: Record<string, Answer>,
+  commands: Record<string, Answer> = {}
+): {
+  client: ScopedClient
+  queried: { intent: string; params: Record<string, unknown> }[]
+  sent: { intent: string; payload: unknown }[]
+} {
+  const queried: { intent: string; params: Record<string, unknown> }[] = []
+  const sent: { intent: string; payload: unknown }[] = []
+  const answer = (
+    table: Record<string, Answer>,
+    intent: string,
+    input: Record<string, unknown>
+  ) => {
+    if (!(intent in table))
+      throw new ContractError("NOT_FOUND", `no handler for "${intent}"`)
+    const a = table[intent]
+    const out =
+      typeof a === "function"
+        ? (a as (i: Record<string, unknown>) => unknown)(input)
+        : a
+    if (out instanceof ContractError) throw out
+    return out
+  }
+  return {
+    queried,
+    sent,
+    client: {
+      extension: "relay",
+      query: async (intent: string, params?: Record<string, unknown>) => {
+        queried.push({ intent, params: params ?? {} })
+        return answer(queries, intent, params ?? {})
+      },
+      command: async (intent: string, payload?: unknown) => {
+        sent.push({ intent, payload })
+        return answer(
+          commands,
+          intent,
+          (payload ?? {}) as Record<string, unknown>
+        )
+      },
+    } as ScopedClient,
+  }
+}

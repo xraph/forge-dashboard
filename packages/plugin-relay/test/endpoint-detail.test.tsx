@@ -10,10 +10,15 @@ import {
   commandPendingClient,
   recordingCommandClient,
   renderPage,
+  scriptedClient,
   stubClient,
 } from "./harness"
 
 const ID = "ep_01hq2k3m4n5p6q7r8s9t0v1w2x"
+
+// The recent deliveries section's own query. Answered empty so every test
+// here renders the whole page, as the server would.
+const recent = { "deliveries.list": { deliveries: [], complete: true } }
 
 function detail(over: Partial<EndpointDetail> = {}): EndpointDetail {
   return {
@@ -51,7 +56,7 @@ describe("RelayEndpointDetailPage", () => {
   it("shows the endpoint's fields", async () => {
     renderPage(
       RelayEndpointDetailPage,
-      stubClient({ "endpoints.detail": detail() }),
+      stubClient({ ...recent, "endpoints.detail": detail() }),
       { id: ID }
     )
     expect(await screen.findByText("customer.created")).toBeDefined()
@@ -61,7 +66,7 @@ describe("RelayEndpointDetailPage", () => {
   it("flags a missing signing secret", async () => {
     renderPage(
       RelayEndpointDetailPage,
-      stubClient({ "endpoints.detail": detail({ signed: false }) }),
+      stubClient({ ...recent, "endpoints.detail": detail({ signed: false }) }),
       { id: ID }
     )
     expect(
@@ -72,7 +77,7 @@ describe("RelayEndpointDetailPage", () => {
   // Disabling is reversible, so it fires straight away, with no dialog.
   it("disables an endpoint without asking", async () => {
     const { client, sent } = recordingCommandClient(
-      { "endpoints.detail": detail() },
+      { ...recent, "endpoints.detail": detail() },
       { "endpoints.setEnabled": { ok: true } }
     )
     renderPage(RelayEndpointDetailPage, client, { id: ID })
@@ -88,7 +93,7 @@ describe("RelayEndpointDetailPage", () => {
   // The server returns the new secret once and never again.
   it("shows a rotated secret once, and says it will not be shown again", async () => {
     const { client, sent } = recordingCommandClient(
-      { "endpoints.detail": detail() },
+      { ...recent, "endpoints.detail": detail() },
       { "endpoints.rotateSecret": { id: ID, secret: "whsec_brandnew" } }
     )
     renderPage(RelayEndpointDetailPage, client, { id: ID })
@@ -111,7 +116,7 @@ describe("RelayEndpointDetailPage", () => {
     renderPage(
       RelayEndpointDetailPage,
       commandFailingClient(
-        { "endpoints.detail": detail() },
+        { ...recent, "endpoints.detail": detail() },
         new ContractError("INTERNAL", "store unavailable")
       ),
       { id: ID }
@@ -130,7 +135,7 @@ describe("RelayEndpointDetailPage", () => {
     renderPage(
       RelayEndpointDetailPage,
       commandFailingClient(
-        { "endpoints.detail": detail() },
+        { ...recent, "endpoints.detail": detail() },
         new ContractError("INTERNAL", "store unavailable")
       ),
       { id: ID }
@@ -153,7 +158,7 @@ describe("RelayEndpointDetailPage", () => {
   it("disables the confirm button while a rotate is in flight", async () => {
     renderPage(
       RelayEndpointDetailPage,
-      commandPendingClient({ "endpoints.detail": detail() }),
+      commandPendingClient({ ...recent, "endpoints.detail": detail() }),
       { id: ID }
     )
     fireEvent.click(
@@ -177,7 +182,7 @@ describe("RelayEndpointDetailPage", () => {
   // store that its endpoint is gone. It has to leave on its own.
   it("leaves for the list once the endpoint is deleted", async () => {
     const { client, sent } = recordingCommandClient(
-      { "endpoints.detail": detail() },
+      { ...recent, "endpoints.detail": detail() },
       { "endpoints.delete": { ok: true, id: ID } }
     )
     renderPage(RelayEndpointDetailPage, client, { id: ID })
@@ -199,7 +204,7 @@ describe("RelayEndpointDetailPage", () => {
     renderPage(
       RelayEndpointDetailPage,
       commandFailingClient(
-        { "endpoints.detail": detail() },
+        { ...recent, "endpoints.detail": detail() },
         new ContractError("INTERNAL", "delete refused")
       ),
       { id: ID }
@@ -217,7 +222,7 @@ describe("RelayEndpointDetailPage", () => {
     renderPage(
       RelayEndpointDetailPage,
       commandFailingClient(
-        { "endpoints.detail": detail() },
+        { ...recent, "endpoints.detail": detail() },
         new ContractError("INTERNAL", "delete refused")
       ),
       { id: ID }
@@ -243,6 +248,7 @@ describe("RelayEndpointDetailPage editing", () => {
   it("opens the fields for editing with what is stored, and sends every field back", async () => {
     const { client, sent } = recordingCommandClient(
       {
+        ...recent,
         "endpoints.detail": detail({
           rateLimit: 5,
           headers: { "X-Env": "prod" },
@@ -292,6 +298,7 @@ describe("RelayEndpointDetailPage editing", () => {
   it("sends a cleared field as empty, so the server clears it", async () => {
     const { client, sent } = recordingCommandClient(
       {
+        ...recent,
         "endpoints.detail": detail({
           rateLimit: 5,
           headers: { "X-Env": "prod" },
@@ -317,7 +324,7 @@ describe("RelayEndpointDetailPage editing", () => {
     renderPage(
       RelayEndpointDetailPage,
       commandFailingClient(
-        { "endpoints.detail": detail() },
+        { ...recent, "endpoints.detail": detail() },
         new ContractError("BAD_REQUEST", "URL: invalid URL")
       ),
       { id: ID }
@@ -334,7 +341,7 @@ describe("RelayEndpointDetailPage editing", () => {
     renderPage(
       RelayEndpointDetailPage,
       commandFailingClient(
-        { "endpoints.detail": detail() },
+        { ...recent, "endpoints.detail": detail() },
         new ContractError("BAD_REQUEST", "URL: invalid URL")
       ),
       { id: ID }
@@ -350,7 +357,7 @@ describe("RelayEndpointDetailPage editing", () => {
   it("drops the edits on cancel", async () => {
     renderPage(
       RelayEndpointDetailPage,
-      stubClient({ "endpoints.detail": detail() }),
+      stubClient({ ...recent, "endpoints.detail": detail() }),
       { id: ID }
     )
     fireEvent.click(await screen.findByRole("button", { name: "Edit" }))
@@ -362,5 +369,46 @@ describe("RelayEndpointDetailPage editing", () => {
     expect(
       (screen.getByLabelText("Description") as HTMLInputElement).value
     ).toBe("Production receiver")
+  })
+})
+
+describe("RelayEndpointDetailPage recent deliveries", () => {
+  it("lists this endpoint's latest deliveries, asking for them by endpoint", async () => {
+    const { client, queried } = scriptedClient({
+      "endpoints.detail": detail(),
+      "deliveries.list": {
+        complete: true,
+        deliveries: [
+          {
+            id: "del_1",
+            eventId: "evt_1",
+            endpointId: ID,
+            endpointUrl: "https://acme.example/webhooks/relay",
+            eventType: "invoice.paid",
+            tenantId: "acme",
+            state: "failed",
+            attemptCount: 5,
+            maxAttempts: 5,
+            nextAttemptAt: "2026-09-29T10:00:00Z",
+            lastStatusCode: 500,
+            lastLatencyMs: 90,
+            createdAt: "2026-09-29T10:00:00Z",
+            updatedAt: "2026-09-29T10:00:00Z",
+          },
+        ],
+      },
+    })
+    renderPage(RelayEndpointDetailPage, client, { id: ID })
+    const section = await screen.findByRole("region", {
+      name: "Recent deliveries",
+    })
+    await within(section).findByText("Failed")
+    expect(queried.find((q) => q.intent === "deliveries.list")?.params).toEqual(
+      { endpointId: ID, limit: 20 }
+    )
+    // The endpoint's own URL is the page; the table leaves it out.
+    expect(
+      within(section).queryByText("https://acme.example/webhooks/relay")
+    ).toBeNull()
   })
 })

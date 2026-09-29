@@ -17,6 +17,8 @@ import {
 import { TagList } from "@forge-go/dashboard-kit/components/tag-list"
 import { Timestamp } from "@forge-go/dashboard-kit/components/timestamp"
 import type { EndpointSummary } from "./endpoints"
+import { DialogError } from "../components/dialog-error"
+import { RecentDeliveries } from "../components/recent-deliveries"
 import {
   EndpointForm,
   pairsToText,
@@ -57,22 +59,6 @@ function formValues(ep: EndpointDetail): EndpointFormValues {
 
 function pairs(m?: Record<string, string>): string[] {
   return Object.entries(m ?? {}).map(([k, v]) => `${k}: ${v}`)
-}
-
-/** An error rendered inside a dialog. A <span>: the description is a <p>. */
-function DialogError({
-  what,
-  error,
-}: {
-  what: string
-  error?: { message: string; code: string }
-}) {
-  if (!error) return null
-  return (
-    <span role="alert" className="mt-2 block font-medium text-destructive">
-      Could not {what}: {error.message} ({error.code})
-    </span>
-  )
 }
 
 export function RelayEndpointDetailPage({ params }: PluginPageProps) {
@@ -327,6 +313,7 @@ function EndpointDetailView({ id }: { id: string }) {
           </>
         )}
       </QueryBoundary>
+      <RecentDeliveries endpointId={id} />
 
       <ConfirmDialog
         open={confirming === "rotate"}
