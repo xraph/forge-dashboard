@@ -207,7 +207,9 @@ function SecretDetailBody({ secretKey }: { secretKey: string }) {
           )}
           <ConfirmDialog
             open={deleting}
-            onOpenChange={(open) => !open && setDeleting(false)}
+            // Escape must not close it while the delete is in flight: a
+            // failure would then be shown nowhere.
+            onOpenChange={(open) => !open && !remove.loading && setDeleting(false)}
             title={`Delete ${secretKey}?`}
             description={
               <span className="flex flex-col gap-2">
@@ -339,9 +341,15 @@ function RotationPane({
               { term: "Rotator", value: <RotatorBadge rotatable={policy.rotatable} /> },
               {
                 term: "Next rotation",
-                // The server omits it for a disabled policy, so this shows
-                // "none" rather than a time that will not happen.
-                value: <Timestamp value={policy.nextRotationAt} label="next rotation" />,
+                // The server omits it for a disabled policy, but a disabled
+                // policy never rotates, so do not depend on that: show "none"
+                // rather than a time that will not happen.
+                value: (
+                  <Timestamp
+                    value={policy.enabled ? policy.nextRotationAt : undefined}
+                    label="next rotation"
+                  />
+                ),
               },
             ]}
           />
@@ -437,7 +445,9 @@ function ReplaceDialog({
   }
 
   return (
-    <Dialog open onOpenChange={(open) => !open && onClose()}>
+    // Escape and the X go through here too, so guard them, not just Cancel:
+    // closing mid-update would unmount the dialog and hide a failure.
+    <Dialog open onOpenChange={(open) => !open && !update.loading && onClose()}>
       <DialogContent>
         <form onSubmit={(e) => void submit(e)} className="flex flex-col gap-4">
           <DialogHeader>

@@ -307,6 +307,19 @@ describe("SecretDetailPage rotation pane", () => {
   })
 })
 
+describe("SecretDetailPage rotation pane, untrusted server", () => {
+  it("shows no next-rotation time for a disabled policy even if the payload carries one", async () => {
+    renderDetail(
+      harness({
+        ...DETAIL,
+        rotation: { ...POLICY, enabled: false, nextRotationAt: "2026-10-01T04:00:00Z" },
+      }).client
+    )
+    await screen.findByText("Disabled")
+    expect(screen.getByLabelText("no next rotation")).toBeTruthy()
+  })
+})
+
 describe("SecretDetailPage recent activity", () => {
   it("lists the recent audit entries", async () => {
     renderDetail(
@@ -478,6 +491,56 @@ describe("SecretDetailPage replace value", () => {
         (within(dialog).getByRole("button", { name: /Replacing/ }) as HTMLButtonElement).disabled
       ).toBe(true)
     )
+  })
+})
+
+describe("SecretDetailPage dialogs stay open while their command runs", () => {
+  function neverSettles(): ScopedClient {
+    return {
+      ...harness().client,
+      command: () => new Promise<never>(() => {}),
+    } as ScopedClient
+  }
+
+  it("keeps the replace dialog open on Escape and on the close button while pending", async () => {
+    renderDetail(neverSettles())
+    const dialog = await openReplace()
+    fireEvent.change(valueInput(), { target: { value: CANARY } })
+    fireEvent.click(submitInDialog(dialog))
+    await within(dialog).findByRole("button", { name: /Replacing/ })
+    fireEvent.keyDown(dialog, { key: "Escape" })
+    fireEvent.keyDown(document.body, { key: "Escape" })
+    fireEvent.click(within(dialog).getByRole("button", { name: "Close" }))
+    await new Promise((r) => setTimeout(r, 20))
+    expect(screen.queryByRole("dialog")).toBeTruthy()
+    expect(valueInput().value).toBe(CANARY)
+  })
+
+  it("still closes the replace dialog on Escape when nothing is pending", async () => {
+    renderDetail(harness(DETAIL, { "secrets.update": UPDATED }).client)
+    const dialog = await openReplace()
+    fireEvent.keyDown(dialog, { key: "Escape" })
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull())
+  })
+
+  it("keeps the delete dialog open on Escape while pending", async () => {
+    renderDetail(neverSettles())
+    fireEvent.click(await screen.findByRole("button", { name: "Delete" }))
+    const dialog = await screen.findByRole("alertdialog")
+    fireEvent.click(within(dialog).getByRole("button", { name: "Delete" }))
+    await within(dialog).findByRole("button", { name: /Working/ })
+    fireEvent.keyDown(dialog, { key: "Escape" })
+    fireEvent.keyDown(document.body, { key: "Escape" })
+    await new Promise((r) => setTimeout(r, 20))
+    expect(screen.queryByRole("alertdialog")).toBeTruthy()
+  })
+
+  it("still closes the delete dialog on Escape when nothing is pending", async () => {
+    renderDetail(harness().client)
+    fireEvent.click(await screen.findByRole("button", { name: "Delete" }))
+    const dialog = await screen.findByRole("alertdialog")
+    fireEvent.keyDown(dialog, { key: "Escape" })
+    await waitFor(() => expect(screen.queryByRole("alertdialog")).toBeNull())
   })
 })
 
