@@ -35,6 +35,19 @@ export interface NavGroup {
   items: NavNode[]
 }
 
+/**
+ * One entry in a scope's section rail and the pane it opens. The host builds
+ * these; the kit only draws them. `href` is the section's first page, which
+ * is where clicking the rail entry goes.
+ */
+export interface NavSection {
+  id: string
+  label: string
+  icon: ReactNode
+  href: string
+  groups: NavGroup[]
+}
+
 export interface NavTreeProps {
   groups: NavGroup[]
   /** Pathname only, without the search string. */
