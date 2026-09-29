@@ -628,6 +628,25 @@ External anchoring, because `LevelAnchored` is in the enum and nothing emits it;
 the coverage ladder renders it as an unreached level rather than pretending it
 does not exist.
 
+Also deliberately not exposed: `compliance.ReportStore.DeleteReport`. Deleting
+compliance evidence shouldn't be one click in a dashboard, and neither the HTTP
+API nor the templ dashboard ever offered it, so record it as a choice and not
+an oversight. `erasures.request` is held until the library scopes its keys (see
+the amendments below). The templ dashboard never offered an erasure request
+either, so nothing regresses.
+
+**Bugs the templ dashboard had, closed by the migration.** Record these as
+fixed in passing, so nobody reads their absence as a lost feature:
+
+- `renderErasureDetail` did no scope check at all, unlike every other detail
+  renderer in `contributor.go`. `erasures.detail` checks ownership.
+- Detail pages let a tenant viewer open app-level records by ID that its own
+  lists hid. Strict ownership closes that.
+- The retention page fired enforcement from a bare query-param link, with no
+  preview and no confirmation, and it accepted any duration including zero.
+- On every sqlite deployment the overview's critical and failed counts read 0,
+  because a filter error was swallowed as a zero count.
+
 **New, not migrated.** Checkpoints as a surface, the coverage ceiling, both
 destructive-action previews, report export, custom reports, per-event
 verification, aggregation, by-user, and the three `Report` fields the templ
@@ -725,6 +744,45 @@ outside the extension, silently writes plain digests under an HMAC
 configuration, caught only when verification later reports every event as a
 downgrade; and a GDPR erasure in one scope destroys every other scope's data
 for the same subject ID, because encryption keys are keyed by subject alone.
+
+### What the React plugin has to get right
+
+These came out of the Plan A reviews. In each case the contract gives an honest
+answer that a careless page could still turn into a misleading one.
+
+- `retention.enforce` can come back with `failed: true` and non-zero purged
+  counts. That's a run that stopped part-way, so render it that way, never as
+  success. `moreRemain` means "run it again".
+- When `verify.run` reports `retentionPolicies` above zero, the verdict has to
+  say that gaps and tampered sequences may be authorised retention purges,
+  which chronicle can't currently tell apart from deletion. A value of -1 means
+  nobody knows, and the page says unknown. The enforce confirm dialog says the
+  same thing from the other side: once you enforce, verification will report
+  the purged events as gaps and the events after them as tampered.
+- Preview counts are "eligible", not "will be deleted". One enforce pass purges
+  at most 5,000 events per policy, while the preview counts up to 10,000.
+- A category of `*` means every category. It isn't a default, and a short
+  wildcard overrides a longer specific policy for its category. The policy page
+  spells that out.
+- A policy an app-wide operator saves has no tenant, and it purges every tenant
+  in the app. The save form and the policy row both say so.
+- A report whose verification is null says "this report contains no integrity
+  verification". Don't drop the section silently. Today that's every report,
+  because the library never fills the field in.
+- The HTML export goes out as a download or inside a sandboxed iframe, never
+  injected into the page. `html/template` already escapes it; this is defence in
+  depth.
+- The markdown export doesn't escape event fields, so a `|` in an action or a
+  resource breaks the table, and markup in one gets rendered. Offer it as a
+  download or show it as plain text. Never render it as markdown.
+
+Plan B also has a precondition that has nothing to do with the contract.
+forge-dashboard's HEAD doesn't build on its own, because the working tree
+imports files that were never committed (two fixture-server modules and four kit
+components, one of which `plugin-authsome` needs for its brand mark). A worktree
+cut from HEAD would be a broken checkout. Either that foundation gets committed
+before Plan B starts, or Plan B runs in the shared tree and lives with the risk
+of colliding with the other sessions working there.
 
 ## Testing
 
