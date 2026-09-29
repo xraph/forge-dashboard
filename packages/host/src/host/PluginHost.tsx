@@ -277,6 +277,21 @@ export function navGroups(
 export const MORE_SECTION = "__more"
 
 /**
+ * A headed group already names its items, so a cluster that every item shares
+ * would only repeat the heading one level down. Drop it and let the items sit
+ * as plain rows. Mixed or partial clusters are left for foldClusters.
+ */
+function withoutRepeatedCluster(items: PluginNavItem[]): PluginNavItem[] {
+  const label = items[0]?.cluster?.label
+  if (label === undefined || !items.every((item) => item.cluster?.label === label)) return items
+  return items.map((item) => {
+    const plain = { ...item }
+    delete plain.cluster
+    return plain
+  })
+}
+
+/**
  * A scope's sections, for the rail beside its pane. Empty for a plugin that
  * declares none, which is what keeps every other scope rendering the single
  * pane it always has.
@@ -325,7 +340,7 @@ export function navSections(
         headed.push({
           label: sub.label ?? sub.extension,
           contributed: true,
-          items: toNodes(plugin, foldClusters(items), segment),
+          items: toNodes(plugin, foldClusters(withoutRepeatedCluster(items)), segment),
         })
       }
     }

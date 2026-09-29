@@ -86,6 +86,42 @@ describe("navSections", () => {
     expect(section.href).toBe("/@auth/plans")
   })
 
+  it("drops a cluster that only repeats the sub-plugin heading", () => {
+    const shared = defineSubPlugin({
+      extension: "subscription",
+      host: "auth",
+      label: "Plans",
+      nav: [
+        { label: "Plans", to: "/plans", group: "Billing", priority: 1, cluster: { label: "Billing" } },
+        { label: "Invoices", to: "/invoices", group: "Billing", priority: 2, cluster: { label: "Billing" } },
+      ],
+      routes: [],
+    })
+    const section = navSections(auth, [shared]).find((s) => s.id === "Billing")!
+    expect(section.groups[0].label).toBe("Plans")
+    expect(section.groups[0].items.map((i) => i.label)).toEqual(["Plans", "Invoices"])
+    expect(section.groups[0].items.every((i) => i.children === undefined)).toBe(true)
+    expect(section.href).toBe("/@auth/plans")
+  })
+
+  it("still folds a headed group whose items sit in different clusters", () => {
+    const mixed = defineSubPlugin({
+      extension: "mixed",
+      host: "auth",
+      label: "Mixed",
+      nav: [
+        { label: "One", to: "/one", group: "Billing", priority: 1, cluster: { label: "A" } },
+        { label: "Two", to: "/two", group: "Billing", priority: 2, cluster: { label: "A" } },
+        { label: "Three", to: "/three", group: "Billing", priority: 3, cluster: { label: "B" } },
+      ],
+      routes: [],
+    })
+    const section = navSections(auth, [mixed]).find((s) => s.id === "Billing")!
+    const folded = section.groups[0].items[0]
+    expect(folded.label).toBe("A")
+    expect(folded.children?.map((c) => c.label)).toEqual(["One", "Two"])
+  })
+
   it("falls back to the sub-plugin's extension when it has no label", () => {
     const unlabelled = defineSubPlugin({
       extension: "ledger",

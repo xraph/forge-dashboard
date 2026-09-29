@@ -99,7 +99,9 @@ For each declared section, in declared order:
    existing `foldClusters` and `toNodes`, so "Threat detection" and the other
    clusters fold exactly as they do today. It is the first group, unlabelled.
 4. The headed sub-plugin groups follow, in the order the sub-plugins were
-   passed, each through `foldClusters` and `toNodes` as well.
+   passed, each through `foldClusters` and `toNodes` as well. When every item
+   in a headed group shares one cluster, the heading already groups them, so
+   the cluster is dropped and the items render as plain rows.
 5. `href` is the first node's `href`, or its first child's when the first node
    is a folded cluster. A section with no items is dropped.
 
