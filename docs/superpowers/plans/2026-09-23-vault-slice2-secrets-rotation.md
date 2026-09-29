@@ -226,7 +226,7 @@ Every page mirrors `packages/plugin-warden/src/pages/*.tsx` for structure, uses 
 
 **Create** `packages/plugin-vault` as a copy of `plugin-warden`'s layout: `package.json` (name `@forge-go/dashboard-plugin-vault`, same scripts and deps), `tsconfig.json`, `vitest.config.ts`, `eslint.config.js`, `src/index.tsx`, `src/badges.ts`, `test/harness.tsx`, `test/plugin.test.tsx`. Register in `apps/shell/package.json` and `apps/shell/src/App.tsx` exactly as warden is. Run `pnpm install`.
 
-`definePlugin({ extension: "vault", namespace: "vault", label: "Vault", nav, routes })`. Nav, group "Secrets": Secrets `/secrets` (priority 0), Rotation `/rotation` (priority 10). Routes: `/` and `/secrets` both render the secrets list for now (the overview replaces `/` in slice 5), `/secrets/new`, `/secrets/:key`, `/rotation`, `/rotation/:key`. Pages in this task are placeholders exporting a component that renders a PageHeader, so the routes typecheck; later tasks replace them.
+`definePlugin({ extension: "vault", namespace: "vault", label: "Vault", nav, routes })`. Nav, group "Secrets": Secrets `/secrets` (priority 0), Rotation `/rotation` (priority 10). Routes: `/` and `/secrets` both render the secrets list for now (the overview replaces `/` in slice 5), `/new-secret`, `/secrets/:key`, `/rotation`, `/rotation/:key`. Pages in this task are placeholders exporting a component that renders a PageHeader, so the routes typecheck; later tasks replace them.
 
 `src/badges.ts` exports `EncryptionBadge({ alg })`, `PolicyStatusBadge({ enabled })`, `RotatorBadge({ rotatable })`, each returning a kit `Badge` per the mapping above.
 
@@ -242,7 +242,7 @@ Commit: `feat(plugin-vault): scaffold the vault plugin`.
 
 `useQuery<SecretsList>("secrets.list", { limit: 25, offset })` with `offset` in component state, driven by `ResourceTable`'s `pagination` / `onPageChange` (page is one-based; offset = (page - 1) * 25).
 
-PageHeader "Secrets", description "Values are write-only: you can set and replace them here, never read them back.", action a `PluginLink` button "New secret" to `/secrets/new`.
+PageHeader "Secrets", description "Values are write-only: you can set and replace them here, never read them back.", action a `PluginLink` button "New secret" to `/new-secret`.
 
 Columns: Key (`font-mono text-xs font-medium`, a `PluginLink` to `secretPath(key)`), Encryption (`EncryptionBadge`), Version (`v{n}`, `font-mono text-xs`), Expires (`Timestamp` label "expiry"), Updated (`Timestamp` label "update"). Caption: `{total} secret(s)`, the live total including zero. Empty: `emptyMessage` "No secrets yet." with the New secret action.
 

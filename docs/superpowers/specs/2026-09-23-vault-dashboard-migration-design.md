@@ -407,7 +407,7 @@ use `useQuery`, writes use `useCommand`, and refreshes happen only through
 |---|---|---|
 | Overview | `/` | stat grid, recent audit |
 | Secrets | `/secrets` | list |
-| | `/secrets/new` | create |
+| | `/new-secret` | create |
 | | `/secrets/:key` | timeline detail |
 | | `/rotation` | policy list |
 | | `/rotation/:key` | policy detail and records |
