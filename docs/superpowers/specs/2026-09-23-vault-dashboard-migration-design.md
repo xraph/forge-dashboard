@@ -582,6 +582,13 @@ Recorded here so they are not lost between now and step 1.
 - `when_tenant_tag` and `custom` rules. The engine returns false for both. They
   are displayed where data contains them and cannot be created.
 
+- `secrets.setExpiry`. Nothing in the store or the service changes an expiry
+  without rewriting the value, and the server can't read the value back under
+  the write-only decision. Expiry is set on create and changed on update.
+- The key filter on the secrets list. The templ page filtered the first 100
+  rows after reading them and reported that as a complete search. A real
+  filter needs a store filter across four backends.
+
 **Bugs found, not migrated**
 
 - Secret create writes an empty encrypted value and a zero ID. The contract
@@ -589,6 +596,13 @@ Recorded here so they are not lost between now and step 1.
 - The audit log was never written. Wiring `audit.Logger` into
   `secret.Service`'s existing `WithOnAccess` and `WithOnMutate` hooks fixes it,
   which turns four previously dead read surfaces live.
+- Scheduled rotation never ran. Nothing started `rotation.Manager`'s loop, so
+  the "next rotation" the templ page showed never happened.
+- Every update and every rotation erased the secret's expiry and metadata,
+  because `Set` builds a fresh row and the backends upsert both columns from
+  it.
+- A policy saved from the dashboard never fell due: `NextRotationAt` was only
+  ever set after a rotation.
 
 ## Testing
 
@@ -694,3 +708,63 @@ rows. `secret.Meta.EncryptionAlg` reports each row's own state, and empty means
 not encrypted. `Secrets().Get` reads correctly whatever key a row was written
 with, and an encrypted row read with no key is an error rather than an empty
 value.
+
+## What slice 2 found that slice 3 must know
+
+Slice 2 shipped secrets and rotation end to end: eleven intents in
+`vault/extension/contract` and `packages/plugin-vault` with five pages, plus
+fixture handlers. On vault's `main` it runs from `fa3f84f` to `bffe17f`,
+not pushed.
+
+### Things that changed underneath you
+
+Vault is on forge v1.11.2. On v1.10.0 the transport never passed a manifest's
+`invalidates` on to the client, so no write refreshed any page against a real
+server; the fixture hid it because it builds meta itself. Every new command
+declares its `invalidates` in `manifest.yaml`, and
+`extension/contract/transport_test.go` shows how to prove it through forge's
+real HTTP handler.
+
+The extension starts the rotation loop, on every replica. Before rotating, the
+loop claims a due policy through `Store.ClaimDueRotation`, which moves its due
+time forward by a five-minute lease, so only one replica rotates it. A replica
+with no rotator for a key never claims it. A failed rotation retries when the
+lease runs out, not every minute, and meanwhile the policy shows a due time in
+the future instead of looking overdue. The overview in slice 5 is where that
+failure should become visible.
+
+The sqlite store now normalises every time to UTC before writing (`fe26706`,
+from a separate session). Handlers still build their own times with
+`.UTC()`, which costs nothing.
+
+### Patterns to reuse
+
+Handlers map errors through `deps.mapError(intent, err)`. It logs the
+`INTERNAL` case on the server with the intent name and still sends the client
+only a generic message. Don't call the package-level `mapError` from a handler.
+
+On the React side, three rules came out of review and apply to every surface
+you build:
+
+- Any input that holds a secret value is uncontrolled. react-dom 19 reflects a
+  controlled input's value into the HTML `value` attribute, password fields
+  included, so the plaintext lands in `outerHTML`.
+- A dialog running a command can't close while that command is pending,
+  otherwise a failure that arrives later is shown nowhere.
+- A create page lives at its own top-level route (`/new-secret`), never
+  `/<list>/new`, because a key can literally be called "new".
+
+The fixture models a keyed vault and uses Go's own audit action strings. Keep
+it that way: every write in the fixture has to change the next read the way
+the server does, and `verify.mjs` checks that it does.
+
+### Still open
+
+A dashboard save of a rotation policy is a read, then a full-row write. If
+you save within milliseconds of a replica claiming that policy, the save can
+put the old due time back and cause one repeat rotation. A compare-and-set
+save on `updated_at` would close it.
+
+Two creates of the same key can both pass the existence check. Memory and
+sqlite then quietly add a version 2, and postgres answers `INTERNAL` on its
+unique constraint, so the `CONFLICT` promise is best effort.
