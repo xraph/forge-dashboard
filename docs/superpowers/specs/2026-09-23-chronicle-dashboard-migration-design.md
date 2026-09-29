@@ -628,6 +628,25 @@ External anchoring, because `LevelAnchored` is in the enum and nothing emits it;
 the coverage ladder renders it as an unreached level rather than pretending it
 does not exist.
 
+Also deliberately not exposed: `compliance.ReportStore.DeleteReport`. Deleting
+compliance evidence shouldn't be one click in a dashboard, and neither the HTTP
+API nor the templ dashboard ever offered it, so record it as a choice and not
+an oversight. `erasures.request` is held until the library scopes its keys (see
+the amendments below). The templ dashboard never offered an erasure request
+either, so nothing regresses.
+
+**Bugs the templ dashboard had, closed by the migration.** Record these as
+fixed in passing, so nobody reads their absence as a lost feature:
+
+- `renderErasureDetail` did no scope check at all, unlike every other detail
+  renderer in `contributor.go`. `erasures.detail` checks ownership.
+- Detail pages let a tenant viewer open app-level records by ID that its own
+  lists hid. Strict ownership closes that.
+- The retention page fired enforcement from a bare query-param link, with no
+  preview and no confirmation, and it accepted any duration including zero.
+- On every sqlite deployment the overview's critical and failed counts read 0,
+  because a filter error was swallowed as a zero count.
+
 **New, not migrated.** Checkpoints as a surface, the coverage ceiling, both
 destructive-action previews, report export, custom reports, per-event
 verification, aggregation, by-user, and the three `Report` fields the templ
