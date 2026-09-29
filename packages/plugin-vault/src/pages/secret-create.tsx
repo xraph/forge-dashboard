@@ -1,4 +1,4 @@
-import { useState } from "react"
+import { useRef, useState } from "react"
 import type { ComponentType, FormEvent } from "react"
 import {
   PluginLink,
@@ -43,24 +43,33 @@ function isPast(iso: string): boolean {
 /**
  * The create-secret form.
  *
- * Secrets are write-only. The value lives in this component's state for as
- * long as it takes to type it and for one request, and nowhere else: it is not
- * a query param, not a label, not a preview, not an error string, and it is
- * dropped from state before the page navigates away on success. On failure it
- * stays in the password field so the operator can retry without retyping.
+ * Secrets are write-only. The value lives in the password field's own DOM
+ * value for as long as it takes to type it and for one request, and nowhere
+ * else: it is not React state, not a query param, not a label, not a preview,
+ * not an error string, and the field is emptied before the page navigates away
+ * on success. On failure it stays in the field so the operator can retry
+ * without retyping.
+ *
+ * The field is uncontrolled on purpose. React writes a controlled input's
+ * value into its HTML `value` attribute, password or not, and anything that
+ * serialises markup (an error reporter, a page save, a replay tool) can then
+ * read the secret. With no `value` prop React never touches the attribute.
  */
 export const SecretCreatePage: ComponentType<PluginPageProps> = () => {
   const create = useCommand<CreateResponse>("secrets.create")
   const navigateTo = useNavigateTo()
   const [key, setKey] = useState("")
-  const [value, setValue] = useState("")
+  // Only whether the field is empty is tracked, for gating submit. The value
+  // itself is read from the input at submit time and never held in state.
+  const valueRef = useRef<HTMLInputElement>(null)
+  const [hasValue, setHasValue] = useState(false)
   const [expires, setExpires] = useState("")
 
   const trimmedKey = key.trim()
   const expiresAt = toRFC3339(expires)
   const expiryInPast = expiresAt !== undefined && isPast(expiresAt)
   const canSubmit =
-    !create.loading && trimmedKey !== "" && value !== "" && !expiryInPast
+    !create.loading && trimmedKey !== "" && hasValue && !expiryInPast
 
   async function submit(event: FormEvent) {
     event.preventDefault()
@@ -68,12 +77,14 @@ export const SecretCreatePage: ComponentType<PluginPageProps> = () => {
     // field submits the form, and the clock moves between renders.
     if (!canSubmit) return
     if (expiresAt !== undefined && isPast(expiresAt)) return
+    const input = valueRef.current
+    if (!input || input.value === "") return
 
     // Exactly key, value, and expiresAt only when set. No appId (the server
     // uses the vault's own app) and no metadata (not part of this form).
     const payload: { key: string; value: string; expiresAt?: string } = {
       key: trimmedKey,
-      value,
+      value: input.value,
     }
     if (expiresAt !== undefined) payload.expiresAt = expiresAt
 
@@ -82,9 +93,10 @@ export const SecretCreatePage: ComponentType<PluginPageProps> = () => {
     // failure check. Key, expiry and value all stay put for a retry.
     if (result === undefined) return
 
-    // Drop the value from state before leaving, so no render after this point
-    // can hold it, whatever the navigation does.
-    setValue("")
+    // Empty the field before leaving, so nothing after this point can hold
+    // the value, whatever the navigation does.
+    input.value = ""
+    setHasValue(false)
     navigateTo(secretPath(trimmedKey))
   }
 
@@ -136,11 +148,11 @@ export const SecretCreatePage: ComponentType<PluginPageProps> = () => {
           */}
           <Input
             id="secret-value"
+            ref={valueRef}
             type="password"
             autoComplete="new-password"
             spellCheck={false}
-            value={value}
-            onChange={(e) => setValue(e.target.value)}
+            onChange={(e) => setHasValue(e.target.value !== "")}
           />
         </div>
         <div className="flex flex-col gap-1.5">

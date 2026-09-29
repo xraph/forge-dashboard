@@ -56,18 +56,15 @@ function fill(key: string, value: string, expires?: string) {
 }
 
 /**
- * After a failure the value legitimately stays in the password input, and
- * React mirrors a controlled input's value into its `value` attribute, so the
- * raw markup contains it there. What must hold is that no other element does:
- * not text, not a label, not an attribute of anything but that one input.
+ * The value must be absent from the markup on every path. React copies a
+ * controlled input's value into its HTML `value` attribute, so the field is
+ * uncontrolled: `.value` (the live property) can hold the secret for a retry,
+ * but nothing that serialises the page can read it.
  */
-function expectValueOnlyInPasswordField() {
-  expect(document.body.textContent).not.toContain(CANARY)
-  const holders = Array.from(document.body.querySelectorAll("*")).filter((el) =>
-    Array.from(el.attributes).some((a) => a.value.includes(CANARY))
-  )
-  expect(holders).toEqual([screen.getByLabelText("Value")])
-  expect(holders[0]?.getAttribute("type")).toBe("password")
+function expectValueNotInMarkup() {
+  expect(document.body.innerHTML).not.toContain(CANARY)
+  expect(document.body.outerHTML).not.toContain(CANARY)
+  expect(screen.getByLabelText("Value").hasAttribute("value")).toBe(false)
 }
 
 const submitButton = () =>
@@ -150,15 +147,16 @@ describe("SecretCreatePage", () => {
     fireEvent.click(submitButton())
     await waitFor(() => expect(navigate).toHaveBeenCalled())
     expect((screen.getByLabelText("Value") as HTMLInputElement).value).toBe("")
-    expect(document.body.innerHTML).not.toContain(CANARY)
+    expectValueNotInMarkup()
   })
 
   it("holds the value only in the password field while typing", () => {
     const { client } = recordingCommandClient({}, { "secrets.create": CREATED })
     renderCreate(client)
     fill("k", CANARY)
+    // The live property holds it; the markup does not.
     expect((screen.getByLabelText("Value") as HTMLInputElement).value).toBe(CANARY)
-    expectValueOnlyInPasswordField()
+    expectValueNotInMarkup()
   })
 
   it("keeps key, expiry and value and shows the alert when the client throws", async () => {
@@ -175,7 +173,7 @@ describe("SecretCreatePage", () => {
     )
     expect((screen.getByLabelText(/Expires/) as HTMLInputElement).value).toBe(local)
     expect((screen.getByLabelText("Value") as HTMLInputElement).value).toBe(CANARY)
-    expectValueOnlyInPasswordField()
+    expectValueNotInMarkup()
     // Retry is possible.
     expect(submitButton().disabled).toBe(false)
   })
@@ -193,7 +191,7 @@ describe("SecretCreatePage", () => {
     const link = screen.getByRole("link", { name: "Open the existing secret" })
     expect(link.getAttribute("href")).toBe("/secrets/db%2Fprimary.password")
     expect(navigate).not.toHaveBeenCalled()
-    expectValueOnlyInPasswordField()
+    expectValueNotInMarkup()
   })
 
   it("does not offer the existing-secret link for other failures", async () => {
