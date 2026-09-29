@@ -55,7 +55,9 @@ export const vaultPlugin = definePlugin({
     { path: "/secrets", element: SecretsPage },
     // No nav entries for the next three: a sidebar link to "a secret" with
     // none chosen points nowhere. They are reached from row links and buttons.
-    { path: "/secrets/new", element: SecretCreatePage },
+    // Create lives at /new-secret, not /secrets/new: a secret whose key is
+    // literally "new" encodes to /secrets/new and would never be reachable.
+    { path: "/new-secret", element: SecretCreatePage },
     { path: "/secrets/:key", element: SecretDetailPage },
     { path: "/rotation", element: RotationPage },
     { path: "/rotation/:key", element: RotationDetailPage },
