@@ -21,7 +21,9 @@
 - Optional update fields are pointers, including `*[]string` for lists that can be emptied.
 - Every command declares `meta.invalidates` in the manifest.
 - Every handler resolves its tenant with `tenantFrom(p, deps)`, never from the request context. `warden.ScopeFromContext` and `forge.ScopeFrom` both return empty on the contract path, and an empty tenant id in a store `ListFilter` matches every tenant's rows rather than none.
-- Every new handler must be added to `handlers_tenant_test.go`'s table and `manifest_test.go`'s `wantKind` map. Both are sized against registrations parsed from `contract.go`'s source. Extend them; never loosen an assertion to make a new handler fit.
+- Every new handler must be added to **three** self-checking guards, all sized against registrations parsed from `contract.go`'s source: `handlers_tenant_test.go`'s table, `manifest_test.go`'s `wantKind` map, and `authz.go`'s `intentPolicies` map with its mirror `wantPolicies` in `authz_test.go`. Extend them; never loosen an assertion to make a new handler fit. An intent absent from `intentPolicies` is DENIED by the engine delegate, so omitting it ships a dead intent that returns permission-denied.
+- Every manifest intent line carries `requires: { warden: warden.engine }`. Every line plan 2a wrote has it. Without it the intent is served to a caller with no warden engine at all.
+- `namespaces.list` is built by scanning **six** collections in `handlers_namespaces.go`: roles, permissions, policies, resource types, assignments AND relations. So every command that creates or deletes a row in any of those six must invalidate `namespaces.list`, not just the ones that obviously own a namespace. A create in a fresh namespace that skips it leaves the namespace filter unable to offer the namespace the operator just used.
 - Identifier values carry `font-mono text-xs`. The column an operator reads carries `font-medium`.
 - Every table caption carries a live row count including at zero rows, counting the server's `total`, never `rows.length`.
 - Empty states say which KIND of empty. Use `emptyListMessage` from `components/namespace-filter.tsx`, which already distinguishes unfiltered, searched and namespace-filtered.
@@ -1443,16 +1445,22 @@ func relationsDeleteHandler(deps Deps) func(context.Context, RelationDeleteInput
 
 - [ ] **Step 4: Register, declare, extend the guards, run, commit**
 
-Three registrations in `contract.go` (`relations.list` a query, `relations.create` and `relations.delete` commands). In `manifest.yaml`:
+Three registrations in `contract.go` (`relations.list` a query, `relations.create` and `relations.delete` commands).
+
+Add all three to `authz.go`'s `intentPolicies` and `authz_test.go`'s `wantPolicies`, against resource `warden:relation` (action `read` for the list, `manage` for create and delete), matching what the REST routes use for the same resource. Task 1 established this pattern for `warden:assignment`; read its entries before writing yours.
+
+Give `relations.create` and `relations.delete` the same actor, event and audit treatment Task 1 gave the assignment commands: `withActor`, the matching `Emit*` plugin event, and `emitAudit`. The audit event is what drives cache invalidation, so a tuple deleted without one leaves a cached ALLOW behind for a subject who no longer has the relation. Read Task 1's committed handlers and warden's own REST relation handler for the exact calls.
+
+In `manifest.yaml`:
 
 ```yaml
-  - { name: relations.list, kind: query, version: 1, capability: read }
+  - { name: relations.list, kind: query, version: 1, requires: { warden: warden.engine }, capability: read }
   # A tuple change alters the list and the counters. It does NOT change any
   # role or permission surface: tuples are ReBAC and grant through the graph
   # walker rather than through a role.
-  - { name: relations.create, kind: command, version: 1, capability: write,
+  - { name: relations.create, kind: command, version: 1, requires: { warden: warden.engine }, capability: write,
       invalidates: [relations.list, overview.stats, namespaces.list] }
-  - { name: relations.delete, kind: command, version: 1, capability: write,
+  - { name: relations.delete, kind: command, version: 1, requires: { warden: warden.engine }, capability: write,
       invalidates: [relations.list, overview.stats] }
 ```
 
@@ -1835,19 +1843,21 @@ For the undeclared-relation check, read `dsl/ast.go` to see how an expression's 
 
 - [ ] **Step 4: Register, declare, extend the guards, run, commit**
 
-Five registrations. In `manifest.yaml`:
+Five registrations. Add all five to `authz.go`'s `intentPolicies` and `authz_test.go`'s `wantPolicies` against resource `warden:resourcetype` (action `read` for list and detail, `manage` for create, update and delete), following Task 1's pattern. Give the three commands `withActor`, their `Emit*` plugin event and `emitAudit`, as Tasks 1 and 2 did.
+
+In `manifest.yaml`:
 
 ```yaml
-  - { name: resourceTypes.list,   kind: query, version: 1, capability: read }
-  - { name: resourceTypes.detail, kind: query, version: 1, capability: read }
+  - { name: resourceTypes.list,   kind: query, version: 1, requires: { warden: warden.engine }, capability: read }
+  - { name: resourceTypes.detail, kind: query, version: 1, requires: { warden: warden.engine }, capability: read }
   # A schema change alters what the graph walker can derive, so it affects
   # the relations surface as well as its own.
-  - { name: resourceTypes.create, kind: command, version: 1, capability: write,
+  - { name: resourceTypes.create, kind: command, version: 1, requires: { warden: warden.engine }, capability: write,
       invalidates: [resourceTypes.list, overview.stats, namespaces.list] }
-  - { name: resourceTypes.update, kind: command, version: 1, capability: write,
+  - { name: resourceTypes.update, kind: command, version: 1, requires: { warden: warden.engine }, capability: write,
       invalidates: [resourceTypes.list, resourceTypes.detail] }
-  - { name: resourceTypes.delete, kind: command, version: 1, capability: write,
-      invalidates: [resourceTypes.list, resourceTypes.detail, overview.stats] }
+  - { name: resourceTypes.delete, kind: command, version: 1, requires: { warden: warden.engine }, capability: write,
+      invalidates: [resourceTypes.list, resourceTypes.detail, overview.stats, namespaces.list] }
 ```
 
 plus `resourceTypeList` and `resourceTypeDetail` query entries at `staleTime: 30s`. Add all five to both guard tests.
