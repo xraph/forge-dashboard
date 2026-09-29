@@ -1,8 +1,14 @@
 import { describe, expect, it } from "vitest"
-import { fireEvent, screen } from "@testing-library/react"
+import { fireEvent, screen, waitFor } from "@testing-library/react"
 import { ContractError } from "@forge-go/dashboard-plugin"
 import { WardenPermissionsPage } from "../src/pages/permissions"
-import { failingClient, recordingCommandClient, renderPage, stubClient } from "./harness"
+import {
+  failingClient,
+  recordingCommandClient,
+  recordingQueryClient,
+  renderPage,
+  stubClient,
+} from "./harness"
 
 const PERMS = {
   items: [
@@ -121,5 +127,83 @@ describe("WardenPermissionsPage", () => {
     )
     expect(await screen.findAllByText(/no tenant in scope/i)).toBeTruthy()
     expect(screen.queryByText("document:read")).toBeNull()
+  })
+
+  it("names the search when a search is what emptied the list", async () => {
+    renderPage(
+      WardenPermissionsPage,
+      client({ "permissions.list": { items: [], total: 0, limit: 25, offset: 0 } })
+    )
+    await screen.findByText(/No permissions yet/i)
+    fireEvent.change(screen.getByLabelText("Search permissions"), { target: { value: "zzz" } })
+    expect(await screen.findByText(/No permissions match .zzz./)).toBeTruthy()
+    expect(screen.queryByText(/No permissions yet/i)).toBeNull()
+  })
+
+  it("names the namespace when the filter is what emptied the list", async () => {
+    renderPage(
+      WardenPermissionsPage,
+      client({ "permissions.list": { items: [], total: 0, limit: 25, offset: 0 } })
+    )
+    await screen.findByText(/No permissions yet/i)
+    fireEvent.change(screen.getByLabelText("Namespace"), { target: { value: "eng/platform" } })
+    expect(await screen.findByText("No permissions in eng/platform.")).toBeTruthy()
+  })
+
+  it("goes back to page one when the namespace filter changes", async () => {
+    const { client: c, sent } = recordingQueryClient({
+      "permissions.list": { ...PERMS, total: 60, limit: 25, offset: 0 },
+      "namespaces.list": NAMESPACES,
+    })
+    renderPage(WardenPermissionsPage, c)
+    await screen.findByText("document:read")
+    fireEvent.click(screen.getByRole("button", { name: /next page/i }))
+    await waitFor(() =>
+      expect(
+        sent.some(
+          (q) => q.intent === "permissions.list" && (q.params as { offset?: number }).offset === 25
+        )
+      ).toBe(true)
+    )
+    fireEvent.change(screen.getByLabelText("Namespace"), { target: { value: "eng/platform" } })
+    await waitFor(() => {
+      const last = sent.filter((q) => q.intent === "permissions.list").at(-1)
+      expect(last?.params).toMatchObject({ namespacePath: "eng/platform", offset: 0 })
+    })
+  })
+
+  it("sends resource and action and no name when creating a permission", async () => {
+    // The contract derives the name and refuses one that disagrees with
+    // resource:action, so a name on the wire is a second source of truth.
+    // Values are trimmed on the way out: " document" would derive a name
+    // no check ever matches.
+    const { client: c, sent } = recordingCommandClient(
+      { "permissions.list": PERMS, "namespaces.list": NAMESPACES },
+      { "permissions.create": { id: "perm_new" } }
+    )
+    renderPage(WardenPermissionsPage, c)
+    await screen.findByText("document:read")
+    fireEvent.click(screen.getByRole("button", { name: /New permission/i }))
+    fireEvent.change(await screen.findByLabelText(/Resource/i), { target: { value: " folder " } })
+    fireEvent.change(await screen.findByLabelText(/Action/i), { target: { value: " write" } })
+    fireEvent.click(screen.getByRole("button", { name: /^create permission$/i }))
+    await waitFor(() => expect(sent).toHaveLength(1))
+    expect(sent[0]?.intent).toBe("permissions.create")
+    expect(sent[0]?.payload).toEqual({ resource: "folder", action: "write", namespacePath: "" })
+    expect(Object.keys(sent[0]?.payload as object)).not.toContain("name")
+  })
+
+  it("sends the permission id, and only the id, when deleting one", async () => {
+    const { client: c, sent } = recordingCommandClient(
+      { "permissions.list": PERMS, "namespaces.list": NAMESPACES },
+      { "permissions.delete": {} }
+    )
+    renderPage(WardenPermissionsPage, c)
+    await screen.findByText("document:read")
+    fireEvent.click(screen.getByRole("button", { name: /Delete document:read/i }))
+    fireEvent.click(await screen.findByRole("button", { name: /^Delete$/i }))
+    await waitFor(() => expect(sent).toHaveLength(1))
+    expect(sent[0]?.intent).toBe("permissions.delete")
+    expect(sent[0]?.payload).toEqual({ id: "perm_01a" })
   })
 })

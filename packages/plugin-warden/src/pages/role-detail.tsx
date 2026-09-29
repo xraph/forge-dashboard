@@ -45,7 +45,12 @@ export interface RoleDetail extends RoleSummary {
   updatedBy?: string
 }
 
-interface PermissionsList {
+/**
+ * Mirrors the Go `PermissionsListResponse`: PageMeta embedded beside items.
+ * Declared here beside `PermissionSummary` and imported by the permissions
+ * page, so the one Go DTO has one TypeScript home.
+ */
+export interface PermissionsList {
   items: PermissionSummary[]
   total: number
   limit: number
@@ -316,9 +321,12 @@ function AttachDialog({
   const [chosen, setChosen] = useState("")
 
   const heldKeys = new Set(held.map((p) => joinRef(p.namespacePath, p.name)))
-  const options = (list.data?.items ?? []).filter(
-    (p) => !heldKeys.has(joinRef(p.namespacePath, p.name))
-  )
+  const loaded = list.data?.items ?? []
+  const options = loaded.filter((p) => !heldKeys.has(joinRef(p.namespacePath, p.name)))
+  // The read is one page of PICKER_LIMIT, so a tenant with more permissions
+  // than that gets a picker that is missing some of them.
+  const total = list.data?.total ?? 0
+  const truncated = list.data !== undefined && total > loaded.length
 
   async function confirmAttach() {
     if (chosen === "") return
@@ -355,9 +363,24 @@ function AttachDialog({
               </option>
             ))}
           </NativeSelect>
-          {options.length === 0 && !list.loading && (
+          {/* Four different reasons the picker can be empty, and only one of
+              them is "everything is granted". A failed read must say so
+              rather than read as an answer. */}
+          <CommandAlert error={list.error} title="Could not load permissions" />
+          {list.data !== undefined && total === 0 && (
+            <span className="text-sm text-muted-foreground">
+              No permissions exist yet. Create one on the Permissions page first.
+            </span>
+          )}
+          {list.data !== undefined && total > 0 && options.length === 0 && !truncated && (
             <span className="text-sm text-muted-foreground">
               Every permission is already granted to this role.
+            </span>
+          )}
+          {truncated && (
+            <span className="text-sm text-muted-foreground">
+              Showing the first {loaded.length} of {total} permissions, so this list is
+              incomplete{options.length === 0 ? " and every one shown is already granted" : ""}.
             </span>
           )}
           <CommandAlert error={attach.error} title="Could not attach" />

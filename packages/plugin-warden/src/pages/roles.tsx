@@ -17,7 +17,11 @@ import {
   type Column,
 } from "@forge-go/dashboard-kit/components/resource-table"
 import { Timestamp } from "@forge-go/dashboard-kit/components/timestamp"
-import { NamespaceCell, useNamespaceFilter } from "../components/namespace-filter"
+import {
+  NamespaceCell,
+  emptyListMessage,
+  useNamespaceFilter,
+} from "../components/namespace-filter"
 
 /** Mirrors the Go `RoleSummary`. Field names are its JSON tags. */
 export interface RoleSummary {
@@ -62,10 +66,13 @@ function CreateRoleForm({
   const [description, setDescription] = useState("")
 
   async function submit() {
+    // Trimmed on the way out, not only for the disabled check: a slug of
+    // " auditor" is a different slug from "auditor", and nothing looking
+    // for the second will ever find the first.
     const result = await create.execute({
-      name,
-      slug,
-      description: description || undefined,
+      name: name.trim(),
+      slug: slug.trim(),
+      description: description.trim() || undefined,
       namespacePath,
     })
     // execute resolves undefined only when the client throws, so this is
@@ -114,11 +121,11 @@ function CreateRoleForm({
 }
 
 export function WardenRolesPage() {
-  const namespace = useNamespaceFilter()
-  const [search, setSearch] = useState("")
   // One-based, matching ResourceTable's PaginationState, which documents
   // `page` as "matching what an operator reads".
   const [page, setPage] = useState(1)
+  const namespace = useNamespaceFilter(() => setPage(1))
+  const [search, setSearch] = useState("")
   const [creating, setCreating] = useState(false)
   const [deleting, setDeleting] = useState<RoleSummary | null>(null)
 
@@ -133,7 +140,12 @@ export function WardenRolesPage() {
   async function confirmDelete() {
     if (!deleting) return
     const result = await remove.execute({ id: deleting.id })
-    if (result !== undefined) setDeleting(null)
+    if (result === undefined) return
+    setDeleting(null)
+    // Deleting the only row on the last page leaves that page past the end
+    // of the set: an empty table, and a caption still counting rows. Step
+    // back one page so the operator lands on rows that exist.
+    if (page > 1 && (list.data?.items?.length ?? 0) <= 1) setPage(page - 1)
   }
 
   const columns: Column<RoleSummary>[] = [
@@ -190,7 +202,7 @@ export function WardenRolesPage() {
             setSearch(v)
             setPage(1)
           },
-          placeholder: "Search name or slug",
+          placeholder: "Search by name",
           label: "Search roles",
         }}
         filters={[namespace.filterConfig]}
@@ -213,7 +225,7 @@ export function WardenRolesPage() {
               rows={rows}
               rowKey={(r) => r.id}
               caption={caption}
-              emptyMessage="No roles yet."
+              emptyMessage={emptyListMessage("roles", search, namespace.value)}
               pagination={{ page, pageSize: data.limit, total: data.total }}
               onPageChange={setPage}
               rowActions={(r) => (

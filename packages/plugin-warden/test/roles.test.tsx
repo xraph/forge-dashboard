@@ -163,4 +163,118 @@ describe("WardenRolesPage", () => {
     // total 60 against limit 25 means three pages, so a pager must appear.
     await waitFor(() => expect(screen.getByText(/60 roles/)).toBeTruthy())
   })
+
+  it("says the search is by name, because the server matches names only", async () => {
+    // Every real store filters name and never the slug, so a placeholder
+    // promising both sends the operator to a search that finds nothing.
+    renderPage(WardenRolesPage, client())
+    await screen.findByText("Reader")
+    expect(screen.getByPlaceholderText("Search by name")).toBeTruthy()
+  })
+
+  it("names the search when a search is what emptied the list", async () => {
+    const { client: c } = recordingQueryClient({
+      "roles.list": { items: [], total: 0, limit: 25, offset: 0 },
+      "namespaces.list": NAMESPACES,
+    })
+    renderPage(WardenRolesPage, c)
+    await screen.findByText(/No roles yet/i)
+    fireEvent.change(screen.getByLabelText("Search roles"), { target: { value: "zzz" } })
+    expect(await screen.findByText(/No roles match .zzz./)).toBeTruthy()
+    expect(screen.queryByText(/No roles yet/i)).toBeNull()
+  })
+
+  it("names the namespace when the filter is what emptied the list", async () => {
+    renderPage(
+      WardenRolesPage,
+      client({ "roles.list": { items: [], total: 0, limit: 25, offset: 0 } })
+    )
+    await screen.findByText(/No roles yet/i)
+    fireEvent.change(screen.getByLabelText("Namespace"), { target: { value: "eng/platform" } })
+    expect(await screen.findByText("No roles in eng/platform.")).toBeTruthy()
+    fireEvent.change(screen.getByLabelText("Namespace"), { target: { value: "" } })
+    expect(await screen.findByText("No roles in the tenant root.")).toBeTruthy()
+  })
+
+  it("goes back to page one when the namespace filter changes", async () => {
+    // Search already reset the page. The namespace filter did not, so
+    // switching it on page three landed on page three of a shorter set:
+    // an empty table under a caption that still counted rows.
+    const { client: c, sent } = recordingQueryClient({
+      "roles.list": { ...ROLES, total: 60, limit: 25, offset: 0 },
+      "namespaces.list": NAMESPACES,
+    })
+    renderPage(WardenRolesPage, c)
+    await screen.findByText("Reader")
+    fireEvent.click(screen.getByRole("button", { name: /next page/i }))
+    await waitFor(() =>
+      expect(
+        sent.some((q) => q.intent === "roles.list" && (q.params as { offset?: number }).offset === 25)
+      ).toBe(true)
+    )
+
+    fireEvent.change(screen.getByLabelText("Namespace"), { target: { value: "eng/platform" } })
+    await waitFor(() => {
+      const last = sent.filter((q) => q.intent === "roles.list").at(-1)
+      expect(last?.params).toMatchObject({ namespacePath: "eng/platform", offset: 0 })
+    })
+  })
+
+  it("steps back a page when a delete empties the last one", async () => {
+    const onlyRow = { ...ROLES, items: [ROLES.items[0]], total: 26, limit: 25, offset: 25 }
+    const { client: c, sent } = recordingQueryClient({
+      "roles.list": onlyRow,
+      "namespaces.list": NAMESPACES,
+    })
+    // recordingQueryClient has no command answers, so give it one.
+    const withDelete = {
+      ...c,
+      command: async () => ({}),
+    } as typeof c
+    renderPage(WardenRolesPage, withDelete)
+    await screen.findByText("Reader")
+    fireEvent.click(screen.getByRole("button", { name: /next page/i }))
+    await waitFor(() =>
+      expect(
+        sent.some((q) => q.intent === "roles.list" && (q.params as { offset?: number }).offset === 25)
+      ).toBe(true)
+    )
+
+    fireEvent.click(screen.getByRole("button", { name: /Delete Reader/i }))
+    fireEvent.click(await screen.findByRole("button", { name: /^Delete$/i }))
+    await waitFor(() => {
+      const last = sent.filter((q) => q.intent === "roles.list").at(-1)
+      expect((last?.params as { offset?: number }).offset).toBe(0)
+    })
+  })
+
+  it("sends the trimmed name and slug when creating a role", async () => {
+    const { client: c, sent } = recordingCommandClient(
+      { "roles.list": ROLES, "namespaces.list": NAMESPACES },
+      { "roles.create": { id: "role_new" } }
+    )
+    renderPage(WardenRolesPage, c)
+    await screen.findByText("Reader")
+    fireEvent.click(screen.getByRole("button", { name: /new role/i }))
+    fireEvent.change(screen.getByLabelText("Name"), { target: { value: "  Auditor " } })
+    fireEvent.change(screen.getByLabelText("Slug"), { target: { value: " auditor  " } })
+    fireEvent.click(screen.getByRole("button", { name: /^create role$/i }))
+    await waitFor(() => expect(sent).toHaveLength(1))
+    expect(sent[0]?.intent).toBe("roles.create")
+    expect(sent[0]?.payload).toEqual({ name: "Auditor", slug: "auditor", namespacePath: "" })
+  })
+
+  it("sends the role id, and only the id, when deleting a role", async () => {
+    const { client: c, sent } = recordingCommandClient(
+      { "roles.list": ROLES, "namespaces.list": NAMESPACES },
+      { "roles.delete": {} }
+    )
+    renderPage(WardenRolesPage, c)
+    await screen.findByText("Reader")
+    fireEvent.click(screen.getByRole("button", { name: /Delete Reader/i }))
+    fireEvent.click(await screen.findByRole("button", { name: /^Delete$/i }))
+    await waitFor(() => expect(sent).toHaveLength(1))
+    expect(sent[0]?.intent).toBe("roles.delete")
+    expect(sent[0]?.payload).toEqual({ id: "role_01hq" })
+  })
 })
