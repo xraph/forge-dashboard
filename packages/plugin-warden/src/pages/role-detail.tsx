@@ -557,7 +557,9 @@ function EditForm({ role, onDone }: { role: RoleDetail; onDone: () => void }) {
           onChange={(e) => setCap(e.target.value)}
         />
         <p className="text-xs text-muted-foreground">
-          Leave it empty for no limit. Clearing a cap you had removes it.
+          Leave it empty for no limit. Clearing a cap you had removes it. The
+          cap is checked when this dashboard assigns a subject. Lowering it
+          removes nobody who already holds the role.
         </p>
       </div>
       <div className="flex items-center gap-2">
@@ -665,7 +667,10 @@ function ReplaceDialog({
             className="flex max-h-64 flex-col gap-1 overflow-y-auto rounded-md border p-2"
           >
             {options.map((p) => {
-              const label = p.namespacePath === "" ? p.name : `${p.name} (${p.namespacePath})`
+              // Every option names its namespace, the root as "/" like every
+              // other namespace cell, so a root permission and a same-named
+              // one elsewhere never read alike.
+              const label = `${p.name} (${p.namespacePath === "" ? "/" : p.namespacePath})`
               return (
                 <label key={p.id} className="flex items-center gap-2 text-sm">
                   <input

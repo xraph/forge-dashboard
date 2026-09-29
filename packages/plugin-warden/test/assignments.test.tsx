@@ -62,12 +62,17 @@ const ASSIGNMENTS = {
 
 const EMPTY = { items: [], total: 0, limit: 25, offset: 0 }
 
+// Two roles share the slug "reader" in different namespaces, which is legal
+// (a slug is unique only within its namespace), and one is a system role,
+// which must stay assignable because first-run bootstrap assigns one.
 const ROLES = {
   items: [
     { id: "role_reader", slug: "reader", name: "Reader", namespacePath: "" },
     { id: "role_auditor", slug: "auditor", name: "Auditor", namespacePath: "" },
+    { id: "role_reader_eng", slug: "reader", name: "Reader", namespacePath: "eng/platform" },
+    { id: "role_system", slug: "warden-admin", name: "Warden admin", namespacePath: "", isSystem: true },
   ],
-  total: 2,
+  total: 4,
   limit: 200,
   offset: 0,
 }
@@ -200,6 +205,58 @@ describe("WardenAssignmentsPage", () => {
     expect(link.closest("a")?.getAttribute("href")).toBe("/roles/role_reader")
   })
 
+  it("renders a resource id with no type as global, and says the id is ignored", async () => {
+    // Rows written through the REST API can have this shape. The engine keeps
+    // every row with an empty resource type as a global grant, whatever its
+    // id, so showing "d-42" as the scope would tell an operator the grant is
+    // limited to one resource when it covers all of them.
+    const row = {
+      ...ASSIGNMENTS.items[1],
+      id: "asg_half_id",
+      subjectId: "halfid",
+      resourceType: undefined,
+      resourceId: "d-42",
+    }
+    renderPage(
+      WardenAssignmentsPage,
+      client({ "assignments.list": { ...ASSIGNMENTS, items: [row], total: 1 } })
+    )
+    const tr = await rowOf("api_key:halfid")
+    expect(within(tr).getByText("Global")).toBeTruthy()
+    expect(tr.textContent).toContain(
+      "Warden ignores the resource id d-42 without a resource type, so this assignment is not limited to one resource."
+    )
+  })
+
+  it("renders a resource type with no id with a warning that it matches only an empty id", async () => {
+    const row = {
+      ...ASSIGNMENTS.items[1],
+      id: "asg_half_type",
+      subjectId: "halftype",
+      resourceType: "document",
+      resourceId: undefined,
+    }
+    renderPage(
+      WardenAssignmentsPage,
+      client({ "assignments.list": { ...ASSIGNMENTS, items: [row], total: 1 } })
+    )
+    const tr = await rowOf("api_key:halftype")
+    expect(tr.textContent).toContain(
+      "No resource id, so this matches only checks on a document whose id is empty."
+    )
+    expect(within(tr).queryByText("document:")).toBeNull()
+  })
+
+  it("says how to renew an expired assignment", async () => {
+    // The store's duplicate key ignores expiry, so the same binding created
+    // again while the expired row exists is refused as a duplicate.
+    renderPage(WardenAssignmentsPage, client())
+    await screen.findByText("user:gone")
+    expect(document.body.textContent).toContain(
+      "To renew an expired assignment, delete it first: the store refuses the same binding as a duplicate while the expired row exists."
+    )
+  })
+
   it("shows the scope when there is one and a labelled dash when there is not", async () => {
     renderPage(WardenAssignmentsPage, client())
     const gone = await rowOf("user:gone")
@@ -289,14 +346,98 @@ describe("WardenAssignmentsPage", () => {
       await waitFor(() => expect(sent.some((q) => q.intent === "roles.list")).toBe(true))
     })
 
-    it("offers the roles by slug and sends the id", async () => {
+    it("offers each role by slug and namespace, the root as /, and sends the id", async () => {
+      // Slugs are unique only within a namespace. Labelled by slug alone, the
+      // two readers here would be identical options on a write path, and an
+      // operator could bind somebody to the wrong one without any way to see.
       renderPage(WardenAssignmentsPage, client())
       const dialog = await openCreate()
       const select = (await dialog.findByLabelText("Role")) as HTMLSelectElement
-      await waitFor(() => expect(within(select).getByText("reader")).toBeTruthy())
+      await waitFor(() => expect(within(select).getByText("reader (/)")).toBeTruthy())
       const options = Array.from(select.options).map((o) => [o.value, o.textContent])
-      expect(options).toContainEqual(["role_reader", "reader"])
-      expect(options).toContainEqual(["role_auditor", "auditor"])
+      expect(options).toContainEqual(["role_reader", "reader (/)"])
+      expect(options).toContainEqual(["role_reader_eng", "reader (eng/platform)"])
+      expect(options).toContainEqual(["role_auditor", "auditor (/)"])
+      expect(options.filter(([, label]) => label === "reader")).toHaveLength(0)
+    })
+
+    it("offers a system role, which must stay assignable", async () => {
+      // extension/bootstrap.go assigns a subject to a system role, and
+      // assignments.create deliberately accepts one. Filtering system roles
+      // out of the picker would break first-run bootstrap from the page.
+      const { client: c, sent } = recordingCommandClient(answers(), {
+        "assignments.create": { id: "asg_new" },
+      })
+      renderPage(WardenAssignmentsPage, c)
+      const dialog = await openCreate()
+      const select = dialog.getByLabelText("Role") as HTMLSelectElement
+      await waitFor(() => expect(within(select).getByText("warden-admin (/)")).toBeTruthy())
+      fireEvent.change(select, { target: { value: "role_system" } })
+      fireEvent.change(dialog.getByLabelText("Subject id"), { target: { value: "root" } })
+      fireEvent.click(dialog.getByRole("button", { name: /^create assignment$/i }))
+      await waitFor(() => expect(sent).toHaveLength(1))
+      expect((sent[0]?.payload as { roleId: string }).roleId).toBe("role_system")
+    })
+
+    it("requires both resource fields or neither, and says why", async () => {
+      // assignments.create refuses half a resource. An id alone is ignored
+      // and the grant is global; a type alone matches only checks on a
+      // resource whose id is empty. Neither can be confirmed.
+      renderPage(WardenAssignmentsPage, client())
+      const dialog = await openCreate()
+      await waitFor(() => expect(within(dialog.getByLabelText("Role")).getByText("reader (/)")).toBeTruthy())
+      fillRequired(dialog)
+      const confirm = dialog.getByRole("button", { name: /^create assignment$/i }) as HTMLButtonElement
+      expect(confirm.disabled).toBe(false)
+      expect(dialog.getByText("Fill in both to limit the assignment to one resource, or leave both empty.")).toBeTruthy()
+
+      fireEvent.change(dialog.getByLabelText(/Resource type/), { target: { value: "document" } })
+      expect(confirm.disabled).toBe(true)
+      expect(
+        dialog.getByText(
+          "A resource type needs a resource id. Without one, the assignment matches only checks on a resource whose id is empty."
+        )
+      ).toBeTruthy()
+
+      fireEvent.change(dialog.getByLabelText(/Resource id/), { target: { value: "d-42" } })
+      expect(confirm.disabled).toBe(false)
+      expect(dialog.queryByText(/needs a resource/)).toBeNull()
+
+      fireEvent.change(dialog.getByLabelText(/Resource type/), { target: { value: "  " } })
+      expect(confirm.disabled).toBe(true)
+      expect(
+        dialog.getByText(
+          "A resource id needs a resource type. Without one, warden ignores the id and the assignment is not limited to one resource."
+        )
+      ).toBeTruthy()
+
+      fireEvent.change(dialog.getByLabelText(/Resource id/), { target: { value: "" } })
+      expect(confirm.disabled).toBe(false)
+    })
+
+    it("sends nothing for half a resource, even if the confirm is clicked", async () => {
+      const { client: c, sent } = recordingCommandClient(answers(), {
+        "assignments.create": { id: "asg_new" },
+      })
+      renderPage(WardenAssignmentsPage, c)
+      const dialog = await openCreate()
+      await waitFor(() => expect(within(dialog.getByLabelText("Role")).getByText("reader (/)")).toBeTruthy())
+      fillRequired(dialog)
+      fireEvent.change(dialog.getByLabelText(/Resource id/), { target: { value: "d-42" } })
+      fireEvent.click(dialog.getByRole("button", { name: /^create assignment$/i }))
+      await new Promise((r) => setTimeout(r, 20))
+      expect(sent).toHaveLength(0)
+    })
+
+    it("says the assignment applies in its namespace and every namespace below it", async () => {
+      renderPage(WardenAssignmentsPage, client())
+      await screen.findByText("user:gone")
+      fireEvent.change(screen.getByLabelText("Namespace"), { target: { value: "eng/platform" } })
+      await openCreate()
+      const text = (await screen.findByRole("alertdialog")).textContent ?? ""
+      expect(text).toContain(
+        "Binding a subject to a role in eng/platform. The assignment applies there and in every namespace below it."
+      )
     })
 
     it("offers subject kind as a select over the closed set, not free text", async () => {
@@ -319,7 +460,7 @@ describe("WardenAssignmentsPage", () => {
       const dialog = await openCreate()
       const confirm = dialog.getByRole("button", { name: /^create assignment$/i }) as HTMLButtonElement
       expect(confirm.disabled).toBe(true)
-      await waitFor(() => expect(within(dialog.getByLabelText("Role")).getByText("reader")).toBeTruthy())
+      await waitFor(() => expect(within(dialog.getByLabelText("Role")).getByText("reader (/)")).toBeTruthy())
       fireEvent.change(dialog.getByLabelText("Role"), { target: { value: "role_reader" } })
       expect(confirm.disabled).toBe(true)
       fireEvent.change(dialog.getByLabelText("Subject id"), { target: { value: "   " } })
@@ -337,7 +478,7 @@ describe("WardenAssignmentsPage", () => {
       await screen.findByText("user:gone")
       fireEvent.change(screen.getByLabelText("Namespace"), { target: { value: "eng/platform" } })
       const dialog = await openCreate()
-      await waitFor(() => expect(within(dialog.getByLabelText("Role")).getByText("auditor")).toBeTruthy())
+      await waitFor(() => expect(within(dialog.getByLabelText("Role")).getByText("auditor (/)")).toBeTruthy())
       fireEvent.change(dialog.getByLabelText("Role"), { target: { value: "role_auditor" } })
       fireEvent.change(dialog.getByLabelText("Subject kind"), { target: { value: "service_acct" } })
       fireEvent.change(dialog.getByLabelText("Subject id"), { target: { value: "  ci-runner " } })
@@ -372,7 +513,7 @@ describe("WardenAssignmentsPage", () => {
       })
       renderPage(WardenAssignmentsPage, c)
       const dialog = await openCreate()
-      await waitFor(() => expect(within(dialog.getByLabelText("Role")).getByText("reader")).toBeTruthy())
+      await waitFor(() => expect(within(dialog.getByLabelText("Role")).getByText("reader (/)")).toBeTruthy())
       fillRequired(dialog)
       fireEvent.click(dialog.getByRole("button", { name: /^create assignment$/i }))
 
@@ -401,7 +542,7 @@ describe("WardenAssignmentsPage", () => {
       })
       renderPage(WardenAssignmentsPage, c)
       const dialog = await openCreate()
-      await waitFor(() => expect(within(dialog.getByLabelText("Role")).getByText("reader")).toBeTruthy())
+      await waitFor(() => expect(within(dialog.getByLabelText("Role")).getByText("reader (/)")).toBeTruthy())
       fillRequired(dialog)
       fireEvent.click(dialog.getByRole("button", { name: /^create assignment$/i }))
       await waitFor(() => expect(sent).toHaveLength(1))
@@ -419,7 +560,7 @@ describe("WardenAssignmentsPage", () => {
         )
       )
       const dialog = await openCreate()
-      await waitFor(() => expect(within(dialog.getByLabelText("Role")).getByText("reader")).toBeTruthy())
+      await waitFor(() => expect(within(dialog.getByLabelText("Role")).getByText("reader (/)")).toBeTruthy())
       fillRequired(dialog)
       fireEvent.click(dialog.getByRole("button", { name: /^create assignment$/i }))
 
@@ -437,7 +578,7 @@ describe("WardenAssignmentsPage", () => {
         refusingCommands(new ContractError("CONFLICT", "capped at 2 members and already has 2"))
       )
       const first = await openCreate()
-      await waitFor(() => expect(within(first.getByLabelText("Role")).getByText("reader")).toBeTruthy())
+      await waitFor(() => expect(within(first.getByLabelText("Role")).getByText("reader (/)")).toBeTruthy())
       fillRequired(first)
       fireEvent.click(first.getByRole("button", { name: /^create assignment$/i }))
       await first.findByRole("alert")
@@ -457,7 +598,7 @@ describe("WardenAssignmentsPage", () => {
       } as ScopedClient
       renderPage(WardenAssignmentsPage, pending)
       const dialog = await openCreate()
-      await waitFor(() => expect(within(dialog.getByLabelText("Role")).getByText("reader")).toBeTruthy())
+      await waitFor(() => expect(within(dialog.getByLabelText("Role")).getByText("reader (/)")).toBeTruthy())
       fillRequired(dialog)
       fireEvent.click(dialog.getByRole("button", { name: /^create assignment$/i }))
       const working = (await dialog.findByRole("button", { name: /working/i })) as HTMLButtonElement
@@ -505,6 +646,39 @@ describe("WardenAssignmentsPage", () => {
       fireEvent.click(screen.getByRole("button", { name: "Delete api_key:soon from reader" }))
       const dialog = within(await screen.findByRole("alertdialog"))
       expect(dialog.getByText("Delete api_key:soon from reader?")).toBeTruthy()
+    })
+
+    it("says only this binding goes, not necessarily the role", async () => {
+      // The same subject can hold the same role through another assignment
+      // (another namespace, another resource). "The subject stops holding
+      // this role" was false then, and an operator revoking access would
+      // believe it gone when it was not.
+      renderPage(WardenAssignmentsPage, client())
+      await screen.findByText("api_key:soon")
+      fireEvent.click(screen.getByRole("button", { name: "Delete api_key:soon from reader" }))
+      const dialog = within(await screen.findByRole("alertdialog"))
+      expect(
+        dialog.getByText(
+          "This binding is removed. The subject keeps this role only where another of its assignments grants it."
+        )
+      ).toBeTruthy()
+      expect(dialog.queryByText(/stops holding this role/i)).toBeNull()
+    })
+
+    it("shows the delete as pending while the command is in flight", async () => {
+      // Without pending the confirm stays live, and a second click sends a
+      // second delete that comes back NOT_FOUND over the first one's success.
+      const pending = {
+        ...client(),
+        command: () => new Promise<never>(() => {}),
+      } as ScopedClient
+      renderPage(WardenAssignmentsPage, pending)
+      await screen.findByText("api_key:soon")
+      fireEvent.click(screen.getByRole("button", { name: "Delete api_key:soon from reader" }))
+      const dialog = within(await screen.findByRole("alertdialog"))
+      fireEvent.click(dialog.getByRole("button", { name: /^Delete$/ }))
+      const working = (await dialog.findByRole("button", { name: /working/i })) as HTMLButtonElement
+      expect(working.disabled).toBe(true)
     })
 
     it("tells the operator an expired assignment already grants nothing", async () => {

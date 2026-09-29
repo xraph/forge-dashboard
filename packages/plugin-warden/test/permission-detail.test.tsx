@@ -134,22 +134,34 @@ async function openDelete() {
 
 describe("WardenPermissionDetailPage", () => {
   describe("reading", () => {
-    it("answers who grants this permission", async () => {
+    it("answers which roles attach this permission directly", async () => {
       // The question an operator opens this page for. permissions.detail's
-      // grantedBy exists precisely to answer it.
+      // grantedBy answers it for direct attachment, and only for that.
       show()
       expect(await screen.findByText("reader")).toBeTruthy()
       expect(await screen.findByText("auditor")).toBeTruthy()
     })
 
-    it("counts the granting roles live", async () => {
+    it("counts the roles that attach it directly, and only claims that", async () => {
+      // grantedBy is exact-name attachment. Inherited and wildcard grants are
+      // not in it, so a caption saying "granting roles" overclaimed.
       show()
-      expect(await screen.findByText("2 granting roles")).toBeTruthy()
+      expect(await screen.findByText("2 roles attach it directly")).toBeTruthy()
+      expect(screen.queryByText(/granting roles?/)).toBeNull()
     })
 
-    it("counts one granting role in the singular", async () => {
+    it("counts one attaching role in the singular", async () => {
       show(detailOf({ grantedBy: [READER] }))
-      expect(await screen.findByText("1 granting role")).toBeTruthy()
+      expect(await screen.findByText("1 role attaches it directly")).toBeTruthy()
+    })
+
+    it("says roles can also reach it through a parent or a wildcard, which the list omits", async () => {
+      show()
+      expect(
+        await screen.findByText(
+          "A role can also reach this permission through a parent role or a wildcard permission such as document:*, and this list does not show those."
+        )
+      ).toBeTruthy()
     })
 
     it("asks permissions.detail for exactly the id in the route", async () => {
@@ -186,13 +198,19 @@ describe("WardenPermissionDetailPage", () => {
   describe("a permission nothing grants", () => {
     it("says which kind of empty it is, and still counts", async () => {
       show(detailOf({ grantedBy: [] }))
-      expect(await screen.findByText("No role grants this permission.")).toBeTruthy()
-      expect(await screen.findByText("0 granting roles")).toBeTruthy()
+      // Not "No role grants this permission": a role inheriting it from a
+      // parent, or holding a matching wildcard, grants it and is not listed.
+      expect(await screen.findByText("No role attaches this permission directly.")).toBeTruthy()
+      expect(await screen.findByText("0 roles attach it directly")).toBeTruthy()
+      expect(screen.queryByText("No role grants this permission.")).toBeNull()
+      expect(
+        screen.getByText(/through a parent role or a wildcard permission/)
+      ).toBeTruthy()
     })
 
     it("does not fall back to a generic empty message", async () => {
       show(detailOf({ grantedBy: [] }))
-      await screen.findByText("No role grants this permission.")
+      await screen.findByText("No role attaches this permission directly.")
       expect(screen.queryByText(/no rows/i)).toBeNull()
       expect(screen.queryByText(/no data/i)).toBeNull()
       expect(screen.queryByText(/nothing to show/i)).toBeNull()
@@ -200,7 +218,7 @@ describe("WardenPermissionDetailPage", () => {
 
     it("is not an error: the permission's own fields still render", async () => {
       show(detailOf({ grantedBy: [] }))
-      await screen.findByText("No role grants this permission.")
+      await screen.findByText("No role attaches this permission directly.")
       expect(screen.queryByRole("alert")).toBeNull()
       expect(screen.getByText("read a document")).toBeTruthy()
       expect(screen.getByRole("button", { name: "Delete" })).toBeTruthy()
@@ -208,7 +226,7 @@ describe("WardenPermissionDetailPage", () => {
 
     it("survives a null grantedBy rather than throwing", async () => {
       show(detailOf({ grantedBy: null as unknown as [] }))
-      expect(await screen.findByText("No role grants this permission.")).toBeTruthy()
+      expect(await screen.findByText("No role attaches this permission directly.")).toBeTruthy()
     })
   })
 
@@ -348,6 +366,18 @@ describe("WardenPermissionDetailPage", () => {
       renderPage(WardenPermissionDetailPage, c, { id: "perm_01a" })
       await openDelete()
       expect(sent).toEqual([])
+    })
+
+    it("says the delete is refused while a role attaches it directly, not while any role grants it", async () => {
+      // The guard shares grantedBy's exact-name scan, so a role holding it
+      // only through a wildcard or a parent does not block the delete.
+      show()
+      await openDelete()
+      expect(
+        dialog().getByText(
+          "This is refused while any role attaches it directly. Detach it from those roles first, and the error below will name them."
+        )
+      ).toBeTruthy()
     })
 
     it("sends exactly the id of this permission", async () => {

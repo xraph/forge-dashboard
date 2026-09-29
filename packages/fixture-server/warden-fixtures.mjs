@@ -100,8 +100,10 @@ function seedWardenState() {
     ],
     // Tuples in two namespaces, and a two-hop chain a person can trace:
     // folder:root#parent@document:readme, then document:readme#viewer@user:bob.
-    // Tuples do not cascade across namespaces, so the eng/platform ones are
-    // invisible to a root-scoped list and the other way round.
+    // A namespace-filtered list is an exact match, so the eng/platform ones
+    // are absent from a root-filtered list and the other way round. That is
+    // the listing only: at check time the root tuples also apply in
+    // eng/platform, because tuples cascade down like roles and policies.
     relations: [
       { id: "rel_01a", namespacePath: "", objectType: "document", objectId: "readme", relation: "viewer", subjectType: "user", subjectId: "bob", subjectRelation: "", createdBy: WARDEN_ACTOR, createdAt: hourAgo },
       { id: "rel_01b", namespacePath: "", objectType: "folder", objectId: "root", relation: "parent", subjectType: "document", subjectId: "readme", subjectRelation: "", createdBy: WARDEN_ACTOR, createdAt: hourAgo },
@@ -117,8 +119,9 @@ function seedWardenState() {
     resourceTypes: [
       // Two relations and a permission derived from both. Tuples still use
       // it as their object type (three of them, two at the root and one in
-      // eng/platform, since a delete counts the type's namespace and
-      // everything below it), so deleting it is refused by hand.
+      // eng/platform, since a delete counts the type's namespace, everything
+      // below it and each ancestor, and a root type has no ancestors), so
+      // deleting it is refused by hand.
       {
         id: "rtype_01a", namespacePath: "", name: "document", description: "A document",
         relations: [
@@ -390,6 +393,19 @@ function validateNamespace(path) {
   }
 }
 
+/**
+ * Mirrors warden.AncestorNamespaces: the path itself first, then each
+ * ancestor up to and including the tenant root "". The root alone is [""].
+ */
+function ancestorNamespaces(path) {
+  if (!path) return [""]
+  const segments = path.split("/")
+  const out = []
+  for (let i = segments.length; i > 0; i--) out.push(segments.slice(0, i).join("/"))
+  out.push("")
+  return out
+}
+
 /** nsHasPrefix in the memory store: the prefix itself and everything below it. */
 function nsHasPrefix(path, prefix) {
   return prefix === "" || path === prefix || path.startsWith(prefix + "/")
@@ -402,6 +418,28 @@ function nsHasPrefix(path, prefix) {
 // Mirrors validSubjectKinds. A kind outside it stores an assignment no check
 // will ever match.
 const SUBJECT_KINDS = new Set(["user", "api_key", "service", "service_acct"])
+
+/**
+ * Mirrors validateResourceScope: both resource fields or neither. An id
+ * without a type is a global grant (the store keeps every row whose
+ * resourceType is empty, whatever its resourceId), and a type without an id
+ * matches only checks on a resource whose id is empty. Both look scoped and
+ * are not. Checked with the other inputs, before the member cap.
+ */
+function validateResourceScope(resourceType, resourceId) {
+  if (resourceId && !resourceType) {
+    throw badRequest(
+      "resourceId needs a resourceType: warden ignores an id without a type, " +
+        "so this assignment would apply to every resource, not one. Give both, or neither"
+    )
+  }
+  if (resourceType && !resourceId) {
+    throw badRequest(
+      "resourceType needs a resourceId: without one this assignment would match " +
+        "only checks on a resource whose id is empty. Give both, or neither"
+    )
+  }
+}
 
 // The window assignments.expiring uses when the caller names none. Not zero:
 // a zero window returns nothing, and an empty page would look like nothing is
@@ -799,7 +837,8 @@ function validateDefinitions(relations, permissions) {
     for (const ref of referencedRelations(expr)) {
       if (declared.has(ref.name)) continue
       const message = permNames.has(ref.name)
-        ? `${ref.name} is a permission, not a relation, and an expression can only reference relations`
+        ? `${ref.name} is a permission, not a relation. A bare name, like the first step of a traversal, ` +
+          "is looked up as a relation, not evaluated as a permission"
         : `relation ${ref.name} is not declared on this type`
       diagnostics.push({ permission: p.name, line: ref.line, col: ref.col, message })
     }
@@ -1282,6 +1321,7 @@ export const wardenHandlers = {
       }
       const namespacePath = payload.namespacePath ?? ""
       validateNamespace(namespacePath)
+      validateResourceScope(payload.resourceType ?? "", payload.resourceId ?? "")
       requireId("role", "role", payload.roleId)
       const role = warden.roles.find((r) => r.id === payload.roleId)
       if (!role) throw storeNotFound("role", payload.roleId)
@@ -1354,8 +1394,11 @@ export const wardenHandlers = {
   // -------------------------------------------------------------------------
   // Relations (tuples)
   //
-  // Create-and-delete only, and their namespace does NOT cascade: a filter is
-  // an exact match, never a prefix, because a tuple names a concrete pair.
+  // Create-and-delete only. A namespace filter is an exact match, never a
+  // prefix, so it lists what is stored in that one namespace. At check time
+  // tuples DO cascade: a tuple applies in its namespace and every namespace
+  // below it, like roles and policies, so a namespace's listing omits a
+  // parent's tuples that also apply there.
   // -------------------------------------------------------------------------
 
   "relations.list": {
@@ -1534,11 +1577,18 @@ export const wardenHandlers = {
       const i = warden.resourceTypes.findIndex((x) => x.id === payload.id)
       if (i === -1) throw storeNotFound("resource type", payload.id)
       const rt = warden.resourceTypes[i]
-      // Tuples resolve their type by name, from their own namespace up, so
-      // the ones this type answers for sit at its namespace or below it, not
-      // anywhere in the tenant. The tenant root matches everything.
+      // A check resolves a type by name from the check's namespace up, and
+      // considers tuples from the check's namespace up. So this type answers
+      // for checks at its namespace and below, and every tuple in scope for
+      // those checks uses it: tuples at its namespace or below it, and tuples
+      // at each of its strict ancestors, because tuples cascade downward.
+      // The tenant root prefix matches everything. Mirrors the Go guard,
+      // which adds an exact-namespace count per strict ancestor.
+      const ancestors = new Set(ancestorNamespaces(rt.namespacePath).slice(1))
       const used = warden.relations.filter(
-        (t) => t.objectType === rt.name && nsHasPrefix(t.namespacePath, rt.namespacePath)
+        (t) =>
+          t.objectType === rt.name &&
+          (nsHasPrefix(t.namespacePath, rt.namespacePath) || ancestors.has(t.namespacePath))
       ).length
       if (used > 0) {
         throw conflict(

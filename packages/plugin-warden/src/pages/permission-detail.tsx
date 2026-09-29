@@ -169,8 +169,8 @@ export function WardenPermissionDetailPage({ params }: PluginPageProps) {
             description={
               <span className="flex flex-col gap-2">
                 <span>
-                  This is refused while any role still grants it. Detach it from
-                  those roles first, and the error below will name them.
+                  This is refused while any role attaches it directly. Detach it
+                  from those roles first, and the error below will name them.
                 </span>
                 <CommandAlert error={remove.error} title="Could not delete" />
               </span>
@@ -186,7 +186,15 @@ export function WardenPermissionDetailPage({ params }: PluginPageProps) {
 }
 
 /**
- * The question this page exists to answer: which roles grant this permission.
+ * Which roles attach this permission DIRECTLY.
+ *
+ * That is all `grantedBy` holds: the server matches role grants by exact name
+ * and namespace. A role can also reach the permission without attaching it,
+ * by inheriting it from a parent role (the engine's
+ * resolveInheritedRoleObjects) or through a wildcard grant such as
+ * `document:*` (matcher.go matchPermission). Neither shows here, so nothing
+ * on this table may claim to be every role that grants it, and an empty
+ * table does not mean no role grants it.
  *
  * The count is what the server returned, never a page's worth of it:
  * `grantedBy` is not paged, because the delete guard that shares its scan
@@ -209,20 +217,27 @@ function GrantedByTable({ roles }: { roles: RoleSummary[] }) {
     },
   ]
   return (
-    <ResourceTable<RoleSummary>
-      columns={columns}
-      rows={roles}
-      rowKey={(r) => r.id}
-      caption={`${roles.length} ${roles.length === 1 ? "granting role" : "granting roles"}`}
-      // A permission nothing grants is a real state, not an error: it is what
-      // an operator is looking for before deleting one, and a generic empty
-      // message would not say which kind of empty this is.
-      emptyMessage="No role grants this permission."
-      rowActions={(r) => (
-        <PluginLink to={`/roles/${r.id}`} className={LINK_CLASS}>
-          Details
-        </PluginLink>
-      )}
-    />
+    <div className="flex flex-col gap-2">
+      <ResourceTable<RoleSummary>
+        columns={columns}
+        rows={roles}
+        rowKey={(r) => r.id}
+        caption={`${roles.length} ${roles.length === 1 ? "role attaches" : "roles attach"} it directly`}
+        // A permission no role attaches is a real state, not an error: it is
+        // what an operator is looking for before deleting one. It is not "no
+        // role grants it", which an inherited or wildcard grant can make false.
+        emptyMessage="No role attaches this permission directly."
+        rowActions={(r) => (
+          <PluginLink to={`/roles/${r.id}`} className={LINK_CLASS}>
+            Details
+          </PluginLink>
+        )}
+      />
+      <p className="text-xs text-muted-foreground">
+        A role can also reach this permission through a parent role or a
+        wildcard permission such as document:*, and this list does not show
+        those.
+      </p>
+    </div>
   )
 }

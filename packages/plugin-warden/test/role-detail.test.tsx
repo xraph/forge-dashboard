@@ -532,24 +532,42 @@ describe("WardenRoleDetailPage", () => {
     })
 
     it("keeps the form open, with what was typed, when the save fails", async () => {
+      // A refusal roles.update really emits: checkParent's BAD_REQUEST for a
+      // parent slug with no role in this namespace. roles.update never checks
+      // the member cap, so a cap refusal here would be invented.
       const { client: c, sent } = refusing(
-        new ContractError("CONFLICT", "member cap is below the current member count")
+        new ContractError("BAD_REQUEST", "no role with slug ghost in this namespace")
       )
       renderPage(WardenRoleDetailPage, c, { id: "role_01hq" })
       const save = await openEdit()
       type("Name", "Renamed")
+      type("Inherits from", "ghost")
       type("Member cap", "1")
       fireEvent.click(save)
       const alert = await screen.findByRole("alert")
-      expect(alert.textContent).toContain("member cap is below the current member count")
-      expect(alert.textContent).toContain("CONFLICT")
+      expect(alert.textContent).toContain("no role with slug ghost in this namespace")
+      expect(alert.textContent).toContain("BAD_REQUEST")
       expect(sent).toHaveLength(1)
       expect(field("Name").value).toBe("Renamed")
+      expect(field("Inherits from").value).toBe("ghost")
       expect(field("Member cap").value).toBe("1")
       // Still the form, and still saveable once the operator fixes it.
       expect((screen.getByRole("button", { name: "Save changes" }) as HTMLButtonElement).disabled).toBe(
         false
       )
+    })
+
+    it("says the cap is checked on assignment and lowering it removes nobody", async () => {
+      // roles.update stores MaxMembers without counting anyone, and the only
+      // guard is assignments.create. An operator lowering the cap to trim a
+      // role must not believe that doing so revoked anybody.
+      renderPage(WardenRoleDetailPage, recording().client, { id: "role_01hq" })
+      await openEdit()
+      expect(
+        screen.getByText(
+          "Leave it empty for no limit. Clearing a cap you had removes it. The cap is checked when this dashboard assigns a subject. Lowering it removes nobody who already holds the role."
+        )
+      ).toBeTruthy()
     })
 
     it("does not show an earlier refusal when the form is opened again", async () => {
@@ -624,7 +642,7 @@ describe("WardenRoleDetailPage", () => {
       fireEvent.click(screen.getByRole("button", { name: "Replace all" }))
       // The held grant is checked from the start; the other one arrives with
       // the picker's read.
-      await dialog().findByLabelText("document:write")
+      await dialog().findByLabelText("document:write (/)")
     }
 
     const confirm = () => dialog().getByRole("button", { name: "Replace grants" }) as HTMLButtonElement
@@ -633,9 +651,9 @@ describe("WardenRoleDetailPage", () => {
       const { client: c, sent } = recording()
       renderPage(WardenRoleDetailPage, c, { id: "role_01hq" })
       await openReplace()
-      expect(box("document:read").checked).toBe(true)
-      expect(box("document:write").checked).toBe(false)
-      fireEvent.click(box("document:write"))
+      expect(box("document:read (/)").checked).toBe(true)
+      expect(box("document:write (/)").checked).toBe(false)
+      fireEvent.click(box("document:write (/)"))
       fireEvent.click(confirm())
       await waitFor(() => expect(sent).toHaveLength(1))
       expect(sent[0]?.intent).toBe("roles.setPermissions")
@@ -653,8 +671,8 @@ describe("WardenRoleDetailPage", () => {
       const { client: c, sent } = recording()
       renderPage(WardenRoleDetailPage, c, { id: "role_01hq" })
       await openReplace()
-      fireEvent.click(box("document:read"))
-      fireEvent.click(box("document:write"))
+      fireEvent.click(box("document:read (/)"))
+      fireEvent.click(box("document:write (/)"))
       fireEvent.click(confirm())
       await waitFor(() => expect(sent).toHaveLength(1))
       expect(sent[0]?.payload).toEqual({ roleId: "role_01hq", permissions: [REF_WRITE] })
@@ -666,7 +684,7 @@ describe("WardenRoleDetailPage", () => {
       const { client: c, sent } = recording()
       renderPage(WardenRoleDetailPage, c, { id: "role_01hq" })
       await openReplace()
-      fireEvent.click(box("document:read"))
+      fireEvent.click(box("document:read (/)"))
       expect(dialog().getByText(/This revokes all 1 permission from the role/)).toBeTruthy()
       expect(confirm().disabled).toBe(false)
       fireEvent.click(confirm())
@@ -679,9 +697,9 @@ describe("WardenRoleDetailPage", () => {
       renderPage(WardenRoleDetailPage, c, { id: "role_01hq" })
       await openReplace()
       expect(confirm().disabled).toBe(true)
-      fireEvent.click(box("document:write"))
+      fireEvent.click(box("document:write (/)"))
       expect(confirm().disabled).toBe(false)
-      fireEvent.click(box("document:write"))
+      fireEvent.click(box("document:write (/)"))
       expect(confirm().disabled).toBe(true)
       expect(sent).toHaveLength(0)
     })
@@ -691,10 +709,19 @@ describe("WardenRoleDetailPage", () => {
       renderPage(WardenRoleDetailPage, c, { id: "role_01hq" })
       await screen.findByText(/grants nothing/i)
       fireEvent.click(screen.getByRole("button", { name: "Replace all" }))
-      await dialog().findByLabelText("document:write")
+      await dialog().findByLabelText("document:write (/)")
       expect(dialog().queryByText(/This revokes all/)).toBeNull()
       // Nothing held and nothing checked is no change.
       expect(confirm().disabled).toBe(true)
+    })
+
+    it("names a root permission with / like every other namespace", async () => {
+      const { client: c } = recording()
+      renderPage(WardenRoleDetailPage, c, { id: "role_01hq" })
+      await openReplace()
+      expect(box("document:read (/)")).toBeTruthy()
+      expect(dialog().getByText("document:write (/)")).toBeTruthy()
+      expect(dialog().queryByLabelText("document:read")).toBeNull()
     })
 
     it("names a namespaced permission by its namespace path", async () => {
@@ -739,9 +766,9 @@ describe("WardenRoleDetailPage", () => {
       })
       renderPage(WardenRoleDetailPage, c, { id: "role_01hq" })
       await openReplace()
-      expect(box("document:read").checked).toBe(true)
+      expect(box("document:read (/)").checked).toBe(true)
       expect(await dialog().findByText(/Showing the first 1 of 250/i)).toBeTruthy()
-      fireEvent.click(box("document:write"))
+      fireEvent.click(box("document:write (/)"))
       fireEvent.click(confirm())
       await waitFor(() => expect(sent).toHaveLength(1))
       expect(sent[0]?.payload).toEqual({
@@ -759,7 +786,7 @@ describe("WardenRoleDetailPage", () => {
       await screen.findByText("document:read")
       fireEvent.click(screen.getByRole("button", { name: "Replace all" }))
       expect(await dialog().findByText(/Could not load permissions/i)).toBeTruthy()
-      fireEvent.click(box("document:read"))
+      fireEvent.click(box("document:read (/)"))
       fireEvent.click(confirm())
       await waitFor(() => expect(sent).toHaveLength(1))
       expect(sent[0]?.payload).toEqual({ roleId: "role_01hq", permissions: [] })
@@ -769,7 +796,7 @@ describe("WardenRoleDetailPage", () => {
       const { client: c, sent } = recording()
       renderPage(WardenRoleDetailPage, c, { id: "role_01hq" })
       await openReplace()
-      fireEvent.click(box("document:write"))
+      fireEvent.click(box("document:write (/)"))
       fireEvent.click(confirm())
       await waitFor(() => expect(sent).toHaveLength(1))
       await waitFor(() => expect(screen.queryByRole("alertdialog")).toBeNull())
@@ -779,7 +806,7 @@ describe("WardenRoleDetailPage", () => {
       const { client: c, sent } = recording()
       renderPage(WardenRoleDetailPage, c, { id: "role_01hq" })
       await openReplace()
-      fireEvent.click(box("document:write"))
+      fireEvent.click(box("document:write (/)"))
       fireEvent.click(dialog().getByRole("button", { name: "Cancel" }))
       await waitFor(() => expect(screen.queryByRole("alertdialog")).toBeNull())
       expect(sent).toHaveLength(0)
@@ -794,7 +821,7 @@ describe("WardenRoleDetailPage", () => {
       } as ScopedClient
       renderPage(WardenRoleDetailPage, c, { id: "role_01hq" })
       await openReplace()
-      fireEvent.click(box("document:write"))
+      fireEvent.click(box("document:write (/)"))
       fireEvent.click(confirm())
       const working = (await dialog().findByRole("button", {
         name: "Working…",
@@ -811,31 +838,31 @@ describe("WardenRoleDetailPage", () => {
       )
       renderPage(WardenRoleDetailPage, c, { id: "role_01hq" })
       await openReplace()
-      fireEvent.click(box("document:write"))
+      fireEvent.click(box("document:write (/)"))
       fireEvent.click(confirm())
       const alert = await dialog().findByRole("alert")
       expect(alert.textContent).toContain('permission "document:write" does not exist')
       expect(alert.textContent).toContain("NOT_FOUND")
       expect(sent).toHaveLength(1)
       expect(screen.getByRole("alertdialog")).toBeTruthy()
-      expect(box("document:write").checked).toBe(true)
-      expect(box("document:read").checked).toBe(true)
+      expect(box("document:write (/)").checked).toBe(true)
+      expect(box("document:read (/)").checked).toBe(true)
     })
 
     it("does not show an earlier refusal when the dialog is opened again", async () => {
       const { client: c } = refusing(new ContractError("CONFLICT", "not this time"))
       renderPage(WardenRoleDetailPage, c, { id: "role_01hq" })
       await openReplace()
-      fireEvent.click(box("document:write"))
+      fireEvent.click(box("document:write (/)"))
       fireEvent.click(confirm())
       await dialog().findByRole("alert")
       fireEvent.click(dialog().getByRole("button", { name: "Cancel" }))
       await waitFor(() => expect(screen.queryByRole("alertdialog")).toBeNull())
       fireEvent.click(screen.getByRole("button", { name: "Replace all" }))
-      await dialog().findByLabelText("document:write")
+      await dialog().findByLabelText("document:write (/)")
       expect(dialog().queryByRole("alert")).toBeNull()
       // The selection starts over from what the role holds.
-      expect(box("document:write").checked).toBe(false)
+      expect(box("document:write (/)").checked).toBe(false)
     })
   })
 })

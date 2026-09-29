@@ -96,9 +96,11 @@ export interface ExpressionDiagnostic {
 //    later step names a relation or permission on whichever type the first hop
 //    lands on, which this type's own definition cannot know. Checking both
 //    hops would warn about expressions the server accepts.
-//  - A permission name is not a relation. An expression can only reference
-//    relations, so naming a sibling permission is the same failure, and the
-//    evaluator likewise looks it up as a relation tuple.
+//  - A permission name is not a relation. A bare name, like the first step of
+//    a traversal, is looked up as a relation tuple and never evaluated as a
+//    permission, so naming a sibling permission there is the same failure.
+//    (A traversal's LAST step can name a permission on the hopped type, which
+//    is why this is not "an expression can only reference relations".)
 //  - A reference under an odd number of negations (not, !, unary -) is
 //    negated; under an even number it is not. The evaluator negates once per
 //    NotExpr, so `not not ghost` is false for almost everyone again.
@@ -466,22 +468,34 @@ function RelationsTable({ relations }: { relations: RelationDef[] }) {
     {
       id: "subjects",
       header: "Allowed subject types",
-      // A relation allowing no subject type is a real state, and a broken one:
-      // nothing can be written to it. TagList renders it as a labelled dash
-      // rather than as a blank cell.
+      // A relation allowing no subject type is a real state. It is not a
+      // closed one: relations.create does no schema check, so a tuple with
+      // this relation can still be written and a check will match it as
+      // written. TagList renders it as a labelled dash rather than as a
+      // blank cell.
       cell: (r) => (
         <TagList values={r.allowedSubjects ?? []} label="allowed subject types" />
       ),
     },
   ]
   return (
-    <ResourceTable<RelationDef>
-      columns={columns}
-      rows={relations}
-      rowKey={(r) => r.name}
-      caption={`${relations.length} ${relations.length === 1 ? "relation" : "relations"}`}
-      emptyMessage="This type declares no relations."
-    />
+    <div className="flex flex-col gap-2">
+      <ResourceTable<RelationDef>
+        columns={columns}
+        rows={relations}
+        rowKey={(r) => r.name}
+        caption={`${relations.length} ${relations.length === 1 ? "relation" : "relations"}`}
+        emptyMessage="This type declares no relations."
+      />
+      {/* Nothing enforces these declarations: relations.create writes any
+          tuple it is given, and the evaluator resolves a name by raw tuple
+          lookup (dsl/eval.go). A page implying otherwise would tell an
+          operator a subject type is kept out when it is not. */}
+      <p className="text-xs text-muted-foreground">
+        Warden does not check tuples against these declarations. A check
+        matches a tuple as written, whatever relation or subject type it names.
+      </p>
+    </div>
   )
 }
 
@@ -566,7 +580,7 @@ function ExpressionCell({
 function undeclaredWarning(u: UndeclaredReference): string {
   const effect = `It only takes effect through a stray ${u.name} tuple, so for almost every subject it is false.`
   return u.isPermission
-    ? `${u.name} is a permission on this type, not a relation, and an expression can only reference relations. ${effect}`
+    ? `${u.name} is a permission on this type, not a relation. A bare name, like the first step of a traversal, is looked up as a relation, not evaluated as a permission. ${effect}`
     : `${u.name} is not declared on this type, so it is probably a typo. ${effect}`
 }
 

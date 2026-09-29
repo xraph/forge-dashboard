@@ -109,6 +109,55 @@ function subjectLabel(a: Pick<AssignmentSummary, "subjectKind" | "subjectId">) {
   return `${a.subjectKind}:${a.subjectId}`
 }
 
+/**
+ * A role option names its namespace, `/` for the tenant root, because slugs
+ * are unique only within a namespace. Two `admin` roles in different
+ * namespaces would otherwise be identical options on a write path.
+ */
+function roleOptionLabel(r: { slug: string; namespacePath: string }) {
+  return `${r.slug} (${r.namespacePath === "" ? "/" : r.namespacePath})`
+}
+
+/**
+ * The scope of a row as the engine reads it, not as the fields look.
+ *
+ * The engine treats the resource type and id as one key. An assignment with
+ * no resource type is global whatever its id (ListRolesForSubject keeps every
+ * row whose ResourceType is empty), and one with a type but no id matches
+ * only checks on a resource whose id is the empty string. assignments.create
+ * refuses both half shapes, but rows written through the REST API can
+ * already have them, so they are rendered for what they do.
+ */
+function ScopeCell({ a }: { a: AssignmentSummary }) {
+  const type = a.resourceType ?? ""
+  const id = a.resourceId ?? ""
+  if (type === "" && id === "") return <NoneCell label="scope" />
+  if (type === "") {
+    return (
+      <span className="flex flex-col gap-0.5">
+        <span>Global</span>
+        <span className="text-xs text-destructive">
+          Warden ignores the resource id <span className="font-mono">{id}</span>{" "}
+          without a resource type, so this assignment is not limited to one
+          resource.
+        </span>
+      </span>
+    )
+  }
+  if (id === "") {
+    return (
+      <span className="flex flex-col gap-0.5">
+        <span className="font-mono text-xs">{type}</span>
+        <span className="text-xs text-destructive">
+          No resource id, so this matches only checks on a {type} whose id is
+          empty.
+        </span>
+      </span>
+    )
+  }
+  return <span className="font-mono text-xs">{`${type}:${id}`}</span>
+}
+
 function RoleSelect({
   value,
   onChange,
@@ -136,7 +185,7 @@ function RoleSelect({
         </NativeSelectOption>
         {items.map((r) => (
           <NativeSelectOption key={r.id} value={r.id}>
-            {r.slug}
+            {roleOptionLabel(r)}
           </NativeSelectOption>
         ))}
       </NativeSelect>
@@ -170,6 +219,10 @@ export function WardenAssignmentsPage() {
 
   const createNamespace = namespace.value === "all" ? "" : namespace.value
   const expiresAt = expiryInstant(form.expires)
+  // Both resource fields or neither, the rule assignments.create enforces.
+  // Half a resource looks scoped and is not, so it cannot be confirmed.
+  const halfScoped =
+    (form.resourceType.trim() === "") !== (form.resourceId.trim() === "")
 
   function openCreate() {
     // Reset at open, not at close: the operator is about to read whatever
@@ -184,7 +237,7 @@ export function WardenAssignmentsPage() {
     // expiresAt null means the value did not parse. The button is disabled
     // then, but the guard stays: sending without it would create a permanent
     // grant out of a mistyped expiry.
-    if (expiresAt === null) return
+    if (expiresAt === null || halfScoped) return
     const resourceType = form.resourceType.trim()
     const resourceId = form.resourceId.trim()
     // Optional fields are ABSENT when unset, not empty strings. The server
@@ -240,14 +293,7 @@ export function WardenAssignmentsPage() {
     {
       id: "scope",
       header: "Scope",
-      cell: (a) => {
-        const scope = [a.resourceType, a.resourceId].filter(Boolean).join(":")
-        return scope === "" ? (
-          <NoneCell label="scope" />
-        ) : (
-          <span className="font-mono text-xs">{scope}</span>
-        )
-      },
+      cell: (a) => <ScopeCell a={a} />,
     },
     {
       id: "namespace",
@@ -298,6 +344,8 @@ export function WardenAssignmentsPage() {
         Assignments cannot be edited, only created and deleted, because the
         store has no update. To change one, delete it and create another. An
         expired assignment grants nothing but stays listed until it is deleted.
+        To renew an expired assignment, delete it first: the store refuses the
+        same binding as a duplicate while the expired row exists.
       </p>
 
       <FilterBar filters={[namespace.filterConfig]} />
@@ -345,15 +393,19 @@ export function WardenAssignmentsPage() {
         confirmLabel="Create assignment"
         pending={create.loading}
         confirmDisabled={
-          form.roleId === "" || form.subjectId.trim() === "" || expiresAt === null
+          form.roleId === "" ||
+          form.subjectId.trim() === "" ||
+          expiresAt === null ||
+          halfScoped
         }
         onConfirm={() => void confirmCreate()}
         description={
           <span className="flex flex-col gap-3">
             <span>
               Binding a subject to a role in{" "}
-              {createNamespace === "" ? "the tenant root" : createNamespace}. A
-              role with a member cap refuses a new subject once it is full.
+              {createNamespace === "" ? "the tenant root" : createNamespace}. The
+              assignment applies there and in every namespace below it. A role
+              with a member cap refuses a new subject once it is full.
             </span>
             <RoleSelect
               value={form.roleId}
@@ -404,6 +456,17 @@ export function WardenAssignmentsPage() {
                 value={form.resourceId}
                 onChange={(e) => setForm((f) => ({ ...f, resourceId: e.target.value }))}
               />
+              <span>
+                Fill in both to limit the assignment to one resource, or leave
+                both empty.
+              </span>
+              {halfScoped && (
+                <span className="text-destructive">
+                  {form.resourceType.trim() === ""
+                    ? "A resource id needs a resource type. Without one, warden ignores the id and the assignment is not limited to one resource."
+                    : "A resource type needs a resource id. Without one, the assignment matches only checks on a resource whose id is empty."}
+                </span>
+              )}
             </span>
             <span className="flex flex-col gap-1.5">
               <Label htmlFor="assignment-expires">Expires (optional)</Label>
@@ -433,7 +496,7 @@ export function WardenAssignmentsPage() {
             <span>
               {deleting?.expired
                 ? "This assignment has already expired and grants nothing, so deleting it only removes the row."
-                : "The subject stops holding this role. Creating the assignment again restores it."}
+                : "This binding is removed. The subject keeps this role only where another of its assignments grants it."}
             </span>
             <CommandAlert error={remove.error} title="Could not delete" />
           </span>

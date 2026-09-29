@@ -150,7 +150,8 @@ describe("WardenResourceTypeDetailPage", () => {
     })
 
     it("does not render a relation that allows no subject types as a blank cell", async () => {
-      // A real and broken state: nothing can be written to such a relation.
+      // A real state, though not a closed one: relations.create does no
+      // schema check, so a tuple with this relation can still be written.
       render(
         detailOf({
           relations: [{ name: "orphan", allowedSubjects: [] }],
@@ -159,6 +160,19 @@ describe("WardenResourceTypeDetailPage", () => {
       )
       const row = (await screen.findByText("orphan", { selector: "td" })).closest("tr")!
       expect(within(row).getByLabelText("no allowed subject types")).toBeTruthy()
+    })
+
+    it("says warden does not check tuples against the declared subject types", async () => {
+      // relations.create does no schema check and the evaluator resolves a
+      // name by raw tuple lookup. Without this line the column reads as a
+      // rule that keeps other subject types out, which it is not.
+      render()
+      await screen.findByText("viewer", { selector: "td" })
+      expect(
+        screen.getByText(
+          "Warden does not check tuples against these declarations. A check matches a tuple as written, whatever relation or subject type it names."
+        )
+      ).toBeTruthy()
     })
 
     it("counts both tables in their captions", async () => {
@@ -388,13 +402,16 @@ describe("WardenResourceTypeDetailPage", () => {
 
     it("says a permission name is not a relation, and is honest about what happens to it", async () => {
       // `write` is declared, but as a permission. The evaluator looks the name
-      // up as a relation tuple, so it matches only a stray `write` tuple.
+      // up as a relation tuple, so it matches only a stray `write` tuple. The
+      // old wording said an expression can only reference relations, which a
+      // traversal's last step (parent->read) disproves.
       const row = await rowFor("viewer or write")
       expect(
         row.getByText(
-          "write is a permission on this type, not a relation, and an expression can only reference relations. It only takes effect through a stray write tuple, so for almost every subject it is false."
+          "write is a permission on this type, not a relation. A bare name, like the first step of a traversal, is looked up as a relation, not evaluated as a permission. It only takes effect through a stray write tuple, so for almost every subject it is false."
         )
       ).toBeTruthy()
+      expect(row.queryByText(/can only reference relations/)).toBeNull()
       expect(row.queryByText(/never match/i)).toBeNull()
       expect(row.queryByText(/negated here/)).toBeNull()
     })

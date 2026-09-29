@@ -290,11 +290,18 @@ export function WardenRelationsPage() {
           edited, only created and deleted, because the store has no update. To
           change one, delete it and write another.
         </p>
+        {/* Tuples cascade at check time: every tuple lookup a check makes
+            gets AncestorNamespaces(checkNamespace), in the direct check, the
+            expression evaluator and the graph walker (warden engine.go
+            evaluateReBAC, TestReBAC_NamespaceCascade). The list filter is an
+            exact match, so the listing under a namespace leaves out tuples
+            that are in scope there. Both halves have to be said. */}
         <p>
-          Unlike roles, permissions, policies and resource types, a tuple&apos;s
-          namespace does not cascade. A tuple in a parent namespace is not in
-          scope for a check in a child, because it names one concrete object and
-          subject pair.
+          A tuple is in scope for checks in its own namespace and in every
+          namespace below it, the same way roles and policies are. Filtering
+          by namespace shows only the tuples stored in exactly that namespace,
+          so tuples stored in a parent namespace are not listed under it,
+          although they are in scope there too.
         </p>
       </div>
 
@@ -368,7 +375,8 @@ export function WardenRelationsPage() {
           <span className="flex flex-col gap-3">
             <span>
               Writing a tuple in{" "}
-              {createNamespace === "" ? "the tenant root" : createNamespace}. All
+              {createNamespace === "" ? "the tenant root" : createNamespace}. It
+              is in scope for checks there and in every namespace below it. All
               five parts are required. The subject relation is only for a set,
               such as a group&apos;s members.
             </span>

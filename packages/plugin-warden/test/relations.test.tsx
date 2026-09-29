@@ -163,14 +163,23 @@ describe("WardenRelationsPage", () => {
     expect(cell.className).toContain("font-medium")
   })
 
-  it("says that a relation's namespace does not cascade", async () => {
-    // Roles, permissions, policies and resource types resolve up the
-    // ancestor chain. Tuples do not. A page that did not say so would imply
-    // access the engine will not grant.
+  it("says a tuple is in scope below its namespace, and the filter shows only exact matches", async () => {
+    // Tuples DO cascade at check time: warden hands the ancestor chain to
+    // every tuple lookup a check makes (engine.go evaluateReBAC,
+    // TestReBAC_NamespaceCascade). The list filter is exact-match. The page
+    // once said tuples do not cascade, which told an operator a parent's
+    // tuple grants nothing in a child when it does. That must not return.
     renderPage(WardenRelationsPage, client())
     await screen.findByText(PLAIN)
-    expect(screen.getAllByText(/does not cascade/i)).toHaveLength(1)
-    expect(screen.getByText(/roles, permissions, policies and resource types/i)).toBeTruthy()
+    const text = document.body.textContent ?? ""
+    expect(text).toContain(
+      "A tuple is in scope for checks in its own namespace and in every namespace below it, the same way roles and policies are."
+    )
+    expect(text).toContain(
+      "Filtering by namespace shows only the tuples stored in exactly that namespace, so tuples stored in a parent namespace are not listed under it, although they are in scope there too."
+    )
+    expect(screen.queryByText(/does not cascade/i)).toBeNull()
+    expect(screen.queryByText(/not in scope for a check in a child/i)).toBeNull()
   })
 
   it("offers no edit control, and says why", async () => {
@@ -445,6 +454,7 @@ describe("WardenRelationsPage", () => {
       renderPage(WardenRelationsPage, c)
       const dialog = await openCreate()
       expect(dialog.getByText(/in the tenant root/i)).toBeTruthy()
+      expect(dialog.getByText(/in scope for checks there and in every namespace below it/i)).toBeTruthy()
       fill(dialog, FIVE)
       fireEvent.click(dialog.getByRole("button", { name: CREATE }))
       await waitFor(() => expect(sent).toHaveLength(1))
@@ -537,6 +547,34 @@ describe("WardenRelationsPage", () => {
       fireEvent.click(screen.getByRole("button", { name: `Delete ${USERSET}` }))
       const dialog = within(await screen.findByRole("alertdialog"))
       expect(dialog.getByText(`Delete ${USERSET}?`)).toBeTruthy()
+    })
+
+    it("says a tuple written in a chosen namespace is in scope there and below it", async () => {
+      renderPage(WardenRelationsPage, client())
+      await screen.findByText(PLAIN)
+      fireEvent.change(screen.getByLabelText("Namespace"), { target: { value: "eng/platform" } })
+      const dialog = await openCreate()
+      const described = (await screen.findByRole("alertdialog")).textContent ?? ""
+      expect(described).toContain(
+        "Writing a tuple in eng/platform. It is in scope for checks there and in every namespace below it."
+      )
+      expect(dialog.getByRole("button", { name: CREATE })).toBeTruthy()
+    })
+
+    it("shows the delete as pending while the command is in flight", async () => {
+      // Without pending the confirm stays live, and a second click sends a
+      // second delete that comes back NOT_FOUND over the first one's success.
+      const pending = {
+        ...client(),
+        command: () => new Promise<never>(() => {}),
+      } as ScopedClient
+      renderPage(WardenRelationsPage, pending)
+      await screen.findByText(PLAIN)
+      fireEvent.click(screen.getByRole("button", { name: `Delete ${PLAIN}` }))
+      const dialog = within(await screen.findByRole("alertdialog"))
+      fireEvent.click(dialog.getByRole("button", { name: /^Delete$/ }))
+      const working = (await dialog.findByRole("button", { name: /working/i })) as HTMLButtonElement
+      expect(working.disabled).toBe(true)
     })
 
     it("shows a refused delete inside the dialog", async () => {
