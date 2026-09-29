@@ -9,6 +9,7 @@ import authsomePlugin, {
 } from "@forge-go/dashboard-plugin-authsome"
 import streamingPlugin from "@forge-go/dashboard-plugin-streaming"
 import wardenPlugin from "@forge-go/dashboard-plugin-warden"
+import vaultPlugin from "@forge-go/dashboard-plugin-vault"
 
 // The Go handler injects window.__FORGE_DASHBOARD__ before this bundle loads,
 // so the shell works on any BasePath. `pnpm dev` has no such handler, hence
@@ -22,7 +23,13 @@ const config = { basePath: injected.basePath ?? "/dashboard", ...injected }
 
 // core carries root: true and claims "/". streaming and authsome mount under
 // their own namespaces. Array order is the cross-plugin nav order.
-const plugins = [corePlugin, streamingPlugin, authsomePlugin, wardenPlugin]
+const plugins = [
+  corePlugin,
+  streamingPlugin,
+  authsomePlugin,
+  wardenPlugin,
+  vaultPlugin,
+]
 
 // The twenty-four authsome sub-plugins: six carrying data of their own, and
 // eighteen that are a nav entry and a settings panel. Each one appears only
