@@ -5,6 +5,7 @@ import { Input } from "@forge-go/dashboard-kit/components/input"
 import { Label } from "@forge-go/dashboard-kit/components/label"
 import { CommandAlert } from "@forge-go/dashboard-kit/components/query-boundary"
 import { Textarea } from "@forge-go/dashboard-kit/components/textarea"
+import { PatternMatches } from "./pattern-matches"
 
 /** The form's raw text, one string per field, exactly as typed. */
 export interface EndpointFormValues {
@@ -294,14 +295,17 @@ export function EndpointForm({
         error={refusal("eventTypes")}
       >
         {(d, invalid) => (
-          <Textarea
-            id={`${id}-events`}
-            className="font-mono"
-            value={values.eventTypes}
-            onChange={set("eventTypes")}
-            aria-describedby={d}
-            aria-invalid={invalid || undefined}
-          />
+          <>
+            <Textarea
+              id={`${id}-events`}
+              className="font-mono"
+              value={values.eventTypes}
+              onChange={set("eventTypes")}
+              aria-describedby={d}
+              aria-invalid={invalid || undefined}
+            />
+            <PatternMatches patterns={patterns} />
+          </>
         )}
       </Field>
       <Field

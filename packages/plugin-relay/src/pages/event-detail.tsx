@@ -72,6 +72,22 @@ function EventDetailView({ id }: { id: string }) {
                     term: "Sent",
                     value: <Timestamp value={e.createdAt} label="sent" />,
                   },
+                  {
+                    term: "App scope",
+                    value: e.scopeAppId ? (
+                      <span className="font-mono text-xs">{e.scopeAppId}</span>
+                    ) : (
+                      <NoneCell label="app scope" />
+                    ),
+                  },
+                  {
+                    term: "Org scope",
+                    value: e.scopeOrgId ? (
+                      <span className="font-mono text-xs">{e.scopeOrgId}</span>
+                    ) : (
+                      <NoneCell label="org scope" />
+                    ),
+                  },
                 ]}
               />
               <section

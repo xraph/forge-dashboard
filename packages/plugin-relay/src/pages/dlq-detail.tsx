@@ -130,6 +130,17 @@ function DLQDetailView({ id }: { id: string }) {
                       ),
                     },
                     {
+                      term: "Endpoint",
+                      value: (
+                        <PluginLink
+                          to={`/endpoints/${e.endpointId}`}
+                          className="break-all underline underline-offset-4"
+                        >
+                          {e.url}
+                        </PluginLink>
+                      ),
+                    },
+                    {
                       term: "Tenant",
                       value: (
                         <span className="font-mono text-xs">{e.tenantId}</span>

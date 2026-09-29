@@ -305,6 +305,26 @@ function EndpointDetailView({ id }: { id: string }) {
                           <Timestamp value={ep.updatedAt} label="updated" />
                         ),
                       },
+                      {
+                        term: "App scope",
+                        value: ep.scopeAppId ? (
+                          <span className="font-mono text-xs">
+                            {ep.scopeAppId}
+                          </span>
+                        ) : (
+                          <NoneCell label="app scope" />
+                        ),
+                      },
+                      {
+                        term: "Org scope",
+                        value: ep.scopeOrgId ? (
+                          <span className="font-mono text-xs">
+                            {ep.scopeOrgId}
+                          </span>
+                        ) : (
+                          <NoneCell label="org scope" />
+                        ),
+                      },
                     ]}
                   />
                 )

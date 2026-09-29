@@ -542,6 +542,10 @@ export function createRelayFixtures({ endpoints, FixtureError: Err }) {
       handler: () => ({
         concurrency: 10, batchSize: 50, maxRetries: MAX_ATTEMPTS, pollIntervalMs: 1000, maxPollIntervalMs: 30000,
         requestTimeoutMs: 10000, shutdownTimeoutMs: 30000, cacheTtlMs: 300000, retryScheduleMs: RETRY_SCHEDULE_MS,
+        signature: {
+          algorithm: "HMAC-SHA256", header: "X-Relay-Signature", timestampHeader: "X-Relay-Timestamp",
+          format: "v1=<hex>", signedContent: "{timestamp}.{body}",
+        },
       }),
     },
   }

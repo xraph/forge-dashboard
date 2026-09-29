@@ -11,6 +11,7 @@ import {
 import { NoneCell } from "@forge-go/dashboard-kit/components/none-cell"
 import { PageHeader } from "@forge-go/dashboard-kit/components/page-header"
 import { QueryBoundary } from "@forge-go/dashboard-kit/components/query-boundary"
+import { TagList } from "@forge-go/dashboard-kit/components/tag-list"
 import { Timestamp } from "@forge-go/dashboard-kit/components/timestamp"
 import { DialogError } from "../components/dialog-error"
 import { JsonView } from "../components/json-view"
@@ -118,6 +119,31 @@ function EventTypeView({ name }: { name: string }) {
                       term: "Schema version",
                       value: t.schemaVersion || (
                         <NoneCell label="schema version" />
+                      ),
+                    },
+                    {
+                      term: "Event type ID",
+                      value: <span className="font-mono text-xs">{t.id}</span>,
+                    },
+                    {
+                      term: "App scope",
+                      value: t.scopeAppId ? (
+                        <span className="font-mono text-xs">
+                          {t.scopeAppId}
+                        </span>
+                      ) : (
+                        <NoneCell label="app scope" />
+                      ),
+                    },
+                    {
+                      term: "Metadata",
+                      value: (
+                        <TagList
+                          values={Object.entries(t.metadata ?? {}).map(
+                            ([k, v]) => `${k}: ${v}`
+                          )}
+                          label="metadata"
+                        />
                       ),
                     },
                     {

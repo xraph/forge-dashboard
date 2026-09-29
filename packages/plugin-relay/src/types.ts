@@ -74,6 +74,7 @@ export interface EventTypeDetail extends EventTypeSummary {
   schema?: unknown
   example?: unknown
   metadata?: Record<string, string>
+  scopeAppId?: string
 }
 
 export interface DLQEntrySummary {
@@ -118,6 +119,13 @@ export interface SettingsConfig {
   shutdownTimeoutMs: number
   cacheTtlMs: number
   retryScheduleMs: number[]
+  signature: {
+    algorithm: string
+    header: string
+    timestampHeader: string
+    format: string
+    signedContent: string
+  }
 }
 
 export interface Ack {
