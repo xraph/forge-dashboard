@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest"
-import { fireEvent, screen, waitFor } from "@testing-library/react"
+import { fireEvent, screen, waitFor, within } from "@testing-library/react"
 import { ContractError } from "@forge-go/dashboard-plugin"
 import { WardenPermissionsPage } from "../src/pages/permissions"
 import {
@@ -64,14 +64,21 @@ describe("WardenPermissionsPage", () => {
     expect(screen.getByText("read")).toBeTruthy()
   })
 
-  it("does not link a row to a permission detail page, because none exists yet", async () => {
-    // /permissions/:id has no route: the intent behind it (permissions.detail)
-    // is real and waiting on a later plan, but the page itself is not built.
-    // A Details link here would be dead, so the row's only action is Delete.
+  it("links each row to its permission's own page", async () => {
+    // Scoped to the row, because every row carries its own Details link and
+    // an unscoped query would be ambiguous between them. The link sits beside
+    // the Delete button, so a system row, which has no Delete, must still
+    // have it.
     renderPage(WardenPermissionsPage, client())
-    await screen.findByText("document:read")
-    expect(screen.queryByRole("link", { name: /Details/i })).toBeNull()
-    expect(screen.getByRole("button", { name: /Delete document:read/i })).toBeTruthy()
+    const row = (await screen.findByText("document:read")).closest("tr") as HTMLElement
+    expect(within(row).getByRole("link", { name: "Details" }).getAttribute("href")).toBe(
+      "/permissions/perm_01a"
+    )
+    expect(within(row).getByRole("button", { name: "Delete document:read" })).toBeTruthy()
+    const system = (await screen.findByText("cluster:admin")).closest("tr") as HTMLElement
+    expect(within(system).getByRole("link", { name: "Details" }).getAttribute("href")).toBe(
+      "/permissions/perm_01c"
+    )
   })
 
   it("says which kind of empty an empty list is, and still counts", async () => {

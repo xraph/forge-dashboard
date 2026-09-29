@@ -92,4 +92,12 @@ describe("wardenPlugin", () => {
     expect(wardenPlugin.routes.map((r) => r.path)).toContain("/resource-types/:id")
     expect(nav.map((n) => n.to)).not.toContain("/resource-types/:id")
   })
+
+  it("routes a permission's own page, with no nav entry for it", () => {
+    // A sidebar link to "a permission" with none chosen would point nowhere.
+    const nav = wardenPlugin.nav ?? []
+    expect(wardenPlugin.routes.map((r) => r.path)).toContain("/permissions/:id")
+    expect(nav.map((n) => n.to)).not.toContain("/permissions/:id")
+    expect(nav.find((n) => n.label === "Permissions")?.to).toBe("/permissions")
+  })
 })

@@ -94,19 +94,30 @@ describe("WardenRoleDetailPage", () => {
     expect(await screen.findByText(/grants nothing/i)).toBeTruthy()
   })
 
-  it("does not link a grant to a permission detail page, because none exists yet", async () => {
-    // /permissions/:id has no route: the intent behind it (permissions.detail)
-    // is real and waiting on a later plan, but the page itself is not built.
-    // A Details link here would be dead. Scoped to the grant's own row,
-    // because the children table below carries a real Details link to
-    // /roles/:id and an unscoped query would be ambiguous between the two.
+  it("links each grant to its permission's own page", async () => {
+    // Scoped to the grant's own row, because the children table below carries
+    // its own Details link to /roles/:id and an unscoped query would be
+    // ambiguous between the two.
     renderPage(WardenRoleDetailPage, client(), { id: "role_01hq" })
-    const row = (await screen.findByText("document:read")).closest("tr")
+    const row = (await screen.findByText("document:read")).closest("tr") as HTMLElement
     expect(row).toBeTruthy()
-    expect(within(row as HTMLElement).queryByRole("link", { name: /Details/i })).toBeNull()
-    expect(
-      within(row as HTMLElement).getByRole("button", { name: /Revoke document:read/i })
-    ).toBeTruthy()
+    expect(within(row).getByRole("link", { name: "Details" }).getAttribute("href")).toBe(
+      "/permissions/perm_01a"
+    )
+    expect(within(row).getByRole("button", { name: "Revoke document:read" })).toBeTruthy()
+  })
+
+  it("still links a grant on a system role, which has no Revoke", async () => {
+    // The link sits beside Revoke, and a system role hides Revoke. Reading a
+    // grant is not changing it, so the link must survive.
+    renderPage(WardenRoleDetailPage, client({ ...DETAIL, isSystem: true }), {
+      id: "role_01hq",
+    })
+    const row = (await screen.findByText("document:read")).closest("tr") as HTMLElement
+    expect(within(row).getByRole("link", { name: "Details" }).getAttribute("href")).toBe(
+      "/permissions/perm_01a"
+    )
+    expect(within(row).queryByRole("button", { name: /Revoke/ })).toBeNull()
   })
 
   it("lists the roles that inherit from this one", async () => {
@@ -115,9 +126,8 @@ describe("WardenRoleDetailPage", () => {
   })
 
   it("still links a child role to its real detail route", async () => {
-    // The regression above is specific to the dead /permissions/:id link;
-    // /roles/:id is a real route and this link must not have been swept
-    // away along with it.
+    // The grant link above and this one are different routes and both are
+    // real; neither may be swept away by a change to the other.
     renderPage(WardenRoleDetailPage, client(), { id: "role_01hq" })
     const row = (await screen.findByText("Editor")).closest("tr")
     expect(row).toBeTruthy()
