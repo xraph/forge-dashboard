@@ -25,11 +25,13 @@
 //   - eighteen settings-only sub-plugins (sub/settings-only.tsx): each its
 //     own contributor name, `intents: []`, reachable only through auth's
 //     settings.namespace/settings.update via the host-intent allowlist.
-//   - relay               (packages/plugin-relay)            3 queries, 5 commands
-//                          mirrors relay/extension/contract (webhook endpoints)
+//   - relay               (packages/plugin-relay)            14 queries, 12 commands
+//                          mirrors relay/extension/contract; endpoints here,
+//                          the rest in relay-fixtures.mjs
 
 import { createServer } from "node:http"
 import { randomBytes } from "node:crypto"
+import { createRelayFixtures } from "./relay-fixtures.mjs"
 
 // ---------------------------------------------------------------------------
 // Config
@@ -2803,6 +2805,10 @@ const relayHandlers = {
   },
 }
 
+// Deliveries, events, event types, the DLQ, overview and settings. They read
+// the endpoint rows above, so a delivery names a URL that exists here.
+const relayFixtures = createRelayFixtures({ endpoints: () => relayState.endpoints, FixtureError })
+
 // ---------------------------------------------------------------------------
 // Registry: contributor -> intent -> definition
 // ---------------------------------------------------------------------------
@@ -2823,7 +2829,7 @@ const CONTRIBUTORS = [
   { name: "consent", envPrefix: "CONSENT", handlers: consentHandlers },
   { name: "subscription", envPrefix: "SUBSCRIPTION", handlers: subscriptionHandlers },
   { name: "password", envPrefix: "PASSWORD", handlers: passwordHandlers },
-  { name: "relay", envPrefix: "RELAY", handlers: relayHandlers },
+  { name: "relay", envPrefix: "RELAY", handlers: { ...relayHandlers, ...relayFixtures.handlers } },
   ...SETTINGS_ONLY_EXTENSIONS.map((extension) => ({
     name: extension,
     envPrefix: extension.toUpperCase(),
@@ -3087,6 +3093,8 @@ function handleReset(res) {
   waitlist = seedWaitlistState()
   consent = seedConsentState()
   subscription = seedSubscriptionState()
+  relayState = seedRelayState()
+  relayFixtures.reset()
   csrfTokens.clear()
   idempotencyStore.clear()
   return sendJSON(res, 200, { ok: true })

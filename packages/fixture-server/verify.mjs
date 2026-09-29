@@ -122,6 +122,20 @@ const INPUT = {
   "relay::endpoints.delete": { id: "ep_01hq2k3m4n5p6q7r8s9t0v1w2y" },
   "relay::endpoints.setEnabled": { id: "ep_01hq2k3m4n5p6q7r8s9t0v1w2x", enabled: false },
   "relay::endpoints.rotateSecret": { id: "ep_01hq2k3m4n5p6q7r8s9t0v1w2z" },
+  // relay-fixtures.mjs's RELAY_IDS. replay takes the 4xx entry and leaves
+  // the gave-up one for detail and bulk replay.
+  "relay::deliveries.detail": { id: "del_01hq2k3m4n5p6q7r8s9t0vd001" },
+  "relay::events.detail": { id: "evt_01hq2k3m4n5p6q7r8s9t0ve001" },
+  "relay::events.send": { type: "invoice.paid", tenantId: "acme", data: { invoiceId: "inv_v", amount: 1, currency: "USD" } },
+  "relay::eventTypes.detail": { name: "invoice.paid" },
+  "relay::eventTypes.match": { pattern: "invoice.*" },
+  "relay::eventTypes.register": { name: "verify.ping", version: "1" },
+  "relay::eventTypes.deprecate": { name: "customer.created" },
+  "relay::dlq.detail": { id: "dlq_01hq2k3m4n5p6q7r8s9t0vq001" },
+  "relay::dlq.replay": { id: "dlq_01hq2k3m4n5p6q7r8s9t0vq002" },
+  "relay::dlq.bulkPreview": { from: new Date(Date.now() - 30 * 86_400_000).toISOString(), to: new Date().toISOString() },
+  "relay::dlq.replayBulk": { from: new Date(Date.now() - 30 * 86_400_000).toISOString(), to: new Date().toISOString() },
+  "relay::dlq.purge": { before: new Date(Date.now() - 365 * 86_400_000).toISOString() },
   "streaming-contract::rooms.detail": { id: "room_1" },
   "streaming-contract::rooms.create": { name: "Verify room", description: "d", owner: "usr_1", private: false },
   "streaming-contract::rooms.delete": { id: "room_2" },
@@ -276,6 +290,20 @@ async function main() {
   )
   if (!hasSecretOnCreate || listLeaksSecret || detailLeaksSecret) {
     failures.push({ key: "spot-check::apikeys secret-once", reason: "secret-once invariant violated" })
+  }
+
+  // relay's replay behaves like a real backend, not like the in-memory store:
+  // the row stays listed and marked, and a second replay is refused. The
+  // intent loop above already replayed the 4xx entry once.
+  const replayedId = "dlq_01hq2k3m4n5p6q7r8s9t0vq002"
+  const again = await dispatch("relay", "dlq.replay", "command", { id: replayedId }, csrf)
+  const dlqList = await dispatch("relay", "dlq.list", "query", {}, csrf)
+  const stillListed = dlqList.body?.data?.entries?.find((e) => e.id === replayedId)
+  console.log(
+    `  second dlq.replay refused: ${again.body?.error?.code === "CONFLICT"} / replayed row kept and marked: ${Boolean(stillListed?.replayedAt)}`,
+  )
+  if (again.body?.error?.code !== "CONFLICT" || !stillListed?.replayedAt) {
+    failures.push({ key: "spot-check::relay replay", reason: "replay did not keep, mark and refuse like a real backend" })
   }
 
   // A create must show up in its list (meta.invalidates + an actual write).
