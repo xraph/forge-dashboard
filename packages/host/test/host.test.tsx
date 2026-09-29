@@ -488,9 +488,10 @@ describe("PluginHost", () => {
     expect(await screen.findByText("overview page body")).toBeTruthy()
 
     fireEvent.click(
-      within(screen.getByRole("navigation", { name: "Scopes" })).getByRole("link", {
-        name: /gateway-contract/,
-      }),
+      await screen.findByRole("button", { name: /core-contract/ })
+    )
+    fireEvent.click(
+      screen.getByRole("menuitem", { name: /gateway-contract/ })
     )
 
     expect(await screen.findByText("gateway first page")).toBeTruthy()
@@ -937,9 +938,7 @@ describe("scoped routing", () => {
     )
 
     expect(await screen.findByText("rooms page")).toBeTruthy()
-    expect(
-      within(screen.getByRole("navigation", { name: "Scopes" })).getByRole("link", { name: "Streaming" }),
-    ).toBeTruthy()
+    expect(screen.getByRole("button", { name: "Streaming @streaming" })).toBeTruthy()
     expect(screen.getByText("@streaming")).toBeTruthy()
     expect(
       screen.getByRole("link", { name: "Rooms" }).closest("[data-active]"),
@@ -1156,7 +1155,7 @@ const content = (c: HTMLElement) =>
   c.querySelector('[data-slot="sidebar-content"]') as HTMLElement
 
 describe("PluginHost root destination", () => {
-  it("puts the root in the scope rail inside a scope, and names the scope in the pane heading", async () => {
+  it("keeps root navigation in the scope switcher inside a scope", async () => {
     const { container } = renderHost(
       [rootPlugin(), authScopePlugin()],
       bothReady(),
@@ -1164,39 +1163,21 @@ describe("PluginHost root destination", () => {
     )
     await screen.findByText("auth users body")
 
-    const rail = screen.getByRole("navigation", { name: "Scopes" })
-    expect(within(rail).getByRole("link", { name: "System" }).getAttribute("href")).toBe("/overview")
-    expect(within(rail).getByRole("link", { name: "Auth" }).getAttribute("aria-current")).toBe("page")
-    expect(within(rail).getByRole("link", { name: "System" }).getAttribute("aria-current")).toBeNull()
-
     const h = header(container)
     expect(within(h).queryByRole("link", { name: "Overview" })).toBeNull()
-    expect(within(h).getByText("Auth")).toBeTruthy()
-    expect(within(h).getByText("@auth")).toBeTruthy()
-    // The heading is a label. Every control for changing scope is in the rail.
-    expect(
-      within(h.querySelector('[data-slot="scope-heading"]') as HTMLElement).queryByRole("button"),
-    ).toBeNull()
-    expect(within(h).queryByRole("button", { name: /Auth|System/ })).toBeNull()
+    expect(within(h).getByRole("button", { name: "Auth @auth" })).toBeTruthy()
     expect(h.querySelector('[data-slot="sidebar-group"]')).toBeNull()
+    expect(screen.queryByRole("navigation", { name: "Sections" })).toBeNull()
   })
 
-  it("returns to the root from the scope rail", async () => {
-    renderHost([rootPlugin(), authScopePlugin()], bothReady(), "/@auth/users")
-    await screen.findByText("auth users body")
-    fireEvent.click(
-      within(screen.getByRole("navigation", { name: "Scopes" })).getByRole("link", { name: "System" }),
+  it("returns to the root from the scope switcher", async () => {
+    const { container } = renderHost(
+      [rootPlugin(), authScopePlugin()], bothReady(), "/@auth/users",
     )
+    await screen.findByText("auth users body")
+    fireEvent.click(within(header(container)).getByRole("button", { name: "Auth @auth" }))
+    fireEvent.click(await screen.findByRole("menuitem", { name: "System" }))
     expect(await screen.findByText("root overview body")).toBeTruthy()
-  })
-
-  it("marks home in the rail on the root's own pages, with no namespace in the heading", async () => {
-    const { container } = renderHost([rootPlugin(), authScopePlugin()], bothReady(), "/overview")
-    await screen.findByText("root overview body")
-    const rail = screen.getByRole("navigation", { name: "Scopes" })
-    expect(within(rail).getByRole("link", { name: "System" }).getAttribute("aria-current")).toBe("page")
-    expect(within(header(container)).getByText("System")).toBeTruthy()
-    expect(within(header(container)).queryByText(/^@/)).toBeNull()
   })
 
   it("shows no back row at the root, and puts the root nav in the body", async () => {
@@ -1254,6 +1235,64 @@ describe("PluginHost root destination", () => {
     await waitFor(() =>
       expect(within(content(container)).getByText("This extension needs configuring.")).toBeTruthy(),
     )
+  })
+
+  it("gives a scope with sections a Sections rail and shows only the active section", async () => {
+    const sectioned = definePlugin({
+      extension: "auth",
+      namespace: "auth",
+      label: "Auth",
+      sections: [
+        { group: "Identity", icon: "I" },
+        { group: "Billing", icon: "B" },
+      ],
+      nav: [
+        { label: "Users", to: "/users", group: "Identity" },
+        { label: "Plans", to: "/plans", group: "Billing" },
+      ],
+      routes: [
+        { path: "/users", element: () => <p>auth users body</p> },
+        { path: "/plans", element: () => <p>auth plans body</p> },
+      ],
+    })
+    const { container } = renderHost([rootPlugin(), sectioned], bothReady(), "/@auth/plans")
+    await screen.findByText("auth plans body")
+
+    const rail = screen.getByRole("navigation", { name: "Sections" })
+    expect(within(rail).getByRole("link", { name: "Billing" }).getAttribute("aria-current")).toBe("page")
+    expect(within(rail).getByRole("link", { name: "Identity" }).getAttribute("href")).toBe("/@auth/users")
+    const c = content(container)
+    expect(within(c).getByRole("link", { name: "Plans" })).toBeTruthy()
+    expect(within(c).queryByRole("link", { name: "Users" })).toBeNull()
+
+    fireEvent.click(within(rail).getByRole("link", { name: "Identity" }))
+    expect(await screen.findByText("auth users body")).toBeTruthy()
+    expect(within(content(container)).getByRole("link", { name: "Users" })).toBeTruthy()
+  })
+
+  it("lets search find a page in a section that is not showing", async () => {
+    const sectioned = definePlugin({
+      extension: "auth",
+      namespace: "auth",
+      label: "Auth",
+      sections: [
+        { group: "Identity", icon: "I" },
+        { group: "Billing", icon: "B" },
+      ],
+      nav: [
+        { label: "Users", to: "/users", group: "Identity" },
+        { label: "Plans", to: "/plans", group: "Billing" },
+      ],
+      routes: [
+        { path: "/users", element: () => <p>auth users body</p> },
+        { path: "/plans", element: () => <p>auth plans body</p> },
+      ],
+    })
+    renderHost([rootPlugin(), sectioned], bothReady(), "/@auth/users")
+    await screen.findByText("auth users body")
+    fireEvent.click(screen.getByRole("button", { name: "Search pages" }))
+    const dialog = await screen.findByRole("dialog")
+    expect(within(dialog).getByRole("link", { name: /Plans/ })).toBeTruthy()
   })
 })
 

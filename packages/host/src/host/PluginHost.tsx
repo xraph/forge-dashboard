@@ -61,7 +61,7 @@ import type {
   NavNode,
   NavSection,
 } from "@forge-go/dashboard-kit/components/nav-tree"
-import type { ScopeOption } from "@forge-go/dashboard-kit/components/scope-entries"
+import type { ScopeOption } from "@forge-go/dashboard-kit/components/scope-switcher"
 import { useSidebar } from "@forge-go/dashboard-kit/components/sidebar"
 import {
   Alert,
@@ -837,24 +837,7 @@ export function PluginHost({
     namespace: scope.namespace,
     icon: scope.icon,
     badge: scope.state.kind === "ready" ? undefined : scope.state.kind,
-    // homePathFor, not a bare first-nav-item mountPath: a scope with a
-    // `path`-routed dimension has no route at its unscoped first item, so
-    // landing there would be a dead route. homePathFor sends that case to
-    // the namespace root, where RoutedPicker resolves it the rest of the way.
-    href: homePathFor(scope.plugin),
   }))
-
-  // The rail's home entry. Not `home`: that name is taken further down by the
-  // landing path the "/" redirect goes to, which is a different thing.
-  const homeScope: ScopeOption | undefined = root
-    ? {
-        id: root.id,
-        label: root.label,
-        namespace: root.namespace,
-        icon: root.icon,
-        href: homePathFor(root.plugin),
-      }
-    : undefined
 
   // The body shows the nav of wherever you are, which is the same question
   // `panelSource` asks and therefore the same answer: the active scope, or
@@ -865,7 +848,7 @@ export function PluginHost({
   // the switcher everywhere else. One nav, in the body, belonging to the
   // place you are.
   //
-  // No group label: the pane heading above already names the active scope by
+  // No group label: the switcher above already names the active scope by
   // label and by "@namespace", so a section heading repeating either is text
   // a screen reader (and a test) would find twice. That changes the day
   // sub-plugin groups arrive and there is more than one group to tell apart.
@@ -891,15 +874,19 @@ export function PluginHost({
         : navGroups(navOwner.plugin, readySubPluginsFor(navOwner.plugin), ownerSegment)
       : []
 
-  // The pane's heading names the place you are. Namespace only for a scope:
-  // the root is the dashboard's home, not "@core".
-  const heading = navOwner
-    ? {
-        label: navOwner.label,
-        namespace: activeScope ? activeScope.namespace : undefined,
-        icon: navOwner.icon,
-      }
-    : undefined
+  // A scope that declares sections gets them; every other scope gets []. Same
+  // readiness and no-segment rules as `groups`, so a scope with no app picked
+  // has no sections and no rail, only the pick-an-app notice.
+  const sections: NavSection[] =
+    navOwner && navOwner.state.kind === "ready" && !(ownerDimension && !ownerSegment)
+      ? navSections(navOwner.plugin, readySubPluginsFor(navOwner.plugin), ownerSegment)
+      : []
+  const currentSectionId = sections.length > 0 ? activeSectionId(sections, pathname) : undefined
+
+  // Every page the scope offers, whichever section it sits in. Search and the
+  // page title look across all of them, not just the section on screen.
+  const allGroups: NavGroup[] =
+    sections.length > 0 ? sections.flatMap((section) => section.groups) : groups
 
   // The two cases that used to leave the pane silently blank. A ready scope
   // with a segment and no nav is a plugin with no nav, which is legal and
@@ -935,7 +922,7 @@ export function PluginHost({
   // matches nothing in either (its own root, or a route the plugin never
   // listed).
   const pageTitle: string | undefined = (() => {
-    const destinations = groups.flatMap((group) => group.items.flatMap((item) => [item, ...(item.children ?? [])]))
+    const destinations = allGroups.flatMap((group) => group.items.flatMap((item) => [item, ...(item.children ?? [])]))
     const match = destinations
       .filter((item) => item.href === pathname || (item.href !== "/" && pathname.startsWith(`${item.href}/`)))
       .sort((a, b) => b.href.length - a.href.length)[0]
@@ -964,16 +951,41 @@ export function PluginHost({
         }
       : undefined
 
+  // Switching scope is a navigation, never a state write. A scope with no nav
+  // (one that needs setup) goes to its bare namespace root, where its panel
+  // renders. Search is carried over for now, but that is provisional: no
+  // `ctx.` params exist yet, so there is nothing to drop and nothing to prove
+  // this against. Per-scope context dimensions belong to the plugin that
+  // declares them, so once `ctx.` params land, switching scope should DROP
+  // any dimension the new scope never declared, not carry it over blind.
+  const selectScope = (id: string) => {
+    const target = scopes.find((scope) => scope.id === id)
+    if (!target) return
+    // homePathFor, not a bare first-nav-item mountPath: a target scope with
+    // a `path`-routed dimension has no route mounted at its unscoped first
+    // item at all (every real page lives under a segment), so landing there
+    // literally would be a dead route. homePathFor already knows to send
+    // that case to the namespace root instead, where RoutedPicker resolves
+    // it the rest of the way.
+    navigate(`${homePathFor(target.plugin)}${search}`)
+  }
+
   const sidebar = {
-    home: homeScope,
+    scopeHome: root ? {
+      label: root.label,
+      icon: root.icon,
+      onSelect: () => navigate(`${homePathFor(root.plugin)}${search}`),
+    } : undefined,
     scopes: scopeOptions,
     activeScopeId: activeScope?.id,
-    heading,
+    onScopeSelect: selectScope,
+    sections,
+    activeSectionId: currentSectionId,
     empty,
     groups,
     currentPath: pathname,
     search,
-    // aria-current only when true. The rail merges its own aria-current onto
+    // aria-current only when true. The section rail merges its own aria-current onto
     // this element through base-ui's render prop, and an explicit undefined
     // here would win over it and strip the active scope's marker.
     renderLink: (node: NavNode, href: string) => (
@@ -992,7 +1004,7 @@ export function PluginHost({
           </PluginErrorBoundary>
         </div>
       )}
-      <NavigationSearch groups={groups} search={search} scopes={[
+      <NavigationSearch groups={allGroups} search={search} scopes={[
         ...(root ? [{ label: root.label, href: homePathFor(root.plugin) }] : []),
         ...scopes.map(scope => ({ label: scope.label, href: homePathFor(scope.plugin) })),
       ]} />
