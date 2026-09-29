@@ -11,24 +11,13 @@ import { Input } from "@forge-go/dashboard-kit/components/input"
 import { Label } from "@forge-go/dashboard-kit/components/label"
 import { PageHeader } from "@forge-go/dashboard-kit/components/page-header"
 import { CommandAlert } from "@forge-go/dashboard-kit/components/query-boundary"
+import { toRFC3339 } from "../datetime"
 import { secretPath } from "../keys"
 import type { SecretSummary } from "./secrets"
 
 /** Mirrors the Go `secretsCreateResponse`. It never carries a value. */
 interface CreateResponse {
   secret: SecretSummary
-}
-
-/**
- * Turns a `datetime-local` string into the RFC3339 UTC instant the contract
- * takes. The input has no zone, so `new Date(local)` reads it in the
- * operator's own, and `toISOString` writes it back out as UTC with a "Z".
- * Returns undefined for an empty or unparseable string.
- */
-function toRFC3339(local: string): string | undefined {
-  if (local === "") return undefined
-  const at = new Date(local)
-  return Number.isNaN(at.getTime()) ? undefined : at.toISOString()
 }
 
 /**

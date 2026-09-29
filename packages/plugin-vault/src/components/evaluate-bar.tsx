@@ -17,6 +17,12 @@ export interface EvaluateBarProps {
   busy?: boolean
   /** There is something to clear: a result, or text in an input. */
   canClear?: boolean
+  /**
+   * Why Evaluate cannot be pressed right now, said in a sentence. Present
+   * means disabled: the button stays where it is and the reason sits beside
+   * it, since a dimmed button with no explanation is a dead end.
+   */
+  disabledReason?: string
   /** The result, under the inputs. */
   children?: ReactNode
 }
@@ -39,11 +45,13 @@ export function EvaluateBar({
   onClear,
   busy,
   canClear,
+  disabledReason,
   children,
 }: EvaluateBarProps) {
   function submit(event: FormEvent) {
     event.preventDefault()
-    if (!busy) onEvaluate()
+    // Enter in an input submits whatever the button says.
+    if (!busy && disabledReason === undefined) onEvaluate()
   }
 
   return (
@@ -81,7 +89,11 @@ export function EvaluateBar({
           />
         </div>
         <div className="flex items-center gap-2">
-          <Button type="submit" disabled={busy}>
+          <Button
+            type="submit"
+            disabled={busy || disabledReason !== undefined}
+            aria-describedby={disabledReason === undefined ? undefined : "evaluate-disabled-reason"}
+          >
             {busy ? "Evaluating…" : "Evaluate"}
           </Button>
           <Button type="button" variant="outline" disabled={!canClear} onClick={onClear}>
@@ -89,6 +101,11 @@ export function EvaluateBar({
           </Button>
         </div>
       </form>
+      {disabledReason === undefined ? null : (
+        <p id="evaluate-disabled-reason" className="text-sm text-muted-foreground">
+          {disabledReason}
+        </p>
+      )}
       {children}
     </div>
   )

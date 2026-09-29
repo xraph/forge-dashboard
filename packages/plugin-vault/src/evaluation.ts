@@ -73,14 +73,19 @@ export function readEvaluation(
   })
   if (reachedRules && trace.length !== rules.length) mismatch = true
 
-  const decidedIndex = reason === "rule" ? verdicts.findIndex((v) => v.decided) : -1
+  let decidedIndex = reason === "rule" ? verdicts.findIndex((v) => v.decided) : -1
   if (reason === "rule") {
     // The trace says which rule matched, the response says which priority did.
     // They have to agree, or the page and the engine are looking at different
-    // rules.
+    // rules. When they do not, no row may claim the decision: it would sit
+    // next to "Press Evaluate again" saying the opposite.
     const at = decidedIndex >= 0 ? rules[decidedIndex] : undefined
     if (at === undefined || at.priority !== evaluation.matchedRulePriority) {
       mismatch = true
+      if (decidedIndex >= 0) {
+        verdicts[decidedIndex] = { decided: false, notReached: false, note: "" }
+        decidedIndex = -1
+      }
     }
   }
 
@@ -90,6 +95,9 @@ export function readEvaluation(
     overrides.some((o) => o.tenantId === tenantId)
       ? tenantId
       : undefined
+  // The engine used an override the page cannot find (removed between the two
+  // reads), so there is no row to mark. Say so.
+  if (reason === "tenantOverride" && overrideTenant === undefined) mismatch = true
 
   return {
     reason,

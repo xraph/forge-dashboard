@@ -37,6 +37,7 @@ import {
 import { TagList } from "@forge-go/dashboard-kit/components/tag-list"
 import { Timestamp } from "@forge-go/dashboard-kit/components/timestamp"
 import { EncryptionBadge, PolicyStatusBadge, RotatorBadge } from "../badges"
+import { toRFC3339 } from "../datetime"
 import { formatInterval } from "../interval"
 import type { AuditEntry } from "../flag-types"
 import { rotationPath } from "../keys"
@@ -71,13 +72,6 @@ interface UpdateResponse {
 interface DeleteResponse {
   ok: boolean
   key: string
-}
-
-/** `datetime-local` string to the RFC3339 UTC instant the contract takes. */
-function toRFC3339(local: string): string | undefined {
-  if (local === "") return undefined
-  const at = new Date(local)
-  return Number.isNaN(at.getTime()) ? undefined : at.toISOString()
 }
 
 function isPast(iso: string): boolean {

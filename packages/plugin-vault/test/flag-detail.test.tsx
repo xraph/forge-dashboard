@@ -537,10 +537,17 @@ describe("FlagDetailPage ladder", () => {
     expect(within(rung("default")).getByText("7")).toBeTruthy()
   })
 
-  it("offers no rule editing yet", async () => {
+  it("offers Edit rules in rung 3's actions, and no other rung offers rule editing", async () => {
     renderDetail(harness(detail({ rules: RULES })).client)
     await ready()
-    expect(screen.queryByRole("button", { name: /rules/i })).toBeNull()
+    const header = rungBody("rules").firstElementChild!.nextElementSibling as HTMLElement
+    expect(within(header).getByRole("button", { name: "Edit rules" })).toBeTruthy()
+    for (const id of ["enabled", "overrides", "default"]) {
+      expect(within(rung(id)).queryByRole("button", { name: /rules/i })).toBeNull()
+    }
+    // Reading the rules opens no draft: no Save, no Add.
+    expect(screen.queryByRole("button", { name: "Save rules" })).toBeNull()
+    expect(screen.queryByRole("button", { name: "Add rule" })).toBeNull()
   })
 
   it("says how long applications may serve a cached answer", async () => {

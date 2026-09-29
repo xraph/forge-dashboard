@@ -40,6 +40,7 @@ import {
 import { EvaluateBar, EvaluationSummary } from "../components/evaluate-bar"
 import { FlagValue } from "../components/flag-value"
 import { Ladder, LadderRow, LadderRows, Rung } from "../components/ladder"
+import { RuleEditor } from "../components/rule-editor"
 import { RuleSummary } from "../components/rule-summary"
 import { ValueInput } from "../components/value-input"
 import { readEvaluation } from "../evaluation"
@@ -157,6 +158,9 @@ function FlagDetailView({ flagKey, data }: { flagKey: string; data: FlagDetail }
   // reading "Remove the override for ?".
   const [removal, setRemoval] = useState<{ tenantId: string; open: boolean } | null>(null)
   const [deleting, setDeleting] = useState(false)
+  // Rung 3 is a draft of the whole list while this is true. The draft itself
+  // lives in RuleEditor, which mounts fresh on each open.
+  const [editingRules, setEditingRules] = useState(false)
 
   // What is typed, and what was submitted. Editing the inputs must not touch
   // the result: it stays until Evaluate is pressed again.
@@ -198,6 +202,13 @@ function FlagDetailView({ flagKey, data }: { flagKey: string; data: FlagDetail }
     setDraftUser("")
   }
 
+  function closeRuleEditor(saved: boolean) {
+    setEditingRules(false)
+    // A saved list is a different list: the answer on screen was worked out
+    // against the old one, and its marks would sit on the wrong rows.
+    if (saved) setRequest(null)
+  }
+
   function openDelete() {
     remove.reset()
     setDeleting(true)
@@ -220,8 +231,10 @@ function FlagDetailView({ flagKey, data }: { flagKey: string; data: FlagDetail }
 
   const off = !flag.enabled
   const answer = evaluated?.data
+  // Marks read the SAVED rules by position. While a draft is open the rows on
+  // screen are not those rules, so no mark may be drawn on them.
   const marks =
-    answer === undefined
+    answer === undefined || editingRules
       ? undefined
       : readEvaluation(answer, rules, overrides, request?.tenantId)
   const ruleNumber = marks?.decidedIndex === undefined ? undefined : marks.decidedIndex + 1
@@ -301,6 +314,9 @@ function FlagDetailView({ flagKey, data }: { flagKey: string; data: FlagDetail }
         onClear={clearEvaluation}
         busy={evaluated?.loading === true}
         canClear={request !== null || draftTenant !== "" || draftUser !== ""}
+        disabledReason={
+          editingRules ? "Save or discard the rule changes to evaluate." : undefined
+        }
       >
         {evaluated?.error ? (
           <CommandAlert error={evaluated.error} title="Could not evaluate" />
@@ -398,8 +414,22 @@ function FlagDetailView({ flagKey, data }: { flagKey: string; data: FlagDetail }
           muted={off || marks?.rulesNotReached}
           mark={marks?.rulesNotReached ? <NotReachedBadge /> : undefined}
           decided={marks?.decidedIndex !== undefined}
+          actions={
+            editingRules ? undefined : (
+              <Button variant="outline" size="sm" onClick={() => setEditingRules(true)}>
+                Edit rules
+              </Button>
+            )
+          }
         >
-          {rules.length === 0 ? (
+          {editingRules ? (
+            <RuleEditor
+              flagKey={flagKey}
+              flagType={flag.type}
+              rules={rules}
+              onClose={closeRuleEditor}
+            />
+          ) : rules.length === 0 ? (
             <p className="text-sm text-muted-foreground">
               No rules. Whatever reaches this rung falls through to the default.
             </p>
