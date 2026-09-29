@@ -766,7 +766,9 @@ A tenant viewer used to get contradictory retention answers. Verify said one
 policy could purge the chain, and the policy list and preview both said none,
 because the purging policy was app-level. `retention.policies` now returns the
 app-level policies that govern the tenant as well, each row carrying
-`editable`, which is false for those. Saving or deleting one is still
+`editable`, which is false for those. `retention.policyDetail` opens a
+governing row too, also with `editable` false, so a row you can see in the list
+never answers not-found when you click it. Saving or deleting one is still
 not-found for a tenant viewer. `retention.preview` still counts only what
 `retention.enforce` would purge for this viewer, since enforce runs the
 viewer's own policies, and adds `governingAppPolicies` so the dialog can say
@@ -780,8 +782,8 @@ the page adds the two for its "failed or denied" tile.
 `reports.generate`, `reports.generateCustom` and `checkpoints.take` require
 `scope:chronicle.write` or `scope:chronicle.admin`. Without that, any read-only
 viewer could store reports and checkpoints under their own name. The custom
-report's title is capped at 200 characters and each section's filter lists at
-50 values. Every command in the manifest now has a `requires`, and a test
+report's title is capped at 200 characters. Each section's title is capped at
+200, its notes at 4,000, each filter list at 50 values and each value at 128. Every command in the manifest now has a `requires`, and a test
 enforces it.
 
 A report's embedded verification carries `retentionPolicies: -1`, meaning
@@ -795,11 +797,29 @@ Every list pages the same way now. A negative limit or offset is a bad
 request, zero means the default, and each list documents its own maximum (200
 for streams and checkpoints, 1,000 for the rest).
 
+### Running before authsome sends claims
+
+Nothing populates claims today, so without configuration every intent is
+denied. A single-app deployment can set `chronicle.dashboard.app_id`, and
+optionally `chronicle.dashboard.tenant_id`, and the dashboard works now. This
+is the same shape Warden uses. Each dimension resolves on its own: a claim
+that's present and readable wins, a claim that's present but unreadable is
+refused and never falls back to the config, and only an absent claim takes the
+configured value. The tenant counts as absent only when both `tenant_id` and
+`org_id` are missing. The configured tenant applies only inside the configured
+app, so a session whose claim names a different app is never narrowed to a
+tenant from somebody else's app. A tenant with no app is refused at startup,
+and so is a value with edge whitespace or control characters. The two
+settings are one unit: if YAML sets either of them, YAML's whole section wins,
+so a tenant from code never ends up paired with an app from YAML. A request
+with no signed-in user is refused before any claim or setting is read. A tenant
+claim that arrives without an app claim is refused too, because an upstream
+that wrote the tenant and lost the app has failed to resolve the scope.
+
 ### What authsome has to produce
 
-Nothing populates claims today, so every one of these intents is denied. When
-authsome starts filling them in, these shapes decide whether the contract is
-safe:
+When authsome starts filling claims in, these shapes decide whether the
+contract is safe:
 
 - An org-bound user must always carry `org_id`. The contract treats a missing
   tenant key as an app-wide operator, so a user whose org claim is only written
@@ -814,6 +834,14 @@ safe:
   forge's scope nor chronicle has one, so if authsome's `app_id` is per app and
   sessions are per environment, an operator scoped to one environment reads
   every environment's audit log.
+- `app_id` travels with every tenant claim. A session carrying `org_id` or
+  `tenant_id` without `app_id` is refused, even in a deployment with
+  `chronicle.dashboard.app_id` set, and there's no setting that works around
+  it. If authsome sends `org_id` alone, every org-bound user is locked out
+  while app-wide operators get in.
+- A request with no signed-in user answers UNAUTHENTICATED, not
+  PERMISSION_DENIED. forge sends it as an HTTP 500 with the code in the body,
+  so the dashboard client neither retries it nor redirects to login.
 - Claims are plain non-empty strings, and "no org" means the key is absent.
   `"org_id": null` locks out every app-wide operator, and a typed ID or a
   padded string fails closed.
