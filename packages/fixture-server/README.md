@@ -168,6 +168,39 @@ get away with relying on something the server does not do:
 `FixtureError` and `sendError` also forward an optional `details` object now,
 as the real server's `contract.Error.Details` does. Nothing else uses it yet.
 
+**`vault`**: secrets and rotation, mirroring `vault/extension/contract` in the
+vault repo, with its own module (`vault-fixtures.mjs`). Six secret intents
+(`secrets.list`, `secrets.detail`, `secrets.versions`, `secrets.create`,
+`secrets.update`, `secrets.delete`) and five rotation ones (`rotation.policies`,
+`rotation.detail`, `rotation.savePolicy`, `rotation.deletePolicy`,
+`rotation.rotateNow`). The rules are the Go handlers' rules:
+
+- No value is ever stored or returned. `create` and `update` check `value` is
+  non-empty and drop it.
+- `create` on an existing key is `CONFLICT`, `update` on a missing one is
+  `NOT_FOUND`, and `update` keeps `expiresAt` unless it is sent (`""` clears).
+- `delete` removes the policy too, and still removes an orphan one before it
+  answers `NOT_FOUND`.
+- A policy needs an interval of at least 60 seconds. `nextRotationAt` is set
+  when the policy is new, its interval changes, or it goes from disabled to
+  enabled, and is left out of the answer whenever the policy is disabled.
+- The fixture models a keyed vault: `create`, `update` and `rotateNow` stamp
+  `AES-256-GCM`, so replacing the legacy unencrypted row encrypts it until the
+  next `_fixture/reset`. Deleting a secret leaves its rotation records, as the
+  Go store does.
+- `rotateNow` is `BAD_REQUEST` for a key with no registered rotator.
+  `db/primary.password` and `smtp/relay.password` have one.
+
+Seeded with 33 secrets (two pages at the default limit), including a slashed
+and dotted key, an unencrypted one (`encryptionAlg` is `""`, not absent), four
+with an expiry (future, soon, passed, and the rotatable one) and two with metadata. Three policies:
+enabled with a rotator, enabled without one, and disabled. `_fixture/reset`
+restores all of it.
+
+`server.mjs` passes its `FixtureError` class to `createVaultHandlers`. A class
+of the same name declared in another module fails the dispatch's `instanceof`
+check, which would turn every `NOT_FOUND` and `CONFLICT` into a 400.
+
 `auth.login` is not real authentication: any password validates, and an
 unknown email still succeeds (falling back to `usr_1`'s id as the subject).
 That's an intentional fixture shortcut, not an oversight — modelling

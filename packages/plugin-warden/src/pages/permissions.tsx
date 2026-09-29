@@ -17,21 +17,17 @@ import {
   type Column,
 } from "@forge-go/dashboard-kit/components/resource-table"
 import { Timestamp } from "@forge-go/dashboard-kit/components/timestamp"
-import { NamespaceCell, useNamespaceFilter } from "../components/namespace-filter"
+import {
+  NamespaceCell,
+  emptyListMessage,
+  useNamespaceFilter,
+} from "../components/namespace-filter"
 import type { AckResponse } from "./roles"
-import type { PermissionSummary } from "./role-detail"
+import type { PermissionSummary, PermissionsList } from "./role-detail"
 
-// Imported rather than redeclared, so the two pages that both mirror the
-// same Go DTO cannot drift apart. Re-exported here for the barrel.
-export type { PermissionSummary }
-
-/** Mirrors the Go `PermissionsListResponse`. */
-export interface PermissionsList {
-  items: PermissionSummary[]
-  total: number
-  limit: number
-  offset: number
-}
+// Both are imported rather than redeclared, so the two pages that mirror the
+// same Go DTOs cannot drift apart. Re-exported here for the barrel.
+export type { PermissionSummary, PermissionsList }
 
 const PAGE_SIZE = 25
 
@@ -50,15 +46,19 @@ function CreatePermissionForm({
   // The name the evaluator will actually match on. Showing it as the
   // operator types removes the chance to disagree with it, which the
   // contract refuses anyway.
-  const derived = resource && action ? `${resource}:${action}` : ""
+  const derived =
+    resource.trim() && action.trim() ? `${resource.trim()}:${action.trim()}` : ""
 
   async function submit() {
     // No name field is sent at all: the contract derives it, so there is one
     // source of truth rather than two that can drift.
+    //
+    // Trimmed on the way out, not only for the disabled check: a resource of
+    // " document" derives a name that no check will ever match.
     const result = await create.execute({
-      resource,
-      action,
-      description: description || undefined,
+      resource: resource.trim(),
+      action: action.trim(),
+      description: description.trim() || undefined,
       namespacePath,
     })
     // execute() resolves undefined only when the client throws, so this is
@@ -119,10 +119,10 @@ function CreatePermissionForm({
 }
 
 export function WardenPermissionsPage() {
-  const namespace = useNamespaceFilter()
-  const [search, setSearch] = useState("")
   // One-based, matching ResourceTable's PaginationState.
   const [page, setPage] = useState(1)
+  const namespace = useNamespaceFilter(() => setPage(1))
+  const [search, setSearch] = useState("")
   const [creating, setCreating] = useState(false)
   const [deleting, setDeleting] = useState<PermissionSummary | null>(null)
 
@@ -137,7 +137,12 @@ export function WardenPermissionsPage() {
   async function confirmDelete() {
     if (!deleting) return
     const result = await remove.execute({ id: deleting.id })
-    if (result !== undefined) setDeleting(null)
+    if (result === undefined) return
+    setDeleting(null)
+    // Deleting the only row on the last page leaves that page past the end
+    // of the set: an empty table, and a caption still counting rows. Step
+    // back one page so the operator lands on rows that exist.
+    if (page > 1 && (list.data?.items?.length ?? 0) <= 1) setPage(page - 1)
   }
 
   const columns: Column<PermissionSummary>[] = [
@@ -210,7 +215,7 @@ export function WardenPermissionsPage() {
               rows={rows}
               rowKey={(p) => p.id}
               caption={caption}
-              emptyMessage="No permissions yet."
+              emptyMessage={emptyListMessage("permissions", search, namespace.value)}
               pagination={{ page, pageSize: data.limit, total: data.total }}
               onPageChange={setPage}
               // No Details link here: `/permissions/:id` has no route yet.

@@ -36,7 +36,12 @@ function seedWardenState() {
   return {
     roles: [
       { id: "role_01hq", namespacePath: "", name: "Reader", slug: "reader", isSystem: false, isDefault: true, parentSlug: "", maxMembers: 0, createdAt: hourAgo, updatedAt: hourAgo },
-      { id: "role_01hr", namespacePath: "eng/platform", name: "Platform admin", slug: "platform-admin", isSystem: false, isDefault: false, parentSlug: "reader", maxMembers: 5, createdAt: hourAgo, updatedAt: now },
+      { id: "role_01hr", namespacePath: "eng/platform", name: "Platform admin", slug: "platform-admin", isSystem: false, isDefault: false, parentSlug: "", maxMembers: 5, createdAt: hourAgo, updatedAt: now },
+      // A parent resolves only inside its own namespace (the engine looks the
+      // parent up by tenant, namespace and slug), so the inheritance the seed
+      // shows has to stay inside eng/platform. platform-admin used to inherit
+      // from the root "reader", a state the engine refuses to create.
+      { id: "role_01ht", namespacePath: "eng/platform", name: "Platform oncall", slug: "platform-oncall", isSystem: false, isDefault: false, parentSlug: "platform-admin", maxMembers: 0, createdAt: hourAgo, updatedAt: hourAgo },
       { id: "role_01hs", namespacePath: "", name: "System", slug: "system", isSystem: true, isDefault: false, parentSlug: "", maxMembers: 0, createdAt: hourAgo, updatedAt: hourAgo },
     ],
     permissions: [
@@ -162,7 +167,10 @@ function conflict(message) {
  * was one page.
  */
 function pageOf(rows, params) {
-  const limit = Math.min(Math.max(Number(params?.limit) || 25, 1), 200)
+  // Mirrors PageRequest.Clamp in warden: an unset or non-positive limit is
+  // the default of 25 (not 1), and only an oversized one is capped.
+  const asked = Number(params?.limit)
+  const limit = Math.min(asked > 0 ? asked : 25, 200)
   const offset = Math.max(Number(params?.offset) || 0, 0)
   return {
     items: rows.slice(offset, offset + limit),
@@ -195,6 +203,27 @@ function wardenNamespaces() {
     for (const row of group) seen.add(row.namespacePath)
   }
   return [...seen].sort()
+}
+
+/**
+ * Mirrors checkParent in the Go contract: a parent must exist in the role's
+ * own namespace, may not be the role itself, and may not be one of its own
+ * descendants.
+ */
+function checkParent(namespacePath, slug, parentSlug) {
+  if (!parentSlug) return
+  if (parentSlug === slug) throw badRequest("a role cannot be its own parent")
+  const seen = new Set([slug])
+  let cur = parentSlug
+  while (cur) {
+    if (seen.has(cur)) {
+      throw badRequest("that parent would create a cycle in role inheritance")
+    }
+    seen.add(cur)
+    const next = warden.roles.find((x) => x.namespacePath === namespacePath && x.slug === cur)
+    if (!next) throw badRequest(`no role with slug ${cur} in this namespace`)
+    cur = next.parentSlug
+  }
 }
 
 export const wardenHandlers = {
@@ -271,9 +300,10 @@ export const wardenHandlers = {
       let rows = byNamespace(warden.roles, params)
       if (params?.search) {
         const q = String(params.search).toLowerCase()
-        rows = rows.filter(
-          (r) => r.name.toLowerCase().includes(q) || r.slug.toLowerCase().includes(q)
-        )
+        // Name only, exactly as every real store filters it (the memory and
+        // sqlite stores never look at the slug). Matching the slug here too
+        // would hide a UI that promises a slug search the server cannot do.
+        rows = rows.filter((r) => r.name.toLowerCase().includes(q))
       }
       if (params?.isSystem !== undefined) {
         rows = rows.filter((r) => r.isSystem === params.isSystem)
@@ -295,7 +325,11 @@ export const wardenHandlers = {
         permissions: warden.permissions.filter((p) =>
           names.some((g) => g.name === p.name && g.namespacePath === p.namespacePath)
         ),
-        children: warden.roles.filter((c) => c.parentSlug === r.slug),
+        // A child inherits from the parent in ITS OWN namespace, so a
+        // same-slug role elsewhere is somebody else's parent.
+        children: warden.roles.filter(
+          (c) => c.parentSlug === r.slug && c.namespacePath === r.namespacePath
+        ),
       }
     },
   },
@@ -306,10 +340,19 @@ export const wardenHandlers = {
       if (!payload?.name || !payload?.slug) {
         throw badRequest("a role needs a name and a slug")
       }
+      const namespacePath = payload.namespacePath ?? ""
+      checkParent(namespacePath, payload.slug, payload.parentSlug)
+      // Slugs are unique per namespace. The real store refuses a second one
+      // with CONFLICT, which is the likeliest way a create form fails.
+      if (warden.roles.some((x) => x.namespacePath === namespacePath && x.slug === payload.slug)) {
+        throw conflict(
+          `role "${payload.slug}" in ns "${namespacePath}": warden: role already exists in this scope`
+        )
+      }
       const now = new Date().toISOString()
       const row = {
         id: "role_" + Math.random().toString(36).slice(2, 10),
-        namespacePath: payload.namespacePath ?? "",
+        namespacePath,
         name: payload.name,
         slug: payload.slug,
         description: payload.description ?? "",
@@ -326,7 +369,7 @@ export const wardenHandlers = {
   },
   "roles.update": {
     kind: "command",
-    invalidates: ["roles.list", "roles.detail"],
+    invalidates: ["roles.list", "roles.detail", "permissions.detail"],
     handler: (payload) => {
       const r = warden.roles.find((x) => x.id === payload?.id)
       if (!r) throw notFound("role", payload?.id)
@@ -334,6 +377,12 @@ export const wardenHandlers = {
       // contract layer enforces this, so the fixture must not either.
       if (r.isSystem) {
         throw permissionDenied(`"${r.name}" is a system role and cannot be changed or deleted`)
+      }
+      if (payload.name !== undefined && payload.name === "") {
+        throw badRequest("a role's name cannot be empty")
+      }
+      if (payload.parentSlug !== undefined) {
+        checkParent(r.namespacePath, r.slug, payload.parentSlug)
       }
       // Only the fields present in the payload change. A fixture that
       // overwrote everything would hide the read-patch-write bug.
@@ -348,7 +397,7 @@ export const wardenHandlers = {
   },
   "roles.delete": {
     kind: "command",
-    invalidates: ["roles.list", "roles.detail", "overview.stats"],
+    invalidates: ["roles.list", "roles.detail", "permissions.detail", "overview.stats", "namespaces.list"],
     handler: (payload) => {
       const i = warden.roles.findIndex((x) => x.id === payload?.id)
       if (i === -1) throw notFound("role", payload?.id)
@@ -365,7 +414,7 @@ export const wardenHandlers = {
   },
   "roles.attachPermission": {
     kind: "command",
-    invalidates: ["roles.detail"],
+    invalidates: ["roles.detail", "permissions.detail"],
     handler: (payload) => {
       const r = warden.roles.find((x) => x.id === payload?.roleId)
       if (!r) throw notFound("role", payload?.roleId)
@@ -386,7 +435,7 @@ export const wardenHandlers = {
   },
   "roles.detachPermission": {
     kind: "command",
-    invalidates: ["roles.detail"],
+    invalidates: ["roles.detail", "permissions.detail"],
     handler: (payload) => {
       const r = warden.roles.find((x) => x.id === payload?.roleId)
       if (!r) throw notFound("role", payload?.roleId)
@@ -415,7 +464,7 @@ export const wardenHandlers = {
   },
   "roles.setPermissions": {
     kind: "command",
-    invalidates: ["roles.detail"],
+    invalidates: ["roles.detail", "permissions.detail"],
     handler: (payload) => {
       const r = warden.roles.find((x) => x.id === payload?.roleId)
       if (!r) throw notFound("role", payload?.roleId)
@@ -469,7 +518,10 @@ export const wardenHandlers = {
         .map((g) => g.roleId)
       return {
         ...pm,
-        grantedBy: warden.roles.filter((r) => holderIds.includes(r.id)),
+        // Sorted by slug, matching the Go handler, so the page is stable.
+        grantedBy: warden.roles
+          .filter((r) => holderIds.includes(r.id))
+          .sort((a, b) => a.slug.localeCompare(b.slug)),
       }
     },
   },
@@ -487,10 +539,16 @@ export const wardenHandlers = {
           `name ${name} disagrees with ${want}: checks match on resource and action, so this permission would be unreachable by name`
         )
       }
+      const namespacePath = payload.namespacePath ?? ""
+      if (warden.permissions.some((x) => x.namespacePath === namespacePath && x.name === name)) {
+        throw conflict(
+          `permission "${name}" in ns "${namespacePath}": warden: permission already exists in this scope`
+        )
+      }
       const now = new Date().toISOString()
       const row = {
         id: "perm_" + Math.random().toString(36).slice(2, 10),
-        namespacePath: payload.namespacePath ?? "",
+        namespacePath,
         name,
         resource: payload.resource,
         action: payload.action,
@@ -521,7 +579,7 @@ export const wardenHandlers = {
   },
   "permissions.delete": {
     kind: "command",
-    invalidates: ["permissions.list", "permissions.detail", "roles.detail", "overview.stats"],
+    invalidates: ["permissions.list", "permissions.detail", "roles.detail", "overview.stats", "namespaces.list"],
     handler: (payload) => {
       const i = warden.permissions.findIndex((x) => x.id === payload?.id)
       if (i === -1) throw notFound("permission", payload?.id)

@@ -54,6 +54,24 @@ export function namespaceOptions(namespaces: string[]): FilterOption[] {
 }
 
 /**
+ * Says which kind of empty a list is: nothing exists, a search matched
+ * nothing, or the namespace filter excluded everything. A constant "none
+ * yet" under an active filter tells the operator nothing exists when
+ * something does.
+ */
+export function emptyListMessage(
+  noun: string,
+  search: string,
+  namespace: NamespaceValue
+): string {
+  const where =
+    namespace === "all" ? "" : namespace === "" ? " in the tenant root" : ` in ${namespace}`
+  if (search) return `No ${noun} match “${search}”${where}.`
+  if (namespace !== "all") return `No ${noun}${where}.`
+  return `No ${noun} yet.`
+}
+
+/**
  * The hook every list page uses. It holds the selection, fetches the
  * namespace list once, and hands back both the FilterBar config and the
  * query params.
@@ -62,7 +80,7 @@ export function namespaceOptions(namespaces: string[]): FilterOption[] {
  * "All namespaces" and "Tenant root", which are the two that always exist,
  * so a page whose namespace list is unavailable still renders its rows.
  */
-export function useNamespaceFilter() {
+export function useNamespaceFilter(onChange?: (next: NamespaceValue) => void) {
   const [value, setValue] = useState<NamespaceValue>("all")
   const list = useQuery<NamespacesResponse>("namespaces.list")
 
@@ -72,7 +90,15 @@ export function useNamespaceFilter() {
     label: "Namespace",
     value,
     options: namespaceOptions(namespaces),
-    onChange: (next) => setValue(next as NamespaceValue),
+    onChange: (next) => {
+      setValue(next as NamespaceValue)
+      // A different namespace is a different result set, so a page that
+      // pages it has to go back to the start. The caller does this because
+      // this hook does not own the page state, and a page number carried
+      // across filters lands on page N of a shorter set: an empty table
+      // under a caption that still counts rows.
+      onChange?.(next as NamespaceValue)
+    },
   }
 
   return { value, setValue, filterConfig, param: namespaceParam(value) }

@@ -32,6 +32,7 @@
 import { createServer } from "node:http"
 import { randomBytes } from "node:crypto"
 import { createRelayFixtures } from "./relay-fixtures.mjs"
+import { createVaultHandlers, resetVault } from "./vault-fixtures.mjs"
 
 // ---------------------------------------------------------------------------
 // Config
@@ -2830,6 +2831,7 @@ const CONTRIBUTORS = [
   { name: "subscription", envPrefix: "SUBSCRIPTION", handlers: subscriptionHandlers },
   { name: "password", envPrefix: "PASSWORD", handlers: passwordHandlers },
   { name: "relay", envPrefix: "RELAY", handlers: { ...relayHandlers, ...relayFixtures.handlers } },
+  { name: "vault", envPrefix: "VAULT", handlers: createVaultHandlers(FixtureError) },
   ...SETTINGS_ONLY_EXTENSIONS.map((extension) => ({
     name: extension,
     envPrefix: extension.toUpperCase(),
@@ -3095,6 +3097,7 @@ function handleReset(res) {
   subscription = seedSubscriptionState()
   relayState = seedRelayState()
   relayFixtures.reset()
+  resetVault()
   csrfTokens.clear()
   idempotencyStore.clear()
   return sendJSON(res, 200, { ok: true })

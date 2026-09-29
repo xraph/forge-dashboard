@@ -186,4 +186,49 @@ describe("WardenRoleDetailPage", () => {
     )
     expect(await screen.findAllByText(/role not found/i)).toBeTruthy()
   })
+
+  describe("attach picker", () => {
+    async function openPicker(answers: Record<string, unknown>) {
+      renderPage(
+        WardenRoleDetailPage,
+        stubClient({ "roles.detail": DETAIL, ...answers }),
+        { id: "role_01hq" }
+      )
+      fireEvent.click(await screen.findByRole("button", { name: /Attach permission/i }))
+      await screen.findByLabelText("Permission to attach")
+    }
+
+    it("shows the failure, not a claim that everything is granted, when the read fails", async () => {
+      // permissions.list is absent, so the stub throws. An empty picker
+      // after a failed read used to say "Every permission is already
+      // granted", which is a lie about a read that never happened.
+      await openPicker({})
+      expect(await screen.findByText(/Could not load permissions/i)).toBeTruthy()
+      expect(screen.queryByText(/already granted/i)).toBeNull()
+    })
+
+    it("says no permissions exist when the tenant has none", async () => {
+      await openPicker({ "permissions.list": { items: [], total: 0, limit: 200, offset: 0 } })
+      expect(await screen.findByText(/No permissions exist yet/i)).toBeTruthy()
+      expect(screen.queryByText(/already granted/i)).toBeNull()
+    })
+
+    it("says everything is granted only when the whole list was read and all of it is held", async () => {
+      await openPicker({
+        "permissions.list": { items: [DETAIL.permissions[0]], total: 1, limit: 200, offset: 0 },
+      })
+      expect(await screen.findByText(/already granted/i)).toBeTruthy()
+    })
+
+    it("says the list is truncated rather than implying it is complete", async () => {
+      // 250 permissions exist, the picker read 200, and the one page it
+      // got is all held. Claiming "every permission is granted" here would
+      // hide 50 that were never listed.
+      await openPicker({
+        "permissions.list": { items: [DETAIL.permissions[0]], total: 250, limit: 200, offset: 0 },
+      })
+      expect(await screen.findByText(/Showing the first 1 of 250/i)).toBeTruthy()
+      expect(screen.queryByText(/Every permission is already granted/i)).toBeNull()
+    })
+  })
 })
