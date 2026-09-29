@@ -133,6 +133,8 @@ export interface LadderRowProps {
   annotation?: ReactNode
   actions?: ReactNode
   decided?: boolean
+  /** Dims the row: the engine never got as far as it. */
+  muted?: boolean
 }
 
 /**
@@ -148,6 +150,7 @@ export function LadderRow({
   annotation,
   actions,
   decided,
+  muted,
 }: LadderRowProps) {
   const hasLead = lead !== undefined && lead !== null
   return (
@@ -156,6 +159,7 @@ export function LadderRow({
       className={cn(
         "flex flex-wrap items-start gap-x-3 gap-y-1 rounded-md border px-3 py-2 text-sm",
         decided && "border-primary",
+        muted && "opacity-60",
       )}
     >
       {hasLead ? (

@@ -38,18 +38,10 @@ import { TagList } from "@forge-go/dashboard-kit/components/tag-list"
 import { Timestamp } from "@forge-go/dashboard-kit/components/timestamp"
 import { EncryptionBadge, PolicyStatusBadge, RotatorBadge } from "../badges"
 import { formatInterval } from "../interval"
+import type { AuditEntry } from "../flag-types"
 import { rotationPath } from "../keys"
 import type { RotationPolicy } from "./rotation"
 import type { SecretSummary } from "./secrets"
-
-/** Mirrors the Go `AuditSummary`. */
-export interface AuditEntry {
-  id: string
-  action: string
-  outcome: string
-  userId?: string
-  createdAt: string
-}
 
 /** Mirrors the Go `secretsDetailResponse`. `rotation` is an explicit null. */
 interface SecretDetail {

@@ -30,45 +30,31 @@ import {
 import { Switch } from "@forge-go/dashboard-kit/components/switch"
 import { TagList } from "@forge-go/dashboard-kit/components/tag-list"
 import { Timestamp } from "@forge-go/dashboard-kit/components/timestamp"
-import { FlagEnabledBadge, FlagTypeBadge, WrongTypeBadge } from "../badges"
+import {
+  DecidedHereBadge,
+  FlagEnabledBadge,
+  FlagTypeBadge,
+  NotReachedBadge,
+  WrongTypeBadge,
+} from "../badges"
+import { EvaluateBar, EvaluationSummary } from "../components/evaluate-bar"
 import { FlagValue } from "../components/flag-value"
 import { Ladder, LadderRow, LadderRows, Rung } from "../components/ladder"
 import { RuleSummary } from "../components/rule-summary"
 import { ValueInput } from "../components/value-input"
-import type { FlagRuleSummary, FlagType } from "../flag-types"
+import { readEvaluation } from "../evaluation"
+import type {
+  AuditEntry,
+  FlagDetail,
+  FlagOverrideSummary,
+  FlagRuleSummary,
+  FlagType,
+  FlagVariantSummary,
+} from "../flag-types"
 import { parseTags } from "../tags"
+import { useEvaluation } from "../use-evaluate"
+import type { EvaluationRequest } from "../use-evaluate"
 import type { FlagSummary } from "./flags"
-import type { AuditEntry } from "./secret-detail"
-
-/** Mirrors the Go `FlagOverrideSummary`. */
-export interface FlagOverrideSummary {
-  tenantId: string
-  value: unknown
-  /** False when `value` is not a value of the flag's type. */
-  valueMatchesType: boolean
-  updatedAt: string
-}
-
-/** Mirrors the Go `FlagVariantSummary`. */
-export interface FlagVariantSummary {
-  value: unknown
-  description: string
-}
-
-/**
- * Mirrors the Go `flagsDetailResponse`. `rules` is in the order the engine
- * walks them, `overrides` in tenant order. Lists are never null.
- */
-export interface FlagDetail {
-  flag: FlagSummary
-  variants: FlagVariantSummary[]
-  metadata: Record<string, string>
-  rules: FlagRuleSummary[]
-  overrides: FlagOverrideSummary[]
-  recentAudit: AuditEntry[]
-  /** How long the engine caches an evaluation, in seconds. */
-  cacheTtlSeconds: number
-}
 
 /** Mirrors the Go `flagResponse`. */
 interface FlagResponse {
@@ -166,8 +152,18 @@ function FlagDetailView({ flagKey, data }: { flagKey: string; data: FlagDetail }
   const navigateTo = useNavigateTo()
 
   const [dialog, setDialog] = useState<Dialogs | null>(null)
-  const [removing, setRemoving] = useState<string | null>(null)
+  // The tenant stays after the dialog closes, with `open` false, so the
+  // closing frame keeps its title. Nulling it would leave the exit animation
+  // reading "Remove the override for ?".
+  const [removal, setRemoval] = useState<{ tenantId: string; open: boolean } | null>(null)
   const [deleting, setDeleting] = useState(false)
+
+  // What is typed, and what was submitted. Editing the inputs must not touch
+  // the result: it stays until Evaluate is pressed again.
+  const [draftTenant, setDraftTenant] = useState("")
+  const [draftUser, setDraftUser] = useState("")
+  const [request, setRequest] = useState<EvaluationRequest | null>(null)
+  const evaluated = useEvaluation(flagKey, request)
 
   function open(which: Dialogs) {
     // Reset at open, not at close, so an error from an earlier attempt, on
@@ -180,7 +176,26 @@ function FlagDetailView({ flagKey, data }: { flagKey: string; data: FlagDetail }
 
   function openRemove(tenantId: string) {
     removeOverride.reset()
-    setRemoving(tenantId)
+    setRemoval({ tenantId, open: true })
+  }
+
+  function closeRemove() {
+    setRemoval((current) => (current === null ? null : { ...current, open: false }))
+  }
+
+  function evaluate() {
+    setRequest((previous) => ({
+      // An empty id is left out of the request, not sent as "".
+      tenantId: draftTenant.trim() || undefined,
+      userId: draftUser.trim() || undefined,
+      run: (previous?.run ?? 0) + 1,
+    }))
+  }
+
+  function clearEvaluation() {
+    setRequest(null)
+    setDraftTenant("")
+    setDraftUser("")
   }
 
   function openDelete() {
@@ -189,11 +204,11 @@ function FlagDetailView({ flagKey, data }: { flagKey: string; data: FlagDetail }
   }
 
   async function confirmRemove() {
-    if (removing === null) return
-    const result = await removeOverride.execute({ key: flagKey, tenantId: removing })
+    if (removal === null || !removal.open) return
+    const result = await removeOverride.execute({ key: flagKey, tenantId: removal.tenantId })
     // execute() resolves undefined only when the client throws.
     if (result === undefined) return
-    setRemoving(null)
+    closeRemove()
   }
 
   async function confirmDelete() {
@@ -204,6 +219,12 @@ function FlagDetailView({ flagKey, data }: { flagKey: string; data: FlagDetail }
   }
 
   const off = !flag.enabled
+  const answer = evaluated?.data
+  const marks =
+    answer === undefined
+      ? undefined
+      : readEvaluation(answer, rules, overrides, request?.tenantId)
+  const ruleNumber = marks?.decidedIndex === undefined ? undefined : marks.decidedIndex + 1
   const ruleWord = plural(rules.length, "rule")
   const overrideWord = plural(overrides.length, "tenant override")
 
@@ -271,12 +292,40 @@ function FlagDetailView({ flagKey, data }: { flagKey: string; data: FlagDetail }
         />
       </section>
 
+      <EvaluateBar
+        tenantId={draftTenant}
+        userId={draftUser}
+        onTenantId={setDraftTenant}
+        onUserId={setDraftUser}
+        onEvaluate={evaluate}
+        onClear={clearEvaluation}
+        busy={evaluated?.loading === true}
+        canClear={request !== null || draftTenant !== "" || draftUser !== ""}
+      >
+        {evaluated?.error ? (
+          <CommandAlert error={evaluated.error} title="Could not evaluate" />
+        ) : null}
+        {answer !== undefined && marks !== undefined ? (
+          <EvaluationSummary
+            evaluation={answer}
+            type={flag.type}
+            tenantId={request?.tenantId}
+            userId={request?.userId}
+            ruleNumber={ruleNumber}
+            cacheTtlSeconds={data.cacheTtlSeconds}
+            mismatch={marks.mismatch}
+          />
+        ) : null}
+      </EvaluateBar>
+
       <Ladder>
         <Rung
           id="enabled"
           number={1}
           title="Enabled"
           note="Off: everything below returns the default."
+          decided={marks?.enabledDecided}
+          mark={marks?.enabledDecided ? <DecidedHereBadge /> : undefined}
         >
           <div className="flex items-center gap-3">
             <Switch
@@ -297,7 +346,10 @@ function FlagDetailView({ flagKey, data }: { flagKey: string; data: FlagDetail }
           number={2}
           title="Tenant overrides"
           note="Beat every rule below."
-          muted={off}
+          muted={off || marks?.overridesNotReached}
+          mark={marks?.overridesNotReached ? <NotReachedBadge /> : undefined}
+          decided={marks?.overrideTenant !== undefined}
+          annotation={overridesAnnotation(marks, request?.tenantId)}
           notice={off ? "The flag is off, so everything below returns the default." : undefined}
           actions={
             <Button variant="outline" size="sm" onClick={() => open("override")}>
@@ -312,6 +364,8 @@ function FlagDetailView({ flagKey, data }: { flagKey: string; data: FlagDetail }
               {overrides.map((o) => (
                 <LadderRow
                   key={o.tenantId}
+                  decided={marks?.overrideTenant === o.tenantId}
+                  mark={marks?.overrideTenant === o.tenantId ? <DecidedHereBadge /> : undefined}
                   value={
                     <>
                       {o.valueMatchesType ? null : <WrongTypeBadge />}
@@ -341,7 +395,9 @@ function FlagDetailView({ flagKey, data }: { flagKey: string; data: FlagDetail }
           number={3}
           title="Rules"
           note="First match wins."
-          muted={off}
+          muted={off || marks?.rulesNotReached}
+          mark={marks?.rulesNotReached ? <NotReachedBadge /> : undefined}
+          decided={marks?.decidedIndex !== undefined}
         >
           {rules.length === 0 ? (
             <p className="text-sm text-muted-foreground">
@@ -349,25 +405,60 @@ function FlagDetailView({ flagKey, data }: { flagKey: string; data: FlagDetail }
             </p>
           ) : (
             <LadderRows label="Rules">
-              {rules.map((r, i) => (
-                <LadderRow
-                  key={r.id}
-                  lead={i + 1}
-                  value={
-                    <>
-                      {r.returnMatchesType ? null : <WrongTypeBadge />}
-                      <FlagValue value={r.returnValue} type={flag.type} />
-                    </>
-                  }
-                >
-                  <RuleSummary rule={r} />
-                </LadderRow>
-              ))}
+              {rules.map((r, i) => {
+                const verdict = marks?.rules[i]
+                const notReached = verdict?.notReached === true
+                // When the whole rung is not reached its own badge says so,
+                // and dimming each row again would dim them twice over.
+                const behind = notReached && !marks?.rulesNotReached
+                return (
+                  <LadderRow
+                    key={r.id}
+                    lead={i + 1}
+                    decided={verdict?.decided}
+                    muted={behind}
+                    mark={
+                      verdict?.decided ? (
+                        <DecidedHereBadge />
+                      ) : behind ? (
+                        <NotReachedBadge />
+                      ) : undefined
+                    }
+                    annotation={
+                      notReached
+                        ? undefined
+                        : ruleAnnotation(r, verdict?.note, answer?.bucket, request?.tenantId)
+                    }
+                    value={
+                      <>
+                        {r.returnMatchesType ? null : <WrongTypeBadge />}
+                        <FlagValue value={r.returnValue} type={flag.type} />
+                      </>
+                    }
+                  >
+                    <RuleSummary rule={r} />
+                  </LadderRow>
+                )
+              })}
             </LadderRows>
           )}
         </Rung>
 
-        <Rung id="default" number={4} title="Default" note="Returned when nothing above decides.">
+        <Rung
+          id="default"
+          number={4}
+          title="Default"
+          note="Returned when nothing above decides."
+          decided={marks?.defaultDecided}
+          muted={marks?.defaultNotReached}
+          mark={
+            marks === undefined ? undefined : marks.defaultDecided ? (
+              <DecidedHereBadge />
+            ) : (
+              <NotReachedBadge />
+            )
+          }
+        >
           <div className="flex flex-wrap items-center gap-2">
             <FlagValue value={flag.defaultValue} type={flag.type} />
             {flag.defaultMatchesType ? null : <WrongTypeBadge />}
@@ -410,15 +501,15 @@ function FlagDetailView({ flagKey, data }: { flagKey: string; data: FlagDetail }
       )}
 
       <ConfirmDialog
-        open={removing !== null}
+        open={removal?.open === true}
         // Escape must not close it while the command is in flight: a failure
         // would then be shown nowhere.
-        onOpenChange={(next) => !next && !removeOverride.loading && setRemoving(null)}
-        title={`Remove the override for ${removing ?? ""}?`}
+        onOpenChange={(next) => !next && !removeOverride.loading && closeRemove()}
+        title={`Remove the override for ${removal?.tenantId ?? ""}?`}
         description={
           <span className="flex flex-col gap-2">
             <span>
-              {removing ?? "That tenant"} goes back to the rules and the default.
+              {removal?.tenantId ?? "That tenant"} goes back to the rules and the default.
             </span>
             <CommandAlert error={removeOverride.error} title="Could not remove the override" />
           </span>
@@ -446,6 +537,50 @@ function FlagDetailView({ flagKey, data }: { flagKey: string; data: FlagDetail }
       />
     </section>
   )
+}
+
+/**
+ * The line under a rule after an evaluation: what the engine said about it.
+ *
+ * A rollout the engine checked for a tenant is said as the bucket the tenant
+ * landed in against the rule's percentage, since that comparison is what the
+ * verdict was. Everything else is the engine's own note. A rule the engine
+ * never got to has nothing to say.
+ */
+function ruleAnnotation(
+  rule: FlagRuleSummary,
+  note: string | undefined,
+  bucket: number | undefined,
+  tenantId: string | undefined,
+): ReactNode {
+  if (
+    rule.type === "rollout" &&
+    bucket !== undefined &&
+    tenantId !== undefined &&
+    // The engine gives a reached rollout a note. Without one this row has no
+    // step behind it, and a verdict would be invented.
+    note !== undefined &&
+    note !== ""
+  ) {
+    const under = bucket < rule.percentage
+    return `Tenant ${tenantId} lands in bucket ${bucket}, ${under ? "under" : "not under"} ${rule.percentage}.`
+  }
+  return note === undefined || note === "" ? undefined : note
+}
+
+/**
+ * Rung 2 after an evaluation that walked past it: the engine looks for an
+ * override only when a tenant is given, and only when the flag is on.
+ */
+function overridesAnnotation(
+  marks: ReturnType<typeof readEvaluation> | undefined,
+  tenantId: string | undefined,
+): ReactNode {
+  if (marks === undefined) return undefined
+  if (marks.reason !== "rule" && marks.reason !== "default") return undefined
+  return tenantId === undefined
+    ? "No tenant was given, so no override was looked for."
+    : `Tenant ${tenantId} has no override.`
 }
 
 function EditButton({ label, onClick }: { label: string; onClick: () => void }) {
