@@ -670,9 +670,13 @@ export function PluginHost({
           pathname.startsWith(`/${SCOPE_SIGIL}${namespaceOf(s.plugin)}`),
         )
         if (!scope) return to
-        // Only a plugin with a routed path dimension has a context segment
-        // after its namespace. For any other, the first segment is the page
-        // itself, and reading it as context doubled it into the link.
+        // A segment is only meaningful for a plugin that actually declares a
+        // routed path dimension (an app-style switcher, like authsome's).
+        // For every other plugin, the first path component after the scope
+        // sigil is an ordinary route, not a context value, and threading it
+        // through mountPath doubles it: "/roles" on "/@warden/roles" became
+        // "/@warden/roles/roles". Same guard `ownerDimension` already uses
+        // below for nav, applied here for links.
         const segment = routedPathDimension(scope.plugin)
           ? segmentFromPath(pathname, namespaceOf(scope.plugin))
           : undefined

@@ -10,6 +10,7 @@ import authsomePlugin, {
 import relayPlugin from "@forge-go/dashboard-plugin-relay"
 import streamingPlugin from "@forge-go/dashboard-plugin-streaming"
 import wardenPlugin from "@forge-go/dashboard-plugin-warden"
+import vaultPlugin from "@forge-go/dashboard-plugin-vault"
 
 // The Go handler injects window.__FORGE_DASHBOARD__ before this bundle loads,
 // so the shell works on any BasePath. `pnpm dev` has no such handler, hence
@@ -28,6 +29,7 @@ const plugins = [
   streamingPlugin,
   authsomePlugin,
   wardenPlugin,
+  vaultPlugin,
   relayPlugin,
 ]
 

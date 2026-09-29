@@ -1,14 +1,28 @@
 import { definePlugin } from "@forge-go/dashboard-plugin"
 import {
   HouseIcon,
+  KeyIcon,
   SettingsIcon,
+  UserCogIcon,
 } from "@forge-go/dashboard-kit/icons"
 import { WardenConfigPage } from "./pages/config"
 import { WardenOverviewPage } from "./pages/overview"
+import { WardenPermissionsPage } from "./pages/permissions"
+import { WardenRoleDetailPage } from "./pages/role-detail"
+import { WardenRolesPage } from "./pages/roles"
 
 export type { ConfigDetail } from "./pages/config"
 export type { OverviewStats, RecentChecks, CheckSummary } from "./pages/overview"
-export { WardenConfigPage, WardenOverviewPage }
+export type { RoleSummary, RolesList, AckResponse } from "./pages/roles"
+export type { RoleDetail, PermissionSummary } from "./pages/role-detail"
+export type { PermissionsList } from "./pages/permissions"
+export {
+  WardenConfigPage,
+  WardenOverviewPage,
+  WardenPermissionsPage,
+  WardenRolesPage,
+  WardenRoleDetailPage,
+}
 export { NamespaceCell, useNamespaceFilter, namespaceParam } from "./components/namespace-filter"
 export type { NamespaceValue } from "./components/namespace-filter"
 
@@ -43,6 +57,20 @@ export const wardenPlugin = definePlugin({
       group: "Overview",
     },
     {
+      label: "Roles",
+      to: "/roles",
+      priority: 10,
+      icon: <UserCogIcon />,
+      group: "Authorization",
+    },
+    {
+      label: "Permissions",
+      to: "/permissions",
+      priority: 20,
+      icon: <KeyIcon />,
+      group: "Authorization",
+    },
+    {
       label: "Config",
       to: "/config",
       priority: 40,
@@ -52,6 +80,11 @@ export const wardenPlugin = definePlugin({
   ],
   routes: [
     { path: "/", element: WardenOverviewPage },
+    { path: "/roles", element: WardenRolesPage },
+    // No nav entry: a sidebar link to "a role" with no role chosen points
+    // nowhere. This route is reached only from a row's Details link.
+    { path: "/roles/:id", element: WardenRoleDetailPage },
+    { path: "/permissions", element: WardenPermissionsPage },
     { path: "/config", element: WardenConfigPage },
   ],
 })

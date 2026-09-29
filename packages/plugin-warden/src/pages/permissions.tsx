@@ -1,0 +1,268 @@
+import { useState } from "react"
+import { useCommand, useQuery } from "@forge-go/dashboard-plugin"
+import { Badge } from "@forge-go/dashboard-kit/components/badge"
+import { Button } from "@forge-go/dashboard-kit/components/button"
+import { ConfirmDialog } from "@forge-go/dashboard-kit/components/confirm-dialog"
+import { FilterBar } from "@forge-go/dashboard-kit/components/filter-bar"
+import { Input } from "@forge-go/dashboard-kit/components/input"
+import { Label } from "@forge-go/dashboard-kit/components/label"
+import { NoneCell } from "@forge-go/dashboard-kit/components/none-cell"
+import { PageHeader } from "@forge-go/dashboard-kit/components/page-header"
+import {
+  CommandAlert,
+  QueryBoundary,
+} from "@forge-go/dashboard-kit/components/query-boundary"
+import {
+  ResourceTable,
+  type Column,
+} from "@forge-go/dashboard-kit/components/resource-table"
+import { Timestamp } from "@forge-go/dashboard-kit/components/timestamp"
+import { NamespaceCell, useNamespaceFilter } from "../components/namespace-filter"
+import type { AckResponse } from "./roles"
+import type { PermissionSummary } from "./role-detail"
+
+// Imported rather than redeclared, so the two pages that both mirror the
+// same Go DTO cannot drift apart. Re-exported here for the barrel.
+export type { PermissionSummary }
+
+/** Mirrors the Go `PermissionsListResponse`. */
+export interface PermissionsList {
+  items: PermissionSummary[]
+  total: number
+  limit: number
+  offset: number
+}
+
+const PAGE_SIZE = 25
+
+function CreatePermissionForm({
+  namespacePath,
+  onDone,
+}: {
+  namespacePath: string
+  onDone: () => void
+}) {
+  const create = useCommand<AckResponse>("permissions.create")
+  const [resource, setResource] = useState("")
+  const [action, setAction] = useState("")
+  const [description, setDescription] = useState("")
+
+  // The name the evaluator will actually match on. Showing it as the
+  // operator types removes the chance to disagree with it, which the
+  // contract refuses anyway.
+  const derived = resource && action ? `${resource}:${action}` : ""
+
+  async function submit() {
+    // No name field is sent at all: the contract derives it, so there is one
+    // source of truth rather than two that can drift.
+    const result = await create.execute({
+      resource,
+      action,
+      description: description || undefined,
+      namespacePath,
+    })
+    // execute() resolves undefined only when the client throws, so this is
+    // the success check. A failed create must not close the form and throw
+    // away what the operator typed.
+    if (result === undefined) return
+    onDone()
+  }
+
+  return (
+    <div className="flex flex-col gap-3 rounded-md border p-4">
+      <CommandAlert error={create.error} title="Could not create the permission" />
+      <p className="text-sm text-muted-foreground">
+        A check matches on resource and action, not on the name, so the name
+        below is derived from them rather than asked for.
+      </p>
+      <div className="flex flex-col gap-1.5">
+        <Label htmlFor="perm-resource">Resource</Label>
+        <Input
+          id="perm-resource"
+          value={resource}
+          onChange={(e) => setResource(e.target.value)}
+        />
+      </div>
+      <div className="flex flex-col gap-1.5">
+        <Label htmlFor="perm-action">Action</Label>
+        <Input id="perm-action" value={action} onChange={(e) => setAction(e.target.value)} />
+      </div>
+      <div className="flex flex-col gap-1.5">
+        <Label htmlFor="perm-description">Description</Label>
+        <Input
+          id="perm-description"
+          value={description}
+          onChange={(e) => setDescription(e.target.value)}
+        />
+      </div>
+      <p className="text-sm">
+        Name:{" "}
+        {derived ? (
+          <span className="font-mono text-xs">{derived}</span>
+        ) : (
+          <span className="text-muted-foreground">fill in a resource and an action</span>
+        )}
+      </p>
+      <div className="flex gap-2">
+        <Button
+          onClick={() => void submit()}
+          disabled={create.loading || resource.trim() === "" || action.trim() === ""}
+        >
+          {create.loading ? "Creating…" : "Create permission"}
+        </Button>
+        <Button variant="ghost" onClick={onDone} disabled={create.loading}>
+          Cancel
+        </Button>
+      </div>
+    </div>
+  )
+}
+
+export function WardenPermissionsPage() {
+  const namespace = useNamespaceFilter()
+  const [search, setSearch] = useState("")
+  // One-based, matching ResourceTable's PaginationState.
+  const [page, setPage] = useState(1)
+  const [creating, setCreating] = useState(false)
+  const [deleting, setDeleting] = useState<PermissionSummary | null>(null)
+
+  const list = useQuery<PermissionsList>("permissions.list", {
+    ...namespace.param,
+    search: search || undefined,
+    limit: PAGE_SIZE,
+    offset: (page - 1) * PAGE_SIZE,
+  })
+  const remove = useCommand<AckResponse>("permissions.delete")
+
+  async function confirmDelete() {
+    if (!deleting) return
+    const result = await remove.execute({ id: deleting.id })
+    if (result !== undefined) setDeleting(null)
+  }
+
+  const columns: Column<PermissionSummary>[] = [
+    { id: "name", header: "Name", cell: (p) => p.name, className: "font-medium" },
+    { id: "resource", header: "Resource", cell: (p) => p.resource },
+    { id: "action", header: "Action", cell: (p) => p.action },
+    {
+      id: "namespace",
+      header: "Namespace",
+      cell: (p) => <NamespaceCell path={p.namespacePath} />,
+    },
+    {
+      id: "flags",
+      header: "Flags",
+      cell: (p) =>
+        // Most permissions are not system ones, so system is the minority
+        // and the state somebody scanning for it is hunting.
+        p.isSystem ? <Badge variant="destructive">system</Badge> : <NoneCell label="flags" />,
+    },
+    {
+      id: "description",
+      header: "Description",
+      cell: (p) => p.description || <NoneCell label="description" />,
+    },
+    {
+      id: "updatedAt",
+      header: "Updated",
+      cell: (p) => <Timestamp value={p.updatedAt} label="updated at" />,
+    },
+  ]
+
+  return (
+    <section className="flex flex-col gap-4">
+      <PageHeader
+        title="Permissions"
+        actions={
+          !creating && <Button onClick={() => setCreating(true)}>New permission</Button>
+        }
+      />
+
+      <FilterBar
+        search={{
+          value: search,
+          onChange: (v) => {
+            setSearch(v)
+            setPage(1)
+          },
+          placeholder: "Search by name",
+          label: "Search permissions",
+        }}
+        filters={[namespace.filterConfig]}
+      />
+
+      {creating && (
+        <CreatePermissionForm
+          namespacePath={namespace.value === "all" ? "" : namespace.value}
+          onDone={() => setCreating(false)}
+        />
+      )}
+
+      <QueryBoundary title="Permissions" query={list} skeletonRows={5}>
+        {(data) => {
+          const rows = data.items ?? []
+          // Counts data.total, never rows.length: rows.length would say
+          // "25 permissions" on page one of sixty.
+          const caption = `${data.total} ${data.total === 1 ? "permission" : "permissions"}`
+          return (
+            <ResourceTable<PermissionSummary>
+              columns={columns}
+              rows={rows}
+              rowKey={(p) => p.id}
+              caption={caption}
+              emptyMessage="No permissions yet."
+              pagination={{ page, pageSize: data.limit, total: data.total }}
+              onPageChange={setPage}
+              // No Details link here: `/permissions/:id` has no route yet.
+              // The intent behind it (`permissions.detail`, with the
+              // `grantedBy` list a detail page would show) is real and
+              // waiting, but the page itself is a later plan's scope.
+              rowActions={(p) =>
+                // No delete on a system permission: the contract refuses
+                // it, so offering the button would promise a rejection.
+                !p.isSystem && (
+                  <Button
+                    variant="destructive"
+                    size="sm"
+                    aria-label={`Delete ${p.name}`}
+                    onClick={() => {
+                      // Reset at open, not at close: the operator is about
+                      // to read whatever this dialog shows for THIS
+                      // permission, so a failure from a previous row must
+                      // not be attributed to one they have not touched.
+                      remove.reset()
+                      setDeleting(p)
+                    }}
+                  >
+                    Delete
+                  </Button>
+                )
+              }
+            />
+          )
+        }}
+      </QueryBoundary>
+
+      {/* The error lives inside the dialog. Base UI marks everything
+          outside an open dialog inert and aria-hidden, so an alert on the
+          page body is unreachable while the dialog that can fail is open. */}
+      <ConfirmDialog
+        open={deleting !== null}
+        onOpenChange={(open) => !open && setDeleting(null)}
+        title={`Delete ${deleting?.name ?? ""}?`}
+        description={
+          <span className="flex flex-col gap-2">
+            <span>
+              This is refused while any role still grants it. Detach it from
+              those roles first, and the error below will name them.
+            </span>
+            <CommandAlert error={remove.error} title="Could not delete" />
+          </span>
+        }
+        confirmLabel="Delete"
+        pending={remove.loading}
+        onConfirm={() => void confirmDelete()}
+      />
+    </section>
+  )
+}

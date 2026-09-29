@@ -398,9 +398,16 @@ export const wardenHandlers = {
         (g) => g.roleId === r.id && g.name === payload?.permissionName && g.namespacePath === ns
       )
       // A detach of a grant the role does not hold must not read as
-      // success, exactly as the Go handler refuses it.
+      // success, exactly as the Go handler refuses it. Message matches
+      // rolesDetachPermissionHandler's wording exactly (role NAME, no "not
+      // found" suffix) rather than bending notFound(kind, id) around a full
+      // sentence.
       if (i === -1) {
-        throw notFound("grant", `${r.slug} does not grant ${payload?.permissionName}`)
+        throw new WardenFixtureError(
+          404,
+          "NOT_FOUND",
+          `${r.name} does not grant ${payload?.permissionName}`
+        )
       }
       warden.grants.splice(i, 1)
       return { id: r.id }
@@ -442,6 +449,12 @@ export const wardenHandlers = {
       if (params?.search) {
         const q = String(params.search).toLowerCase()
         rows = rows.filter((p) => p.name.toLowerCase().includes(q))
+      }
+      // !== undefined, not truthiness: absent means "do not filter", false
+      // means "only non-system ones", and a truthy check would collapse
+      // those into the same result, matching roles.list's isSystem filter.
+      if (params?.isSystem !== undefined) {
+        rows = rows.filter((p) => p.isSystem === params.isSystem)
       }
       return pageOf(rows, params)
     },
