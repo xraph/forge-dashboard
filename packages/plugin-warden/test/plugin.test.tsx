@@ -54,4 +54,16 @@ describe("wardenPlugin", () => {
       expect(paths, `nav "${item.label}" points at ${item.to}`).toContain(item.to)
     }
   })
+
+  it("puts Assignments in the Authorization group after Roles and Permissions", () => {
+    const nav = wardenPlugin.nav ?? []
+    const at = (label: string) => nav.find((n) => n.label === label)
+    expect(at("Assignments")).toMatchObject({
+      to: "/assignments",
+      priority: 30,
+      group: "Authorization",
+    })
+    expect(at("Roles")?.priority).toBeLessThan(30)
+    expect(at("Permissions")?.priority).toBeLessThan(30)
+  })
 })

@@ -4,7 +4,9 @@ import {
   KeyIcon,
   SettingsIcon,
   UserCogIcon,
+  UsersIcon,
 } from "@forge-go/dashboard-kit/icons"
+import { WardenAssignmentsPage } from "./pages/assignments"
 import { WardenConfigPage } from "./pages/config"
 import { WardenOverviewPage } from "./pages/overview"
 import { WardenPermissionsPage } from "./pages/permissions"
@@ -13,10 +15,12 @@ import { WardenRolesPage } from "./pages/roles"
 
 export type { ConfigDetail } from "./pages/config"
 export type { OverviewStats, RecentChecks, CheckSummary } from "./pages/overview"
+export type { AssignmentSummary, AssignmentsList } from "./pages/assignments"
 export type { RoleSummary, RolesList, AckResponse } from "./pages/roles"
 export type { RoleDetail, PermissionSummary } from "./pages/role-detail"
 export type { PermissionsList } from "./pages/permissions"
 export {
+  WardenAssignmentsPage,
   WardenConfigPage,
   WardenOverviewPage,
   WardenPermissionsPage,
@@ -71,6 +75,13 @@ export const wardenPlugin = definePlugin({
       group: "Authorization",
     },
     {
+      label: "Assignments",
+      to: "/assignments",
+      priority: 30,
+      icon: <UsersIcon />,
+      group: "Authorization",
+    },
+    {
       label: "Config",
       to: "/config",
       priority: 40,
@@ -85,6 +96,7 @@ export const wardenPlugin = definePlugin({
     // nowhere. This route is reached only from a row's Details link.
     { path: "/roles/:id", element: WardenRoleDetailPage },
     { path: "/permissions", element: WardenPermissionsPage },
+    { path: "/assignments", element: WardenAssignmentsPage },
     { path: "/config", element: WardenConfigPage },
   ],
 })
