@@ -57,6 +57,7 @@ import { isAuthPath } from "../auth/routes"
 import type { AuthScreens } from "../auth/routes"
 import { DeniedScreen } from "../auth/screens"
 import type {
+  NavArea,
   NavGroup,
   NavNode,
   NavSection,
@@ -389,6 +390,103 @@ export function activeSectionId(sections: NavSection[], pathname: string): strin
     }
   }
   return best?.id ?? sections[0]?.id
+}
+
+/**
+ * A list of nav items bucketed by `group`, ungrouped first, then groups in
+ * first-appearance order after a priority sort: the rule `navGroups` applies
+ * to a scope, applied to one sub-plugin's items.
+ */
+function groupItems(plugin: ForgePlugin, items: PluginNavItem[], segment?: string): NavGroup[] {
+  const buckets = new Map<string | typeof UNGROUPED, PluginNavItem[]>()
+  for (const item of sortByPriority(items)) {
+    const key = item.group ?? UNGROUPED
+    const bucket = buckets.get(key)
+    if (bucket) bucket.push(item)
+    else buckets.set(key, [item])
+  }
+  return [...buckets.entries()]
+    .sort(([a], [b]) => (a === UNGROUPED ? -1 : b === UNGROUPED ? 1 : 0))
+    .map(([key, list]) => ({
+      label: key === UNGROUPED ? undefined : key,
+      items: toNodes(plugin, foldClusters(list), segment),
+    }))
+}
+
+function firstHref(node: NavNode): string {
+  return node.children?.[0]?.href ?? node.href
+}
+
+/**
+ * The rail's entries for one scope: the scope itself, then one per ready
+ * sub-plugin that has nav, sorted by label. Each carries the pages the
+ * secondary sidebar shows when you are in it, split into sections by `group`.
+ * Sub-plugin pages are NOT merged into the scope's own entry; that merging is
+ * what made authsome's sidebar a 35-row list.
+ */
+export function navAreas(
+  plugin: ForgePlugin,
+  subPlugins: ForgeSubPlugin[],
+  segment?: string,
+): NavArea[] {
+  const areas: NavArea[] = []
+
+  const own = navGroups(plugin, [], segment)
+  const ownFirst = own[0]?.items[0]
+  if (ownFirst) {
+    areas.push({
+      id: plugin.extension,
+      label: labelOf(plugin),
+      icon: plugin.icon,
+      href: firstHref(ownFirst),
+      kind: "scope",
+      groups: own,
+    })
+  }
+
+  const plugins: NavArea[] = []
+  for (const sub of subPlugins) {
+    if (sub.nav.length === 0) continue
+    const groups = groupItems(plugin, sub.nav, segment)
+    const first = groups[0]?.items[0]
+    if (!first) continue
+    const lead = sortByPriority(sub.nav)[0]
+    plugins.push({
+      id: sub.extension,
+      label: sub.label || lead?.label || sub.extension,
+      icon: sub.icon ?? lead?.icon,
+      href: firstHref(first),
+      kind: "plugin",
+      groups,
+    })
+  }
+  plugins.sort((a, b) => a.label.localeCompare(b.label, undefined, { sensitivity: "base" }))
+
+  return [...areas, ...plugins]
+}
+
+/**
+ * The rail entry holding the current page: the node whose href is the pathname
+ * or its longest prefix, the rule `pageTitle` uses. A route no nav item names
+ * lands on the first entry.
+ */
+export function activeAreaId(areas: NavArea[], pathname: string): string | undefined {
+  let best: { id: string; length: number } | undefined
+  for (const area of areas) {
+    for (const group of area.groups) {
+      for (const node of group.items) {
+        for (const candidate of [node, ...(node.children ?? [])]) {
+          const matches =
+            candidate.href === pathname ||
+            (candidate.href !== "/" && pathname.startsWith(`${candidate.href}/`))
+          if (matches && (!best || candidate.href.length > best.length)) {
+            best = { id: area.id, length: candidate.href.length }
+          }
+        }
+      }
+    }
+  }
+  return best?.id ?? areas[0]?.id
 }
 
 // Two sub-plugins of one host can both claim a path, and so can a sub-plugin
