@@ -10,6 +10,7 @@ import relayPlugin from "@forge-go/dashboard-plugin-relay"
 import streamingPlugin from "@forge-go/dashboard-plugin-streaming"
 import wardenPlugin from "@forge-go/dashboard-plugin-warden"
 import vaultPlugin from "@forge-go/dashboard-plugin-vault"
+import keysmithPlugin from "@forge-go/dashboard-plugin-keysmith"
 import chroniclePlugin from "@forge-go/dashboard-plugin-chronicle"
 
 // The Go handler injects window.__FORGE_DASHBOARD__ before this bundle loads,
@@ -30,6 +31,7 @@ const plugins = [
   authsomePlugin,
   wardenPlugin,
   vaultPlugin,
+  keysmithPlugin,
   chroniclePlugin,
   relayPlugin,
   ledgerPlugin,
