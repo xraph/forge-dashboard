@@ -6,6 +6,18 @@ import type { TooltipValueType } from "recharts"
 
 import { cn } from "@forge-go/dashboard-kit/lib/utils"
 
+// Plugins peer-depend on the kit and carry no charting dependency of their
+// own, so the recharts parts a bar chart is made of are re-exported here. That
+// keeps one copy of recharts in the bundle and one place that names it.
+export {
+  Bar,
+  BarChart,
+  CartesianGrid,
+  LabelList,
+  XAxis,
+  YAxis,
+} from "recharts"
+
 // Format: { THEME_NAME: CSS_SELECTOR }
 const THEMES = { light: "", dark: ".dark" } as const
 
