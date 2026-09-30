@@ -1,4 +1,4 @@
-import { Fragment, useEffect, useState, type KeyboardEvent, type ReactNode } from "react"
+import { Fragment, useEffect, useRef, useState, type KeyboardEvent, type ReactNode } from "react"
 import {
   usePluginClient,
   useCommand,
@@ -23,7 +23,6 @@ import { cn } from "@forge-go/dashboard-kit/lib/utils"
 import {
   OPERATOR_WORDS,
   PRIORITY_HELP,
-  closedWindow,
   subjectText,
   windowTime,
   type PolicyCondition,
@@ -347,16 +346,20 @@ export function patchOf(s: EditorState, loaded: PolicyDetail): PolicyUpdatePaylo
 // ---------------------------------------------------------------------------
 
 /**
- * Loose on purpose. A bound this refuses would be refused by the server too,
- * so the save would not take effect; a bound this lets through that the
- * server then refuses only costs a confirmation for a save that fails.
- * Stricter than the server would be the dangerous direction: an unconfirmed
- * save that does take effect.
+ * Where a bound sits in time, in epoch milliseconds, or NaN when the page
+ * cannot place it. Mirrors the shape Go's `time.Parse(time.RFC3339, ...)`
+ * accepts, including a comma before the fraction, which `Date.parse` does
+ * not read. NaN never means "the server will refuse this": only the
+ * validate answer says that. It means only that the page does not know
+ * when the bound falls.
  */
-const RFC3339 = /^\d{4}-\d{2}-\d{2}[Tt]\d{2}:\d{2}:\d{2}(\.\d+)?([Zz]|[+-]\d{2}:\d{2})$/
+const RFC3339 = /^(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2})(?:[.,](\d+))?(Z|[+-]\d{2}:\d{2})$/
 
-function boundAccepted(raw: string): boolean {
-  return raw === "" || (RFC3339.test(raw) && !Number.isNaN(Date.parse(raw)))
+export function boundTime(raw: string): number {
+  const m = RFC3339.exec(raw)
+  if (!m) return Number.NaN
+  const [, base, fraction, zone] = m
+  return Date.parse(`${base}${fraction ? `.${fraction.slice(0, 3)}` : ""}${zone}`)
 }
 
 export interface SaveConfirmationInput {
@@ -369,6 +372,11 @@ export interface SaveConfirmationInput {
   notAfter: string
   /** From the latest `policies.validate` response for this exact draft. */
   matchesEverything: boolean
+  /**
+   * Whether that same response marks the window. Only this says the server
+   * will refuse a window: the page never guesses it from its own parser.
+   */
+  windowRefused: boolean
   evaluationOff: boolean
   now: number
 }
@@ -376,48 +384,59 @@ export interface SaveConfirmationInput {
 /**
  * What Save must confirm, or null when it saves straight away.
  *
- * It confirms only when the saved policy will apply to every check in its
- * namespace and below, and each sentence is true in every case it appears
+ * It returns null only when the page is sure the saved policy will not
+ * apply to every check, and each sentence is true in every case it appears
  * in:
- * - policy evaluation is on, because with it off no policy is evaluated;
- * - the server's analysis of this draft says it matches everything;
- * - the policy is active, and the editor does not change that;
- * - the saved window is open now, or opens later. A window that has ended or
- *   ends before it starts keeps it out of effect, and a window the server
- *   will refuse means nothing is saved.
+ * - policy evaluation is off: no policy is evaluated at all;
+ * - the server's analysis of this draft says it does not match everything;
+ * - the policy is inactive, and the editor does not change that;
+ * - the window is patched and the server's validate answer marks it, so the
+ *   update is refused and nothing is saved;
+ * - the saved window has ended (its end before now) or ends before it
+ *   starts, judged only from bounds the page can place in time, because
+ *   `EffectiveAt` then never holds again.
+ * When a bound the server accepts cannot be placed, it still confirms, with
+ * a sentence that names no time.
+ *
+ * The window tests are `EffectiveAt`'s: a policy is out of effect before
+ * its start and after its end, so a start equal to now is open and an end
+ * equal to now has not ended.
  *
  * Anything but exactly "allow" is a deny to the evaluator, so it reads as
  * one here too.
  */
 export function saveConfirmation(input: SaveConfirmationInput): string | null {
-  const { loaded, effect, notBefore, notAfter, matchesEverything, evaluationOff, now } = input
+  const { loaded, effect, notBefore, notAfter, matchesEverything, windowRefused, evaluationOff, now } =
+    input
   if (evaluationOff || !matchesEverything || !loaded.isActive) return null
-  const nbChanged = notBefore !== (loaded.notBefore ?? "")
-  const naChanged = notAfter !== (loaded.notAfter ?? "")
-  // A patched bound that is not a time is refused, and so is a patched pair
-  // whose end is not after its start. The server judges the merged pair.
-  if ((nbChanged && !boundAccepted(notBefore)) || (naChanged && !boundAccepted(notAfter))) {
-    return null
+  const patched =
+    notBefore !== (loaded.notBefore ?? "") || notAfter !== (loaded.notAfter ?? "")
+  // The server judges a patched window as the merged pair, and validate
+  // judged exactly that pair. An untouched window is never refused.
+  if (patched && windowRefused) return null
+  const start = notBefore ? boundTime(notBefore) : Number.NaN
+  const end = notAfter ? boundTime(notAfter) : Number.NaN
+  const startKnown = !Number.isNaN(start)
+  const endKnown = !Number.isNaN(end)
+  if (startKnown && endKnown && end < start) return null
+  if (endKnown && end < now) return null
+
+  const isAllow = effect === "allow"
+  // An explicit deny beats every allow from every model (mergeDecisions),
+  // so a deny that matches every check applies to every one of them. An
+  // allow does not win outright: any deny policy that matches a check beats
+  // it, so it grants only what no deny refuses.
+  const lead = isAllow
+    ? "This allow will grant every check in its namespace and below that no deny policy refuses"
+    : "This deny will apply to every check in its namespace and below"
+  const sep = isAllow ? ", " : " "
+  const startUnknown = notBefore !== "" && !startKnown
+  const endUnknown = notAfter !== "" && !endKnown
+  if (startUnknown || endUnknown) return `${lead}${sep}whenever its window is open.`
+  if (startKnown && start > now) {
+    return `${lead}${sep}from ${windowTime(new Date(start).toISOString())}.`
   }
-  const start = notBefore ? Date.parse(notBefore) : Number.NaN
-  const end = notAfter ? Date.parse(notAfter) : Number.NaN
-  if ((nbChanged || naChanged) && !Number.isNaN(start) && !Number.isNaN(end) && end <= start) {
-    return null
-  }
-  const saved = { ...loaded, notBefore: notBefore || undefined, notAfter: notAfter || undefined }
-  if (closedWindow(saved, now)) return null
-  const opens = !Number.isNaN(start) && start > now
-  if (effect !== "allow") {
-    // An explicit deny beats every allow from every model (mergeDecisions),
-    // so a deny that matches every check applies to every one of them.
-    const lead = "This deny will apply to every check in its namespace and below"
-    return opens ? `${lead} from ${windowTime(notBefore)}.` : `${lead} as soon as you save.`
-  }
-  // An allow does not win outright: any deny policy that matches a check
-  // beats it (mergeDecisions), so it grants only what no deny refuses.
-  const lead =
-    "This allow will grant every check in its namespace and below that no deny policy refuses"
-  return opens ? `${lead}, from ${windowTime(notBefore)}.` : `${lead}, as soon as you save.`
+  return `${lead}${sep}as soon as you save.`
 }
 
 // ---------------------------------------------------------------------------
@@ -627,10 +646,16 @@ function ValueInput({
 // The editor
 // ---------------------------------------------------------------------------
 
+/**
+ * An open confirmation: what it says, what it will send, and what the
+ * sentence was judged from, so confirming can judge it again against the
+ * clock at that moment.
+ */
 interface Pending {
   sentence: string
   patch: PolicyUpdatePayload
   key: string
+  judged: Omit<SaveConfirmationInput, "now">
 }
 
 /**
@@ -666,6 +691,17 @@ export function PolicyEditor({
   const [checkError, setCheckError] = useState<ContractError | undefined>(undefined)
   const [refusedKey, setRefusedKey] = useState<string | null>(null)
   const [confirming, setConfirming] = useState<Pending | null>(null)
+  // Whether this editor is still mounted, and whether Cancel was pressed.
+  // A check or a save still in flight reads them when it settles, so
+  // leaving the editor can never be followed by a save or a navigation.
+  const alive = useRef(true)
+  const cancelled = useRef(false)
+  useEffect(() => {
+    alive.current = true
+    return () => {
+      alive.current = false
+    }
+  }, [])
 
   const draft = draftOf(state, loaded)
   const draftKey = JSON.stringify(draft)
@@ -747,16 +783,21 @@ export function PolicyEditor({
     // execute() resolves undefined only when the command failed, so this is
     // the success check. A refusal keeps the form and everything typed.
     if (result === undefined) {
-      setRefusedKey(key)
+      if (alive.current) setRefusedKey(key)
       return false
     }
-    navigate(`/policies/${loaded.id}`)
+    // Only an editor still on screen moves the operator: one that was left
+    // mid-save must not pull them back from wherever they went.
+    if (alive.current) navigate(`/policies/${loaded.id}`)
     return true
   }
 
   async function save() {
     if (priorityBad || !changed) return
     setCheckError(undefined)
+    // Cleared by nothing: once Cancel has been pressed, nothing this
+    // editor started may still save.
+    if (cancelled.current) return
     // The patch, the draft and the confirmation are all about this one
     // snapshot, whatever is typed while the check is in flight.
     const p = patch
@@ -772,31 +813,48 @@ export function PolicyEditor({
           JSON.parse(key) as Record<string, unknown>
         )
       } catch (e) {
+        if (!alive.current || cancelled.current) return
         setCheckError(e as ContractError)
-        return
-      } finally {
         setChecking(false)
+        // No answer, no save: the page cannot tell whether this draft
+        // would need confirming, so it sends nothing.
+        return
       }
+      // The editor was left while the check was in flight. What was asked
+      // for no longer stands, so nothing is sent.
+      if (!alive.current || cancelled.current) return
+      setChecking(false)
     }
-    const sentence = saveConfirmation({
+    const judged = {
       loaded,
       effect: state.effect,
       notBefore: state.notBefore,
       notAfter: state.notAfter,
       matchesEverything: answer?.matchesEverything === true,
+      windowRefused: typeof answer?.fields?.window === "string",
       evaluationOff,
-      now: Date.now(),
-    })
+    }
+    const sentence = saveConfirmation({ ...judged, now: Date.now() })
     if (sentence) {
       update.reset()
-      setConfirming({ sentence, patch: p, key })
+      setConfirming({ sentence, patch: p, key, judged })
       return
     }
     await send(p, key)
   }
 
   async function confirmSave() {
-    if (confirming) await send(confirming.patch, confirming.key)
+    if (!confirming) return
+    // Judged again at the moment of confirming: a window can open or close
+    // while the dialog is up. A sentence that no longer holds is replaced
+    // and must be confirmed again; a save that no longer needs confirming
+    // (its window has ended) goes out.
+    const sentence = saveConfirmation({ ...confirming.judged, now: Date.now() })
+    if (sentence !== null && sentence !== confirming.sentence) {
+      setConfirming({ ...confirming, sentence })
+      return
+    }
+    await send(confirming.patch, confirming.key)
   }
 
   // A refusal that names parts or rows takes the dialog down, so the marks
@@ -1182,8 +1240,11 @@ export function PolicyEditor({
         <Button
           type="button"
           variant="outline"
-          disabled={saving}
-          onClick={() => navigate(`/policies/${loaded.id}`)}
+          disabled={saving || checking}
+          onClick={() => {
+            cancelled.current = true
+            navigate(`/policies/${loaded.id}`)
+          }}
         >
           Cancel
         </Button>

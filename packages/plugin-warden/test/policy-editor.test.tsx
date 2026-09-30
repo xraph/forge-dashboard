@@ -9,6 +9,7 @@ import type { ScopedClient } from "@forge-go/dashboard-plugin"
 import {
   EMPTY_SUBJECT,
   PolicyEditor,
+  boundTime,
   saveConfirmation,
   type PolicyDraft,
   type PolicyUpdatePayload,
@@ -83,11 +84,15 @@ const DENY_NOW =
   "This deny will apply to every check in its namespace and below as soon as you save."
 const ALLOW_NOW =
   "This allow will grant every check in its namespace and below that no deny policy refuses, as soon as you save."
+const DENY_WHENEVER =
+  "This deny will apply to every check in its namespace and below whenever its window is open."
+const ALLOW_WHENEVER =
+  "This allow will grant every check in its namespace and below that no deny policy refuses, whenever its window is open."
 const ALLOW_FROM =
   "This allow will grant every check in its namespace and below that no deny policy refuses, from 15 Oct 2026, 09:00 UTC."
 
 interface Options {
-  validate?: (draft: PolicyDraft) => PolicyValidateResponse
+  validate?: (draft: PolicyDraft) => PolicyValidateResponse | Promise<PolicyValidateResponse>
   update?: unknown
 }
 
@@ -800,6 +805,74 @@ describe("PolicyEditor", () => {
       expect(dialog().getByText(DENY_NOW)).toBeTruthy()
     })
 
+    it("confirms a comma-decimal start the server accepts", async () => {
+      const { updates } = renderEditor({}, { validate: () => EVERYTHING })
+      change(input("In effect from"), "2026-09-30T11:00:00,5Z")
+      await settle()
+      await save()
+      await screen.findByRole("alertdialog")
+      expect(dialog().getByText(DENY_NOW)).toBeTruthy()
+      expect(updates()).toEqual([])
+    })
+
+    it("does not confirm a patched window the server refuses", async () => {
+      const { updates } = renderEditor(
+        {},
+        {
+          validate: () => ({
+            ...EVERYTHING,
+            valid: false,
+            fields: { window: "The start is not an RFC3339 time." },
+          }),
+        }
+      )
+      change(input("In effect from"), "2026-09-30 11:00:00Z")
+      await settle()
+      await save()
+      expect(screen.queryByRole("alertdialog")).toBeNull()
+      expect(updates()).toEqual([{ id: "pol_01", notBefore: "2026-09-30 11:00:00Z" }])
+    })
+
+    it("judges the window again on confirm, and asks again when the sentence changed", async () => {
+      const { updates } = renderEditor(
+        { state: "scheduled", notBefore: "2026-09-30T12:01:00Z" },
+        { validate: () => EVERYTHING }
+      )
+      change(labelled("Description"), "x")
+      await settle()
+      await save()
+      await screen.findByRole("alertdialog")
+      expect(
+        dialog().getByText(
+          "This deny will apply to every check in its namespace and below from 30 Sept 2026, 12:01 UTC."
+        )
+      ).toBeTruthy()
+      vi.setSystemTime(new Date("2026-09-30T12:02:00Z"))
+      fireEvent.click(dialog().getByRole("button", { name: "Save changes" }))
+      await act(async () => {})
+      expect(updates()).toEqual([])
+      expect(dialog().getByText(DENY_NOW)).toBeTruthy()
+      fireEvent.click(dialog().getByRole("button", { name: "Save changes" }))
+      await act(async () => {})
+      expect(updates()).toEqual([{ id: "pol_01", description: "x" }])
+    })
+
+    it("saves without another question when the window ends while the dialog is open", async () => {
+      const { updates } = renderEditor(
+        { notAfter: "2026-09-30T12:01:00Z" },
+        { validate: () => EVERYTHING }
+      )
+      change(labelled("Description"), "x")
+      await settle()
+      await save()
+      await screen.findByRole("alertdialog")
+      expect(dialog().getByText(DENY_NOW)).toBeTruthy()
+      vi.setSystemTime(new Date("2026-09-30T12:02:00Z"))
+      fireEvent.click(dialog().getByRole("button", { name: "Save changes" }))
+      await act(async () => {})
+      expect(updates()).toEqual([{ id: "pol_01", description: "x" }])
+    })
+
     it("does not confirm an inactive policy saved into the same shape", async () => {
       const { updates } = renderEditor(
         { isActive: false, state: "inactive" },
@@ -952,6 +1025,7 @@ describe("PolicyEditor", () => {
       notBefore: POLICY.notBefore!,
       notAfter: POLICY.notAfter!,
       matchesEverything: true,
+      windowRefused: false,
       evaluationOff: false,
       now: NOW.getTime(),
     }
@@ -968,15 +1042,128 @@ describe("PolicyEditor", () => {
       expect(saveConfirmation({ ...base, notAfter: "2026-09-29T00:00:00Z" })).toBeNull()
     })
 
-    it("returns nothing for a patched bound the server would refuse", () => {
-      expect(saveConfirmation({ ...base, notBefore: "tomorrow" })).toBeNull()
+    it("returns nothing for a patched window the server's answer refuses", () => {
       expect(
-        saveConfirmation({ ...base, notBefore: "2026-11-01T00:00:00Z", notAfter: "2026-11-01T00:00:00Z" })
+        saveConfirmation({ ...base, notBefore: "2026-11-01T00:00:00Z", windowRefused: true })
       ).toBeNull()
+    })
+
+    it("still confirms when the server marks a window the edit did not touch", () => {
+      // An untouched window is not part of the update, so it is never refused.
+      expect(saveConfirmation({ ...base, windowRefused: true })).toBe(DENY_NOW)
+    })
+
+    it("confirms without naming a time when it cannot place a bound the server accepts", () => {
+      expect(saveConfirmation({ ...base, notBefore: "not a time the page reads" })).toBe(
+        DENY_WHENEVER
+      )
+      expect(
+        saveConfirmation({ ...base, effect: "allow", notAfter: "not a time the page reads" })
+      ).toBe(ALLOW_WHENEVER)
+    })
+
+    it("still returns nothing for a known end that has passed, whatever the start", () => {
+      expect(
+        saveConfirmation({ ...base, notBefore: "not a time", notAfter: "2026-09-29T00:00:00Z" })
+      ).toBeNull()
+    })
+
+    it("places a comma-decimal time as Go does", () => {
+      expect(boundTime("2026-09-30T11:00:00,5Z")).toBe(Date.parse("2026-09-30T11:00:00.5Z"))
+      expect(saveConfirmation({ ...base, notBefore: "2026-09-30T11:00:00,5Z" })).toBe(DENY_NOW)
     })
 
     it("counts no bound as open", () => {
       expect(saveConfirmation({ ...base, notBefore: "", notAfter: "" })).toBe(DENY_NOW)
+    })
+
+    it("treats a start equal to now as open", () => {
+      expect(
+        saveConfirmation({ ...base, notBefore: "2026-09-30T12:00:00Z", notAfter: "" })
+      ).toBe(DENY_NOW)
+      expect(
+        saveConfirmation({ ...base, notBefore: "2026-09-30T12:00:01Z", notAfter: "" })
+      ).toBe(
+        "This deny will apply to every check in its namespace and below from 30 Sept 2026, 12:00:01 UTC."
+      )
+    })
+
+    it("treats an end equal to now as not yet ended", () => {
+      expect(saveConfirmation({ ...base, notAfter: "2026-09-30T12:00:00Z" })).toBe(DENY_NOW)
+      expect(saveConfirmation({ ...base, notAfter: "2026-09-30T11:59:59Z" })).toBeNull()
+    })
+
+    it("treats a stored start equal to its end as a window, not an inverted one", () => {
+      const at = "2026-10-01T00:00:00Z"
+      const loaded = { ...POLICY, notBefore: at, notAfter: at }
+      expect(saveConfirmation({ ...base, loaded, notBefore: at, notAfter: at })).toBe(
+        "This deny will apply to every check in its namespace and below from 1 Oct 2026, 00:00 UTC."
+      )
+    })
+  })
+
+  describe("a save the operator walks away from", () => {
+    function deferred() {
+      let resolve!: (v: PolicyValidateResponse) => void
+      let reject!: (e: unknown) => void
+      const promise = new Promise<PolicyValidateResponse>((res, rej) => {
+        resolve = res
+        reject = rej
+      })
+      return { promise, resolve, reject }
+    }
+
+    beforeEach(() => {
+      // Time moves only when the test moves it, so the debounce never
+      // answers first and Save always has to check.
+      vi.useRealTimers()
+      vi.useFakeTimers()
+      vi.setSystemTime(NOW)
+    })
+
+    it("disables Cancel while the draft is being checked", async () => {
+      const check = deferred()
+      const { navigated } = renderEditor({}, { validate: () => check.promise })
+      change(labelled("Description"), "x")
+      await save()
+      expect(screen.getByRole("button", { name: "Checking…" })).toBeTruthy()
+      const cancel = screen.getByRole("button", { name: "Cancel" }) as HTMLButtonElement
+      expect(cancel.disabled).toBe(true)
+      fireEvent.click(cancel)
+      expect(navigated).toEqual([])
+    })
+
+    it("sends nothing and navigates nowhere when the editor is left mid-check", async () => {
+      const check = deferred()
+      const { navigated, updates, unmount } = renderEditor({}, { validate: () => check.promise })
+      change(labelled("Description"), "x")
+      await save()
+      unmount()
+      await act(async () => {
+        check.resolve(VALID)
+      })
+      await act(async () => {})
+      expect(updates()).toEqual([])
+      expect(navigated).toEqual([])
+    })
+
+    it("sends nothing when the check fails, and says so in the form", async () => {
+      const { updates } = renderEditor(
+        {},
+        {
+          validate: () => {
+            throw new ContractError("TRANSPORT", "the network is down")
+          },
+        }
+      )
+      change(labelled("Description"), "x")
+      await save()
+      await act(async () => {})
+      expect(updates()).toEqual([])
+      const alert = screen.getByRole("alert")
+      expect(alert.textContent).toContain("Could not check the draft")
+      expect(alert.textContent).toContain("the network is down")
+      expect(screen.queryByRole("alertdialog")).toBeNull()
     })
   })
 
