@@ -162,6 +162,26 @@ const INPUT = {
   "vault::flags.setRules": { key: "auth.passkeys", rules: [{ type: "rollout", percentage: 10, returnValue: true }] },
   "vault::flags.setTenantOverride": { key: "auth.passkeys", tenantId: "acme", value: true },
   "vault::flags.deleteTenantOverride": { key: "auth.passkeys", tenantId: "acme" },
+  // ledger: ids from ledger-fixtures.mjs's seed. Intents run in handler order,
+  // so create precedes delete and archive precedes delete.
+  "ledger::plans.detail": { id: "plan_pro" },
+  "ledger::plans.create": { name: "Verify plan", slug: "verify-plan", currency: "usd" },
+  "ledger::plans.update": { id: "plan_pro", description: "Updated by verify.mjs" },
+  "ledger::plans.archive": { id: "plan_legacy" },
+  "ledger::plans.activate": { id: "plan_enterprise" },
+  "ledger::plans.delete": { id: "plan_legacy" },
+  "ledger::plans.syncToProvider": { id: "plan_pro" },
+  "ledger::features.detail": { id: "feat_api_calls" },
+  "ledger::features.create": { key: "verify_key", name: "Verify", type: "metered", default_limit: 10, period: "monthly" },
+  "ledger::features.update": { id: "feat_api_calls", description: "Updated by verify.mjs" },
+  "ledger::features.archive": { id: "feat_legacy_exports" },
+  "ledger::features.delete": { id: "feat_legacy_exports" },
+  "ledger::features.syncToProvider": { id: "feat_api_calls" },
+  "ledger::coupons.detail": { id: "cpn_launch20" },
+  "ledger::coupons.create": { code: "VERIFY5", name: "Verify", type: "percentage", percentage: 5, currency: "usd" },
+  "ledger::coupons.update": { id: "cpn_launch20", name: "Launch offer" },
+  "ledger::coupons.delete": { id: "cpn_summer50" },
+  "ledger::coupons.apply": { subscription_id: "sub_globex", code: "WELCOME10" },
   // config: the fixture lists the commands create, update, rollback, delete, so
   // update makes version 2 of the entry create made, rollback goes back to 1,
   // and delete removes it. overrides.set runs before overrides.delete, on a
@@ -1375,6 +1395,46 @@ async function main() {
     const configAfter = data(await cfgCall("config.list", {}))
     vaultCheck("the config spot checks cleaned up after themselves", configAfter?.total === clist?.total, `${configAfter?.total} vs ${clist?.total}`)
     }
+  }
+
+  // ledger catalog: writes visible in the next read, the manifest's
+  // invalidates, and the refusals the Go contract makes.
+  {
+    const lc = (intent, kind, input) => dispatch("ledger", intent, kind, input, csrf)
+    const check = (name, ok, detail) => {
+      console.log(`  ledger ${name}: ${ok}`)
+      if (!ok) failures.push({ key: `spot-check::ledger ${name}`, reason: detail })
+    }
+    const body = (r) => r.body?.data
+
+    const created = await lc("plans.create", "command", { name: "Spot plan", slug: "spot-plan", currency: "usd" })
+    check("plans.create answers a draft plan", body(created)?.status === "draft", JSON.stringify(created.body))
+    check("plans.create declares the manifest's invalidates", (created.body?.meta?.invalidates ?? []).join(",") === "plans.list,overview.stats", JSON.stringify(created.body?.meta))
+    const listed = body(await lc("plans.list", "query", { limit: 200 }))
+    check("the new plan is in plans.list", listed?.items?.some((p) => p.slug === "spot-plan") === true, JSON.stringify(listed))
+    const dup = await lc("plans.create", "command", { name: "Spot plan", slug: "spot-plan", currency: "usd" })
+    check("a taken slug is 409 CONFLICT", dup.status === 409 && dup.body?.error?.code === "CONFLICT", JSON.stringify(dup.body))
+    const inUse = await lc("plans.delete", "command", { id: "plan_pro" })
+    check("deleting a plan in use is 409 CONFLICT", inUse.status === 409 && inUse.body?.error?.code === "CONFLICT", JSON.stringify(inUse.body))
+    const paged = body(await lc("plans.list", "query", { limit: 2 }))
+    check("plans.list pages with has_more and no total", paged?.items?.length === 2 && paged.has_more === true && !("total" in paged), JSON.stringify(paged))
+    const clamped = body(await lc("plans.list", "query", { limit: 500 }))
+    check("a limit over 200 is clamped", clamped?.limit === 200, JSON.stringify(clamped?.limit))
+    const pastEnd = body(await lc("plans.list", "query", { offset: 999 }))
+    check("an offset past the end is an empty page, not an error", pastEnd?.items?.length === 0 && pastEnd.has_more === false, JSON.stringify(pastEnd))
+    const money = body(await lc("plans.detail", "query", { id: "plan_pro" }))?.pricing?.base_amount
+    check("money is {amount, currency, display}", money?.amount === 4900 && money.currency === "usd" && typeof money.display === "string", JSON.stringify(money))
+    const shared = body(await lc("features.detail", "query", { id: "feat_support_hours" }))
+    check("a shared catalog feature is readable from the app", shared?.app_id === "", JSON.stringify(shared))
+    const sharedWrite = await lc("features.update", "command", { id: "feat_support_hours", name: "x" })
+    check("a shared catalog feature is not writable from the app", sharedWrite.body?.error?.code === "NOT_FOUND", JSON.stringify(sharedWrite.body))
+    const applyTwice = await lc("coupons.apply", "command", { subscription_id: "sub_acme", code: "LAUNCH20" })
+    check("applying a coupon twice is 409 CONFLICT", applyTwice.body?.error?.code === "CONFLICT", JSON.stringify(applyTwice.body))
+    const expired = await lc("coupons.apply", "command", { subscription_id: "sub_acme", code: "SPRING15" })
+    check("a coupon not yet valid is 400 BAD_REQUEST", expired.body?.error?.code === "BAD_REQUEST", JSON.stringify(expired.body))
+    const cleared = await lc("coupons.update", "command", { id: "cpn_launch20", valid_until: null })
+    check("coupons.update with valid_until null clears it", body(cleared) !== undefined && !("valid_until" in body(cleared)), JSON.stringify(cleared.body))
+    await lc("plans.delete", "command", { id: body(created)?.id })
   }
 
   console.log(`\nFinal: ${passed + (failures.length === 0 ? 0 : 0)} handler calls verified, ${failures.length} total failures (including spot checks).`)
