@@ -23,3 +23,12 @@ export function rotationPath(key: string): string {
 export function flagPath(key: string): string {
   return `/flags/${encodeURIComponent(key)}`
 }
+
+/**
+ * The path to one config entry's page. Config keys are operator-chosen and
+ * routinely hold `/` and `.` ("app/http.timeout"), so the key is encoded for
+ * the same reason secretPath encodes its own.
+ */
+export function configPath(key: string): string {
+  return `/config/${encodeURIComponent(key)}`
+}

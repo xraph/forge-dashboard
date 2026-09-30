@@ -34,6 +34,13 @@ import { Badge } from "@forge-go/dashboard-kit/components/badge"
  *   will not evaluate the way its type promises, which is what an operator
  *   opens the page to find, and it is rare.
  *
+ * Config
+ *   The type is an `outline` in mono, as for flags. A type outside the six the
+ *   vault understands adds an "Unsupported type" `secondary` beside it: the
+ *   entry is real and stays listed, its value cannot be edited here, and that
+ *   is a fact about the row rather than a fault. A stored value that does not
+ *   match its type reuses the destructive "Wrong type" flags use.
+ *
  * Rules and evaluation
  *   A rule that can never match is `secondary` ("Never matches"). When a flag
  *   is evaluated, the rung that decided the answer is `default` ("Decided
@@ -79,6 +86,18 @@ export function FlagTypeBadge({ type }: { type: string }) {
       {type}
     </Badge>
   )
+}
+
+export function ConfigTypeBadge({ type }: { type: string }) {
+  return (
+    <Badge variant="outline" className="font-mono text-xs">
+      {type}
+    </Badge>
+  )
+}
+
+export function UnsupportedTypeBadge() {
+  return <Badge variant="secondary">Unsupported type</Badge>
 }
 
 export function WrongTypeBadge() {

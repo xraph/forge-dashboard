@@ -1,5 +1,16 @@
 import { definePlugin } from "@forge-go/dashboard-plugin"
-import { FlagIcon, KeyRoundIcon, RefreshCwIcon } from "@forge-go/dashboard-kit/icons"
+import { PageHeader } from "@forge-go/dashboard-kit/components/page-header"
+import {
+  FlagIcon,
+  KeyRoundIcon,
+  LayersIcon,
+  RefreshCwIcon,
+  SlidersHorizontalIcon,
+} from "@forge-go/dashboard-kit/icons"
+import type { ComponentType } from "react"
+import type { PluginPageProps } from "@forge-go/dashboard-plugin"
+import { ConfigCreatePage } from "./pages/config-create"
+import { ConfigPage } from "./pages/config"
 import { FlagCreatePage } from "./pages/flag-create"
 import { FlagDetailPage } from "./pages/flag-detail"
 import { FlagsPage } from "./pages/flags"
@@ -10,6 +21,8 @@ import { SecretDetailPage } from "./pages/secret-detail"
 import { SecretsPage } from "./pages/secrets"
 
 export {
+  ConfigCreatePage,
+  ConfigPage,
   FlagCreatePage,
   FlagDetailPage,
   FlagsPage,
@@ -20,6 +33,7 @@ export {
   SecretsPage,
 }
 export {
+  ConfigTypeBadge,
   DecidedHereBadge,
   EncryptionBadge,
   FlagEnabledBadge,
@@ -28,13 +42,35 @@ export {
   NotReachedBadge,
   PolicyStatusBadge,
   RotatorBadge,
+  UnsupportedTypeBadge,
   WrongTypeBadge,
 } from "./badges"
+export { ConfigValue } from "./components/config-value"
 export { FlagValue } from "./components/flag-value"
 export { ValueInput } from "./components/value-input"
+export { CONFIG_TYPES } from "./config-types"
+export type { ConfigType } from "./config-types"
 export { FLAG_TYPES } from "./flag-types"
 export type { FlagType } from "./flag-types"
-export { flagPath, rotationPath, secretPath } from "./keys"
+export { configPath, flagPath, rotationPath, secretPath } from "./keys"
+
+/**
+ * Stand-ins until the config detail page and the overrides page land. They
+ * keep the nav link and the row links from pointing at nothing.
+ */
+const ConfigDetailPlaceholder: ComponentType<PluginPageProps> = ({ params }) => (
+  <PageHeader
+    title={params.key ?? "Config entry"}
+    description="The entry page is not available yet."
+  />
+)
+
+const OverridesPlaceholder: ComponentType<PluginPageProps> = () => (
+  <PageHeader
+    title="Overrides"
+    description="The overrides page is not available yet."
+  />
+)
 
 /**
  * The first-party UI for the `vault` extension.
@@ -75,6 +111,20 @@ export const vaultPlugin = definePlugin({
       icon: <FlagIcon />,
       group: "Flags",
     },
+    {
+      label: "Config",
+      to: "/config",
+      priority: 30,
+      icon: <SlidersHorizontalIcon />,
+      group: "Config",
+    },
+    {
+      label: "Overrides",
+      to: "/overrides",
+      priority: 40,
+      icon: <LayersIcon />,
+      group: "Config",
+    },
   ],
   routes: [
     // "/" shows the secrets list until the overview page replaces it.
@@ -93,6 +143,12 @@ export const vaultPlugin = definePlugin({
     // keyed "new" encodes to /flags/new.
     { path: "/new-flag", element: FlagCreatePage },
     { path: "/flags/:key", element: FlagDetailPage },
+    { path: "/config", element: ConfigPage },
+    // Create lives at /new-config for the same reason /new-secret does: an
+    // entry keyed "new" encodes to /config/new.
+    { path: "/new-config", element: ConfigCreatePage },
+    { path: "/config/:key", element: ConfigDetailPlaceholder },
+    { path: "/overrides", element: OverridesPlaceholder },
   ],
 })
 

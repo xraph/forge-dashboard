@@ -56,6 +56,21 @@ describe("vaultPlugin", () => {
     expect(paths).toContain("/flags/:key")
   })
 
+  it("puts Config and Overrides in the Config group with their priorities, and routes them", () => {
+    const config = vaultPlugin.nav?.find((n) => n.label === "Config")
+    expect(config?.to).toBe("/config")
+    expect(config?.priority).toBe(30)
+    expect(config?.group).toBe("Config")
+    const overrides = vaultPlugin.nav?.find((n) => n.label === "Overrides")
+    expect(overrides?.to).toBe("/overrides")
+    expect(overrides?.priority).toBe(40)
+    expect(overrides?.group).toBe("Config")
+    const paths = vaultPlugin.routes.map((r) => r.path)
+    for (const p of ["/config", "/new-config", "/config/:key", "/overrides"]) {
+      expect(paths).toContain(p)
+    }
+  })
+
   it("names a route for every nav entry", () => {
     // A nav link pointing at a path no route serves is a dead link that no
     // other test would catch, because nav and routes are independent lists.

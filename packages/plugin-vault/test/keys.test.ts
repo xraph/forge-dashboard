@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest"
-import { flagPath, rotationPath, secretPath } from "../src/keys"
+import { configPath, flagPath, rotationPath, secretPath } from "../src/keys"
 
 describe("secretPath", () => {
   it("encodes a slash so the key stays one route segment", () => {
@@ -33,5 +33,16 @@ describe("flagPath", () => {
 
   it("leaves a plain key unchanged", () => {
     expect(flagPath("dark-mode")).toBe("/flags/dark-mode")
+  })
+})
+
+describe("configPath", () => {
+  it("encodes a slash so the key stays one route segment", () => {
+    expect(configPath("app/http.timeout")).toBe("/config/app%2Fhttp.timeout")
+    expect(configPath("a b?c#d")).toBe("/config/a%20b%3Fc%23d")
+  })
+
+  it("leaves a plain key unchanged", () => {
+    expect(configPath("timeout")).toBe("/config/timeout")
   })
 })

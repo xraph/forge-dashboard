@@ -5,13 +5,19 @@ import {
   ToggleGroup,
   ToggleGroupItem,
 } from "@forge-go/dashboard-kit/components/toggle-group"
-import type { FlagType } from "../flag-types"
+import type { ConfigType } from "../config-types"
 
 export { FLAG_TYPES } from "../flag-types"
 export type { FlagType } from "../flag-types"
+export { CONFIG_TYPES } from "../config-types"
+export type { ConfigType } from "../config-types"
 
 export interface ValueInputProps {
-  type: FlagType
+  /**
+   * One of the six config types. Flags use five of them, so a `FlagType` is
+   * accepted as it is; the two unions stay separate types on purpose.
+   */
+  type: ConfigType
   /**
    * The value to start from. It is read once, when the input mounts or its
    * type changes; after that the input owns what is on screen, because a
@@ -49,6 +55,14 @@ const INT_PREFIX = /^-?\d*$/
 const FLOAT_PREFIX = /^-?\d*\.?\d*$/
 const INT = /^-?\d+$/
 const FLOAT = /^-?(\d+\.?\d*|\.\d+)$/
+/**
+ * What Go's `time.ParseDuration` accepts: an optional sign, then one or more
+ * number-and-unit pairs, or a bare "0". Go takes both micro signs (U+00B5 and
+ * U+03BC). The server owns the overflow check; this only rules out text that
+ * can never parse.
+ */
+const DURATION = /^[-+]?((\d+(\.\d*)?|\.\d+)(ns|us|\u00b5s|\u03bcs|ms|s|m|h))+$/
+const DURATION_ZERO = /^[-+]?0$/
 
 /** Whether `value` holds a number JSON cannot say (JSON.parse gives Infinity for 1e400). */
 function hasNonFinite(value: unknown): boolean {
@@ -66,13 +80,13 @@ interface Parsed {
 }
 
 /** Whether `text` may sit in the field at all, mid-typing. */
-function accepts(type: FlagType, text: string): boolean {
+function accepts(type: ConfigType, text: string): boolean {
   if (type === "int") return INT_PREFIX.test(text)
   if (type === "float") return FLOAT_PREFIX.test(text)
   return true
 }
 
-function parse(type: FlagType, text: string): Parsed {
+function parse(type: ConfigType, text: string): Parsed {
   switch (type) {
     case "string":
       // The empty string is a value: a string flag may default to "".
@@ -92,6 +106,16 @@ function parse(type: FlagType, text: string): Parsed {
       if (!FLOAT.test(text)) return { value: undefined }
       const n = Number(text)
       return { value: Number.isFinite(n) ? n : undefined }
+    }
+    case "duration": {
+      // Nothing typed is not an error yet, only not a value.
+      if (text === "") return { value: undefined }
+      if (DURATION.test(text) || DURATION_ZERO.test(text)) return { value: text }
+      return {
+        value: undefined,
+        error:
+          'Not a duration. Use a number and a unit, such as "90s" or "1h30m" (units: ns, us, ms, s, m, h).',
+      }
     }
     case "json": {
       if (text.trim() === "") return { value: undefined }
@@ -116,10 +140,12 @@ function parse(type: FlagType, text: string): Parsed {
   }
 }
 
-function initialText(type: FlagType, value: unknown): string {
+function initialText(type: ConfigType, value: unknown): string {
   if (value === undefined) return ""
   if (type === "json") return JSON.stringify(value, null, 2)
-  if (type === "string") return typeof value === "string" ? value : ""
+  if (type === "string" || type === "duration") {
+    return typeof value === "string" ? value : ""
+  }
   if (typeof value === "number") return String(value)
   return ""
 }
@@ -227,11 +253,12 @@ function TextInput({
 }
 
 /**
- * The one input for a flag value of any type.
+ * The one input for a flag or config value of any type.
  *
  * bool is a two-button toggle, string a text field, int and float text fields
- * that accept only what can start a number, and json a mono textarea that
- * parses as you type. Whatever the type, it reports the typed value through
+ * that accept only what can start a number, duration a text field that reports
+ * the string once it is one Go can parse ("90s", "1h30m", "0"), and json a
+ * mono textarea that parses as you type. Whatever the type, it reports the typed value through
  * `onChange`, or `undefined` while the field does not hold one.
  *
  * It is keyed by type, so switching type starts the new control empty instead

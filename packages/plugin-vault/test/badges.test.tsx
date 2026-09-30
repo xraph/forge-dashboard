@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest"
 import { render, screen } from "@testing-library/react"
 import {
+  ConfigTypeBadge,
   DecidedHereBadge,
   EncryptionBadge,
   FlagEnabledBadge,
@@ -9,6 +10,7 @@ import {
   NotReachedBadge,
   PolicyStatusBadge,
   RotatorBadge,
+  UnsupportedTypeBadge,
   WrongTypeBadge,
 } from "../src/badges"
 
@@ -120,5 +122,23 @@ describe("evaluation rung badges", () => {
     render(<NotReachedBadge />)
     expect(badge().textContent).toBe("Not reached")
     expect(badge().className).toContain("bg-secondary")
+  })
+})
+
+describe("ConfigTypeBadge", () => {
+  it("shows the type in mono as an outline", () => {
+    render(<ConfigTypeBadge type="duration" />)
+    expect(badge().textContent).toBe("duration")
+    expect(badge().className).toContain("border-border")
+    expect(badge().className).toContain("font-mono")
+  })
+})
+
+describe("UnsupportedTypeBadge", () => {
+  it("is secondary and says Unsupported type", () => {
+    render(<UnsupportedTypeBadge />)
+    expect(badge().textContent).toBe("Unsupported type")
+    expect(badge().className).toContain("bg-secondary")
+    expect(badge().className).not.toContain("text-destructive")
   })
 })

@@ -1,7 +1,7 @@
 import { useState } from "react"
 import { describe, expect, it, vi } from "vitest"
 import { cleanup, fireEvent, render, screen } from "@testing-library/react"
-import { ValueInput, type FlagType } from "../src/components/value-input"
+import { ValueInput, type ConfigType } from "../src/components/value-input"
 
 /**
  * jsdom 25 has no PointerEvent, and Base UI's toggle dispatches through it. A
@@ -12,7 +12,7 @@ if (typeof window.PointerEvent === "undefined") {
   Object.defineProperty(window, "PointerEvent", { value: PointerEventShim })
 }
 
-function setup(type: FlagType, initial?: unknown) {
+function setup(type: ConfigType, initial?: unknown) {
   const onChange = vi.fn()
   function Host() {
     const [value, setValue] = useState<unknown>(initial)
@@ -277,5 +277,68 @@ describe("ValueInput reportEmptyOnMount", () => {
     expect(onChange).toHaveBeenLastCalledWith("a")
     fireEvent.change(screen.getByRole("textbox"), { target: { value: "" } })
     expect(onChange).toHaveBeenLastCalledWith("")
+  })
+})
+
+describe("ValueInput duration", () => {
+  it("accepts what Go's time.ParseDuration accepts, reporting the string", () => {
+    const { onChange } = setup("duration")
+    for (const ok of [
+      "90s",
+      "1h30m",
+      "0",
+      "1.5h",
+      ".5s",
+      "5.s",
+      "-2m",
+      "+3ms",
+      "100ns",
+      "7us",
+      "7µs",
+      "7μs",
+      "1h1m1s1ms",
+    ]) {
+      fireEvent.change(box(), { target: { value: ok } })
+      expect(onChange, ok).toHaveBeenLastCalledWith(ok)
+    }
+  })
+
+  it("refuses what Go refuses, reporting undefined with a message", () => {
+    const { onChange } = setup("duration")
+    for (const bad of ["soon", "90", "1d", "s", "1h 30m", "1..5s", "h1", "1h30", "--5s"]) {
+      fireEvent.change(box(), { target: { value: bad } })
+      expect(onChange, bad).toHaveBeenLastCalledWith(undefined)
+      expect(box().getAttribute("aria-invalid"), bad).toBe("true")
+      expect(screen.getByText(/duration/i), bad).toBeTruthy()
+    }
+  })
+
+  it("clears the message once the text is valid", () => {
+    setup("duration")
+    fireEvent.change(box(), { target: { value: "soon" } })
+    expect(box().getAttribute("aria-invalid")).toBe("true")
+    fireEvent.change(box(), { target: { value: "5s" } })
+    expect(box().getAttribute("aria-invalid")).toBeNull()
+    expect(screen.queryByText(/duration/i)).toBeNull()
+  })
+
+  it("reports undefined with no message while empty", () => {
+    const { onChange } = setup("duration")
+    fireEvent.change(box(), { target: { value: "5s" } })
+    fireEvent.change(box(), { target: { value: "" } })
+    expect(onChange).toHaveBeenLastCalledWith(undefined)
+    expect(box().getAttribute("aria-invalid")).toBeNull()
+  })
+
+  it("is a mono text field, starts from a given string and reports nothing on mount", () => {
+    const { onChange } = setup("duration", "1h")
+    expect(box().value).toBe("1h")
+    expect(box().className).toMatch(/font-mono/)
+    expect(onChange).not.toHaveBeenCalled()
+  })
+
+  it("does not report anything on mount when it starts empty", () => {
+    const { onChange } = setup("duration")
+    expect(onChange).not.toHaveBeenCalled()
   })
 })
