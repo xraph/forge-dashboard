@@ -43,7 +43,7 @@ Verified against `warden/evaluator.go` and `warden/engine.go` for this plan. Tas
 - An empty `Subjects`, `Actions` or `Resources` list matches everything (`evaluator.go:199,219,231`). Lists are OR-ed. Conditions are AND-ed and stop at the first false or first error.
 - Inside one subject matcher, `kind`, `id` and `role` are AND-ed, and **an empty matcher `{}` matches every subject**, so a list containing one is unrestricted.
 - `"*"` in `Actions` or `Resources` matches everything.
-- Role matchers compare against roles RBAC resolved. With RBAC off, `rbacRoles` is empty and every role matcher is dead (`engine.go:256-264`).
+- Role matchers compare against the subject's resolved roles. When RBAC is off, `evaluateABAC` resolves them itself (`engine.go:670-684`, since warden `c9b6e7a`), so role matchers keep working either way. (This plan first said they die with RBAC off, from reading `Check` alone; the Task 7 implementer caught it.)
 - Priority sorts descending, ties by name, and decides which policy is **cited**, not which effect wins.
 - A policy is skipped unless `IsActive` and inside `NotBefore`/`NotAfter` (`EffectiveAt`).
 - Anything whose effect is not exactly `"allow"` is a deny.
@@ -1576,7 +1576,7 @@ git commit -m "feat(warden): list policies with what each will actually do" -- p
 
 `DetailLayout` with the rule block in the main column and a quiet `DescriptionList` in the aside: priority with the help text "Decides which policy is cited when several match, not which one wins.", version, namespace, created by, updated by, created, updated.
 
-**Visual weight tracks real effect.** The rule block is dimmed for `inactive`, `scheduled`, `expired`, `never` and `neverApplies`. It is **never** dimmed for a fail-closed deny.
+**Visual weight tracks real effect.** The rule block is dimmed exactly when the policy has no effect now: `state` is not `active`, or `neverApplies`. An active fail-closed deny is never dimmed. The fail-closed and matches-every-check callouts still show on a policy that is not in effect, because they describe what taking effect will do, but worded conditionally ("Once it is in effect, this deny applies to ...").
 
 Above the block, one state line or callout, whichever applies:
 - `inactive`: "Inactive. It takes no effect until you activate it." with an Activate action.
@@ -1590,7 +1590,7 @@ Above the block, one state line or callout, whichever applies:
 
 The row named by `decidingCondition` is marked in the block.
 
-When `config.detail` reports `abacEnabled: false`, an alert says: "Policy evaluation is turned off in this deployment, so this policy takes no effect." When `rbacEnabled` is false and `hasRoleMatcher`: "Role-based access is turned off, so role subjects never match." When every subject matcher has a role, add "This policy never applies." instead.
+When `config.detail` reports `abacEnabled: false`, an alert says: "Policy evaluation is turned off in this deployment, so this policy takes no effect." There is NO RBAC-off alert: `evaluateABAC` resolves roles itself when RBAC is off, so role subjects still match.
 
 **Activate / Deactivate** through `policies.setActive`, in a `ConfirmDialog` with `pending`. Activating a policy that `failsClosed` or `matchesEverything` states in the dialog what activating will do, using the callout's own sentence. **Delete** through `policies.delete`, confirm dialog with `pending`, then navigate to `/policies`.
 
