@@ -3,7 +3,7 @@ import { Button } from "@forge-go/dashboard-kit/components/button"
 import { Input } from "@forge-go/dashboard-kit/components/input"
 import { Label } from "@forge-go/dashboard-kit/components/label"
 import { WrongTypeBadge } from "../badges"
-import type { FlagEvaluation, FlagType } from "../flag-types"
+import type { FlagEvaluation } from "../flag-types"
 import { FlagValue } from "./flag-value"
 
 export interface EvaluateBarProps {
@@ -113,7 +113,7 @@ export function EvaluateBar({
 
 export interface EvaluationSummaryProps {
   evaluation: FlagEvaluation
-  type: FlagType
+  type: string
   /** What the answer was asked for. An id that was not given is absent. */
   tenantId?: string
   userId?: string

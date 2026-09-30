@@ -212,6 +212,21 @@ describe("ValueInput json", () => {
     expect(onChange).toHaveBeenLastCalledWith("true")
   })
 
+  it("refuses a number too large to hold, which would be sent as null", () => {
+    const { onChange } = setup("json")
+    fireEvent.change(area(), { target: { value: "1e400" } })
+    expect(onChange).toHaveBeenLastCalledWith(undefined)
+    expect(screen.getByText(/too large/i)).toBeTruthy()
+    expect(area().getAttribute("aria-invalid")).toBe("true")
+  })
+
+  it("refuses one nested inside an object or array too", () => {
+    const { onChange } = setup("json")
+    fireEvent.change(area(), { target: { value: '{"a": [1, -1e999]}' } })
+    expect(onChange).toHaveBeenLastCalledWith(undefined)
+    expect(screen.getByText(/too large/i)).toBeTruthy()
+  })
+
   it("reports undefined without an error while empty", () => {
     const { onChange } = setup("json")
     fireEvent.change(area(), { target: { value: "{" } })

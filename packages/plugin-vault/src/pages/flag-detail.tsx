@@ -46,6 +46,7 @@ import { RuleEditor } from "../components/rule-editor"
 import { RuleSummary } from "../components/rule-summary"
 import { ValueInput } from "../components/value-input"
 import { readEvaluation } from "../evaluation"
+import { isFlagType } from "../flag-types"
 import type {
   AuditEntry,
   FlagDetail,
@@ -154,6 +155,15 @@ function FlagDetailView({ flagKey, data }: { flagKey: string; data: FlagDetail }
   const remove = useCommand<DeleteResponse>("flags.delete")
   const navigateTo = useNavigateTo()
   const client = usePluginClient()
+
+  // The value controls are typed. A flag of any other type (an older page
+  // created `yaml` flags) can be read and deleted here, not edited.
+  const type = isFlagType(flag.type) ? flag.type : undefined
+  const typeReasonId = "flag-type-unsupported"
+  const typeReason =
+    type === undefined
+      ? `This flag's type, ${flag.type}, is not one the vault evaluates, so its values cannot be edited here.`
+      : undefined
 
   const [dialog, setDialog] = useState<Dialogs | null>(null)
   // The tenant stays after the dialog closes, with `open` false, so the
@@ -268,6 +278,11 @@ function FlagDetailView({ flagKey, data }: { flagKey: string; data: FlagDetail }
 
       <section className="flex flex-col gap-2">
         <h2 className="text-sm font-medium">Definition</h2>
+        {typeReason === undefined ? null : (
+          <p id={typeReasonId} className="text-sm text-muted-foreground">
+            {typeReason}
+          </p>
+        )}
         <DescriptionList
           items={[
             {
@@ -276,7 +291,11 @@ function FlagDetailView({ flagKey, data }: { flagKey: string; data: FlagDetail }
                 <span className="flex flex-wrap items-center gap-2">
                   <FlagValue value={flag.defaultValue} type={flag.type} />
                   {flag.defaultMatchesType ? null : <WrongTypeBadge />}
-                  <EditButton label="Edit default" onClick={() => open("default")} />
+                  <EditButton
+                    label="Edit default"
+                    onClick={() => open("default")}
+                    disabledBecause={typeReason === undefined ? undefined : typeReasonId}
+                  />
                 </span>
               ),
             },
@@ -345,7 +364,7 @@ function FlagDetailView({ flagKey, data }: { flagKey: string; data: FlagDetail }
           id="enabled"
           number={1}
           title="Enabled"
-          note="Off: everything below returns the default."
+          note="When off, everything below returns the default."
           decided={marks?.enabledDecided}
           mark={marks?.enabledDecided ? <DecidedHereBadge /> : undefined}
         >
@@ -374,7 +393,13 @@ function FlagDetailView({ flagKey, data }: { flagKey: string; data: FlagDetail }
           annotation={overridesAnnotation(marks, request?.tenantId)}
           notice={off ? "The flag is off, so everything below returns the default." : undefined}
           actions={
-            <Button variant="outline" size="sm" onClick={() => open("override")}>
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={type === undefined}
+              aria-describedby={type === undefined ? typeReasonId : undefined}
+              onClick={() => open("override")}
+            >
               Add override
             </Button>
           }
@@ -422,16 +447,22 @@ function FlagDetailView({ flagKey, data }: { flagKey: string; data: FlagDetail }
           decided={marks?.decidedIndex !== undefined}
           actions={
             editingRules ? undefined : (
-              <Button variant="outline" size="sm" onClick={() => setEditingRules(true)}>
+              <Button
+                variant="outline"
+                size="sm"
+                disabled={type === undefined}
+                aria-describedby={type === undefined ? typeReasonId : undefined}
+                onClick={() => setEditingRules(true)}
+              >
                 Edit rules
               </Button>
             )
           }
         >
-          {editingRules ? (
+          {editingRules && type !== undefined ? (
             <RuleEditor
               flagKey={flagKey}
-              flagType={flag.type}
+              flagType={type}
               rules={rules}
               onClose={closeRuleEditor}
             />
@@ -463,7 +494,13 @@ function FlagDetailView({ flagKey, data }: { flagKey: string; data: FlagDetail }
                     annotation={
                       notReached
                         ? undefined
-                        : ruleAnnotation(r, verdict?.note, answer?.bucket, request?.tenantId)
+                        : ruleAnnotation(
+                            r,
+                            verdict?.note,
+                            verdict?.decided === true,
+                            answer?.bucket,
+                            request?.tenantId,
+                          )
                     }
                     value={
                       <>
@@ -511,9 +548,10 @@ function FlagDetailView({ flagKey, data }: { flagKey: string; data: FlagDetail }
 
       <RecentActivity entries={data.recentAudit} />
 
-      {dialog === "default" && (
+      {dialog === "default" && type !== undefined && (
         <EditDefaultDialog
           flag={flag}
+          type={type}
           update={update}
           onClose={() => setDialog(null)}
         />
@@ -528,9 +566,10 @@ function FlagDetailView({ flagKey, data }: { flagKey: string; data: FlagDetail }
       {dialog === "tags" && (
         <EditTagsDialog flag={flag} update={update} onClose={() => setDialog(null)} />
       )}
-      {dialog === "override" && (
+      {dialog === "override" && type !== undefined && (
         <AddOverrideDialog
           flag={flag}
+          type={type}
           setOverride={setOverride}
           onClose={() => setDialog(null)}
         />
@@ -580,12 +619,16 @@ function FlagDetailView({ flagKey, data }: { flagKey: string; data: FlagDetail }
  *
  * A rollout the engine checked for a tenant is said as the bucket the tenant
  * landed in against the rule's percentage, since that comparison is what the
- * verdict was. Everything else is the engine's own note. A rule the engine
- * never got to has nothing to say.
+ * verdict was. Everything else is the engine's own note, and for a rule the
+ * engine looked at and turned down it starts "No match: ", so the line reads
+ * as a verdict and not as a bare fragment ("tenant wayne"). The rule that
+ * decided it keeps its note as it is. A rule the engine never got to has
+ * nothing to say.
  */
 function ruleAnnotation(
   rule: FlagRuleSummary,
   note: string | undefined,
+  decided: boolean,
   bucket: number | undefined,
   tenantId: string | undefined,
 ): ReactNode {
@@ -601,7 +644,8 @@ function ruleAnnotation(
     const under = bucket < rule.percentage
     return `Tenant ${tenantId} lands in bucket ${bucket}, ${under ? "under" : "not under"} ${rule.percentage}.`
   }
-  return note === undefined || note === "" ? undefined : note
+  if (note === undefined || note === "") return undefined
+  return decided ? note : `No match: ${note}`
 }
 
 /**
@@ -619,9 +663,25 @@ function overridesAnnotation(
     : `Tenant ${tenantId} has no override.`
 }
 
-function EditButton({ label, onClick }: { label: string; onClick: () => void }) {
+function EditButton({
+  label,
+  onClick,
+  disabledBecause,
+}: {
+  label: string
+  onClick: () => void
+  /** The id of the text saying why this cannot be pressed. Present means disabled. */
+  disabledBecause?: string
+}) {
   return (
-    <Button variant="ghost" size="xs" aria-label={label} onClick={onClick}>
+    <Button
+      variant="ghost"
+      size="xs"
+      aria-label={label}
+      disabled={disabledBecause !== undefined}
+      aria-describedby={disabledBecause}
+      onClick={onClick}
+    >
       Edit
     </Button>
   )
@@ -632,7 +692,7 @@ function Variants({
   type,
 }: {
   variants: FlagVariantSummary[]
-  type: FlagType
+  type: string
 }) {
   return (
     <span className="flex flex-col gap-1">
@@ -763,7 +823,15 @@ interface EditProps {
   onClose: () => void
 }
 
-function EditDefaultDialog({ flag, update, onClose }: EditProps) {
+function EditDefaultDialog({
+  flag,
+  type,
+  update,
+  onClose,
+}: EditProps & {
+  /** The flag's type, known to be one the vault evaluates. */
+  type: FlagType
+}) {
   // A stored default that is not a value of the type is not offered back as
   // if it were one: the field starts empty and save waits for a real value.
   const [value, setValue] = useState<unknown>(
@@ -787,7 +855,7 @@ function EditDefaultDialog({ flag, update, onClose }: EditProps) {
         <ValueInput
           id="edit-default"
           aria-labelledby="edit-default-label"
-          type={flag.type}
+          type={type}
           value={value}
           onChange={setValue}
         />
@@ -852,10 +920,12 @@ function EditTagsDialog({ flag, update, onClose }: EditProps) {
 
 function AddOverrideDialog({
   flag,
+  type,
   setOverride,
   onClose,
 }: {
   flag: FlagSummary
+  type: FlagType
   setOverride: CommandState<OverrideResponse>
   onClose: () => void
 }) {
@@ -891,7 +961,7 @@ function AddOverrideDialog({
         <ValueInput
           id="override-value"
           aria-labelledby="override-value-label"
-          type={flag.type}
+          type={type}
           value={value}
           onChange={setValue}
         />

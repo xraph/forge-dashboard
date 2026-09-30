@@ -402,8 +402,10 @@ describe("evaluation marks on the ladder", () => {
     await evaluate("", "u-1")
     const r = rows("rules")
     expect(rowMarks(r[0]!)).toEqual([])
-    expect(r[0]!.textContent).toContain("no tenant in context")
+    expect(r[0]!.textContent).toContain("No match: no tenant in context")
     expect(rowMarks(r[1]!)).toEqual(["Decided here"])
+    // The rule that decided it is not "No match".
+    expect(r[1]!.textContent).not.toContain("No match")
     expect(r[1]!.getAttribute("data-decided")).toBe("true")
     expect(r[1]!.textContent).toContain("user u-1")
     expect(rowMarks(r[2]!)).toEqual(["Not reached"])
@@ -418,7 +420,7 @@ describe("evaluation marks on the ladder", () => {
     expect(screen.getAllByText("Decided here")).toHaveLength(1)
     expect(screen.getAllByText("Not reached")).toHaveLength(3)
     // The note is muted text.
-    const note = within(r[0]!).getByText("no tenant in context")
+    const note = within(r[0]!).getByText("No match: no tenant in context")
     expect(note.className).toContain("text-muted-foreground")
   })
 
@@ -443,8 +445,8 @@ describe("evaluation marks on the ladder", () => {
     )
     await evaluate("t-x", "u-x")
     const r = rows("rules")
-    expect(r[0]!.textContent).toContain("tenant t-x")
-    expect(r[1]!.textContent).toContain("user u-x")
+    expect(r[0]!.textContent).toContain("No match: tenant t-x")
+    expect(r[1]!.textContent).toContain("No match: user u-x")
     expect(r[2]!.textContent).toContain("a rollout cannot match")
     expect(r[3]!.textContent).toContain("the window has not started")
     for (const row of r) {

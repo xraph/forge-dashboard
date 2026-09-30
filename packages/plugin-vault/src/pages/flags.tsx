@@ -29,7 +29,12 @@ import { flagPath } from "../keys"
 export interface FlagSummary {
   id: string
   key: string
-  type: FlagType
+  /**
+   * Any string the server holds. The vault evaluates the five in `FLAG_TYPES`,
+   * but an older page created flags of other types (such as `yaml`), so this
+   * does not claim the union. Narrow with `isFlagType` before using it as one.
+   */
+  type: string
   /** Whatever the flag stores. It is not guaranteed to match `type`. */
   defaultValue: unknown
   /** False when the stored default is not a value of `type`. */

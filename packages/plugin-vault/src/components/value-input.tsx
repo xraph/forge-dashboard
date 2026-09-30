@@ -50,6 +50,16 @@ const FLOAT_PREFIX = /^-?\d*\.?\d*$/
 const INT = /^-?\d+$/
 const FLOAT = /^-?(\d+\.?\d*|\.\d+)$/
 
+/** Whether `value` holds a number JSON cannot say (JSON.parse gives Infinity for 1e400). */
+function hasNonFinite(value: unknown): boolean {
+  if (typeof value === "number") return !Number.isFinite(value)
+  if (Array.isArray(value)) return value.some(hasNonFinite)
+  if (value !== null && typeof value === "object") {
+    return Object.values(value).some(hasNonFinite)
+  }
+  return false
+}
+
 interface Parsed {
   value: unknown
   error?: string
@@ -86,7 +96,16 @@ function parse(type: FlagType, text: string): Parsed {
     case "json": {
       if (text.trim() === "") return { value: undefined }
       try {
-        return { value: JSON.parse(text) as unknown }
+        const parsed = JSON.parse(text) as unknown
+        // Sent as it is, a number past the range of a double would arrive as
+        // null: the operator would save something other than what they typed.
+        if (hasNonFinite(parsed)) {
+          return {
+            value: undefined,
+            error: "That number is too large to hold. It would be saved as null.",
+          }
+        }
+        return { value: parsed }
       } catch (err) {
         const why = err instanceof Error ? err.message : "could not be parsed"
         return { value: undefined, error: `Not valid JSON: ${why}` }

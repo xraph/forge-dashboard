@@ -1,13 +1,13 @@
 import { NoneCell } from "@forge-go/dashboard-kit/components/none-cell"
 import { cn } from "@forge-go/dashboard-kit/lib/utils"
-import type { FlagType } from "../flag-types"
 
 /** JSON longer than this is cut, with the whole of it kept in a title. */
 export const JSON_DISPLAY_LIMIT = 60
 
 export interface FlagValueProps {
   value: unknown
-  type: FlagType
+  /** Carried on the element only, never used to coerce. */
+  type: string
   className?: string
 }
 

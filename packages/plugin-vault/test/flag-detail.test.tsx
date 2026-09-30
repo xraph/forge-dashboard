@@ -398,7 +398,7 @@ describe("FlagDetailPage ladder", () => {
   it("says what each rung does in a sentence", async () => {
     renderDetail(harness().client)
     await ready()
-    expect(within(rung("enabled")).getByText(/Off: everything below returns the default\./)).toBeTruthy()
+    expect(within(rung("enabled")).getByText(/When off, everything below returns the default\./)).toBeTruthy()
     expect(within(rung("overrides")).getByText(/Beat every rule below\./)).toBeTruthy()
     expect(within(rung("rules")).getByText(/First match wins\./)).toBeTruthy()
   })
@@ -585,6 +585,47 @@ describe("FlagDetailPage when the flag is off", () => {
     for (const id of ["enabled", "overrides", "rules", "default"]) {
       expect(rungBody(id).className).not.toContain("opacity-60")
     }
+  })
+})
+
+describe("FlagDetailPage with a type the vault does not evaluate", () => {
+  const yaml = () =>
+    detail({
+      flag: flag({ type: "yaml", defaultValue: "a: 1", defaultMatchesType: false }),
+      rules: [rule({ id: "rul_1", priority: 0, type: "when_user", userIds: ["u-1"] })],
+    })
+  const SENTENCE =
+    "This flag's type, yaml, is not one the vault evaluates, so its values cannot be edited here."
+
+  it("says so near the definition, once", async () => {
+    renderDetail(harness(yaml()).client)
+    await ready()
+    expect(screen.getAllByText(SENTENCE)).toHaveLength(1)
+  })
+
+  it("disables the default, override and rule controls and points them at the reason", async () => {
+    renderDetail(harness(yaml()).client)
+    await ready()
+    const why = screen.getByText(SENTENCE)
+    for (const name of ["Edit default", "Add override", "Edit rules"]) {
+      const button = screen.getByRole("button", { name }) as HTMLButtonElement
+      expect(button.disabled, name).toBe(true)
+      expect(button.getAttribute("aria-describedby"), name).toBe(why.id)
+    }
+  })
+
+  it("still edits the description and tags, which need no type", async () => {
+    renderDetail(harness(yaml()).client)
+    await ready()
+    expect((screen.getByRole("button", { name: "Edit description" }) as HTMLButtonElement).disabled).toBe(false)
+    expect((screen.getByRole("button", { name: "Edit tags" }) as HTMLButtonElement).disabled).toBe(false)
+  })
+
+  it("says nothing of the kind for a type the vault evaluates", async () => {
+    renderDetail(harness().client)
+    await ready()
+    expect(screen.queryByText(/is not one the vault evaluates/)).toBeNull()
+    expect((screen.getByRole("button", { name: "Edit default" }) as HTMLButtonElement).disabled).toBe(false)
   })
 })
 
