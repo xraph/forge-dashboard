@@ -69,6 +69,18 @@ const CONFIG_TYPE_LIST = "must be one of string, int, float, bool, json, duratio
 // The algorithm a keyed vault stamps on what it writes.
 const ENCRYPTION_ALG = "AES-256-GCM"
 
+// audit.list paging: default 25, capped at 100 (tighter than the other lists:
+// an audit row is wider and the table only grows).
+const DEFAULT_AUDIT_LIST_LIMIT = 25
+const MAX_AUDIT_LIST_LIMIT = 100
+// overview.stats shows this many audit rows as recent activity.
+const OVERVIEW_RECENT_ACTIVITY_LIMIT = 10
+// How far back overview.stats counts failed rotations.
+const ROTATION_FAILURE_WINDOW_MS = 24 * 3600_000
+// The one action every secret read writes. The default audit view and the
+// overview's recent activity leave it out.
+const SECRET_READ_ACTION = "secret.get"
+
 /** RFC3339 in UTC, without fractional seconds, like the Go projection. */
 function iso(date) {
   return new Date(date).toISOString().replace(/\.\d{3}Z$/, "Z")
@@ -132,7 +144,11 @@ const SEED_KEYS = [
 
 // Keys an application has registered a rotator for. Rotators live in
 // application code, so this set never changes at runtime.
-const ROTATOR_KEYS = new Set(["db/primary.password", "smtp/relay.password"])
+const ROTATOR_KEYS = new Set(["db/primary.password", "smtp/relay.password", "cache/redis.auth"])
+
+// Rows stored in the clear: written before the vault had a key. Two, so the
+// overview's "unencrypted" line has a count and the list is a mix.
+const UNENCRYPTED_KEYS = new Set(["legacy/ftp.password", "queue/rabbit.password"])
 
 function seedVaultState() {
   const nowMs = Date.now()
@@ -159,16 +175,19 @@ function seedVaultState() {
   // for "secret" rows and flags.detail for "flag" rows, so a flag and a secret
   // that share a key never show in each other's history.
   // tenantId is set on override rows only: the override's own tenant.
-  const pushAudit = (key, action, at, userId, resource = "secret", tenantId = "") => {
+  // failure, when given, is the failure message: the row's outcome is "failure"
+  // and the message is what the projection shows as its error.
+  const pushAudit = (key, action, at, userId, resource = "secret", tenantId = "", failure = undefined) => {
     state.audit.push({
       id: nextId("aud"),
       resource,
       key,
       action,
-      outcome: "success",
+      outcome: failure === undefined ? "success" : "failure",
       userId,
       createdAt: iso(at),
       ...(tenantId === "" ? {} : { tenantId }),
+      ...(failure === undefined ? {} : { error: failure }),
     })
   }
 
@@ -185,7 +204,7 @@ function seedVaultState() {
       id: nextId("sec"),
       key,
       version,
-      encryptionAlg: key === "legacy/ftp.password" ? "" : ENCRYPTION_ALG,
+      encryptionAlg: UNENCRYPTED_KEYS.has(key) ? "" : ENCRYPTION_ALG,
       expiresAt: null,
       metadata: undefined,
       createdAt: iso(createdMs),
@@ -228,6 +247,19 @@ function seedVaultState() {
     createdAt: iso(nowMs - 20 * day),
     updatedAt: iso(nowMs - 20 * day),
   })
+  // Enabled, with a rotator, and overdue: its next rotation fell due three
+  // days ago and the rotator keeps failing (the audit rows below), so the
+  // overview has an overdue count and failed rotations to show.
+  state.policies.set("cache/redis.auth", {
+    id: nextId("rot"),
+    secretKey: "cache/redis.auth",
+    intervalSeconds: 7 * 86400,
+    enabled: true,
+    lastRotatedAt: iso(nowMs - 10 * day),
+    nextRotationAt: iso(nowMs - 3 * day),
+    createdAt: iso(nowMs - 30 * day),
+    updatedAt: iso(nowMs - 10 * day),
+  })
   // Disabled, with a rotator: a stored next-rotation time that must NOT be
   // projected. The stale value is deliberate, it is what proves the
   // projection drops it.
@@ -267,11 +299,90 @@ function seedVaultState() {
   pushAudit("legacy/ftp.password", "secret.set", nowMs - 5 * 60_000, "usr_1")
   seedFlags(state, nowMs, pushAudit)
   seedConfig(state, nowMs, pushAudit)
+  seedAuditExtras(state, nowMs, pushAudit)
   state.audit.sort((a, b) => Date.parse(b.createdAt) - Date.parse(a.createdAt))
 
   return state
 }
 
+
+// ---------------------------------------------------------------------------
+// Audit seed
+//
+// Everything above leaves the log without a handful of the actions the vault
+// writes and with only success rows. This adds the rest so every audit filter
+// and every overview line has data:
+//   - all 18 actions: secret.delete, secret.rotated, flag.deleted,
+//     flag.override_deleted, override.deleted, rotation.policy_saved and
+//     rotation.policy_deleted join the eleven seeded elsewhere.
+//   - secret reads, many more than writes, some with a tenant, so the default
+//     view (reads hidden) and the overview's recent activity have something
+//     to leave out.
+//   - secret.rotated failures. Three fall inside the last 24 hours (two on
+//     cache/redis.auth, one on db/primary.password, one of them manual) and
+//     three fall outside it, so the overview's count is 3 and not 6.
+//   - rows with a user (the dashboard operator usr_1, and usr_2) and rows
+//     without (an application or the rotation loop wrote them), and rows with
+//     and without a tenant.
+// ---------------------------------------------------------------------------
+
+function seedAuditExtras(state, nowMs, pushAudit) {
+  const minute = 60_000
+  const hour = 3600_000
+  const day = 24 * hour
+
+  // Reads. Twelve keys, some read several times, a few on behalf of a tenant.
+  const readKeys = [
+    "api/stripe.key",
+    "db/primary.password",
+    "jwt/signing.key",
+    "api/sendgrid.key",
+    "cache/redis.auth",
+    "s3/uploads.secret",
+    "oauth/github.client-secret",
+    "smtp/relay.password",
+    "kafka/broker.password",
+    "mail/postmark.token",
+    "monitoring/sentry.dsn",
+    "search/elastic.password",
+  ]
+  for (let i = 0; i < 36; i += 1) {
+    const key = readKeys[i % readKeys.length]
+    const at = nowMs - (10 + i * 47) * minute
+    // An application read carries no user; a third carry a tenant.
+    pushAudit(key, "secret.get", at, i % 4 === 0 ? "usr_1" : "", "secret", i % 3 === 0 ? "acme" : "")
+  }
+
+  // The actions the rest of the seed never writes.
+  pushAudit("legacy/old-token", "secret.set", nowMs - 12 * day, "usr_1")
+  pushAudit("legacy/old-token", "secret.delete", nowMs - 11 * day, "usr_1")
+  pushAudit("legacy.retired-toggle", "flag.created", nowMs - 22 * day, "usr_1", "flag")
+  pushAudit("legacy.retired-toggle", "flag.deleted", nowMs - 21 * day, "usr_2", "flag")
+  pushAudit("search.rerank", "flag.override_deleted", nowMs - 4 * day, "usr_1", "flag", "globex")
+  pushAudit("limits.api-rate", "override.deleted", nowMs - 5 * day - hour, "usr_2", "override", "initech")
+  pushAudit("api/github.token", "rotation.policy_saved", nowMs - 20 * day, "usr_1", "rotation")
+  pushAudit("db/primary.password", "rotation.policy_saved", nowMs - 40 * day, "usr_1", "rotation")
+  pushAudit("cache/redis.auth", "rotation.policy_saved", nowMs - 30 * day, "usr_1", "rotation")
+  pushAudit("smtp/relay.password", "rotation.policy_saved", nowMs - 25 * day, "usr_1", "rotation")
+  pushAudit("ci/deploy.key", "rotation.policy_saved", nowMs - 9 * day, "usr_2", "rotation")
+  pushAudit("ci/deploy.key", "rotation.policy_deleted", nowMs - 8 * day, "usr_2", "rotation")
+
+  // Successful rotations: the loop's (no user) and one an operator ran.
+  pushAudit("db/primary.password", "secret.rotated", nowMs - 2 * hour + 2000, "", "secret")
+  pushAudit("db/primary.password", "secret.rotated", nowMs - 7 * day - 2 * hour + 2000, "", "secret")
+  pushAudit("cache/redis.auth", "secret.rotated", nowMs - 10 * day, "usr_1", "secret")
+  pushAudit("smtp/relay.password", "secret.rotated", nowMs - 30 * day, "", "secret")
+
+  // Failed rotations. Inside the last 24 hours: 3. Outside it: 3.
+  const dial = 'rotation: rotator failed for "cache/redis.auth": dial tcp 10.0.3.7:6379: connect: connection refused'
+  pushAudit("cache/redis.auth", "secret.rotated", nowMs - 1 * hour, "", "secret", "", dial)
+  pushAudit("cache/redis.auth", "secret.rotated", nowMs - 3 * hour, "usr_1", "secret", "", dial)
+  pushAudit("db/primary.password", "secret.rotated", nowMs - 20 * hour, "", "secret", "", 'rotation: rotator failed for "db/primary.password": pq: password authentication failed for user "rotator"')
+  pushAudit("cache/redis.auth", "secret.rotated", nowMs - 30 * hour, "", "secret", "", dial)
+  pushAudit("smtp/relay.password", "secret.rotated", nowMs - 3 * day, "", "secret", "", 'rotation: rotator failed for "smtp/relay.password": 535 authentication credentials invalid')
+  // A failure with no message recorded: the projection leaves error out.
+  pushAudit("db/primary.password", "secret.rotated", nowMs - 8 * day, "", "secret", "", "")
+}
 
 // ---------------------------------------------------------------------------
 // Flag seed
@@ -425,7 +536,7 @@ function seedFlags(state, nowMs, pushAudit) {
     const row = flagRow(key)
     for (const [tenantId, value] of entries) {
       row.overrides.set(tenantId, { tenantId, value, updatedAt: iso(atMs) })
-      pushAudit(key, "flag.override_set", atMs, "usr_1", "flag")
+      pushAudit(key, "flag.override_set", atMs, "usr_1", "flag", tenantId)
     }
   }
   overrides("billing/invoice-v2", [["acme", true], ["initech", false]], nowMs - 3 * day)
@@ -674,6 +785,19 @@ function projectRecord(r) {
 function projectAudit(e) {
   const out = { id: e.id, action: e.action, outcome: e.outcome }
   if (e.userId) out.userId = e.userId
+  out.createdAt = e.createdAt
+  return out
+}
+
+/**
+ * projectAuditSummary: the audit list's row. tenantId, userId and error are
+ * omitempty, and error is only ever read from a failure row.
+ */
+function projectAuditSummary(e) {
+  const out = { id: e.id, action: e.action, resource: e.resource, key: e.key, outcome: e.outcome }
+  if (e.tenantId) out.tenantId = e.tenantId
+  if (e.userId) out.userId = e.userId
+  if (e.outcome === "failure" && e.error) out.error = e.error
   out.createdAt = e.createdAt
   return out
 }
@@ -1084,6 +1208,39 @@ export function createVaultHandlers(FixtureError) {
     })
   }
 
+  /** audit.list's limit: <= 0 gets the default, over 100 is capped, offset < 0 is 0. */
+  function auditPageParams(payload) {
+    let limit = wholeNumber(payload?.limit)
+    if (limit <= 0) limit = DEFAULT_AUDIT_LIST_LIMIT
+    if (limit > MAX_AUDIT_LIST_LIMIT) limit = MAX_AUDIT_LIST_LIMIT
+    let offset = wholeNumber(payload?.offset)
+    if (offset < 0) offset = 0
+    return { limit, offset }
+  }
+
+  /** time.Parse(time.RFC3339, s): a T, a Z or a numeric offset, optional fractional seconds. */
+  function parseRFC3339(raw) {
+    const rfc3339 = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d+)?(Z|[+-]\d{2}:\d{2})$/
+    return rfc3339.test(raw) ? Date.parse(raw) : Number.NaN
+  }
+
+  /**
+   * The rows audit.ListOpts selects: exact resource, key, action and outcome,
+   * created at or after since, and none whose action is excluded. Newest
+   * first, as the fixture's log is already kept.
+   */
+  function matchingAudit({ resource, key, action, outcome, sinceMs, excludeActions }) {
+    return vault.audit.filter(
+      (e) =>
+        (resource === "" || e.resource === resource) &&
+        (key === "" || e.key === key) &&
+        (action === "" || e.action === action) &&
+        (outcome === "" || e.outcome === outcome) &&
+        (sinceMs === null || Date.parse(e.createdAt) >= sinceMs) &&
+        !excludeActions.includes(e.action),
+    )
+  }
+
   /** ListAuditByKey with a Resource: only the rows written for that kind of thing, newest first. */
   function recentAuditFor(key, resource, limit) {
     return vault.audit.filter((e) => e.resource === resource && e.key === key).slice(0, limit).map(projectAudit)
@@ -1283,7 +1440,7 @@ export function createVaultHandlers(FixtureError) {
       kind: "command",
       // detail and versions too: a page that read the key before it existed
       // holds a NOT_FOUND for it, and the create has to replace that.
-      invalidates: ["secrets.list", "secrets.detail", "secrets.versions"],
+      invalidates: ["secrets.list", "secrets.detail", "secrets.versions", "audit.list", "overview.stats"],
       handler: (payload) => {
         const key = requireKey(payload?.key)
         // The value is checked and dropped, never stored.
@@ -1315,7 +1472,7 @@ export function createVaultHandlers(FixtureError) {
 
     "secrets.update": {
       kind: "command",
-      invalidates: ["secrets.list", "secrets.detail", "secrets.versions"],
+      invalidates: ["secrets.list", "secrets.detail", "secrets.versions", "audit.list", "overview.stats"],
       handler: (payload) => {
         const key = requireKey(payload?.key)
         if (typeof payload?.value !== "string" || payload.value === "") throw badRequest("value is required")
@@ -1356,7 +1513,7 @@ export function createVaultHandlers(FixtureError) {
 
     "secrets.delete": {
       kind: "command",
-      invalidates: ["secrets.list", "secrets.detail", "secrets.versions", "rotation.policies", "rotation.detail"],
+      invalidates: ["secrets.list", "secrets.detail", "secrets.versions", "rotation.policies", "rotation.detail", "audit.list", "overview.stats"],
       handler: (payload) => {
         const key = requireKey(payload?.key)
         if (!vault.secrets.has(key)) {
@@ -1442,7 +1599,7 @@ export function createVaultHandlers(FixtureError) {
 
     "flags.create": {
       kind: "command",
-      invalidates: ["flags.list", "flags.detail", "flags.evaluate"],
+      invalidates: ["flags.list", "flags.detail", "flags.evaluate", "audit.list", "overview.stats"],
       handler: (payload) => {
         const key = requireKey(payload?.key)
         if (Buffer.byteLength(key, "utf8") > MAX_FLAG_KEY_BYTES) throw invalid("key", `must be at most ${MAX_FLAG_KEY_BYTES} bytes`)
@@ -1482,7 +1639,7 @@ export function createVaultHandlers(FixtureError) {
 
     "flags.update": {
       kind: "command",
-      invalidates: ["flags.list", "flags.detail", "flags.evaluate"],
+      invalidates: ["flags.list", "flags.detail", "flags.evaluate", "audit.list", "overview.stats"],
       handler: (payload) => {
         const key = requireKey(payload?.key)
         // Present, even as null, means set it (null only for a json flag);
@@ -1505,7 +1662,7 @@ export function createVaultHandlers(FixtureError) {
 
     "flags.delete": {
       kind: "command",
-      invalidates: ["flags.list", "flags.detail", "flags.evaluate"],
+      invalidates: ["flags.list", "flags.detail", "flags.evaluate", "audit.list", "overview.stats"],
       handler: (payload) => {
         const key = requireKey(payload?.key)
         findFlag(key)
@@ -1518,7 +1675,7 @@ export function createVaultHandlers(FixtureError) {
 
     "flags.setEnabled": {
       kind: "command",
-      invalidates: ["flags.list", "flags.detail", "flags.evaluate"],
+      invalidates: ["flags.list", "flags.detail", "flags.evaluate", "audit.list", "overview.stats"],
       handler: (payload) => {
         const key = requireKey(payload?.key)
         const row = findFlag(key)
@@ -1532,7 +1689,7 @@ export function createVaultHandlers(FixtureError) {
 
     "flags.setRules": {
       kind: "command",
-      invalidates: ["flags.detail", "flags.evaluate"],
+      invalidates: ["flags.detail", "flags.evaluate", "audit.list", "overview.stats"],
       handler: (payload) => {
         const key = requireKey(payload?.key)
         if (!Array.isArray(payload?.rules)) throw badRequest("rules is required; send an empty list to clear them")
@@ -1557,7 +1714,7 @@ export function createVaultHandlers(FixtureError) {
 
     "flags.setTenantOverride": {
       kind: "command",
-      invalidates: ["flags.detail", "flags.evaluate"],
+      invalidates: ["flags.detail", "flags.evaluate", "audit.list", "overview.stats"],
       handler: (payload) => {
         const key = requireKey(payload?.key)
         const row = findFlag(key)
@@ -1568,21 +1725,21 @@ export function createVaultHandlers(FixtureError) {
         if (refusal !== null) throw invalid("value", refusal)
         const override = { tenantId, value, updatedAt: iso(Date.now()) }
         row.overrides.set(tenantId, override)
-        recordAudit(key, "flag.override_set", "flag")
+        recordAudit(key, "flag.override_set", "flag", tenantId)
         return { override: projectOverride(override, true) }
       },
     },
 
     "flags.deleteTenantOverride": {
       kind: "command",
-      invalidates: ["flags.detail", "flags.evaluate"],
+      invalidates: ["flags.detail", "flags.evaluate", "audit.list", "overview.stats"],
       handler: (payload) => {
         const key = requireKey(payload?.key)
         const row = findFlag(key)
         const tenantId = trimmedString(payload?.tenantId)
         if (tenantId === "") throw invalid("tenantId", "is required")
         if (!row.overrides.delete(tenantId)) throw overrideNotFound()
-        recordAudit(key, "flag.override_deleted", "flag")
+        recordAudit(key, "flag.override_deleted", "flag", tenantId)
         return { ok: true, key, tenantId }
       },
     },
@@ -1676,7 +1833,7 @@ export function createVaultHandlers(FixtureError) {
 
     "config.create": {
       kind: "command",
-      invalidates: ["config.list", "config.detail", "config.versions", "config.resolve", "overrides.list"],
+      invalidates: ["config.list", "config.detail", "config.versions", "config.resolve", "overrides.list", "audit.list", "overview.stats"],
       handler: (payload) => {
         const key = requireKey(payload?.key)
         const valueType = trimmedString(payload?.valueType)
@@ -1713,7 +1870,7 @@ export function createVaultHandlers(FixtureError) {
 
     "config.update": {
       kind: "command",
-      invalidates: ["config.list", "config.detail", "config.versions", "config.resolve"],
+      invalidates: ["config.list", "config.detail", "config.versions", "config.resolve", "audit.list", "overview.stats"],
       handler: (payload) => {
         const key = requireKey(payload?.key)
         // Absent leaves the value; a present null is null, which only a json
@@ -1764,7 +1921,7 @@ export function createVaultHandlers(FixtureError) {
 
     "config.rollback": {
       kind: "command",
-      invalidates: ["config.list", "config.detail", "config.versions", "config.resolve"],
+      invalidates: ["config.list", "config.detail", "config.versions", "config.resolve", "audit.list", "overview.stats"],
       handler: (payload) => {
         const key = requireKey(payload?.key)
         const row = findConfig(key)
@@ -1785,7 +1942,7 @@ export function createVaultHandlers(FixtureError) {
 
     "config.delete": {
       kind: "command",
-      invalidates: ["config.list", "config.detail", "config.versions", "config.resolve", "overrides.list"],
+      invalidates: ["config.list", "config.detail", "config.versions", "config.resolve", "overrides.list", "audit.list", "overview.stats"],
       handler: (payload) => {
         const key = requireKey(payload?.key)
         findConfig(key)
@@ -1801,7 +1958,7 @@ export function createVaultHandlers(FixtureError) {
 
     "overrides.set": {
       kind: "command",
-      invalidates: ["config.detail", "config.resolve", "overrides.list"],
+      invalidates: ["config.detail", "config.resolve", "overrides.list", "audit.list", "overview.stats"],
       handler: (payload) => {
         const key = requireKey(payload?.key)
         // A missing value is refused; null and "" are values.
@@ -1826,7 +1983,7 @@ export function createVaultHandlers(FixtureError) {
 
     "overrides.delete": {
       kind: "command",
-      invalidates: ["config.detail", "config.resolve", "overrides.list"],
+      invalidates: ["config.detail", "config.resolve", "overrides.list", "audit.list", "overview.stats"],
       handler: (payload) => {
         const key = requireKey(payload?.key)
         // The entry is not read: an override whose entry is gone still
@@ -1837,6 +1994,86 @@ export function createVaultHandlers(FixtureError) {
         if (!byTenant?.delete(tenantId)) throw overrideNotFound()
         recordAudit(key, "override.deleted", "override", tenantId)
         return { ok: true, key, tenantId }
+      },
+    },
+
+    "audit.list": {
+      kind: "query",
+      handler: (payload) => {
+        const resource = trimmedString(payload?.resource)
+        const key = trimmedString(payload?.key)
+        const action = trimmedString(payload?.action)
+        const outcome = trimmedString(payload?.outcome)
+        if (outcome !== "" && outcome !== "success" && outcome !== "failure") throw badRequest("outcome must be success or failure")
+        let sinceMs = null
+        const since = trimmedString(payload?.since)
+        if (since !== "") {
+          sinceMs = parseRFC3339(since)
+          if (Number.isNaN(sinceMs)) throw badRequest("since must be an RFC3339 time")
+        }
+        // The exclusion is the default view's, not a rule about reads: a
+        // caller who names an action has said which rows they want.
+        const excludeActions = payload?.includeReads !== true && action === "" ? [SECRET_READ_ACTION] : []
+        const { limit, offset } = auditPageParams(payload)
+
+        // The total and the page come from the same filter, so they always
+        // describe the same rows.
+        const matched = matchingAudit({ resource, key, action, outcome, sinceMs, excludeActions })
+        return { entries: matched.slice(offset, offset + limit).map(projectAuditSummary), total: matched.length }
+      },
+    },
+
+    "overview.stats": {
+      kind: "query",
+      handler: () => {
+        const nowMs = Date.now()
+        const secrets = [...vault.secrets.values()]
+        let configOverrides = 0
+        for (const byTenant of vault.configOverrides.values()) configOverrides += byTenant.size
+
+        // Every rotation figure comes from the one policy list, so the total
+        // and its subsets agree.
+        const policies = [...vault.policies.values()]
+        let rotationEnabled = 0
+        let rotationOverdue = 0
+        let rotationWithoutRotator = 0
+        for (const p of policies) {
+          if (!p.enabled) continue
+          rotationEnabled += 1
+          if (!ROTATOR_KEYS.has(p.secretKey)) {
+            rotationWithoutRotator += 1
+            continue
+          }
+          if (p.nextRotationAt && Date.parse(p.nextRotationAt) < nowMs) rotationOverdue += 1
+        }
+
+        const rotationFailures24h = matchingAudit({
+          resource: "",
+          key: "",
+          action: "secret.rotated",
+          outcome: "failure",
+          sinceMs: nowMs - ROTATION_FAILURE_WINDOW_MS,
+          excludeActions: [],
+        }).length
+
+        return {
+          secrets: secrets.length,
+          unencryptedSecrets: secrets.filter((r) => r.encryptionAlg === "").length,
+          flags: vault.flags.size,
+          configEntries: vault.configs.size,
+          configOverrides,
+          rotationPolicies: policies.length,
+          rotationEnabled,
+          rotationOverdue,
+          rotationWithoutRotator,
+          rotationFailures24h,
+          // This fixture models a keyed vault, as secrets.update does.
+          encryptionEnabled: true,
+          encryptionAlgorithm: ENCRYPTION_ALG,
+          recentActivity: matchingAudit({ resource: "", key: "", action: "", outcome: "", sinceMs: null, excludeActions: [SECRET_READ_ACTION] })
+            .slice(0, OVERVIEW_RECENT_ACTIVITY_LIMIT)
+            .map(projectAuditSummary),
+        }
       },
     },
 
@@ -1867,7 +2104,7 @@ export function createVaultHandlers(FixtureError) {
 
     "rotation.savePolicy": {
       kind: "command",
-      invalidates: ["rotation.policies", "rotation.detail", "secrets.detail"],
+      invalidates: ["rotation.policies", "rotation.detail", "secrets.detail", "audit.list", "overview.stats"],
       handler: (payload) => {
         const key = requireKey(payload?.key)
         const interval = payload?.intervalSeconds
@@ -1898,23 +2135,25 @@ export function createVaultHandlers(FixtureError) {
           vault.policies.set(key, policy)
         }
         if (giveNextDueTime) policy.nextRotationAt = iso(nowMs + interval * 1000)
+        recordAudit(key, "rotation.policy_saved", "rotation")
         return { policy: projectPolicy(policy) }
       },
     },
 
     "rotation.deletePolicy": {
       kind: "command",
-      invalidates: ["rotation.policies", "rotation.detail", "secrets.detail"],
+      invalidates: ["rotation.policies", "rotation.detail", "secrets.detail", "audit.list", "overview.stats"],
       handler: (payload) => {
         const key = requireKey(payload?.key)
         if (!vault.policies.delete(key)) throw policyNotFound()
+        recordAudit(key, "rotation.policy_deleted", "rotation")
         return { ok: true, key }
       },
     },
 
     "rotation.rotateNow": {
       kind: "command",
-      invalidates: ["rotation.policies", "rotation.detail", "secrets.list", "secrets.detail", "secrets.versions"],
+      invalidates: ["rotation.policies", "rotation.detail", "secrets.list", "secrets.detail", "secrets.versions", "audit.list", "overview.stats"],
       handler: (payload) => {
         const key = requireKey(payload?.key)
         if (!ROTATOR_KEYS.has(key)) {
@@ -1948,6 +2187,8 @@ export function createVaultHandlers(FixtureError) {
         }
         recordAudit(key, "secret.get")
         recordAudit(key, "secret.set")
+        // The manager's onRotate hook: one row per attempt, this one a success.
+        recordAudit(key, "secret.rotated")
         return { key, oldVersion, newVersion: row.version }
       },
     },
