@@ -19,7 +19,9 @@ import { ZeroState } from "@forge-go/dashboard-kit/components/zero-state"
 import { NamespaceCell } from "../components/namespace-filter"
 import { PolicyEditor } from "../components/policy-editor"
 import {
+  PRIORITY_HELP,
   PolicyRule,
+  closedWindow,
   windowPhrase,
   windowTime,
   type PolicyDetail,
@@ -30,8 +32,9 @@ import type { AckResponse } from "./roles"
 export const ABAC_OFF =
   "Policy evaluation is turned off in this deployment, so this policy takes no effect."
 
-export const PRIORITY_HELP =
-  "Decides which policy is cited when several match, not which one wins."
+// Shared with the editor, so they live beside the rule block. Re-exported
+// here so the page's own exports stay as they were.
+export { PRIORITY_HELP, closedWindow }
 
 const LINK_CLASS = "text-sm underline underline-offset-4"
 
@@ -105,20 +108,6 @@ export function deactivateSentence(p: PolicyDetail, evaluationOff: boolean): str
       return "It already takes no effect, because its window ends before it starts."
   }
   return "It stops taking effect."
-}
-
-/**
- * Whether the policy's window would stop it taking effect even once active:
- * "inverted" when it ends before it starts, "ended" when its end is past,
- * null otherwise. The same tests `policyState` makes, applied to an inactive
- * policy, whose server state says only "inactive".
- */
-export function closedWindow(p: PolicyDetail, now: number): "inverted" | "ended" | null {
-  const start = p.notBefore ? Date.parse(p.notBefore) : Number.NaN
-  const end = p.notAfter ? Date.parse(p.notAfter) : Number.NaN
-  if (!Number.isNaN(start) && !Number.isNaN(end) && end < start) return "inverted"
-  if (!Number.isNaN(end) && end < now) return "ended"
-  return null
 }
 
 /**

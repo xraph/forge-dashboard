@@ -187,6 +187,24 @@ export function windowPhrase(notBefore?: string, notAfter?: string): string | nu
   return null
 }
 
+/** The priority's help text, on the detail page and in the editor. */
+export const PRIORITY_HELP =
+  "Decides which policy is cited when several match, not which one wins."
+
+/**
+ * Whether the policy's window would stop it taking effect even once active:
+ * "inverted" when it ends before it starts, "ended" when its end is past,
+ * null otherwise. The same tests `policyState` makes, applied to an inactive
+ * policy, whose server state says only "inactive".
+ */
+export function closedWindow(p: PolicyDetail, now: number): "inverted" | "ended" | null {
+  const start = p.notBefore ? Date.parse(p.notBefore) : Number.NaN
+  const end = p.notAfter ? Date.parse(p.notAfter) : Number.NaN
+  if (!Number.isNaN(start) && !Number.isNaN(end) && end < start) return "inverted"
+  if (!Number.isNaN(end) && end < now) return "ended"
+  return null
+}
+
 /** A subject matcher's AND-ed parts, read as one phrase. */
 export function subjectText(s: PolicySubject): string {
   const role = s.role ? `role ${s.role}` : ""

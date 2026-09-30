@@ -22,13 +22,14 @@ import { XIcon } from "@forge-go/dashboard-kit/icons"
 import { cn } from "@forge-go/dashboard-kit/lib/utils"
 import {
   OPERATOR_WORDS,
+  PRIORITY_HELP,
+  closedWindow,
   subjectText,
   windowTime,
   type PolicyCondition,
   type PolicyDetail,
   type PolicySubject,
 } from "./policy-rule"
-import { PRIORITY_HELP, closedWindow } from "../pages/policy-detail"
 import type { AckResponse } from "../pages/roles"
 
 // ---------------------------------------------------------------------------
@@ -405,12 +406,18 @@ export function saveConfirmation(input: SaveConfirmationInput): string | null {
   }
   const saved = { ...loaded, notBefore: notBefore || undefined, notAfter: notAfter || undefined }
   if (closedWindow(saved, now)) return null
+  const opens = !Number.isNaN(start) && start > now
+  if (effect !== "allow") {
+    // An explicit deny beats every allow from every model (mergeDecisions),
+    // so a deny that matches every check applies to every one of them.
+    const lead = "This deny will apply to every check in its namespace and below"
+    return opens ? `${lead} from ${windowTime(notBefore)}.` : `${lead} as soon as you save.`
+  }
+  // An allow does not win outright: any deny policy that matches a check
+  // beats it (mergeDecisions), so it grants only what no deny refuses.
   const lead =
-    effect === "allow"
-      ? "This allow will grant every check in its namespace and below"
-      : "This deny will apply to every check in its namespace and below"
-  if (!Number.isNaN(start) && start > now) return `${lead} from ${windowTime(notBefore)}.`
-  return `${lead} as soon as you save.`
+    "This allow will grant every check in its namespace and below that no deny policy refuses"
+  return opens ? `${lead}, from ${windowTime(notBefore)}.` : `${lead}, as soon as you save.`
 }
 
 // ---------------------------------------------------------------------------

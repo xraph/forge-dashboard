@@ -82,7 +82,9 @@ const EVERYTHING: PolicyValidateResponse = { ...VALID, matchesEverything: true }
 const DENY_NOW =
   "This deny will apply to every check in its namespace and below as soon as you save."
 const ALLOW_NOW =
-  "This allow will grant every check in its namespace and below as soon as you save."
+  "This allow will grant every check in its namespace and below that no deny policy refuses, as soon as you save."
+const ALLOW_FROM =
+  "This allow will grant every check in its namespace and below that no deny policy refuses, from 15 Oct 2026, 09:00 UTC."
 
 interface Options {
   validate?: (draft: PolicyDraft) => PolicyValidateResponse
@@ -760,6 +762,19 @@ describe("PolicyEditor", () => {
       expect(screen.getByRole("alertdialog").textContent).not.toContain("as soon as you save")
     })
 
+    it("names the start for an allow whose saved window has not opened", async () => {
+      renderEditor(
+        { effect: "allow", state: "scheduled", notBefore: "2026-10-15T09:00:00Z" },
+        { validate: () => EVERYTHING }
+      )
+      change(labelled("Description"), "x")
+      await settle()
+      await save()
+      await screen.findByRole("alertdialog")
+      expect(dialog().getByText(ALLOW_FROM)).toBeTruthy()
+      expect(screen.getByRole("alertdialog").textContent).not.toContain("as soon as you save")
+    })
+
     it("names the start when the edit moves it into the future", async () => {
       renderEditor({}, { validate: () => EVERYTHING })
       change(input("In effect from"), "2026-11-01T00:00:00Z")
@@ -944,6 +959,9 @@ describe("PolicyEditor", () => {
     it("returns each sentence only when the saved policy takes effect", () => {
       expect(saveConfirmation(base)).toBe(DENY_NOW)
       expect(saveConfirmation({ ...base, effect: "allow" })).toBe(ALLOW_NOW)
+      expect(
+        saveConfirmation({ ...base, effect: "allow", notBefore: "2026-10-15T09:00:00Z" })
+      ).toBe(ALLOW_FROM)
       expect(saveConfirmation({ ...base, matchesEverything: false })).toBeNull()
       expect(saveConfirmation({ ...base, evaluationOff: true })).toBeNull()
       expect(saveConfirmation({ ...base, loaded: { ...POLICY, isActive: false } })).toBeNull()
