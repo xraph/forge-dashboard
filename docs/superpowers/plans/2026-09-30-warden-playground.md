@@ -638,7 +638,7 @@ git commit -m "feat(warden): add the playground" -- packages/plugin-warden/src/c
 1. **Prefill**: at `/playground/check/<id>`, the page reads `checkLogs.detail` and fills subject kind, subject id, action, resource type, resource id and namespace, with the root shown as `/`. It does **not** run automatically. The operator presses Run.
 2. **The missing parts**: a prefilled page shows "Prefilled from a check logged at {Timestamp}. The check log does not record context or attributes, so add any the original check carried." above the form.
 3. **Not found**: an unknown id renders the `QueryBoundary` error card with the empty builder still usable below it.
-4. **The link**: the check detail page shows an "Open in playground" `PluginLink` to `/playground/check/<id>` on every row except `error` rows. Assert it is absent on an `error` row.
+4. **The link**: the check detail page shows an "Open in playground" `PluginLink` to `/playground/check/<id>` on every row, `error` rows included, since replaying a check that failed is how an operator sees whether the failure persists.
 
 - [ ] **Step 2: Implement**
 

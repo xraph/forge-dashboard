@@ -372,7 +372,7 @@ place where things live.
 
 ## The intent surface
 
-47 intents in 14 groups. Names follow authsome's `noun.verb` convention.
+46 intents in 14 groups. Names follow authsome's `noun.verb` convention.
 
 | group | intents |
 |---|---|
@@ -383,7 +383,7 @@ place where things live.
 | assignments | `list` `create` `delete` `expiring` |
 | relations | `list` `create` `delete` |
 | checkLogs | `list` `detail` |
-| playground | `check` `explain` `batchCheck` |
+| playground | `explain` `batchCheck` |
 | subjects | `detail` |
 | overview | `stats` `recentChecks` |
 | config | `detail` |
@@ -553,6 +553,19 @@ to reconstruct quietly and hope, produces a page that is wrong exactly when
 somebody is using it to debug a race.
 
 That flag exists only until `Engine.Explain` lands in core, and then it goes.
+
+Correction (plan 4a): `Engine.Explain` lands in core now, so the flag never
+exists. Warden's `soc2-hardening` branch already carries this migration's core
+changes, which removes the reason to wait. `Explain` shares `Check`'s extracted
+pipeline, so the lanes and the verdict come from one evaluation, and a
+truncated walk or a failed resource-type expression is reported as a fact. The
+lane states split this section's `deny`: only ABAC can deny, while RBAC and
+ReBAC can only fail to allow, so the states are `allow`, `deny` (an explicit
+deny policy, ABAC only), `noMatch`, `skipped`, `disabled`, `error`, and
+`notEvaluated` (an earlier model's store failure stopped the pipeline, as it
+stops `Check`). `playground.check` is dropped because `playground.explain`
+returns the verdict too. Obligations read "would emit", because a dry run fires
+no obligation hook.
 
 ## The two heavy surfaces
 
