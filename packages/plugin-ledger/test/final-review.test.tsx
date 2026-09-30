@@ -88,6 +88,15 @@ describe("I2: a shared feature from an app", () => {
     expect(screen.queryByRole("button", { name: "Sync to provider" })).toBeNull()
   })
 
+  it("hides the controls when the deployment requires an app claim, even with no app configured", async () => {
+    // Every request such a deployment accepts carries an app, so a shared feature is never writable there.
+    openDetail(shared, { app_id: "", require_app_claim: true, providers: [] })
+    expect(await screen.findByText(/It can be changed only with no app selected/)).toBeTruthy()
+    await screen.findByRole("region", { name: "Payment provider" })
+    await waitFor(() => expect(screen.queryByRole("link", { name: "Edit" })).toBeNull())
+    expect(screen.queryByRole("button", { name: "Delete" })).toBeNull()
+  })
+
   it("keeps every control on a shared feature when no app is selected", async () => {
     openDetail(shared, PLATFORM)
     expect(await screen.findByRole("link", { name: "Edit" })).toBeTruthy()
