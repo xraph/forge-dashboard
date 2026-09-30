@@ -544,6 +544,10 @@ Six slices. Each is runnable and clickable before the next begins.
 5. **Audit and Overview.** 2 intents and their pages.
 6. **Retire templ.** Its own commit, after the procedure below.
 
+All six are done. `vault/MIGRATION.md` landed first (25e44a5, corrected in
+6847360), then the deletion on its own in c33b425, then the docs (b73a9aa,
+e1cdb03, ea2a307). Nothing is pushed yet.
+
 Per package, `test`, `typecheck` and `lint` clean, and `pnpm -r test` too, not
 just the package being worked on.
 
