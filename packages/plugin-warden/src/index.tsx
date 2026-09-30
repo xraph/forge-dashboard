@@ -15,6 +15,7 @@ import { WardenOverviewPage } from "./pages/overview"
 import { WardenPermissionDetailPage } from "./pages/permission-detail"
 import { WardenPermissionsPage } from "./pages/permissions"
 import { WardenPoliciesPage } from "./pages/policies"
+import { WardenPolicyDetailPage, WardenPolicyEditPage } from "./pages/policy-detail"
 import { WardenRelationsPage } from "./pages/relations"
 import { WardenResourceTypeDetailPage } from "./pages/resource-type-detail"
 import { WardenResourceTypesPage } from "./pages/resource-types"
@@ -35,6 +36,16 @@ export type {
   PolicyState,
   PolicySummary,
 } from "./pages/policies"
+export type {
+  ConditionProblem,
+  ConditionReason,
+  PolicyCondition,
+  PolicyConditionView,
+  PolicyDetail,
+  PolicySubject,
+} from "./components/policy-rule"
+export { PolicyRule, conditionNote } from "./components/policy-rule"
+export type { PolicyPageProps } from "./pages/policy-detail"
 export type { RelationSummary, RelationsList } from "./pages/relations"
 export type { ResourceTypeSummary, ResourceTypesList } from "./pages/resource-types"
 export type {
@@ -50,6 +61,8 @@ export {
   WardenPermissionDetailPage,
   WardenPermissionsPage,
   WardenPoliciesPage,
+  WardenPolicyDetailPage,
+  WardenPolicyEditPage,
   WardenRelationsPage,
   WardenResourceTypeDetailPage,
   WardenResourceTypesPage,
@@ -151,10 +164,14 @@ export const wardenPlugin = definePlugin({
     // permissions row and on each grant of a role.
     { path: "/permissions/:id", element: WardenPermissionDetailPage },
     { path: "/assignments", element: WardenAssignmentsPage },
-    // The routes for one policy (/policies/:id and /policies/:id/edit) are
-    // registered with its own page, and get no nav entry: a sidebar link to
-    // "a policy" with none chosen points nowhere.
     { path: "/policies", element: WardenPoliciesPage },
+    // No nav entry for either: a sidebar link to "a policy" with none chosen
+    // points nowhere. The detail is reached from a row's name. The edit route
+    // is where the create flow lands, and renders the read view until the
+    // editor exists, so that link never meets a missing route. Both read the
+    // policy from params.id, because a plugin cannot read a query string.
+    { path: "/policies/:id", element: WardenPolicyDetailPage },
+    { path: "/policies/:id/edit", element: WardenPolicyEditPage },
     { path: "/relations", element: WardenRelationsPage },
     { path: "/resource-types", element: WardenResourceTypesPage },
     // No nav entry: a sidebar link to "a resource type" with none chosen
