@@ -3,8 +3,9 @@
 // vault-fixtures.mjs.
 //
 // Mirrors forgery/ledger/extension/contract (plans.go, features.go,
-// subscriptions.go, invoices.go, coupons.go, usage.go, overview.go) at commit
-// 4a0d838. Field names are the Go JSON tags, snake_case. Lists answer
+// subscriptions.go, invoices.go, coupons.go, usage.go, overview.go and
+// imports.go, with ../../provider_import.go for the import rules). Field names
+// are the Go JSON tags, snake_case. Lists answer
 // {items, limit, offset, has_more} and never a total. Money is
 // {amount, currency, display} with amount in minor units.
 //
@@ -18,7 +19,8 @@
 //                                 feature catalog and settings.detail answers
 //                                 PERMISSION_DENIED, as the Go binder does.
 //   LEDGER_FIXTURE_NO_PROVIDER=1  no payment provider is registered: every
-//                                 syncToProvider answers UNAVAILABLE.
+//                                 syncToProvider and importFromProvider
+//                                 answers UNAVAILABLE.
 
 const APP_ID = "app_ledger"
 const PROVIDER = "stripe"
@@ -324,6 +326,59 @@ function seedLedgerState() {
     initech: [{ id: "pm_initech_1", type: "bank_account", last4: "6789", brand: "", expiry_month: 0, expiry_year: 0, is_default: true, provider_name: PROVIDER, provider_id: "ba_1Nf6789" }],
   }
 
+  // What the payment provider holds that this ledger does not, keyed by
+  // provider id, so every importFromProvider has something to import. Each
+  // record is what the provider answers: no local id, and an app_id only where
+  // the provider files it under an app.
+  const providerPlan = (slug, name, base, trialDays, extra = {}) => ({
+    name,
+    slug,
+    description: `${name}, as the payment provider holds it.`,
+    currency: "usd",
+    status: "active",
+    trial_days: trialDays,
+    features: [
+      { key: "api_calls", name: "API calls", type: "metered", limit: 50000, period: "monthly", soft_limit: false },
+      { key: "seats", name: "Seats", type: "seat", limit: 5, period: "none", soft_limit: false },
+    ],
+    pricing: { base_amount: money(base), billing_period: "monthly" },
+    ...extra,
+  })
+  const providerInvoice = (startDays, endDays, extra = {}) => {
+    const built = buildInvoice({
+      id: "inv_provider", sub: acme, plan: pro, periodStartMs: now - startDays * DAY, periodEndMs: now - endDays * DAY,
+      status: "paid", createdMs: now - endDays * DAY, extra: { paid_at: ago(endDays - 2) },
+    })
+    const { id: _id, app_id: _app, created_at: _created, updated_at: _updated, ...rest } = built
+    return { ...rest, line_items: rest.line_items.map(({ id: _line, invoice_id: _invoice, ...line }) => line), ...extra }
+  }
+  const providerSub = (tenant_id, plan_id, extra = {}) => ({
+    tenant_id, plan_id, status: "active", current_period_start: iso(periodStart), current_period_end: iso(periodEnd), ...extra,
+  })
+  state.provider = {
+    plans: {
+      prod_growth: providerPlan("growth", "Growth", 9900, 7),
+      prod_scale: providerPlan("scale", "Scale", 19900, 0),
+      prod_starter: providerPlan("starter", "Starter", 1900, 14),
+      prod_partner: providerPlan("partner", "Partner", 2900, 0, { app_id: "app_partner" }),
+    },
+    features: {
+      mtr_exports: { key: "exports", name: "Exports", description: "Scheduled CSV exports.", type: "metered", default_limit: 100, period: "monthly", soft_limit: false, status: "active" },
+      mtr_webhooks: { key: "webhooks", name: "Webhooks", description: "Outbound event delivery.", type: "boolean", default_limit: 1, period: "none", soft_limit: false, status: "active" },
+      mtr_api_calls: { key: "api_calls", name: "API calls", description: "The provider's copy of a key this app uses.", type: "metered", default_limit: 10000, period: "monthly", soft_limit: false, status: "active" },
+    },
+    subscriptions: {
+      sub_1Stark: providerSub("stark", "plan_starter"),
+      sub_1Wonka: providerSub("wonka", "plan_pro", { quantity: { seats: 2 } }),
+      sub_1Orphan: providerSub("stark", "plan_retired"),
+    },
+    invoices: {
+      in_1AcmeA: providerInvoice(190, 160),
+      in_1AcmeB: providerInvoice(220, 190),
+      in_1Orphan: providerInvoice(250, 220, { subscription_id: "sub_retired" }),
+    },
+  }
+
   return state
 }
 
@@ -415,14 +470,34 @@ export function makeHelpers(FixtureError) {
     return { ...base, provider_id: row.provider_id }
   }
 
+  /**
+   * The provider half every importFromProvider shares, in the order Go runs
+   * it: the handler refuses a blank provider_id, the engine refuses no
+   * provider or an unknown provider name (UNAVAILABLE), the provider refuses
+   * an id it does not hold (ErrProviderSync, also UNAVAILABLE, in the
+   * provider's words), and ImportInto refuses a record the provider files under
+   * another app as not found. Answers the provider id and a fresh copy of the
+   * provider's record.
+   */
+  function fromProvider(input, noun, catalog, app) {
+    const pid = requireText(input?.provider_id, "provider_id")
+    if (!providerConfigured()) throw unavailable("ledger: provider not configured")
+    const name = text(input?.provider_name)
+    if (name !== "" && name !== PROVIDER) throw unavailable(`ledger: provider not found: ${name}`)
+    const record = catalog[pid]
+    if (!record) throw unavailable(`ledger: provider sync failed: import ${noun}: ${PROVIDER} has no ${noun} ${pid}`)
+    if (record.app_id && record.app_id !== app) throw new FixtureError(404, "NOT_FOUND", `ledger: ${noun} not found: provider id "${pid}"`)
+    return { pid, record: clone(record) }
+  }
+
   return {
     badRequest, notFound, conflict, unavailable, currentApp, providerConfigured, requireApp,
-    text, requireText, wholeNumber, page, owned, optionalTime, moneyInput, syncRow,
+    text, requireText, wholeNumber, page, owned, optionalTime, moneyInput, syncRow, fromProvider,
   }
 }
 
 function catalogHandlers(h) {
-  const { badRequest, notFound, conflict, currentApp, providerConfigured, requireApp, text, requireText, wholeNumber, page, owned, optionalTime, moneyInput, syncRow } = h
+  const { badRequest, notFound, conflict, currentApp, providerConfigured, requireApp, text, requireText, wholeNumber, page, owned, optionalTime, moneyInput, syncRow, fromProvider } = h
 
   function planFeatures(raw, stamp) {
     if (raw === undefined || raw === null) return []
@@ -596,6 +671,24 @@ function catalogHandlers(h) {
       },
     },
 
+    "plans.importFromProvider": {
+      kind: "command",
+      invalidates: ["plans.list", "overview.stats"],
+      handler: (input) => {
+        const app = requireApp()
+        const { pid, record } = fromProvider(input, "plan", ledger.provider.plans, app)
+        // Go imports through CreatePlan, whose slug check refuses a slug the app uses.
+        if (slugTaken(app, record.slug)) throw conflict(`ledger: already exists: slug "${record.slug}" is already used in this app`)
+        const stamp = iso(Date.now())
+        const id = ledger.nextId("plan")
+        const row = { ...record, id, status: record.status || "draft", app_id: app, provider_id: pid, provider_name: PROVIDER, created_at: stamp, updated_at: stamp }
+        row.features = (record.features ?? []).map((f, i) => ({ ...f, id: f.id || `pf_${id}_${i + 1}`, created_at: stamp, updated_at: stamp }))
+        if (record.pricing) row.pricing = { ...record.pricing, id: record.pricing.id || `price_${id}`, plan_id: id, created_at: stamp, updated_at: stamp }
+        ledger.plans.push(row)
+        return clone(row)
+      },
+    },
+
     "features.list": {
       kind: "query",
       handler: (input) => {
@@ -688,6 +781,24 @@ function catalogHandlers(h) {
       handler: (input) => {
         const row = writableFeature(input?.id)
         return syncRow(row, "feature", row.status === "archived" ? "the feature is archived" : undefined)
+      },
+    },
+
+    "features.importFromProvider": {
+      kind: "command",
+      invalidates: ["features.list"],
+      handler: (input) => {
+        // As features.create: the empty scope imports into the shared catalog.
+        const app = currentApp()
+        const { pid, record } = fromProvider(input, "feature", ledger.provider.features, app)
+        const key = text(record.key)
+        if (key === "") throw badRequest(`ledger: invalid input: the provider's feature "${pid}" has no key`)
+        const existing = ledger.features.find((f) => f.app_id === app && f.key === key)
+        if (existing) throw conflict(`ledger: already exists: feature key "${key}" is already used by ${existing.id}`)
+        const stamp = iso(Date.now())
+        const row = { ...record, key, id: ledger.nextId("feat"), status: record.status || "active", app_id: app, provider_id: pid, provider_name: PROVIDER, created_at: stamp, updated_at: stamp }
+        ledger.features.push(row)
+        return clone(row)
       },
     },
 
@@ -847,7 +958,7 @@ function catalogHandlers(h) {
 }
 
 function billingHandlers(h) {
-  const { badRequest, notFound, conflict, providerConfigured, requireApp, text, requireText, page, owned, optionalTime, syncRow } = h
+  const { badRequest, notFound, conflict, providerConfigured, requireApp, text, requireText, page, owned, optionalTime, syncRow, fromProvider } = h
   const SUB_STATUSES = ["active", "trialing", "past_due", "canceled", "expired", "paused"]
   const INVOICE_STATUSES = ["draft", "pending", "paid", "past_due", "voided"]
   const ENDED = new Set(["canceled", "expired"])
@@ -946,6 +1057,25 @@ function billingHandlers(h) {
   const loadInvoice = (raw) => owned(ledger.invoices, raw, "id", "invoice")
   const withLines = (inv) => ({ ...clone(inv), line_items: clone(inv.line_items ?? []) })
 
+  /** subscriptions.detail's answer for a stored subscription. */
+  function subscriptionDetail(sub) {
+    const p = ledger.plans.find((x) => x.id === sub.plan_id)
+    if (!p) throw notFound("plan")
+    const coupons = ledger.applied
+      .filter((a) => a.subscription_id === sub.id)
+      .map((a) => ledger.coupons.find((c) => c.id === a.coupon_id))
+      .filter(Boolean)
+      .map(clone)
+    return { subscription: clone(sub), plan: { ...clone(p), features: clone(p.features ?? []) }, applied_coupons: coupons }
+  }
+
+  /** invoices.detail's answer for a stored invoice. */
+  function invoiceDetail(inv) {
+    const sub = ledger.subscriptions.find((s) => s.id === inv.subscription_id)
+    if (!sub) throw notFound("subscription")
+    return { invoice: withLines(inv), subscription: clone(sub), export_formats: [...EXPORT_FORMATS] }
+  }
+
   function exportText(inv, format) {
     if (format === "json") return JSON.stringify(inv, null, 2)
     const rows = ["description,quantity,unit_amount,amount,type"]
@@ -971,17 +1101,7 @@ function billingHandlers(h) {
 
     "subscriptions.detail": {
       kind: "query",
-      handler: (input) => {
-        const sub = loadSub(input?.id)
-        const p = ledger.plans.find((x) => x.id === sub.plan_id)
-        if (!p) throw notFound("plan")
-        const coupons = ledger.applied
-          .filter((a) => a.subscription_id === sub.id)
-          .map((a) => ledger.coupons.find((c) => c.id === a.coupon_id))
-          .filter(Boolean)
-          .map(clone)
-        return { subscription: clone(sub), plan: { ...clone(p), features: clone(p.features ?? []) }, applied_coupons: coupons }
-      },
+      handler: (input) => subscriptionDetail(loadSub(input?.id)),
     },
 
     "subscriptions.usage": {
@@ -1088,6 +1208,51 @@ function billingHandlers(h) {
       },
     },
 
+    "subscriptions.importFromProvider": {
+      kind: "command",
+      invalidates: ["subscriptions.list", "overview.stats", "entitlements.check", "paymentMethods.list"],
+      handler: (input) => {
+        const app = requireApp()
+        const { pid, record } = fromProvider(input, "subscription", ledger.provider.subscriptions, app)
+        // The engine's checks, in its order (provider_import.go).
+        const status = text(record.status)
+        if (status !== "" && !SUB_STATUSES.includes(status)) throw badRequest(`ledger: invalid input: unknown subscription status "${status}"`)
+        const tenant = text(record.tenant_id)
+        if (tenant === "") throw badRequest(`ledger: invalid input: the provider's subscription "${pid}" has no tenant id`)
+        if (!record.plan_id) throw badRequest("ledger: invalid input: the provider's subscription names no plan")
+        const p = ledger.plans.find((x) => x.id === record.plan_id)
+        if (!p || p.app_id !== app) {
+          throw badRequest(`ledger: invalid input: the provider's subscription is on plan ${record.plan_id}, which is not a plan in this app; import the plan first`)
+        }
+        const dup = ledger.subscriptions.find((s) => s.app_id === app && s.tenant_id === tenant && s.provider_name === PROVIDER && s.provider_id === pid)
+        if (dup) throw conflict(`ledger: already exists: provider subscription "${pid}" is already stored as ${dup.id}`)
+        if (p.status !== "active") throw badRequest(`ledger: invalid input: plan "${p.slug}" is ${p.status}, not active`)
+        const quantity = checkQuantity(record.quantity, p)
+        const nowMs = Date.now()
+        const stamp = iso(nowMs)
+        const row = {
+          id: ledger.nextId("sub"),
+          tenant_id: tenant,
+          plan_id: p.id,
+          status: status || (p.trial_days > 0 ? "trialing" : "active"),
+          current_period_start: record.current_period_start || stamp,
+          current_period_end: record.current_period_end || iso(nowMs + 30 * DAY),
+          app_id: app,
+          provider_id: pid,
+          provider_name: PROVIDER,
+          created_at: stamp,
+          updated_at: stamp,
+        }
+        if (status === "" && p.trial_days > 0) {
+          row.trial_start = row.current_period_start
+          row.trial_end = iso(Date.parse(row.current_period_start) + p.trial_days * DAY)
+        }
+        if (quantity && Object.keys(quantity).length > 0) row.quantity = quantity
+        ledger.subscriptions.push(row)
+        return subscriptionDetail(row)
+      },
+    },
+
     "invoices.list": {
       kind: "query",
       handler: (input) => {
@@ -1108,12 +1273,7 @@ function billingHandlers(h) {
 
     "invoices.detail": {
       kind: "query",
-      handler: (input) => {
-        const inv = loadInvoice(input?.id)
-        const sub = ledger.subscriptions.find((s) => s.id === inv.subscription_id)
-        if (!sub) throw notFound("subscription")
-        return { invoice: withLines(inv), subscription: clone(sub), export_formats: [...EXPORT_FORMATS] }
-      },
+      handler: (input) => invoiceDetail(loadInvoice(input?.id)),
     },
 
     "invoices.pending": {
@@ -1227,6 +1387,45 @@ function billingHandlers(h) {
       handler: (input) => {
         const inv = loadInvoice(input?.id)
         return syncRow(inv, "invoice", inv.status === "voided" ? "the invoice is voided" : undefined)
+      },
+    },
+
+    "invoices.importFromProvider": {
+      kind: "command",
+      invalidates: ["invoices.list", "invoices.pending", "subscriptions.detail", "overview.stats", "overview.recentInvoices"],
+      handler: (input) => {
+        const app = requireApp()
+        const { pid, record } = fromProvider(input, "invoice", ledger.provider.invoices, app)
+        const status = text(record.status) || "draft"
+        if (!INVOICE_STATUSES.includes(status)) throw badRequest(`ledger: invalid input: unknown invoice status "${status}"`)
+        const tenant = text(record.tenant_id)
+        if (tenant === "") throw badRequest(`ledger: invalid input: the provider's invoice "${pid}" has no tenant id`)
+        if (!record.subscription_id) throw badRequest("ledger: invalid input: the provider's invoice names no subscription")
+        const sub = ledger.subscriptions.find((s) => s.id === record.subscription_id)
+        if (!sub || sub.app_id !== app || sub.tenant_id !== tenant) {
+          throw badRequest(`ledger: invalid input: the provider's invoice is for subscription ${record.subscription_id}, which is not this app's subscription for tenant "${tenant}"; import the subscription first`)
+        }
+        // Go lists the tenant's invoices whose period lies inside the imported one.
+        const startMs = Date.parse(record.period_start)
+        const endMs = Date.parse(record.period_end)
+        const inPeriod = ledger.invoices.filter(
+          (i) => i.app_id === app && i.tenant_id === tenant && Date.parse(i.period_start) >= startMs && Date.parse(i.period_end) <= endMs,
+        )
+        for (const stored of inPeriod) {
+          if (stored.provider_name === PROVIDER && stored.provider_id === pid) {
+            throw conflict(`ledger: already exists: provider invoice "${pid}" is already stored as ${stored.id}`)
+          }
+          const live = stored.status !== "voided" && status !== "voided"
+          if (live && stored.subscription_id === sub.id && stored.period_start === record.period_start && stored.period_end === record.period_end) {
+            throw conflict(`ledger: already exists: subscription ${sub.id} already has invoice ${stored.id} for this period`)
+          }
+        }
+        const stamp = iso(Date.now())
+        const id = ledger.nextId("inv")
+        const row = { ...record, id, status, tenant_id: tenant, app_id: app, provider_id: pid, provider_name: PROVIDER, created_at: stamp, updated_at: stamp }
+        row.line_items = (record.line_items ?? []).map((line, i) => ({ ...line, id: line.id || `${id}_li${i + 1}`, invoice_id: id }))
+        ledger.invoices.push(row)
+        return invoiceDetail(row)
       },
     },
 

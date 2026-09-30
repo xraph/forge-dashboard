@@ -317,7 +317,7 @@ Six curl runs against a fresh `node server.mjs`, output captured verbatim in
 
 ## ledger
 
-`ledger-fixtures.mjs` answers all 47 intents of the ledger contract at
+`ledger-fixtures.mjs` answers all 51 intents of the ledger contract at
 `forgery/ledger/extension/contract/manifest.yaml`, with the Go handlers'
 rules: snake_case fields, money as `{amount, currency, display}` in minor
 units, lists as `{items, limit, offset, has_more}` with no total, a
@@ -328,6 +328,8 @@ feature, six subscriptions in six states, invoices in every status, coupons
 that are active, expired, scheduled and exhausted, thirty days of usage for
 two tenants and one batch of events sharing a timestamp.
 
+The provider has its own small catalog, so each `importFromProvider` has something to copy. You can import plans `prod_growth` and `prod_scale`, features `mtr_exports` and `mtr_webhooks`, subscriptions `sub_1Stark` and `sub_1Wonka`, and invoices `in_1AcmeA` and `in_1AcmeB`. The rest are there to be refused: `prod_starter` and `mtr_api_calls` collide with a slug or key this app already uses, `prod_partner` is filed under another app, and `sub_1Orphan` and `in_1Orphan` point at a plan or subscription that isn't here.
+
 Two switches, read on every call:
 
 ```bash
@@ -337,4 +339,4 @@ LEDGER_FIXTURE_NO_PROVIDER=1 node server.mjs  # no payment provider
 
 The first makes every intent except the feature catalog and `settings.detail`
 answer `PERMISSION_DENIED` "no app selected", which is what an unconfigured
-deployment sees. The second makes every `syncToProvider` answer `UNAVAILABLE`.
+deployment sees. The second makes every `syncToProvider` and `importFromProvider` answer `UNAVAILABLE`.
