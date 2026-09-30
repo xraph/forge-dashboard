@@ -1,5 +1,7 @@
 # Section rail: a secondary sidebar for a scope's own sections
 
+> **Superseded** by `2026-09-30-studio-rail-design.md`: the rail holds the scope, its context and its plugins, not nav groups.
+
 Design for giving a scope with many pages, authsome first, an icon rail of its
 sections beside the pane, so its sub-plugins get room instead of being merged
 into one 35-row list. It replaces the top-level scope rail in
