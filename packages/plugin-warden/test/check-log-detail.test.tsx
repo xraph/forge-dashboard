@@ -9,7 +9,7 @@ import { failingClient, recordingQueryClient, renderPage } from "./harness"
 const LINKS_NOTE =
   "Each link opens the rule as it is now, which may have changed or been deleted since this check ran."
 const CACHED_SENTENCE =
-  "Served from the result cache. The engine reused a decision it made earlier and evaluated no rule for this check."
+  "Served from the result cache. The engine reused a decision made earlier and evaluated no rule for this check."
 const ERROR_SENTENCE = "The check failed with this error, so no decision was returned."
 const NO_RULE = "No rule is recorded for this decision."
 
@@ -139,7 +139,16 @@ describe("WardenCheckLogDetailPage", () => {
     expect(screen.getByText(CACHED_SENTENCE)).toBeTruthy()
     expect(screen.getByText("lookup time")).toBeTruthy()
     expect(screen.queryByText("evaluation time")).toBeNull()
-    expect(within(row("lookup time")).getByText("0.00 ms")).toBeTruthy()
+    expect(within(row("lookup time")).getByText("1.8 µs")).toBeTruthy()
+  })
+
+  it("puts the cached sentence above decided by, so the matches read as the earlier decision's", async () => {
+    page({ ...RBAC_ALLOW, cached: true })
+    await settled()
+    const sentence = screen.getByText(CACHED_SENTENCE)
+    const decidedBy = screen.getAllByText("decided by").find((el) => el.tagName === "DT")!
+    // DOCUMENT_POSITION_FOLLOWING: decided by comes after the sentence in the document.
+    expect(sentence.compareDocumentPosition(decidedBy) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
   })
 
   it("labels an evaluated check's time evaluation time, in milliseconds", async () => {

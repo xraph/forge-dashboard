@@ -2772,6 +2772,7 @@ export const wardenHandlers = {
     invalidates: [
       "overview.stats", "overview.recentChecks", "assignments.list",
       "assignments.expiring", "roles.detail", "namespaces.list",
+      "checkLogs.list", "checkLogs.detail",
     ],
     handler: () => {
       // A fixture that accepts a write and changes nothing hides the bug it

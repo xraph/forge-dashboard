@@ -75,10 +75,30 @@ async function settled() {
 }
 
 describe("formatEvalTime", () => {
-  it("renders nanoseconds as milliseconds with two decimals", () => {
+  it("renders 100,000 ns and above as milliseconds with two decimals", () => {
     expect(formatEvalTime(412_000)).toBe("0.41 ms")
-    expect(formatEvalTime(0)).toBe("0.00 ms")
     expect(formatEvalTime(1_800_000)).toBe("1.80 ms")
+    expect(formatEvalTime(100_000)).toBe("0.10 ms")
+  })
+
+  it("renders 1000 ns up to 100,000 ns as microseconds with one decimal", () => {
+    expect(formatEvalTime(1_800)).toBe("1.8 µs")
+    expect(formatEvalTime(1_000)).toBe("1.0 µs")
+    expect(formatEvalTime(99_900)).toBe("99.9 µs")
+  })
+
+  it("renders anything below 1000 ns as a plain nanosecond count", () => {
+    expect(formatEvalTime(640)).toBe("640 ns")
+    expect(formatEvalTime(999)).toBe("999 ns")
+    expect(formatEvalTime(1)).toBe("1 ns")
+    expect(formatEvalTime(0)).toBe("0 ns")
+  })
+
+  it("switches unit exactly at the 1000 and 100,000 boundaries", () => {
+    expect(formatEvalTime(999)).toBe("999 ns")
+    expect(formatEvalTime(1_000)).toBe("1.0 µs")
+    expect(formatEvalTime(99_999)).toBe("100.0 µs")
+    expect(formatEvalTime(100_000)).toBe("0.10 ms")
   })
 })
 
@@ -515,7 +535,7 @@ describe("WardenCheckLogPage empties", () => {
 describe("WardenCheckLogPage loss line", () => {
   const SINCE = "2026-09-23T08:00:00Z"
   const TRAILER =
-    "Those checks were decided, and they have no row here. The count covers every tenant this server handles."
+    "Those checks ran, and the log may have no row for them. The count covers every tenant this server handles."
 
   it("counts what the server failed to record, with both causes and the trailer", async () => {
     const { container } = render_({

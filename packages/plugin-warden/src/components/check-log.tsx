@@ -92,9 +92,17 @@ export function decisionVariant(decision: string): "outline" | "secondary" | "de
   return decision === "allow" ? "outline" : "secondary"
 }
 
-/** A duration in nanoseconds as milliseconds, two decimals: "0.41 ms". */
+/**
+ * A duration in nanoseconds, in the unit that keeps it readable. From 100,000 ns
+ * up it is milliseconds with two decimals ("0.41 ms"). From 1000 ns up to that
+ * it is microseconds with one decimal ("1.8 µs"), because a cached lookup takes
+ * a few microseconds and would otherwise read as "0.00 ms". Below 1000 ns it is
+ * the plain count ("640 ns").
+ */
 export function formatEvalTime(ns: number): string {
-  return `${(ns / 1_000_000).toFixed(2)} ms`
+  if (ns >= 100_000) return `${(ns / 1_000_000).toFixed(2)} ms`
+  if (ns >= 1_000) return `${(ns / 1_000).toFixed(1)} µs`
+  return `${ns} ns`
 }
 
 /**

@@ -94,7 +94,7 @@ function LossLine({ loss }: { loss: NonNullable<CheckLogList["notRecorded"]> }) 
     <p className="text-sm text-muted-foreground">
       This server failed to record {checks(total)} since it started (
       <Timestamp value={loss.since} label="start" />
-      ): {causes.join(", ")}. Those checks were decided, and they have no row here. The count
+      ): {causes.join(", ")}. Those checks ran, and the log may have no row for them. The count
       covers every tenant this server handles.
     </p>
   )

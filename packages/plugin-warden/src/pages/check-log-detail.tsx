@@ -135,6 +135,13 @@ export function WardenCheckLogDetailPage({ params }: PluginPageProps) {
                     </span>
                   </Row>
 
+                  {!failed && check.cached && (
+                    <p className="text-sm text-muted-foreground">
+                      Served from the result cache. The engine reused a decision made earlier and
+                      evaluated no rule for this check.
+                    </p>
+                  )}
+
                   {!failed && matches.length > 0 && (
                     <div className="flex flex-col gap-2">
                       <Row term="decided by">
@@ -168,13 +175,6 @@ export function WardenCheckLogDetailPage({ params }: PluginPageProps) {
                         ))}
                       </span>
                     </Row>
-                  )}
-
-                  {!failed && check.cached && (
-                    <p className="text-sm text-muted-foreground">
-                      Served from the result cache. The engine reused a decision it made earlier
-                      and evaluated no rule for this check.
-                    </p>
                   )}
 
                   {!failed && (
