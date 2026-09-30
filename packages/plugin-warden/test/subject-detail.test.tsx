@@ -137,7 +137,7 @@ describe("WardenSubjectDetailPage header", () => {
     const { sent } = setup()
     const title = await screen.findByRole("heading", { level: 1, name: "user:alice" })
     expect(title.className).toContain("font-mono")
-    expect(await screen.findByText("Showing access at /.")).toBeTruthy()
+    expect(await screen.findByText("Roles and policies are shown at /. Assignments, relations and recent checks cover every namespace.")).toBeTruthy()
     const detail = sent.filter((s) => s.intent === "subjects.detail")
     expect(detail[0]?.params).toEqual({
       subjectKind: "user",
@@ -148,7 +148,7 @@ describe("WardenSubjectDetailPage header", () => {
 
   it("sends the route params exactly as given", async () => {
     const { sent } = setup(EMPTY, { kind: "api key", id: "a/b c" })
-    await screen.findByText("Showing access at /.")
+    await screen.findByText("Roles and policies are shown at /. Assignments, relations and recent checks cover every namespace.")
     expect(sent.find((s) => s.intent === "subjects.detail")?.params).toEqual({
       subjectKind: "api key",
       subjectId: "a/b c",
@@ -158,7 +158,7 @@ describe("WardenSubjectDetailPage header", () => {
 
   it("offers the namespaces as suggestions, the root as /", async () => {
     setup()
-    await screen.findByText("Showing access at /.")
+    await screen.findByText("Roles and policies are shown at /. Assignments, relations and recent checks cover every namespace.")
     const input = screen.getByLabelText("Namespace") as HTMLInputElement
     const list = document.getElementById(input.getAttribute("list") ?? "")
     await waitFor(() => {
@@ -173,12 +173,12 @@ describe("WardenSubjectDetailPage header", () => {
 
   it("sends a new subjects.detail when a suggested namespace is chosen", async () => {
     const { sent } = setup()
-    await screen.findByText("Showing access at /.")
+    await screen.findByText("Roles and policies are shown at /. Assignments, relations and recent checks cover every namespace.")
     await waitFor(() =>
       expect(sent.some((s) => s.intent === "namespaces.list")).toBe(true),
     )
     fireEvent.change(screen.getByLabelText("Namespace"), { target: { value: "acme/eng" } })
-    expect(await screen.findByText("Showing access at acme/eng.")).toBeTruthy()
+    expect(await screen.findByText("Roles and policies are shown at acme/eng. Assignments, relations and recent checks cover every namespace.")).toBeTruthy()
     const detail = sent.filter((s) => s.intent === "subjects.detail")
     expect(detail.at(-1)?.params).toEqual({
       subjectKind: "user",
@@ -190,13 +190,13 @@ describe("WardenSubjectDetailPage header", () => {
 
   it("does not ask while a namespace is half typed, and asks on blur", async () => {
     const { sent } = setup()
-    await screen.findByText("Showing access at /.")
+    await screen.findByText("Roles and policies are shown at /. Assignments, relations and recent checks cover every namespace.")
     const before = sent.filter((s) => s.intent === "subjects.detail").length
     const input = screen.getByLabelText("Namespace")
     fireEvent.change(input, { target: { value: "acme/en" } })
     expect(sent.filter((s) => s.intent === "subjects.detail").length).toBe(before)
     fireEvent.blur(input)
-    expect(await screen.findByText("Showing access at acme/en.")).toBeTruthy()
+    expect(await screen.findByText("Roles and policies are shown at acme/en. Assignments, relations and recent checks cover every namespace.")).toBeTruthy()
     expect(sent.filter((s) => s.intent === "subjects.detail").at(-1)?.params).toMatchObject({
       namespacePath: "acme/en",
     })
@@ -204,12 +204,12 @@ describe("WardenSubjectDetailPage header", () => {
 
   it("sends the root as an empty path when / is typed back", async () => {
     const { sent } = setup()
-    await screen.findByText("Showing access at /.")
+    await screen.findByText("Roles and policies are shown at /. Assignments, relations and recent checks cover every namespace.")
     const input = screen.getByLabelText("Namespace")
     fireEvent.change(input, { target: { value: "acme" } })
-    await screen.findByText("Showing access at acme.")
+    await screen.findByText("Roles and policies are shown at acme. Assignments, relations and recent checks cover every namespace.")
     fireEvent.change(input, { target: { value: "/" } })
-    await screen.findByText("Showing access at /.")
+    await screen.findByText("Roles and policies are shown at /. Assignments, relations and recent checks cover every namespace.")
     expect(sent.filter((s) => s.intent === "subjects.detail").at(-1)?.params).toMatchObject({
       namespacePath: "",
     })
@@ -217,7 +217,7 @@ describe("WardenSubjectDetailPage header", () => {
 
   it("links to the playground", async () => {
     setup()
-    const link = await screen.findByRole("link", { name: "Run a check as this subject" })
+    const link = await screen.findByRole("link", { name: "Open the playground" })
     expect(link.getAttribute("href")).toBe("/playground")
   })
 })
@@ -237,16 +237,25 @@ describe("roles section", () => {
     expect(editor.getByText("document:*")).toBeTruthy()
 
     const reader = within(roles.getByText("reader").closest("tr") as HTMLElement)
-    expect(reader.getByText("inherited from editor, auditor")).toBeTruthy()
+    expect(reader.getByText("held through editor, auditor")).toBeTruthy()
     expect(reader.getByText("document:read")).toBeTruthy()
   })
 
-  it("says a role with no permissions has none, and an assigned role is not called inherited", async () => {
+  it("says a role with no permissions has none, and an assigned role with no children reads as plain assigned", async () => {
     setup()
     const roles = within(await screen.findByRole("region", { name: "3 roles" }))
     const bare = within(roles.getByText("bare").closest("tr") as HTMLElement)
     expect(bare.getByLabelText("no permissions")).toBeTruthy()
-    expect(bare.queryByText(/inherited/)).toBeNull()
+    expect(bare.getByText("assigned")).toBeTruthy()
+    expect(bare.queryByText(/inherited|held through/)).toBeNull()
+  })
+
+  it("says an assigned role that another held role inherits is also held through it", async () => {
+    const role = { ...FULL.roles[0]!, via: "assigned", inheritedBy: ["admin", "auditor"] }
+    setup({ ...FULL, roles: [role] })
+    expect(
+      await screen.findByText("assigned, also held through admin, auditor"),
+    ).toBeTruthy()
   })
 
   it("is headed by the namespace and explains resource-scoped roles", async () => {
@@ -261,7 +270,7 @@ describe("roles section", () => {
 
   it("names the empty case", async () => {
     setup(EMPTY)
-    expect(await screen.findByText("This subject holds no role at /.")).toBeTruthy()
+    expect(await screen.findByText("No role reaches this subject at /. Assignments for a single resource, in another namespace, or already expired are listed below.")).toBeTruthy()
   })
 })
 
@@ -462,7 +471,7 @@ describe("a refused query", () => {
       PARAMS,
     )
     expect(await screen.findByText("Subject access unavailable")).toBeTruthy()
-    expect(screen.queryByText(/Showing access at/)).toBeNull()
+    expect(screen.queryByText(/Roles and policies are shown at/)).toBeNull()
     expect(screen.getByLabelText("Namespace")).toBeTruthy()
   })
 })

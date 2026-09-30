@@ -180,7 +180,7 @@ function SubjectAccess({ kind, id }: { kind: string; id: string }) {
             </datalist>
           </form>
           <PluginLink to="/playground" className={`text-sm ${LINK}`}>
-            Run a check as this subject
+            Open the playground
           </PluginLink>
         </div>
       </div>
@@ -190,7 +190,9 @@ function SubjectAccess({ kind, id }: { kind: string; id: string }) {
           <>
             {/* Inside the boundary: while a new namespace loads, or when the
                 read is refused, nothing is being shown at any namespace. */}
-            <p className={NOTE}>{`Showing access at ${at}.`}</p>
+            <p className={NOTE}>
+              {`Roles and policies are shown at ${at}. Assignments, relations and recent checks cover every namespace.`}
+            </p>
             <RolesSection roles={data.roles ?? []} at={at} />
             <AssignmentsSection
               rows={data.assignments ?? []}
@@ -248,9 +250,12 @@ function RolesSection({ roles, at }: { roles: SubjectRole[]; at: string }) {
       id: "via",
       header: "How it was reached",
       cell: (r) => {
-        if (r.via === "assigned") return "assigned"
         const by = r.inheritedBy ?? []
-        return by.length > 0 ? `inherited from ${by.join(", ")}` : "inherited"
+        const through = by.join(", ")
+        if (r.via === "assigned") {
+          return by.length > 0 ? `assigned, also held through ${through}` : "assigned"
+        }
+        return by.length > 0 ? `held through ${through}` : "inherited"
       },
     },
     {
@@ -267,7 +272,7 @@ function RolesSection({ roles, at }: { roles: SubjectRole[]; at: string }) {
         rows={roles}
         rowKey={(r) => r.id}
         caption={roles.length > 0 ? count(roles.length, "role", "roles") : undefined}
-        emptyMessage={`This subject holds no role at ${at}.`}
+        emptyMessage={`No role reaches this subject at ${at}. Assignments for a single resource, in another namespace, or already expired are listed below.`}
       />
       <p className={NOTE}>
         Roles assigned for one resource only are listed under assignments. They grant
