@@ -5,9 +5,11 @@ import {
   KeyRoundIcon,
   LayersIcon,
   RefreshCwIcon,
+  ScrollTextIcon,
   SlidersHorizontalIcon,
 } from "@forge-go/dashboard-kit/icons"
 import { lazy } from "react"
+import { AuditPage } from "./pages/audit"
 import { ConfigCreatePage } from "./pages/config-create"
 import { ConfigPage } from "./pages/config"
 import { FlagCreatePage } from "./pages/flag-create"
@@ -22,6 +24,7 @@ import { SecretDetailPage } from "./pages/secret-detail"
 import { SecretsPage } from "./pages/secrets"
 
 export {
+  AuditPage,
   ConfigCreatePage,
   ConfigPage,
   FlagCreatePage,
@@ -43,11 +46,14 @@ export {
   FlagTypeBadge,
   NeverMatchesBadge,
   NotReachedBadge,
+  OutcomeBadge,
   PolicyStatusBadge,
+  ResourceBadge,
   RotatorBadge,
   UnsupportedTypeBadge,
   WrongTypeBadge,
 } from "./badges"
+export { AUDIT_ACTIONS, AUDIT_RESOURCES } from "./audit-actions"
 export { ConfigValue } from "./components/config-value"
 export { FlagValue } from "./components/flag-value"
 export { ValueInput } from "./components/value-input"
@@ -124,6 +130,13 @@ export const vaultPlugin = definePlugin({
       icon: <LayersIcon />,
       group: "Config",
     },
+    {
+      label: "Audit",
+      to: "/audit",
+      priority: 50,
+      icon: <ScrollTextIcon />,
+      group: "Audit",
+    },
   ],
   routes: [
     { path: "/", element: OverviewPage },
@@ -147,6 +160,7 @@ export const vaultPlugin = definePlugin({
     { path: "/new-config", element: ConfigCreatePage },
     { path: "/config/:key", element: ConfigDetailPage },
     { path: "/overrides", element: OverridesPage },
+    { path: "/audit", element: AuditPage },
   ],
 })
 

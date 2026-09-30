@@ -8,7 +8,9 @@ import {
   FlagTypeBadge,
   NeverMatchesBadge,
   NotReachedBadge,
+  OutcomeBadge,
   PolicyStatusBadge,
+  ResourceBadge,
   RotatorBadge,
   UnsupportedTypeBadge,
   WrongTypeBadge,
@@ -140,5 +142,29 @@ describe("UnsupportedTypeBadge", () => {
     expect(badge().textContent).toBe("Unsupported type")
     expect(badge().className).toContain("bg-secondary")
     expect(badge().className).not.toContain("text-destructive")
+  })
+})
+
+describe("ResourceBadge", () => {
+  it("shows the resource in mono as a secondary", () => {
+    render(<ResourceBadge resource="rotation" />)
+    expect(badge().textContent).toBe("rotation")
+    expect(badge().className).toContain("bg-secondary")
+    expect(badge().className).toContain("font-mono")
+  })
+})
+
+describe("OutcomeBadge", () => {
+  it("is an outline for success, so the common case recedes", () => {
+    render(<OutcomeBadge outcome="success" />)
+    expect(badge().textContent).toBe("success")
+    expect(badge().className).toContain("border-border")
+    expect(badge().className).not.toContain("text-destructive")
+  })
+
+  it("is destructive for failure", () => {
+    render(<OutcomeBadge outcome="failure" />)
+    expect(badge().textContent).toBe("failure")
+    expect(badge().className).toContain("text-destructive")
   })
 })

@@ -71,6 +71,14 @@ describe("vaultPlugin", () => {
     }
   })
 
+  it("puts Audit in its own group at /audit with priority 50, and routes it", () => {
+    const audit = vaultPlugin.nav?.find((n) => n.label === "Audit")
+    expect(audit?.to).toBe("/audit")
+    expect(audit?.priority).toBe(50)
+    expect(audit?.group).toBe("Audit")
+    expect(vaultPlugin.routes.map((r) => r.path)).toContain("/audit")
+  })
+
   it("routes / to the overview, first in the nav, and keeps the secrets list at /secrets", () => {
     const overview = vaultPlugin.nav?.find((n) => n.label === "Overview")
     expect(overview?.to).toBe("/")

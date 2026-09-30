@@ -115,3 +115,29 @@ export function DecidedHereBadge() {
 export function NotReachedBadge() {
   return <Badge variant="secondary">Not reached</Badge>
 }
+
+/*
+ * Audit
+ *   The resource an entry is about is `secondary` in mono: a raw value
+ *   ("secret", "rotation") that labels the row and asks for no attention.
+ *   The outcome is `outline` for success and `destructive` for failure. Most
+ *   rows succeed, so the common case recedes and the failure an operator opens
+ *   the page to find stands out. An outcome the dashboard does not know is
+ *   shown as it came, `outline`, rather than dressed up as either.
+ */
+
+export function ResourceBadge({ resource }: { resource: string }) {
+  return (
+    <Badge variant="secondary" className="font-mono text-xs">
+      {resource}
+    </Badge>
+  )
+}
+
+export function OutcomeBadge({ outcome }: { outcome: string }) {
+  return (
+    <Badge variant={outcome === "failure" ? "destructive" : "outline"}>
+      {outcome}
+    </Badge>
+  )
+}
