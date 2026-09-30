@@ -204,6 +204,6 @@ and `plugins` in place of `items`. `DashboardShell` derives both from the
 areas, computes which rail entry is active, renders `AppSidebar` only for a
 multi-page plugin on desktop (always on mobile, where it is the sheet), and
 replaces `SiteHeader` with a new `ContentHeader` inside a rounded
-`SidebarInset`. `NavUser` gains `theme?: { value, onChange }`. The host passes
-the theme through from `ForgeDashboard`, and `apps/shell` hands it the theme
-provider's value in place of its header button.
+`SidebarInset`. `NavUser` reads the kit's own `useTheme` (next-themes) and
+shows the Theme submenu only when a theme provider is mounted, so nothing
+needs threading through the host. `apps/shell` drops its header button.
