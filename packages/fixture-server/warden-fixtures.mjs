@@ -278,10 +278,18 @@ function seedCheckLogs() {
   row(80, { namespacePath: "eng/platform", subjectId: "mallory", resourceId: "runbook", decision: "deny_relation", reason: "no relation grants user:mallory read access to document:runbook", evalTimeNs: 205_000, requestIp: "203.0.113.99", requestId: "req_7f3aa1" })
   row(85, { matchedBy: rbac("role_01hq", "document:read"), evalTimeNs: 2_100, cached: true, requestIp: "203.0.113.10", requestId: "req_7f3aa2" })
   row(90, { matchedBy: rbac("role_01hq", "document:read"), evalTimeNs: 1_900, cached: true, requestIp: "203.0.113.10", requestId: "req_7f3aa3" })
-  row(95, { namespacePath: "eng/platform", subjectKind: "service", subjectId: "deployer", action: "admin", resourceType: "cluster", resourceId: "prod", matchedBy: rebac("direct relation"), evalTimeNs: 233_000, requestId: "req_7f3aa4" })
+  // REBAC ALLOW through the namespace cascade: rel_01a lives at the tenant
+  // root and still grants bob viewer on document:readme when the check runs
+  // in eng/platform. Bob's only role, Platform admin, grants cluster:admin, so
+  // RBAC has nothing to say about a document and ReBAC is what allows it.
+  row(95, { namespacePath: "eng/platform", subjectId: "bob", action: "viewer", matchedBy: rebac("direct relation"), evalTimeNs: 233_000, requestIp: "10.4.2.21", requestId: "req_7f3aa4" })
   row(100, { subjectId: "erin", resourceId: "handbook", matchedBy: abac("wpol_staff-read-documents", "staff-read-documents", "allow"), evalTimeNs: 2_400, cached: true, requestIp: "10.4.2.17", requestId: "req_7f3aa5" })
   row(110, { subjectId: "carol", decision: "deny_no_roles", reason: noRoles("carol"), evalTimeNs: 99_000, requestIp: "10.4.2.25", requestId: "req_7f3aa6" })
-  row(120, { namespacePath: "eng/platform", resourceId: "runbook", matchedBy: rebac("expression: read"), evalTimeNs: 251_000, requestIp: "203.0.113.10", requestId: "req_7f3aa7" })
+  // REBAC ALLOW in eng/platform: rel_01d makes alice a viewer of the runbook.
+  // The action is the relation itself, "viewer", which no role grants (her
+  // Reader role holds document:read only, and it cascades down), so RBAC
+  // denies and the direct tuple allows.
+  row(120, { namespacePath: "eng/platform", subjectId: "alice", action: "viewer", resourceId: "runbook", matchedBy: rebac("direct relation"), evalTimeNs: 251_000, requestIp: "203.0.113.10", requestId: "req_7f3aa7" })
   row(130, { subjectId: "dave", action: "delete", decision: "deny_explicit", reason: 'denied by policy "contractor-lockout"', matchedBy: abac("wpol_contractor-lockout", "contractor-lockout", "deny"), obligations: ["audit"], evalTimeNs: 887_000, requestIp: "198.51.100.23", requestId: "req_7f3aa8", traceId: "9e107d9d372bb6826bd81d3542a419d6" })
   row(140, { namespacePath: "eng/platform", subjectKind: "service", subjectId: "deployer", action: "admin", resourceType: "cluster", resourceId: "prod", decision: "error", evalTimeNs: 0, error: "store unavailable" })
   row(150, { matchedBy: rbac("role_01hq", "document:read"), evalTimeNs: 405_000, requestIp: "203.0.113.10", requestId: "req_7f3aaa" })
