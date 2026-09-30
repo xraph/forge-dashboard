@@ -1427,13 +1427,17 @@ async function main() {
     const shared = body(await lc("features.detail", "query", { id: "feat_support_hours" }))
     check("a shared catalog feature is readable from the app", shared?.app_id === "", JSON.stringify(shared))
     const sharedWrite = await lc("features.update", "command", { id: "feat_support_hours", name: "x" })
-    check("a shared catalog feature is not writable from the app", sharedWrite.body?.error?.code === "NOT_FOUND", JSON.stringify(sharedWrite.body))
+    const sharedAfter = body(await lc("features.detail", "query", { id: "feat_support_hours" }))
+    check("a shared catalog feature is not writable from the app", sharedWrite.status === 404 && sharedWrite.body?.error?.code === "NOT_FOUND" && sharedWrite.body?.error?.message === "feature not found" && sharedAfter?.name === "Support hours", JSON.stringify({ write: sharedWrite.body, after: sharedAfter?.name }))
     const applyTwice = await lc("coupons.apply", "command", { subscription_id: "sub_acme", code: "LAUNCH20" })
     check("applying a coupon twice is 409 CONFLICT", applyTwice.body?.error?.code === "CONFLICT", JSON.stringify(applyTwice.body))
     const expired = await lc("coupons.apply", "command", { subscription_id: "sub_acme", code: "SPRING15" })
     check("a coupon not yet valid is 400 BAD_REQUEST", expired.body?.error?.code === "BAD_REQUEST", JSON.stringify(expired.body))
     const cleared = await lc("coupons.update", "command", { id: "cpn_launch20", valid_until: null })
     check("coupons.update with valid_until null clears it", body(cleared) !== undefined && !("valid_until" in body(cleared)), JSON.stringify(cleared.body))
+    const nulled = await lc("plans.update", "command", { id: "plan_pro", features: null, name: null })
+    const nulledDetail = body(await lc("plans.detail", "query", { id: "plan_pro" }))
+    check("a null update field leaves the plan alone", nulled.body?.ok === true && nulledDetail?.features?.length === 3 && nulledDetail?.name === "Pro", JSON.stringify({ update: nulled.body, features: nulledDetail?.features?.length, name: nulledDetail?.name }))
     await lc("plans.delete", "command", { id: body(created)?.id })
   }
 

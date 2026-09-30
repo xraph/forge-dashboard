@@ -525,30 +525,30 @@ function catalogHandlers(h) {
       handler: (input) => {
         const row = owned(ledger.plans, input?.id, "id", "plan")
         const stamp = iso(Date.now())
+        // A JSON null is "leave alone" for every field, as Go's pointer fields
+        // decode it, so presence is `!= null` throughout.
         // Everything is checked before anything is written, so a refusal
         // leaves the stored plan exactly as it was.
         const next = { ...row }
-        if (input.name !== undefined) next.name = requireText(input.name, "name")
-        if (input.slug !== undefined) {
+        if (input.name != null) next.name = requireText(input.name, "name")
+        if (input.slug != null) {
           next.slug = requireText(input.slug, "slug")
           if (slugTaken(row.app_id, next.slug, row.id)) throw conflict(`a plan with the slug "${next.slug}" already exists`)
         }
-        if (input.description !== undefined) next.description = text(input.description)
-        if (input.currency !== undefined && text(input.currency).toLowerCase() !== row.currency) throw badRequest("a plan's currency cannot change")
-        if (input.trial_days !== undefined) {
+        if (input.description != null) next.description = text(input.description)
+        if (input.currency != null && text(input.currency).toLowerCase() !== row.currency) throw badRequest("a plan's currency cannot change")
+        if (input.trial_days != null) {
           next.trial_days = wholeNumber(input.trial_days)
           if (next.trial_days < 0) throw badRequest("trial_days must not be negative")
         }
-        if (input.features !== undefined) next.features = planFeatures(input.features, stamp)
-        if (input.pricing !== undefined) {
+        if (input.features != null) next.features = planFeatures(input.features, stamp)
+        if (input.pricing != null) {
           const pricing = planPricing(input.pricing, row.id, row.currency, next.features, stamp)
-          if (pricing) next.pricing = pricing
-          else delete next.pricing
+          next.pricing = pricing
         }
-        if (input.metadata !== undefined) next.metadata = { ...(input.metadata ?? {}) }
+        if (input.metadata != null) next.metadata = { ...input.metadata }
         next.updated_at = stamp
         Object.assign(row, next)
-        if (input.pricing === null) delete row.pricing
         return clone(row)
       },
     },
@@ -643,18 +643,18 @@ function catalogHandlers(h) {
       handler: (input) => {
         const row = writableFeature(input?.id)
         const next = { ...row }
-        if (input.name !== undefined) next.name = requireText(input.name, "name")
-        if (input.description !== undefined) next.description = text(input.description)
-        if (input.default_limit !== undefined) {
+        if (input.name != null) next.name = requireText(input.name, "name")
+        if (input.description != null) next.description = text(input.description)
+        if (input.default_limit != null) {
           next.default_limit = wholeNumber(input.default_limit)
           if (next.default_limit < -1) throw badRequest("default_limit must be -1 for unlimited, or 0 and above")
         }
-        if (input.period !== undefined) {
+        if (input.period != null) {
           next.period = text(input.period)
           if (!PERIODS.includes(next.period)) throw badRequest(`unknown period "${next.period}"`)
         }
-        if (input.soft_limit !== undefined) next.soft_limit = input.soft_limit === true
-        if (input.metadata !== undefined) next.metadata = { ...(input.metadata ?? {}) }
+        if (input.soft_limit != null) next.soft_limit = input.soft_limit === true
+        if (input.metadata != null) next.metadata = { ...input.metadata }
         next.updated_at = iso(Date.now())
         Object.assign(row, next)
         return clone(row)
@@ -749,8 +749,8 @@ function catalogHandlers(h) {
       handler: (input) => {
         const row = owned(ledger.coupons, input?.id, "id", "coupon")
         const next = { ...row }
-        if (input.name !== undefined) next.name = text(input.name)
-        if (input.max_redemptions !== undefined) {
+        if (input.name != null) next.name = text(input.name)
+        if (input.max_redemptions != null) {
           next.max_redemptions = wholeNumber(input.max_redemptions)
           if (next.max_redemptions < 0) throw badRequest("max_redemptions must not be negative")
         }
@@ -762,7 +762,7 @@ function catalogHandlers(h) {
           else next[field] = iso(optionalTime(input[field], field))
         }
         couponWindow(next.valid_from ? Date.parse(next.valid_from) : undefined, next.valid_until ? Date.parse(next.valid_until) : undefined)
-        if (input.metadata !== undefined) next.metadata = { ...(input.metadata ?? {}) }
+        if (input.metadata != null) next.metadata = { ...input.metadata }
         next.updated_at = iso(Date.now())
         for (const key of Object.keys(row)) delete row[key]
         Object.assign(row, next)
