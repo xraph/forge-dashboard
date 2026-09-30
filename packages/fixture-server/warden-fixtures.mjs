@@ -30,15 +30,7 @@ function seedWardenState() {
   // opens the page, and "far out" stays far out for the length of a session.
   const inHours = (h) => new Date(Date.now() + h * 3600_000).toISOString()
 
-  // Spread out and distinct, newest first, matching the array order below.
-  // A real store bug (warden's memory store returns check logs
-  // oldest-first, and does not sort at all at committed HEAD) is invisible
-  // against a fixture where every row shares one timestamp: "recent" would
-  // show whatever the handler slices first regardless of ordering, and a
-  // regression there would pass this fixture silently.
-  const checkAt = [0, 5, 10, 15].map(
-    (minutesAgo) => new Date(Date.now() - minutesAgo * 60_000).toISOString()
-  )
+  const checkLogs = seedCheckLogs()
 
   return {
     roles: [
@@ -156,15 +148,12 @@ function seedWardenState() {
     // must show. Distinct createdAt values are the point: a fixture where
     // every row shares one timestamp cannot tell an ordering regression from
     // correct behaviour, because slicing from index 0 looks the same either
-    // way.
-    checkLogs: [
-      { id: "chk_01a", namespacePath: "", subjectKind: "user", subjectId: "alice", action: "read", resourceType: "document", resourceId: "readme", decision: "allow", reason: "", evalTimeNs: 412_000, cached: false, error: "", createdAt: checkAt[0] },
-      // Cached: the most common real answer to "why did my permission change
-      // not take effect", and the page's scan signal.
-      { id: "chk_01b", namespacePath: "", subjectKind: "user", subjectId: "alice", action: "read", resourceType: "document", resourceId: "readme", decision: "allow", reason: "", evalTimeNs: 1_800, cached: true, error: "", createdAt: checkAt[1] },
-      { id: "chk_01c", namespacePath: "", subjectKind: "user", subjectId: "dave", action: "delete", resourceType: "document", resourceId: "readme", decision: "deny_explicit", reason: 'denied by policy "contractor-lockout"', evalTimeNs: 902_000, cached: false, error: "", createdAt: checkAt[2] },
-      { id: "chk_01d", namespacePath: "eng/platform", subjectKind: "service", subjectId: "deployer", action: "admin", resourceType: "cluster", resourceId: "prod", decision: "error", reason: "", evalTimeNs: 0, cached: false, error: "store unavailable", createdAt: checkAt[3] },
-    ],
+    // way. See seedCheckLogs for what each row is for.
+    checkLogs,
+    // The engine's count of decided checks that left no row. Since is two
+    // hours before the newest row, so the page's loss line has a window to
+    // print. checkLogs.list reports it only while checkLogEnabled is true.
+    checkLogLoss: { queueFull: 3, writeFailed: 1, since: rfc3339(Date.parse(checkLogs[0].createdAt) - 2 * 3600_000) },
     config: {
       maxGraphDepth: 10,
       maxGraphVisited: 5000,
@@ -183,6 +172,114 @@ function seedWardenState() {
       maintenanceIntervalMinutes: 60,
     },
   }
+}
+
+/**
+ * The check log, newest first. Thirty rows, so the list pages at 25 and the
+ * second page has five. Every id has the shape of a real check log TypeID
+ * (prefix chklog, 26 characters of lowercase Crockford base32), because the
+ * Go handler refuses anything else with BAD_REQUEST and a hand check should
+ * be able to tell that refusal from a NOT_FOUND. The last two digits are the
+ * row's position, 01 the newest.
+ *
+ * createdAt is whole seconds and distinct on every row, so ordering, the
+ * inclusive after/before bounds and the recent-checks slice can each be told
+ * from a wrong answer. Rule ids name rows that exist in the seed's roles and
+ * policies, except where a row says otherwise.
+ *
+ * A function declaration on purpose: seedWardenState calls it before any
+ * const further down the module has been initialised.
+ */
+function seedCheckLogs() {
+  const base = Math.floor(Date.now() / 1000) * 1000
+  const rows = []
+  let n = 0
+  const row = (minutesAgo, fields) => {
+    n++
+    rows.push({
+      id: "chklog_01jzq8v4m2wardenfx000000" + String(n).padStart(2, "0"),
+      namespacePath: "",
+      appId: "app_dashboard",
+      subjectKind: "user",
+      subjectId: "alice",
+      action: "read",
+      resourceType: "document",
+      resourceId: "readme",
+      decision: "allow",
+      reason: "",
+      matchedBy: [],
+      obligations: [],
+      evalTimeNs: 400_000,
+      requestIp: "",
+      requestId: "",
+      traceId: "",
+      cached: false,
+      error: "",
+      // Minutes apart, plus a per-row second offset so no two rows sit on a
+      // round minute together.
+      createdAt: new Date(base - minutesAgo * 60_000 - ((n * 7) % 41) * 1000).toISOString().replace(/\.\d{3}Z$/, "Z"),
+      ...fields,
+    })
+  }
+
+  // The three matched-by shapes, one per evaluator.
+  const rbac = (roleId, perm) => [{ source: "rbac", ruleId: roleId, detail: "role grants " + perm }]
+  const abac = (policyId, name, effect) => [{ source: "abac", ruleId: policyId, detail: `policy "${name}" (${effect})` }]
+  const rebac = (detail) => [{ source: "rebac", ruleId: "", detail }]
+
+  // RBAC ALLOW naming a role that exists (Reader). The trace id and both
+  // correlation ids are set, so the detail page's correlation block is full.
+  row(0, { matchedBy: rbac("role_01hq", "document:read"), evalTimeNs: 412_000, requestIp: "203.0.113.10", requestId: "req_7f3a91", traceId: "4bf92f3577b34da6a3ce929d0e0e4736" })
+  // CACHED ALLOW: the most common real answer to "why did my permission
+  // change not take effect", and the page's scan signal. No trace id, so a
+  // detail with the block half empty is reachable.
+  row(5, { matchedBy: rbac("role_01hq", "document:read"), evalTimeNs: 1_800, cached: true, requestIp: "203.0.113.10", requestId: "req_7f3a92" })
+  // ABAC DENY_EXPLICIT with an obligation, naming a policy that exists.
+  row(10, { subjectId: "dave", action: "delete", decision: "deny_explicit", reason: 'denied by policy "contractor-lockout"', matchedBy: abac("wpol_contractor-lockout", "contractor-lockout", "deny"), obligations: ["audit"], evalTimeNs: 902_000, requestIp: "198.51.100.23", requestId: "req_7f3a93", traceId: "0af7651916cd43dd8448eb211c80319c" })
+  // ERROR, in eng/platform. No matched rules and no correlation ids: the
+  // engine failed before it had either.
+  row(15, { namespacePath: "eng/platform", subjectKind: "service", subjectId: "deployer", action: "admin", resourceType: "cluster", resourceId: "prod", decision: "error", evalTimeNs: 0, error: "store unavailable" })
+  // RBAC ALLOW in eng/platform, naming Platform admin.
+  row(20, { namespacePath: "eng/platform", subjectId: "bob", action: "admin", resourceType: "cluster", resourceId: "prod", matchedBy: rbac("role_01hr", "cluster:admin"), evalTimeNs: 388_000, requestIp: "10.4.2.21", requestId: "req_7f3a95" })
+  // ABAC ALLOW with no obligations.
+  row(25, { subjectId: "erin", resourceId: "handbook", matchedBy: abac("wpol_staff-read-documents", "staff-read-documents", "allow"), evalTimeNs: 655_000, requestIp: "10.4.2.17", requestId: "req_7f3a96" })
+  // ABAC ALLOW with obligations, naming the policy that carries them.
+  row(30, { subjectId: "frank", resourceType: "cluster", resourceId: "staging", matchedBy: abac("wpol_after-hours-approval", "after-hours-approval", "allow"), obligations: ["log", "notify:security"], evalTimeNs: 721_000, requestIp: "192.0.2.44", requestId: "req_7f3a97", traceId: "5b8aa5a2d2c872e8321cf37308d69df2" })
+  // REBAC ALLOW with no ruleId: a tuple has no rule id to name.
+  row(35, { subjectId: "bob", matchedBy: rebac("direct relation"), evalTimeNs: 240_000, requestIp: "10.4.2.21", requestId: "req_7f3a98" })
+  // REBAC ALLOW through a userset (group:eng#member is an editor).
+  row(40, { subjectId: "gina", matchedBy: rebac("expression: read"), evalTimeNs: 1_120_000, requestIp: "10.4.2.30", requestId: "req_7f3a99" })
+  // DENY_NO_ROLES: empty matchedBy, the "nothing matched" shape.
+  row(45, { subjectId: "mallory", decision: "deny_no_roles", reason: "subject holds no roles", evalTimeNs: 96_000, requestIp: "203.0.113.99", requestId: "req_7f3a9a" })
+  // DENY_NO_ROLES for carol, whose only assignment has expired.
+  row(50, { subjectId: "carol", decision: "deny_no_roles", reason: "subject holds no roles", evalTimeNs: 101_000, requestIp: "10.4.2.25", requestId: "req_7f3a9b" })
+  // DENY_DEFAULT: roles, but nothing allowed the request.
+  row(55, { subjectId: "dave", resourceId: "q3", resourceType: "report", decision: "deny_default", reason: "no rule allowed the request", evalTimeNs: 310_000, requestIp: "198.51.100.23", requestId: "req_7f3a9c" })
+  row(60, { action: "delete", decision: "deny_default", reason: "no rule allowed the request", evalTimeNs: 298_000, requestIp: "203.0.113.10", requestId: "req_7f3a9d" })
+  // A DELETED RULE: an allow that names a role id that exists nowhere in
+  // this fixture (role_01hx), the row the detail page's rule link has to
+  // read honestly about. Its permission text still says what it granted.
+  row(65, { action: "write", matchedBy: rbac("role_01hx", "document:write"), evalTimeNs: 377_000, requestIp: "203.0.113.10", requestId: "req_7f3a9e" })
+  row(70, { subjectId: "erin", action: "export", resourceType: "report", resourceId: "q3", decision: "deny_no_perms", reason: "roles held grant no matching permission", evalTimeNs: 187_000, requestIp: "10.4.2.17", requestId: "req_7f3a9f" })
+  // DENY_CONDITION: a policy matched and its condition did not hold.
+  row(75, { namespacePath: "eng/platform", subjectId: "dave", action: "deploy", resourceType: "cluster", resourceId: "prod", decision: "deny_condition", reason: "condition context.hour gte 18 was not met", matchedBy: abac("wpol_after-hours-approval", "after-hours-approval", "allow"), evalTimeNs: 540_000, requestIp: "198.51.100.23", requestId: "req_7f3aa0" })
+  // DENY_RELATION, in eng/platform.
+  row(80, { namespacePath: "eng/platform", subjectId: "mallory", resourceId: "runbook", decision: "deny_relation", reason: "no relation grants read", evalTimeNs: 205_000, requestIp: "203.0.113.99", requestId: "req_7f3aa1" })
+  row(85, { matchedBy: rbac("role_01hq", "document:read"), evalTimeNs: 2_100, cached: true, requestIp: "203.0.113.10", requestId: "req_7f3aa2" })
+  row(90, { matchedBy: rbac("role_01hq", "document:read"), evalTimeNs: 1_900, cached: true, requestIp: "203.0.113.10", requestId: "req_7f3aa3" })
+  row(95, { namespacePath: "eng/platform", subjectKind: "service", subjectId: "deployer", action: "deploy", resourceType: "cluster", resourceId: "prod", matchedBy: rebac("direct relation"), evalTimeNs: 233_000, requestId: "req_7f3aa4" })
+  row(100, { subjectId: "erin", resourceId: "handbook", matchedBy: abac("wpol_staff-read-documents", "staff-read-documents", "allow"), evalTimeNs: 2_400, cached: true, requestIp: "10.4.2.17", requestId: "req_7f3aa5" })
+  row(110, { subjectId: "carol", decision: "deny_no_roles", reason: "subject holds no roles", evalTimeNs: 99_000, requestIp: "10.4.2.25", requestId: "req_7f3aa6" })
+  row(120, { namespacePath: "eng/platform", resourceId: "runbook", matchedBy: rebac("direct relation"), evalTimeNs: 251_000, requestIp: "203.0.113.10", requestId: "req_7f3aa7" })
+  row(130, { subjectId: "dave", action: "delete", decision: "deny_explicit", reason: 'denied by policy "contractor-lockout"', matchedBy: abac("wpol_contractor-lockout", "contractor-lockout", "deny"), obligations: ["audit"], evalTimeNs: 887_000, requestIp: "198.51.100.23", requestId: "req_7f3aa8", traceId: "9e107d9d372bb6826bd81d3542a419d6" })
+  row(140, { namespacePath: "eng/platform", subjectKind: "service", subjectId: "deployer", action: "admin", resourceType: "cluster", resourceId: "prod", decision: "error", evalTimeNs: 0, error: "store unavailable" })
+  row(150, { matchedBy: rbac("role_01hq", "document:read"), evalTimeNs: 405_000, requestIp: "203.0.113.10", requestId: "req_7f3aaa" })
+  // On-call inherits Platform admin's grants, so this names the child role.
+  row(165, { namespacePath: "eng/platform", subjectId: "bob", action: "admin", resourceType: "cluster", resourceId: "prod", matchedBy: rbac("role_01ht", "cluster:admin"), evalTimeNs: 402_000, requestIp: "10.4.2.21", requestId: "req_7f3aab" })
+  row(180, { action: "write", matchedBy: rbac("role_01hx", "document:write"), evalTimeNs: 371_000, requestIp: "203.0.113.10", requestId: "req_7f3aac" })
+  row(200, { subjectId: "frank", resourceType: "cluster", resourceId: "staging", matchedBy: abac("wpol_after-hours-approval", "after-hours-approval", "allow"), obligations: ["log", "notify:security"], evalTimeNs: 2_600, cached: true, requestIp: "192.0.2.44", requestId: "req_7f3aad" })
+  row(220, { subjectId: "mallory", action: "delete", decision: "deny_default", reason: "no rule allowed the request", evalTimeNs: 289_000, requestIp: "203.0.113.99", requestId: "req_7f3aae" })
+  return rows
 }
 
 /**
@@ -2537,6 +2634,90 @@ function draftAndParts(patch) {
 }
 
 
+// ---------------------------------------------------------------------------
+// Check log helpers: the projection shared by overview.recentChecks and
+// checkLogs.list, the detail projection, and the decision set the list filter
+// accepts.
+// ---------------------------------------------------------------------------
+
+/**
+ * knownDecisions in handlers_checklogs.go: every value the engine writes.
+ * A filter outside it can only match nothing, and an empty page that reads
+ * as "nothing happened" is worse than a refusal.
+ */
+const KNOWN_DECISIONS = new Set([
+  "allow", "deny", "deny_explicit", "deny_default", "deny_no_roles",
+  "deny_no_perms", "deny_condition", "deny_relation", "error",
+])
+
+/** The store's check log order: newest first, id descending as the tiebreak. */
+function newestFirst(rows) {
+  return [...rows].sort((a, b) => {
+    const d = Date.parse(b.createdAt) - Date.parse(a.createdAt)
+    return d !== 0 ? d : a.id < b.id ? 1 : a.id > b.id ? -1 : 0
+  })
+}
+
+/**
+ * projectCheckLog in handlers_overview.go: CheckLogSummary's keys and no
+ * others. reason and error carry omitempty in Go, so an empty one is absent,
+ * not "". createdAt is UTC RFC 3339 in whole seconds.
+ */
+function projectCheckLog(e) {
+  const out = {
+    id: e.id,
+    namespacePath: e.namespacePath,
+    subjectKind: e.subjectKind,
+    subjectId: e.subjectId,
+    action: e.action,
+    resourceType: e.resourceType,
+    resourceId: e.resourceId,
+    decision: e.decision,
+  }
+  if (e.reason) out.reason = e.reason
+  out.evalTimeNs = e.evalTimeNs
+  out.cached = e.cached
+  if (e.error) out.error = e.error
+  out.createdAt = rfc3339(e.createdAt)
+  return out
+}
+
+/**
+ * CheckLogDetail: the summary plus what an auditor needs. matchedBy and
+ * obligations are always arrays; the rest carry omitempty.
+ */
+function projectCheckLogDetail(e) {
+  const out = projectCheckLog(e)
+  if (e.appId) out.appId = e.appId
+  out.matchedBy = e.matchedBy.map((m) => {
+    const match = { source: m.source }
+    if (m.ruleId) match.ruleId = m.ruleId
+    if (m.detail) match.detail = m.detail
+    return match
+  })
+  out.obligations = [...e.obligations]
+  if (e.requestIp) out.requestIp = e.requestIp
+  if (e.requestId) out.requestId = e.requestId
+  if (e.traceId) out.traceId = e.traceId
+  return out
+}
+
+/**
+ * parseInstant in handlers_checklogs.go. Empty is unbounded (null). The
+ * strict RFC 3339 parser stands in for Date.parse: Date.parse takes
+ * "2030-01-01" and other shapes time.Parse refuses, and a fixture that
+ * forgives them would hide the refusal.
+ */
+function parseInstant(field, raw) {
+  if (raw === "") return null
+  const ms = parseRFC3339(raw)
+  if (ms === null) throw badRequest(`${field} is not an RFC 3339 time: ${raw}`)
+  return ms
+}
+
+/** A check log id is prefix chklog and a 26 character base32 suffix whose first digit is 0 to 7. */
+const CHECK_LOG_ID = /^chklog_[0-7][0-9a-hjkmnp-tv-z]{25}$/
+
 export const wardenHandlers = {
   "config.detail": {
     kind: "query",
@@ -2556,7 +2737,9 @@ export const wardenHandlers = {
   "overview.recentChecks": {
     kind: "query",
     handler: (params) => ({
-      checks: warden.checkLogs.slice(0, params?.limit > 0 ? params.limit : 10),
+      checks: newestFirst(warden.checkLogs)
+        .slice(0, params?.limit > 0 ? params.limit : 10)
+        .map(projectCheckLog),
     }),
   },
   "namespaces.list": {
@@ -3277,6 +3460,75 @@ export const wardenHandlers = {
   // on WardenFixtureError.
   // -------------------------------------------------------------------------
 
+  "checkLogs.list": {
+    kind: "query",
+    handler: (params) => {
+      // The whole request decodes before any check runs, as it does in Go.
+      const S = "CheckLogsListInput"
+      const nsAbsent = params?.namespacePath === undefined || params?.namespacePath === null
+      const namespacePath = nsAbsent ? null : decodeString(params.namespacePath, S, "namespacePath")
+      const subjectKind = decodeString(params?.subjectKind, S, "subjectKind")
+      const subjectId = decodeString(params?.subjectId, S, "subjectId")
+      const action = decodeString(params?.action, S, "action")
+      const resourceType = decodeString(params?.resourceType, S, "resourceType")
+      const resourceId = decodeString(params?.resourceId, S, "resourceId")
+      const decision = decodeString(params?.decision, S, "decision")
+      const cachedRaw = params?.cached
+      if (cachedRaw !== undefined && cachedRaw !== null && typeof cachedRaw !== "boolean") {
+        throw decodeFail(S, "cached", cachedRaw, "bool")
+      }
+      const afterRaw = decodeString(params?.after, S, "after")
+      const beforeRaw = decodeString(params?.before, S, "before")
+      const paging = {
+        limit: decodeInt(params?.limit, S, "limit"),
+        offset: decodeInt(params?.offset, S, "offset"),
+      }
+
+      if (decision !== "" && !KNOWN_DECISIONS.has(decision)) {
+        throw badRequest("decision is not one warden records: " + decision)
+      }
+      const after = parseInstant("after", afterRaw)
+      const before = parseInstant("before", beforeRaw)
+      if (after !== null && before !== null && after > before) {
+        throw badRequest("after is later than before")
+      }
+
+      // Every filter is an exact match and they combine with AND. Both time
+      // bounds are inclusive, compared on the row's own createdAt.
+      const rows = newestFirst(warden.checkLogs).filter((e) => {
+        if (namespacePath !== null && e.namespacePath !== namespacePath) return false
+        if (subjectKind !== "" && e.subjectKind !== subjectKind) return false
+        if (subjectId !== "" && e.subjectId !== subjectId) return false
+        if (action !== "" && e.action !== action) return false
+        if (resourceType !== "" && e.resourceType !== resourceType) return false
+        if (resourceId !== "" && e.resourceId !== resourceId) return false
+        if (decision !== "" && e.decision !== decision) return false
+        if (typeof cachedRaw === "boolean" && e.cached !== cachedRaw) return false
+        const at = Date.parse(e.createdAt)
+        if (after !== null && at < after) return false
+        if (before !== null && at > before) return false
+        return true
+      })
+
+      const page = pageOf(rows, paging)
+      const out = { ...page, items: page.items.map(projectCheckLog) }
+      // Absent, not zeroed, when check logging is off.
+      if (warden.config.checkLogEnabled) out.notRecorded = { ...warden.checkLogLoss }
+      return out
+    },
+  },
+  "checkLogs.detail": {
+    kind: "query",
+    handler: (params) => {
+      const raw = decodeString(params?.id, "CheckLogDetailInput", "id")
+      if (!CHECK_LOG_ID.test(raw)) throw badRequest("not a check log id: " + raw)
+      const e = warden.checkLogs.find((x) => x.id === raw)
+      if (!e) {
+        throw new WardenFixtureError(404, "NOT_FOUND", `check log ${raw}: warden: check log not found: warden: not found`)
+      }
+      return projectCheckLogDetail(e)
+    },
+  },
   "policies.list": {
     kind: "query",
     handler: (params) => {
