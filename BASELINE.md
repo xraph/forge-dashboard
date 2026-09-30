@@ -227,10 +227,10 @@ Chronicle's eighteen pages cost 72.94 KB raw and 20.11 KB gzip in the eager
 set.
 
 The first build with chronicle mounted was a lot worse: the eager set was
-1,631.83 KB raw and 463.96 KB gzip, 419 KB and 123 KB gzip above the build
-without it. The Activity page imported the kit's chart statically, and the
-chart is recharts, so every operator paid for it whether or not they ever
-opened Activity. The entry held 84 `recharts` strings and the build without
+1,631.83 KB raw and 463.96 KB gzip, 418.51 KB raw and 121.95 KB gzip above
+the build without it. The Activity page imported the kit's chart statically,
+and the chart is recharts, so every operator paid for it whether or not they
+ever opened Activity. The entry held 84 `recharts` strings and the build without
 chronicle held none. Activity is a `lazy()` route now, and a test in the
 plugin fails if anything else there imports the chart.
 
