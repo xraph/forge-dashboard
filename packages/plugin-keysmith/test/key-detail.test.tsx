@@ -127,6 +127,46 @@ describe("KeyDetailPage validity", () => {
     ).toBeTruthy()
   })
 
+  it("says each previous key has its own cutoff when there are several", async () => {
+    await render(
+      detail({
+        previousKeys: [
+          ...DETAIL.previousKeys,
+          {
+            rotationId: "krot_2",
+            hint: "19d4",
+            reason: "manual",
+            rotatedAt: "2026-09-28T10:00:00Z",
+            graceEnds: "2026-10-01T10:00:00Z",
+          },
+        ],
+      }),
+    )
+    const s = section("Validity")
+    expect(within(s).getByText("sk_live_…19d4")).toBeTruthy()
+    expect(
+      within(s).getByText(
+        "The current key and each previous key are accepted until the time shown next to it.",
+      ),
+    ).toBeTruthy()
+    expect(within(s).queryByText(/^Both the current key/)).toBeNull()
+  })
+
+  it.each(["suspended", "expired", "revoked"] as const)(
+    "says neither key is accepted while the key is %s",
+    async (state) => {
+      await render(detail({ key: key({ state, effectiveState: state }) }))
+      const s = section("Validity")
+      expect(within(s).getByText("sk_live_…7c1e")).toBeTruthy()
+      expect(
+        within(s).getByText(
+          `Neither the current key nor a previous key is accepted while this key is ${state}. The window keeps running and ends at the time shown.`,
+        ),
+      ).toBeTruthy()
+      expect(within(s).queryByText(/accepted until/)).toBeNull()
+    },
+  )
+
   it("uses the current key's prefix and environment for the previous key", async () => {
     await render(
       detail({

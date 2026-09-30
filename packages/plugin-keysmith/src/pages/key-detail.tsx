@@ -15,7 +15,7 @@ import { Timestamp } from "@forge-go/dashboard-kit/components/timestamp"
 import { formatTimestamp } from "@forge-go/dashboard-kit/lib/format"
 import { KeyStateBadge } from "../badges"
 import { formatDuration, maskedKey } from "../format"
-import type { KeyDetail } from "../types"
+import type { KeyDetail, KeyState } from "../types"
 
 /**
  * The detail page for one key. Read-only in this slice.
@@ -160,12 +160,27 @@ function ValiditySection({ data }: { data: KeyDetail }) {
             ))}
           </ul>
           <p className="text-sm text-muted-foreground">
-            Both the current key and this previous key are accepted until then.
+            {validitySentence(key.effectiveState, previous.length)}
           </p>
         </>
       )}
     </Section>
   )
+}
+
+/**
+ * What an open window means for this key. ValidateKey checks the key's own
+ * state and expiry whichever hash is presented, and suspending a key does not
+ * end its windows, so on a key that is not active neither hash is accepted
+ * even though the window is still open.
+ */
+function validitySentence(state: KeyState, count: number): string {
+  if (state !== "active") {
+    return `Neither the current key nor a previous key is accepted while this key is ${state}. The window keeps running and ends at the time shown.`
+  }
+  return count === 1
+    ? "Both the current key and this previous key are accepted until then."
+    : "The current key and each previous key are accepted until the time shown next to it."
 }
 
 function DetailsSection({ data }: { data: KeyDetail }) {
