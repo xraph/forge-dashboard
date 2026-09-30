@@ -1083,6 +1083,7 @@ function catalogHandlers(h) {
           active_plans: plans.filter((p) => p.status === "active").length,
           subscriptions_by_status: byStatus,
           pending_invoices: ledger.invoices.filter((i) => i.app_id === app && i.status === "pending").length,
+          past_due_invoices: ledger.invoices.filter((i) => i.app_id === app && i.status === "past_due").length,
           coupons: ledger.coupons.filter((c) => c.app_id === app).length,
           capped: false,
         }
@@ -1106,6 +1107,7 @@ function catalogHandlers(h) {
         meter_batch_size: 100,
         meter_flush_interval: "5s",
         entitlement_cache_ttl: "1m0s",
+        lifecycle_interval: "1m0s",
         app_id: currentApp(),
         require_app_claim: false,
         providers: providerConfigured() ? [PROVIDER] : [],
@@ -1113,6 +1115,35 @@ function catalogHandlers(h) {
       }),
     },
   }
+}
+
+/** Days in a UTC month. */
+const daysIn = (y, m) => new Date(Date.UTC(y, m + 1, 0)).getUTCDate()
+
+/**
+ * As the engine's shiftMonths in lifecycle.go: the time months after ms
+ * (before it, when negative), on day, clamped to that month's last day, at
+ * the same time of day, in UTC.
+ */
+function shiftMonths(ms, months, day) {
+  const d = new Date(ms)
+  const first = new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth() + months, 1))
+  const y = first.getUTCFullYear()
+  const m = first.getUTCMonth()
+  return Date.UTC(y, m, Math.min(day, daysIn(y, m)), d.getUTCHours(), d.getUTCMinutes(), d.getUTCSeconds(), d.getUTCMilliseconds())
+}
+
+/** As the engine's anchorDay: the end's day, unless a short month clamped it. */
+function anchorDay(startMs, endMs) {
+  const s = new Date(startMs)
+  const e = new Date(endMs)
+  const d = e.getUTCDate()
+  return d === daysIn(e.getUTCFullYear(), e.getUTCMonth()) && s.getUTCDate() > d ? s.getUTCDate() : d
+}
+
+/** As the engine's firstPeriodEnd: one month on (twelve for yearly), on the start's day. */
+function firstPeriodEnd(startMs, billingPeriod) {
+  return shiftMonths(startMs, billingPeriod === "yearly" ? 12 : 1, new Date(startMs).getUTCDate())
 }
 
 function billingHandlers(h) {
@@ -1152,6 +1183,48 @@ function billingHandlers(h) {
     if (period === "yearly") return Date.UTC(d.getUTCFullYear(), 0, 1)
     return 0
   }
+  /** A named period's usage from its own events, [start, end), as the engine's usageInPeriod. */
+  function usedBetween(sub, key, startMs, endMs) {
+    return ledger.events
+      .filter((e) => e.tenant_id === sub.tenant_id && e.app_id === sub.app_id && e.feature_key === key)
+      .filter((e) => {
+        const t = Date.parse(e.timestamp)
+        return t >= startMs && t < endMs
+      })
+      .reduce((sum, e) => sum + e.quantity, 0)
+  }
+
+  /**
+   * The period invoices.generate bills, as the engine's namedPeriod and
+   * periodBelongsTo in invoice_period.go: the current period, unless
+   * period_start and period_end both name one the subscription had.
+   */
+  function billedPeriod(sub, p, input) {
+    const current = { startMs: Date.parse(sub.current_period_start), endMs: Date.parse(sub.current_period_end), named: false }
+    const hasStart = input?.period_start != null
+    const hasEnd = input?.period_end != null
+    if (!hasStart && !hasEnd) return current
+    if (!hasStart || !hasEnd) throw badRequest("period_start and period_end go together")
+    const startMs = Date.parse(input.period_start)
+    const endMs = Date.parse(input.period_end)
+    if (Number.isNaN(startMs) || Number.isNaN(endMs)) throw badRequest("period_start and period_end must be RFC 3339 times")
+    if (startMs === current.startMs && endMs === current.endMs) return current
+    const refuse = () => badRequest(`ledger: invalid input: subscription ${sub.id} had no billing period from ${iso(startMs)} to ${iso(endMs)}`)
+    if (!(startMs < endMs) || startMs > Date.now() || !(endMs > Date.parse(sub.created_at))) throw refuse()
+    const period = p.pricing?.billing_period || "monthly"
+    if (period !== "monthly" && period !== "yearly") throw refuse()
+    const months = period === "yearly" ? 12 : 1
+    const day = anchorDay(current.startMs, current.endMs)
+    let start = current.startMs
+    for (let i = 0; i < 1200; i++) {
+      if (start < endMs) throw refuse()
+      const end = start
+      start = shiftMonths(start, -months, day)
+      if (start === startMs && end === endMs) return { startMs, endMs, named: true }
+    }
+    throw refuse()
+  }
+
   function usedFor(tenant, app, key, period) {
     const nowMs = Date.now()
     const from = periodStart(period, nowMs)
@@ -1333,7 +1406,7 @@ function billingHandlers(h) {
         const quantity = checkQuantity(input?.quantity, p)
         const nowMs = Date.now()
         const stamp = iso(nowMs)
-        const row = { id: ledger.nextId("sub"), tenant_id: tenant, plan_id: p.id, status: p.trial_days > 0 ? "trialing" : "active", current_period_start: stamp, current_period_end: iso(nowMs + 30 * DAY), app_id: app, created_at: stamp, updated_at: stamp }
+        const row = { id: ledger.nextId("sub"), tenant_id: tenant, plan_id: p.id, status: p.trial_days > 0 ? "trialing" : "active", current_period_start: stamp, current_period_end: iso(firstPeriodEnd(nowMs, p.pricing?.billing_period)), app_id: app, created_at: stamp, updated_at: stamp }
         if (p.trial_days > 0) {
           row.trial_start = stamp
           row.trial_end = iso(nowMs + p.trial_days * DAY)
@@ -1520,12 +1593,13 @@ function billingHandlers(h) {
         const sub = loadSub(input?.subscription_id, "subscription_id")
         const p = ledger.plans.find((x) => x.id === sub.plan_id)
         if (!p) throw notFound("plan")
+        const period = billedPeriod(sub, p, input)
         const live = ledger.invoices.find(
-          (i) => i.subscription_id === sub.id && i.period_start === sub.current_period_start && i.period_end === sub.current_period_end && i.status !== "voided",
+          (i) => i.subscription_id === sub.id && Date.parse(i.period_start) === period.startMs && Date.parse(i.period_end) === period.endMs && i.status !== "voided",
         )
         if (live) throw conflict("an invoice already exists for this subscription's current period")
         const metered = p.features.find((f) => f.key === "api_calls" && f.type === "metered")
-        const used = metered ? usedFor(sub.tenant_id, sub.app_id, "api_calls", metered.period) : 0
+        const used = !metered ? 0 : period.named ? usedBetween(sub, "api_calls", period.startMs, period.endMs) : usedFor(sub.tenant_id, sub.app_id, "api_calls", metered.period)
         const overageQty = metered && metered.limit > 0 && used > metered.limit ? used - metered.limit : 0
         const percentCoupon = ledger.applied
           .filter((a) => a.subscription_id === sub.id)
@@ -1536,8 +1610,8 @@ function billingHandlers(h) {
           id: ledger.nextId("inv"),
           sub,
           plan: p,
-          periodStartMs: Date.parse(sub.current_period_start),
-          periodEndMs: Date.parse(sub.current_period_end),
+          periodStartMs: period.startMs,
+          periodEndMs: period.endMs,
           status: "draft",
           overageQty,
           discountPercent: percentCoupon?.percentage ?? 0,
