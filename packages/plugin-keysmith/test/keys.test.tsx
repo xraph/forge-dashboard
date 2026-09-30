@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest"
 import { fireEvent, screen, within } from "@testing-library/react"
 import { ContractError } from "@forge-go/dashboard-plugin"
+import type { ScopedClient } from "@forge-go/dashboard-plugin"
 import { KeysPage } from "../src/pages/keys"
 import { keyPath } from "../src/format"
 import type { KeySummary } from "../src/types"
@@ -82,6 +83,24 @@ const MOBILE = key({
 })
 
 const LIST = { keys: [BILLING, REPORTING, WEBHOOK, PARTNER, MOBILE], total: 5 }
+
+/** A client whose keys.list answer depends on the params it was sent. */
+function stubClientByParams(
+  answer: (params: Record<string, unknown>) => unknown,
+): ScopedClient {
+  return {
+    extension: "keysmith",
+    query: async (intent: string, params?: Record<string, unknown>) => {
+      if (intent !== "keys.list") {
+        throw new ContractError("NOT_FOUND", `no handler for intent "${intent}"`)
+      }
+      return answer(params ?? {})
+    },
+    command: async () => {
+      throw new ContractError("NOT_FOUND", "no commands")
+    },
+  } as ScopedClient
+}
 
 function rowFor(name: string): HTMLElement {
   const row = screen
@@ -266,14 +285,54 @@ describe("KeysPage", () => {
     expect(params).toContainEqual({ limit: 25, offset: 25 })
   })
 
-  it("keeps the filters on screen when a filter matches nothing", async () => {
-    renderPage(
-      KeysPage,
-      stubClient({ "keys.list": { keys: [], total: 0 } }),
+  it("says no keys match when a filter finds nothing, and keeps the filters", async () => {
+    const client = stubClientByParams((params) =>
+      params.state === "revoked"
+        ? { keys: [], total: 0 }
+        : { keys: LIST.keys, total: 5 },
     )
+    renderPage(KeysPage, client)
+    await screen.findByText("Reporting export")
+
+    fireEvent.change(screen.getByLabelText("State"), {
+      target: { value: "revoked" },
+    })
+    expect(await screen.findByText("No keys match these filters.")).toBeTruthy()
+    expect(screen.queryByText("No API keys yet.")).toBeNull()
+    // The count is the server total for the query, which is true.
+    expect(screen.getByText("0 keys")).toBeTruthy()
+    expect(screen.queryByRole("link")).toBeNull()
+    expect(screen.getByLabelText("Environment")).toBeTruthy()
+    expect((screen.getByLabelText("State") as HTMLSelectElement).value).toBe("revoked")
+  })
+
+  it("keeps saying no API keys yet when nothing is filtered", async () => {
+    renderPage(KeysPage, stubClient({ "keys.list": { keys: [], total: 0 } }))
     await screen.findByText("No API keys yet.")
+    expect(screen.queryByText("No keys match these filters.")).toBeNull()
     expect(screen.getByLabelText("Environment")).toBeTruthy()
     expect(screen.getByLabelText("State")).toBeTruthy()
+  })
+
+  it("steps back to the last page when the data shrinks under the current one", async () => {
+    const sent: Record<string, unknown>[] = []
+    const client = stubClientByParams((params) => {
+      sent.push(params)
+      // 60 keys until the viewer reaches page 3, then only 30 remain.
+      if (params.offset === 50) return { keys: [], total: 30 }
+      if (params.offset === 25) return { keys: LIST.keys, total: sent.some((p) => p.offset === 50) ? 30 : 60 }
+      return { keys: LIST.keys, total: 60 }
+    })
+    renderPage(KeysPage, client)
+    await screen.findByText("Reporting export")
+    fireEvent.click(screen.getByRole("button", { name: "Next page" }))
+    await screen.findByText(/Page 2 of 3/)
+    fireEvent.click(screen.getByRole("button", { name: "Next page" }))
+
+    await screen.findByText(/Page 2 of 2/)
+    expect(sent.filter((p) => p.offset === 50)).toHaveLength(1)
+    expect(sent.filter((p) => p.offset === 25).length).toBeGreaterThan(0)
+    expect(screen.getByText("Reporting export")).toBeTruthy()
   })
 
   it("shows the error state with the message when the list fails", async () => {

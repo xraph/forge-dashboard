@@ -81,6 +81,23 @@ export const KeysPage: ComponentType<PluginPageProps> = () => {
     ...(state !== "" && { state }),
   })
 
+  // The data can shrink under the page being viewed (keys deleted elsewhere),
+  // leaving a page past the end: rows empty, total still positive. Step back
+  // to the last page that exists. Done during render, React's supported way to
+  // adjust state from data, so no frame shows the empty page.
+  const total = list.data?.total
+  const rowCount = list.data?.keys?.length
+  if (
+    page > 1 &&
+    total !== undefined &&
+    total > 0 &&
+    rowCount === 0
+  ) {
+    setPage(Math.max(1, Math.ceil(total / PAGE_SIZE)))
+  }
+
+  const filtered = environment !== "" || state !== ""
+
   // A new filter means a new result set, and page 3 of it may not exist.
   function changeEnvironment(value: string) {
     setEnvironment(value)
@@ -134,7 +151,11 @@ export const KeysPage: ComponentType<PluginPageProps> = () => {
               rows={rows}
               rowKey={(k) => k.id}
               caption={caption}
-              emptyMessage="No API keys yet."
+              emptyMessage={
+                // Three kinds of empty: none yet, none matching, and (above)
+                // a page past the end. Say which one this is.
+                filtered ? "No keys match these filters." : "No API keys yet."
+              }
               pagination={{ page, pageSize: PAGE_SIZE, total: data.total }}
               onPageChange={setPage}
             />
