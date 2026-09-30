@@ -309,7 +309,11 @@ describe("a plugin with a path-routed dimension", () => {
     await waitFor(() => expect(screen.getByText("choose an app")).toBeTruthy())
     expect(screen.queryByRole("link", { name: "Users" })).toBeNull()
     expect(screen.queryByRole("link", { name: "Overview" })).toBeNull()
-    expect(screen.getByText("Pick an app to see its pages.")).toBeTruthy()
+    // The picker is the page. The pane's "Pick an app" notice only shows in the
+    // mobile sheet; on desktop there is no secondary sidebar to carry it.
+    const main = document.getElementById("dashboard-main") as HTMLElement
+    expect(within(main).getByText("choose an app")).toBeTruthy()
+    expect(screen.queryByText("Pick an app to see its pages.")).toBeNull()
   })
 
   it("shows a rail with no entries when the URL names no app", async () => {
@@ -321,10 +325,11 @@ describe("a plugin with a path-routed dimension", () => {
     await waitFor(() => expect(screen.getByText("choose an app")).toBeTruthy())
     const rail = screen.getByRole("navigation", { name: "Scope navigation" })
     expect(within(rail).queryAllByRole("link")).toHaveLength(0)
-    expect(screen.getByText("Pick an app to see its pages.")).toBeTruthy()
+    const main = document.getElementById("dashboard-main") as HTMLElement
+    expect(within(main).getByText("choose an app")).toBeTruthy()
   })
 
-  it("mounts the scope entry under the URL's segment, marks it, and shows the context control", async () => {
+  it("mounts the scope's pages under the URL's segment, marks the current one, and shows the context control", async () => {
     queryStore.clear()
     const server = fixtureServer()
     server.setCurrentApp("app_platform")
@@ -333,9 +338,12 @@ describe("a plugin with a path-routed dimension", () => {
 
     await waitFor(() => expect(screen.getByText("users page")).toBeTruthy())
     const rail = screen.getByRole("navigation", { name: "Scope navigation" })
-    const auth = within(rail).getByRole("link", { name: "Auth" })
-    expect(auth.getAttribute("href")?.startsWith("/@auth/platform/")).toBe(true)
-    expect(auth.getAttribute("aria-current")).toBe("page")
+    const users = within(rail).getByRole("link", { name: "Users" })
+    expect(users.getAttribute("href")).toBe("/@auth/platform/users")
+    expect(users.getAttribute("aria-current")).toBe("page")
+    const overview = within(rail).getByRole("link", { name: "Overview" })
+    expect(overview.getAttribute("href")).toBe("/@auth/platform/overview")
+    expect(overview.getAttribute("aria-current")).toBeNull()
     expect(await within(rail).findByRole("button", { name: /^Platform \/ / })).toBeTruthy()
   })
 

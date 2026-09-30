@@ -78,7 +78,8 @@ export function activeAreaId(areas, pathname): string | undefined
   its `extension`. Its icon is the sub-plugin's `icon`, falling back to its
   first nav item's icon. Its groups bucket its own items by `group`, with the
   same first-appearance order and priority sort `navGroups` uses, through the
-  same `foldClusters` and `toNodes`.
+  same `toNodes`. Clusters are dropped, not folded: the area is already the
+  grouping, so a cluster inside it would only nest its pages a second time.
 - Plugin areas sort by label, case-insensitively.
 - `href` is the first node's href, or its first child's for a folded cluster.
 - `activeAreaId` is the area holding the longest-prefix match for the

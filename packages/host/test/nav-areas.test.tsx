@@ -77,12 +77,28 @@ describe("navAreas", () => {
     expect(area.href).toBe("/@auth/plans")
   })
 
-  it("folds a cluster inside a plugin and links the area to its first real page", () => {
+  it("does not fold clusters inside a plugin's own area", () => {
     const area = navAreas(auth, [risk]).find((a) => a.id === "riskengine")!
+    const items = area.groups[0].items
+    expect(items.map((node) => node.label)).toEqual(["Risk Engine", "Risk Rules"])
+    expect(items.every((node) => node.children === undefined)).toBe(true)
+    expect(area.href).toBe("/@auth/security/risk")
+  })
+
+  it("still folds a cluster in the scope's own nav", () => {
+    const clustered = definePlugin({
+      extension: "auth",
+      namespace: "auth",
+      nav: [
+        { label: "Risk Engine", to: "/security/risk", cluster: { label: "Threat detection" } },
+        { label: "Risk Rules", to: "/security/rules", cluster: { label: "Threat detection" } },
+      ],
+      routes: [],
+    })
+    const area = navAreas(clustered, []).find((a) => a.id === "auth")!
     const cluster = area.groups[0].items[0]
     expect(cluster.label).toBe("Threat detection")
     expect(cluster.children?.map((c) => c.label)).toEqual(["Risk Engine", "Risk Rules"])
-    expect(area.href).toBe("/@auth/security/risk")
   })
 
   it("returns only plugin areas when the scope itself has no nav", () => {

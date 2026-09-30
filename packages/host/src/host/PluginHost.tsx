@@ -281,10 +281,15 @@ export function navGroups(
  * A plugin's entry in the rail links to its first page, and that first page
  * should be its highest-priority one, not whichever it happened to declare
  * first.
+ *
+ * Clusters are dropped here. The plugin's area is already the grouping, so
+ * folding its pages into a cluster would nest them a second time; clusters
+ * only mattered when every plugin shared one list.
  */
 function groupItems(plugin: ForgePlugin, items: PluginNavItem[], segment?: string): NavGroup[] {
   const buckets = new Map<string | typeof UNGROUPED, PluginNavItem[]>()
-  for (const item of sortByPriority(items)) {
+  const unclustered = items.map((item) => ({ ...item, cluster: undefined }))
+  for (const item of sortByPriority(unclustered)) {
     const key = item.group ?? UNGROUPED
     const bucket = buckets.get(key)
     if (bucket) bucket.push(item)

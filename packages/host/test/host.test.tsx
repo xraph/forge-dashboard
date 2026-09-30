@@ -12,10 +12,22 @@ import type {
 import { PluginHost } from "../src/host/PluginHost"
 import type { AuthScreens } from "../src/auth/routes"
 
-// The setup message now shows twice by design: once in the page's own setup
-// panel and once in the pane's empty notice. These tests are about the page,
-// so they look in the content area.
+// The setup message shows in the page's own setup panel, and on mobile in the
+// sheet's empty notice too. These tests are about the page, so they look in
+// the content area.
 const dashboardMain = () => document.getElementById("dashboard-main") as HTMLElement
+const rail = () => screen.getByRole("navigation", { name: "Scope navigation" })
+
+// A rail entry's text also holds its glyph, the icon or the label's initial,
+// which is aria-hidden. This reads each link the way its accessible name does.
+const linkLabels = (root: HTMLElement) =>
+  within(root)
+    .getAllByRole("link")
+    .map((el) => {
+      const copy = el.cloneNode(true) as HTMLElement
+      copy.querySelectorAll('[aria-hidden="true"]').forEach((node) => node.remove())
+      return copy.textContent
+    })
 
 // jsdom ships no matchMedia, and the kit's sidebar reads it through
 // useIsMobile on every mount. Stubbing it here rather than in a setup file
@@ -370,9 +382,7 @@ describe("PluginHost", () => {
     const alphaRender = renderHost([alpha, beta], fetchImpl, "/@alpha/first")
     await screen.findByText("alpha page")
     expect(
-      screen
-        .getAllByRole("link")
-        .map((el) => el.textContent)
+      linkLabels(rail())
         .filter((t) => t?.startsWith("Alpha") || t?.startsWith("Beta"))
     ).toEqual(["Alpha First", "Alpha Second"])
     alphaRender.unmount()
@@ -380,9 +390,7 @@ describe("PluginHost", () => {
     renderHost([alpha, beta], fetchImpl, "/@beta/first")
     await screen.findByText("beta page")
     expect(
-      screen
-        .getAllByRole("link")
-        .map((el) => el.textContent)
+      linkLabels(rail())
         .filter((t) => t?.startsWith("Alpha") || t?.startsWith("Beta"))
     ).toEqual(["Beta First", "Beta Second"])
   })
@@ -613,10 +621,7 @@ describe("PluginHost", () => {
     // Nav carries the active (ready) plugin's entries and nobody else's,
     // sorted within that plugin by priority.
     expect(
-      screen
-        .getAllByRole("link")
-        .map((el) => el.textContent)
-        .filter((t) => t?.startsWith("Ready"))
+      linkLabels(rail()).filter((t) => t?.startsWith("Ready"))
     ).toEqual(["Ready One", "Ready Two"])
 
     // The unconfigured plugin is not this scope, so neither its panel nor
@@ -899,17 +904,11 @@ describe("root plugin", () => {
 
     expect(await screen.findByText("rooms page")).toBeTruthy()
 
-    // The body belongs to the scope you are in, and to nothing else. This
-    // fails if `navOwner` ever prefers the root, or if `groups` goes back to
-    // concatenating both navs: the root's "Overview" would show up in the
-    // body alongside "Rooms".
-    //
-    // Scoped to the body on purpose. "Overview" IS in the document here, as
-    // the header's back row, so an unscoped query passes no matter which nav
-    // the body renders and proves nothing.
-    const body = document.querySelector(
-      '[data-slot="sidebar-content"]',
-    ) as HTMLElement
+    // The rail's pages belong to the scope you are in, and to nothing else.
+    // This fails if `navOwner` ever prefers the root, or if `groups` goes back
+    // to concatenating both navs: the root's "Overview" would show up in the
+    // rail alongside "Rooms".
+    const body = rail()
     expect(within(body).getByRole("link", { name: "Rooms" })).toBeTruthy()
     expect(within(body).queryByRole("link", { name: "Overview" })).toBeNull()
   })
@@ -1163,10 +1162,12 @@ const header = (c: HTMLElement) =>
   c.querySelector('[data-slot="sidebar-header"]') as HTMLElement
 const content = (c: HTMLElement) =>
   c.querySelector('[data-slot="sidebar-content"]') as HTMLElement
-const rail = () => screen.getByRole("navigation", { name: "Scope navigation" })
+// The secondary sidebar mounts on desktop only inside a plugin with more than
+// one page. Core pages and single-page plugins have the rail and nothing else.
+const secondarySidebar = (c: HTMLElement) => c.querySelector('[data-slot="sidebar"]')
 
 describe("PluginHost root destination", () => {
-  it("puts the scope switcher in the rail, not the secondary sidebar", async () => {
+  it("puts the scope switcher and the scope's pages in the rail, with no secondary sidebar", async () => {
     const { container } = renderHost(
       [rootPlugin(), authScopePlugin()],
       bothReady(),
@@ -1175,8 +1176,9 @@ describe("PluginHost root destination", () => {
     await screen.findByText("auth users body")
 
     expect(within(rail()).getByRole("button", { name: "Auth @auth" })).toBeTruthy()
-    expect(within(header(container)).queryByRole("button", { name: "Auth @auth" })).toBeNull()
-    expect(within(rail()).getByRole("link", { name: "Auth" }).getAttribute("aria-current")).toBe("page")
+    expect(screen.getAllByRole("button", { name: "Auth @auth" })).toHaveLength(1)
+    expect(secondarySidebar(container)).toBeNull()
+    expect(within(rail()).getByRole("link", { name: "Users" }).getAttribute("aria-current")).toBe("page")
     fireEvent.click(within(rail()).getByRole("button", { name: "Expand navigation" }))
     expect(within(rail()).queryByText("Plugins")).toBeNull()
   })
@@ -1189,7 +1191,7 @@ describe("PluginHost root destination", () => {
     expect(await screen.findByText("root overview body")).toBeTruthy()
   })
 
-  it("shows no back row at the root, and puts the root nav in the body", async () => {
+  it("shows no back row at the root, and puts the root nav in the rail", async () => {
     const { container } = renderHost(
       [rootPlugin(), authScopePlugin()],
       bothReady(),
@@ -1197,25 +1199,29 @@ describe("PluginHost root destination", () => {
     )
     await screen.findByText("root overview body")
 
-    // Nothing to go back from: this IS where back would take you.
+    // Nothing to go back from: this IS where back would take you. And the
+    // root's own nav is ordinary nav, so it is the rail's one page.
+    expect(secondarySidebar(container)).toBeNull()
+    expect(linkLabels(rail())).toEqual(["Overview"])
     expect(
-      within(header(container)).queryByRole("link", { name: "Overview" }),
-    ).toBeNull()
-    // And the root's own nav is ordinary nav, so it belongs in the body. It
-    // used to live in the header and leave the body empty, which is backwards.
-    expect(
-      within(content(container)).getByRole("link", { name: "Overview" }),
-    ).toBeTruthy()
+      within(rail()).getByRole("link", { name: "Overview" }).getAttribute("aria-current"),
+    ).toBe("page")
   })
 
   it("shows no back row inside a scope when no root plugin is mounted", async () => {
     const { container } = renderHost([authScopePlugin()], bothReady(), "/@auth/users")
     await screen.findByText("auth users body")
 
-    expect(within(header(container)).queryByRole("link")).toBeNull()
+    expect(secondarySidebar(container)).toBeNull()
+    expect(linkLabels(rail())).toEqual(["Users"])
   })
 
-  it("says a setup scope needs configuring in the pane, with a link to its setup", async () => {
+  // The pane's empty notice ("Open setup") lives in the secondary sidebar,
+  // which desktop only mounts inside a multi-page plugin; the mobile sheet
+  // still carries it. On desktop the page card already shows the setup panel,
+  // so these check the page says it and the rail lists none of the scope's
+  // pages.
+  it("says a setup scope needs configuring on the page, and lists none of its pages", async () => {
     const { container } = renderHost(
       [rootPlugin(), authScopePlugin()],
       capabilitiesFetch([
@@ -1225,14 +1231,14 @@ describe("PluginHost root destination", () => {
       "/@auth/users",
     )
     await waitFor(() =>
-      expect(within(content(container)).getByText("Set AUTH_SECRET first.")).toBeTruthy(),
+      expect(within(dashboardMain()).getByText("Set AUTH_SECRET first.")).toBeTruthy(),
     )
-    const c = content(container)
-    expect(within(c).getByRole("link", { name: "Open setup" }).getAttribute("href")).toBe("/@auth/users")
-    expect(within(c).queryByRole("link", { name: "Users" })).toBeNull()
+    expect(within(rail()).queryAllByRole("link")).toHaveLength(0)
+    expect(secondarySidebar(container)).toBeNull()
+    expect(screen.queryByRole("link", { name: "Open setup" })).toBeNull()
   })
 
-  it("falls back to a fixed sentence when the setup scope has no message", async () => {
+  it("falls back to a fixed sentence on the page when the setup scope has no message", async () => {
     const { container } = renderHost(
       [rootPlugin(), authScopePlugin()],
       capabilitiesFetch([
@@ -1242,8 +1248,10 @@ describe("PluginHost root destination", () => {
       "/@auth/users",
     )
     await waitFor(() =>
-      expect(within(content(container)).getByText("This extension needs configuring.")).toBeTruthy(),
+      expect(within(dashboardMain()).getByText("This extension is not configured yet.")).toBeTruthy(),
     )
+    expect(within(rail()).queryAllByRole("link")).toHaveLength(0)
+    expect(secondarySidebar(container)).toBeNull()
   })
 
   function renderWithSubPlugins(route: string) {
@@ -1293,7 +1301,7 @@ describe("PluginHost root destination", () => {
     expect(within(rail()).getByText("Plugins")).toBeTruthy()
     const billing = within(rail()).getByRole("link", { name: "Billing" })
     expect(billing.getAttribute("aria-current")).toBe("page")
-    expect(within(rail()).getByRole("link", { name: "Auth" }).getAttribute("href")).toBe("/@auth/users")
+    expect(within(rail()).getByRole("link", { name: "Users" }).getAttribute("href")).toBe("/@auth/users")
 
     expect(within(header(container)).getByText("Billing")).toBeTruthy()
     expect(within(screen.getByRole("navigation", { name: "Breadcrumb" })).getByText("Plans")).toBeTruthy()
@@ -1302,9 +1310,11 @@ describe("PluginHost root destination", () => {
     expect(within(c).getByRole("link", { name: "Invoices" })).toBeTruthy()
     expect(within(c).queryByRole("link", { name: "Users" })).toBeNull()
 
-    fireEvent.click(within(rail()).getByRole("link", { name: "Auth" }))
+    fireEvent.click(within(rail()).getByRole("link", { name: "Users" }))
     expect(await screen.findByText("auth users body")).toBeTruthy()
-    expect(within(content(container)).getByRole("link", { name: "Users" })).toBeTruthy()
+    // Back on a core page: the secondary sidebar goes and the rail lights Users.
+    expect(secondarySidebar(container)).toBeNull()
+    expect(within(rail()).getByRole("link", { name: "Users" }).getAttribute("aria-current")).toBe("page")
   })
 
   it("lets search find a plugin page from the scope's own entry", async () => {
@@ -1421,6 +1431,7 @@ describe("PluginHost auth gate", () => {
     // "Blocks the UI entirely" means the shell is never constructed. A route
     // painting over a mounted sidebar is a curtain: the scope names are still
     // in the DOM.
+    expect(container.querySelector('[data-slot="nav-rail"]')).toBeNull()
     expect(container.querySelector('[data-slot="sidebar-header"]')).toBeNull()
     expect(container.querySelector('[data-slot="sidebar-content"]')).toBeNull()
     expect(screen.queryByText("root overview body")).toBeNull()
@@ -1434,7 +1445,7 @@ describe("PluginHost auth gate", () => {
     )
 
     expect(await screen.findByText("root overview body")).toBeTruthy()
-    expect(container.querySelector('[data-slot="sidebar-header"]')).toBeTruthy()
+    expect(container.querySelector('[data-slot="nav-rail"]')).toBeTruthy()
     expect(screen.queryByRole("heading", { name: "Sign in" })).toBeNull()
   })
 
@@ -1449,7 +1460,7 @@ describe("PluginHost auth gate", () => {
     // logged out. Gating on the boolean instead of the status locks every
     // anonymous dashboard out of itself.
     expect(await screen.findByText("root overview body")).toBeTruthy()
-    expect(container.querySelector('[data-slot="sidebar-header"]')).toBeTruthy()
+    expect(container.querySelector('[data-slot="nav-rail"]')).toBeTruthy()
   })
 
   it("renders the host's denied screen with requiredRoles", async () => {
@@ -1473,6 +1484,7 @@ describe("PluginHost auth gate", () => {
 
     expect(container.querySelector('[data-slot="spinner"]')).toBeTruthy()
     expect(screen.queryByRole("heading", { name: "Sign in" })).toBeNull()
+    expect(container.querySelector('[data-slot="nav-rail"]')).toBeNull()
     expect(container.querySelector('[data-slot="sidebar-header"]')).toBeNull()
   })
 
@@ -1574,6 +1586,7 @@ describe("PluginHost auth gate", () => {
     const { container } = renderHost([rootPlugin(), GatePlugin()], fetchImpl, "/overview")
 
     expect(await screen.findByText(/Could not determine whether you are signed in/)).toBeTruthy()
+    expect(container.querySelector('[data-slot="nav-rail"]')).toBeNull()
     expect(container.querySelector('[data-slot="sidebar-header"]')).toBeNull()
     expect(container.querySelector('[data-slot="sidebar-content"]')).toBeNull()
     expect(screen.queryByText("root overview body")).toBeNull()

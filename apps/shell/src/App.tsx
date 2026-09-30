@@ -1,6 +1,3 @@
-import { Button } from "@forge-go/dashboard-kit/components/button"
-import { MoonIcon, SunIcon } from "@forge-go/dashboard-kit/icons"
-import { useTheme } from "./components/theme-provider"
 import { ForgeDashboard } from "@forge-go/dashboard-host"
 import { configFromWindow } from "@forge-go/dashboard-runtime"
 import corePlugin from "@forge-go/dashboard-plugin-core"
@@ -43,24 +40,11 @@ const plugins = [
 // everything else about them is declared in the sub-plugins themselves.
 const subPlugins = authsomeSubPlugins
 
+// The theme lives in the account menu's Theme submenu, so the shell passes no
+// header actions of its own.
 export function App() {
-  const { theme, setTheme } = useTheme()
-  const dark =
-    theme === "dark" ||
-    (theme === "system" &&
-      window.matchMedia("(prefers-color-scheme: dark)").matches)
   return (
     <ForgeDashboard
-      headerActions={
-        <Button
-          variant="ghost"
-          size="icon"
-          aria-label={dark ? "Use light theme" : "Use dark theme"}
-          onClick={() => setTheme(dark ? "light" : "dark")}
-        >
-          {dark ? <SunIcon /> : <MoonIcon />}
-        </Button>
-      }
       config={config}
       basename={injected.shellBase}
       plugins={plugins}

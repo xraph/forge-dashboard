@@ -16,6 +16,18 @@ import type { AuthScreens } from "../src/auth/routes"
 // panel and once in the pane's empty notice. These tests are about the page,
 // so they look in the content area.
 const dashboardMain = () => document.getElementById("dashboard-main") as HTMLElement
+const rail = () => screen.getByRole("navigation", { name: "Scope navigation" })
+
+// A rail entry's text also holds its glyph, the icon or the label's initial,
+// which is aria-hidden. This reads each link the way its accessible name does.
+const linkLabels = (root: HTMLElement) =>
+  within(root)
+    .getAllByRole("link")
+    .map((el) => {
+      const copy = el.cloneNode(true) as HTMLElement
+      copy.querySelectorAll('[aria-hidden="true"]').forEach((node) => node.remove())
+      return copy.textContent
+    })
 
 // jsdom ships no matchMedia, and the kit's sidebar reads it through
 // useIsMobile on every mount. Stubbing it here rather than in a setup file
@@ -360,9 +372,7 @@ describe("PluginHost", () => {
     const alphaRender = renderHost([alpha, beta], fetchImpl, "/@alpha/first")
     await screen.findByText("alpha page")
     expect(
-      screen
-        .getAllByRole("link")
-        .map((el) => el.textContent)
+      linkLabels(rail())
         .filter((t) => t?.startsWith("Alpha") || t?.startsWith("Beta"))
     ).toEqual(["Alpha First", "Alpha Second"])
     alphaRender.unmount()
@@ -370,9 +380,7 @@ describe("PluginHost", () => {
     renderHost([alpha, beta], fetchImpl, "/@beta/first")
     await screen.findByText("beta page")
     expect(
-      screen
-        .getAllByRole("link")
-        .map((el) => el.textContent)
+      linkLabels(rail())
         .filter((t) => t?.startsWith("Alpha") || t?.startsWith("Beta"))
     ).toEqual(["Beta First", "Beta Second"])
   })
@@ -572,11 +580,9 @@ describe("root plugin", () => {
 
     expect(await screen.findByText("rooms page")).toBeTruthy()
 
-    // Scoped to the body: "Overview" is in the document as the header's back
-    // row, so an unscoped query passes whichever nav the body renders.
-    const body = document.querySelector(
-      '[data-slot="sidebar-content"]',
-    ) as HTMLElement
+    // The rail's pages belong to the scope you are in, and the root's
+    // "Overview" is not one of them.
+    const body = rail()
     expect(within(body).getByRole("link", { name: "Rooms" })).toBeTruthy()
     expect(within(body).queryByRole("link", { name: "Overview" })).toBeNull()
   })
@@ -784,6 +790,7 @@ describe("PluginHost auth gate", () => {
     // "Blocks the UI entirely" means the shell is never constructed. A route
     // painting over a mounted sidebar is a curtain: the scope names are still
     // in the DOM.
+    expect(container.querySelector('[data-slot="nav-rail"]')).toBeNull()
     expect(container.querySelector('[data-slot="sidebar-header"]')).toBeNull()
     expect(container.querySelector('[data-slot="sidebar-content"]')).toBeNull()
     expect(screen.queryByText("root overview body")).toBeNull()
@@ -797,7 +804,7 @@ describe("PluginHost auth gate", () => {
     )
 
     expect(await screen.findByText("root overview body")).toBeTruthy()
-    expect(container.querySelector('[data-slot="sidebar-header"]')).toBeTruthy()
+    expect(container.querySelector('[data-slot="nav-rail"]')).toBeTruthy()
     expect(screen.queryByRole("heading", { name: "Sign in" })).toBeNull()
   })
 
@@ -812,7 +819,7 @@ describe("PluginHost auth gate", () => {
     // logged out. Gating on the boolean instead of the status locks every
     // anonymous dashboard out of itself.
     expect(await screen.findByText("root overview body")).toBeTruthy()
-    expect(container.querySelector('[data-slot="sidebar-header"]')).toBeTruthy()
+    expect(container.querySelector('[data-slot="nav-rail"]')).toBeTruthy()
   })
 
   it("renders the host's denied screen with requiredRoles", async () => {
@@ -836,6 +843,7 @@ describe("PluginHost auth gate", () => {
 
     expect(container.querySelector('[data-slot="spinner"]')).toBeTruthy()
     expect(screen.queryByRole("heading", { name: "Sign in" })).toBeNull()
+    expect(container.querySelector('[data-slot="nav-rail"]')).toBeNull()
     expect(container.querySelector('[data-slot="sidebar-header"]')).toBeNull()
   })
 
@@ -937,6 +945,7 @@ describe("PluginHost auth gate", () => {
     const { container } = renderHost([rootPlugin(), GatePlugin()], fetchImpl, "/overview")
 
     expect(await screen.findByText(/Could not determine whether you are signed in/)).toBeTruthy()
+    expect(container.querySelector('[data-slot="nav-rail"]')).toBeNull()
     expect(container.querySelector('[data-slot="sidebar-header"]')).toBeNull()
     expect(container.querySelector('[data-slot="sidebar-content"]')).toBeNull()
     expect(screen.queryByText("root overview body")).toBeNull()
