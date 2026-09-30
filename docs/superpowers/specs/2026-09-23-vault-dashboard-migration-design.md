@@ -567,9 +567,11 @@ Recorded here so they are not lost between now and step 1.
 
 **Deliberately dropped**
 
-- The settings page. Eight of its nine fields were never populated, and the
-  ninth was a hardcoded constant. `encryptionEnabled` moves to
-  `overview.stats`.
+- The settings page. Its contributor passed only the app id, so the other
+  eight fields showed template defaults: four of them read as blanks (the key
+  env as "-", both durations as "0s", audit as "Disabled") and four as
+  plausible-looking values nobody had set. The encryption card beside them was
+  hardcoded text. Whether encryption is configured moves to `overview.stats`.
 - The Overrides stat on the overview, as it was. It was never populated and
   always read zero; it is replaced by a real count.
 - `secrets.setExpiry`. Nothing in the store or the service changes an expiry
