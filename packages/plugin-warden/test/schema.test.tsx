@@ -132,7 +132,9 @@ function setText(text: string) {
 const docText = () => view().state.doc.toString()
 const button = (name: string | RegExp) => screen.getByRole("button", { name })
 const pruneSwitch = () =>
-  screen.getByRole("switch", { name: "Delete entities this source does not declare" })
+  screen.getByRole("switch", {
+    name: "Delete roles, permissions, policies and resource types this source does not declare",
+  })
 
 async function plan() {
   fireEvent.click(button("Plan"))
@@ -408,6 +410,13 @@ describe("WardenSchemaPage: when Apply is enabled", () => {
 })
 
 describe("WardenSchemaPage: prune", () => {
+  it("names what it deletes in its label", async () => {
+    await mount({})
+    expect(document.getElementById("schema-prune-label")?.textContent).toBe(
+      "Delete roles, permissions, policies and resource types this source does not declare"
+    )
+  })
+
   it("is a switch labelled for what it does, off at first, and not in the region Apply is in", async () => {
     await mount({ plan: () => VALID })
     await plan()
@@ -474,9 +483,38 @@ describe("WardenSchemaPage: prune", () => {
     fireEvent.click(button("Apply"))
     const dialog = await screen.findByRole("alertdialog")
     expect(within(dialog).getByText(/^This deletes 2 entities/).textContent).toBe(
-      "This deletes 2 entities in the namespaces this source covers: - policy//old, - permission//doc:read."
+      "This deletes 2 entities in the namespaces this source covers: - policy//old, - permission//doc:read." +
+        " Deleting a permission also revokes it from every role that holds it."
     )
     expect(within(dialog).queryByText(/Deleting a role/)).toBeNull()
+  })
+
+  it("says a deleted permission is revoked from every role, in destructive text, after the role sentence", async () => {
+    const deleted = ["- role//a", "- permission/eng/doc:write"]
+    await mount({ plan: () => ({ ...VALID, deleted }) })
+    fireEvent.click(pruneSwitch())
+    await plan()
+    fireEvent.click(button("Apply"))
+    const dialog = await screen.findByRole("alertdialog")
+    const warning = within(dialog).getByText(/^This deletes 2 entities/)
+    expect(warning.textContent).toBe(
+      "This deletes 2 entities in the namespaces this source covers: - role//a, - permission/eng/doc:write." +
+        " Deleting a role also deletes its assignments and grants." +
+        " Deleting a permission also revokes it from every role that holds it."
+    )
+    expect(warning.className).toContain("text-destructive")
+  })
+
+  it("does not say a permission is revoked when no deleted line is a permission", async () => {
+    await mount({ plan: () => ({ ...VALID, deleted: ["- policy//old", "- resource_type//ticket"] }) })
+    fireEvent.click(pruneSwitch())
+    await plan()
+    fireEvent.click(button("Apply"))
+    const dialog = await screen.findByRole("alertdialog")
+    expect(within(dialog).getByText(/^This deletes 2 entities/).textContent).toBe(
+      "This deletes 2 entities in the namespaces this source covers: - policy//old, - resource_type//ticket."
+    )
+    expect(within(dialog).queryByText(/Deleting a permission/)).toBeNull()
   })
 
   it("says a role's assignments go when a deleted line past the first five is a role", async () => {

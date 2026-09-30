@@ -102,6 +102,7 @@ function divergedSentence(applied: SchemaApplyResult): string {
 }
 
 const DELETES_ROLE = /^- role\//
+const DELETES_PERMISSION = /^- permission\//
 
 function Lines({ lines }: { lines: string[] }) {
   return (
@@ -313,7 +314,9 @@ export function WardenSchemaPage() {
 
             <div className="flex flex-col gap-1">
               <div className="flex items-center gap-2">
-                <Label id="schema-prune-label">Delete entities this source does not declare</Label>
+                <Label id="schema-prune-label">
+                  Delete roles, permissions, policies and resource types this source does not declare
+                </Label>
                 <Switch
                   id="schema-prune"
                   aria-labelledby="schema-prune-label"
@@ -438,7 +441,7 @@ export function WardenSchemaPage() {
               {deletions !== null && (
                 <>
                   <span className="text-destructive">
-                    {`This deletes ${count(deletions.length, "entity", "entities")} in the namespaces this source covers: ${deletions.slice(0, SHOWN_DELETIONS).join(", ")}${deletions.length > SHOWN_DELETIONS ? `, and ${deletions.length - SHOWN_DELETIONS} more` : ""}.${deletions.some((line) => DELETES_ROLE.test(line)) ? " Deleting a role also deletes its assignments and grants." : ""}`}
+                    {`This deletes ${count(deletions.length, "entity", "entities")} in the namespaces this source covers: ${deletions.slice(0, SHOWN_DELETIONS).join(", ")}${deletions.length > SHOWN_DELETIONS ? `, and ${deletions.length - SHOWN_DELETIONS} more` : ""}.${deletions.some((line) => DELETES_ROLE.test(line)) ? " Deleting a role also deletes its assignments and grants." : ""}${deletions.some((line) => DELETES_PERMISSION.test(line)) ? " Deleting a permission also revokes it from every role that holds it." : ""}`}
                   </span>
                   <span className="flex items-center gap-2">
                     <Checkbox
