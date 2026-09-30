@@ -251,4 +251,18 @@ describe("WardenCheckLogDetailPage", () => {
     expect(screen.queryByText("decided by")).toBeNull()
     expect(screen.queryByRole("complementary")).toBeNull()
   })
+
+  it("links every check, an error row included, to the playground", async () => {
+    for (const check of [
+      RBAC_ALLOW,
+      { ...BASE, id: "chk_02", decision: "deny_no_roles", reason: "no roles" },
+      { ...BASE, id: "chk_03", decision: "error", error: "store unavailable" },
+    ]) {
+      const { unmount } = page(check)
+      await settled()
+      const link = screen.getByRole("link", { name: "Open in playground" })
+      expect(link.getAttribute("href")).toBe(`/playground/check/${check.id}`)
+      unmount()
+    }
+  })
 })

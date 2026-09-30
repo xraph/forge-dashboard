@@ -2,6 +2,8 @@ import { describe, expect, it } from "vitest"
 import { fireEvent, screen, waitFor, within } from "@testing-library/react"
 import { ContractError } from "@forge-go/dashboard-plugin"
 import type { ScopedClient } from "@forge-go/dashboard-plugin"
+import { formatTimestamp } from "@forge-go/dashboard-kit/lib/format"
+import type { CheckDetail } from "../src/components/check-log"
 import type { PlaygroundResult } from "../src/components/playground-lanes"
 import { WardenPlaygroundPage } from "../src/pages/playground"
 import { recordingQueryClient, renderPage, stubClient } from "./harness"
@@ -583,5 +585,153 @@ describe("WardenPlaygroundPage: a result the form has moved on from", () => {
     expect(screen.getByText(CHANGED)).toBeTruthy()
     fill("Action", "delete")
     expect(screen.queryByText(CHANGED)).toBeNull()
+  })
+})
+
+describe("WardenPlaygroundPage: opened from a check log row", () => {
+  const LOGGED: CheckDetail = {
+    id: "chk_01a",
+    namespacePath: "eng/platform",
+    subjectKind: "service",
+    subjectId: "deployer",
+    action: "admin",
+    resourceType: "cluster",
+    resourceId: "prod",
+    decision: "allow",
+    evalTimeNs: 402_000,
+    cached: false,
+    createdAt: "2026-09-23T10:00:00Z",
+    matchedBy: [],
+    obligations: [],
+  }
+  const NOTICE = (at: string) =>
+    `Prefilled from a check logged at ${formatTimestamp(at)}. The check log does not record context or attributes, so add any the original check carried.`
+
+  function opened(detail: CheckDetail = LOGGED) {
+    const { client, sent } = recordingQueryClient(answers({ "checkLogs.detail": detail }))
+    const view = renderPage(WardenPlaygroundPage, client, { checkId: detail.id })
+    const explains = () => sent.filter((s) => s.intent === "playground.explain")
+    return { ...view, sent, explains }
+  }
+
+  const value = (label: string) => (screen.getByLabelText(label) as HTMLInputElement).value
+
+  it("asks for the check named in the route", async () => {
+    const t = opened()
+    await waitFor(() => expect(value("Subject id")).toBe("deployer"))
+    expect(t.sent.find((s) => s.intent === "checkLogs.detail")?.params).toEqual({ id: "chk_01a" })
+  })
+
+  it("fills the six fields once the detail arrives, and leaves the JSON fields empty", async () => {
+    opened()
+    await waitFor(() => expect(value("Subject id")).toBe("deployer"))
+    expect(value("Subject kind")).toBe("service")
+    expect(value("Action")).toBe("admin")
+    expect(value("Resource type")).toBe("cluster")
+    expect(value("Resource id")).toBe("prod")
+    expect(value("Namespace")).toBe("eng/platform")
+    for (const label of ["Subject attributes", "Resource attributes", "Context"]) {
+      expect((screen.getByLabelText(label) as HTMLTextAreaElement).value).toBe("")
+    }
+  })
+
+  it("shows the root as / and sends it as an empty path", async () => {
+    const t = opened({ ...LOGGED, namespacePath: "" })
+    await waitFor(() => expect(value("Namespace")).toBe("/"))
+    fireEvent.click(run())
+    await screen.findByText("deny_explicit")
+    expect(t.explains()[0].params).toEqual({
+      subjectKind: "service",
+      subjectId: "deployer",
+      action: "admin",
+      resourceType: "cluster",
+      resourceId: "prod",
+      namespacePath: "",
+    })
+  })
+
+  it("does not run until the operator presses Run, and shows no result or stale note", async () => {
+    const t = opened()
+    await waitFor(() => expect(value("Subject id")).toBe("deployer"))
+    // Give a wrongly automatic run every chance to happen.
+    await new Promise((r) => setTimeout(r, 50))
+    expect(t.explains()).toHaveLength(0)
+    expect(screen.queryByText("deny_explicit")).toBeNull()
+    expect(screen.queryByRole("list", { name: "Models" })).toBeNull()
+    expect(screen.queryByText(/The form has changed since this run/)).toBeNull()
+    expect((run() as HTMLButtonElement).disabled).toBe(false)
+    fireEvent.click(run())
+    await screen.findByText("deny_explicit")
+    expect(t.explains()).toHaveLength(1)
+  })
+
+  it("says the form was prefilled, and what the check log does not record", async () => {
+    const { container } = opened()
+    await waitFor(() => expect(value("Subject id")).toBe("deployer"))
+    const notice = screen.getByText(/^Prefilled from a check logged at/)
+    expect(notice.textContent).toBe(NOTICE(LOGGED.createdAt))
+    // Above the form.
+    expect(
+      notice.compareDocumentPosition(container.querySelector("form")!) &
+        Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy()
+  })
+
+  it("prefills a check that failed too", async () => {
+    opened({ ...LOGGED, decision: "error", error: "store unavailable" })
+    await waitFor(() => expect(value("Subject id")).toBe("deployer"))
+    expect(screen.getByText(/^Prefilled from a check logged at/)).toBeTruthy()
+  })
+
+  it("does not overwrite a field the operator edited before the detail arrived", async () => {
+    let release: (d: CheckDetail) => void = () => {}
+    const client = {
+      extension: "warden",
+      query: (intent: string) =>
+        intent === "checkLogs.detail"
+          ? new Promise<CheckDetail>((resolve) => {
+              release = resolve
+            })
+          : Promise.resolve(intent === "namespaces.list" ? NAMESPACES : DENIED),
+      command: async () => undefined,
+    } as unknown as ScopedClient
+    renderPage(WardenPlaygroundPage, client, { checkId: "chk_01a" })
+    fill("Action", "export")
+    release(LOGGED)
+    await waitFor(() => expect(value("Subject id")).toBe("deployer"))
+    expect(value("Action")).toBe("export")
+    expect(value("Resource type")).toBe("cluster")
+    expect(screen.getByText(/^Prefilled from a check logged at/)).toBeTruthy()
+  })
+
+  it("prefills once: a later edit is not undone", async () => {
+    opened()
+    await waitFor(() => expect(value("Subject id")).toBe("deployer"))
+    fill("Action", "export")
+    await new Promise((r) => setTimeout(r, 50))
+    expect(value("Action")).toBe("export")
+  })
+
+  it("shows the error card when the check is not found, with the empty builder usable below it", async () => {
+    const client = stubClient({
+      "playground.explain": DENIED,
+      "namespaces.list": NAMESPACES,
+    })
+    // stubClient refuses checkLogs.detail with NOT_FOUND, as the server does for an unknown id.
+    renderPage(WardenPlaygroundPage, client, { checkId: "chk_missing" })
+    expect(await screen.findByText("Check unavailable")).toBeTruthy()
+    expect(screen.getByText(/NOT_FOUND/)).toBeTruthy()
+    expect(screen.queryByText(/^Prefilled from a check logged at/)).toBeNull()
+    expect(value("Subject id")).toBe("")
+    fillRequired()
+    fireEvent.click(run())
+    await screen.findByText("deny_explicit")
+  })
+
+  it("asks for no check, and shows no notice, at the plain route", async () => {
+    const t = setup()
+    await waitFor(() => expect(t.sent.some((s) => s.intent === "namespaces.list")).toBe(true))
+    expect(t.sent.some((s) => s.intent === "checkLogs.detail")).toBe(false)
+    expect(screen.queryByText(/^Prefilled from a check logged at/)).toBeNull()
   })
 })

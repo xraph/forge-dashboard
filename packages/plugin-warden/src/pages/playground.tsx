@@ -1,5 +1,6 @@
 import { useId, useState, type FormEvent } from "react"
 import { queryStore, useQuery } from "@forge-go/dashboard-plugin"
+import type { PluginPageProps } from "@forge-go/dashboard-plugin"
 import { Badge } from "@forge-go/dashboard-kit/components/badge"
 import { Button } from "@forge-go/dashboard-kit/components/button"
 import { Input } from "@forge-go/dashboard-kit/components/input"
@@ -11,7 +12,13 @@ import {
 import { PageHeader } from "@forge-go/dashboard-kit/components/page-header"
 import { CommandAlert, QueryBoundary } from "@forge-go/dashboard-kit/components/query-boundary"
 import { Textarea } from "@forge-go/dashboard-kit/components/textarea"
-import { CHECK_SUBJECT_KINDS, decisionVariant, formatEvalTime } from "../components/check-log"
+import { Timestamp } from "@forge-go/dashboard-kit/components/timestamp"
+import {
+  CHECK_SUBJECT_KINDS,
+  decisionVariant,
+  formatEvalTime,
+  type CheckDetail,
+} from "../components/check-log"
 import type { NamespacesResponse } from "../components/namespace-filter"
 import {
   LaneRow,
@@ -170,9 +177,26 @@ function ResultView({ result, stale }: { result: PlaygroundResult; stale: boolea
   )
 }
 
-export function WardenPlaygroundPage() {
+/**
+ * The playground at `/playground` and at `/playground/check/:checkId`.
+ *
+ * Keyed by the check id, so moving from one check's playground to another's
+ * starts a fresh form instead of carrying the last one's edits across.
+ */
+export function WardenPlaygroundPage({ params }: PluginPageProps) {
+  const checkId = params?.checkId
+  return <Playground key={checkId ?? ""} checkId={checkId} />
+}
+
+function Playground({ checkId }: { checkId: string | undefined }) {
   const ids = useId()
   const [draft, setDraft] = useState<Draft>(EMPTY_DRAFT)
+  // The fields the operator has typed in. A prefill never overwrites these.
+  const [touched, setTouched] = useState<ReadonlySet<keyof Draft>>(() => new Set())
+  // Whether the check's fields have been applied, once, and the time of the
+  // check when any field took one.
+  const [prefilled, setPrefilled] = useState(false)
+  const [prefilledAt, setPrefilledAt] = useState<string | null>(null)
   const [jsonErrors, setJsonErrors] = useState<Partial<Record<JsonKey, string>>>({})
   const [attributesOpen, setAttributesOpen] = useState(false)
   // What was last sent. `null` until the first Run, and the query below waits
@@ -182,6 +206,34 @@ export function WardenPlaygroundPage() {
   // The form as it was when that was sent, so the page can tell when what is
   // on screen no longer answers what is in the form.
   const [submittedDraft, setSubmittedDraft] = useState<Draft | null>(null)
+
+  // The check the route names, read only when it names one. It fills the
+  // form and nothing more: a check is run only when the operator presses Run.
+  const detail = useQuery<CheckDetail>("checkLogs.detail", checkId ? { id: checkId } : {}, {
+    enabled: checkId !== undefined,
+  })
+  // Applied once, when the detail settles, and never again: an operator who
+  // has started editing must not have the form pulled back under them. A
+  // cached copy still being refreshed is not the answer yet.
+  if (checkId !== undefined && !prefilled && !detail.loading && detail.data) {
+    const check = detail.data
+    const fields: Partial<Draft> = {
+      subjectKind: check.subjectKind,
+      subjectId: check.subjectId,
+      action: check.action,
+      resourceType: check.resourceType,
+      resourceId: check.resourceId,
+      // The builder shows the tenant root as "/".
+      namespacePath: check.namespacePath === "" ? "/" : check.namespacePath,
+    }
+    const patch: Partial<Draft> = {}
+    for (const key of Object.keys(fields) as (keyof Draft)[]) {
+      if (!touched.has(key)) Object.assign(patch, { [key]: fields[key] })
+    }
+    setPrefilled(true)
+    setDraft((d) => ({ ...d, ...patch }))
+    if (Object.keys(patch).length > 0) setPrefilledAt(check.createdAt)
+  }
 
   const namespaces = useQuery<NamespacesResponse>("namespaces.list")
   // The list is a convenience. When it fails the input still takes any path,
@@ -207,6 +259,7 @@ export function WardenPlaygroundPage() {
 
   function edit(patch: Partial<Draft>) {
     setDraft((d) => ({ ...d, ...patch }))
+    setTouched((t) => new Set([...t, ...(Object.keys(patch) as (keyof Draft)[])]))
   }
 
   function editJson(key: JsonKey, value: string) {
@@ -249,6 +302,21 @@ export function WardenPlaygroundPage() {
   return (
     <section className="flex flex-col gap-4">
       <PageHeader title="Playground" />
+
+      {/* Not found leaves the empty builder below it usable. */}
+      {checkId !== undefined && !detail.loading && detail.error && (
+        <QueryBoundary title="Check" query={detail}>
+          {() => null}
+        </QueryBoundary>
+      )}
+
+      {prefilledAt !== null && (
+        <p className="text-sm text-muted-foreground">
+          Prefilled from a check logged at <Timestamp value={prefilledAt} label="checked at" />.
+          The check log does not record context or attributes, so add any the original check
+          carried.
+        </p>
+      )}
 
       <div className="grid gap-6 md:grid-cols-[minmax(0,24rem)_minmax(0,1fr)]">
         <form className="flex flex-col gap-3" onSubmit={run}>

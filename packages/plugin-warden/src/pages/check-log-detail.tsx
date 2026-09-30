@@ -109,6 +109,13 @@ export function WardenCheckLogDetailPage({ params }: PluginPageProps) {
                   in <NamespaceCell path={check.namespacePath} />
                 </span>
               </p>
+              {/*
+                On every check, an error included: replaying one that failed is
+                how an operator sees whether the failure persists.
+              */}
+              <PluginLink to={`/playground/check/${check.id}`} className="text-sm underline underline-offset-4">
+                Open in playground
+              </PluginLink>
             </div>
 
             <DetailLayout

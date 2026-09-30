@@ -211,6 +211,10 @@ export const wardenPlugin = definePlugin({
     // nowhere. This route is reached only from a row's timestamp.
     { path: "/check-log/:id", element: WardenCheckLogDetailPage },
     { path: "/playground", element: WardenPlaygroundPage },
+    // No nav entry: a sidebar link to "a check" with none chosen points
+    // nowhere. This route is reached only from a check's own page, and it
+    // reads params.checkId because a plugin cannot read a query string.
+    { path: "/playground/check/:checkId", element: WardenPlaygroundPage },
     { path: "/config", element: WardenConfigPage },
   ],
 })

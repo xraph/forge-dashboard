@@ -148,4 +148,12 @@ describe("wardenPlugin", () => {
     expect(at("Playground")?.priority).toBeLessThan(at("Check log")?.priority ?? 0)
     expect(wardenPlugin.routes.map((r) => r.path)).toContain("/playground")
   })
+
+  it("routes the playground for one check, with no nav entry for it", () => {
+    // A sidebar link to "a check" with none chosen would point nowhere.
+    const nav = wardenPlugin.nav ?? []
+    expect(wardenPlugin.routes.map((r) => r.path)).toContain("/playground/check/:checkId")
+    expect(nav.map((n) => n.to)).not.toContain("/playground/check/:checkId")
+    expect(nav.find((n) => n.label === "Playground")?.to).toBe("/playground")
+  })
 })
