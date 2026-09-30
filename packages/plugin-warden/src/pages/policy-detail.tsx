@@ -17,6 +17,7 @@ import {
 import { Timestamp } from "@forge-go/dashboard-kit/components/timestamp"
 import { ZeroState } from "@forge-go/dashboard-kit/components/zero-state"
 import { NamespaceCell } from "../components/namespace-filter"
+import { PolicyEditor } from "../components/policy-editor"
 import {
   PolicyRule,
   windowPhrase,
@@ -232,14 +233,14 @@ export function activateSentences(p: PolicyDetail, now: number, evaluationOff: b
 }
 
 /**
- * The page's props. The edit route renders this page with `editing` set, so
- * the create flow, which lands on `/policies/<id>/edit`, never meets a missing
- * route. Until the editor exists the flag changes nothing and both routes
- * show the read view.
+ * The page's props. The edit route renders this page with `editing` set, and
+ * the rule block is then the editor. The URL always says which mode you are
+ * in: Edit goes to `/policies/<id>/edit`, and Cancel and a successful Save
+ * come back to `/policies/<id>`.
  */
 export type PolicyPageProps = PluginPageProps & { editing?: boolean }
 
-export function WardenPolicyDetailPage({ params }: PolicyPageProps) {
+export function WardenPolicyDetailPage({ params, editing = false }: PolicyPageProps) {
   const id = params.id as string
   const detail = useQuery<PolicyDetail>("policies.detail", { id })
   const config = useQuery<ConfigDetail>("config.detail")
@@ -306,6 +307,20 @@ export function WardenPolicyDetailPage({ params }: PolicyPageProps) {
   return (
     <QueryBoundary title="Policy" query={detail} skeletonRows={4}>
       {(policy) => {
+        if (editing) {
+          return (
+            <section className="flex flex-col gap-6">
+              <PageHeader title={policy.name} description="Editing this policy." />
+              {abacOff && (
+                <Alert>
+                  <AlertDescription>{ABAC_OFF}</AlertDescription>
+                </Alert>
+              )}
+              <PolicyEditor policy={policy} evaluationOff={abacOff} />
+            </section>
+          )
+        }
+
         const state = stateLine(policy, abacOff, now)
         // Above the block: the state when the policy is not in effect, and
         // what it does when evaluated, in the mood its state allows. With
@@ -321,6 +336,9 @@ export function WardenPolicyDetailPage({ params }: PolicyPageProps) {
               description={policy.description || undefined}
               actions={
                 <>
+                  <Button variant="outline" onClick={() => navigate(`/policies/${id}/edit`)}>
+                    Edit
+                  </Button>
                   {policy.isActive && (
                     <Button variant="outline" onClick={() => openToggle(false)}>
                       Deactivate
@@ -466,7 +484,7 @@ export function WardenPolicyDetailPage({ params }: PolicyPageProps) {
   )
 }
 
-/** The edit route. Renders the read view until the editor exists. */
+/** The edit route: the same page, with the rule block as the editor. */
 export function WardenPolicyEditPage(props: PluginPageProps) {
   return <WardenPolicyDetailPage {...props} editing />
 }

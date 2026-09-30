@@ -167,9 +167,9 @@ export const wardenPlugin = definePlugin({
     { path: "/policies", element: WardenPoliciesPage },
     // No nav entry for either: a sidebar link to "a policy" with none chosen
     // points nowhere. The detail is reached from a row's name. The edit route
-    // is where the create flow lands, and renders the read view until the
-    // editor exists, so that link never meets a missing route. Both read the
-    // policy from params.id, because a plugin cannot read a query string.
+    // opens the editor, and is where the create flow lands and where the
+    // detail page's Edit button goes. Both read the policy from params.id,
+    // because a plugin cannot read a query string.
     { path: "/policies/:id", element: WardenPolicyDetailPage },
     { path: "/policies/:id/edit", element: WardenPolicyEditPage },
     { path: "/relations", element: WardenRelationsPage },

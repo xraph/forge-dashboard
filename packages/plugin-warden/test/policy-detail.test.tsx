@@ -258,17 +258,33 @@ describe("WardenPolicyDetailPage", () => {
       ])
     })
 
-    it("renders the read view on the edit route, from the id in the route", async () => {
-      // Where the create flow lands. Until the editor exists it must show the
-      // policy, never a missing route.
+    it("opens the editor on the edit route, from the id in the route", async () => {
+      // Where the create flow lands and where Edit goes. It must show the
+      // policy being edited, never a missing route, and never the read view.
       const { client: c, sent } = recordingQueryClient(answers(DETAIL))
       const Edit = route("/policies/:id/edit")!.element as ComponentType<PluginPageProps>
       renderPage(Edit, c, { id: "pol_01" })
       await heading()
-      expect(rule()).toBeTruthy()
+      expect(screen.getByRole("region", { name: "Rule editor" })).toBeTruthy()
+      expect(screen.queryByRole("region", { name: "Rule" })).toBeNull()
+      expect((screen.getByLabelText("Name") as HTMLInputElement).value).toBe("office-only")
       expect(sent.filter((s) => s.intent === "policies.detail")).toEqual([
         { intent: "policies.detail", params: { id: "pol_01" } },
       ])
+    })
+
+    it("renders the read view, not the editor, on the detail route", async () => {
+      show()
+      await heading()
+      expect(rule()).toBeTruthy()
+      expect(screen.queryByRole("region", { name: "Rule editor" })).toBeNull()
+    })
+
+    it("goes to the edit route from the Edit button", async () => {
+      const { navigated } = showInHost(stubClient(answers(DETAIL)))
+      await heading()
+      fireEvent.click(screen.getByRole("button", { name: "Edit" }))
+      expect(navigated).toEqual(["/@warden/acme/policies/pol_01/edit"])
     })
   })
 
