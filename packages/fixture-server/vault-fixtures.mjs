@@ -666,6 +666,7 @@ function evaluateDetail(row, tenantId, userId, nowMs) {
     const rule = row.rules[i]
     const matched = ruleMatches(rule, row.key, tenantId, userId, nowMs)
     trace.push({
+      ruleId: rule.id,
       priority: rule.priority,
       type: rule.type,
       matched,
@@ -674,7 +675,7 @@ function evaluateDetail(row, tenantId, userId, nowMs) {
     })
     if (!matched) continue
     for (const rest of row.rules.slice(i + 1)) {
-      trace.push({ priority: rest.priority, type: rest.type, matched: false, reached: false, note: "" })
+      trace.push({ ruleId: rest.id, priority: rest.priority, type: rest.type, matched: false, reached: false, note: "" })
     }
     return { value: rule.returnValue, reason: "rule", matchedRule: rule, trace }
   }
@@ -782,7 +783,7 @@ export function createVaultHandlers(FixtureError) {
 
   /** cleanIDs: trims each id and refuses an empty list, a blank id or a duplicate. */
   function cleanIDs(i, name, list) {
-    const field = `rules[${i}].config.${name}`
+    const field = `rules[${i}].${name}`
     if (!Array.isArray(list) || list.length === 0) throw invalid(field, "must list at least one id")
     const seen = new Set()
     const out = []
@@ -812,14 +813,14 @@ export function createVaultHandlers(FixtureError) {
         break
       case "rollout": {
         const pct = typeof raw.percentage === "number" ? Math.trunc(raw.percentage) : 0
-        if (pct < 0 || pct > 100) throw invalid(`rules[${i}].config.percentage`, "must be between 0 and 100")
+        if (pct < 0 || pct > 100) throw invalid(`rules[${i}].percentage`, "must be between 0 and 100")
         cfg.percentage = pct
         break
       }
       case "schedule":
-        if (startAt === null && endAt === null) throw invalid(`rules[${i}].config`, "a schedule needs a start, an end, or both")
+        if (startAt === null && endAt === null) throw invalid(`rules[${i}].startAt`, "a schedule needs a start, an end, or both")
         if (startAt !== null && endAt !== null && !(Date.parse(startAt) < Date.parse(endAt))) {
-          throw invalid(`rules[${i}].config.endAt`, "must be after the start")
+          throw invalid(`rules[${i}].endAt`, "must be after the start")
         }
         cfg.startAt = startAt
         cfg.endAt = endAt
@@ -1036,7 +1037,10 @@ export function createVaultHandlers(FixtureError) {
           valueMatchesType: valueMatchesType(row.type, detail.value),
           reason: detail.reason,
         }
-        if (detail.matchedRule) out.matchedRulePriority = detail.matchedRule.priority
+        if (detail.matchedRule) {
+          out.matchedRulePriority = detail.matchedRule.priority
+          out.matchedRuleId = detail.matchedRule.id
+        }
         out.trace = detail.trace
         if (tenantId !== "") out.bucket = rolloutBucket(tenantId, key)
         out.evaluatedAt = iso(nowMs)

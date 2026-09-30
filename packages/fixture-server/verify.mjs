@@ -676,6 +676,17 @@ async function main() {
       tagRule?.tagKey === "plan" && tagRule.tagValue === "enterprise" && customRule?.evaluator === "beta-cohort" && same(customRule.params, { cohort: "early", weight: 2, flags: ["a", "b"] }),
       JSON.stringify([tagRule, customRule]),
     )
+    const wayneEval = data(await flagCall("flags.evaluate", { key: "checkout.new-flow", tenantId: "wayne" }))
+    vaultCheck(
+      "an evaluation names each rule by id in the engine's order, and the deciding rule by matchedRuleId",
+      wayneEval?.reason === "rule" && wayneEval.matchedRuleId === ladder?.rules?.[2]?.id && wayneEval.matchedRulePriority === 2 && same((wayneEval.trace ?? []).map((s) => s.ruleId), (ladder?.rules ?? []).map((r) => r.id)) && (wayneEval.trace ?? []).every((s) => typeof s.ruleId === "string" && s.ruleId !== ""),
+      JSON.stringify({ matchedRuleId: wayneEval?.matchedRuleId, trace: (wayneEval?.trace ?? []).map((s) => s.ruleId), rules: (ladder?.rules ?? []).map((r) => r.id) }),
+    )
+    vaultCheck(
+      "matchedRuleId is absent unless a rule decided",
+      !("matchedRuleId" in (data(await flagCall("flags.evaluate", { key: "checkout.new-flow", tenantId: "globex" })) ?? {})),
+      "globex walks every rung to the default",
+    )
     vaultCheck(
       "flags.detail carries cacheTtlSeconds 30 and never null lists",
       ladder?.cacheTtlSeconds === 30 && Array.isArray(ladder.variants) && Array.isArray(ladder.overrides) && Array.isArray(ladder.recentAudit) && ladder.metadata !== null && typeof ladder.metadata === "object",
@@ -757,15 +768,15 @@ async function main() {
     const rulesNull = await flagCall("flags.setRules", { key: "spot/flag.a", rules: null })
     vaultCheck("flags.setRules refuses a null rules list", badRequest(rulesNull, "rules is required; send an empty list to clear them"), failure(rulesNull))
     const ruleRefusals = [
-      ["a percentage over 100", { type: "rollout", percentage: 101, returnValue: true }, "flag: rules[0].config.percentage: must be between 0 and 100"],
-      ["a negative percentage", { type: "rollout", percentage: -1, returnValue: true }, "flag: rules[0].config.percentage: must be between 0 and 100"],
-      ["no tenant ids", { type: "when_tenant", tenantIds: [], returnValue: true }, "flag: rules[0].config.tenantIds: must list at least one id"],
-      ["a blank tenant id", { type: "when_tenant", tenantIds: ["acme", " "], returnValue: true }, "flag: rules[0].config.tenantIds: must not contain a blank id"],
-      ["a duplicate tenant id", { type: "when_tenant", tenantIds: ["acme", " acme "], returnValue: true }, 'flag: rules[0].config.tenantIds: lists "acme" more than once'],
-      ["no user ids", { type: "when_user", returnValue: true }, "flag: rules[0].config.userIds: must list at least one id"],
-      ["a schedule with no bounds", { type: "schedule", returnValue: true }, "flag: rules[0].config: a schedule needs a start, an end, or both"],
-      ["a schedule that ends before it starts", { type: "schedule", startAt: "2030-01-02T00:00:00Z", endAt: "2030-01-01T00:00:00Z", returnValue: true }, "flag: rules[0].config.endAt: must be after the start"],
-      ["a schedule that ends when it starts", { type: "schedule", startAt: "2030-01-01T00:00:00Z", endAt: "2030-01-01T00:00:00Z", returnValue: true }, "flag: rules[0].config.endAt: must be after the start"],
+      ["a percentage over 100", { type: "rollout", percentage: 101, returnValue: true }, "flag: rules[0].percentage: must be between 0 and 100"],
+      ["a negative percentage", { type: "rollout", percentage: -1, returnValue: true }, "flag: rules[0].percentage: must be between 0 and 100"],
+      ["no tenant ids", { type: "when_tenant", tenantIds: [], returnValue: true }, "flag: rules[0].tenantIds: must list at least one id"],
+      ["a blank tenant id", { type: "when_tenant", tenantIds: ["acme", " "], returnValue: true }, "flag: rules[0].tenantIds: must not contain a blank id"],
+      ["a duplicate tenant id", { type: "when_tenant", tenantIds: ["acme", " acme "], returnValue: true }, 'flag: rules[0].tenantIds: lists "acme" more than once'],
+      ["no user ids", { type: "when_user", returnValue: true }, "flag: rules[0].userIds: must list at least one id"],
+      ["a schedule with no bounds", { type: "schedule", returnValue: true }, "flag: rules[0].startAt: a schedule needs a start, an end, or both"],
+      ["a schedule that ends before it starts", { type: "schedule", startAt: "2030-01-02T00:00:00Z", endAt: "2030-01-01T00:00:00Z", returnValue: true }, "flag: rules[0].endAt: must be after the start"],
+      ["a schedule that ends when it starts", { type: "schedule", startAt: "2030-01-01T00:00:00Z", endAt: "2030-01-01T00:00:00Z", returnValue: true }, "flag: rules[0].endAt: must be after the start"],
       ["an unknown rule type", { type: "geo", returnValue: true }, 'flag: rules[0].type: unknown rule type "geo"'],
       ["a return value of the wrong type", { type: "rollout", percentage: 5, returnValue: "yes" }, "flag: rules[0].returnValue: must be a boolean, got a string"],
       ["a missing return value", { type: "rollout", percentage: 5 }, "flag: rules[0].returnValue: must be a boolean, got null"],
@@ -779,7 +790,7 @@ async function main() {
     const badEnd = await flagCall("flags.setRules", { key: "spot/flag.a", rules: [{ type: "schedule", endAt: "2030-01-01 00:00", returnValue: true }] })
     vaultCheck("flags.setRules refuses an end that is not RFC3339", badRequest(badEnd, "rules[0].endAt must be an RFC3339 timestamp"), failure(badEnd))
     const laterBad = await flagCall("flags.setRules", { key: "spot/flag.a", rules: [{ type: "rollout", percentage: 50, returnValue: true }, { type: "rollout", percentage: 200, returnValue: true }] })
-    vaultCheck("flags.setRules names the rule at fault by its index", badRequest(laterBad, "flag: rules[1].config.percentage: must be between 0 and 100"), failure(laterBad))
+    vaultCheck("flags.setRules names the rule at fault by its index", badRequest(laterBad, "flag: rules[1].percentage: must be between 0 and 100"), failure(laterBad))
     vaultCheck("no refused setRules wrote anything", same(data(await flagCall("flags.detail", { key: "spot/flag.a" }))?.rules, []), "a refused list left rules behind")
     const rulesOnMissing = await flagCall("flags.setRules", { key: "spot/none.flag", rules: [] })
     vaultCheck("flags.setRules on a missing key is 404 NOT_FOUND", refused(rulesOnMissing, 404, "NOT_FOUND", "flag not found"), failure(rulesOnMissing))
