@@ -81,8 +81,16 @@ function ChainBody({ stream, deepLink }: { stream: StreamSummary; deepLink: SeqR
   const pastHead = typed !== null && typed.toSeq > head
   const runnable = typed !== null && !pastHead
 
+  // The same numbers make the same store key, so asking again for the range
+  // already on screen would issue no read at all, and after a failure the
+  // button would look dead. Asking again means asking the server again.
+  const request = (r: SeqRange) => {
+    if (requested && requested.fromSeq === r.fromSeq && requested.toSeq === r.toSeq) verify.refetch()
+    else setRequested(r)
+  }
+
   const runTyped = () => {
-    if (runnable) setRequested(typed)
+    if (runnable) request(typed)
   }
 
   return (
@@ -114,7 +122,7 @@ function ChainBody({ stream, deepLink }: { stream: StreamSummary; deepLink: SeqR
         <Button type="submit" disabled={!runnable}>
           Check this range
         </Button>
-        <Button type="button" variant="outline" disabled={whole === null || wholeTooBig} onClick={() => whole && setRequested(whole)}>
+        <Button type="button" variant="outline" disabled={whole === null || wholeTooBig} onClick={() => whole && request(whole)}>
           Check the whole chain
         </Button>
         {pastHead && (
@@ -133,7 +141,7 @@ function ChainBody({ stream, deepLink }: { stream: StreamSummary; deepLink: SeqR
         <div className="flex flex-col gap-2">
           <CommandAlert title="The chain could not be checked" error={verify.error} />
           {verify.error.code === "BAD_REQUEST" && recent && (
-            <Button type="button" variant="outline" className="self-start" onClick={() => setRequested(recent)}>
+            <Button type="button" variant="outline" className="self-start" onClick={() => request(recent)}>
               {`Check the most recent ${formatSeq(DEFAULT_WINDOW)} instead`}
             </Button>
           )}

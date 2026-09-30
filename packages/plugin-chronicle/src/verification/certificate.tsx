@@ -62,20 +62,27 @@ export function Certificate({
     ) : null
 
   const breaks = breaksOf(r)
-  const from = r.firstEvent || 1
-  const to = Math.max(r.lastEvent, r.headSeq, from)
+  // The ribbon is scaled to the range that was examined. Scaled to the head, a
+  // check of 2,730 to 2,830 on a long chain would stack every marker at the
+  // left edge, and the ribbon exists so a break's position can be seen.
+  const examined = r.verified > 0
+  const from = r.firstEvent
+  const to = r.lastEvent
 
   return (
     <article className="flex flex-col gap-8">
       {verdict}
       {limits}
-      <Section title="Where">
-        <Ribbon report={r} fromSeq={from} toSeq={to} />
-        <p className="mt-1 flex justify-between font-mono text-xs text-muted-foreground">
-          <span>{formatSeq(from)}</span>
-          <span>{formatSeq(to)}</span>
-        </p>
-      </Section>
+      {examined && (
+        <Section title="Where">
+          <Ribbon report={r} fromSeq={from} toSeq={to} />
+          <p className="mt-1 flex justify-between font-mono text-xs text-muted-foreground">
+            <span>{formatSeq(from)}</span>
+            <span>{formatSeq(to)}</span>
+          </p>
+          {to < r.headSeq && <p className="mt-2 text-sm">{`The chain's head is at sequence ${formatSeq(r.headSeq)}.`}</p>}
+        </Section>
+      )}
       {breaks.length > 0 && (
         <Section title="What was found">
           <table className="w-full text-sm">
@@ -120,7 +127,7 @@ export function Certificate({
       )}
       <Section title="What was examined">
         <p className="mb-3 text-sm">
-          {`${formatSeq(r.verified)} events read, sequences ${formatSeq(from)} to ${formatSeq(r.lastEvent)}.`}
+          {examined ? `${formatSeq(r.verified)} events read, sequences ${formatSeq(from)} to ${formatSeq(to)}.` : "No events were read."}
         </p>
         <CheckTable rows={checksOf(r, ctx)} />
         {(r.checkpoints ?? []).map((c) => (

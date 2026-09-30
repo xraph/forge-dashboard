@@ -159,5 +159,21 @@ describe("ChainPage", () => {
     fireEvent.click(await screen.findByRole("button", { name: "Check this range" }))
     await waitFor(() => expect(screen.getAllByText("Not checked, this deployment stores no checkpoints").length).toBeGreaterThan(0))
   })
-})
 
+  it("runs the same range again after a failure instead of doing nothing", async () => {
+    let calls = 0
+    const c = client({
+      "verify.run": () => {
+        calls += 1
+        if (calls === 1) return new ContractError("INTERNAL", "the store timed out")
+        return { noChain: false, report: plainNoCheckpoints }
+      },
+    })
+    renderPage(ChainPage, c.client)
+    fireEvent.click(await screen.findByRole("button", { name: "Check this range" }))
+    await waitFor(() => expect(screen.getByText(/the store timed out/)).toBeTruthy())
+    fireEvent.click(screen.getByRole("button", { name: "Check this range" }))
+    await waitFor(() => expect(screen.getByText(/No corruption detected/)).toBeTruthy())
+    expect(c.queried.filter((q) => q.intent === "verify.run")).toHaveLength(2)
+  })
+})
