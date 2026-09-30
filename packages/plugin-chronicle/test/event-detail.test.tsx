@@ -1,6 +1,6 @@
-import { fireEvent, screen, waitFor } from "@testing-library/react"
+import { fireEvent, render, screen, waitFor } from "@testing-library/react"
 import { describe, expect, it } from "vitest"
-import { ContractError } from "@forge-go/dashboard-plugin"
+import { ContractError, PluginProvider } from "@forge-go/dashboard-plugin"
 import { EventDetailPage } from "../src/pages/event-detail"
 import { failingClient, renderPage, scriptedClient } from "./harness"
 import type { EventDetail } from "../src/types"
@@ -95,5 +95,47 @@ describe("EventDetailPage", () => {
   it("answers an event outside the scope as not found", async () => {
     renderPage(EventDetailPage, failingClient(new ContractError("NOT_FOUND", "not found")), { id: "audit_x" })
     await waitFor(() => expect(screen.getByText(/not found/i)).toBeTruthy())
+  })
+
+  it("lets the operator check again after the digest check failed", async () => {
+    let calls = 0
+    const c = scriptedClient({
+      "events.detail": detail(),
+      "streams.mine": { stream: { id: "stream_globex", appId: "app_chronicle", tenantId: "globex", headHash: "cc", headSeq: 5000, scheme: "chronicle/v5", schemeSince: 1, coverageCeiling: "signed", checkpointingConfigured: true } },
+      "verify.event": () => (++calls === 1 ? new ContractError("INTERNAL", "verifier unavailable") : { valid: true, hashScheme: "chronicle/v5", keyed: true }),
+    })
+    renderPage(EventDetailPage, c.client, { id: "audit_globex_2780" })
+    fireEvent.click(await screen.findByRole("button", { name: "Check this event's digest" }))
+    await waitFor(() => expect(screen.getByText("The digest could not be checked")).toBeTruthy())
+    fireEvent.click(screen.getByRole("button", { name: "Check this event's digest" }))
+    await waitFor(() => expect(screen.getByText(/recomputes under a keyed scheme/)).toBeTruthy())
+    expect(c.queried.filter((q) => q.intent === "verify.event")).toHaveLength(2)
+  })
+
+  it("does not carry a digest check over to the next event the route opens", async () => {
+    const c = scriptedClient({
+      "events.detail": (p) => detail({ id: String(p.id), sequence: p.id === "audit_globex_2780" ? 2780 : 2781 }),
+      "streams.mine": { stream: { id: "stream_globex", appId: "app_chronicle", tenantId: "globex", headHash: "cc", headSeq: 5000, scheme: "chronicle/v5", schemeSince: 1, coverageCeiling: "signed", checkpointingConfigured: true } },
+      "verify.event": { valid: true, hashScheme: "chronicle/v5", keyed: true },
+    })
+    const ui = (id: string) => (
+      <PluginProvider client={c.client}>
+        <EventDetailPage params={{ id }} />
+      </PluginProvider>
+    )
+    // Event B has been opened before, so its detail is cached and the route
+    // change renders it at once, with no loading state to remount the body.
+    const warm = render(ui("audit_globex_2781"))
+    await screen.findByText("2,781")
+    warm.unmount()
+    const view = render(ui("audit_globex_2780"))
+    fireEvent.click(await screen.findByRole("button", { name: "Check this event's digest" }))
+    await waitFor(() => expect(screen.getByText(/recomputes under a keyed scheme/)).toBeTruthy())
+    view.rerender(ui("audit_globex_2781"))
+    await screen.findByText("2,781")
+    expect(screen.queryByText(/recomputes under a keyed scheme/)).toBeNull()
+    expect(c.queried.filter((q) => q.intent === "verify.event").map((q) => q.params)).toEqual([{ eventId: "audit_globex_2780" }])
+    fireEvent.click(screen.getByRole("button", { name: "Check this event's digest" }))
+    await waitFor(() => expect(c.queried.filter((q) => q.intent === "verify.event")).toHaveLength(2))
   })
 })

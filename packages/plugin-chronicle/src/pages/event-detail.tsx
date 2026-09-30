@@ -41,12 +41,16 @@ export const EventDetailPage: ComponentType<PluginPageProps> = ({ params }) => {
     <section className="flex flex-col gap-4">
       <PageHeader title="Event" description="One record, its place in the chain, and whether its own digest recomputes." />
       <QueryBoundary title="event" query={q} skeletonRows={8}>
-        {(ev) => <Body ev={ev} />}
+        {(ev) => <Body key={ev.id} ev={ev} />}
       </QueryBoundary>
     </section>
   )
 }
 
+/**
+ * Keyed by event id where it is rendered: `checking` is an operator's request
+ * about one event, and must not carry over to the next one the route opens.
+ */
 function Body({ ev }: { ev: EventDetail }) {
   const [checking, setChecking] = useState(false)
   const verify = useQuery<VerifyEventResponse>("verify.event", { eventId: ev.id }, { enabled: checking })
@@ -115,7 +119,7 @@ function Body({ ev }: { ev: EventDetail }) {
               { term: "Chain", value: <span className="font-mono text-xs">{ev.streamId}</span> },
             ]}
           />
-          <Button variant="outline" className="self-start" onClick={() => setChecking(true)} disabled={checking && verify.loading}>
+          <Button variant="outline" className="self-start" onClick={() => (checking ? verify.refetch() : setChecking(true))} disabled={checking && verify.loading}>
             Check this event's digest
           </Button>
           {verify.error && <CommandAlert title="The digest could not be checked" error={verify.error} />}
