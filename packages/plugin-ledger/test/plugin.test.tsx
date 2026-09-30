@@ -38,6 +38,15 @@ describe("ledgerPlugin", () => {
     }
   })
 
+  it("loads the heavy routes lazily", () => {
+    const lazyPaths = ledgerPlugin.routes
+      .filter((r) => (r.element as unknown as { $$typeof?: symbol }).$$typeof === Symbol.for("react.lazy"))
+      .map((r) => r.path)
+      .sort()
+    const expected = ["/invoices/:id", "/plans/:id", "/usage"].filter((p) => ledgerPlugin.routes.some((r) => r.path === p))
+    expect(lazyPaths).toEqual(expected.sort())
+  })
+
   it("orders sidebar groups Overview, Catalog, Billing, Configuration", () => {
     const order = ["Overview", "Catalog", "Billing", "Configuration"]
     const seen = ledgerPlugin.nav.map((n) => n.group as string).filter((g, i, all) => all.indexOf(g) === i)

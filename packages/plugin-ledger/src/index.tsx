@@ -1,3 +1,4 @@
+import { lazy } from "react"
 import { definePlugin } from "@forge-go/dashboard-plugin"
 import type { PluginNavItem, PluginRoute } from "@forge-go/dashboard-plugin"
 import { CreditCardIcon, HouseIcon, PackageIcon, SettingsIcon, WalletIcon } from "@forge-go/dashboard-kit/icons"
@@ -7,6 +8,9 @@ import { LedgerPlanCreatePage } from "./pages/plan-create"
 import { LedgerPlanEditPage } from "./pages/plan-edit"
 import { LedgerPlansPage } from "./pages/plans"
 import { LedgerSettingsPage } from "./pages/settings"
+
+// Lazy: its module is imported nowhere else, so the table code loads only here.
+const LedgerPlanDetailPage = lazy(() => import("./pages/plan-detail"))
 
 export type * from "./types"
 export {
@@ -50,6 +54,7 @@ const routes: PluginRoute[] = [
   { path: "/plans", element: LedgerPlansPage },
   { path: "/plans/new", element: LedgerPlanCreatePage },
   { path: "/plans/:id/edit", element: LedgerPlanEditPage },
+  { path: "/plans/:id", element: LedgerPlanDetailPage },
   { path: "/payment-methods", element: LedgerPaymentMethodsPage },
   { path: "/settings", element: LedgerSettingsPage },
 ]

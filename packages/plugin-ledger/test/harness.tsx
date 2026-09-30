@@ -144,6 +144,35 @@ export function recordingClient(answers: Record<string, unknown>): {
   }
 }
 
+/**
+ * A client that answers from two maps and throws any value that is itself a
+ * ContractError, so one test can have plans.detail answer and plans.delete
+ * refuse. Every command is recorded, with its payload, in `sent`.
+ */
+export function scriptedClient(
+  answers: Record<string, unknown>,
+  commands: Record<string, unknown> = {},
+): { client: ScopedClient; sent: { intent: string; payload: unknown }[] } {
+  const sent: { intent: string; payload: unknown }[] = []
+  const client = {
+    extension: "ledger",
+    query: async (intent: string) => {
+      if (!(intent in answers)) throw new ContractError("NOT_FOUND", `no handler for intent "${intent}"`)
+      const answer = answers[intent]
+      if (answer instanceof ContractError) throw answer
+      return answer
+    },
+    command: async (intent: string, payload?: unknown) => {
+      sent.push({ intent, payload })
+      if (!(intent in commands)) throw new ContractError("NOT_FOUND", `no handler for command "${intent}"`)
+      const answer = commands[intent]
+      if (answer instanceof ContractError) throw answer
+      return answer
+    },
+  } as ScopedClient
+  return { client, sent }
+}
+
 /** Renders one plugin page the way the host does: inside a PluginProvider. */
 export function renderPage(
   Page: ComponentType<PluginPageProps>,
