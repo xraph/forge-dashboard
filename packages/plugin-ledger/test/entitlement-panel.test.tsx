@@ -35,7 +35,7 @@ describe("EntitlementRow", () => {
 
   it("marks a soft limit that was passed as billed overage", () => {
     const { container } = row(feature({ used: 1500, remaining: 0, over_limit: true, soft_limit: true }))
-    expect(screen.getByText("500 over the soft limit, billed as overage")).toBeTruthy()
+    expect(screen.getByText("500 over the soft limit. Use is not blocked")).toBeTruthy()
     expect(container.innerHTML).toMatch(/bg-warning/)
   })
 
@@ -49,9 +49,11 @@ describe("EntitlementRow", () => {
     expect(container.innerHTML).toMatch(/bg-destructive/)
   })
 
-  it("says a soft limit that was reached bills what comes after it", () => {
+  // Whether overage is priced is not in the result, so the copy says only that use is not blocked.
+  it("says a soft limit that was reached does not block what comes after it", () => {
     const { container } = row(feature({ used: 1000, remaining: 0, soft_limit: true }))
-    expect(screen.getByText("At the soft limit, use past it is billed as overage")).toBeTruthy()
+    expect(screen.getByText("At the soft limit. Use past it is not blocked")).toBeTruthy()
+    expect(container.innerHTML).not.toMatch(/overage/)
     expect(container.innerHTML).toMatch(/bg-warning/)
     expect(container.innerHTML).not.toMatch(/bg-destructive/)
   })
@@ -65,10 +67,10 @@ describe("EntitlementRow", () => {
 
   // Seats are priced per seat from the subscription's counts and the limit
   // plays no part in billing, so a seat count past a soft limit is not overage.
-  it("does not call seats past a soft limit billed overage", () => {
+  it("does not call seats past a soft limit unblocked or billed", () => {
     row(feature({ key: "seats", name: "Seats", type: "seat", period: "none", limit: 10, used: 12, remaining: 0, over_limit: true, soft_limit: true }))
     expect(screen.getByText("2 over the soft limit")).toBeTruthy()
-    expect(screen.queryByText(/billed as overage/)).toBeNull()
+    expect(screen.queryByText(/overage|not blocked/)).toBeNull()
   })
 
   it("does not say a full seat count is refusing use", () => {
@@ -98,6 +100,17 @@ describe("EntitlementRow", () => {
     unmount()
     row(feature({ key: "sso", name: "Single sign-on", type: "boolean", period: "none", limit: 0, used: 0, remaining: -1, enabled: false }))
     expect(screen.getByText("Not included")).toBeTruthy()
+  })
+
+  it("points the bar at the note that explains it", () => {
+    row(feature({ used: 1200, remaining: 0, over_limit: true }))
+    const bar = screen.getByRole("progressbar")
+    expect(document.getElementById(bar.getAttribute("aria-describedby") ?? "")?.textContent).toBe("200 over the limit")
+  })
+
+  it("describes nothing when there is no note", () => {
+    row(feature({}))
+    expect(screen.getByRole("progressbar").getAttribute("aria-describedby")).toBeNull()
   })
 
   it("never divides by a zero limit", () => {

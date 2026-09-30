@@ -31,9 +31,12 @@ export type SubscriptionAction = "generate" | "changePlan" | "applyCoupon" | "pa
  * takes paused only, and cancel and change-plan refuse only a canceled or
  * expired subscription, so a past-due or paused one can still be cancelled or
  * moved. The engine puts no status rule on generating an invoice or applying a
- * coupon; the page withholds both from a paused or finished subscription all
- * the same, because billing or discounting one that is not running is not
- * something to invite.
+ * coupon. Generate stays available once a subscription has ended, because an
+ * immediate cancel would otherwise strand the final period's overage and seats
+ * with no way to invoice them; the engine refuses a second invoice for the same
+ * period as a conflict, which the alert shows. It is withheld from a paused
+ * subscription, which is not running. Apply coupon is withheld from paused and
+ * finished subscriptions: a discount on one that is not running helps nobody.
  */
 export function legalActions(status: SubscriptionStatus): SubscriptionAction[] {
   switch (status) {
@@ -44,6 +47,9 @@ export function legalActions(status: SubscriptionStatus): SubscriptionAction[] {
       return ["generate", "changePlan", "applyCoupon", "cancel"]
     case "paused":
       return ["changePlan", "resume", "cancel"]
+    case "canceled":
+    case "expired":
+      return ["generate"]
     default:
       return []
   }
@@ -94,6 +100,8 @@ function SubscriptionDetailView({ detail }: { detail: SubscriptionDetail }) {
   const [dialog, setDialog] = useState<Dialog>(null)
   const [immediately, setImmediately] = useState(false)
   const [code, setCode] = useState("")
+  // Read once per visit: "past" is judged against when the page was opened, not on every render.
+  const [now] = useState(() => Date.now())
 
   function openDialog(which: Exclude<Dialog, null>) {
     // Reset at open, and clear what the dialog collects, so nothing from an
@@ -112,6 +120,22 @@ function SubscriptionDetailView({ detail }: { detail: SubscriptionDetail }) {
   }
 
   const close = (o: boolean) => !o && setDialog(null)
+  // The engine never writes ended_at: cancelling always sets cancel_at, and
+  // sets canceled_at as well only when the end has already arrived. It also
+  // never enacts a scheduled cancel_at, so past it the status is still active
+  // and entitlements continue, which the row says.
+  const isCanceled = sub.status === "canceled"
+  const datePassed = !isCanceled && sub.status !== "expired" && sub.cancel_at !== undefined && Date.parse(sub.cancel_at) < now
+  const cancelRow = {
+    term: isCanceled ? "Canceled" : "Scheduled to cancel",
+    value: (
+      <span className="flex flex-wrap items-baseline gap-x-2">
+        <Timestamp value={isCanceled ? (sub.canceled_at ?? sub.cancel_at) : sub.cancel_at} label="scheduled cancellation" />
+        {datePassed && <span className="text-xs text-muted-foreground">Date passed, still active</span>}
+      </span>
+    ),
+  }
+  const periodEnded = Date.parse(sub.current_period_end) <= now
   const seatText = Object.entries(sub.quantity ?? {}).map(([k, n]) => `${k}: ${n}`)
 
   return (
@@ -176,13 +200,7 @@ function SubscriptionDetailView({ detail }: { detail: SubscriptionDetail }) {
                   term: "Trial",
                   value: sub.trial_start && sub.trial_end ? formatPeriod(sub.trial_start, sub.trial_end) : <NoneCell label="trial" />,
                 },
-                {
-                  // The engine never writes ended_at: cancelling always sets
-                  // cancel_at, and sets canceled_at as well only when the end
-                  // has already arrived.
-                  term: sub.status === "canceled" ? "Canceled" : "Cancels",
-                  value: <Timestamp value={sub.status === "canceled" ? sub.canceled_at : sub.cancel_at} label="scheduled cancellation" />,
-                },
+                cancelRow,
                 { term: "Seats", value: seatText.length > 0 ? <span className="font-mono text-xs">{seatText.join(", ")}</span> : <NoneCell label="seat counts" /> },
                 { term: "Started", value: <Timestamp value={sub.created_at} label="start" /> },
               ]}
@@ -235,14 +253,18 @@ function SubscriptionDetailView({ detail }: { detail: SubscriptionDetail }) {
         title={`Cancel ${sub.tenant_id}'s subscription?`}
         description={
           <span className="flex flex-col gap-2">
-            <label className="flex items-center gap-2">
-              <input type="radio" name="cancel-when" checked={!immediately} onChange={() => setImmediately(false)} />
-              {`At the end of the current period, ${formatDay(sub.current_period_end)}`}
-            </label>
-            <label className="flex items-center gap-2">
-              <input type="radio" name="cancel-when" checked={immediately} onChange={() => setImmediately(true)} />
-              End it now
-            </label>
+            <span role="radiogroup" aria-label="When to cancel" className="flex flex-col gap-2">
+              <label className="flex items-center gap-2">
+                <input type="radio" name="cancel-when" checked={!immediately} onChange={() => setImmediately(false)} />
+                {periodEnded
+                  ? `The period ended on ${formatDay(sub.current_period_end)}, so this cancels now.`
+                  : `Record the cancellation for ${formatDay(sub.current_period_end)}. The subscription stays active until something ends it.`}
+              </label>
+              <label className="flex items-center gap-2">
+                <input type="radio" name="cancel-when" checked={immediately} onChange={() => setImmediately(true)} />
+                End it now
+              </label>
+            </span>
             <span>A canceled subscription cannot be restarted. The tenant would need a new one.</span>
           </span>
         }
@@ -346,7 +368,14 @@ function ChangePlanDialog({ subscription: sub, current, onClose }: { subscriptio
               </label>
             </>
           )}
-          {plans.error && <CommandAlert error={plans.error} title="Could not load the plans" />}
+          {plans.error && (
+            // Spans, not CommandAlert: its div would sit inside the description paragraph.
+            <span role="alert" className="flex flex-col gap-0.5 rounded-md border border-destructive/50 px-3 py-2 text-sm text-destructive">
+              <span className="font-medium">Could not load the plans</span>
+              <span>{plans.error.message}</span>
+              <span className="font-mono text-xs opacity-70">{plans.error.code}</span>
+            </span>
+          )}
         </span>
       }
       confirmLabel="Change plan"

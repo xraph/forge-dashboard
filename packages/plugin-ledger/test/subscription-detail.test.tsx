@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from "vitest"
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 import { fireEvent, screen, waitFor, within } from "@testing-library/react"
 import { ContractError, queryStore } from "@forge-go/dashboard-plugin"
 import { legalActions, LedgerSubscriptionDetailPage } from "../src/pages/subscription-detail"
@@ -27,6 +27,28 @@ function answers(sub = aSubscription(), over: Record<string, unknown> = {}) {
   }
 }
 
+// Pinned so what "past" and "future" mean here does not drift with the calendar.
+// Only Date is faked: timers, and so waitFor, keep running.
+const NOW = "2026-09-30T12:00:00Z"
+beforeEach(() => {
+  vi.useFakeTimers({ toFake: ["Date"] })
+  vi.setSystemTime(new Date(NOW))
+})
+afterEach(() => {
+  vi.useRealTimers()
+})
+
+/**
+ * A dialog's description is a paragraph, so nothing block-level may sit inside
+ * it. React reports that on the console only once per process, so a console
+ * spy cannot tell one test from the next; the structure can.
+ */
+function expectPhrasingOnly(dialog: HTMLElement) {
+  const description = dialog.querySelector("[data-slot=alert-dialog-description]")
+  expect(description).not.toBeNull()
+  expect(description?.querySelector("div, p, ul, ol, table, section, h1, h2, h3")).toBeNull()
+}
+
 function open(sub = aSubscription(), commands: Record<string, unknown> = {}, over: Record<string, unknown> = {}) {
   const { client, sent } = scriptedClient(answers(sub, over), commands)
   return { ...renderWithNavigation(LedgerSubscriptionDetailPage, client, { id: sub.id }), sent }
@@ -38,14 +60,17 @@ describe("legalActions", () => {
   // paused, cancel and change-plan refuse only canceled and expired. The engine
   // puts no status rule on generating an invoice or applying a coupon. The page
   // still withholds both from a paused or finished subscription, so an operator
-  // is not invited to bill or discount one that is not running.
+  // is not invited to discount one that is not running or to bill a paused one.
+  // Generate stays for canceled and expired, so the last period can be billed.
   it("offers only what the engine allows from each state", () => {
     expect(legalActions("active")).toEqual(["generate", "changePlan", "applyCoupon", "pause", "cancel"])
     expect(legalActions("trialing")).toEqual(["generate", "changePlan", "applyCoupon", "pause", "cancel"])
     expect(legalActions("past_due")).toEqual(["generate", "changePlan", "applyCoupon", "cancel"])
     expect(legalActions("paused")).toEqual(["changePlan", "resume", "cancel"])
-    expect(legalActions("canceled")).toEqual([])
-    expect(legalActions("expired")).toEqual([])
+    // A finished subscription can still be invoiced: an immediate cancel would
+    // otherwise strand the final period's overage and seats.
+    expect(legalActions("canceled")).toEqual(["generate"])
+    expect(legalActions("expired")).toEqual(["generate"])
   })
 })
 
@@ -53,7 +78,7 @@ describe("LedgerSubscriptionDetailPage", () => {
   it("leads with usage against limits", async () => {
     open()
     const panel = await screen.findByRole("region", { name: "Usage against limits" })
-    expect(within(panel).getByText("12,000 over the soft limit, billed as overage")).toBeTruthy()
+    expect(within(panel).getByText("12,000 over the soft limit. Use is not blocked")).toBeTruthy()
     expect(within(panel).getByText("6 of 10")).toBeTruthy()
     expect(within(panel).getByText("Included")).toBeTruthy()
   })
@@ -87,7 +112,8 @@ describe("LedgerSubscriptionDetailPage", () => {
     expect(within(aside).getByText("seats: 6")).toBeTruthy()
     expect(within(aside).getByLabelText("no trial")).toBeTruthy()
     expect(within(aside).queryByLabelText("no scheduled cancellation")).toBeNull()
-    expect(within(aside).getByText("Cancels", { selector: "dt" })).toBeTruthy()
+    expect(within(aside).getByText("Scheduled to cancel", { selector: "dt" })).toBeTruthy()
+    expect(within(aside).queryByText("Date passed, still active")).toBeNull()
   })
 
   it("reads a canceled subscription's end from canceled_at, which is what the engine writes", async () => {
@@ -96,7 +122,7 @@ describe("LedgerSubscriptionDetailPage", () => {
     await screen.findByText("inv_1")
     const aside = screen.getByRole("complementary")
     expect(within(aside).getByText("Canceled", { selector: "dt" })).toBeTruthy()
-    expect(within(aside).queryByText("Cancels", { selector: "dt" })).toBeNull()
+    expect(within(aside).queryByText("Scheduled to cancel", { selector: "dt" })).toBeNull()
     expect(within(aside).queryByLabelText("no scheduled cancellation")).toBeNull()
   })
 
@@ -108,12 +134,51 @@ describe("LedgerSubscriptionDetailPage", () => {
     expect(within(aside).getByLabelText("no applied coupons")).toBeTruthy()
   })
 
-  it("offers nothing on a canceled subscription", async () => {
+  it("offers only invoicing on a canceled subscription", async () => {
     open(aSubscription({ status: "canceled" }))
     await screen.findByText("inv_1")
-    for (const name of ["Pause", "Resume", "Cancel subscription", "Change plan", "Apply coupon", "Generate invoice"]) {
+    for (const name of ["Pause", "Resume", "Cancel subscription", "Change plan", "Apply coupon"]) {
       expect(screen.queryByRole("button", { name })).toBeNull()
     }
+    expect(screen.getByRole("button", { name: "Generate invoice" })).toBeTruthy()
+  })
+
+  it("offers only invoicing on an expired subscription, and shows the engine's refusal of a duplicate", async () => {
+    open(aSubscription({ status: "expired" }), { "invoices.generate": new ContractError("CONFLICT", "ledger: already exists: invoice inv_1 already covers this billing period") })
+    fireEvent.click(await screen.findByRole("button", { name: "Generate invoice" }))
+    expect(await screen.findByText(/already covers this billing period/)).toBeTruthy()
+    for (const name of ["Pause", "Resume", "Cancel subscription", "Change plan", "Apply coupon"]) {
+      expect(screen.queryByRole("button", { name })).toBeNull()
+    }
+  })
+
+  it("offers no invoicing on a paused subscription", async () => {
+    open(aSubscription({ status: "paused" }))
+    await screen.findByText("inv_1")
+    expect(screen.queryByRole("button", { name: "Generate invoice" })).toBeNull()
+    expect(screen.queryByRole("button", { name: "Apply coupon" })).toBeNull()
+  })
+
+  it("says a scheduled cancellation whose date has passed is still active", async () => {
+    open(aSubscription({ cancel_at: "2026-09-01T00:00:00Z" }))
+    await screen.findByText("inv_1")
+    const aside = screen.getByRole("complementary")
+    expect(within(aside).getByText("Scheduled to cancel", { selector: "dt" })).toBeTruthy()
+    expect(within(aside).getByText("Date passed, still active")).toBeTruthy()
+  })
+
+  it("does not say the date passed for a canceled or expired subscription", async () => {
+    open(aSubscription({ status: "canceled", canceled_at: "2026-09-01T00:00:00Z" }))
+    await screen.findByText("inv_1")
+    expect(screen.queryByText("Date passed, still active")).toBeNull()
+  })
+
+  it("shows the cancel_at date for a canceled subscription that has no canceled_at", async () => {
+    open(aSubscription({ status: "canceled", cancel_at: "2026-09-25T12:00:00Z" }))
+    await screen.findByText("inv_1")
+    const aside = screen.getByRole("complementary")
+    expect(within(aside).queryByLabelText("no scheduled cancellation")).toBeNull()
+    expect(within(aside).getByText("Canceled", { selector: "dt" })).toBeTruthy()
   })
 
   it("cancels at the end of the period unless told otherwise", async () => {
@@ -124,11 +189,20 @@ describe("LedgerSubscriptionDetailPage", () => {
     await waitFor(() => expect(sent).toEqual([{ intent: "subscriptions.cancel", payload: { id: "sub_acme", immediately: false } }]))
   })
 
-  it("names the day a period-end cancellation takes effect", async () => {
+  it("says a period-end cancellation only records the date", async () => {
     open()
     fireEvent.click(await screen.findByRole("button", { name: "Cancel subscription" }))
     const dialog = await screen.findByRole("alertdialog")
-    expect(within(dialog).getByLabelText(/At the end of the current period, Oct 20, 2026/)).toBeTruthy()
+    expect(within(dialog).getByLabelText("Record the cancellation for Oct 20, 2026. The subscription stays active until something ends it.")).toBeTruthy()
+    expect(within(dialog).getByRole("radiogroup", { name: "When to cancel" })).toBeTruthy()
+  })
+
+  it("says so when the period has already ended, because the engine then cancels at once", async () => {
+    open(aSubscription({ current_period_end: "2026-09-20T00:00:00Z" }))
+    fireEvent.click(await screen.findByRole("button", { name: "Cancel subscription" }))
+    const dialog = await screen.findByRole("alertdialog")
+    expect(within(dialog).getByLabelText("The period ended on Sep 20, 2026, so this cancels now.")).toBeTruthy()
+    expect(within(dialog).queryByLabelText(/Record the cancellation/)).toBeNull()
   })
 
   it("cancels now when asked, and keeps a refusal inside the dialog", async () => {
@@ -158,7 +232,11 @@ describe("LedgerSubscriptionDetailPage", () => {
         fireEvent.click(await screen.findByRole("button", { name: button }))
         const dialog = await screen.findByRole("alertdialog")
         expect(within(dialog).getByText(dialogTitle)).toBeTruthy()
-        if (button === "Change plan") fireEvent.change(await within(dialog).findByLabelText("New plan"), { target: { value: "plan_basic" } })
+        expectPhrasingOnly(dialog)
+        if (button === "Change plan") {
+          fireEvent.change(await within(dialog).findByLabelText("New plan"), { target: { value: "plan_basic" } })
+          expectPhrasingOnly(dialog)
+        }
         fireEvent.click(within(dialog).getByRole("button", { name: "Cancel" }))
         await waitFor(() => expect(screen.queryByRole("alertdialog")).toBeNull())
       }
@@ -279,11 +357,21 @@ describe("LedgerSubscriptionDetailPage", () => {
   })
 
   it("says so when the plan list cannot be read, and sends nothing", async () => {
-    open(aSubscription(), {}, { "plans.list": new ContractError("INTERNAL", "internal error") })
-    fireEvent.click(await screen.findByRole("button", { name: "Change plan" }))
-    const dialog = await screen.findByRole("alertdialog")
-    expect(await within(dialog).findByText("internal error")).toBeTruthy()
-    expect((within(dialog).getByRole("button", { name: "Change plan" }) as HTMLButtonElement).disabled).toBe(true)
+    const complaints = vi.spyOn(console, "error").mockImplementation(() => {})
+    try {
+      open(aSubscription(), {}, { "plans.list": new ContractError("INTERNAL", "internal error") })
+      fireEvent.click(await screen.findByRole("button", { name: "Change plan" }))
+      const dialog = await screen.findByRole("alertdialog")
+      expect(await within(dialog).findByText("internal error")).toBeTruthy()
+      expect((within(dialog).getByRole("button", { name: "Change plan" }) as HTMLButtonElement).disabled).toBe(true)
+      // The select offers nothing to pick, so the button is disabled for that reason and no other.
+      const options = within(within(dialog).getByLabelText("New plan")).getAllByRole("option")
+      expect(options.map((o) => o.textContent)).toEqual(["Choose a plan"])
+      expectPhrasingOnly(dialog)
+      expect(complaints.mock.calls.some((c) => String(c[0]).includes("cannot be a descendant"))).toBe(false)
+    } finally {
+      complaints.mockRestore()
+    }
   })
 
   it("applies a coupon by code and shows a refusal in the dialog", async () => {

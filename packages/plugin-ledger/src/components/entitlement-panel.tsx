@@ -1,3 +1,4 @@
+import { useId } from "react"
 import { useQuery } from "@forge-go/dashboard-plugin"
 import { Progress } from "@forge-go/dashboard-kit/components/progress"
 import { QueryBoundary } from "@forge-go/dashboard-kit/components/query-boundary"
@@ -25,10 +26,11 @@ const PERIOD: Record<string, string> = { monthly: " this month", yearly: " this 
  * carries "over soft limit", although subscriptions.usage sets over_limit
  * only for used above the limit. Seats are a level held on the subscription,
  * not a stream of events, and the engine's check does not measure them, so a
- * full seat count is not called refused. Seats are also priced per seat with
- * no allowance, so seats past a soft limit are not overage.
+ * full seat count is not called refused and a seat count past a soft limit is
+ * not called unblocked.
  */
 export function EntitlementRow({ feature: f }: { feature: FeatureUsage }) {
+  const noteId = useId()
   const name = (
     <span className="flex flex-col">
       <span className="font-medium">{f.name}</span>
@@ -67,11 +69,14 @@ export function EntitlementRow({ feature: f }: { feature: FeatureUsage }) {
   // generates only class names it can read in the source, so a name assembled
   // at runtime would never exist in the stylesheet.
   const fill = flagged ? (f.soft_limit ? "bg-warning" : "bg-destructive") : "bg-primary"
-  const overage = f.type === "metered" ? ", billed as overage" : ""
+  // Whether overage is priced is not in the result, so the copy says only what
+  // is always true: a soft limit does not block use. Seats are not measured by
+  // the engine's check, so theirs says how far over and nothing more.
+  const unblocked = f.type === "metered" ? ". Use is not blocked" : ""
 
   let note: string | undefined
-  if (over > 0) note = f.soft_limit ? `${number.format(over)} over the soft limit${overage}` : `${number.format(over)} over the limit`
-  else if (reached) note = f.soft_limit ? "At the soft limit, use past it is billed as overage" : "At the limit, further use is refused"
+  if (over > 0) note = f.soft_limit ? `${number.format(over)} over the soft limit${unblocked}` : `${number.format(over)} over the limit`
+  else if (reached) note = f.soft_limit ? "At the soft limit. Use past it is not blocked" : "At the limit, further use is refused"
 
   return (
     <li className="flex flex-col gap-2 px-4 py-3">
@@ -82,13 +87,14 @@ export function EntitlementRow({ feature: f }: { feature: FeatureUsage }) {
       <Progress
         value={percent}
         aria-label={`${f.name}: ${number.format(f.used)} of ${number.format(f.limit)} used`}
+        aria-describedby={note ? noteId : undefined}
         className={cn(
           fill === "bg-destructive" && "[&_[data-slot=progress-indicator]]:bg-destructive",
           fill === "bg-warning" && "[&_[data-slot=progress-indicator]]:bg-warning",
         )}
       />
       {note && (
-        <p className={cn("flex items-center gap-1.5 text-sm", f.soft_limit ? "text-warning-foreground" : "text-destructive")}>
+        <p id={noteId} className={cn("flex items-center gap-1.5 text-sm", f.soft_limit ? "text-warning-foreground" : "text-destructive")}>
           <TriangleAlertIcon className="size-4" aria-hidden="true" />
           {note}
         </p>
