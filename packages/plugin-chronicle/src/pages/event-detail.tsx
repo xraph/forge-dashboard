@@ -11,6 +11,7 @@ import type { EventDetail, MineResponse, VerifyEventResponse } from "../types"
 import { ErasedBadge, OutcomeBadge, SeverityBadge } from "../badges"
 import { formatSeq } from "../format"
 import { JsonView } from "../components/json-view"
+import { TenantValue } from "../components/tenant"
 import { aroundSeq } from "../verification/window"
 
 const ERASED = "[ERASED]"
@@ -59,6 +60,21 @@ function previousHash(ev: EventDetail): ReactNode {
   return <Raw value={ev.prevHash} wrap />
 }
 
+/**
+ * The key the event's sealed fields were encrypted under. The row names it
+ * and the digest does not cover it, so it is shown as the event's own claim.
+ */
+function encryptionKey(ev: EventDetail): ReactNode {
+  if (ev.encryptionKeyId === undefined) return <span className="text-muted-foreground">Not reported by this server</span>
+  if (ev.encryptionKeyId === "") return <NoneCell label="encryption key" />
+  return (
+    <span className="flex flex-col gap-1">
+      <Raw value={ev.encryptionKeyId} wrap />
+      <span className="text-muted-foreground">As the event records it. The digest does not cover it, so nothing here verifies it.</span>
+    </span>
+  )
+}
+
 export const EventDetailPage: ComponentType<PluginPageProps> = ({ params }) => {
   const id = params.id ?? ""
   const q = useQuery<EventDetail>("events.detail", { id })
@@ -101,6 +117,7 @@ function Body({ ev }: { ev: EventDetail }) {
               { term: "Outcome", value: <OutcomeBadge outcome={ev.outcome} /> },
               { term: "Severity", value: <SeverityBadge severity={ev.severity} /> },
               { term: "Time", value: <Timestamp value={ev.timestamp} label="time" /> },
+              { term: "Tenant", value: <TenantValue tenantId={ev.tenantId} /> },
               {
                 term: "User",
                 value: ev.userId ? (
@@ -112,6 +129,7 @@ function Body({ ev }: { ev: EventDetail }) {
                 ),
               },
               { term: "Subject", value: field(ev.subjectId, "subject", ev, true) },
+              { term: "Encryption key", value: encryptionKey(ev) },
               { term: "IP address", value: field(ev.ip, "IP address", ev, true) },
               { term: "User agent", value: field(ev.userAgent, "user agent", ev) },
               { term: "Reason", value: field(ev.reason, "reason", ev) },

@@ -69,4 +69,12 @@ describe("ErasureDetailPage", () => {
     renderPage(ErasureDetailPage, failingClient(new ContractError("NOT_FOUND", "erasure not found")), { id: "erasure_x" })
     expect(await screen.findByText(/NOT_FOUND: erasure not found/)).toBeTruthy()
   })
+
+  it("names the erasure's tenant, and says an app-level one reaches every tenant", async () => {
+    const view = renderPage(ErasureDetailPage, scriptedClient({ "erasures.detail": { ...erasure, tenantId: "globex" } }).client, { id: "erasure_3" })
+    await waitFor(() => expect(screen.getByText("globex").className).toContain("font-mono"))
+    view.unmount()
+    renderPage(ErasureDetailPage, scriptedClient({ "erasures.detail": { ...erasure, tenantId: "" } }).client, { id: "erasure_3" })
+    await waitFor(() => expect(screen.getByText("App level, every tenant")).toBeTruthy())
+  })
 })

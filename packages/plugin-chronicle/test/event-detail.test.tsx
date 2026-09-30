@@ -219,5 +219,33 @@ describe("EventDetailPage", () => {
       expect(screen.getByText(value).className).toContain("select-all")
     }
   })
-})
 
+  it("names the event's tenant, and says app level for an event with none", async () => {
+    const view = renderPage(EventDetailPage, client(detail({ tenantId: "globex" })).client, { id: "audit_globex_2780" })
+    await waitFor(() => expect(screen.getByText("globex").className).toContain("font-mono"))
+    view.unmount()
+    renderPage(EventDetailPage, client(detail({ tenantId: "" })).client, { id: "audit_globex_2780" })
+    await waitFor(() => expect(screen.getByText("App level")).toBeTruthy())
+  })
+
+  it("says a server that sent no tenant or key did not report them, never that there are none", async () => {
+    renderPage(EventDetailPage, client(detail({ tenantId: undefined, encryptionKeyId: undefined })).client, { id: "audit_globex_2780" })
+    await waitFor(() => expect(screen.getAllByText("Not reported by this server")).toHaveLength(2))
+    expect(screen.queryByText("App level")).toBeNull()
+    expect(screen.queryByLabelText("no encryption key")).toBeNull()
+  })
+
+  it("shows the encryption key and says the digest does not cover it", async () => {
+    renderPage(EventDetailPage, client(detail({ encryptionKeyId: "key_subject_1" })).client, { id: "audit_globex_2780" })
+    const key = await screen.findByText("key_subject_1")
+    expect(key.className).toContain("font-mono")
+    expect(key.className).toContain("select-all")
+    expect(screen.getByText(/digest does not cover it/)).toBeTruthy()
+  })
+
+  it("says an event never sealed has no encryption key", async () => {
+    renderPage(EventDetailPage, client(detail({ encryptionKeyId: "" })).client, { id: "audit_globex_2780" })
+    await waitFor(() => expect(screen.getByLabelText("no encryption key")).toBeTruthy())
+    expect(screen.queryByText(/digest does not cover it/)).toBeNull()
+  })
+})

@@ -9,6 +9,7 @@ import type { PluginPageProps } from "@forge-go/dashboard-plugin"
 import type { ErasureSummary } from "../types"
 import { ErasureStatusBadge, KeyBadge, isPending } from "../badges"
 import { formatSeq } from "../format"
+import { TenantValue } from "../components/tenant"
 
 export const ErasureDetailPage: ComponentType<PluginPageProps> = ({ params }) => {
   const id = params.id ?? ""
@@ -23,6 +24,7 @@ export const ErasureDetailPage: ComponentType<PluginPageProps> = ({ params }) =>
               items={[
                 { term: "Erasure", value: <span className="font-mono text-xs">{e.id}</span> },
                 { term: "Subject", value: <span className="font-mono text-xs">{e.subjectId}</span> },
+                { term: "Tenant", value: <TenantValue tenantId={e.tenantId} appLevel="App level, every tenant" /> },
                 { term: "Reason", value: <span className="whitespace-pre-line">{e.reason}</span> },
                 { term: "Requested by", value: e.requestedBy ? <span className="font-mono text-xs">{e.requestedBy}</span> : <NoneCell label="requester" /> },
                 { term: "Events erased", value: formatSeq(e.eventsAffected) },

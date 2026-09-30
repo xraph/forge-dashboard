@@ -101,6 +101,8 @@ export interface EventSummary {
   userId?: string
   ip?: string
   erased: boolean
+  /** "" for an app-level record. Absent from a server that predates the field, which is not the same. */
+  tenantId?: string
 }
 
 export interface EventDetail extends EventSummary {
@@ -117,6 +119,12 @@ export interface EventDetail extends EventSummary {
   metadata?: Record<string, unknown>
   erasedAt?: string
   erasureId?: string
+  /**
+   * The key the sealed fields were encrypted under, "" when nothing was
+   * sealed, absent from a server that predates the field. The event's digest
+   * does not cover it.
+   */
+  encryptionKeyId?: string
 }
 
 export interface EventListResponse { events: EventSummary[]; total: number; hasMore: boolean }
@@ -160,6 +168,8 @@ export interface ErasureSummary {
    */
   status: "pending" | "completed"
   createdAt: string
+  /** "" for an app-wide erasure, which reaches every tenant. Absent from a server that predates the field, which is not the same. */
+  tenantId?: string
 }
 export interface ErasureListResponse { erasures: ErasureSummary[]; total: number; hasMore: boolean }
 export interface ErasurePreviewResponse { subjectId: string; eventsAffected: number }
@@ -231,6 +241,8 @@ export interface ReportSummary {
   format: string
   createdAt: string
   stats?: ReportStats
+  /** "" for an app-level record. Absent from a server that predates the field, which is not the same. */
+  tenantId?: string
 }
 export interface ReportSection {
   title: string

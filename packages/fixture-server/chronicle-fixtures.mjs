@@ -448,6 +448,8 @@ function projectSummary(e) {
     outcome: e.outcome,
     severity: e.severity,
     erased: e.erased,
+    // Always sent, "" for an app-level event: absent means a server that predates the field.
+    tenantId: e.tenantId ?? "",
   }
   if (e.resourceId) s.resourceId = e.resourceId
   if (e.userId) s.userId = e.userId
@@ -456,7 +458,9 @@ function projectSummary(e) {
 }
 
 function projectDetail(e) {
-  const d = { ...projectSummary(e), streamId: e.streamId, hash: e.hash, prevHash: e.prevHash }
+  // The key a sealed event names: chronicle derives one per app, tenant and subject.
+  const encryptionKeyId = e.subjectId ? `key_${e.tenantId || "app"}_${e.subjectId}` : ""
+  const d = { ...projectSummary(e), streamId: e.streamId, hash: e.hash, prevHash: e.prevHash, encryptionKeyId }
   for (const k of ["hashScheme", "hashKeyId", "reason", "subjectId", "userAgent", "requestId", "sessionId", "metadata", "erasureId"]) {
     if (e[k] !== undefined && e[k] !== "") d[k] = e[k]
   }
@@ -603,7 +607,7 @@ function projectErasure(r) {
   return {
     id: r.id, subjectId: r.subjectId, reason: r.reason, requestedBy: r.requestedBy,
     eventsAffected: r.eventsAffected, keyDestroyed: r.keyDestroyed, legacyKeyRetained: r.legacyKeyRetained,
-    status: r.status, createdAt: iso(r.createdAt),
+    status: r.status, createdAt: iso(r.createdAt), tenantId: r.tenantId ?? "",
   }
 }
 
@@ -808,7 +812,7 @@ function seedReports() {
 function projectReportSummary(r) {
   const out = {
     id: r.id, title: r.title, type: r.type, period: { ...r.period },
-    generatedBy: r.generatedBy, format: r.format, createdAt: iso(r.createdAt),
+    generatedBy: r.generatedBy, format: r.format, createdAt: iso(r.createdAt), tenantId: r.tenantId ?? "",
   }
   if (r.stats) out.stats = { ...r.stats }
   return out

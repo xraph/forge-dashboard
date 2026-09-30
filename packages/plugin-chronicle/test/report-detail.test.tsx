@@ -203,4 +203,12 @@ describe("ReportDetailPage", () => {
     renderPage(ReportDetailPage, scriptedClient({ "reports.detail": detail({ sections: [section({ events: [event(1)], matchedEvents: 1 })] }) }).client, { id: "report_soc2" })
     expect(await screen.findByText("1 of 1 matching event")).toBeTruthy()
   })
+
+  it("names the report's tenant, and says app level for a report with none", async () => {
+    const view = renderPage(ReportDetailPage, scriptedClient({ "reports.detail": detail({ tenantId: "globex" }) }).client, { id: "report_soc2" })
+    await waitFor(() => expect(screen.getByText("globex").className).toContain("font-mono"))
+    view.unmount()
+    renderPage(ReportDetailPage, scriptedClient({ "reports.detail": detail({ tenantId: "" }) }).client, { id: "report_soc2" })
+    await waitFor(() => expect(screen.getByText("App level")).toBeTruthy())
+  })
 })

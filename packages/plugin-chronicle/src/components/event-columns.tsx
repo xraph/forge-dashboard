@@ -5,6 +5,7 @@ import { PluginLink } from "@forge-go/dashboard-plugin"
 import type { EventSummary } from "../types"
 import { ErasedBadge, OutcomeBadge, SeverityBadge } from "../badges"
 import { formatSeq } from "../format"
+import { TenantValue } from "./tenant"
 
 /**
  * The events table's columns. There is deliberately no integrity column: a
@@ -55,6 +56,9 @@ export function eventColumns({ showUser }: { showUser: boolean }): Column<EventS
     })
   }
   cols.push(
+    // Always shown: an app-wide viewer reads every tenant's events, and the
+    // column must not come and go with whatever rows are on the page.
+    { id: "tenant", header: "Tenant", cell: (e) => <TenantValue tenantId={e.tenantId} /> },
     { id: "seq", header: "Sequence", align: "end", cell: (e) => <span className="font-mono text-xs">{formatSeq(e.sequence)}</span> },
     { id: "erased", header: "", cell: (e) => (e.erased ? <ErasedBadge /> : null) },
   )

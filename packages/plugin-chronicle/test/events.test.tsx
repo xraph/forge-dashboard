@@ -120,4 +120,11 @@ describe("EventsPage", () => {
     await waitFor(() => expect(c.queried.at(-1)?.params).toMatchObject({ offset: 0 }))
     expect(await screen.findByText("50 of 60 events")).toBeTruthy()
   })
+
+  it("has a tenant column, so an app-wide viewer can tell tenants' events apart", async () => {
+    renderPage(EventsPage, client(() => ({ events: [ev(2, { tenantId: "globex" }), ev(1, { tenantId: "" })], total: 2, hasMore: false })).client)
+    expect(await screen.findByRole("columnheader", { name: "Tenant" })).toBeTruthy()
+    expect(screen.getByText("globex").className).toContain("font-mono")
+    expect(screen.getByText("App level")).toBeTruthy()
+  })
 })
