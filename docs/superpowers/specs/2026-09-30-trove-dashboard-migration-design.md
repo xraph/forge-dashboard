@@ -765,34 +765,36 @@ All of these are in lines slice 1 did not change (blame points at the original V
 
 ## What slice 2 found that slice 3 must know
 
-Slice 2 landed in the trove repo as commits 5222307 to 389c48c. `trove/extension/contract` answers all 20 intents, the content route serves the bytes, and the extension registers both. The module builds, vets and passes `go test -race`. This section records where the wire differs from the tables above, what the content route does, and what an HTTP walk of every intent turned up.
+Slice 2 landed in the trove repo as commits db152c9..3dee195. The last four fix what the whole-slice review found, and one of them (456a3c9) adds `Trove.Backends` to core trove. `trove/extension/contract` answers all 20 intents, the content route serves the bytes, and the extension registers both. The module builds, vets and passes `go test -race`. This section records where the wire differs from the tables above, what the content route does, and what an HTTP walk of every intent turned up.
 
 ### Wire shapes that refine the tables
 
 - `objects.list` keeps `objects` and `prefixes` as two separate sorted lists, so your page merges them by key. `delimiter` absent means `/`, an empty string means flat, and `prefixes` is `null` only on a flat listing. A `limit` of 0 or less means 100, and anything over 1000 is clamped to 1000.
+- `objects.list` also carries `routed`, true when the store has a backend besides its default. Trove lists a bucket on one backend (the default, unless a route function claims the whole bucket), and a key pattern route such as `*.log` sends single keys somewhere else. So when `routed` is true the listing can miss objects even with `nextCursor` null. Say so above the table.
+- `system.status` carries `backends`, the sorted names registered beside the default (`[]` when there are none, since the default has no name), and `routingNote`, which is `null` unless `backends` is non-empty. When it is set it reads "This store routes some keys to other backends. Listings, bucket operations and health describe the default backend only." Show it on the Overview as it is. `config.defaultBucket` is `null` when no default bucket is set, never `""`.
 - `middleware.list` registrations carry `matchesWrite` and `matchesRead`, and both are `null` unless you send `bucket` and `key` together. When they are set, a registration that only runs on reads reports `matchesWrite: false` whatever its scope says.
 - `system.status` flags arrive in the order encryption, compression, scanning, cas. `applied` now means the middleware runs on the write path, not merely that a registration by that name exists, and `note` is a string or `null`. A read-only registration gets a note saying nothing is protected on write. A scoped one gets a note naming the scope, so show the note whenever it is there. Scanning has no config switch, so its `configured` mirrors whether anything is registered.
 - `buckets.list` rows are sorted by name and `createdAt` can be `null`. `createdAtMeaning` is `"modified"` on local, sftp and azure, where the driver only knows a last-modified time, and `"created"` elsewhere. Label the column from it.
-- `buckets.delete` returns `{name}`. It lists through the default driver and treats a non-empty continuation token as a non-empty bucket, because Azure can return an empty page with a marker. It answers `CONFLICT` for a non-empty bucket and for the CAS bucket.
-- `objects.copy` returns the bare object row (`key, storedSize, etag, lastModified, contentType, storageClass`), with no `object` wrapper. It answers `CONFLICT` when the destination is served by a different backend (routes can split one store), when a different middleware instance applies to the destination (two `encrypt` registrations with different keys count as different), or when the destination is the CAS bucket. A missing destination bucket is `NOT_FOUND` even with `overwrite`, and copying an object onto itself is `BAD_REQUEST`.
+- `buckets.delete` returns `{name}`. It lists through the default driver and treats a non-empty continuation token as a non-empty bucket, because Azure can return an empty page with a marker. It answers `CONFLICT` for a non-empty bucket and for the CAS bucket, even an empty one, and the CAS bucket stays.
+- `objects.copy` returns the bare object row (`key, storedSize, etag, lastModified, contentType, storageClass`), with no `object` wrapper. It answers `CONFLICT` when the destination is served by a different backend (routes can split one store), when a different middleware instance applies to the destination (two `encrypt` registrations with different keys count as different), or when either the source or the destination is the CAS bucket. A CAS blob never ran middleware, so a copy out of it would land as raw bytes where a scoped middleware expects to decode them. A missing destination bucket is `NOT_FOUND` even with `overwrite`, and copying an object onto itself is `BAD_REQUEST`.
 - `objects.delete` returns `{key}` and succeeds silently on a key that is not there. Do not word a delete toast as "deleted 1 object".
 - `objects.head` has `metadata` and `versionId` as `null` on mem and local. `presign.reason` is a sentence you can show as is. `objects.presign` answers `UNAVAILABLE` with that same reason when the driver cannot sign or middleware applies to the key.
 - `cas.list` rows with `indexed: false` carry `refCount: null` and `pinned: null`, which is what every blob looks like after a restart. `cas.pin` and `cas.unpin` return the same row shape, with `lastModified` possibly `null`, and pinning a blob the index does not know is `NOT_FOUND`, so word that as "not indexed". `cas.gc` returns `{scanned, deleted, freedBytes, errors}`. With CAS off, `cas.status` answers `enabled: false` with `null` algorithm, bucket and index, and the other four CAS intents answer `UNAVAILABLE`.
 - `streams.list` rows are `{id, direction, bucket, key, state, offset, totalSize}`, sorted by id, with `totalSize` `null` when the length is unknown. They live in this process's pool and vanish on restart. `max` is the pool size.
-- `objects.beginUpload` answers `CONFLICT` with `details.exists: true` for an existing key, and `BAD_REQUEST` with `details.maxUploadBytes` for an oversize file. `system.status` returns the same cap as `config.maxUploadBytes`, so you can check before you ask.
-- Unknown store is `NOT_FOUND`, a blank `store` is `BAD_REQUEST`, and a cursor that does not decode is `BAD_REQUEST`.
+- `objects.beginUpload` returns `{url, ticket, expiresAt}`. `url` is the bare content path with no query, and `ticket` is the token you send in the `X-Trove-Ticket` header of the PUT. It answers `CONFLICT` with `details.exists: true` for an existing key, and `BAD_REQUEST` with `details.maxUploadBytes` for an oversize file. `system.status` returns the same cap as `config.maxUploadBytes`, so you can check before you ask. A `contentType` that does not parse as a media type is `BAD_REQUEST`, so send `file.type` only when the browser filled it in.
+- Unknown store is `NOT_FOUND`, a blank `store` is `BAD_REQUEST`, and a cursor that does not decode is `BAD_REQUEST`. A request cancelled or timed out on the server side is a retryable `UNAVAILABLE` and is not logged as an error, since a page navigation cancels requests all the time.
 
 ### Invalidates and errors
 
 `objects.beginUpload` and `objects.presign` declare no `invalidates`, and forge's loader accepted that (the manifest comment says why). The listing refreshes when `objects.completeUpload` runs, so the page must always call it after the PUT, or the new object will not show up.
 
-`trove.ErrContentBlocked` carries no threat name. The route answers 422 "A content scan blocked this upload." and the envelope answers `BAD_REQUEST` with the same idea, so the upload dialog can say a scan refused the file and nothing more. The earlier paragraph promising a threat name is wrong.
+`trove.ErrContentBlocked` carries no threat name. The route answers 422 "A content scan blocked this upload." and the envelope answers `BAD_REQUEST` with the same idea, so the upload dialog can say a scan refused the file and nothing more. Two earlier places in this spec promise one, and both are wrong: the error mapping row for `trove.ErrContentBlocked` ("`BAD_REQUEST`, with the threat name in `details`") and the sentence in "Content routes and tickets" that says "A scan rejection is 422 with the threat name".
 
 ### The content route
 
 It mounts at `/dashboard/trove/content` unless `dashboard_content_path` says otherwise, and `disable_routes` does not turn it off. Errors are `{"error": "<message>"}`. Status codes:
 
-- 403 for a missing, malformed, bad-signature or expired ticket, and for a ticket whose operation does not fit the method (a download ticket on PUT, an upload ticket on GET).
+- 403 for a missing, malformed, bad-signature or expired ticket, and for a ticket whose operation does not fit the method (a download ticket on PUT, an upload ticket on GET). A PUT is also 403 when it has no `X-Trove-Ticket` header or carries `?t=` at all, even alongside the header, and the message says upload tickets go in the header.
 - 404 for a missing object or bucket, or a store that no longer exists.
 - 405 for any method but GET and PUT, with `Allow: GET, PUT`.
 - 409 for a PUT onto an existing key when the ticket was minted without `overwrite`.
@@ -802,14 +804,19 @@ It mounts at `/dashboard/trove/content` unless `dashboard_content_path` says oth
 
 A download that fails after the 200 status has gone out cannot change its status, so the route drops the connection. Your fetch rejects, or the browser shows a failed download. Treat that as a download error, never as a short file. Preview tickets cap at 256 KiB and still send `Content-Disposition: attachment`, so fetch the bytes and render them as text yourself instead of pointing an iframe at the URL.
 
-The upload flow is three steps. Call `objects.beginUpload` with the real file size and content type. Then send the raw file with an XHR `PUT` to the returned `url` (a relative path that already carries `?t=`), which gives you progress events and a `Content-Length` the route can check. The PUT answers 200 with `{key, storedSize, etag}`. Then call `objects.completeUpload`. The content type comes from the ticket, not from the PUT header. Download and preview tickets live 60 seconds and upload tickets 15 minutes, so ask for a download link when the user clicks, not when the row renders.
+The upload flow is three steps. Call `objects.beginUpload` with the real file size and content type. Then send the raw file with an XHR `PUT` to the returned `url` (a relative path with no query) and put the returned `ticket` in an `X-Trove-Ticket` request header. XHR gives you progress events and a `Content-Length` the route can check. The PUT answers 200 with `{key, storedSize, etag}`. Then call `objects.completeUpload`. The content type comes from the ticket, not from the PUT header. Download and preview tickets live 60 seconds and upload tickets 15 minutes, so ask for a download link when the user clicks, not when the row renders.
+
+Why the header: forge's dashboard `TracingMiddleware` is global and records `http.query` (the raw query, cut at 256 bytes), so anything in `?t=` shows up in the Traces view. An upload ticket lives 15 minutes and may allow an overwrite, so it stays out of the URL. Download and preview tickets still ride in `?t=` because a plain `<a download>` cannot send a header, which means you can read one in a trace for its 60 second life. They are read-only and short-lived, and we accept that. `MIGRATION.md` should ask forge to redact `t` in traces.
+
+The route logs reads as well as uploads. A GET that finishes is logged at Info with the subject, op, store, bucket, key and bytes written. `objects.presign` logs each signed link at Info with store, bucket, key, subject and `expiresAt`, and its failure line names the bucket and key too.
 
 ### Other things to know
 
 - Core trove gained `Trove.DriverFor(bucket, key)`, which returns the driver a route actually sends that key to. `Driver()` still returns only the default. Presign availability is judged on `DriverFor`.
+- Core trove also gained `Trove.Backends()`, the sorted names registered with `WithBackend`. The default is unnamed and never in it. `backends` and `routed` come from it.
 - The Next.js proxy in `packages/next` reads bodies as text with a 1 MiB cap, so the content route does not work behind it. That stays a known gap for `MIGRATION.md`, and the shell on Vite is the place to test uploads.
-- `cas.list` lists through the routed `Trove.List`, while CAS writes through the default driver. They differ only when routes send the CAS bucket elsewhere.
-- Extension lint reports 36 issues, none in `contract/` or the extension root: 15 in `dashboard`, 10 in `hooks`, 6 in `handler`, 3 in `store/memory` and 2 in `model`, all untouched by this slice.
+- `cas.list` reads the default driver, which is where CAS writes whatever the routes say.
+- Extension lint on a fresh cache reports none in `contract/` or the extension root. The module as a whole still shows older issues in `dashboard`, `hooks`, `handler`, `store/memory` and `model`, which this slice did not touch.
 
 ### HTTP walk
 
@@ -823,4 +830,6 @@ A throwaway program built a memdriver Trove with CAS, registered the contract, s
 | error CONFLICT | buckets.delete on a non-empty bucket, buckets.create on an existing one, objects.beginUpload on an existing key |
 | error BAD_REQUEST | objects.list with a bad cursor, objects.beginUpload over the cap |
 
-The upload ran end to end: beginUpload, a PUT through `Content.Handler` (200), completeUpload, contentUrl, then a GET that returned the same bytes with `filename*=UTF-8''new.txt`. A preview with `limit: 4` returned 4 bytes. The route answered 403, 404, 405, 409 and 413 where this section says it should, and the `invalidates` lists in the responses matched the manifest.
+The upload ran end to end: beginUpload, a PUT through `Content.Handler` (200), completeUpload, contentUrl, then a GET that returned the same bytes with `filename*=UTF-8''new.txt`. A preview with `limit: 4` returned 4 bytes. The route answered 403, 404, 405, 409 and 413 where this section says it should, and the `invalidates` lists in the responses matched the manifest. The walk ran before the upload ticket moved to the header, so its PUT used `?t=`. The route tests now send every PUT with `X-Trove-Ticket`.
+
+The walk did not produce a 422 or a dropped connection. Unit tests on the route cover both: the 422 test registers `scan` with a provider that blocks everything and checks the PUT answers 422 and stores nothing, on mem and local.
