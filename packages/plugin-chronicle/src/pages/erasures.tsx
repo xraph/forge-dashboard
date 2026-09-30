@@ -46,7 +46,7 @@ export const ErasuresPage: ComponentType<PluginPageProps> = () => {
     <section className="flex flex-col gap-4">
       <PageHeader
         title="Erasures"
-        description="Each erasure destroyed a data subject's encryption key in this scope, so their sealed fields can no longer be read. The events stay in the chain."
+        description="An erasure destroys a data subject's encryption key in this scope, so their sealed fields can no longer be read. The events stay in the chain. Status and Key say how far each one got."
         actions={<Button onClick={() => setRequesting(true)}>Request an erasure</Button>}
       />
       <QueryBoundary title="erasures" query={q} skeletonRows={6}>

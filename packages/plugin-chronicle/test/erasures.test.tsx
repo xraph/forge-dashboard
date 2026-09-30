@@ -42,6 +42,19 @@ describe("ErasuresPage", () => {
     expect(screen.getByText("Completed").getAttribute("data-variant")).toBe("outline")
   })
 
+  it("does not claim every erasure destroyed a key when some did not", async () => {
+    const c = scriptedClient({
+      "erasures.list": {
+        erasures: [erasure(3, { status: "pending", keyDestroyed: false }), erasure(2, { keyDestroyed: false, legacyKeyRetained: true }), erasure(1)],
+        total: 3,
+        hasMore: false,
+      },
+    })
+    renderPage(ErasuresPage, c.client)
+    await screen.findByText("erasure_1")
+    expect(screen.queryByText(/Each erasure destroyed/)).toBeNull()
+  })
+
   it("answers the key four ways, and only a destroyed key stays quiet", () => {
     render(
       <>

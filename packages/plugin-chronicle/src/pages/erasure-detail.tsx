@@ -15,7 +15,7 @@ export const ErasureDetailPage: ComponentType<PluginPageProps> = ({ params }) =>
   const q = useQuery<ErasureSummary>("erasures.detail", { id })
   return (
     <section className="flex flex-col gap-4">
-      <PageHeader title={id} description="A data subject's encryption key was destroyed in this scope, so their sealed fields can no longer be read." />
+      <PageHeader title={id} description="An erasure destroys a data subject's encryption key in this scope, so their sealed fields can no longer be read. Status and Key say whether this one did." />
       <QueryBoundary title="erasure" query={q} skeletonRows={5}>
         {(e) => (
           <div className="flex flex-col gap-6">

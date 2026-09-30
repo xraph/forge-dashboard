@@ -50,6 +50,13 @@ describe("ErasureDetailPage", () => {
     expect(screen.queryByText(/The key was kept/)).toBeNull()
   })
 
+  it("never says in its header that the key was destroyed when the record says otherwise", async () => {
+    const c = scriptedClient({ "erasures.detail": { ...erasure, status: "pending", keyDestroyed: false, legacyKeyRetained: false } })
+    renderPage(ErasureDetailPage, c.client, { id: "erasure_3" })
+    await screen.findByText("Not confirmed")
+    expect(screen.queryByText(/key was destroyed/)).toBeNull()
+  })
+
   it("has nothing extra to say about a key left intact by a completed erasure", async () => {
     const c = scriptedClient({ "erasures.detail": { ...erasure, keyDestroyed: false, legacyKeyRetained: false } })
     renderPage(ErasureDetailPage, c.client, { id: "erasure_3" })
