@@ -1,6 +1,7 @@
 import { definePlugin } from "@forge-go/dashboard-plugin"
 import {
   FlagIcon,
+  HouseIcon,
   KeyRoundIcon,
   LayersIcon,
   RefreshCwIcon,
@@ -13,6 +14,7 @@ import { FlagCreatePage } from "./pages/flag-create"
 import { FlagDetailPage } from "./pages/flag-detail"
 import { FlagsPage } from "./pages/flags"
 import { OverridesPage } from "./pages/overrides"
+import { OverviewPage } from "./pages/overview"
 import { RotationDetailPage } from "./pages/rotation-detail"
 import { RotationPage } from "./pages/rotation"
 import { SecretCreatePage } from "./pages/secret-create"
@@ -26,6 +28,7 @@ export {
   FlagDetailPage,
   FlagsPage,
   OverridesPage,
+  OverviewPage,
   RotationDetailPage,
   RotationPage,
   SecretCreatePage,
@@ -80,6 +83,13 @@ export const vaultPlugin = definePlugin({
   label: "Vault",
   nav: [
     {
+      label: "Overview",
+      to: "/",
+      priority: -10,
+      icon: <HouseIcon />,
+      group: "Secrets",
+    },
+    {
       label: "Secrets",
       to: "/secrets",
       priority: 0,
@@ -116,8 +126,7 @@ export const vaultPlugin = definePlugin({
     },
   ],
   routes: [
-    // "/" shows the secrets list until the overview page replaces it.
-    { path: "/", element: SecretsPage },
+    { path: "/", element: OverviewPage },
     { path: "/secrets", element: SecretsPage },
     // No nav entries for the next three: a sidebar link to "a secret" with
     // none chosen points nowhere. They are reached from row links and buttons.

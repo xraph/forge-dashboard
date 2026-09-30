@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest"
 import { resolvePluginState } from "@forge-go/dashboard-plugin"
 import type { Capabilities } from "@forge-go/dashboard-plugin"
-import vaultPlugin, { vaultPlugin as named } from "../src/index"
+import vaultPlugin, { OverviewPage, SecretsPage, vaultPlugin as named } from "../src/index"
 
 function capabilities(
   ...contributors: { name: string; configured?: boolean }[]
@@ -69,6 +69,21 @@ describe("vaultPlugin", () => {
     for (const p of ["/config", "/new-config", "/config/:key", "/overrides"]) {
       expect(paths).toContain(p)
     }
+  })
+
+  it("routes / to the overview, first in the nav, and keeps the secrets list at /secrets", () => {
+    const overview = vaultPlugin.nav?.find((n) => n.label === "Overview")
+    expect(overview?.to).toBe("/")
+    expect(overview?.group).toBe("Secrets")
+    const priorities = (vaultPlugin.nav ?? [])
+      .filter((n) => n.group === "Secrets")
+      .map((n) => n.priority ?? 0)
+    expect(overview?.priority).toBe(Math.min(...priorities))
+    expect(priorities.filter((p) => p === overview?.priority)).toHaveLength(1)
+    const root = vaultPlugin.routes.find((r) => r.path === "/")
+    const secrets = vaultPlugin.routes.find((r) => r.path === "/secrets")
+    expect(root?.element).toBe(OverviewPage)
+    expect(secrets?.element).toBe(SecretsPage)
   })
 
   it("names a route for every nav entry", () => {

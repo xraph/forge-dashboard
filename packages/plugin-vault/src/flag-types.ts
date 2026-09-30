@@ -53,12 +53,20 @@ export interface FlagVariantSummary {
   description: string
 }
 
-/** Mirrors the Go `AuditSummary`. Shared by the secret and flag detail pages. */
+/**
+ * Mirrors the Go `AuditSummary`. Shared by the detail pages, the audit list
+ * and the overview. `tenantId`, `userId` and `error` are omitted when empty:
+ * an app write has no user, and only a failure row can carry an error.
+ */
 export interface AuditEntry {
   id: string
   action: string
+  resource?: string
+  key?: string
   outcome: string
+  tenantId?: string
   userId?: string
+  error?: string
   createdAt: string
 }
 

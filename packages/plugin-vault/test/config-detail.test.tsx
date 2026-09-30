@@ -730,7 +730,9 @@ describe("ConfigDetailPage versions", () => {
     const row = rowOf(2)
     const cell = within(row).getByTitle(JSON.stringify(long))
     expect(cell.className).toMatch(/\btruncate\b/)
-    expect(cell.className).toMatch(/max-w-/)
+    // Narrow enough that the table fits a 1024px viewport.
+    expect(cell.className).toMatch(/\bmax-w-48\b/)
+    expect(cell.className).not.toMatch(/max-w-xs/)
     // The actions are still in the same row.
     expect(within(row).getByRole("button", { name: /Compare/ })).toBeTruthy()
     expect(within(row).getByRole("button", { name: /Roll back/ })).toBeTruthy()

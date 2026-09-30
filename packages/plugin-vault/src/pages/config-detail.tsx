@@ -539,7 +539,7 @@ function VersionsTable({
           <span className="flex min-w-0 items-center gap-1.5">
             <span
               title={JSON.stringify(v.value) ?? String(v.value)}
-              className="max-w-xs min-w-0 truncate"
+              className="max-w-48 min-w-0 truncate"
             >
               <ConfigValue value={v.value} valueType={entry.valueType} />
             </span>
