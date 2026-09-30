@@ -732,21 +732,26 @@ Slice 1 landed in the trove repo as six commits (c27b245 to 1655883, on top of 0
 
 - The paging contract is the same on every driver. `ListResult.NextToken` is opaque: pass it back unchanged as `Cursor`, and an empty token means the listing is complete.
 - With a `Delimiter`, keys under a common prefix fold into that prefix on every driver (mem, local, sftp, S3, GCS, Azure) and come back in `CommonPrefixes`. Objects and prefixes form one lexicographic sequence, and `MaxKeys` counts both.
-- Azure can return an empty page with a non-empty token. The contract allows it, so your browser must treat "nothing on this page, more to list" as a normal state and keep following the token.
+- Any cloud driver can return an empty page with a non-empty token (Azure does it, and S3 and GCS are allowed to), and a page of folders only has no objects either. The contract allows it, so your browser must treat "nothing on this page, more to list" as a normal state and keep following the token. Stop only on an empty token, never on an empty page.
+- S3 and Azure clamp `MaxKeys` to their page caps (1000 and 5000) before they narrow it to `int32`, and an S3 `WithMaxKeys(0)` means the default of 1000.
+- VFS `ReadDir` returns files and folded directories sorted by name.
 - `driver.PageKeys` and `driver.NewObjectIteratorWithPrefixes` are the shared helpers. `driver.NewObjectIterator` is unchanged.
 - `CAS.Bucket()` returns the bucket the CAS writes to. `CAS.Stat(ctx, hash)` returns a copy of the index entry without reading content. It returns `ErrNotFound` for anything the index does not know, which includes content still in the bucket after a restart, because the default index is in memory.
 - `Stream.TotalSize()` returns the expected size, or -1 when nobody set it. The field is atomic now, so reading it from a handler while the transfer runs is safe under `-race`.
 
 ### What you must not assume
 
-- VFS `ReadDir` now lists files first and folded directories last. It does not sort by name, so sort in the contract if the UI needs an order.
 - VFS `ReadDir` and `Stat` still ignore `NextToken` and stop at 1000 entries. Do not build a directory view on them for large buckets. List through the driver instead.
-- On the cloud drivers only the happy path of `List` is tested. A missing bucket mapping to `ErrBucketNotFound` is untested on GCS and Azure, the Azure flat (no delimiter) path and its `prefix` parameter are untested, and no S3 or GCS test pins `max-keys` or `maxResults` on the wire.
-- A garbage cursor is not a typed error everywhere. On GCS it surfaces as an untyped wrapped 400, so the contract should validate or expect a generic failure, not match a sentinel.
-- S3 and Azure do not clamp `MaxKeys` to what the backend accepts (S3 caps at 1000 silently, Azure at 5000), and both narrow it to `int32`. Clamp in the contract before you pass it down.
-- `PageKeys` rescans from the start on each page, so mem, local and sftp listings cost O(n) per page. Whether a page that ends exactly on the last prefix returns an empty token (`a/1` and `a/2` with delimiter `/` and `MaxKeys` 1) is not pinned by a test, nor are a key equal to the prefix, empty input or a negative `MaxKeys`.
+- On the cloud drivers only the happy path of `List` is tested. A missing bucket mapping to `ErrBucketNotFound` is untested on GCS and Azure, the Azure flat (no delimiter) path and its `prefix` parameter are untested, and no GCS test pins `maxResults` on the wire. S3 (`max-keys`) and Azure (`maxresults`) do.
+- A garbage cursor has no typed error. GCS returns an untyped wrapped 400. What S3 and Azure do with one is unverified. Validate the cursor in the contract or expect a generic failure, and do not match a sentinel.
+- `PageKeys` rescans from the start on each page, so mem, local and sftp listings cost O(n) per page. A page that ends exactly on the last prefix returns an empty token: `a/1` and `a/2` with delimiter `/` and `MaxKeys` 1 give the prefix `a/` and no next token, and `TestPageKeys_FolderAsLastItemHasNoNextToken` pins it. A key equal to the prefix, empty input and a negative `MaxKeys` are not pinned by a test.
 - `CAS.Stat` panics if a custom `Index` returns `(nil, nil)`. The built-in indexes never do.
 - The unmounted `extension/handler` now drops prefixes on mem and local when `?delimiter` is set. It is not mounted, so nothing breaks, but note it in MIGRATION.md.
+
+### What slice 2 should do about it
+
+- Wrap `NextToken` before it goes on the wire, as base64url of the raw token. The mem and local cursors are raw keys, and JSON would mangle any that are not valid UTF-8. Wrapping also lets the contract reject a malformed cursor with a typed `BAD_REQUEST` before it reaches a backend.
+- Merge `CommonPrefixes` and the objects into one sorted row list. The iterator returns them as two separate sorted lists, so the contract has to interleave them by key.
 
 ### Lint left untouched
 
