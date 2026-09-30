@@ -1,5 +1,6 @@
 import { definePlugin } from "@forge-go/dashboard-plugin"
-import { SettingsIcon } from "@forge-go/dashboard-kit/icons"
+import { SettingsIcon, ShieldCheckIcon } from "@forge-go/dashboard-kit/icons"
+import { ChainPage } from "./pages/chain"
 import { SettingsPage } from "./pages/settings"
 
 export type * from "./types"
@@ -17,11 +18,14 @@ export const chroniclePlugin = definePlugin({
   namespace: "chronicle",
   label: "Chronicle",
   nav: [
+    { label: "Chain", to: "/chain", priority: 0, icon: <ShieldCheckIcon />, group: "Integrity" },
     { label: "Settings", to: "/settings", priority: 90, icon: <SettingsIcon />, group: "Settings" },
   ],
   routes: [
-    // "/" shows settings for now: the integrity page will take it over.
-    { path: "/", element: SettingsPage },
+    { path: "/", element: ChainPage },
+    { path: "/chain", element: ChainPage },
+    { path: "/chain/:streamId", element: ChainPage },
+    { path: "/chain/:streamId/:fromSeq/:toSeq", element: ChainPage },
     { path: "/settings", element: SettingsPage },
   ],
 })

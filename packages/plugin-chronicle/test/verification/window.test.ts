@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest"
-import { aroundSeq, defaultWindow, exceedsCap, parseRangeParams, wholeChain } from "../../src/verification/window"
+import { aroundSeq, clampToHead, defaultWindow, exceedsCap, parseRangeParams, wholeChain } from "../../src/verification/window"
 
 describe("window", () => {
   it("defaults to the most recent 10,000 sequences", () => {
@@ -27,5 +27,10 @@ describe("window", () => {
     expect(parseRangeParams("x", "10")).toBeNull()
     expect(parseRangeParams("0", "10")).toBeNull()
     expect(parseRangeParams("20", "10")).toBeNull()
+  })
+  it("holds a range to the head and refuses one that starts past it", () => {
+    expect(clampToHead({ fromSeq: 100, toSeq: 200 }, 5000)).toEqual({ fromSeq: 100, toSeq: 200 })
+    expect(clampToHead({ fromSeq: 4900, toSeq: 9000 }, 5000)).toEqual({ fromSeq: 4900, toSeq: 5000 })
+    expect(clampToHead({ fromSeq: 5001, toSeq: 9000 }, 5000)).toBeNull()
   })
 })

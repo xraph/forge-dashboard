@@ -43,3 +43,13 @@ export function parseRangeParams(from?: string, to?: string): SeqRange | null {
   if (r.fromSeq < 1 || r.toSeq < r.fromSeq) return null
   return r
 }
+
+/**
+ * A range held to the chain's head. The verifier reports a head mismatch on an
+ * intact chain when asked for a `toSeq` past the head, so no request goes out
+ * with one. A range that starts past the head has nothing to check.
+ */
+export function clampToHead(r: SeqRange, headSeq: number): SeqRange | null {
+  if (r.fromSeq > headSeq) return null
+  return { fromSeq: r.fromSeq, toSeq: Math.min(r.toSeq, headSeq) }
+}
