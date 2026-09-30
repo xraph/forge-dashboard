@@ -601,6 +601,12 @@ Recorded here so they are not lost between now and step 1.
 - Editing a config value whose type is not one of the six the vault checks
   (the templ page's `yaml`). It is shown read-only with the reason, and the
   only way out is a retype that comes with a valid value.
+- Counting plaintext left in version history. Versions carry no algorithm
+  column, so a secret whose current value is encrypted can still hold
+  plaintext in an older version, and nothing can count it without reading
+  every version. The overview says so instead of implying it's fixed.
+- Secrets that expire soon. No store method answers it without reading every
+  row, so the overview leaves it out.
 
 **Bugs found, not migrated**
 
@@ -645,6 +651,17 @@ Recorded here so they are not lost between now and step 1.
 - The overrides page showed only the overrides of the first 100 keys, took
   the app id from the request, and could not change anything. Nothing
   audited config or override writes.
+- The audit page filtered in memory over the newest 100 rows, had no paging,
+  showed the page's length as its count, and printed times with no year or
+  zone. Every row said "success", because nothing ever wrote a failure, and
+  no row carried a user.
+- A rotation looked like a secret read plus a write, and a failed one left
+  only the read. The scheduled loop's retry lease made a failing policy look
+  healthy. Rotation now writes `secret.rotated` rows, failures included.
+- The overview's Overrides card was always 0, because nothing set it. Every
+  count was capped at 10000 by a list limit, and any error showed as 0.
+- The settings page showed "Audit Logging: Disabled" forever, from a config
+  field nothing read.
 
 ## Testing
 
@@ -926,3 +943,46 @@ there is no mongo harness in the repo. `overrides.list` reads every override
 for a tenant or key before paging, because the store can't page or count
 them. The CodeMirror editor exists twice, in relay and in vault; one shared
 editor in kit is the follow-up.
+
+## What slice 5 found that slice 6 must know
+
+Slice 5 shipped the overview at `/` and the audit log at `/audit`. With it,
+every templ page has a React replacement or a recorded reason it has none.
+On vault's `main` it starts at `acfd34a`, not pushed.
+
+### Things that changed underneath you
+
+The audit store filters by key, action, outcome and time as well as
+resource, with the same predicate for the page and the total, and orders by
+`created_at DESC, id DESC`. `CountSecretsUnencrypted` exists on all four
+backends.
+
+Every dashboard command records its operator as the audit row's user; no
+query does. Rotation writes a `secret.rotated` row for every attempt,
+success or failure, and saving or deleting a rotation policy writes
+`rotation.policy_saved` or `rotation.policy_deleted`. The actions actually
+written differ from some declared constants (`secret.get` is written,
+`secret.accessed` never is), and slice 5 kept the written strings rather than
+split old rows from new.
+
+`audit.list` hides `secret.get` unless you ask for reads or name that action.
+App reads through confy write a row each, so the table grows without bound;
+nothing purges it.
+
+### For MIGRATION.md
+
+The "Bugs found, not migrated" and "Deliberately dropped" lists above are now
+complete for all five subsystems, and each item says what replaced it. Write
+`vault/MIGRATION.md` from the live templ pages while they still exist, walk
+every route against those lists, and then delete `vault/dashboard/` as its
+own commit, after `grep -rn "vault/dashboard"` across the repo comes back
+empty and the build passes without it.
+
+### Still open
+
+`audit_hook` is never attached, so chronicle sees no vault events. Deleting a
+config key removes its overrides without an `override.deleted` row each.
+"Enabled with no rotator" is judged by the replica that answers, so it can be
+wrong where another replica has the rotator. The fixture's seed times are
+relative to when it starts, so `verify.mjs` expects a server younger than a
+few hours.
