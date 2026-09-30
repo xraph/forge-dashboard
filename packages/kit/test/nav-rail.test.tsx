@@ -2,6 +2,7 @@ import { afterEach, describe, expect, it, vi } from "vitest"
 import { fireEvent, render, screen, within } from "@testing-library/react"
 import { SidebarProvider } from "../src/components/sidebar"
 import { NavRail } from "../src/components/nav-rail"
+import type { RailGroup } from "../src/components/nav-rail"
 import type { RailItem } from "../src/components/rail-entries"
 
 window.matchMedia ??= ((query: string) => ({
@@ -22,11 +23,17 @@ const renderLink = (node: { label: string; href: string; icon?: React.ReactNode 
   </a>
 )
 
-const items: RailItem[] = [
-  { id: "auth", label: "Authsome", href: "/@auth/p/users" },
-  { id: "apikey", label: "API Keys", href: "/@auth/p/apikeys" },
-  { id: "subscription", label: "Billing", href: "/@auth/p/plans" },
+const users: RailItem = { id: "/@auth/users", label: "Users", href: "/@auth/users" }
+const sessions: RailItem = { id: "/@auth/sessions", label: "Sessions", href: "/@auth/sessions" }
+const overview: RailItem = { id: "/@auth", label: "Overview", href: "/@auth" }
+const apikeys: RailItem = { id: "apikey", label: "API Keys", href: "/@auth/p/apikeys" }
+const billing: RailItem = { id: "subscription", label: "Billing", href: "/@auth/p/plans" }
+
+const groups: RailGroup[] = [
+  { label: "Identity", items: [users, sessions] },
+  { label: "System", items: [overview] },
 ]
+const plugins: RailItem[] = [apikeys, billing]
 
 function renderRail(props: Partial<React.ComponentProps<typeof NavRail>> = {}) {
   const onToggle = vi.fn()
@@ -37,7 +44,8 @@ function renderRail(props: Partial<React.ComponentProps<typeof NavRail>> = {}) {
         context={<button type="button">Platform / Production</button>}
         searchControl={<button type="button">Search pages</button>}
         account={<button type="button">Account menu</button>}
-        items={items}
+        groups={groups}
+        plugins={plugins}
         activeId="subscription"
         renderLink={renderLink}
         search="?env=staging"
@@ -74,7 +82,9 @@ describe("NavRail", () => {
     renderRail()
     const links = within(rail()).getAllByRole("link")
     expect(links.map((a) => a.getAttribute("href"))).toEqual([
-      "/@auth/p/users?env=staging",
+      "/@auth/users?env=staging",
+      "/@auth/sessions?env=staging",
+      "/@auth?env=staging",
       "/@auth/p/apikeys?env=staging",
       "/@auth/p/plans?env=staging",
     ])
@@ -90,8 +100,19 @@ describe("NavRail", () => {
     expect(within(rail()).getByText("Plugins")).toBeTruthy()
   })
 
+  it("labels core groups when wide and separates them with a gap when narrow", () => {
+    const wide = renderRail({ expanded: true })
+    expect(within(rail()).getByText("Identity")).toBeTruthy()
+    expect(within(rail()).getByText("System")).toBeTruthy()
+    expect(rail().querySelector('[data-slot="rail-gap"]')).toBeNull()
+    wide.unmount()
+    renderRail()
+    expect(within(rail()).queryByText("Identity")).toBeNull()
+    expect(rail().querySelectorAll('[data-slot="rail-gap"]')).toHaveLength(1)
+  })
+
   it("renders no heading or divider when the scope has no plugins", () => {
-    renderRail({ items: items.slice(0, 1), expanded: true })
+    renderRail({ plugins: [], expanded: true })
     expect(within(rail()).queryByText("Plugins")).toBeNull()
     expect(rail().querySelector('[data-slot="rail-divider"]')).toBeNull()
   })

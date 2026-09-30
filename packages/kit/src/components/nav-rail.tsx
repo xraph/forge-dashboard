@@ -1,3 +1,4 @@
+import { Fragment } from "react"
 import type { ReactNode } from "react"
 
 import { cn } from "@forge-go/dashboard-kit/lib/utils"
@@ -10,6 +11,12 @@ import {
   TooltipTrigger,
 } from "@forge-go/dashboard-kit/components/tooltip"
 
+/** A labelled run of the scope's own pages. */
+export interface RailGroup {
+  label?: string
+  items: RailItem[]
+}
+
 export interface NavRailProps {
   /** The scope switcher. */
   switcher?: ReactNode
@@ -19,8 +26,10 @@ export interface NavRailProps {
   searchControl?: ReactNode
   /** The account menu, pinned to the foot. */
   account?: ReactNode
-  /** The scope's own entry first, then one per sub-plugin. */
-  items: RailItem[]
+  /** The scope's own pages, group by group. */
+  groups: RailGroup[]
+  /** One entry per sub-plugin, under the Plugins heading. */
+  plugins: RailItem[]
   activeId?: string
   renderLink: RenderRailLink
   /** Appended to every entry's href, so the scope's query dimensions survive. */
@@ -106,7 +115,8 @@ export function NavRail({
   context,
   searchControl,
   account,
-  items,
+  groups,
+  plugins,
   activeId,
   renderLink,
   search,
@@ -116,7 +126,6 @@ export function NavRail({
   const { isMobile } = useSidebar()
   if (isMobile) return null
 
-  const [scopeItem, ...pluginItems] = items
   const column = expanded ? "items-stretch" : "items-center"
 
   return (
@@ -148,16 +157,24 @@ export function NavRail({
         </RailSlot>
       ) : null}
       <div className={cn("no-scrollbar mt-2 flex min-h-0 flex-1 flex-col gap-1 overflow-y-auto", column)}>
-        {scopeItem ? (
-          <RailEntries
-            items={[scopeItem]}
-            activeId={activeId}
-            renderLink={renderLink}
-            search={search}
-            expanded={expanded}
-          />
-        ) : null}
-        {pluginItems.length > 0 ? (
+        {groups.map((group, index) => (
+          <Fragment key={`${group.label ?? ""}:${index}`}>
+            {expanded && group.label ? (
+              <span className="px-2 pt-3 pb-0.5 text-[10.5px] font-medium tracking-[0.14em] text-sidebar-foreground/50 uppercase">
+                {group.label}
+              </span>
+            ) : null}
+            {!expanded && index > 0 ? <span data-slot="rail-gap" aria-hidden="true" className="h-3" /> : null}
+            <RailEntries
+              items={group.items}
+              activeId={activeId}
+              renderLink={renderLink}
+              search={search}
+              expanded={expanded}
+            />
+          </Fragment>
+        ))}
+        {plugins.length > 0 ? (
           <>
             {expanded ? (
               <span className="px-2 pt-3 pb-0.5 text-[10.5px] font-medium tracking-[0.14em] text-sidebar-foreground/50 uppercase">
@@ -167,7 +184,7 @@ export function NavRail({
               <span data-slot="rail-divider" aria-hidden="true" className="my-2 w-5 border-t border-sidebar-border" />
             )}
             <RailEntries
-              items={pluginItems}
+              items={plugins}
               activeId={activeId}
               renderLink={renderLink}
               search={search}
