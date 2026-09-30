@@ -8,7 +8,7 @@ import { useQuery } from "@forge-go/dashboard-plugin"
 import type { PluginPageProps } from "@forge-go/dashboard-plugin"
 import type { AggregateGroup, AggregateResponse, OverviewStats } from "../types"
 import { HorizontalBars, VolumeBars } from "../charts/bars"
-import { breakdown, bucketRuns, bucketSeries, emptyBuckets, formatBucket, type BucketUnit } from "../charts/series"
+import { breakdown, bucketRuns, bucketSeries, emptyBuckets, floorBucket, formatBucket, type BucketUnit } from "../charts/series"
 import { formatSeq } from "../format"
 
 const RANGE: Record<BucketUnit, { label: string; span: number; noun: string }> = {
@@ -51,7 +51,10 @@ function emptyNote(empty: string[], unit: BucketUnit): string {
 export const ActivityPage: ComponentType<PluginPageProps & { now?: Date }> = ({ now }) => {
   const [anchor] = useState(() => now ?? new Date())
   const [unit, setUnit] = useState<BucketUnit>("day")
-  const from = new Date(anchor.getTime() - RANGE[unit].span)
+  // Floored before it is queried as well as before it is bucketed: a query
+  // that starts mid-bucket sees only part of the first bucket, and would name
+  // it empty although events exist earlier in it.
+  const from = floorBucket(new Date(anchor.getTime() - RANGE[unit].span), unit)
   const stats = useQuery<OverviewStats>("overview.stats", {})
   const volume = useQuery<AggregateResponse>("events.aggregate", { groupBy: [unit], after: from.toISOString() })
 

@@ -10,7 +10,8 @@ function bucketKey(d: Date, unit: BucketUnit): string {
   return unit === "day" ? iso.slice(0, 10) : `${iso.slice(0, 13)}:00:00Z`
 }
 
-function floor(d: Date, unit: BucketUnit): Date {
+/** The start of the UTC hour or day `d` falls in. */
+export function floorBucket(d: Date, unit: BucketUnit): Date {
   const x = new Date(d)
   x.setUTCMinutes(0, 0, 0)
   if (unit === "day") x.setUTCHours(0)
@@ -26,7 +27,7 @@ function floor(d: Date, unit: BucketUnit): Date {
 export function bucketSeries(groups: AggregateGroup[], from: Date, to: Date, unit: BucketUnit): { bucket: string; count: number | null }[] {
   const counts = new Map(groups.filter((g) => g.bucket).map((g) => [g.bucket as string, g.count]))
   const out: { bucket: string; count: number | null }[] = []
-  for (let t = floor(from, unit).getTime(); t <= to.getTime(); t += STEP[unit]) {
+  for (let t = floorBucket(from, unit).getTime(); t <= to.getTime(); t += STEP[unit]) {
     const key = bucketKey(new Date(t), unit)
     out.push({ bucket: key, count: counts.get(key) ?? null })
   }
