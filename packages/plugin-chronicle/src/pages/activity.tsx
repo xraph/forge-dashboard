@@ -114,3 +114,5 @@ export const ActivityPage: ComponentType<PluginPageProps & { now?: Date }> = ({ 
     </div>
   )
 }
+
+export default ActivityPage

@@ -20,3 +20,21 @@ describe("the event detail chunk", () => {
     expect(eager.map(([p]) => p)).toEqual([])
   })
 })
+
+// The kit's chart is recharts, which is several times the weight of every
+// chronicle page put together. Imported statically it lands in the shell's
+// eager entry, so an operator who never opens Activity waits on it.
+describe("the activity chunk", () => {
+  it("is imported lazily by the plugin", () => {
+    const text = Object.values(index)[0]
+    expect(text).toMatch(/lazy\(\(\) => import\("\.\/pages\/activity"\)\)/)
+    expect(text).not.toMatch(/from "\.\/pages\/activity"/)
+  })
+  it("is the only way the chart library enters the plugin", () => {
+    const charting = Object.entries(sources)
+      .filter(([, text]) => /from "@forge-go\/dashboard-kit\/components\/chart"|from "recharts"|from "\.\.\/charts\/bars"/.test(text))
+      .map(([p]) => p.replace(/^\.\.\/src\//, ""))
+      .sort()
+    expect(charting).toEqual(["charts/bars.tsx", "pages/activity.tsx"])
+  })
+})

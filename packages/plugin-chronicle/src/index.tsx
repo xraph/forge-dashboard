@@ -1,7 +1,6 @@
 import { lazy } from "react"
 import { definePlugin } from "@forge-go/dashboard-plugin"
 import { ArchiveIcon, ChartColumnIcon, EraserIcon, FileCheckIcon, MilestoneIcon, ScrollTextIcon, SettingsIcon, ShieldCheckIcon, TimerResetIcon } from "@forge-go/dashboard-kit/icons"
-import { ActivityPage } from "./pages/activity"
 import { ArchivesPage } from "./pages/archives"
 import { ChainPage } from "./pages/chain"
 import { CheckpointDetailPage } from "./pages/checkpoint-detail"
@@ -21,6 +20,9 @@ import { UserEventsPage } from "./pages/user-events"
 
 // CodeMirror is this page's weight, so it loads when an event is opened.
 const EventDetailPage = lazy(() => import("./pages/event-detail"))
+// The charts are recharts, heavier than every other chronicle page together,
+// so they load when Activity is opened and not with the shell.
+const ActivityPage = lazy(() => import("./pages/activity"))
 
 export type * from "./types"
 
