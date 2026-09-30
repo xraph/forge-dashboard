@@ -723,3 +723,37 @@ Recorded, not fixed here, and raised with you:
 - The conformance suite runs on mem and local only, and the integration setups
   likely cannot pass as written.
 - Next.js proxy cannot carry content routes.
+
+## What slice 1 found that slice 2 must know
+
+Slice 1 landed in the trove repo as six commits (c27b245 to 1655883, on top of 05898d6). The root module, the four driver modules, `extension` and `bench` all build and vet, and their tests pass. This section records what the Go contract can now rely on, what it must not assume, and which lint issues were left alone.
+
+### What you can rely on
+
+- The paging contract is the same on every driver. `ListResult.NextToken` is opaque: pass it back unchanged as `Cursor`, and an empty token means the listing is complete.
+- With a `Delimiter`, keys under a common prefix fold into that prefix on every driver (mem, local, sftp, S3, GCS, Azure) and come back in `CommonPrefixes`. Objects and prefixes form one lexicographic sequence, and `MaxKeys` counts both.
+- Azure can return an empty page with a non-empty token. The contract allows it, so your browser must treat "nothing on this page, more to list" as a normal state and keep following the token.
+- `driver.PageKeys` and `driver.NewObjectIteratorWithPrefixes` are the shared helpers. `driver.NewObjectIterator` is unchanged.
+- `CAS.Bucket()` returns the bucket the CAS writes to. `CAS.Stat(ctx, hash)` returns a copy of the index entry without reading content. It returns `ErrNotFound` for anything the index does not know, which includes content still in the bucket after a restart, because the default index is in memory.
+- `Stream.TotalSize()` returns the expected size, or -1 when nobody set it. The field is atomic now, so reading it from a handler while the transfer runs is safe under `-race`.
+
+### What you must not assume
+
+- VFS `ReadDir` now lists files first and folded directories last. It does not sort by name, so sort in the contract if the UI needs an order.
+- VFS `ReadDir` and `Stat` still ignore `NextToken` and stop at 1000 entries. Do not build a directory view on them for large buckets. List through the driver instead.
+- On the cloud drivers only the happy path of `List` is tested. A missing bucket mapping to `ErrBucketNotFound` is untested on GCS and Azure, the Azure flat (no delimiter) path and its `prefix` parameter are untested, and no S3 or GCS test pins `max-keys` or `maxResults` on the wire.
+- A garbage cursor is not a typed error everywhere. On GCS it surfaces as an untyped wrapped 400, so the contract should validate or expect a generic failure, not match a sentinel.
+- S3 and Azure do not clamp `MaxKeys` to what the backend accepts (S3 caps at 1000 silently, Azure at 5000), and both narrow it to `int32`. Clamp in the contract before you pass it down.
+- `PageKeys` rescans from the start on each page, so mem, local and sftp listings cost O(n) per page. Whether a page that ends exactly on the last prefix returns an empty token (`a/1` and `a/2` with delimiter `/` and `MaxKeys` 1) is not pinned by a test, nor are a key equal to the prefix, empty input or a negative `MaxKeys`.
+- `CAS.Stat` panics if a custom `Index` returns `(nil, nil)`. The built-in indexes never do.
+- The unmounted `extension/handler` now drops prefixes on mem and local when `?delimiter` is set. It is not mounted, so nothing breaks, but note it in MIGRATION.md.
+
+### Lint left untouched
+
+All of these are in lines slice 1 did not change (blame points at the original VFS commit 0c9672f or the error-mapping test commit 4e97586). The root module is clean.
+
+- s3driver: `errors_test.go:88` errorlint, `multipart.go:75` and `multipart.go:107` gosec G115.
+- gcsdriver: `errors_test.go:74` and `gcs.go:389` errorlint, `gcs.go:80`, `multipart.go:130` and `multipart.go:169` gocritic, `gcs.go:158` govet shadow.
+- azuredriver: `errors_test.go:74` errorlint.
+- sftpdriver: `sftp.go:216` errorlint, `sftp.go:367` gocritic, `sftp.go:156`, `sftp.go:250` and `sftp.go:482` govet shadow.
+- `bench` sits behind the `bench` build tag, so plain `go vet ./...` reports no packages. Use `-tags bench`.
