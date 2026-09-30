@@ -713,12 +713,22 @@ function byNamespace(rows, params) {
 /**
  * Every distinct namespace on any warden entity or check log row, plus the
  * tenant root. Check log rows count because a leaf namespace where checks run
- * may hold no role, grant or assignment of its own.
+ * may hold no role, grant or assignment of its own. Check never validates a
+ * namespace, so a check log path that validateNamespace refuses (reserved,
+ * uppercase or too deep) is left out: every filter would refuse it.
  */
 function wardenNamespaces() {
   const seen = new Set([""])
-  for (const group of [warden.roles, warden.permissions, warden.assignments, warden.relations, warden.policies, warden.resourceTypes, warden.checkLogs]) {
+  for (const group of [warden.roles, warden.permissions, warden.assignments, warden.relations, warden.policies, warden.resourceTypes]) {
     for (const row of group) seen.add(row.namespacePath)
+  }
+  for (const row of warden.checkLogs) {
+    try {
+      validateNamespace(row.namespacePath)
+    } catch {
+      continue
+    }
+    seen.add(row.namespacePath)
   }
   return [...seen].sort()
 }
@@ -3201,7 +3211,11 @@ function explainRequest(req) {
 // subjects.detail
 //
 // handlers_subjects.go: what one subject can do at a namespace, and why. The
-// subject kind is never validated (the check log and the stores accept any
+// Go handler checks read on warden:role, warden:relation and warden:policy
+// before it returns those sections, and names a section it leaves empty in
+// withheld. The fixture viewer holds every grant, so nothing is withheld here.
+// Recent checks are not part of the reply: the page reads them through
+// checkLogs.list. The subject kind is never validated (the check log and the stores accept any
 // string), and it always matches exactly. The Go stores read an empty kind as
 // "any kind" in their filters, so the handler pages past every other kind to
 // keep only rows whose kind is exactly "". Matching exactly here gives the
@@ -3211,8 +3225,6 @@ function explainRequest(req) {
 // How many assignments and relations the view returns. The Go handler asks the
 // store for one more, so a full page proves there is more.
 const SUBJECT_LIST_CAP = 200
-// How many check log rows the view returns.
-const SUBJECT_RECENT_CHECKS = 10
 
 /**
  * SubjectRoles: the roles assigned at the namespace or an ancestor (expired
@@ -3359,13 +3371,18 @@ function subjectsDetail(params) {
     .slice(0, SUBJECT_LIST_CAP + 1)
   const relationsTruncated = tuples.length > SUBJECT_LIST_CAP
   if (relationsTruncated) tuples = tuples.slice(0, SUBJECT_LIST_CAP)
-  const relations = tuples.map((t) => ({
-    id: t.id,
-    namespacePath: t.namespacePath,
-    objectType: t.objectType,
-    objectId: t.objectId,
-    relation: t.relation,
-  }))
+  // subjectRelation is omitempty: set only on a userset grant (group:eng#member).
+  const relations = tuples.map((t) => {
+    const out = {
+      id: t.id,
+      namespacePath: t.namespacePath,
+      objectType: t.objectType,
+      objectId: t.objectId,
+      relation: t.relation,
+    }
+    if (t.subjectRelation) out.subjectRelation = t.subjectRelation
+    return out
+  })
 
   // A candidate is stored at this namespace or an ancestor, in effect right
   // now, and selects a subject holding these roles. Selecting is not
@@ -3385,11 +3402,12 @@ function subjectsDetail(params) {
       selectedBy: subjectPolicySelection(p, kind, subjectId, slugs),
     }))
 
-  const recentChecks = newestFirst(warden.checkLogs.filter((e) => e.subjectKind === kind && e.subjectId === subjectId))
-    .slice(0, SUBJECT_RECENT_CHECKS)
-    .map(projectCheckLog)
+  // The fixture grants the viewer every section's read, so nothing is
+  // withheld. The Go handler lists "roles", "relations" or "policies" here
+  // for each grant the viewer lacks.
+  const withheld = []
 
-  return { roles, assignments, assignmentsTruncated, relations, relationsTruncated, policies, recentChecks }
+  return { roles, assignments, assignmentsTruncated, relations, relationsTruncated, policies, withheld }
 }
 
 // ---------------------------------------------------------------------------
