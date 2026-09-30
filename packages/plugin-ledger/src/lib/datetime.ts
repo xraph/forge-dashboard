@@ -51,11 +51,13 @@ export function formatPeriod(start: string, end: string): string {
  * An instant with its time, read in UTC. The usage page cuts its chart into UTC
  * days, the days billing periods are cut on, so its event log shows the same
  * clock: an event at 23:30 UTC then sits visibly under the column it was
- * counted in, whatever zone the operator's machine is in. Unparseable text
- * prints as it arrived.
+ * counted in, whatever zone the operator's machine is in. An empty or
+ * unparseable timestamp answers undefined, so the caller says "none" itself
+ * (a NoneCell) rather than printing text that is not a time.
  */
-export function formatUTCInstant(iso: string): string {
+export function formatUTCInstant(iso: string | undefined): string | undefined {
+  if (!iso) return undefined
   const at = new Date(iso)
-  if (Number.isNaN(at.getTime())) return iso
+  if (Number.isNaN(at.getTime())) return undefined
   return at.toLocaleString(undefined, { dateStyle: "medium", timeStyle: "medium", timeZone: "UTC" })
 }

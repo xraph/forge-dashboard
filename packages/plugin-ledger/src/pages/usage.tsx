@@ -8,6 +8,7 @@ import { Label } from "@forge-go/dashboard-kit/components/label"
 import { NativeSelect, NativeSelectOption } from "@forge-go/dashboard-kit/components/native-select"
 import { PageHeader } from "@forge-go/dashboard-kit/components/page-header"
 import { CommandAlert, QueryBoundary } from "@forge-go/dashboard-kit/components/query-boundary"
+import { NoneCell } from "@forge-go/dashboard-kit/components/none-cell"
 import { ResourceTable, type Column } from "@forge-go/dashboard-kit/components/resource-table"
 import { StatGrid } from "@forge-go/dashboard-kit/components/stat-grid"
 import { OffsetPager } from "../components/offset-pager"
@@ -20,7 +21,7 @@ const CHART_READ = 200
 const number = new Intl.NumberFormat()
 
 const columns: Column<UsageEvent>[] = [
-  { id: "time", header: "When (UTC)", cell: (e) => formatUTCInstant(e.timestamp) },
+  { id: "time", header: "When (UTC)", cell: (e) => formatUTCInstant(e.timestamp) ?? <NoneCell label="time" /> },
   { id: "tenant", header: "Tenant", className: "font-mono text-xs", cell: (e) => e.tenant_id },
   { id: "feature", header: "Feature", className: "font-mono text-xs", cell: (e) => e.feature_key },
   { id: "quantity", header: "Units", align: "end", className: "font-medium tabular-nums", cell: (e) => number.format(e.quantity) },
@@ -39,7 +40,7 @@ function MonthTotal({ tenant, feature }: { tenant: string; feature: string }) {
               value: number.format(t.totals?.[feature] ?? 0),
               // The engine opens the month on the ledger server's own calendar,
               // which is UTC only when the server runs in UTC.
-              hint: "Since the start of the month on the ledger server's clock",
+              hint: "Since the start of the month in the ledger server's time zone",
             },
           ]}
         />
@@ -92,11 +93,7 @@ export function EntitlementAnswerView({ r }: { r: EntitlementResult }) {
 function EntitlementAnswer({ check }: { check: QueryState<EntitlementResult> }) {
   return (
     <QueryBoundary title="Entitlement" query={check} skeletonRows={1}>
-      {(r) => (
-        <div role="status" aria-label="Entitlement answer">
-          <EntitlementAnswerView r={r} />
-        </div>
-      )}
+      {(r) => <EntitlementAnswerView r={r} />}
     </QueryBoundary>
   )
 }
@@ -121,6 +118,8 @@ export function LedgerUsagePage() {
   const [days, setDays] = useState(30)
   // The window's start is fixed when the window is chosen, not on every
   // render: a start that moved each render would be a new query each time.
+  // It is also fixed at mount: a page left open past UTC midnight keeps its
+  // window until the operator changes it.
   const [anchor, setAnchor] = useState(() => Date.now())
   const [page, setPage] = useState(1)
   const [checking, setChecking] = useState<{ tenant: string; feature: string } | null>(null)
@@ -274,12 +273,17 @@ export function LedgerUsagePage() {
           </p>
         )}
         <CommandAlert error={invalidate.error} title="Could not clear the cache" />
-        {cleared && (
-          <p role="status" className="text-sm">
-            Cached answers for {cleared} were cleared.
-          </p>
-        )}
-        {checking && <EntitlementAnswer check={check} />}
+        {/*
+          Both live regions stay mounted, empty, from the first render: a
+          region inserted already holding its text is often not announced, one
+          that was there first and then filled is.
+        */}
+        <p role="status" aria-live="polite" className="text-sm">
+          {cleared ? `Cached answers for ${cleared} were cleared.` : null}
+        </p>
+        <div role="status" aria-live="polite" aria-label="Entitlement answer">
+          {checking && <EntitlementAnswer check={check} />}
+        </div>
       </section>
     </section>
   )

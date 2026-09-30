@@ -77,7 +77,12 @@ export function UsageChart({ totals, truncated, refreshing }: { totals: DayTotal
         <p className="text-sm text-muted-foreground">Columns are UTC days, the same days billing periods are cut on.</p>
       </div>
       <div data-refreshing={refreshing ? "true" : "false"} className={cn("transition-opacity", refreshing && "opacity-60")}>
-        <ChartContainer config={config} className="aspect-auto h-[260px] w-full">
+        <ChartContainer
+          config={config}
+          role="group"
+          aria-label={`Units per UTC day, ${totals.length} days`}
+          className="aspect-auto h-[260px] w-full"
+        >
           <BarChart data={totals} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
             <CartesianGrid vertical={false} />
             <XAxis dataKey="label" tickLine={false} axisLine={false} tickMargin={8} minTickGap={16} />
@@ -93,7 +98,7 @@ export function UsageChart({ totals, truncated, refreshing }: { totals: DayTotal
         </p>
       )}
       <details className="text-sm">
-        <summary className="cursor-pointer text-muted-foreground">Show the daily totals as a table</summary>
+        <summary className="cursor-pointer text-muted-foreground">Show the same numbers as a table</summary>
         <table className="mt-2 w-full max-w-sm text-sm">
           <caption className="sr-only">Units per day</caption>
           <thead>

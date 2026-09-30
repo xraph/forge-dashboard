@@ -40,7 +40,7 @@ async function check(answer: EntitlementResult) {
   type("Tenant ID", "acme")
   type("Feature key", answer.feature)
   fireEvent.click(screen.getByRole("button", { name: "Check entitlement" }))
-  await screen.findByRole("status", { name: "Entitlement answer" })
+  await screen.findByText(/^(Allowed|Refused)/)
 }
 
 afterEach(() => {
@@ -77,6 +77,14 @@ describe("LedgerUsagePage", () => {
     const card = (await screen.findByText("api_calls this month, acme")).closest("[data-slot=card]")!
     expect(within(card as HTMLElement).getByText("450")).toBeTruthy()
     expect(queries.find((q) => q.intent === "usage.aggregate")?.params).toEqual({ tenant_id: "acme", feature_keys: ["api_calls"], period: "monthly" })
+  })
+
+  it("says the month total runs on the ledger server's calendar, not claiming UTC", async () => {
+    open({ "usage.aggregate": { period: "monthly", totals: { api_calls: 450 } } })
+    await screen.findByText("evt_1")
+    type("Tenant ID", "acme")
+    type("Feature key", "api_calls")
+    expect(await screen.findByText("Since the start of the month in the ledger server's time zone")).toBeTruthy()
   })
 
   it("does not ask for a month total until a tenant and a feature are named", async () => {
@@ -165,6 +173,79 @@ describe("LedgerUsagePage", () => {
     // The same chart throughout, not a remount: the table the operator opened is still open.
     expect(container.querySelector("details")).toBe(details)
     expect(details.open).toBe(true)
+  })
+})
+
+/** A client whose usage.events answer is computed from the params, so paging can be followed. */
+function pagedClient(answer: (params: Record<string, unknown>) => unknown) {
+  const queries: Sent[] = []
+  const client = {
+    extension: "ledger",
+    query: async (intent: string, params?: Record<string, unknown>) => {
+      queries.push({ intent, params })
+      if (intent === "usage.events") return answer(params ?? {})
+      throw new ContractError("NOT_FOUND", `no handler for intent "${intent}"`)
+    },
+    command: async () => ({ ok: true }),
+  } as unknown as ScopedClient
+  render(
+    <PluginProvider client={client}>
+      <LedgerUsagePage />
+    </PluginProvider>,
+  )
+  const logReads = () => queries.filter((q) => q.intent === "usage.events" && q.params?.limit === 50).map((q) => q.params!)
+  return { queries, logReads }
+}
+
+const event = (id: string) => ({ id, tenant_id: "acme", app_id: "app_ledger", feature_key: "api_calls", quantity: 1, timestamp: new Date().toISOString() })
+
+describe("the event log's paging", () => {
+  it("asks for the next fifty when Next is pressed", async () => {
+    const { logReads } = pagedClient((p) => (p.limit === 50 ? aPage([event(`evt_${p.offset}`)], { has_more: p.offset === 0 }) : aPage([event("evt_chart")])))
+    await screen.findByText("evt_0")
+    fireEvent.click(screen.getByRole("button", { name: "Next page" }))
+    await screen.findByText("evt_50")
+    expect(logReads().at(-1)).toMatchObject({ limit: 50, offset: 50 })
+    expect(screen.getByText("Page 2")).toBeTruthy()
+  })
+
+  it.each([
+    ["Tenant ID", "acme"],
+    ["Window", "7"],
+  ])("returns to the first page when %s changes", async (label, value) => {
+    const { logReads } = pagedClient((p) => (p.limit === 50 ? aPage([event(`evt_${p.offset}`)], { has_more: true }) : aPage([event("evt_chart")])))
+    await screen.findByText("evt_0")
+    fireEvent.click(screen.getByRole("button", { name: "Next page" }))
+    await screen.findByText("evt_50")
+    type(label, value)
+    await screen.findByText("evt_0")
+    expect(logReads().at(-1)).toMatchObject({ limit: 50, offset: 0 })
+    expect(screen.getByText("Page 1")).toBeTruthy()
+  })
+
+  it("says so when a page past the end is empty, rather than that no usage exists", async () => {
+    pagedClient((p) => (p.limit === 50 ? aPage(p.offset === 0 ? [event("evt_0")] : [], { has_more: p.offset === 0 }) : aPage([event("evt_chart")])))
+    await screen.findByText("evt_0")
+    fireEvent.click(screen.getByRole("button", { name: "Next page" }))
+    expect(await screen.findByText("Nothing on page 2.")).toBeTruthy()
+    expect(screen.queryByText("No usage in this window.")).toBeNull()
+    expect((screen.getByRole("button", { name: "Previous page" }) as HTMLButtonElement).disabled).toBe(false)
+    expect((screen.getByRole("button", { name: "Next page" }) as HTMLButtonElement).disabled).toBe(true)
+  })
+
+  it("tells an empty window from an empty filter", async () => {
+    pagedClient(() => aPage([]))
+    expect(await screen.findByText("No usage in this window.")).toBeTruthy()
+    type("Tenant ID", "nobody")
+    expect(await screen.findByText("No events match these filters in this window.")).toBeTruthy()
+    expect(screen.queryByText("No usage in this window.")).toBeNull()
+  })
+
+  it("shows an event with no usable time as none, not as the text it arrived as", async () => {
+    open({ "usage.events": aPage([{ ...event("evt_blank"), timestamp: "" }, { ...event("evt_junk"), timestamp: "soon" }]) })
+    await screen.findByText("evt_blank")
+    expect(screen.getAllByLabelText("no time")).toHaveLength(2)
+    expect(screen.queryByText("soon")).toBeNull()
   })
 })
 
@@ -262,6 +343,26 @@ describe("entitlement tools", () => {
     type("Feature key", "api_calls")
     fireEvent.click(screen.getByRole("button", { name: "Check entitlement" }))
     expect((await screen.findAllByText(/PERMISSION_DENIED: no app selected/)).length).toBeGreaterThanOrEqual(1)
+  })
+
+  it("keeps both live regions mounted from the first render, empty until there is something to say", async () => {
+    open({ "entitlements.check": result({}) }, { "entitlements.invalidate": { ok: true } })
+    await screen.findByText("evt_1")
+    const answer = screen.getByRole("status", { name: "Entitlement answer" })
+    const live = screen.getAllByRole("status").filter((el) => el.getAttribute("aria-live") === "polite" && el !== answer)
+    expect(live).toHaveLength(1)
+    expect(answer.textContent).toBe("")
+    expect(live[0].textContent).toBe("")
+    type("Tenant ID", "acme")
+    type("Feature key", "api_calls")
+    fireEvent.click(screen.getByRole("button", { name: "Check entitlement" }))
+    await screen.findByText("Allowed")
+    fireEvent.click(screen.getByRole("button", { name: "Clear cached answers" }))
+    await screen.findByText("Cached answers for acme (api_calls) were cleared.")
+    // The same nodes, filled in place, not new ones inserted.
+    expect(screen.getByRole("status", { name: "Entitlement answer" })).toBe(answer)
+    expect(live[0].isConnected).toBe(true)
+    expect(live[0].textContent).toMatch(/were cleared/)
   })
 
   it("clears cached answers for the tenant", async () => {

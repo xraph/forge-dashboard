@@ -118,6 +118,19 @@ describe("UsageChart", () => {
     expect(container.querySelector(".recharts-cartesian-grid-vertical")).toBeNull()
   })
 
+  it("maps the series colour to the chart token and mounts a tooltip", () => {
+    const { container } = render(<UsageChart totals={totals} truncated={false} refreshing={false} />)
+    const css = container.querySelector("[data-chart] style, style")?.textContent ?? ""
+    expect(css).toMatch(/--color-quantity:\s*var\(--chart-1\)/)
+    expect(container.querySelector(".recharts-tooltip-wrapper")).not.toBeNull()
+  })
+
+  it("names the plot and says the table holds the same numbers", () => {
+    render(<UsageChart totals={totals} truncated={false} refreshing={false} />)
+    expect(screen.getByRole("group", { name: "Units per UTC day, 3 days" })).toBeTruthy()
+    expect(screen.getByText("Show the same numbers as a table")).toBeTruthy()
+  })
+
   it("says when the events it drew from were cut off", () => {
     render(<UsageChart totals={totals} truncated refreshing={false} />)
     expect(screen.getByText(/The chart covers the 200 most recent events in this window/)).toBeTruthy()
