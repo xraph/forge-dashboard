@@ -197,6 +197,10 @@ const INPUT = {
   "ledger::invoices.markPaid": { id: "inv_initech_1", payment_ref: "verify" },
   "ledger::invoices.void": { id: "inv_acme_4", reason: "Voided by verify.mjs" },
   "ledger::invoices.syncToProvider": { id: "inv_acme_1" },
+  "ledger::plans.importFromProvider": { provider_id: "prod_growth" },
+  "ledger::features.importFromProvider": { provider_id: "mtr_exports" },
+  "ledger::subscriptions.importFromProvider": { provider_id: "sub_1Stark" },
+  "ledger::invoices.importFromProvider": { provider_id: "in_1AcmeA" },
   "ledger::usage.aggregate": { tenant_id: "acme", feature_keys: ["api_calls"], period: "monthly" },
   "ledger::entitlements.check": { tenant_id: "acme", feature_key: "api_calls" },
   "ledger::entitlements.invalidate": { tenant_id: "acme" },
@@ -2002,6 +2006,50 @@ async function main() {
     check("no subscription is not allowed", nobody?.allowed === false && nobody.reason === "no active subscription", JSON.stringify(nobody))
     check("payment methods for a tenant with no subscription here are NOT_FOUND", code(await lc("paymentMethods.list", "query", { tenant_id: "nobody" })) === "NOT_FOUND", "")
     check("payment methods for acme are listed", body(await lc("paymentMethods.list", "query", { tenant_id: "acme" }))?.methods?.length === 2, "")
+  }
+
+  // ledger provider import: every importFromProvider files the record under
+  // this app, answers the detail shape, refuses a second import, and reports
+  // the provider's side as the Go contract does.
+  {
+    const lc = (intent, input) => dispatch("ledger", intent, "command", input, csrf)
+    const check = (name, ok, detail) => {
+      console.log(`  ledger ${name}: ${ok}`)
+      if (!ok) failures.push({ key: `spot-check::ledger ${name}`, reason: detail })
+    }
+    const body = (r) => r.body?.data
+    const code = (r) => r.body?.error?.code
+    const message = (r) => r.body?.error?.message ?? ""
+
+    const plan = await lc("plans.importFromProvider", { provider_id: "prod_scale" })
+    check("an imported plan lands in this app with its provider id", body(plan)?.app_id === "app_ledger" && body(plan)?.provider_id === "prod_scale" && body(plan)?.provider_name === "stripe" && Array.isArray(body(plan)?.features), JSON.stringify(plan.body))
+    check("plans.importFromProvider declares the manifest's invalidates", (plan.body?.meta?.invalidates ?? []).join(",") === "plans.list,overview.stats", JSON.stringify(plan.body?.meta))
+    const planDetail = body(await dispatch("ledger", "plans.detail", "query", { id: body(plan)?.id }, csrf))
+    check("the imported plan reads back through plans.detail", planDetail?.slug === "scale", JSON.stringify(planDetail))
+    check("importing the same plan again is 409 CONFLICT", code(await lc("plans.importFromProvider", { provider_id: "prod_scale" })) === "CONFLICT", "")
+    check("a provider plan whose slug this app uses is 409 CONFLICT", code(await lc("plans.importFromProvider", { provider_id: "prod_starter" })) === "CONFLICT", "")
+    const foreign = await lc("plans.importFromProvider", { provider_id: "prod_partner" })
+    check("a provider plan filed under another app is 404 NOT_FOUND", foreign.status === 404 && code(foreign) === "NOT_FOUND", JSON.stringify(foreign.body))
+    const unknown = await lc("plans.importFromProvider", { provider_id: "prod_nope" })
+    check("an id the provider does not hold is 503 UNAVAILABLE in the provider's words", unknown.status === 503 && code(unknown) === "UNAVAILABLE" && message(unknown).includes("prod_nope"), JSON.stringify(unknown.body))
+    check("a blank provider_id is 400 BAD_REQUEST", code(await lc("plans.importFromProvider", { provider_id: "  " })) === "BAD_REQUEST", "")
+    check("an unknown provider_name is UNAVAILABLE", code(await lc("plans.importFromProvider", { provider_name: "paypal", provider_id: "prod_growth" })) === "UNAVAILABLE", "")
+
+    const feature = await lc("features.importFromProvider", { provider_id: "mtr_webhooks" })
+    check("an imported feature lands in this app's catalog", body(feature)?.app_id === "app_ledger" && body(feature)?.key === "webhooks", JSON.stringify(feature.body))
+    check("a provider feature whose key this app uses is 409 CONFLICT", code(await lc("features.importFromProvider", { provider_id: "mtr_api_calls" })) === "CONFLICT", "")
+
+    const sub = await lc("subscriptions.importFromProvider", { provider_id: "sub_1Wonka" })
+    const subBody = body(sub)
+    check("subscriptions.importFromProvider answers the detail shape", subBody?.subscription?.tenant_id === "wonka" && subBody?.plan?.id === "plan_pro" && Array.isArray(subBody?.applied_coupons), JSON.stringify(sub.body))
+    check("importing the same subscription again is 409 CONFLICT", code(await lc("subscriptions.importFromProvider", { provider_id: "sub_1Wonka" })) === "CONFLICT", "")
+    check("a subscription on a plan this app lacks is 400 BAD_REQUEST", code(await lc("subscriptions.importFromProvider", { provider_id: "sub_1Orphan" })) === "BAD_REQUEST", "")
+
+    const inv = await lc("invoices.importFromProvider", { provider_id: "in_1AcmeB" })
+    const invBody = body(inv)
+    check("invoices.importFromProvider answers the detail shape with line item ids", invBody?.invoice?.provider_id === "in_1AcmeB" && invBody?.subscription?.id === "sub_acme" && Array.isArray(invBody?.export_formats) && invBody.invoice.line_items.length > 0 && invBody.invoice.line_items.every((l) => l.id && l.invoice_id === invBody.invoice.id), JSON.stringify(inv.body))
+    check("importing the same invoice again is 409 CONFLICT", code(await lc("invoices.importFromProvider", { provider_id: "in_1AcmeB" })) === "CONFLICT", "")
+    check("an invoice for a subscription this app lacks is 400 BAD_REQUEST", code(await lc("invoices.importFromProvider", { provider_id: "in_1Orphan" })) === "BAD_REQUEST", "")
   }
 
   // chronicle: the four chains verify differently, and the switches change
