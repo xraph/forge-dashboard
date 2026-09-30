@@ -74,6 +74,19 @@ describe("WardenCheckLogDetailPage", () => {
     expect(link.getAttribute("href")).toBe("/roles/role_01hx")
   })
 
+  it("links the request line's subject to its access page, encoded", async () => {
+    page({ ...BASE, subjectKind: "api key", subjectId: "a/b" })
+    await settled()
+    const link = screen.getByRole("link", { name: "api key:a/b" })
+    expect(link.getAttribute("href")).toBe("/subjects/api%20key/a%2Fb")
+  })
+
+  it("leaves a subject with no kind as plain text in the request line", async () => {
+    page({ ...BASE, subjectKind: "" })
+    await settled()
+    expect(screen.getByText(":alice").closest("a")).toBeNull()
+  })
+
   it("shows a deny_explicit's reason, links its policy, and lists obligations in mono", async () => {
     page({
       ...BASE,

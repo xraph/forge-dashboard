@@ -130,6 +130,28 @@ describe("WardenAssignmentsPage", () => {
     expect(screen.getByText("service:forever")).toBeTruthy()
   })
 
+  it("links each subject to its access page, encoded", async () => {
+    const odd = {
+      ...ASSIGNMENTS,
+      items: [{ ...ASSIGNMENTS.items[1]!, subjectKind: "api_key", subjectId: "a/b" }],
+      total: 1,
+    }
+    renderPage(WardenAssignmentsPage, client({ "assignments.list": odd }))
+    const link = await screen.findByRole("link", { name: "api_key:a/b" })
+    expect(link.getAttribute("href")).toBe("/subjects/api_key/a%2Fb")
+  })
+
+  it("leaves a subject with no kind as plain text", async () => {
+    const odd = {
+      ...ASSIGNMENTS,
+      items: [{ ...ASSIGNMENTS.items[1]!, subjectKind: "", subjectId: "soon" }],
+      total: 1,
+    }
+    renderPage(WardenAssignmentsPage, client({ "assignments.list": odd }))
+    const text = await screen.findByText(":soon")
+    expect(text.closest("a")).toBeNull()
+  })
+
   it("marks an expired assignment as granting nothing", async () => {
     // The whole reason this page exists in this shape. The engine filters
     // expired assignments when it resolves roles, so an expired row grants

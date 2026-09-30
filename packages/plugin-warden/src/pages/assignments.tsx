@@ -26,6 +26,7 @@ import {
   emptyListMessage,
   useNamespaceFilter,
 } from "../components/namespace-filter"
+import { SubjectLink } from "../components/subject-link"
 import type { AckResponse, RolesList } from "./roles"
 
 /**
@@ -272,7 +273,9 @@ export function WardenAssignmentsPage() {
     {
       id: "subject",
       header: "Subject",
-      cell: (a) => subjectLabel(a),
+      cell: (a) => (
+        <SubjectLink kind={a.subjectKind} id={a.subjectId} className="font-medium" />
+      ),
       className: "font-medium",
     },
     {

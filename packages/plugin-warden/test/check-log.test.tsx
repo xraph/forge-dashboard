@@ -130,6 +130,32 @@ describe("decisionVariant", () => {
   })
 })
 
+describe("subject links in the check log", () => {
+  it("links each row's subject to its access page, encoded", async () => {
+    render_({
+      "checkLogs.list": list({
+        items: [{ ...ALICE, subjectKind: "api key", subjectId: "a/b" }],
+        total: 1,
+      }),
+    })
+    const link = await screen.findByRole("link", { name: "api key:a/b" })
+    expect(link.getAttribute("href")).toBe("/subjects/api%20key/a%2Fb")
+  })
+
+  it("leaves a subject with no kind as plain text", async () => {
+    render_({ "checkLogs.list": list({ items: [{ ...DEPLOYER, subjectKind: "" }], total: 1 }) })
+    const text = await screen.findByText(":deployer")
+    expect(text.closest("a")).toBeNull()
+  })
+
+  it("links the request line's subject too", () => {
+    render(<CheckRequestLine check={ALICE} />)
+    expect(screen.getByRole("link", { name: "user:alice" }).getAttribute("href")).toBe(
+      "/subjects/user/alice",
+    )
+  })
+})
+
 describe("WardenCheckLogPage rows", () => {
   it("links each timestamp to the check's own page", async () => {
     const { container } = render_()

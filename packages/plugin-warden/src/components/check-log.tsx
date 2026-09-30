@@ -4,6 +4,7 @@ import { NoneCell } from "@forge-go/dashboard-kit/components/none-cell"
 import type { Column } from "@forge-go/dashboard-kit/components/resource-table"
 import { Timestamp } from "@forge-go/dashboard-kit/components/timestamp"
 import { NamespaceCell } from "./namespace-filter"
+import { SubjectLink } from "./subject-link"
 
 /** Mirrors the Go `CheckLogSummary`. Field names are its JSON tags. */
 export interface CheckSummary {
@@ -113,7 +114,11 @@ export function formatEvalTime(ns: number): string {
 export function CheckRequestLine({ check }: { check: CheckSummary }) {
   return (
     <span className="inline-flex flex-wrap items-baseline gap-x-2 gap-y-1">
-      <span className="font-mono text-xs">{`${check.subjectKind}:${check.subjectId}`}</span>
+      <SubjectLink
+        kind={check.subjectKind}
+        id={check.subjectId}
+        className="font-mono text-xs"
+      />
       <span>{check.action}</span>
       <span className="font-mono text-xs">{`${check.resourceType}:${check.resourceId}`}</span>
     </span>
@@ -139,7 +144,9 @@ export function checkColumns(): Column<CheckSummary>[] {
     {
       id: "subject",
       header: "Subject",
-      cell: (c) => `${c.subjectKind}:${c.subjectId}`,
+      cell: (c) => (
+        <SubjectLink kind={c.subjectKind} id={c.subjectId} className="font-medium" />
+      ),
       className: "font-medium",
     },
     { id: "action", header: "Action", cell: (c) => c.action },
