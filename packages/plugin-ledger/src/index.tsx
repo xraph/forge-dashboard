@@ -1,7 +1,7 @@
 import { lazy } from "react"
 import { definePlugin } from "@forge-go/dashboard-plugin"
 import type { PluginNavItem, PluginRoute } from "@forge-go/dashboard-plugin"
-import { CreditCardIcon, HouseIcon, ListChecksIcon, PackageIcon, SettingsIcon, TicketPercentIcon, WalletIcon } from "@forge-go/dashboard-kit/icons"
+import { CreditCardIcon, HouseIcon, ListChecksIcon, PackageIcon, RepeatIcon, SettingsIcon, TicketPercentIcon, WalletIcon } from "@forge-go/dashboard-kit/icons"
 import { LedgerCouponCreatePage } from "./pages/coupon-create"
 import { LedgerCouponDetailPage } from "./pages/coupon-detail"
 import { LedgerCouponEditPage } from "./pages/coupon-edit"
@@ -16,6 +16,8 @@ import { LedgerPlanCreatePage } from "./pages/plan-create"
 import { LedgerPlanEditPage } from "./pages/plan-edit"
 import { LedgerPlansPage } from "./pages/plans"
 import { LedgerSettingsPage } from "./pages/settings"
+import { LedgerSubscriptionCreatePage } from "./pages/subscription-create"
+import { LedgerSubscriptionsPage } from "./pages/subscriptions"
 
 // Lazy: its module is imported nowhere else, so the table code loads only here.
 const LedgerPlanDetailPage = lazy(() => import("./pages/plan-detail"))
@@ -56,6 +58,7 @@ const navItems: PluginNavItem[] = [
   { label: "Plans", to: "/plans", priority: 0, icon: <PackageIcon />, group: "Catalog" },
   { label: "Features", to: "/features", priority: 10, icon: <ListChecksIcon />, group: "Catalog" },
   { label: "Coupons", to: "/coupons", priority: 20, icon: <TicketPercentIcon />, group: "Catalog" },
+  { label: "Subscriptions", to: "/subscriptions", priority: 0, icon: <RepeatIcon />, group: "Billing" },
   { label: "Payment methods", to: "/payment-methods", priority: 40, icon: <CreditCardIcon />, group: "Billing" },
   { label: "Settings", to: "/settings", priority: 0, icon: <SettingsIcon />, group: "Configuration" },
 ]
@@ -73,6 +76,8 @@ const routes: PluginRoute[] = [
   { path: "/coupons/new", element: LedgerCouponCreatePage },
   { path: "/coupons/:id/edit", element: LedgerCouponEditPage },
   { path: "/coupons/:id", element: LedgerCouponDetailPage },
+  { path: "/subscriptions", element: LedgerSubscriptionsPage },
+  { path: "/subscriptions/new", element: LedgerSubscriptionCreatePage },
   { path: "/payment-methods", element: LedgerPaymentMethodsPage },
   { path: "/settings", element: LedgerSettingsPage },
 ]
