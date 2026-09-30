@@ -226,8 +226,22 @@ function verifyChain(c, from, to) {
   const verified = Math.max(0, readTo - from + 1 - gaps.length - retainedCount)
 
   const cpOn = !env().noCheckpoints
-  const headChecked = to >= c.headSeq
-  const headMatch = !c.truncated
+  // verify/verifier.go: a range is partial when the caller bounded either
+  // end, so the default window is partial even though it ends at the head.
+  const partial = from > 1 || (c.headSeq > 0 && to < c.headSeq) || (c.headSeq === 0 && to > 0)
+  // The head is compared only on a range that is not partial. A range that
+  // came back empty against a chain that claims a head fails as a head check,
+  // unless retention accounts for a bounded range short of the head.
+  let headChecked
+  let headMatch
+  if (verified === 0) {
+    const allRetained = retained.length > 0 && gaps.length === 0 && to < c.headSeq
+    headChecked = c.headSeq > 0 && !allRetained
+    headMatch = false
+  } else {
+    headChecked = c.headHash !== "" && !partial
+    headMatch = headChecked && !c.truncated
+  }
   const overlapping = cpOn ? c.checkpoints.filter((k) => k.toSeq >= from && k.fromSeq <= to) : []
   const checkpoints = overlapping.map((k) => {
     const pastHead = k.toSeq > c.headSeq
@@ -252,7 +266,7 @@ function verifyChain(c, from, to) {
     firstEvent: verified > 0 ? from : 0,
     lastEvent: verified > 0 ? readTo : 0,
     headSeq: c.headSeq,
-    partial: from > 1 || to < c.headSeq,
+    partial,
     headMatch, headChecked,
     checkpointsChecked: cpOn,
     checkpointHeadOk, checkpointHeadChecked,
@@ -313,6 +327,17 @@ function eventTime(c, seq) {
   let ts = NOW - (c.headSeq - seq) * 7 * MINUTE
   if (ts >= EMPTY_HOUR_START && ts < EMPTY_HOUR_END) ts -= HOUR
   return ts
+}
+
+/**
+ * crypto/seal.go markErased: a sealed string reads as the marker once its key
+ * is gone and sealed metadata is dropped altogether. Only a field that held
+ * something was sealed, so an empty one stays empty.
+ */
+function markErased(e) {
+  for (const k of ["reason", "ip", "userAgent"]) if (e[k]) e[k] = ERASED
+  if (e.metadata && Object.keys(e.metadata).length > 0) delete e.metadata
+  e.erased = true
 }
 
 function buildEvent(c, seq) {
@@ -382,15 +407,11 @@ function seedEvents() {
   // table or a delimited row has to cope.
   Object.assign(byId("audit_acme_61001"), { action: "role.grant|revoke", category: "admin", resource: "role", resourceId: "role_3" })
 
-  // The erased row. Its subject is the one erasure_1 names.
-  Object.assign(byId("audit_own_12400"), {
-    subjectId: "subject_9",
-    erased: true,
-    erasedAt: iso(NOW - 20 * DAY),
-    erasureId: "erasure_1",
-    ip: ERASED,
-    reason: ERASED,
-  })
+  // The erased row. Its subject is the one erasure_1 names, and it was
+  // recorded with a reason, so the reason was sealed along with the rest.
+  const erased = byId("audit_own_12400")
+  Object.assign(erased, { subjectId: "subject_9", reason: "account closure", erasedAt: iso(NOW - 20 * DAY), erasureId: "erasure_1" })
+  markErased(erased)
   // The victim case: the literal marker recorded as an ordinary value, with no
   // erasure behind it. Nothing here may read as an erasure requested here. Its
   // subject is one no seeded erasure and no ordinary request names, so the row
@@ -1141,7 +1162,8 @@ export function createChronicleHandlers(FixtureError) {
         const seq = counters.erasure++
         const id = `erasure_${seq}`
         for (const e of hit) {
-          Object.assign(e, { erased: true, erasedAt: iso(NOW), erasureId: id, ip: ERASED, reason: ERASED })
+          Object.assign(e, { erasedAt: iso(NOW), erasureId: id })
+          markErased(e)
         }
         // The key of a subject who also has events in another scope is kept.
         const legacyKeyRetained = subjectId === "legacy-user"

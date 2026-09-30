@@ -2183,6 +2183,24 @@ async function main() {
         own?.erased === true && own.erasureId === "erasure_1" && victim?.reason === "[ERASED]" && victim.erased === false && victim.erasureId === undefined,
         JSON.stringify({ own, victim }),
       )
+      check(
+        "an erased row reads its sealed fields as the marker and has no metadata, as markErased leaves it",
+        own?.ip === "[ERASED]" && own.reason === "[ERASED]" && own.userAgent === "[ERASED]" && own.metadata === undefined,
+        JSON.stringify(own),
+      )
+
+      const recent = data(await cc("verify.run", "query", { streamId: "stream_acme", fromSeq: 51005, toSeq: 61004 }))?.report
+      check(
+        "the default window ends at the head but is partial, so the head is not checked",
+        recent?.valid === true && recent.partial === true && recent.headChecked === false,
+        JSON.stringify(recent),
+      )
+      const wholeAcme = data(await cc("verify.run", "query", { streamId: "stream_acme" }))?.report
+      check(
+        "a whole-chain check is not partial and checks the head",
+        wholeAcme?.valid === true && wholeAcme.partial === false && wholeAcme.headChecked === true && wholeAcme.headMatch === true,
+        JSON.stringify(wholeAcme),
+      )
     }
 
     if (mode.checkpoints) {
@@ -2206,6 +2224,14 @@ async function main() {
     const noErasure = await cc("erasures.request", "command", { subjectId: "subject_3", reason: "spot check" })
     if (mode.erasure) {
       check("erasures.request answers the result, key destroyed", data(noErasure)?.keyDestroyed === true && data(noErasure)?.legacyKeyRetained === false, JSON.stringify(noErasure.body))
+      // subject_3's events: one on the own chain, or acme's when the viewer cannot see the own chain.
+      const hitId = mode.tenant || !mode.ownChain ? "audit_acme_61002" : "audit_own_12430"
+      const hit = data(await cc("events.detail", "query", { id: hitId }))
+      check(
+        "an erasure marks the sealed fields that held something, leaves an empty one empty and drops the metadata",
+        hit?.erased === true && hit.ip === "[ERASED]" && hit.userAgent === "[ERASED]" && hit.reason === undefined && hit.metadata === undefined,
+        JSON.stringify(hit),
+      )
       const empty = await cc("erasures.request", "command", { subjectId: "", reason: "x" })
       check("an empty subjectId is BAD_REQUEST with the Go message", code(empty) === "BAD_REQUEST" && empty.body.error.message === "subjectId is required", JSON.stringify(empty.body))
       const blank = await cc("erasures.request", "command", { subjectId: "subject_3", reason: "   " })
