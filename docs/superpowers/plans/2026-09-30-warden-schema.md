@@ -48,7 +48,7 @@ Verified against `warden/dsl` for this plan.
 
 ## Review Focus
 
-1. **Applying a diff the operator did not see.** Covered by the digest (Tasks 1 and 2).
+1. **Applying a diff the operator did not see.** Covered by the digest (Tasks 1 and 3).
 2. **Prune deleting more than shown.** The prune confirmation names the plan's own deleted count and lines; the digest covers the prune flag, so an apply without the prune plan it confirmed is refused.
 3. **A partial apply read as a clean failure or a success.** The apply error sentence says writes before the error stay.
 4. **Source that reaches outside the request.** Imports and variables are refused; the tenant always comes from the principal.
@@ -155,7 +155,32 @@ git commit -m "feat(contract): export the schema as source and plan an edit" -- 
 
 ---
 
-## Task 2: `schema.apply`
+## Task 2: Make the DSL round trip lossless
+
+Added after Task 1 found the DSL lossy, and the user chose to fix the DSL before apply ships. Without this task, applying the unchanged export strips every policy's subject matchers (the grammar cannot express them and the plan diff never compares them), moves namespaced entities to the root (`Format` writes no namespace), blanks permission descriptions and `is_system`, and emits unparseable source for permission names the store accepts (`warden:role:read`, `warden:*`).
+
+**Files:** `dsl/ast.go`, `dsl/parser.go`, `dsl/format.go`, `dsl/exporter.go`, `dsl/applier.go`, `dsl/conventions.go`, `dsl/resolver.go`, their tests, a new `dsl/roundtrip_test.go`, `editor/warden.tmLanguage.json`, and `editor/tree-sitter-warden/grammar.js` if it defines policy bodies (do not regenerate generated parser files; say so if the grammar changes).
+
+**Interfaces:**
+- Produces: `PolicyDecl.Subjects []*SubjectMatchDecl` (with `Kind`, `ID`, `Role` strings and a `Pos`), parsed from a `subjects` clause in a policy body using the already-reserved `subjects` keyword; `Format` emitting namespace blocks, policy subjects, permission descriptions and `is_system`; every name rule accepting what the store accepts.
+
+- [ ] **Step 1: Write the failing round-trip test**
+
+`dsl/roundtrip_test.go`: seed a memory-store tenant with every exported kind in **at least three namespaces** (root, `eng`, `eng/platform`), every field populated: roles with description, `is_system`, `is_default`, `max_members`, parent slug, metadata; permissions with descriptions, `is_system`, names including `warden:role:read` and `warden:*`; role grants; policies with subjects (a kind-only, an id-only, a role-only, a combined matcher, and an empty matcher `{}`), actions, resources, nested conditions, window, priority, active flag, obligations; resource types with relations (allowed subjects with and without `#relation`) and permission expressions; relation tuples with and without subject relations. Then `BuildProgram` for the whole tenant, `Format`, `Parse`, `Resolve`, and `Apply` with `DryRun`: assert **no** diagnostics and **empty** `Created`, `Updated`, `Deleted`. Then apply the parsed program for real to a second, empty tenant and assert every stored field equals the source tenant's, field by field (ids and timestamps aside). Also: a policy whose subjects differ from the store must appear in `Updated`, so the plan diff compares subjects; likewise for every other field `Apply` writes.
+
+- [ ] **Step 2: Run to see it fail**, then **Step 3: fix each loss in turn**
+
+Grammar for subjects: design the clause to read like the rest of the language (read `dsl/testdata` and `editor/README.md` first) and to express each `SubjectMatch` exactly, including the empty matcher; document it in the grammar comment and `editor/README.md`. Namespaces: `Format` groups entities in `namespace "<path>" { ... }` blocks the parser already reads. Names: relax each rule in `conventions.go` to accept everything the store and the contract's validation accept (read the contract's create validation for each kind), quoting in `Format` where a bare token would not lex. Every field `Apply` writes must be compared when it decides between no-op and update, and reported in the `~` line.
+
+- [ ] **Step 4: Run everything**
+
+`go test ./dsl/ -race -v`, `go test ./cmd/... ./extension/...` (the CLI and declarative loader use this package), then `go build ./... && go test ./...`. Mutate once (drop subjects from `Format`), confirm the round-trip test fails, restore.
+
+- [ ] **Step 5: Commit**, one or more commits by path, e.g. `feat(dsl): express policy subjects and namespaces so an export applies back unchanged`.
+
+---
+
+## Task 3: `schema.apply`
 
 **Files:**
 - Modify: `extension/contract/handlers_schema.go`, its test, and the registration files and guards
@@ -201,7 +226,7 @@ git commit -m "feat(contract): apply a planned schema edit, only as planned" -- 
 
 ---
 
-## Task 3: Fixture
+## Task 4: Fixture
 
 **Files:**
 - Modify: `packages/fixture-server/warden-fixtures.mjs`
@@ -212,7 +237,7 @@ The fixture cannot run warden's parser, so it models source at the declaration l
 
 - `schema.export` renders the seed as Warden source in the shape `dsl.Format` produces (read `dsl/format.go` and a `dsl/testdata` file for the layout), one declaration per seeded role, permission, policy, resource type and relation, filtered by `namespacePrefix`.
 - `schema.plan` checks, in order: unbalanced braces (diagnostic at the line of the unmatched brace, message `unbalanced braces`), an `import` line, a `${` token, a `tenant` naming another tenant (same messages and positions as Task 1). Otherwise it extracts declaration headers (`role "slug"`, `permission "name"`, `policy "name"`, `resource "name"`, `relation ...`, each with its `namespace` block) and diffs them against the exported headers: new headers are `created`, same header with different block text is `updated`, missing headers are `deleted` only when `prune` is true and the header's namespace appears in the source. Summary lines use the Go shapes (`+ role/slug`, `~ role/slug (...)`, `- role/slug`). The digest mirrors Task 1's rule over these lists.
-- `schema.apply` mirrors Task 2's digest check and refusals, then applies the diff to the seed arrays (so the other pages change after an apply), and answers the counts.
+- `schema.apply` mirrors Task 3's digest check and refusals, then applies the diff to the seed arrays (so the other pages change after an apply), and answers the counts.
 
 - [ ] **Step 2: Check by hand**
 
@@ -226,7 +251,7 @@ git commit -m "feat(fixture): serve the warden schema export, plan and apply" --
 
 ---
 
-## Task 4: The schema page
+## Task 5: The schema page
 
 **Files:**
 - Create: `src/components/warden-language.ts`, `src/components/schema-editor.tsx`, `src/pages/schema.tsx`, `test/schema.test.tsx`, `test/warden-language.test.ts`
@@ -275,4 +300,4 @@ Add the lockfile path only per Step 1's rule.
 
 - **To plan 5b:** the schema graph on `/resource-types`, the rooted instance graph using `MaxGraphDepth`, `MaxGraphVisited` and `MaxGraphFanout`, and the bundle re-measure written into `BASELINE.md`.
 - **To plan 6:** `warden/MIGRATION.md`, the authsome retitle, and the templ deletion.
-- **Warden follow-ups:** `dsl.Apply` is not transactional; a transactional apply belongs in core.
+- **Warden follow-ups:** `dsl.Apply` is not transactional; a transactional apply belongs in core. Task 1 also scoped `dsl.Apply` prune to the namespaces a program covers (commit 6450335), which changes `warden apply --prune` and `DeclarativePrune` to delete less.
