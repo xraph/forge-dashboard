@@ -395,7 +395,7 @@ export function SubscriptionUserSection({ userId }: { userId?: string }) {
 
 export const subscriptionSubPlugin = defineSubPlugin({
   extension: "subscription",
-  host: "auth",
+  host: "authsome",
   label: "Subscription",
   nav: [{ label: "Plans", to: "/plans", group: "Configuration", priority: 2 }],
   routes: [

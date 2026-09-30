@@ -31,9 +31,9 @@ describe("the eighteen settings-only sub-plugins", () => {
     expect(new Set(extensions).size).toBe(18)
   })
 
-  it("mounts every one inside auth, and never inside itself", () => {
+  it("mounts every one inside authsome, and never inside itself", () => {
     for (const sub of settingsOnlySubPlugins) {
-      expect(sub.host).toBe("auth")
+      expect(sub.host).toBe("authsome")
       expect(sub.extension).not.toBe(sub.host)
     }
   })
@@ -54,8 +54,8 @@ describe("the eighteen settings-only sub-plugins", () => {
     // The gating is presence, not configuration: a deployment without the mfa
     // plugin has no MFA nav entry and no MFA settings tab, which is what an
     // admin expects when a plugin is not installed.
-    expect(resolvePluginState(mfa as never, capabilities(["auth"])).kind).toBe("hidden")
-    expect(resolvePluginState(mfa as never, capabilities(["auth", "mfa"])).kind).toBe("ready")
+    expect(resolvePluginState(mfa as never, capabilities(["authsome"])).kind).toBe("hidden")
+    expect(resolvePluginState(mfa as never, capabilities(["authsome", "mfa"])).kind).toBe("ready")
   })
 
   it.each(SETTINGS_ONLY)(

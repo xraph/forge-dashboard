@@ -35,9 +35,9 @@ describe("relayPlugin", () => {
     ).toEqual({ kind: "ready" })
   })
 
-  // Streaming's contributor is "streaming-contract", so the tempting wrong
-  // value here is the same suffix. Relay's contributor has none, and a host
-  // reporting "relay-contract" is not reporting relay.
+  // Streaming's contributor used to be "streaming-contract", so the tempting
+  // wrong value here is the same suffix. Every contributor is now named after
+  // its extension, and a host reporting "relay-contract" is not reporting relay.
   it("is hidden when the host reports a different contributor name", () => {
     expect(
       resolvePluginState(relayPlugin, capabilities({ name: "relay-contract" }))

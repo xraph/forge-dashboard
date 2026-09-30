@@ -105,7 +105,7 @@ const routes: PluginRoute[] = [
 export const ledgerPlugin = definePlugin({
   extension: "ledger",
   namespace: "ledger",
-  label: "Billing",
+  label: "Ledger",
   icon: <WalletIcon />,
   nav: inGroupOrder(navItems),
   routes,

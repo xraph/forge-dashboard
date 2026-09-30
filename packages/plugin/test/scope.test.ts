@@ -22,18 +22,20 @@ function scope(extension: string, namespace?: string, root?: boolean): Scope {
 }
 
 describe("namespaceOf", () => {
-  it("strips a trailing -contract", () => {
-    expect(namespaceOf(definePlugin({ extension: "streaming-contract", routes: [] }))).toBe("streaming")
+  it("is the extension's name", () => {
+    expect(namespaceOf(definePlugin({ extension: "streaming", routes: [] }))).toBe("streaming")
   })
 
-  it("leaves an extension without the suffix alone", () => {
-    expect(namespaceOf(definePlugin({ extension: "auth", routes: [] }))).toBe("auth")
+  it("keeps a -contract suffix rather than inventing a second name", () => {
+    expect(namespaceOf(definePlugin({ extension: "pilot-contract", routes: [] }))).toBe(
+      "pilot-contract",
+    )
   })
 
-  it("prefers an explicit namespace", () => {
-    expect(
-      namespaceOf(definePlugin({ extension: "core-contract", namespace: "system", routes: [] })),
-    ).toBe("system")
+  it("takes an explicit namespace that repeats the extension", () => {
+    expect(namespaceOf(definePlugin({ extension: "relay", namespace: "relay", routes: [] }))).toBe(
+      "relay",
+    )
   })
 })
 
@@ -58,14 +60,14 @@ describe("scopePath", () => {
 })
 
 describe("resolveActiveScope", () => {
-  const scopes = [scope("core-contract", "system"), scope("streaming-contract"), scope("auth")]
+  const scopes = [scope("relay"), scope("streaming"), scope("auth")]
 
   it("matches the first segment", () => {
     expect(resolveActiveScope("/@auth/users", scopes)!.id).toBe("auth")
   })
 
   it("matches regardless of how deep the rest of the path runs", () => {
-    expect(resolveActiveScope("/@streaming/rooms/active", scopes)!.id).toBe("streaming-contract")
+    expect(resolveActiveScope("/@streaming/rooms/active", scopes)!.id).toBe("streaming")
   })
 
   it("matches a bare namespace with no trailing path", () => {
@@ -105,7 +107,7 @@ describe("mountPath", () => {
   })
 
   it("namespaces a scoped plugin", () => {
-    const p = definePlugin({ extension: "streaming-contract", routes: [] })
+    const p = definePlugin({ extension: "streaming", routes: [] })
     expect(mountPath(p, "/rooms")).toBe("/@streaming/rooms")
   })
 })

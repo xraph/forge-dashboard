@@ -652,8 +652,8 @@ export function OrgCountWidget() {
 
 export const organizationSubPlugin = defineSubPlugin({
   extension: "organization",
-  host: "auth",
-  label: "Organizations",
+  host: "authsome",
+  label: "Organization",
   nav: [{ label: "Organizations", to: "/organizations", group: "Identity", priority: 2 }],
   routes: [
     { path: "/organizations", element: OrgListPage },

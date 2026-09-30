@@ -92,7 +92,7 @@ export function renderContribution(
 ) {
   const subPlugin = defineSubPlugin({
     extension: opts.extension ?? "test-sub",
-    host: opts.host ?? "auth",
+    host: opts.host ?? "authsome",
     hostIntents: opts.allowed ?? [],
     contributions: { [opts.slot]: [contribution] },
   })

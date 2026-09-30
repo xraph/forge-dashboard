@@ -1,3 +1,4 @@
+import { defaultLabel, labelNamesExtension } from "./names"
 import { SLOT_NAMES } from "./types"
 import type { ForgeSubPlugin, PluginNavItem, SlotName, SubPluginInput } from "./types"
 
@@ -32,8 +33,8 @@ function validateNav(items: PluginNavItem[], extension: string): void {
  * The two names are the whole idea. `extension` is what this sub-plugin
  * queries and what decides whether it renders; `host` is only where its pages
  * appear. That split is why the organization plugin's pages can sit under
- * "/@auth/organizations" while still being unable to read a single auth
- * intent it has not declared.
+ * "/@authsome/organizations" while still being unable to read a single
+ * authsome intent it has not declared.
  *
  * Validation throws here, at import time, exactly as `definePlugin` does. A
  * sub-plugin with a bad shape should break the build that includes it rather
@@ -55,6 +56,11 @@ export function defineSubPlugin(input: SubPluginInput): ForgeSubPlugin {
   if (input.host === input.extension) {
     throw new Error(
       `defineSubPlugin: sub-plugin "${input.extension}" names itself as its own host. A sub-plugin mounts inside a different plugin; if this is meant to stand alone, use definePlugin instead.`,
+    )
+  }
+  if (input.label !== undefined && !labelNamesExtension(input.label, input.extension)) {
+    throw new Error(
+      `defineSubPlugin: sub-plugin "${input.extension}" is labelled "${input.label}", which is a different name. The rail entry spells the extension's name so an operator can tell which extension a page belongs to: use "${defaultLabel(input.extension)}".`,
     )
   }
 
@@ -88,6 +94,9 @@ export function defineSubPlugin(input: SubPluginInput): ForgeSubPlugin {
 
   return {
     ...input,
+    // Without this the rail would fall back to the first nav item's label,
+    // which names a page, not the extension.
+    label: input.label ?? defaultLabel(input.extension),
     nav: input.nav ?? [],
     routes: input.routes ?? [],
     contributions: contributions as Partial<Record<SlotName, ForgeSubPlugin["contributions"][SlotName]>>,

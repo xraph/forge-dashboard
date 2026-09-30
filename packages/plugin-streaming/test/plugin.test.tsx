@@ -31,7 +31,7 @@ describe("streamingPlugin", () => {
   /**
    * The join key, checked the only way that means anything.
    *
-   * Comparing `plugin.extension` to the literal "streaming-contract" would
+   * Comparing `plugin.extension` to the literal "streaming" would
    * compare the source line to itself: rename the constant and the test
    * renames with it. What matters is what the host does with the name, so
    * this resolves the plugin against a capabilities response carrying the
@@ -44,18 +44,18 @@ describe("streamingPlugin", () => {
     expect(
       resolvePluginState(
         streamingPlugin,
-        capabilities({ name: "streaming-contract" })
+        capabilities({ name: "streaming" })
       )
     ).toEqual({ kind: "ready" })
   })
 
-  it("is hidden when the host reports the extension name but not the contributor", () => {
-    // "streaming" is the extension's own name and the tempting wrong value.
-    // A host reporting it under that name is still not reporting
-    // `streaming-contract`, and the plugin must vanish rather than render
-    // against a contributor that is not there: no routes, no nav, no log.
+  it("is hidden against a forge that still names the contributor streaming-contract", () => {
+    // Forge before the rename registered "streaming-contract". That server is
+    // not reporting this plugin's contributor, and the plugin must vanish
+    // rather than render against one that is not there: no routes, no nav,
+    // no log.
     expect(
-      resolvePluginState(streamingPlugin, capabilities({ name: "streaming" }))
+      resolvePluginState(streamingPlugin, capabilities({ name: "streaming-contract" }))
     ).toEqual({ kind: "hidden" })
   })
 
@@ -64,7 +64,7 @@ describe("streamingPlugin", () => {
       resolvePluginState(
         streamingPlugin,
         capabilities({
-          name: "streaming-contract",
+          name: "streaming",
           configured: false,
           message: "Enable the streaming extension to continue",
         })

@@ -125,7 +125,7 @@ function queryingPlugin(
 function renderHost(
   plugins: ForgePlugin[],
   fetchImpl: typeof fetch,
-  route = "/@core/overview",
+  route = "/@core-contract/overview",
   authScreens?: AuthScreens
 ) {
   return render(
@@ -145,10 +145,9 @@ describe("PluginHost", () => {
       { name: "core-contract", envelopes: ["v1"], configured: true },
     ])
 
-    // core-contract has no explicit `namespace`, so it derives to "core" (the
-    // "-contract" suffix stripped). renderHost's default route is
-    // "/@core/overview" for exactly this reason -- no explicit third
-    // argument needed here.
+    // core-contract has no explicit `namespace`, so it mounts under its own
+    // name. renderHost's default route is "/@core-contract/overview" for
+    // exactly this reason -- no explicit third argument needed here.
     renderHost([demoPlugin()], fetchImpl)
 
     expect(await screen.findByText("overview page body")).toBeTruthy()
@@ -276,7 +275,7 @@ describe("PluginHost", () => {
     // renderHost default. resolveActiveScope no longer falls back to the
     // first scope when a pathname's namespace matches nothing (it now
     // answers `undefined`, meaning "at the root"), so demoPlugin()'s default
-    // route ("/@core/overview") would resolve to no scope at all here -- its
+    // route ("/@core-contract/overview") would resolve to no scope at all here -- its
     // own contributor is absent -- and show no nav from either plugin. That
     // used to work by accident, riding the old scopes[0] fallback.
     renderHost([demoPlugin(), present], fetchImpl, "/@other-extension/other")
@@ -873,7 +872,7 @@ describe("root plugin", () => {
   it("does not leak the root plugin's nav into the body inside a scope", async () => {
     const fetchImpl = capabilitiesFetch([
       { name: "core-contract", envelopes: ["v1"], configured: true },
-      { name: "streaming-contract", envelopes: ["v1"], configured: true },
+      { name: "streaming", envelopes: ["v1"], configured: true },
     ])
 
     render(
@@ -889,7 +888,7 @@ describe("root plugin", () => {
                   routes: [{ path: "/overview", element: () => <p>root page</p> }],
                 }),
                 definePlugin({
-                  extension: "streaming-contract",
+                  extension: "streaming",
                   label: "Streaming",
                   nav: [{ label: "Rooms", to: "/rooms" }],
                   routes: [{ path: "/rooms", element: () => <p>rooms page</p> }],
@@ -917,7 +916,7 @@ describe("root plugin", () => {
 describe("scoped routing", () => {
   it("resolves a deep plugin URL to its own scope", async () => {
     const fetchImpl = capabilitiesFetch([
-      { name: "streaming-contract", envelopes: ["v1"], configured: true },
+      { name: "streaming", envelopes: ["v1"], configured: true },
     ])
 
     render(
@@ -927,7 +926,7 @@ describe("scoped routing", () => {
             <PluginHost
               plugins={[
                 definePlugin({
-                  extension: "streaming-contract",
+                  extension: "streaming",
                   label: "Streaming",
                   nav: [
                     { label: "Overview", to: "/" },
@@ -957,7 +956,7 @@ describe("scoped routing", () => {
 
   it("renders no pill nav above the content", async () => {
     const fetchImpl = capabilitiesFetch([
-      { name: "streaming-contract", envelopes: ["v1"], configured: true },
+      { name: "streaming", envelopes: ["v1"], configured: true },
     ])
 
     render(
@@ -967,7 +966,7 @@ describe("scoped routing", () => {
             <PluginHost
               plugins={[
                 definePlugin({
-                  extension: "streaming-contract",
+                  extension: "streaming",
                   nav: [{ label: "Rooms", to: "/rooms" }],
                   routes: [{ path: "/rooms", element: () => <p>rooms page</p> }],
                 }),
@@ -1032,7 +1031,7 @@ describe("no root plugin, with a scope that is not ready", () => {
   it("renders the scope's setup panel rather than a blank page", async () => {
     const fetchImpl = capabilitiesFetch([
       {
-        name: "streaming-contract",
+        name: "streaming",
         envelopes: ["v1"],
         configured: false,
         message: "needs a database",
@@ -1046,7 +1045,7 @@ describe("no root plugin, with a scope that is not ready", () => {
             <PluginHost
               plugins={[
                 definePlugin({
-                  extension: "streaming-contract",
+                  extension: "streaming",
                   label: "Streaming",
                   nav: [{ label: "Rooms", to: "/rooms" }],
                   routes: [{ path: "/rooms", element: () => <p>rooms page</p> }],
@@ -1265,7 +1264,7 @@ describe("PluginHost root destination", () => {
     const billing = defineSubPlugin({
       extension: "subscription",
       host: "auth",
-      label: "Billing",
+      label: "Subscription",
       nav: [
         { label: "Plans", to: "/plans", group: "Catalog", priority: 1 },
         { label: "Invoices", to: "/invoices", group: "Revenue", priority: 2 },
@@ -1299,11 +1298,11 @@ describe("PluginHost root destination", () => {
     // narrow. The afterEach puts the saved width back.
     fireEvent.click(within(rail()).getByRole("button", { name: "Expand navigation" }))
     expect(within(rail()).getByText("Plugins")).toBeTruthy()
-    const billing = within(rail()).getByRole("link", { name: "Billing" })
+    const billing = within(rail()).getByRole("link", { name: "Subscription" })
     expect(billing.getAttribute("aria-current")).toBe("page")
     expect(within(rail()).getByRole("link", { name: "Users" }).getAttribute("href")).toBe("/@auth/users")
 
-    expect(within(header(container)).getByText("Billing")).toBeTruthy()
+    expect(within(header(container)).getByText("Subscription")).toBeTruthy()
     expect(within(screen.getByRole("navigation", { name: "Breadcrumb" })).getByText("Plans")).toBeTruthy()
     const c = content(container)
     expect(within(c).getByRole("button", { name: "Collapse Catalog" })).toBeTruthy()
@@ -1328,7 +1327,7 @@ describe("PluginHost root destination", () => {
   it("keeps the query string on rail entries", async () => {
     renderWithSubPlugins("/@auth/users?env=staging")
     await screen.findByText("auth users body")
-    expect(within(rail()).getByRole("link", { name: "Billing" }).getAttribute("href")).toBe("/@auth/plans?env=staging")
+    expect(within(rail()).getByRole("link", { name: "Subscription" }).getAttribute("href")).toBe("/@auth/plans?env=staging")
   })
 })
 
@@ -1960,7 +1959,7 @@ describe("PluginHost hidden-plugin diagnostics", () => {
       ])
       // A re-render with the same fetch and plugins is not a new capabilities document.
       rerender(
-        <MemoryRouter initialEntries={["/@core/overview"]}>
+        <MemoryRouter initialEntries={["/@core-contract/overview"]}>
           <ForgeDashboardProvider config={config}>
             <SessionProvider fetchImpl={fetchImpl}>
               <PluginHost plugins={plugins} fetchImpl={fetchImpl} />

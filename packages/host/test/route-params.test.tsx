@@ -17,7 +17,7 @@ function RoomDetail({ params }: PluginPageProps) {
 }
 
 const plugin = definePlugin({
-  extension: "streaming-contract",
+  extension: "streaming",
   namespace: "streaming",
   label: "Streaming",
   nav: [{ label: "Rooms", to: "/rooms" }],
@@ -35,7 +35,7 @@ function renderAt(path: string) {
       Promise.resolve({
         shellEnvelopes: ["v1"],
         contributors: [
-          { name: "streaming-contract", envelopes: ["v1"], configured: true },
+          { name: "streaming", envelopes: ["v1"], configured: true },
         ],
       }),
   } as unknown as Response)

@@ -155,7 +155,7 @@ describe("App at a non-default mount", () => {
    * in App.tsx were emptied tomorrow.
    *
    * The three join keys are the assertion underneath the labels. They are Go
-   * contributor names, not package names -- "streaming-contract" and "auth" --
+   * contributor names, not package names -- "streaming" and "authsome" --
    * and getting one wrong resolves that plugin to hidden with nothing logged.
    * A capabilities document naming all three is the only fixture that can tell
    * the difference between a plugin that is wired and a plugin that is silent.
@@ -171,8 +171,8 @@ describe("App at a non-default mount", () => {
       "fetch",
       serverFetch([
         { name: "core-contract", envelopes: ["v1"], configured: true },
-        { name: "streaming-contract", envelopes: ["v1"], configured: true },
-        { name: "auth", envelopes: ["v1"], configured: true },
+        { name: "streaming", envelopes: ["v1"], configured: true },
+        { name: "authsome", envelopes: ["v1"], configured: true },
       ])
     )
 
@@ -240,15 +240,15 @@ describe("App at a non-default mount", () => {
 
     streaming.unmount()
 
-    // /@auth/<app>/users, not /@auth/users. Authsome declares a path-routed
+    // /@authsome/<app>/users, not /@authsome/users. Authsome declares a path-routed
     // context dimension now, so the first segment after the namespace is the
     // APP, and every page lives under it. The old URL still resolves: it just
     // means app "users" with no page, which is why this entry point had to
     // move rather than merely being tidied.
     //
-    // Not /@auth/login either. Sign-in is the gate, not a page: authsome
+    // Not /@authsome/login either. Sign-in is the gate, not a page: authsome
     // dropped it from both nav and routes.
-    window.history.replaceState({}, "", `${SHELL_BASE}/@auth/platform/users`)
+    window.history.replaceState({}, "", `${SHELL_BASE}/@authsome/platform/users`)
     const auth = render(<App />)
     const authNav = await waitFor(() => {
       const nav = auth.container.querySelector('[data-slot="sidebar-content"]')
@@ -277,19 +277,19 @@ describe("App at a non-default mount", () => {
       "Plugins",
     ])
     expect(links.map((a) => a.getAttribute("href"))).toEqual([
-      "/dashboard/ui/@auth/platform/users",
-      "/dashboard/ui/@auth/platform/sessions",
-      "/dashboard/ui/@auth/platform/devices",
-      "/dashboard/ui/@auth/platform/roles",
-      "/dashboard/ui/@auth/platform/apps",
-      "/dashboard/ui/@auth/platform/environments",
-      "/dashboard/ui/@auth/platform/webhooks",
-      "/dashboard/ui/@auth/platform/signup-forms",
-      "/dashboard/ui/@auth/platform/settings",
-      "/dashboard/ui/@auth/platform/credentials",
-      "/dashboard/ui/@auth/platform/features",
-      "/dashboard/ui/@auth/platform",
-      "/dashboard/ui/@auth/platform/plugins",
+      "/dashboard/ui/@authsome/platform/users",
+      "/dashboard/ui/@authsome/platform/sessions",
+      "/dashboard/ui/@authsome/platform/devices",
+      "/dashboard/ui/@authsome/platform/roles",
+      "/dashboard/ui/@authsome/platform/apps",
+      "/dashboard/ui/@authsome/platform/environments",
+      "/dashboard/ui/@authsome/platform/webhooks",
+      "/dashboard/ui/@authsome/platform/signup-forms",
+      "/dashboard/ui/@authsome/platform/settings",
+      "/dashboard/ui/@authsome/platform/credentials",
+      "/dashboard/ui/@authsome/platform/features",
+      "/dashboard/ui/@authsome/platform",
+      "/dashboard/ui/@authsome/platform/plugins",
     ])
 
     // The way out of a scope is a single back row above the switcher, which
@@ -475,9 +475,9 @@ describe("authsome's routed app segment", () => {
   it("builds every nav href under the app in the URL", async () => {
     vi.stubGlobal("fetch", serverFetch([
       { name: "core-contract", envelopes: ["v1"], configured: true },
-      { name: "auth", envelopes: ["v1"], configured: true },
+      { name: "authsome", envelopes: ["v1"], configured: true },
     ]))
-    window.history.replaceState({}, "", `${SHELL_BASE}/@auth/acme/users`)
+    window.history.replaceState({}, "", `${SHELL_BASE}/@authsome/acme/users`)
     const { container } = render(<App />)
 
     const nav = await waitFor(() => {
@@ -490,16 +490,16 @@ describe("authsome's routed app segment", () => {
     // Not one link outside the app. A single href that forgot the segment
     // would land somebody in another app's page and look perfectly ordinary.
     for (const link of within(nav).getAllByRole("link")) {
-      expect(link.getAttribute("href")).toMatch(/^\/dashboard\/ui\/@auth\/acme(\/|$)/)
+      expect(link.getAttribute("href")).toMatch(/^\/dashboard\/ui\/@authsome\/acme(\/|$)/)
     }
   })
 
   it("offers no pages at all when the URL names no app", async () => {
     vi.stubGlobal("fetch", serverFetch([
       { name: "core-contract", envelopes: ["v1"], configured: true },
-      { name: "auth", envelopes: ["v1"], configured: true },
+      { name: "authsome", envelopes: ["v1"], configured: true },
     ]))
-    window.history.replaceState({}, "", `${SHELL_BASE}/@auth`)
+    window.history.replaceState({}, "", `${SHELL_BASE}/@authsome`)
     const { container } = render(<App />)
     await waitFor(() => expect(screen.getAllByRole("link").length).toBeGreaterThan(0))
 
@@ -526,22 +526,22 @@ describe("the authsome sub-plugins the shell mounts", () => {
   it("renders none of them when no sub-plugin contributor is reported", async () => {
     const fetchImpl = serverFetch([
       { name: "core-contract", envelopes: ["v1"], configured: true },
-      { name: "auth", envelopes: ["v1"], configured: true },
+      { name: "authsome", envelopes: ["v1"], configured: true },
     ])
     vi.stubGlobal("fetch", fetchImpl)
-    window.history.replaceState({}, "", `${SHELL_BASE}/@auth/platform/users`)
+    window.history.replaceState({}, "", `${SHELL_BASE}/@authsome/platform/users`)
     const { container } = render(<App />)
     await waitFor(() => expect(screen.getAllByRole("link").length).toBeGreaterThan(0))
 
     expect(within(container).queryByRole("link", { name: "Waitlist" })).toBeNull()
-    expect(within(container).queryByRole("link", { name: "Organizations" })).toBeNull()
-    expect(within(container).queryByRole("link", { name: "Multi-Factor Auth" })).toBeNull()
+    expect(within(container).queryByRole("link", { name: /^Organizations?$/ })).toBeNull()
+    expect(within(container).queryByRole("link", { name: "MFA" })).toBeNull()
   })
 
   it("mounts one as soon as its own contributor is reported", async () => {
     const fetchImpl = serverFetch([
       { name: "core-contract", envelopes: ["v1"], configured: true },
-      { name: "auth", envelopes: ["v1"], configured: true },
+      { name: "authsome", envelopes: ["v1"], configured: true },
       { name: "waitlist", envelopes: ["v1"], configured: true },
       { name: "mfa", envelopes: ["v1"], configured: true },
     ])
@@ -549,7 +549,7 @@ describe("the authsome sub-plugins the shell mounts", () => {
     // Under an app. Authsome's nav, sub-plugins included, only renders once
     // the URL names one, so a test landing at the bare namespace would see
     // nothing and could not tell that from a sub-plugin that never mounted.
-    window.history.replaceState({}, "", `${SHELL_BASE}/@auth/platform/users`)
+    window.history.replaceState({}, "", `${SHELL_BASE}/@authsome/platform/users`)
     const { container } = render(<App />)
 
     // A data sub-plugin and a settings-only one, because they reach the
@@ -558,8 +558,8 @@ describe("the authsome sub-plugins the shell mounts", () => {
     await waitFor(() =>
       expect(within(container).getByRole("link", { name: "Waitlist" })).toBeTruthy()
     )
-    expect(within(container).getByRole("link", { name: "Multi-Factor Auth" })).toBeTruthy()
+    expect(within(container).getByRole("link", { name: "MFA" })).toBeTruthy()
     // Still gated: organization was not reported, so it is still absent.
-    expect(within(container).queryByRole("link", { name: "Organizations" })).toBeNull()
+    expect(within(container).queryByRole("link", { name: /^Organizations?$/ })).toBeNull()
   })
 })

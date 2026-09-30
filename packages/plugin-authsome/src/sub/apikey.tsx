@@ -527,8 +527,8 @@ export function APIKeyCreatePage() {
 
 export const apikeySubPlugin = defineSubPlugin({
   extension: "apikey",
-  host: "auth",
-  label: "API Keys",
+  host: "authsome",
+  label: "API key",
   nav: [{ label: "API Keys", to: "/apikeys", group: "Security", priority: 1 }],
   routes: [
     { path: "/apikeys", element: APIKeyListPage },

@@ -84,7 +84,7 @@ export function PasswordPolicyPage({ params }: PluginPageProps) {
 
 export const passwordSubPlugin = defineSubPlugin({
   extension: "password",
-  host: "auth",
+  host: "authsome",
   label: "Password",
   nav: [{ label: "Password", to: "/auth/password", group: "Auth", priority: 0 }],
   routes: [{ path: "/auth/password", element: PasswordPolicyPage }],

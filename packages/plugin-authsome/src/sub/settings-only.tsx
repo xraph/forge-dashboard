@@ -25,9 +25,9 @@ interface SettingsOnlyRow {
  */
 export const SETTINGS_ONLY: SettingsOnlyRow[] = [
   { extension: "riskengine", namespace: "riskengine", label: "Risk Engine", route: "/security/risk", group: "Security", priority: 0, tab: "Risk" },
-  { extension: "anomaly", namespace: "anomaly", label: "Anomaly Detection", route: "/security/anomaly", group: "Security", priority: 1, tab: "Anomaly" },
+  { extension: "anomaly", namespace: "anomaly", label: "Anomaly", route: "/security/anomaly", group: "Security", priority: 1, tab: "Anomaly" },
   { extension: "geoip", namespace: "geoip", label: "Geo IP", route: "/security/geoip", group: "Security", priority: 2, tab: "Geo IP" },
-  { extension: "geofence", namespace: "geofence", label: "Geofencing", route: "/security/geofence", group: "Security", priority: 3, tab: "Geofencing" },
+  { extension: "geofence", namespace: "geofence", label: "Geofence", route: "/security/geofence", group: "Security", priority: 3, tab: "Geofencing" },
   { extension: "impossibletravel", namespace: "impossibletravel", label: "Impossible Travel", route: "/security/impossible-travel", group: "Security", priority: 4, tab: "Impossible Travel" },
   { extension: "ipreputation", namespace: "ipreputation", label: "IP Reputation", route: "/security/ip-reputation", group: "Security", priority: 5, tab: "IP Reputation" },
   { extension: "vpndetect", namespace: "vpndetect", label: "VPN Detect", route: "/security/vpn-detect", group: "Security", priority: 6, tab: "VPN" },
@@ -35,13 +35,13 @@ export const SETTINGS_ONLY: SettingsOnlyRow[] = [
   { extension: "email", namespace: "email", label: "Email", route: "/auth/email", group: "Auth", priority: 1, tab: "Email" },
   { extension: "phone", namespace: "phone", label: "Phone", route: "/auth/phone", group: "Auth", priority: 2, tab: "Phone" },
   { extension: "magiclink", namespace: "magiclink", label: "Magic Link", route: "/auth/magiclink", group: "Auth", priority: 3, tab: "Magic Link" },
-  { extension: "mfa", namespace: "mfa", label: "Multi-Factor Auth", route: "/auth/mfa", group: "Auth", priority: 4, tab: "MFA" },
-  { extension: "passkey", namespace: "passkey", label: "Passkeys", route: "/auth/passkeys", group: "Auth", priority: 5, tab: "Passkeys" },
-  { extension: "social", namespace: "social", label: "Social Login", route: "/auth/social", group: "Auth", priority: 6, tab: "Social" },
+  { extension: "mfa", namespace: "mfa", label: "MFA", route: "/auth/mfa", group: "Auth", priority: 4, tab: "MFA" },
+  { extension: "passkey", namespace: "passkey", label: "Passkey", route: "/auth/passkeys", group: "Auth", priority: 5, tab: "Passkeys" },
+  { extension: "social", namespace: "social", label: "Social", route: "/auth/social", group: "Auth", priority: 6, tab: "Social" },
   { extension: "oauth2provider", namespace: "oauth2provider", label: "OAuth2 Provider", route: "/auth/oauth2", group: "Auth", priority: 7, tab: "OAuth2" },
   { extension: "scim", namespace: "scim", label: "SCIM", route: "/enterprise/scim", group: "Enterprise", priority: 0, tab: "SCIM" },
   { extension: "sso", namespace: "sso", label: "SSO", route: "/enterprise/sso", group: "Enterprise", priority: 1, tab: "SSO" },
-  { extension: "notification", namespace: "notification", label: "Notifications", route: "/notifications", group: "Configuration", priority: 3, tab: "Notifications" },
+  { extension: "notification", namespace: "notification", label: "Notification", route: "/notifications", group: "Configuration", priority: 3, tab: "Notifications" },
 ]
 
 /**
@@ -57,7 +57,7 @@ export const settingsOnlySubPlugins: ForgeSubPlugin[] = SETTINGS_ONLY.map((row) 
   const Panel = settingsPanelFor(row.namespace)
   return defineSubPlugin({
     extension: row.extension,
-    host: "auth",
+    host: "authsome",
     label: row.label,
     nav: [{ label: row.label, to: row.route, group: row.group, priority: row.priority }],
     routes: [{ path: row.route, element: Panel }],

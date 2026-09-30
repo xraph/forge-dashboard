@@ -43,9 +43,9 @@ describe("definePlugin", () => {
     expect(p.requires).toBeUndefined()
   })
 
-  it("keeps an explicit namespace", () => {
+  it("keeps an explicit namespace that repeats the extension", () => {
     const p = definePlugin({
-      extension: "streaming-contract",
+      extension: "streaming",
       namespace: "streaming",
       routes: [{ path: "/rooms", element: Stub }],
     })
@@ -71,7 +71,7 @@ describe("definePlugin", () => {
 
   it("accepts nav items carrying children", () => {
     const p = definePlugin({
-      extension: "streaming-contract",
+      extension: "streaming",
       nav: [
         {
           label: "Rooms",
@@ -88,7 +88,7 @@ describe("definePlugin", () => {
   it("refuses a nav item whose `to` does not start with a slash", () => {
     expect(() =>
       definePlugin({
-        extension: "streaming-contract",
+        extension: "streaming",
         nav: [{ label: "Rooms", to: "rooms" }],
         routes: [],
       }),
@@ -98,7 +98,7 @@ describe("definePlugin", () => {
   it("refuses a nested nav child whose `to` does not start with a slash", () => {
     expect(() =>
       definePlugin({
-        extension: "streaming-contract",
+        extension: "streaming",
         nav: [
           {
             label: "Rooms",
@@ -114,7 +114,7 @@ describe("definePlugin", () => {
   it("accepts valid nested nav without throwing", () => {
     expect(() =>
       definePlugin({
-        extension: "streaming-contract",
+        extension: "streaming",
         nav: [
           {
             label: "Rooms",
@@ -161,6 +161,47 @@ describe("definePlugin", () => {
     const p = definePlugin({ extension: "auth", routes: [] })
 
     expect(p.root).toBeUndefined()
+  })
+})
+
+// A plugin has one name, its extension's. The ledger plugin once shipped
+// labelled "Billing" and streaming mounted at /@streaming while its
+// contributor was streaming-contract; an operator reading the sidebar or a
+// pasted link could not tell which extension they were looking at.
+describe("definePlugin names a plugin after its extension", () => {
+  it("refuses a label that is a different name", () => {
+    expect(() =>
+      definePlugin({ extension: "ledger", label: "Billing", routes: [] }),
+    ).toThrow(/"ledger" is labelled "Billing".*use "Ledger"/)
+  })
+
+  it("accepts a label that spells the extension, case and spacing aside", () => {
+    for (const [extension, label] of [
+      ["ledger", "Ledger"],
+      ["apikey", "API key"],
+      ["audit-hook", "Audit hook"],
+      ["audit_hook", "Audit Hook"],
+    ]) {
+      expect(() => definePlugin({ extension, label, routes: [] })).not.toThrow()
+    }
+  })
+
+  it("refuses a plural, which names a list page rather than the extension", () => {
+    expect(() =>
+      definePlugin({ extension: "organization", label: "Organizations", routes: [] }),
+    ).toThrow(/use "Organization"/)
+  })
+
+  it("refuses a namespace that differs from the extension", () => {
+    expect(() =>
+      definePlugin({ extension: "streaming-contract", namespace: "streaming", routes: [] }),
+    ).toThrow(/namespace "streaming".*make it "streaming-contract"/)
+  })
+
+  it("leaves a root plugin's label alone, since it names the dashboard", () => {
+    expect(() =>
+      definePlugin({ extension: "core-contract", root: true, label: "Forge", routes: [] }),
+    ).not.toThrow()
   })
 })
 
@@ -239,7 +280,7 @@ describe("definePlugin root plugins may not claim a scoped path", () => {
   it("leaves a non-root plugin's sigil-shaped paths alone", () => {
     expect(() =>
       definePlugin({
-        extension: "streaming-contract",
+        extension: "streaming",
         nav: [{ label: "Odd", to: "/@nested/odd" }],
         routes: [{ path: "/@nested/odd", element: Stub }],
       }),
@@ -254,7 +295,7 @@ describe("definePlugin duplicate nav destinations", () => {
   it("refuses two top-level nav items sharing a `to`", () => {
     expect(() =>
       definePlugin({
-        extension: "streaming-contract",
+        extension: "streaming",
         nav: [
           { label: "Rooms", to: "/rooms" },
           { label: "Live rooms", to: "/rooms" },
@@ -267,7 +308,7 @@ describe("definePlugin duplicate nav destinations", () => {
   it("refuses two children of one parent sharing a `to`", () => {
     expect(() =>
       definePlugin({
-        extension: "streaming-contract",
+        extension: "streaming",
         nav: [
           {
             label: "Archive",
@@ -286,20 +327,20 @@ describe("definePlugin duplicate nav destinations", () => {
   it("names the offending plugin in the error", () => {
     expect(() =>
       definePlugin({
-        extension: "streaming-contract",
+        extension: "streaming",
         nav: [
           { label: "Rooms", to: "/rooms" },
           { label: "Live rooms", to: "/rooms" },
         ],
         routes: [],
       }),
-    ).toThrow(/streaming-contract/)
+    ).toThrow(/streaming/)
   })
 
   it("accepts a child repeating its own parent's `to`", () => {
     expect(() =>
       definePlugin({
-        extension: "streaming-contract",
+        extension: "streaming",
         nav: [
           {
             label: "Rooms",
@@ -315,7 +356,7 @@ describe("definePlugin duplicate nav destinations", () => {
   it("accepts the same `to` under two different parents", () => {
     expect(() =>
       definePlugin({
-        extension: "streaming-contract",
+        extension: "streaming",
         nav: [
           {
             label: "Rooms",
@@ -390,7 +431,7 @@ describe("definePlugin duplicate nav destinations", () => {
 
   it("defaults context to an empty list, so most plugins render no switchers", () => {
     const plugin = definePlugin({
-      extension: "streaming-contract",
+      extension: "streaming",
       routes: [{ path: "/", element: () => null }],
     })
     expect(plugin.context).toEqual([])

@@ -39,7 +39,7 @@ describe("PluginLink resolution for a plugin with no routed dimension", () => {
     queryStore.clear()
 
     const plugin = definePlugin({
-      extension: "streaming-contract",
+      extension: "streaming",
       namespace: "streaming",
       label: "Streaming",
       nav: [{ label: "Rooms", to: "/rooms" }],
@@ -57,7 +57,7 @@ describe("PluginLink resolution for a plugin with no routed dimension", () => {
       if (url.endsWith("/capabilities")) {
         return jsonOk({
           shellEnvelopes: ["v1"],
-          contributors: [{ name: "streaming-contract", envelopes: ["v1"], configured: true }],
+          contributors: [{ name: "streaming", envelopes: ["v1"], configured: true }],
         })
       }
       throw new Error(`unexpected request to ${url}`)

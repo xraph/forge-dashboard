@@ -80,12 +80,16 @@ export interface ForgePlugin {
    */
   root?: boolean
   /**
-   * The URL segment this plugin mounts under, without the `@` sigil. Defaults
-   * to `extension` with a trailing "-contract" stripped. Kept separate from
-   * `extension` so the Go join key never reaches a URL.
+   * The URL segment this plugin mounts under, without the `@` sigil. It is
+   * the extension's name: `definePlugin` refuses anything else. Defaults to
+   * `extension`.
    */
   namespace?: string
-  /** Display name in the scope switcher. Falls back to `extension`. */
+  /**
+   * Display name in the scope switcher. It spells the extension's name, case
+   * and spacing aside ("Ledger", never "Billing"); `definePlugin` refuses a
+   * label that says something else. Falls back to `extension`.
+   */
   label?: string
   icon?: ReactNode
   /**
@@ -265,8 +269,9 @@ export interface ForgeSubPlugin {
   /** The `extension` of the plugin whose namespace this mounts inside. */
   host: string
   /**
-   * Names this sub-plugin's rail entry and its breadcrumb. Falls back to the
-   * first nav item's label, then to `extension`.
+   * Names this sub-plugin's rail entry and its breadcrumb. It spells the
+   * extension's name ("Organization", not "Organizations"), and
+   * `defineSubPlugin` fills it in from `extension` when it is left out.
    */
   label?: string
   /** The rail entry's icon. Falls back to the first nav item's icon. */

@@ -24,15 +24,13 @@ export interface Scope {
 }
 
 /**
- * The URL segment a plugin mounts under.
- *
- * The default strips a trailing "-contract" because that suffix names the Go
- * contract, not the product. Without it every streaming link would read
- * `/@streaming-contract/rooms` and leak an internal join key into anything
- * anyone pastes into a channel.
+ * The URL segment a plugin mounts under: the extension's own name.
+ * `definePlugin` refuses a `namespace` that says anything else, so a link
+ * someone pastes into a channel names the extension they will find in the Go
+ * config.
  */
 export function namespaceOf(plugin: ForgePlugin): string {
-  return plugin.namespace ?? plugin.extension.replace(/-contract$/, "")
+  return plugin.namespace ?? plugin.extension
 }
 
 /** The switcher's display name. Falls back to the join key, which looks rough and is honest. */

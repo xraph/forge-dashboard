@@ -1,4 +1,5 @@
 import type { ForgePlugin, PluginInput, PluginNavItem } from "./types"
+import { defaultLabel, labelNamesExtension } from "./names"
 import { SCOPE_SIGIL } from "./scope"
 
 /** The prefix that opens a namespaced scope's mount, e.g. "/@streaming/rooms". */
@@ -85,6 +86,22 @@ export function definePlugin(input: PluginInput): ForgePlugin {
     throw new Error(
       `definePlugin: namespace "${input.namespace}" must be a single URL segment of letters, digits and dashes (plugin "${input.extension}")`,
     )
+  }
+
+  // One name per plugin, and it is the extension's. Root plugins are exempt:
+  // they mount at "/" with no namespace, and the root label names the
+  // dashboard itself rather than any one extension.
+  if (!input.root) {
+    if (input.namespace !== undefined && input.namespace !== input.extension) {
+      throw new Error(
+        `definePlugin: plugin "${input.extension}" mounts under namespace "${input.namespace}". The URL segment is the extension's own name, so make it "${input.extension}" or leave \`namespace\` out.`,
+      )
+    }
+    if (input.label !== undefined && !labelNamesExtension(input.label, input.extension)) {
+      throw new Error(
+        `definePlugin: plugin "${input.extension}" is labelled "${input.label}", which is a different name. The label spells the extension's name so an operator can tell which extension a page belongs to: use "${defaultLabel(input.extension)}".`,
+      )
+    }
   }
 
   for (const route of input.routes) {

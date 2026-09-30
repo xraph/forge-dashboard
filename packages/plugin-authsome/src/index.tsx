@@ -178,12 +178,12 @@ const ENV_DIMENSION: ContextDimension = {
 /**
  * The first-party UI for authsome.
  *
- * `extension` is "auth". Not "authsome", which is the app's slug and the name
- * of the repository, and not the npm package name either: this is the Go
- * contributor name from authsome's `extension/contract/manifest.yaml`, and it
- * is the join key the host looks up in the capabilities response. It is also
- * what `packages/runtime/src/config.tsx` already defaults `loginContributor`
- * to, which is the same name arrived at from the other direction.
+ * `extension` is "authsome": the extension's name, its app slug, and the Go
+ * contributor name in authsome's `extension/contract/manifest.yaml`, which is
+ * the join key the host looks up in the capabilities response. It is also
+ * what `packages/runtime/src/config.tsx` defaults `loginContributor` to.
+ * Authsome before the rename called that contributor "auth"; the intents kept
+ * their `auth.` prefix, which is why `auth.login` still signs you in.
  *
  * Get it wrong and `resolvePluginState` reports `hidden`: no routes mount, no
  * nav appears, and nothing is logged, because a contributor the server never
@@ -208,9 +208,9 @@ const ENV_DIMENSION: ContextDimension = {
  * for somebody already signed in would have nothing to mean either way.
  */
 export const authsomePlugin = definePlugin({
-  extension: "auth",
-  namespace: "auth",
-  label: "Auth",
+  extension: "authsome",
+  namespace: "authsome",
+  label: "Authsome",
   icon: <ShieldIcon />,
   auth: {
     intents: {

@@ -154,7 +154,7 @@ passes when the wrong rows come back in the right quantity.
 export const ledgerPlugin = definePlugin({
   extension: "ledger",          // the Go contributor name. The join key.
   namespace: "ledger",          // the URL segment: /@ledger/plans
-  label: "Billing",
+  label: "Ledger",
   nav: [{ label: "Plans", to: "/plans", group: "Billing", priority: 0 }],
   routes: [{ path: "/plans", element: PlansPage }],
 })
@@ -164,6 +164,31 @@ export const ledgerPlugin = definePlugin({
 `hidden`: no routes, no nav, nothing logged. That silence is correct behaviour
 for an extension that is not installed, which is exactly why a typo here is so
 hard to find.
+
+**A plugin has one name, and it is the extension's.** The Go extension, its
+contributor in `manifest.yaml`, the plugin's `extension`, its `namespace` and
+its `label` all say the same thing. For ledger that is `ledger`, `/@ledger` and
+"Ledger". Not "Billing". A nav group or a page can be called Billing, because
+that is what the page shows, but the plugin cannot. When the sidebar says
+Billing and the Go config says ledger, you have no way to get from a broken
+page to the extension that serves it.
+
+`definePlugin` and `defineSubPlugin` enforce this and throw at import time:
+
+- `namespace` must equal `extension`, or be left out.
+- `label` must spell `extension`. Case, spaces, dashes and underscores don't
+  count, so "API key" names `apikey` and "Audit hook" names `audit-hook`. A
+  plural doesn't pass: "Organizations" is a list page, and the extension is
+  `organization`.
+- A sub-plugin with no `label` gets one built from its extension. It no longer
+  borrows its first nav item's label, which names a page.
+- Root plugins are exempt. They mount at `/` and their label names the
+  dashboard.
+
+This also rules out a contributor named differently from its extension. Forge's
+streaming contributor used to be `streaming-contract` and authsome's used to be
+`auth`; both now register under the extension's name. Intent names are
+separate from this rule, which is why authsome still answers `auth.login`.
 
 Read data with `useQuery("plans.list", params)` and write with
 `useCommand("plans.archive")`. Both are in `@forge-go/dashboard-plugin`. Neither

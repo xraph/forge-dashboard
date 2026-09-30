@@ -417,7 +417,7 @@ export function WaitlistCountsWidget() {
 
 export const waitlistSubPlugin = defineSubPlugin({
   extension: "waitlist",
-  host: "auth",
+  host: "authsome",
   label: "Waitlist",
   nav: [{ label: "Waitlist", to: "/waitlist", group: "Compliance", priority: 1 }],
   routes: [{ path: "/waitlist", element: WaitlistPage }],

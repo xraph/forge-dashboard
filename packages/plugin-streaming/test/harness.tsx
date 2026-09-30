@@ -33,7 +33,7 @@ export function stubClient(
   commands: Record<string, unknown> = {},
 ): ScopedClient {
   return {
-    extension: "streaming-contract",
+    extension: "streaming",
     query: async (intent: string) => {
       if (!(intent in answers)) {
         throw new ContractError("NOT_FOUND", `no handler for intent "${intent}"`)
@@ -75,7 +75,7 @@ export function recordingCommandClient(
 /** A client whose every read fails, for exercising the error branch. */
 export function failingClient(error: ContractError): ScopedClient {
   return {
-    extension: "streaming-contract",
+    extension: "streaming",
     query: async () => {
       throw error
     },
@@ -88,7 +88,7 @@ export function failingClient(error: ContractError): ScopedClient {
 /** A client whose reads never settle, for exercising the loading branch. */
 export function pendingClient(): ScopedClient {
   return {
-    extension: "streaming-contract",
+    extension: "streaming",
     query: () => new Promise<never>(() => {}),
     command: () => new Promise<never>(() => {}),
   } as ScopedClient

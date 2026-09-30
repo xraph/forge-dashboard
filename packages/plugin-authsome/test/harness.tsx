@@ -23,7 +23,7 @@ beforeEach(() => {
 })
 
 /** The join key every stub in this file is scoped to. */
-export const EXTENSION = "auth"
+export const EXTENSION = "authsome"
 
 /**
  * An answer a stub can give: a plain value, or a function called with the

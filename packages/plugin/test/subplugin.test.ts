@@ -6,8 +6,8 @@ const Noop = () => null
 function valid() {
   return {
     extension: "organization",
-    host: "auth",
-    label: "Organizations",
+    host: "authsome",
+    label: "Organization",
     nav: [{ label: "Organizations", to: "/organizations", group: "Identity" }],
     routes: [{ path: "/organizations", element: Noop }],
   }
@@ -17,9 +17,28 @@ describe("defineSubPlugin", () => {
   it("returns the sub-plugin with empty defaults filled in", () => {
     const sub = defineSubPlugin(valid())
     expect(sub.extension).toBe("organization")
-    expect(sub.host).toBe("auth")
+    expect(sub.host).toBe("authsome")
     expect(sub.contributions).toEqual({})
     expect(sub.hostIntents).toEqual([])
+  })
+
+  // The rail entry names the extension. "Billing" on the subscription
+  // sub-plugin and "Organizations" here both named something else.
+  it("refuses a label that is a different name", () => {
+    expect(() =>
+      defineSubPlugin({ ...valid(), extension: "subscription", label: "Billing" }),
+    ).toThrow(/"subscription" is labelled "Billing".*use "Subscription"/)
+    expect(() => defineSubPlugin({ ...valid(), label: "Organizations" })).toThrow(
+      /use "Organization"/,
+    )
+  })
+
+  // Left out, the host used to fall back to the first nav item's label,
+  // which names a page ("Organizations") rather than the extension.
+  it("labels itself after its extension when no label is given", () => {
+    const { label: _, ...unlabelled } = valid()
+    expect(defineSubPlugin(unlabelled).label).toBe("Organization")
+    expect(defineSubPlugin({ ...unlabelled, extension: "audit-hook" }).label).toBe("Audit hook")
   })
 
   it("requires an extension naming its own Go contributor", () => {

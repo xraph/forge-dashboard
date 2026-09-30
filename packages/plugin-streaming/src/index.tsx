@@ -40,13 +40,13 @@ export {
 /**
  * The first-party UI for the `streaming` extension.
  *
- * `extension` is "streaming-contract", not "streaming". It is the Go
- * contributor name from `extensions/streaming/contract/manifest.yaml`, and it
- * is the join key the host looks up in the capabilities response. Name it
- * "streaming" and `resolvePluginState` reports `hidden`: no routes are
+ * `extension` is "streaming": the extension's name, which is also the Go
+ * contributor name in `extensions/streaming/contract/manifest.yaml` and the
+ * join key the host looks up in the capabilities response. Forge before the
+ * rename called that contributor "streaming-contract", and against such a
+ * server `resolvePluginState` reports this plugin `hidden`: no routes are
  * mounted, no nav appears, and nothing is logged, because a contributor the
- * server never mentioned is a normal thing for a shell to encounter. The
- * dashboard just quietly has one fewer page than you wrote.
+ * server never mentioned is a normal thing for a shell to encounter.
  *
  * No `requires` range. The extension does not report a version yet, and
  * `resolvePluginState` skips the range check entirely when the contributor
@@ -61,7 +61,7 @@ export {
  * which page issues the write.
  */
 export const streamingPlugin = definePlugin({
-  extension: "streaming-contract",
+  extension: "streaming",
   namespace: "streaming",
   label: "Streaming",
   icon: <AudioWaveformIcon />,

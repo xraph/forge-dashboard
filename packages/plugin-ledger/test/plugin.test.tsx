@@ -28,7 +28,7 @@ describe("ledgerPlugin", () => {
 
   it("mounts under /@ledger and is labelled Billing", () => {
     expect(ledgerPlugin.namespace).toBe("ledger")
-    expect(ledgerPlugin.label).toBe("Billing")
+    expect(ledgerPlugin.label).toBe("Ledger")
   })
 
   it("names a route for every nav entry", () => {

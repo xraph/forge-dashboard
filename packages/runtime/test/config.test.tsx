@@ -75,7 +75,7 @@ describe("config provider", () => {
       authEnabled: false,
       loginPath: "/ops/login",
       loginOp: "auth.login",
-      loginContributor: "auth",
+      loginContributor: "authsome",
     })
   })
 

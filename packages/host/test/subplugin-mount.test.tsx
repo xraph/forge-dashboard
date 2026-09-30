@@ -39,7 +39,7 @@ const auth = definePlugin({
 const orgs = defineSubPlugin({
   extension: "organization",
   host: "auth",
-  label: "Organizations",
+  label: "Organization",
   nav: [{ label: "Organizations", to: "/organizations", group: "Identity" }],
   routes: [{ path: "/organizations", element: () => <p>orgs page</p> }],
 })
@@ -121,13 +121,13 @@ describe("sub-plugin mounting", () => {
   it("shows the sub-plugin's nav entry alongside the host's", async () => {
     renderHost(["auth", "organization"], "/@auth/users")
     await waitFor(() => expect(screen.getByText("users page")).toBeTruthy())
-    expect(screen.getByRole("link", { name: /Organizations/ })).toBeTruthy()
+    expect(screen.getByRole("link", { name: /Organization/ })).toBeTruthy()
   })
 
   it("renders nothing at all for a sub-plugin the server never mentioned", async () => {
     renderHost(["auth"], "/@auth/users")
     await waitFor(() => expect(screen.getByText("users page")).toBeTruthy())
-    expect(screen.queryByRole("link", { name: /Organizations/ })).toBeNull()
+    expect(screen.queryByRole("link", { name: /Organization/ })).toBeNull()
   })
 
   it("does not mount a sub-plugin's route when its contributor is absent", async () => {
@@ -194,7 +194,7 @@ describe("setup-state and not-ready sub-plugins", () => {
       expect(screen.queryByText("Loading dashboard capabilities…")).toBeNull(),
     )
     expect(screen.queryByText("orgs page")).toBeNull()
-    expect(screen.queryByRole("link", { name: /Organizations/ })).toBeNull()
+    expect(screen.queryByRole("link", { name: /Organization/ })).toBeNull()
   })
 })
 
@@ -281,9 +281,10 @@ describe("route collisions between sub-plugins", () => {
     await waitFor(() => expect(screen.getByText("users page")).toBeTruthy())
 
     // The winner keeps its entry; the loser must not advertise a link that
-    // would open somebody else's page.
-    expect(screen.getByRole("link", { name: /Shared A/ })).toBeTruthy()
-    expect(screen.queryByRole("link", { name: /Shared B/ })).toBeNull()
+    // would open somebody else's page. Each rail entry is named after its
+    // extension.
+    expect(screen.getByRole("link", { name: /Aaa plugin/ })).toBeTruthy()
+    expect(screen.queryByRole("link", { name: /Zzz plugin/ })).toBeNull()
     warn.mockRestore()
   })
 })

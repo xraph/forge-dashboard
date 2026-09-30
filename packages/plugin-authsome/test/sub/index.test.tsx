@@ -22,8 +22,8 @@ describe("authsomeSubPlugins", () => {
     expect(duplicates).toEqual([])
   })
 
-  it("mounts every one inside auth", () => {
-    for (const sub of authsomeSubPlugins) expect(sub.host).toBe("auth")
+  it("mounts every one inside authsome", () => {
+    for (const sub of authsomeSubPlugins) expect(sub.host).toBe("authsome")
   })
 
   it("gives every nav item a route to land on", () => {

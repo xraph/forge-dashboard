@@ -22,9 +22,9 @@ export function LedgerOverviewPage() {
 
   return (
     <section className="flex flex-col gap-6">
-      <PageHeader title="Billing" description="Plans, subscriptions and invoices for this app." />
+      <PageHeader title="Ledger" description="Plans, subscriptions and invoices for this app." />
 
-      <QueryBoundary title="Billing counts" query={stats} skeletonRows={1}>
+      <QueryBoundary title="Ledger counts" query={stats} skeletonRows={1}>
         {(s) => {
           const by = s.subscriptions_by_status
           const live = (by.active ?? 0) + (by.trialing ?? 0)

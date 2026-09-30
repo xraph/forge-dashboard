@@ -115,7 +115,7 @@ function queryingPlugin(
 function renderHost(
   plugins: ForgePlugin[],
   fetchImpl: typeof fetch,
-  route = "/@core/overview",
+  route = "/@core-contract/overview",
   authScreens?: AuthScreens
 ) {
   return render(
@@ -135,10 +135,9 @@ describe("PluginHost", () => {
       { name: "core-contract", envelopes: ["v1"], configured: true },
     ])
 
-    // core-contract has no explicit `namespace`, so it derives to "core" (the
-    // "-contract" suffix stripped). renderHost's default route is
-    // "/@core/overview" for exactly this reason -- no explicit third
-    // argument needed here.
+    // core-contract has no explicit `namespace`, so it mounts under its own
+    // name. renderHost's default route is "/@core-contract/overview" for
+    // exactly this reason -- no explicit third argument needed here.
     renderHost([demoPlugin()], fetchImpl)
 
     expect(await screen.findByText("overview page body")).toBeTruthy()
@@ -266,7 +265,7 @@ describe("PluginHost", () => {
     // renderHost default. resolveActiveScope no longer falls back to the
     // first scope when a pathname's namespace matches nothing (it now
     // answers `undefined`, meaning "at the root"), so demoPlugin()'s default
-    // route ("/@core/overview") would resolve to no scope at all here -- its
+    // route ("/@core-contract/overview") would resolve to no scope at all here -- its
     // own contributor is absent -- and show no nav from either plugin. That
     // used to work by accident, riding the old scopes[0] fallback.
     renderHost([demoPlugin(), present], fetchImpl, "/@other-extension/other")
@@ -549,7 +548,7 @@ describe("root plugin", () => {
   it("does not leak the root plugin's nav into the rail inside a scope", async () => {
     const fetchImpl = capabilitiesFetch([
       { name: "core-contract", envelopes: ["v1"], configured: true },
-      { name: "streaming-contract", envelopes: ["v1"], configured: true },
+      { name: "streaming", envelopes: ["v1"], configured: true },
     ])
 
     render(
@@ -565,7 +564,7 @@ describe("root plugin", () => {
                   routes: [{ path: "/overview", element: () => <p>root page</p> }],
                 }),
                 definePlugin({
-                  extension: "streaming-contract",
+                  extension: "streaming",
                   label: "Streaming",
                   nav: [{ label: "Rooms", to: "/rooms" }],
                   routes: [{ path: "/rooms", element: () => <p>rooms page</p> }],
@@ -636,7 +635,7 @@ describe("no root plugin, with a scope that is not ready", () => {
   it("renders the scope's setup panel rather than a blank page", async () => {
     const fetchImpl = capabilitiesFetch([
       {
-        name: "streaming-contract",
+        name: "streaming",
         envelopes: ["v1"],
         configured: false,
         message: "needs a database",
@@ -650,7 +649,7 @@ describe("no root plugin, with a scope that is not ready", () => {
             <PluginHost
               plugins={[
                 definePlugin({
-                  extension: "streaming-contract",
+                  extension: "streaming",
                   label: "Streaming",
                   nav: [{ label: "Rooms", to: "/rooms" }],
                   routes: [{ path: "/rooms", element: () => <p>rooms page</p> }],

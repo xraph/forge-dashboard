@@ -31,29 +31,28 @@ describe("authsomePlugin", () => {
   /**
    * The join key, checked the only way that means anything.
    *
-   * Comparing `plugin.extension` to the literal "auth" would compare the
+   * Comparing `plugin.extension` to the literal "authsome" would compare the
    * source line to itself: rename the constant and the test renames with it.
    * What actually matters is what the host does with the name, so this
    * resolves the plugin against a capabilities response that carries the
-   * contributor authsome really registers. Point `extension` at "authsome",
-   * at the package name, or at anything else the server does not report and
-   * this drops to `hidden` - which mounts no routes, shows no nav and logs
-   * nothing.
+   * contributor authsome really registers. Point `extension` at the package
+   * name, or at anything else the server does not report, and this drops to
+   * `hidden` - which mounts no routes, shows no nav and logs nothing.
    */
   it("resolves to ready against a host reporting authsome's contributor", () => {
     expect(
-      resolvePluginState(authsomePlugin, capabilities({ name: "auth" }))
+      resolvePluginState(authsomePlugin, capabilities({ name: "authsome" }))
     ).toEqual({
       kind: "ready",
     })
   })
 
-  it("is hidden when the host reports the app slug but not the contributor", () => {
-    // "authsome" is the repository and the app slug. A host that reported it
-    // under that name would still not be reporting `auth`, and the plugin
-    // must vanish rather than render against a contributor that is not there.
+  it("is hidden against an authsome that still names the contributor auth", () => {
+    // Authsome before the rename registered "auth". That server is not
+    // reporting this plugin's contributor, and the plugin must vanish rather
+    // than render against one that is not there.
     expect(
-      resolvePluginState(authsomePlugin, capabilities({ name: "authsome" }))
+      resolvePluginState(authsomePlugin, capabilities({ name: "auth" }))
     ).toEqual({ kind: "hidden" })
   })
 
@@ -62,7 +61,7 @@ describe("authsomePlugin", () => {
       resolvePluginState(
         authsomePlugin,
         capabilities({
-          name: "auth",
+          name: "authsome",
           configured: false,
           message: "Connect an API key to continue",
         })
@@ -340,10 +339,10 @@ describe("the finished plugin", () => {
     expect(navPaths.some((p) => p.includes(":"))).toBe(false)
   })
 
-  it("still resolves against a capabilities document naming the auth contributor", () => {
+  it("still resolves against a capabilities document naming the authsome contributor", () => {
     const state = resolvePluginState(authsomePlugin, {
       shellEnvelopes: ["v1"],
-      contributors: [{ name: "auth", envelopes: ["v1"], configured: true }],
+      contributors: [{ name: "authsome", envelopes: ["v1"], configured: true }],
     })
     expect(state.kind).toBe("ready")
   })

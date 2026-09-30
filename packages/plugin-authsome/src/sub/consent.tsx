@@ -343,7 +343,7 @@ export function ConsentUserSection({ userId }: { userId?: string }) {
 
 export const consentSubPlugin = defineSubPlugin({
   extension: "consent",
-  host: "auth",
+  host: "authsome",
   label: "Consent",
   nav: [{ label: "Consent", to: "/compliance/consent", group: "Compliance", priority: 0 }],
   routes: [{ path: "/compliance/consent", element: ConsentsPage }],

@@ -72,7 +72,7 @@ function resolve(input: DashboardConfigInput): DashboardConfig {
     authEnabled: input.authEnabled ?? false,
     loginPath: input.loginPath ?? `${base}/login`,
     loginOp: input.loginOp ?? "auth.login",
-    loginContributor: input.loginContributor ?? "auth",
+    loginContributor: input.loginContributor ?? "authsome",
   }
 }
 

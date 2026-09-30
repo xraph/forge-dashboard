@@ -85,7 +85,7 @@ describe("one sub-plugin throwing loses only its own slot entry", () => {
     extension: string,
     contributions: Partial<Record<SlotName, SlotContribution[]>>,
   ): ForgeSubPlugin {
-    return defineSubPlugin({ extension, host: "auth", contributions })
+    return defineSubPlugin({ extension, host: "authsome", contributions })
   }
 
   it("loses only the contribution that threw", () => {
