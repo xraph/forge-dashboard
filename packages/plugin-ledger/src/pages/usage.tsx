@@ -38,8 +38,7 @@ function MonthTotal({ tenant, feature }: { tenant: string; feature: string }) {
             {
               label: `${feature} this month, ${tenant}`,
               value: number.format(t.totals?.[feature] ?? 0),
-              // Every ledger store opens the month at midnight UTC, the calendar
-              // billing periods are cut on.
+              // Every ledger store opens the month at midnight UTC.
               hint: "Since the start of the month, UTC",
             },
           ]}

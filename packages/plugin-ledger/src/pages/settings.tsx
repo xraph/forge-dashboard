@@ -54,6 +54,6 @@ export function LedgerSettingsPage() {
 /** The lifecycle clock's interval, "Off", or a dash from a ledger that predates the clock. */
 function LifecycleClock({ interval }: { interval?: string }) {
   if (interval === undefined) return <NoneCell label="lifecycle clock" />
-  if (interval === "off") return <>Off</>
+  if (interval === "off") return <>Off (built-in clock)</>
   return <span className="font-mono text-xs">Every {interval}</span>
 }

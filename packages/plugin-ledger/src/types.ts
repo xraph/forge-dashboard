@@ -296,8 +296,8 @@ export interface OverviewStats {
   active_plans: number
   subscriptions_by_status: Partial<Record<SubscriptionStatus, number>>
   pending_invoices: number
-  /** Invoices the lifecycle clock marked past due; they no longer count as pending. */
-  past_due_invoices: number
+  /** Invoices the lifecycle clock marked past due; they no longer count as pending. A ledger older than the clock does not send it. */
+  past_due_invoices?: number
   coupons: number
   capped: boolean
 }

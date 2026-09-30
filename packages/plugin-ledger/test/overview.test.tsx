@@ -41,6 +41,16 @@ describe("LedgerOverviewPage", () => {
     await screen.findByText("inv_r1")
     const card = screen.getByText("Past-due invoices").closest("[data-slot='card']") as HTMLElement
     expect(within(card).getByText("3")).toBeTruthy()
+    expect(within(card).getByText("Not counted as pending")).toBeTruthy()
+  })
+
+  it("leaves the past-due stat out for a ledger that does not send the count", async () => {
+    const older: Record<string, unknown> = { ...STATS }
+    delete older.past_due_invoices
+    renderPage(LedgerOverviewPage, stubClient(answers({ "overview.stats": older })))
+    await screen.findByText("inv_r1")
+    expect(screen.queryByText("Past-due invoices")).toBeNull()
+    expect(screen.getByText("Pending invoices", { selector: "[data-slot='card'] *" })).toBeTruthy()
   })
 
   it("reads the three overview intents, recent invoices with a limit of 10", async () => {

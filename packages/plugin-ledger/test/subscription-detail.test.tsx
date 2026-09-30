@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
-import { fireEvent, render, screen, waitFor, within } from "@testing-library/react"
+import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react"
 import { ContractError, PluginProvider, queryStore } from "@forge-go/dashboard-plugin"
 import type { ScopedClient } from "@forge-go/dashboard-plugin"
 import { legalActions, LedgerSubscriptionDetailPage } from "../src/pages/subscription-detail"
@@ -114,7 +114,7 @@ describe("LedgerSubscriptionDetailPage", () => {
     expect(within(aside).getByLabelText("no trial")).toBeTruthy()
     expect(within(aside).queryByLabelText("no scheduled cancellation")).toBeNull()
     expect(within(aside).getByText("Scheduled to cancel", { selector: "dt" })).toBeTruthy()
-    expect(within(aside).queryByText("Date passed, ends on the next lifecycle clock run")).toBeNull()
+    expect(within(aside).queryByText(/Date passed/)).toBeNull()
   })
 
   it("reads a canceled subscription's end from canceled_at, which is what the engine writes", async () => {
@@ -161,17 +161,41 @@ describe("LedgerSubscriptionDetailPage", () => {
   })
 
   it("says a scheduled cancellation whose date has passed ends on the clock's next run", async () => {
-    open(aSubscription({ cancel_at: "2026-09-01T00:00:00Z" }))
+    open(aSubscription({ cancel_at: "2026-09-01T00:00:00Z" }), {}, { "settings.detail": { lifecycle_interval: "1m0s" } })
     await screen.findByText("inv_1")
     const aside = screen.getByRole("complementary")
     expect(within(aside).getByText("Scheduled to cancel", { selector: "dt" })).toBeTruthy()
-    expect(within(aside).getByText("Date passed, ends on the next lifecycle clock run")).toBeTruthy()
+    expect(await within(aside).findByText("Date passed, ends on the next lifecycle clock run (every 1m0s)")).toBeTruthy()
+  })
+
+  it("says nothing ends a passed cancellation while the lifecycle clock is off", async () => {
+    open(aSubscription({ cancel_at: "2026-09-01T00:00:00Z" }), {}, { "settings.detail": { lifecycle_interval: "off" } })
+    await screen.findByText("inv_1")
+    const aside = screen.getByRole("complementary")
+    expect(await within(aside).findByText("Date passed, but the lifecycle clock is off. It ends only when something else runs it.")).toBeTruthy()
+    expect(within(aside).queryByText(/next lifecycle clock run/)).toBeNull()
+  })
+
+  it("claims only that the date passed when the settings cannot be read or carry no interval", async () => {
+    // No settings.detail answer: the scripted client refuses it.
+    open(aSubscription({ cancel_at: "2026-09-01T00:00:00Z" }))
+    await screen.findByText("inv_1")
+    expect(await within(screen.getByRole("complementary")).findByText("Date passed, not yet ended")).toBeTruthy()
+    cleanup()
+    queryStore.clear()
+    open(aSubscription({ cancel_at: "2026-09-01T00:00:00Z" }), {}, { "settings.detail": {} })
+    await screen.findByText("inv_1")
+    expect(await within(screen.getByRole("complementary")).findByText("Date passed, not yet ended")).toBeTruthy()
   })
 
   it("does not say the date passed for a canceled or expired subscription", async () => {
-    open(aSubscription({ status: "canceled", canceled_at: "2026-09-01T00:00:00Z" }))
-    await screen.findByText("inv_1")
-    expect(screen.queryByText("Date passed, ends on the next lifecycle clock run")).toBeNull()
+    for (const status of ["canceled", "expired"] as const) {
+      open(aSubscription({ status, canceled_at: "2026-09-01T00:00:00Z", cancel_at: "2026-09-01T00:00:00Z" }), {}, { "settings.detail": { lifecycle_interval: "1m0s" } })
+      await screen.findByText("inv_1")
+      expect(screen.queryByText(/Date passed/)).toBeNull()
+      cleanup()
+      queryStore.clear()
+    }
   })
 
   it("shows the cancel_at date for a canceled subscription that has no canceled_at", async () => {
@@ -194,16 +218,20 @@ describe("LedgerSubscriptionDetailPage", () => {
     open()
     fireEvent.click(await screen.findByRole("button", { name: "Cancel subscription" }))
     const dialog = await screen.findByRole("alertdialog")
-    expect(within(dialog).getByLabelText("Cancel at the end of the period, Oct 20, 2026. It stays active until then.")).toBeTruthy()
+    expect(within(dialog).getByLabelText("Schedule the cancellation for the end of the period, Oct 20, 2026. It stays active until then.")).toBeTruthy()
     expect(within(dialog).getByRole("radiogroup", { name: "When to cancel" })).toBeTruthy()
   })
 
-  it("says so when the period has already ended, because the engine then cancels at once", async () => {
+  it("says so when the period has already ended: the cancellation is only dated then, and End it now stops it today", async () => {
     open(aSubscription({ current_period_end: "2026-09-20T00:00:00Z" }))
     fireEvent.click(await screen.findByRole("button", { name: "Cancel subscription" }))
     const dialog = await screen.findByRole("alertdialog")
-    expect(within(dialog).getByLabelText("The period ended on Sep 20, 2026, so this cancels now.")).toBeTruthy()
-    expect(within(dialog).queryByLabelText(/Record the cancellation/)).toBeNull()
+    expect(
+      within(dialog).getByLabelText(
+        "The period ended on Sep 20, 2026, so the cancellation is dated then. The subscription stays active until the ledger ends it. Choose End it now to stop it today.",
+      ),
+    ).toBeTruthy()
+    expect(within(dialog).queryByLabelText(/Schedule the cancellation/)).toBeNull()
   })
 
   it("cancels now when asked, and keeps a refusal inside the dialog", async () => {
@@ -254,7 +282,7 @@ describe("LedgerSubscriptionDetailPage", () => {
     vi.setSystemTime(new Date("2026-09-30T12:05:00Z"))
     fireEvent.click(cancelButton)
     const dialog = await screen.findByRole("alertdialog")
-    expect(within(dialog).getByLabelText("The period ended on Sep 30, 2026, so this cancels now.")).toBeTruthy()
+    expect(within(dialog).getByLabelText(/^The period ended on Sep 30, 2026, so the cancellation is dated then\./)).toBeTruthy()
   })
 
   it("starts clean when the address moves to another subscription in place", async () => {
@@ -460,9 +488,9 @@ describe("LedgerSubscriptionDetailPage", () => {
   })
 
   it("shows why an invoice could not be generated", async () => {
-    open(aSubscription(), { "invoices.generate": new ContractError("CONFLICT", "an invoice already exists for this subscription's current period") })
+    open(aSubscription(), { "invoices.generate": new ContractError("CONFLICT", "ledger: already exists: invoice inv_1 already covers this billing period") })
     fireEvent.click(await screen.findByRole("button", { name: "Generate invoice" }))
-    expect(await screen.findByText("an invoice already exists for this subscription's current period")).toBeTruthy()
+    expect(await screen.findByText("ledger: already exists: invoice inv_1 already covers this billing period")).toBeTruthy()
   })
 
   it("says so when the subscription does not exist", async () => {

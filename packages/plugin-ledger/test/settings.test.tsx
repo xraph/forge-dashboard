@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest"
-import { screen } from "@testing-library/react"
+import { screen, within } from "@testing-library/react"
 import { LedgerSettingsPage } from "../src/pages/settings"
 import { renderPage, stubClient } from "./harness"
 
@@ -41,7 +41,8 @@ describe("LedgerSettingsPage", () => {
 
   it("says when the lifecycle clock is off", async () => {
     renderPage(LedgerSettingsPage, stubClient({ "settings.detail": { ...SETTINGS, lifecycle_interval: "off" } }))
-    expect(await screen.findByText("Off")).toBeTruthy()
+    const term = await screen.findByText("Lifecycle clock", { selector: "dt" })
+    expect(within(term.parentElement as HTMLElement).getByText("Off (built-in clock)")).toBeTruthy()
   })
 
   it("marks the clock missing on a ledger that predates it", async () => {

@@ -323,9 +323,10 @@ describe("M10: the passed-date note does not claim a paused subscription is acti
       "subscriptions.usage": { features: [], providers: [] },
       "invoices.list": aPage([]),
       "plans.list": aPage([aPlan()]),
+      "settings.detail": { lifecycle_interval: "1m0s" },
     })
     renderWithNavigation(LedgerSubscriptionDetailPage, client, { id: "sub_acme" })
-    expect(await screen.findByText("Date passed, ends on the next lifecycle clock run")).toBeTruthy()
+    expect(await screen.findByText("Date passed, ends on the next lifecycle clock run (every 1m0s)")).toBeTruthy()
     expect(screen.queryByText(/still active/)).toBeNull()
   })
 })

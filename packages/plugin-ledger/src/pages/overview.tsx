@@ -39,7 +39,10 @@ export function LedgerOverviewPage() {
                   { label: "Live subscriptions", value: n(live), hint: `${n(by.trialing ?? 0)} trialing` },
                   { label: "Subscriptions past due", value: n(by.past_due ?? 0) },
                   { label: "Pending invoices", value: n(s.pending_invoices) },
-                  { label: "Past-due invoices", value: n(s.past_due_invoices) },
+                  // A ledger older than the lifecycle clock does not send the count.
+                  ...(s.past_due_invoices === undefined
+                    ? []
+                    : [{ label: "Past-due invoices", value: n(s.past_due_invoices), hint: "Not counted as pending" }]),
                   { label: "Coupons", value: n(s.coupons) },
                 ]}
               />

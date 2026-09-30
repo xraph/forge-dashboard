@@ -20,7 +20,7 @@ import { SyncPanel } from "../components/sync-panel"
 import { describeDiscount } from "../lib/coupons"
 import { formatDay, formatPeriod } from "../lib/datetime"
 import { couponPath, invoicePath, planPath } from "../lib/paths"
-import type { Coupon, Invoice, Page, Plan, Subscription, SubscriptionDetail, SubscriptionStatus } from "../types"
+import type { Coupon, Invoice, Page, Plan, SettingsDetail, Subscription, SubscriptionDetail, SubscriptionStatus } from "../types"
 
 export type SubscriptionAction = "generate" | "changePlan" | "applyCoupon" | "pause" | "resume" | "cancel"
 
@@ -89,6 +89,21 @@ function SubscriptionDetailBody({ id }: { id: string }) {
 
 type Dialog = "pause" | "resume" | "cancel" | "changePlan" | "applyCoupon" | null
 
+/**
+ * The note beside a cancellation date that has passed. What ends the
+ * subscription is the ledger's lifecycle clock, so the note asks the ledger
+ * whether it runs. Until the answer arrives, when it is refused, or from a
+ * ledger that does not send the interval, it claims only what is known.
+ */
+function PassedNote() {
+  const settings = useQuery<SettingsDetail>("settings.detail")
+  const interval = settings.data?.lifecycle_interval
+  let text = "Date passed, not yet ended"
+  if (interval === "off") text = "Date passed, but the lifecycle clock is off. It ends only when something else runs it."
+  else if (interval !== undefined) text = `Date passed, ends on the next lifecycle clock run (every ${interval})`
+  return <span className="text-xs text-muted-foreground">{text}</span>
+}
+
 function SubscriptionDetailView({ detail }: { detail: SubscriptionDetail }) {
   const { subscription: sub, plan } = detail
   const coupons = detail.applied_coupons ?? []
@@ -126,10 +141,10 @@ function SubscriptionDetailView({ detail }: { detail: SubscriptionDetail }) {
 
   const close = (o: boolean) => !o && setDialog(null)
   // Cancelling always sets cancel_at. An immediate cancel ends the
-  // subscription at once; a later one is ended by the ledger's lifecycle clock
-  // on its first run after the date, which sets canceled_at to cancel_at.
-  // Until that run the status is still active, which the row says. The engine
-  // never writes ended_at.
+  // subscription at once; a later one is ended by the ledger's lifecycle clock,
+  // when it runs, on its first run after the date, which sets canceled_at to
+  // cancel_at. Until then the status is still active, which the row says. The
+  // engine never writes ended_at.
   const isCanceled = sub.status === "canceled"
   const datePassed = !isCanceled && sub.status !== "expired" && sub.cancel_at !== undefined && Date.parse(sub.cancel_at) < now
   const cancelRow = {
@@ -137,7 +152,7 @@ function SubscriptionDetailView({ detail }: { detail: SubscriptionDetail }) {
     value: (
       <span className="flex flex-wrap items-baseline gap-x-2">
         <Timestamp value={isCanceled ? (sub.canceled_at ?? sub.cancel_at) : sub.cancel_at} label="scheduled cancellation" />
-        {datePassed && <span className="text-xs text-muted-foreground">Date passed, ends on the next lifecycle clock run</span>}
+        {datePassed && <PassedNote />}
       </span>
     ),
   }
@@ -263,8 +278,8 @@ function SubscriptionDetailView({ detail }: { detail: SubscriptionDetail }) {
               <label className="flex items-center gap-2">
                 <input type="radio" name="cancel-when" checked={!immediately} onChange={() => setImmediately(false)} />
                 {periodEnded
-                  ? `The period ended on ${formatDay(sub.current_period_end)}, so this cancels now.`
-                  : `Cancel at the end of the period, ${formatDay(sub.current_period_end)}. It stays active until then.`}
+                  ? `The period ended on ${formatDay(sub.current_period_end)}, so the cancellation is dated then. The subscription stays active until the ledger ends it. Choose End it now to stop it today.`
+                  : `Schedule the cancellation for the end of the period, ${formatDay(sub.current_period_end)}. It stays active until then.`}
               </label>
               <label className="flex items-center gap-2">
                 <input type="radio" name="cancel-when" checked={immediately} onChange={() => setImmediately(true)} />
