@@ -4,6 +4,7 @@ import corePlugin from "@forge-go/dashboard-plugin-core"
 import authsomePlugin, {
   authsomeSubPlugins,
 } from "@forge-go/dashboard-plugin-authsome"
+import bastionPlugin from "@forge-go/dashboard-plugin-bastion"
 import ledgerPlugin from "@forge-go/dashboard-plugin-ledger"
 import relayPlugin from "@forge-go/dashboard-plugin-relay"
 import streamingPlugin from "@forge-go/dashboard-plugin-streaming"
@@ -32,6 +33,7 @@ const plugins = [
   chroniclePlugin,
   relayPlugin,
   ledgerPlugin,
+  bastionPlugin,
 ]
 
 // The twenty-four authsome sub-plugins: six carrying data of their own, and

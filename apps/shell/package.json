@@ -18,6 +18,7 @@
     "@forge-go/dashboard-kit": "workspace:*",
     "@forge-go/dashboard-plugin": "workspace:*",
     "@forge-go/dashboard-plugin-authsome": "workspace:*",
+    "@forge-go/dashboard-plugin-bastion": "workspace:*",
     "@forge-go/dashboard-plugin-chronicle": "workspace:*",
     "@forge-go/dashboard-plugin-core": "workspace:*",
     "@forge-go/dashboard-plugin-ledger": "workspace:*",
