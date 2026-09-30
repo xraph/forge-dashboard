@@ -1,6 +1,6 @@
 import { fireEvent, render, screen, waitFor, within } from "@testing-library/react"
 import { describe, expect, it, vi } from "vitest"
-import { ContractError, NavigationProvider, PluginProvider } from "@forge-go/dashboard-plugin"
+import { ContractError, NavigationProvider, PluginProvider, queryStore } from "@forge-go/dashboard-plugin"
 import type { ScopedClient } from "@forge-go/dashboard-plugin"
 import { PolicyDetailPage } from "../src/pages/policy-detail"
 import { commandPendingClient, scriptedClient } from "./harness"
@@ -150,6 +150,31 @@ describe("PolicyDetailPage", () => {
     fireEvent.click(within(dialog).getByRole("button", { name: "Delete policy" }))
     await waitFor(() => expect(c.sent).toEqual([{ intent: "retention.deletePolicy", payload: { id: "retpol_acme_debug" } }]))
     await waitFor(() => expect(navigate).toHaveBeenCalledWith("/retention"))
+  })
+
+  it("shows no not-found card for the policy it just deleted while the list is on its way", async () => {
+    let deleted = false
+    const c = scriptedClient(
+      { "retention.policyDetail": () => (deleted ? new ContractError("NOT_FOUND", "not found") : policy()) },
+      {
+        "retention.deletePolicy": () => {
+          deleted = true
+          // The server names retention.policyDetail in the delete's invalidates, so this page's own read goes again.
+          queryStore.invalidate("chronicle", ["retention.policyDetail"])
+          return { id: "retpol_acme_debug" }
+        },
+      },
+    )
+    // The host navigates in a transition, so this page stays mounted for a moment after the delete; the stub navigate models that by leaving it mounted.
+    const { navigate } = renderDetail(c.client)
+    fireEvent.click(await screen.findByRole("button", { name: "Delete policy" }))
+    const dialog = await screen.findByRole("alertdialog")
+    fireEvent.click(within(dialog).getByRole("button", { name: "Delete policy" }))
+    await waitFor(() => expect(navigate).toHaveBeenCalledWith("/retention"))
+    await waitFor(() => expect(c.queried.filter((q) => q.intent === "retention.policyDetail").length).toBeGreaterThan(1))
+    await new Promise((r) => setTimeout(r, 20))
+    expect(screen.queryByText(/NOT_FOUND/)).toBeNull()
+    expect(screen.getByRole("status").textContent).toContain("Policy deleted")
   })
 
   it("marks the delete as pending while it runs and ignores Escape until it settles", async () => {

@@ -20,22 +20,31 @@ import type { DurationUnit } from "../policy"
 export const PolicyDetailPage: ComponentType<PluginPageProps> = ({ params }) => {
   const id = params.id ?? ""
   const q = useQuery<PolicySummary>("retention.policyDetail", { id })
+  // The delete invalidates this page's own read, and the host navigates in a
+  // transition, so the refetch can answer NOT_FOUND while this page is still
+  // on screen. That answer is the delete working, not a failure to show.
+  const [deleted, setDeleted] = useState(false)
+  const onDeleted = () => setDeleted(true)
   return (
     <section className="flex flex-col gap-4">
       <PageHeader title={id} description="A retention policy removes events in its category once they are older than its duration." />
-      {/* Once there is a policy the page stays up through the refresh a save triggers, so the form and its dialog keep their state. */}
-      {q.data !== undefined ? (
-        <PolicyView key={q.data.id} policy={q.data} />
+      {deleted ? (
+        <p role="status" className="text-sm">
+          Policy deleted.
+        </p>
+      ) : q.data !== undefined ? (
+        /* Once there is a policy the page stays up through the refresh a save triggers, so the form and its dialog keep their state. */
+        <PolicyView key={q.data.id} policy={q.data} onDeleted={onDeleted} />
       ) : (
         <QueryBoundary title="policy" query={q} skeletonRows={5}>
-          {(policy) => <PolicyView key={policy.id} policy={policy} />}
+          {(policy) => <PolicyView key={policy.id} policy={policy} onDeleted={onDeleted} />}
         </QueryBoundary>
       )}
     </section>
   )
 }
 
-function PolicyView({ policy }: { policy: PolicySummary }) {
+function PolicyView({ policy, onDeleted }: { policy: PolicySummary; onDeleted: () => void }) {
   return (
     <div className="flex flex-col gap-6">
       <DescriptionList
@@ -56,7 +65,7 @@ function PolicyView({ policy }: { policy: PolicySummary }) {
       {policy.editable ? (
         <>
           <EditForm policy={policy} />
-          <DeleteAction policy={policy} />
+          <DeleteAction policy={policy} onDeleted={onDeleted} />
         </>
       ) : (
         <p className="max-w-prose text-sm">
@@ -132,7 +141,7 @@ function EditForm({ policy }: { policy: PolicySummary }) {
   )
 }
 
-function DeleteAction({ policy }: { policy: PolicySummary }) {
+function DeleteAction({ policy, onDeleted }: { policy: PolicySummary; onDeleted: () => void }) {
   const [open, setOpen] = useState(false)
   const del = useCommand<{ id: string }>("retention.deletePolicy")
   const navigateTo = useNavigateTo()
@@ -161,7 +170,9 @@ function DeleteAction({ policy }: { policy: PolicySummary }) {
         pending={del.loading}
         onConfirm={() => {
           void del.execute({ id: policy.id }).then((result) => {
-            if (result !== undefined) navigateTo("/retention")
+            if (result === undefined) return
+            onDeleted()
+            navigateTo("/retention")
           })
         }}
         description={
