@@ -122,6 +122,22 @@ describe("NotFoundState", () => {
     expect(isNotFound(undefined, "plan")).toBe(false)
   })
 
+  it("also matches the engine's own sentinel errors for a missing id", () => {
+    const nf = (message: string) => ({ code: "NOT_FOUND", message })
+    expect(isNotFound(nf("ledger: coupon not found"), "coupon")).toBe(true)
+    expect(isNotFound(nf("get coupon: ledger: coupon not found"), "coupon")).toBe(true)
+    expect(isNotFound(nf("ledger: not found"), "coupon")).toBe(true)
+    expect(isNotFound(nf("ledger: not found"), "plan")).toBe(true)
+  })
+
+  it("never reads another noun's not-found as this one", () => {
+    const nf = (message: string) => ({ code: "NOT_FOUND", message })
+    expect(isNotFound(nf("provider not found"), "tenant")).toBe(false)
+    expect(isNotFound(nf("ledger: plan not found"), "coupon")).toBe(false)
+    expect(isNotFound(nf("get plan: ledger: plan not found"), "coupon")).toBe(false)
+    expect(isNotFound({ code: "INTERNAL", message: "ledger: coupon not found" }, "coupon")).toBe(false)
+  })
+
   it("says what is missing and links back", () => {
     render(<NotFoundState noun="plan" id="plan_x" backTo="/plans" backLabel="Back to plans" />)
     expect(screen.getByText("No plan with the id plan_x.")).toBeTruthy()

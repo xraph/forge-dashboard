@@ -46,7 +46,7 @@ export function LedgerCouponsPage() {
             value: show,
             options: [
               { label: "All coupons", value: "all" },
-              { label: "Active now", value: "active" },
+              { label: "Within validity window", value: "active" },
             ],
             onChange: (next) => {
               setShow(next as "all" | "active")
@@ -65,7 +65,7 @@ export function LedgerCouponsPage() {
                 rows={rows}
                 rowKey={(c) => c.id}
                 caption={pageCaption({ page, shown: rows.length, hasMore: data.has_more, singular: "coupon", plural: "coupons" })}
-                emptyMessage={listEmptyMessage("coupons", page, show === "active" ? "active" : undefined)}
+                emptyMessage={page === 1 && show === "active" ? "No coupons are within their validity window." : listEmptyMessage("coupons", page, undefined)}
                 emptyAction={page > 1 ? <Button variant="outline" onClick={() => setPage(1)}>Back to the first page</Button> : show === "all" ? <NewCouponLink /> : undefined}
               />
               <OffsetPager page={page} hasMore={data.has_more} onPageChange={setPage} />

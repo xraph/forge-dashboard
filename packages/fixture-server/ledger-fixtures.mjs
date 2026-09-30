@@ -716,9 +716,10 @@ function catalogHandlers(h) {
         const code = requireText(input?.code, "code")
         const type = text(input?.type)
         if (type !== "percentage" && type !== "amount") throw badRequest(`unknown coupon type "${input?.type ?? ""}"`)
-        const currency = requireText(input?.currency, "currency").toLowerCase()
+        // A percentage coupon may carry no currency and then applies to a plan in any currency; an amount coupon's money needs one.
+        const currency = type === "amount" ? requireText(input?.currency, "currency").toLowerCase() : text(input?.currency).toLowerCase()
+        // Zero or less means unlimited, the same rule the engine's ApplyCoupon applies; it is stored as sent.
         const maxRedemptions = wholeNumber(input?.max_redemptions)
-        if (maxRedemptions < 0) throw badRequest("max_redemptions must not be negative")
         const fromMs = optionalTime(input?.valid_from, "valid_from")
         const untilMs = optionalTime(input?.valid_until, "valid_until")
         couponWindow(fromMs, untilMs)
@@ -751,8 +752,8 @@ function catalogHandlers(h) {
         const next = { ...row }
         if (input.name != null) next.name = text(input.name)
         if (input.max_redemptions != null) {
+          // Zero or less means unlimited, as on create.
           next.max_redemptions = wholeNumber(input.max_redemptions)
-          if (next.max_redemptions < 0) throw badRequest("max_redemptions must not be negative")
         }
         // Nullable: an absent key leaves the bound alone, null clears it, a
         // value sets it. `in` is the only way to tell absent from null.

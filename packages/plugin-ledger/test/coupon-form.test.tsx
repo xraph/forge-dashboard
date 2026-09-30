@@ -8,17 +8,38 @@ import { renderWithNavigation, scriptedClient } from "./harness"
 import { aCoupon, usd } from "./fixtures"
 
 describe("createCouponPayload", () => {
-  it("sends a percentage coupon with its percentage and no amount", () => {
+  // Deviation from the brief, on the controller's ruling: the engine accepts a percentage coupon with no
+  // currency and applies it to a plan in any currency, so the form sends "" unless one is chosen.
+  it("sends an unrestricted percentage coupon with its percentage, no amount and an empty currency", () => {
     const v = { ...emptyCouponForm(), code: " LAUNCH20 ", name: "Launch", type: "percentage" as const, percentage: "20", max: "100" }
     const out = createCouponPayload(v)
     expect(out).toEqual({
       ok: true,
-      value: { code: "LAUNCH20", name: "Launch", type: "percentage", percentage: 20, currency: "usd", max_redemptions: 100 },
+      value: { code: "LAUNCH20", name: "Launch", type: "percentage", percentage: 20, currency: "", max_redemptions: 100 },
+    })
+  })
+
+  it("restricts a percentage coupon to one currency when one is given", () => {
+    expect(createCouponPayload({ ...emptyCouponForm(), code: "EU", percentage: "10", currency: "EUR" })).toMatchObject({ ok: true, value: { currency: "eur" } })
+    expect(createCouponPayload({ ...emptyCouponForm(), code: "EU", percentage: "10", currency: "eu" })).toEqual({
+      ok: false,
+      errors: ["Currency must be a three-letter code such as usd, or empty for any currency."],
+    })
+  })
+
+  it("requires a currency for an amount coupon", () => {
+    expect(createCouponPayload({ ...emptyCouponForm(), code: "TEN", type: "amount", amount: "10" })).toEqual({
+      ok: false,
+      errors: ["An amount coupon needs a currency, such as usd."],
+    })
+    expect(createCouponPayload({ ...emptyCouponForm(), code: "TEN", type: "amount", amount: "10", currency: "us" })).toEqual({
+      ok: false,
+      errors: ["Currency must be a three-letter code such as usd."],
     })
   })
 
   it("sends an amount coupon in minor units of its own currency", () => {
-    expect(createCouponPayload({ ...emptyCouponForm(), code: "TEN", type: "amount", amount: "10.50" })).toMatchObject({
+    expect(createCouponPayload({ ...emptyCouponForm(), code: "TEN", type: "amount", amount: "10.50", currency: "usd" })).toMatchObject({
       ok: true,
       value: { type: "amount", amount: { amount: 1050, currency: "usd" }, currency: "usd", max_redemptions: 0 },
     })
@@ -41,6 +62,7 @@ describe("createCouponPayload", () => {
       code: "X",
       type: "amount",
       amount: "12.345",
+      currency: "usd",
       valid_from: "2026-10-10T00:00",
       valid_until: "2026-10-01T00:00",
     })
@@ -114,6 +136,11 @@ describe("updateCouponPayload", () => {
     expect(updateCouponPayload(couponToForm(padded), padded)).toEqual({ ok: true, value: { id: "cpn_launch20" } })
   })
 
+  it("omits a stored window that has seconds when it is untouched, since the input cannot show them", () => {
+    const withSeconds = aCoupon({ valid_from: "2026-09-01T10:00:37Z", valid_until: "2026-12-01T10:00:59.500Z" })
+    expect(updateCouponPayload({ ...couponToForm(withSeconds), name: "Renamed" }, withSeconds)).toEqual({ ok: true, value: { id: "cpn_launch20", name: "Renamed" } })
+  })
+
   it("refuses a window that runs backwards once one bound is changed", () => {
     const v = { ...couponToForm(original), valid_from: "2027-01-01T00:00" }
     expect(updateCouponPayload(v, original)).toEqual({ ok: false, errors: ["Valid until is before valid from."] })
@@ -145,6 +172,8 @@ describe("coupon pages", () => {
     renderWithNavigation(LedgerCouponCreatePage, client)
     const describedBy = (label: string) => document.getElementById(screen.getByLabelText(label).getAttribute("aria-describedby") ?? "")?.textContent
     expect(describedBy("Code")).toMatch(/unique within this app/i)
+    expect(describedBy("Currency")).toMatch(/applies to a plan in any currency/i)
+    fireEvent.change(screen.getByLabelText("Type"), { target: { value: "amount" } })
     expect(describedBy("Currency")).toMatch(/only be applied to plans billed in this currency/i)
     expect(describedBy("Max redemptions")).toMatch(/0 means no cap/)
     expect(describedBy("Valid from")).toMatch(/your own time zone/)
@@ -152,6 +181,33 @@ describe("coupon pages", () => {
     fireEvent.click(screen.getByRole("button", { name: "Create coupon" }))
     const alert = await screen.findByText("Code is required.")
     await waitFor(() => expect(document.activeElement).toBe(alert.closest('[role="alert"]')))
+  })
+
+  it("leaves the currency empty for a percentage coupon, fills usd for an amount coupon, and clears only what it filled", () => {
+    const { client } = scriptedClient({})
+    renderWithNavigation(LedgerCouponCreatePage, client)
+    const currency = () => (screen.getByLabelText("Currency") as HTMLInputElement).value
+    expect(currency()).toBe("")
+    expect(screen.getByLabelText("Currency").getAttribute("placeholder")).toBe("Any currency")
+    fireEvent.change(screen.getByLabelText("Type"), { target: { value: "amount" } })
+    expect(currency()).toBe("usd")
+    fireEvent.change(screen.getByLabelText("Type"), { target: { value: "percentage" } })
+    expect(currency()).toBe("")
+    // A currency the operator typed is theirs, and stays.
+    fill("Currency", "eur")
+    fireEvent.change(screen.getByLabelText("Type"), { target: { value: "amount" } })
+    fireEvent.change(screen.getByLabelText("Type"), { target: { value: "percentage" } })
+    expect(currency()).toBe("eur")
+  })
+
+  it("creates an unrestricted percentage coupon with an empty currency", async () => {
+    const { client, sent } = scriptedClient({}, { "coupons.create": aCoupon({ id: "cpn_any", currency: "" }) })
+    const { navigate } = renderWithNavigation(LedgerCouponCreatePage, client)
+    fill("Code", "ANY")
+    fill("Percentage", "15")
+    fireEvent.click(screen.getByRole("button", { name: "Create coupon" }))
+    await waitFor(() => expect(navigate).toHaveBeenCalledWith("/coupons/cpn_any"))
+    expect(sent[0].payload).toEqual({ code: "ANY", name: "", type: "percentage", percentage: 15, currency: "", max_redemptions: 0 })
   })
 
   it("shows a refused create and keeps what was typed", async () => {
@@ -212,6 +268,14 @@ describe("coupon pages", () => {
     const { client } = scriptedClient({})
     renderWithNavigation(LedgerCouponEditPage, client, {})
     expect(screen.getByRole("status").textContent).toMatch(/No coupon id in the address/)
+  })
+
+  it("says an unrestricted coupon applies in any currency", async () => {
+    const stored = aCoupon({ currency: "" })
+    const { client } = scriptedClient({ "coupons.detail": stored })
+    renderWithNavigation(LedgerCouponEditPage, client, { id: stored.id })
+    await screen.findByDisplayValue("Launch offer")
+    expect(screen.getByText(/20% off in any currency\./)).toBeTruthy()
   })
 
   it("keeps an amount coupon's discount in the summary without a money input", async () => {

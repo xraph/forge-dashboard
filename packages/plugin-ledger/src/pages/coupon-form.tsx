@@ -24,7 +24,7 @@ export interface CouponFormValue {
 }
 
 export function emptyCouponForm(): CouponFormValue {
-  return { code: "", name: "", type: "percentage", percentage: "", amount: "", currency: "usd", max: "0", valid_from: "", valid_until: "" }
+  return { code: "", name: "", type: "percentage", percentage: "", amount: "", currency: "", max: "0", valid_from: "", valid_until: "" }
 }
 
 export function couponToForm(c: Coupon): CouponFormValue {
@@ -73,14 +73,20 @@ function amountError(currency: string): string {
 /**
  * coupons.create's payload. The window keys are sent only when set. The code
  * keeps its case because the engine looks codes up exactly; the currency is
- * lowercased, as the engine does.
+ * lowercased, as the engine does. A percentage coupon may have no currency
+ * (sent as ""), which the engine applies to a plan in any currency; an amount
+ * coupon always needs one, because its money is in it.
  */
 export function createCouponPayload(v: CouponFormValue): Result<Record<string, unknown>> {
   const errors: string[] = []
   const code = v.code.trim()
   const currency = v.currency.trim().toLowerCase()
   if (code === "") errors.push("Code is required.")
-  if (!/^[a-z]{3}$/.test(currency)) errors.push("Currency must be a three-letter code such as usd.")
+  const currencyOk = /^[a-z]{3}$/.test(currency)
+  if (!currencyOk && !(v.type === "percentage" && currency === "")) {
+    if (v.type === "amount") errors.push(currency === "" ? "An amount coupon needs a currency, such as usd." : "Currency must be a three-letter code such as usd.")
+    else errors.push("Currency must be a three-letter code such as usd, or empty for any currency.")
+  }
   const value: Record<string, unknown> = { code, name: v.name.trim(), type: v.type }
   if (v.type === "percentage") {
     const p = v.percentage.trim()
@@ -88,8 +94,9 @@ export function createCouponPayload(v: CouponFormValue): Result<Record<string, u
     else value.percentage = Number(p)
   } else {
     const amount = parseMajor(v.amount, currency)
-    if (amount === undefined) errors.push(amountError(currency))
-    else value.amount = { amount, currency }
+    // With no valid currency there is no scale to read the amount in, and the currency error above already says so.
+    if (amount !== undefined) value.amount = { amount, currency }
+    else if (currencyOk) errors.push(amountError(currency))
   }
   value.currency = currency
   value.max_redemptions = maxErrors(v, errors)
@@ -159,10 +166,19 @@ export function CouponForm({
   const [problems, setProblems] = useState<string[]>([])
   const set = <K extends keyof CouponFormValue>(key: K, value: CouponFormValue[K]) => setV((prev) => ({ ...prev, [key]: value }))
   const problemsRef = useRef<HTMLDivElement>(null)
+  // Whether the operator typed a currency themselves, so a currency this form filled in is not left restricting a percentage coupon.
+  const currencyTyped = useRef(initial.currency !== "")
   // A failed parse moves focus to the alert, so a keyboard or screen-reader user hears it.
   useEffect(() => {
     if (problems.length > 0) problemsRef.current?.focus()
   }, [problems])
+
+  function changeType(type: CouponType) {
+    setV((prev) => {
+      if (type === "amount") return { ...prev, type, currency: prev.currency.trim() === "" ? "usd" : prev.currency }
+      return { ...prev, type, currency: currencyTyped.current ? prev.currency : "" }
+    })
+  }
 
   function submit(event: FormEvent) {
     event.preventDefault()
@@ -206,7 +222,7 @@ export function CouponForm({
           <div className="grid gap-4 sm:grid-cols-3">
             <div className="flex flex-col gap-1.5">
               <Label htmlFor="coupon-type">Type</Label>
-              <NativeSelect id="coupon-type" value={v.type} onChange={(e) => set("type", e.target.value as CouponType)}>
+              <NativeSelect id="coupon-type" value={v.type} onChange={(e) => changeType(e.target.value as CouponType)}>
                 <NativeSelectOption value="percentage">Percentage off</NativeSelectOption>
                 <NativeSelectOption value="amount">Amount off</NativeSelectOption>
               </NativeSelect>
@@ -224,17 +240,31 @@ export function CouponForm({
             )}
             <div className="flex flex-col gap-1.5">
               <Label htmlFor="coupon-currency">Currency</Label>
-              <Input id="coupon-currency" aria-describedby="coupon-currency-help" className="font-mono uppercase" value={v.currency} onChange={(e) => set("currency", e.target.value)} />
+              <Input
+                id="coupon-currency"
+                aria-describedby="coupon-currency-help"
+                className="font-mono uppercase"
+                placeholder={v.type === "percentage" ? "Any currency" : undefined}
+                value={v.currency}
+                onChange={(e) => {
+                  currencyTyped.current = true
+                  set("currency", e.target.value)
+                }}
+              />
             </div>
           </div>
           <p id="coupon-currency-help" className="text-xs text-muted-foreground">
-            Coupons can only be applied to plans billed in this currency. The code, type, discount and currency cannot change after you create the coupon.
+            {v.type === "percentage"
+              ? "Leave empty and the coupon applies to a plan in any currency, or enter one currency to limit it to plans billed in it."
+              : "The coupon can only be applied to plans billed in this currency."}{" "}
+            The code, type, discount and currency cannot change after you create the coupon.
           </p>
         </>
       ) : (
         original && (
           <p className="text-sm">
-            <span className="font-mono text-xs">{original.code}</span> gives {describeDiscount(original)} in {original.currency.toUpperCase()}. The code, the
+            <span className="font-mono text-xs">{original.code}</span> gives {describeDiscount(original)} in{" "}
+            {original.currency === "" ? "any currency" : original.currency.toUpperCase()}. The code, the
             discount and the currency cannot change once a coupon exists, because applied coupons are priced from them on every future invoice.
           </p>
         )

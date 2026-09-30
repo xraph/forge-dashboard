@@ -30,6 +30,19 @@ export function formatDay(iso: string): string {
   return at.toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric", timeZone: "UTC" })
 }
 
+/**
+ * A date without its time, in the operator's own zone. For instants an
+ * operator entered, such as a coupon's validity window, unlike billing days
+ * (`formatDay`, UTC): "until 23:59 on Dec 31" typed in their zone must read
+ * Dec 31 to them, not Jan 1 west of Greenwich. Unparseable text prints as it
+ * arrived.
+ */
+export function formatLocalDay(iso: string): string {
+  const at = new Date(iso)
+  if (Number.isNaN(at.getTime())) return iso
+  return at.toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric" })
+}
+
 export function formatPeriod(start: string, end: string): string {
   return `${formatDay(start)} – ${formatDay(end)}`
 }

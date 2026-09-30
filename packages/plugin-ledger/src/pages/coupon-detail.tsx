@@ -68,7 +68,10 @@ function CouponDetailView({ coupon }: { coupon: Coupon }) {
         items={[
           { term: "State", value: <CouponStateBadge state={couponState(coupon)} /> },
           { term: "Discount", value: describeDiscount(coupon) },
-          { term: "Currency", value: <span className="font-mono text-xs">{coupon.currency.toUpperCase()}</span> },
+          {
+            term: "Currency",
+            value: coupon.currency === "" ? "Any currency" : <span className="font-mono text-xs">{coupon.currency.toUpperCase()}</span>,
+          },
           { term: "Redemptions", value: <span className="tabular-nums">{redemptionsText(coupon)}</span> },
           { term: "Valid", value: validityText(coupon) ?? <NoneCell label="validity window" /> },
           { term: "Created", value: <Timestamp value={coupon.created_at} label="creation" /> },

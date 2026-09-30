@@ -7,12 +7,18 @@ import { EmptyState } from "@forge-go/dashboard-kit/components/empty-state"
  *
  * Matched on the message as well as the code: a mistyped intent name is also
  * NOT_FOUND, and telling an operator "no such plan" about a typo in the page
- * would send them looking for a plan that is there. The contract words every
- * missing record as "<noun> not found", including one that belongs to another
- * app, which is deliberate and reads the same here.
+ * would send them looking for a plan that is there. Two spellings reach here.
+ * The contract's own `notFound()` words another app's record "<noun> not
+ * found". A truly missing id comes from the engine's sentinel errors, passed
+ * through as err.Error(): "ledger: coupon not found", possibly wrapped
+ * ("...: ledger: coupon not found"), or the generic "ledger: not found". Both
+ * read the same to an operator. Another noun's message ("provider not found")
+ * never matches.
  */
 export function isNotFound(error: { code: string; message: string } | undefined, noun: string): boolean {
-  return error?.code === "NOT_FOUND" && error.message === `${noun} not found`
+  if (error?.code !== "NOT_FOUND") return false
+  const m = error.message
+  return m === `${noun} not found` || m.endsWith(`: ${noun} not found`) || m === "ledger: not found"
 }
 
 export function NotFoundState({ noun, id, backTo, backLabel }: { noun: string; id: string; backTo: string; backLabel: string }) {

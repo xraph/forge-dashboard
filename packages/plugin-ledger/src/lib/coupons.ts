@@ -1,5 +1,5 @@
 import type { Coupon } from "../types"
-import { formatDay } from "./datetime"
+import { formatLocalDay } from "./datetime"
 import { formatMoney } from "./money"
 
 export type CouponState = "active" | "scheduled" | "expired" | "exhausted"
@@ -20,11 +20,14 @@ export function describeDiscount(c: Coupon): string {
   return c.type === "percentage" ? `${c.percentage ?? 0}% off` : `${formatMoney(c.amount)} off`
 }
 
-/** The validity window as a phrase, or undefined when the coupon has none. */
+/**
+ * The validity window as a phrase, or undefined when the coupon has none.
+ * Days are in the operator's own zone, the zone the form edits the window in.
+ */
 export function validityText(c: Coupon): string | undefined {
-  if (c.valid_from && c.valid_until) return `${formatDay(c.valid_from)} – ${formatDay(c.valid_until)}`
-  if (c.valid_from) return `From ${formatDay(c.valid_from)}`
-  if (c.valid_until) return `Until ${formatDay(c.valid_until)}`
+  if (c.valid_from && c.valid_until) return `${formatLocalDay(c.valid_from)} – ${formatLocalDay(c.valid_until)}`
+  if (c.valid_from) return `From ${formatLocalDay(c.valid_from)}`
+  if (c.valid_until) return `Until ${formatLocalDay(c.valid_until)}`
   return undefined
 }
 
