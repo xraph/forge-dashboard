@@ -149,6 +149,19 @@ const INPUT = {
   "vault::rotation.savePolicy": { key: "api/stripe.key", intervalSeconds: 3600, enabled: true },
   "vault::rotation.deletePolicy": { key: "api/stripe.key" },
   "vault::rotation.rotateNow": { key: "db/primary.password" },
+  // flags: intent order is list, detail, evaluate, create, update, delete,
+  // setEnabled, setRules, setTenantOverride, deleteTenantOverride. create runs
+  // before update and delete, which act on the flag it made; the last four act
+  // on a seeded flag, and the override is set before it is deleted.
+  "vault::flags.detail": { key: "checkout.new-flow" },
+  "vault::flags.evaluate": { key: "checkout.new-flow", tenantId: "acme" },
+  "vault::flags.create": { key: "verify/new.flag", type: "bool", defaultValue: false, enabled: true },
+  "vault::flags.update": { key: "verify/new.flag", description: "updated by verify.mjs" },
+  "vault::flags.delete": { key: "verify/new.flag" },
+  "vault::flags.setEnabled": { key: "auth.passkeys", enabled: false },
+  "vault::flags.setRules": { key: "auth.passkeys", rules: [{ type: "rollout", percentage: 10, returnValue: true }] },
+  "vault::flags.setTenantOverride": { key: "auth.passkeys", tenantId: "acme", value: true },
+  "vault::flags.deleteTenantOverride": { key: "auth.passkeys", tenantId: "acme" },
   "streaming-contract::rooms.detail": { id: "room_1" },
   "streaming-contract::rooms.create": { name: "Verify room", description: "d", owner: "usr_1", private: false },
   "streaming-contract::rooms.delete": { id: "room_2" },
@@ -602,6 +615,355 @@ async function main() {
     // No response, from any vault intent, may carry the value.
     const everything = JSON.stringify([page1.body, all.body, created.body, kept.body, cleared.body, versions.body, detail.body, rotated.body])
     vaultCheck("no response carries a secret value", !everything.includes(canary), "the canary value came back")
+
+    // -- flags: the rules the Go manager, engine and handlers enforce ---------
+    const { createHash } = await import("node:crypto")
+    const same = (a, b) => JSON.stringify(a) === JSON.stringify(b)
+    const data = (r) => r.body?.data
+    const failure = (r) => `${r.status} ${r.body?.error?.code}: ${r.body?.error?.message}`
+    /** A refusal: this HTTP status, this contract code and exactly this message. */
+    const refused = (r, status, code, message) => r.status === status && r.body?.error?.code === code && r.body?.error?.message === message
+    const badRequest = (r, message) => refused(r, 400, "BAD_REQUEST", message)
+    const flagCall = (intent, input) => vaultCall(intent, /\.(list|detail|evaluate)$/.test(intent) ? "query" : "command", input)
+    const bucketOf = (tenantId, key) => createHash("sha256").update(`${tenantId}:${key}`).digest().readUInt32BE(0) % 100
+    const flagActions = async (key) => (data(await flagCall("flags.detail", { key }))?.recentAudit ?? []).map((e) => e.action)
+    const rulesWithoutIds = (rules) => rules.map(({ id, ...rest }) => rest)
+
+    // Seed: 30 flags, all five types, a second page, a type filter and a total.
+    const fpage1 = await flagCall("flags.list", {})
+    const fpage2 = await flagCall("flags.list", { offset: 25 })
+    const flist = data(fpage1)
+    vaultCheck(
+      "flags.list pages (25 then the rest, exact total)",
+      flist?.flags?.length === 25 && data(fpage2)?.flags?.length === flist.total - 25 && flist.total === 30,
+      `got ${flist?.flags?.length} then ${data(fpage2)?.flags?.length} of ${flist?.total}`,
+    )
+    const fall = data(await flagCall("flags.list", { limit: 500 }))?.flags ?? []
+    vaultCheck(
+      "the seed covers all five types and is in key order",
+      ["bool", "string", "int", "float", "json"].every((t) => fall.some((f) => f.type === t)) && same(fall.map((f) => f.key), fall.map((f) => f.key).sort()),
+      JSON.stringify([...new Set(fall.map((f) => f.type))]),
+    )
+    const jsonOnly = data(await flagCall("flags.list", { type: "json", limit: 1 }))
+    vaultCheck("flags.list filters by type, and total counts the filter not the page", jsonOnly?.flags?.length === 1 && jsonOnly.flags[0].type === "json" && jsonOnly.total === 2, JSON.stringify(jsonOnly))
+    const badType = await flagCall("flags.list", { type: "boolean" })
+    vaultCheck("flags.list refuses an unknown type", badRequest(badType, "type must be one of bool, string, int, float, json"), failure(badType))
+    vaultCheck("a flag row carries every projected field", fall.every((f) => ["id", "key", "type", "defaultValue", "defaultMatchesType", "description", "tags", "enabled", "createdAt", "updatedAt"].every((k) => k in f) && Array.isArray(f.tags)), "a field is missing or tags is not a list")
+
+    const strict = fall.find((f) => f.key === "legacy.strict-mode")
+    vaultCheck("the seed has a bool flag with the string \"true\" default, flagged as the wrong type", strict?.type === "bool" && strict.defaultValue === "true" && strict.defaultMatchesType === false, JSON.stringify(strict))
+    vaultCheck("a well-typed default reports defaultMatchesType true", fall.filter((f) => f.key !== "legacy.strict-mode").every((f) => f.defaultMatchesType === true), "a seed default does not match its type")
+    // auth.passkeys is the other one: the intent loop above disabled it through
+    // flags.setEnabled before this check runs.
+    const disabledKeys = fall.filter((f) => !f.enabled).map((f) => f.key)
+    vaultCheck("the seed has one disabled flag (and flags.setEnabled disabled auth.passkeys)", same(disabledKeys, ["auth.passkeys", "beta.dark-mode"]), JSON.stringify(disabledKeys))
+
+    const ladder = data(await flagCall("flags.detail", { key: "checkout.new-flow" }))
+    vaultCheck(
+      "one seeded flag has every rule type in order, priorities from the index",
+      same((ladder?.rules ?? []).map((r) => r.type), ["when_tenant", "when_user", "rollout", "schedule", "when_tenant_tag", "custom"]) && (ladder?.rules ?? []).every((r, i) => r.priority === i),
+      JSON.stringify((ladder?.rules ?? []).map((r) => [r.priority, r.type])),
+    )
+    vaultCheck(
+      "implemented is false for when_tenant_tag and custom only",
+      same((ladder?.rules ?? []).map((r) => r.implemented), [true, true, true, true, false, false]),
+      JSON.stringify((ladder?.rules ?? []).map((r) => r.implemented)),
+    )
+    const tagRule = ladder?.rules?.[4]
+    const customRule = ladder?.rules?.[5]
+    vaultCheck(
+      "the tag and custom rules keep their config",
+      tagRule?.tagKey === "plan" && tagRule.tagValue === "enterprise" && customRule?.evaluator === "beta-cohort" && same(customRule.params, { cohort: "early", weight: 2, flags: ["a", "b"] }),
+      JSON.stringify([tagRule, customRule]),
+    )
+    vaultCheck(
+      "flags.detail carries cacheTtlSeconds 30 and never null lists",
+      ladder?.cacheTtlSeconds === 30 && Array.isArray(ladder.variants) && Array.isArray(ladder.overrides) && Array.isArray(ladder.recentAudit) && ladder.metadata !== null && typeof ladder.metadata === "object",
+      JSON.stringify({ ttl: ladder?.cacheTtlSeconds }),
+    )
+    const strictDetail = data(await flagCall("flags.detail", { key: "legacy.strict-mode" }))
+    vaultCheck("a rule returning the wrong type is flagged returnMatchesType false", strictDetail?.rules?.[0]?.returnValue === "false" && strictDetail.rules[0].returnMatchesType === false, JSON.stringify(strictDetail?.rules))
+    const themed = data(await flagCall("flags.detail", { key: "ui.theme" }))
+    vaultCheck("one seeded flag carries variants and metadata", themed?.variants?.length === 3 && themed.variants[0].value === "light" && themed.metadata?.owner === "design", JSON.stringify([themed?.variants, themed?.metadata]))
+    const invoice = data(await flagCall("flags.detail", { key: "billing/invoice-v2" }))
+    const rate = data(await flagCall("flags.detail", { key: "limits.api-rate" }))
+    vaultCheck(
+      "two seeded flags carry tenant overrides, listed by tenant",
+      same((invoice?.overrides ?? []).map((o) => o.tenantId), ["acme", "initech"]) && same((rate?.overrides ?? []).map((o) => o.tenantId), ["acme", "globex"]) && [...(invoice?.overrides ?? []), ...(rate?.overrides ?? [])].every((o) => o.valueMatchesType === true),
+      JSON.stringify([invoice?.overrides, rate?.overrides]),
+    )
+    const missingFlag = await flagCall("flags.detail", { key: "spot/none.flag" })
+    vaultCheck("flags.detail on a missing key is 404 NOT_FOUND", refused(missingFlag, 404, "NOT_FOUND", "flag not found"), failure(missingFlag))
+    const blankKey = await flagCall("flags.detail", { key: "  " })
+    vaultCheck("flags.detail with a blank key is BAD_REQUEST", badRequest(blankKey, "key is required"), failure(blankKey))
+
+    // create: the manager's refusals, in its order.
+    const boolWithString = await flagCall("flags.create", { key: "spot/flag.bad", type: "bool", defaultValue: "true", enabled: true })
+    vaultCheck("flags.create refuses a string default on a bool flag", badRequest(boolWithString, "flag: defaultValue: must be a boolean, got a string"), failure(boolWithString))
+    const intFraction = await flagCall("flags.create", { key: "spot/flag.bad", type: "int", defaultValue: 1.5 })
+    vaultCheck("flags.create refuses a fractional int", badRequest(intFraction, "flag: defaultValue: must be a whole number, got 1.5"), failure(intFraction))
+    const intHuge = await flagCall("flags.create", { key: "spot/flag.bad", type: "int", defaultValue: 2 ** 53 + 2 })
+    vaultCheck("flags.create refuses an int beyond 2^53", badRequest(intHuge, "flag: defaultValue: must not exceed 2^53 in magnitude, got 9.007199254740994e+15"), failure(intHuge))
+    const floatWithString = await flagCall("flags.create", { key: "spot/flag.bad", type: "float", defaultValue: "1.5" })
+    vaultCheck("flags.create refuses a string default on a float flag", badRequest(floatWithString, "flag: defaultValue: must be a number, got a string"), failure(floatWithString))
+    const stringWithNull = await flagCall("flags.create", { key: "spot/flag.bad", type: "string", defaultValue: null })
+    vaultCheck("flags.create refuses null on a string flag", badRequest(stringWithNull, "flag: defaultValue: must be a string, got null"), failure(stringWithNull))
+    const noDefault = await flagCall("flags.create", { key: "spot/flag.bad", type: "bool" })
+    vaultCheck("flags.create with no default is refused like a null one", badRequest(noDefault, "flag: defaultValue: must be a boolean, got null"), failure(noDefault))
+    const badFlagType = await flagCall("flags.create", { key: "spot/flag.bad", type: "boolean", defaultValue: true })
+    vaultCheck("flags.create refuses an unknown type", badRequest(badFlagType, "flag: type: must be one of bool, string, int, float, json"), failure(badFlagType))
+    const noKey = await flagCall("flags.create", { key: "", type: "bool", defaultValue: true })
+    vaultCheck("flags.create refuses a blank key", badRequest(noKey, "key is required"), failure(noKey))
+    const longKey = await flagCall("flags.create", { key: "k".repeat(257), type: "bool", defaultValue: true })
+    vaultCheck("flags.create refuses a key over 256 bytes", badRequest(longKey, "flag: key: must be at most 256 bytes"), failure(longKey))
+    const beforeRefusals = data(await flagCall("flags.list", {}))?.total
+    vaultCheck("no refused create left a flag behind", beforeRefusals === flist?.total, `${beforeRefusals} vs ${flist?.total}`)
+
+    const fcreated = await flagCall("flags.create", { key: "spot/flag.a", type: "bool", defaultValue: false, description: "spot", tags: ["one", "two"], enabled: true })
+    vaultCheck(
+      "flags.create answers the flag it made",
+      fcreated.body?.data?.flag?.key === "spot/flag.a" && fcreated.body.data.flag.enabled === true && fcreated.body.data.flag.defaultMatchesType === true && same(fcreated.body.data.flag.tags, ["one", "two"]) && fcreated.body.data.flag.description === "spot",
+      JSON.stringify(fcreated.body),
+    )
+    const fagain = await flagCall("flags.create", { key: "spot/flag.a", type: "int", defaultValue: 3 })
+    vaultCheck("flags.create refuses an existing key with 409 CONFLICT", refused(fagain, 409, "CONFLICT", "a flag with this key already exists"), failure(fagain))
+    const afterConflict = data(await flagCall("flags.detail", { key: "spot/flag.a" }))?.flag
+    vaultCheck("a refused create leaves the flag exactly as it was", afterConflict?.type === "bool" && afterConflict.defaultValue === false, JSON.stringify(afterConflict))
+    const fgrown = data(await flagCall("flags.list", {}))?.total
+    vaultCheck("flags.create grows the list total", fgrown === (flist?.total ?? 0) + 1, `${fgrown} vs ${flist?.total}`)
+    const emptyTagsFlag = await flagCall("flags.create", { key: "spot/flag.str", type: "string", defaultValue: "" })
+    vaultCheck("a string flag may default to the empty string, and tags are [] not null", emptyTagsFlag.body?.data?.flag?.defaultValue === "" && same(emptyTagsFlag.body.data.flag.tags, []) && emptyTagsFlag.body.data.flag.enabled === false, JSON.stringify(emptyTagsFlag.body))
+    const jsonNull = await flagCall("flags.create", { key: "spot/flag.json", type: "json", defaultValue: null })
+    vaultCheck("a json flag may default to null", jsonNull.body?.data?.flag?.defaultValue === null && jsonNull.body.data.flag.defaultMatchesType === true, JSON.stringify(jsonNull.body))
+
+    // update: absent leaves, present sets, checked against the stored type.
+    const updBad = await flagCall("flags.update", { key: "spot/flag.a", defaultValue: "true" })
+    vaultCheck("flags.update refuses a default that does not match the stored type", badRequest(updBad, "flag: defaultValue: must be a boolean, got a string"), failure(updBad))
+    const updNullBool = await flagCall("flags.update", { key: "spot/flag.a", defaultValue: null })
+    vaultCheck("flags.update refuses null on a bool flag", badRequest(updNullBool, "flag: defaultValue: must be a boolean, got null"), failure(updNullBool))
+    const updDesc = await flagCall("flags.update", { key: "spot/flag.a", description: "renamed" })
+    vaultCheck("flags.update leaves an absent default and tags alone", updDesc.body?.data?.flag?.description === "renamed" && updDesc.body.data.flag.defaultValue === false && same(updDesc.body.data.flag.tags, ["one", "two"]), JSON.stringify(updDesc.body))
+    const updTrue = await flagCall("flags.update", { key: "spot/flag.a", defaultValue: true, tags: [] })
+    vaultCheck("flags.update sets a present default and an empty tag list", updTrue.body?.data?.flag?.defaultValue === true && same(updTrue.body.data.flag.tags, []), JSON.stringify(updTrue.body))
+    const updJson = await flagCall("flags.update", { key: "spot/flag.json", defaultValue: { a: [1, 2] } })
+    const updJsonNull = await flagCall("flags.update", { key: "spot/flag.json", defaultValue: null })
+    vaultCheck("flags.update sets a json default and a null one", same(updJson.body?.data?.flag?.defaultValue, { a: [1, 2] }) && updJsonNull.body?.data?.flag?.defaultValue === null, JSON.stringify([updJson.body, updJsonNull.body]))
+    const updMissing = await flagCall("flags.update", { key: "spot/none.flag", description: "x" })
+    vaultCheck("flags.update on a missing key is 404 NOT_FOUND", refused(updMissing, 404, "NOT_FOUND", "flag not found"), failure(updMissing))
+
+    // setRules: refusals first, then the ladder and what the engine does with it.
+    const rulesAbsent = await flagCall("flags.setRules", { key: "spot/flag.a" })
+    vaultCheck("flags.setRules refuses an absent rules list", badRequest(rulesAbsent, "rules is required; send an empty list to clear them"), failure(rulesAbsent))
+    const rulesNull = await flagCall("flags.setRules", { key: "spot/flag.a", rules: null })
+    vaultCheck("flags.setRules refuses a null rules list", badRequest(rulesNull, "rules is required; send an empty list to clear them"), failure(rulesNull))
+    const ruleRefusals = [
+      ["a percentage over 100", { type: "rollout", percentage: 101, returnValue: true }, "flag: rules[0].config.percentage: must be between 0 and 100"],
+      ["a negative percentage", { type: "rollout", percentage: -1, returnValue: true }, "flag: rules[0].config.percentage: must be between 0 and 100"],
+      ["no tenant ids", { type: "when_tenant", tenantIds: [], returnValue: true }, "flag: rules[0].config.tenantIds: must list at least one id"],
+      ["a blank tenant id", { type: "when_tenant", tenantIds: ["acme", " "], returnValue: true }, "flag: rules[0].config.tenantIds: must not contain a blank id"],
+      ["a duplicate tenant id", { type: "when_tenant", tenantIds: ["acme", " acme "], returnValue: true }, 'flag: rules[0].config.tenantIds: lists "acme" more than once'],
+      ["no user ids", { type: "when_user", returnValue: true }, "flag: rules[0].config.userIds: must list at least one id"],
+      ["a schedule with no bounds", { type: "schedule", returnValue: true }, "flag: rules[0].config: a schedule needs a start, an end, or both"],
+      ["a schedule that ends before it starts", { type: "schedule", startAt: "2030-01-02T00:00:00Z", endAt: "2030-01-01T00:00:00Z", returnValue: true }, "flag: rules[0].config.endAt: must be after the start"],
+      ["a schedule that ends when it starts", { type: "schedule", startAt: "2030-01-01T00:00:00Z", endAt: "2030-01-01T00:00:00Z", returnValue: true }, "flag: rules[0].config.endAt: must be after the start"],
+      ["an unknown rule type", { type: "geo", returnValue: true }, 'flag: rules[0].type: unknown rule type "geo"'],
+      ["a return value of the wrong type", { type: "rollout", percentage: 5, returnValue: "yes" }, "flag: rules[0].returnValue: must be a boolean, got a string"],
+      ["a missing return value", { type: "rollout", percentage: 5 }, "flag: rules[0].returnValue: must be a boolean, got null"],
+    ]
+    for (const [what, rule, message] of ruleRefusals) {
+      const r = await flagCall("flags.setRules", { key: "spot/flag.a", rules: [rule] })
+      vaultCheck(`flags.setRules refuses ${what}`, badRequest(r, message), failure(r))
+    }
+    const badTime = await flagCall("flags.setRules", { key: "spot/flag.a", rules: [{ type: "rollout", percentage: 1, returnValue: true }, { type: "schedule", startAt: "tomorrow", returnValue: true }] })
+    vaultCheck("flags.setRules refuses a start that is not RFC3339, naming its index", badRequest(badTime, "rules[1].startAt must be an RFC3339 timestamp"), failure(badTime))
+    const badEnd = await flagCall("flags.setRules", { key: "spot/flag.a", rules: [{ type: "schedule", endAt: "2030-01-01 00:00", returnValue: true }] })
+    vaultCheck("flags.setRules refuses an end that is not RFC3339", badRequest(badEnd, "rules[0].endAt must be an RFC3339 timestamp"), failure(badEnd))
+    const laterBad = await flagCall("flags.setRules", { key: "spot/flag.a", rules: [{ type: "rollout", percentage: 50, returnValue: true }, { type: "rollout", percentage: 200, returnValue: true }] })
+    vaultCheck("flags.setRules names the rule at fault by its index", badRequest(laterBad, "flag: rules[1].config.percentage: must be between 0 and 100"), failure(laterBad))
+    vaultCheck("no refused setRules wrote anything", same(data(await flagCall("flags.detail", { key: "spot/flag.a" }))?.rules, []), "a refused list left rules behind")
+    const rulesOnMissing = await flagCall("flags.setRules", { key: "spot/none.flag", rules: [] })
+    vaultCheck("flags.setRules on a missing key is 404 NOT_FOUND", refused(rulesOnMissing, 404, "NOT_FOUND", "flag not found"), failure(rulesOnMissing))
+
+    // The engine's order: disabled, tenant override, rules in order, default.
+    const ordered = await flagCall("flags.setRules", {
+      key: "spot/flag.a",
+      rules: [
+        { type: "when_tenant", tenantIds: ["acme"], returnValue: true },
+        { type: "when_user", userIds: ["usr_9"], returnValue: true },
+        { type: "rollout", percentage: 100, returnValue: true },
+      ],
+    })
+    vaultCheck(
+      "flags.setRules answers the stored rules, priority from the index, every return value matching",
+      same((ordered.body?.data?.rules ?? []).map((r) => [r.priority, r.type, r.implemented, r.returnMatchesType]), [[0, "when_tenant", true, true], [1, "when_user", true, true], [2, "rollout", true, true]]),
+      JSON.stringify(ordered.body),
+    )
+    const evAcme = data(await flagCall("flags.evaluate", { key: "spot/flag.a", tenantId: "acme" }))
+    vaultCheck(
+      "a rule at priority 0 decides, matchedRulePriority 0 survives, and the rest are not reached",
+      evAcme?.reason === "rule" && evAcme.value === true && evAcme.matchedRulePriority === 0 && same((evAcme.trace ?? []).map((s) => [s.priority, s.matched, s.reached, s.note]), [[0, true, true, "tenant acme"], [1, false, false, ""], [2, false, false, ""]]),
+      JSON.stringify(evAcme),
+    )
+    const evBucket = data(await flagCall("flags.evaluate", { key: "spot/flag.a", tenantId: "zeta", userId: "usr_1" }))
+    const zetaBucket = bucketOf("zeta", "spot/flag.a")
+    vaultCheck(
+      "the engine's trace notes are in its wording, and a rollout falls through to the rollout rule",
+      evBucket?.reason === "rule" && evBucket.matchedRulePriority === 2 && same((evBucket.trace ?? []).map((s) => s.note), ["tenant zeta", "user usr_1", `bucket ${zetaBucket} of 100, threshold 100`]),
+      JSON.stringify(evBucket),
+    )
+    vaultCheck("bucket is sha256(tenantId:key), first four bytes big-endian, mod 100", evBucket?.bucket === zetaBucket, `${evBucket?.bucket} vs ${zetaBucket}`)
+    const evNoTenant = data(await flagCall("flags.evaluate", { key: "spot/flag.a" }))
+    vaultCheck(
+      "with no tenant or user there is no bucket, and the notes say so",
+      evNoTenant && !("bucket" in evNoTenant) && same((evNoTenant.trace ?? []).map((s) => s.note), ["no tenant in context", "no user in context", "no tenant in context, a rollout cannot match"]) && evNoTenant.reason === "default" && evNoTenant.matchedRulePriority === undefined && evNoTenant.value === true,
+      JSON.stringify(evNoTenant),
+    )
+    vaultCheck("evaluate reports the flag's own type check and a timestamp", evNoTenant?.valueMatchesType === true && typeof evNoTenant.evaluatedAt === "string", JSON.stringify(evNoTenant))
+    const evMissing = await flagCall("flags.evaluate", { key: "spot/none.flag" })
+    vaultCheck("flags.evaluate on a missing key is 404 NOT_FOUND", refused(evMissing, 404, "NOT_FOUND", "flag not found"), failure(evMissing))
+
+    // Overrides.
+    const ovMissingFlag = await flagCall("flags.setTenantOverride", { key: "spot/none.flag", tenantId: "acme", value: true })
+    vaultCheck("flags.setTenantOverride on a missing flag is 404 NOT_FOUND", refused(ovMissingFlag, 404, "NOT_FOUND", "flag not found"), failure(ovMissingFlag))
+    const ovBlank = await flagCall("flags.setTenantOverride", { key: "spot/flag.a", tenantId: "  ", value: true })
+    vaultCheck("flags.setTenantOverride refuses a blank tenant", badRequest(ovBlank, "flag: tenantId: is required"), failure(ovBlank))
+    const ovWrongType = await flagCall("flags.setTenantOverride", { key: "spot/flag.a", tenantId: "acme", value: "true" })
+    vaultCheck("flags.setTenantOverride refuses a value of the wrong type", badRequest(ovWrongType, "flag: value: must be a boolean, got a string"), failure(ovWrongType))
+    const ovSet = await flagCall("flags.setTenantOverride", { key: "spot/flag.a", tenantId: " acme ", value: false })
+    vaultCheck("flags.setTenantOverride trims the tenant and answers the override", ovSet.body?.data?.override?.tenantId === "acme" && ovSet.body.data.override.value === false && ovSet.body.data.override.valueMatchesType === true && typeof ovSet.body.data.override.updatedAt === "string", JSON.stringify(ovSet.body))
+    const evOverride = data(await flagCall("flags.evaluate", { key: "spot/flag.a", tenantId: "acme" }))
+    vaultCheck("an override beats every rule, with an empty trace and the bucket still reported", evOverride?.reason === "tenantOverride" && evOverride.value === false && same(evOverride.trace, []) && evOverride.bucket === bucketOf("acme", "spot/flag.a"), JSON.stringify(evOverride))
+    const ovDeleted = await flagCall("flags.deleteTenantOverride", { key: "spot/flag.a", tenantId: "acme" })
+    vaultCheck("flags.deleteTenantOverride answers ok, the key and the tenant", same([ovDeleted.body?.data?.ok, ovDeleted.body?.data?.key, ovDeleted.body?.data?.tenantId], [true, "spot/flag.a", "acme"]), JSON.stringify(ovDeleted.body))
+    const evAfterOverride = data(await flagCall("flags.evaluate", { key: "spot/flag.a", tenantId: "acme" }))
+    vaultCheck("deleting the override hands the tenant back to the rules", evAfterOverride?.reason === "rule" && evAfterOverride.value === true, JSON.stringify(evAfterOverride))
+    const ovDeletedTwice = await flagCall("flags.deleteTenantOverride", { key: "spot/flag.a", tenantId: "acme" })
+    vaultCheck("flags.deleteTenantOverride with none set is 404 NOT_FOUND", refused(ovDeletedTwice, 404, "NOT_FOUND", "tenant override not found"), failure(ovDeletedTwice))
+    const ovDelBlank = await flagCall("flags.deleteTenantOverride", { key: "spot/flag.a", tenantId: "" })
+    vaultCheck("flags.deleteTenantOverride refuses a blank tenant", badRequest(ovDelBlank, "flag: tenantId: is required"), failure(ovDelBlank))
+    const ovDelMissingFlag = await flagCall("flags.deleteTenantOverride", { key: "spot/none.flag", tenantId: "acme" })
+    vaultCheck("flags.deleteTenantOverride on a missing flag says the flag is missing", refused(ovDelMissingFlag, 404, "NOT_FOUND", "flag not found"), failure(ovDelMissingFlag))
+
+    // Value types per flag type.
+    await flagCall("flags.create", { key: "spot/flag.int", type: "int", defaultValue: 5, enabled: true })
+    const ovIntString = await flagCall("flags.setTenantOverride", { key: "spot/flag.int", tenantId: "acme", value: "9" })
+    vaultCheck("an int override refuses a string", badRequest(ovIntString, "flag: value: must be a whole number, got a string"), failure(ovIntString))
+    const ovIntFraction = await flagCall("flags.setTenantOverride", { key: "spot/flag.int", tenantId: "acme", value: 2.5 })
+    vaultCheck("an int override refuses a fraction", badRequest(ovIntFraction, "flag: value: must be a whole number, got 2.5"), failure(ovIntFraction))
+    const ruleIntFraction = await flagCall("flags.setRules", { key: "spot/flag.int", rules: [{ type: "rollout", percentage: 5, returnValue: 1.5 }] })
+    vaultCheck("an int rule return refuses a fraction", badRequest(ruleIntFraction, "flag: rules[0].returnValue: must be a whole number, got 1.5"), failure(ruleIntFraction))
+    const ovIntOk = await flagCall("flags.setTenantOverride", { key: "spot/flag.int", tenantId: "acme", value: -7 })
+    vaultCheck("an int override accepts a negative whole number", ovIntOk.body?.data?.override?.value === -7, JSON.stringify(ovIntOk.body))
+    const ovJson = await flagCall("flags.setTenantOverride", { key: "spot/flag.json", tenantId: "acme", value: { deep: { list: [1, "two", null] } } })
+    vaultCheck("a json override accepts any JSON value, null included", same(ovJson.body?.data?.override?.value, { deep: { list: [1, "two", null] } }), JSON.stringify(ovJson.body))
+
+    // setEnabled: a disabled flag stops evaluating its rules at once.
+    // The default goes back to false first, so the value a disabled flag serves
+    // differs from the value its rules serve.
+    await flagCall("flags.update", { key: "spot/flag.a", defaultValue: false })
+    const auditBeforeToggle = await flagActions("spot/flag.a")
+    const off =await flagCall("flags.setEnabled", { key: "spot/flag.a", enabled: false })
+    const evOff = data(await flagCall("flags.evaluate", { key: "spot/flag.a", tenantId: "acme" }))
+    vaultCheck(
+      "disabling a flag changes the next evaluate to the default, with an empty trace",
+      off.body?.data?.flag?.enabled === false && evOff?.reason === "disabled" && evOff.value === false && same(evOff.trace, []) && evOff.matchedRulePriority === undefined,
+      JSON.stringify([off.body?.data?.flag, evOff]),
+    )
+    const offAgain = await flagCall("flags.setEnabled", { key: "spot/flag.a", enabled: false })
+    vaultCheck("disabling a disabled flag changes nothing and records nothing", offAgain.body?.data?.flag?.updatedAt === off.body?.data?.flag?.updatedAt && (await flagActions("spot/flag.a")).length === auditBeforeToggle.length + 1, JSON.stringify(await flagActions("spot/flag.a")))
+    const on = await flagCall("flags.setEnabled", { key: "spot/flag.a", enabled: true })
+    const evOn = data(await flagCall("flags.evaluate", { key: "spot/flag.a", tenantId: "acme" }))
+    vaultCheck("enabling it again restores the rules", on.body?.data?.flag?.enabled === true && evOn?.reason === "rule" && evOn.value === true, JSON.stringify(evOn))
+    const enabledMissing = await flagCall("flags.setEnabled", { key: "spot/none.flag", enabled: true })
+    vaultCheck("flags.setEnabled on a missing key is 404 NOT_FOUND", refused(enabledMissing, 404, "NOT_FOUND", "flag not found"), failure(enabledMissing))
+
+    // Schedules: the three notes, and a window that is open matches.
+    const in2099 = "2099-01-01T00:00:00Z"
+    await flagCall("flags.create", { key: "spot/flag.win", type: "bool", defaultValue: false, enabled: true })
+    const windows = await flagCall("flags.setRules", {
+      key: "spot/flag.win",
+      rules: [
+        { type: "schedule", startAt: in2099, returnValue: true },
+        { type: "schedule", endAt: "2001-01-01T00:00:00Z", returnValue: true },
+        { type: "schedule", startAt: "2001-01-01T00:00:00+02:00", endAt: in2099, returnValue: true },
+      ],
+    })
+    vaultCheck("schedule times are stored in UTC", windows.body?.data?.rules?.[2]?.startAt === "2000-12-31T22:00:00Z" && windows.body.data.rules[2].endAt === in2099 && !("endAt" in windows.body.data.rules[0]) && !("startAt" in windows.body.data.rules[1]), JSON.stringify(windows.body))
+    const evWin = data(await flagCall("flags.evaluate", { key: "spot/flag.win" }))
+    vaultCheck(
+      "schedule notes: not started, ended, inside the window",
+      evWin?.reason === "rule" && evWin.matchedRulePriority === 2 && same((evWin.trace ?? []).map((s) => [s.matched, s.note]), [[false, "the window has not started"], [false, "the window has ended"], [true, "inside the window"]]),
+      JSON.stringify(evWin),
+    )
+
+    // setRules round trip: what detail returns can be sent straight back, and
+    // the custom and tag rules keep their config through it.
+    const original = data(await flagCall("flags.detail", { key: "checkout.new-flow" }))?.rules ?? []
+    await flagCall("flags.create", { key: "spot/flag.trip", type: "bool", defaultValue: false, enabled: true })
+    const sentBack = await flagCall("flags.setRules", { key: "spot/flag.trip", rules: original })
+    const roundTripped = data(await flagCall("flags.detail", { key: "spot/flag.trip" }))?.rules ?? []
+    vaultCheck(
+      "flags.setRules round-trips every rule type, the custom one's evaluator and params included",
+      original.length === 6 && sentBack.body?.ok === true && same(rulesWithoutIds(roundTripped), rulesWithoutIds(original)) && same(rulesWithoutIds(sentBack.body?.data?.rules ?? []), rulesWithoutIds(original)),
+      `${failure(sentBack)} ${JSON.stringify(rulesWithoutIds(roundTripped)[5])}`,
+    )
+    const reordered = await flagCall("flags.setRules", { key: "spot/flag.trip", rules: [...original].reverse() })
+    vaultCheck("a reordered list takes its priorities from the new order", same((reordered.body?.data?.rules ?? []).map((r) => [r.priority, r.type]), [[0, "custom"], [1, "when_tenant_tag"], [2, "schedule"], [3, "rollout"], [4, "when_user"], [5, "when_tenant"]]), JSON.stringify(reordered.body))
+    const emptied = await flagCall("flags.setRules", { key: "spot/flag.trip", rules: [] })
+    vaultCheck("an empty list clears the rules", emptied.body?.ok === true && same(emptied.body.data.rules, []) && same(data(await flagCall("flags.detail", { key: "spot/flag.trip" }))?.rules, []), JSON.stringify(emptied.body))
+
+    // A flag deleted and made again starts clean: no rules, no overrides.
+    await flagCall("flags.setRules", { key: "spot/flag.trip", rules: [{ type: "rollout", percentage: 50, returnValue: true }] })
+    await flagCall("flags.setTenantOverride", { key: "spot/flag.trip", tenantId: "acme", value: true })
+    const dropped = await flagCall("flags.delete", { key: "spot/flag.trip" })
+    vaultCheck("flags.delete answers ok and the key", same([dropped.body?.data?.ok, dropped.body?.data?.key], [true, "spot/flag.trip"]), JSON.stringify(dropped.body))
+    const droppedDetail = await flagCall("flags.detail", { key: "spot/flag.trip" })
+    vaultCheck("a deleted flag is gone", refused(droppedDetail, 404, "NOT_FOUND", "flag not found"), failure(droppedDetail))
+    const droppedTwice = await flagCall("flags.delete", { key: "spot/flag.trip" })
+    vaultCheck("flags.delete on a missing key is 404 NOT_FOUND", refused(droppedTwice, 404, "NOT_FOUND", "flag not found"), failure(droppedTwice))
+    await flagCall("flags.create", { key: "spot/flag.trip", type: "bool", defaultValue: true, enabled: true })
+    const reborn = data(await flagCall("flags.detail", { key: "spot/flag.trip" }))
+    vaultCheck("create after delete starts clean: no rules, no overrides", same(reborn?.rules, []) && same(reborn?.overrides, []) && reborn?.flag?.defaultValue === true, JSON.stringify([reborn?.rules, reborn?.overrides]))
+    const rebornEval = data(await flagCall("flags.evaluate", { key: "spot/flag.trip", tenantId: "acme" }))
+    vaultCheck("and evaluates to its default", rebornEval?.reason === "default" && rebornEval.value === true && same(rebornEval.trace, []), JSON.stringify(rebornEval))
+
+    // Audit: flag rows and secret rows never show in each other's history.
+    vaultCheck(
+      "flags.detail's recentAudit holds the flag actions, newest first",
+      same((await flagActions("spot/flag.a")).slice(0, 3), ["flag.toggled", "flag.toggled", "flag.updated"]) && (await flagActions("spot/flag.a")).every((a) => a.startsWith("flag.")),
+      JSON.stringify(await flagActions("spot/flag.a")),
+    )
+    const allActions = new Set()
+    for (const key of ["spot/flag.a", "spot/flag.json", "spot/flag.int", "spot/flag.trip", "checkout.new-flow", "ui.theme", "beta.dark-mode", "billing/invoice-v2"]) for (const a of await flagActions(key)) allActions.add(a)
+    vaultCheck("every flag audit action is one Go writes", [...allActions].every((a) => ["flag.created", "flag.updated", "flag.toggled", "flag.deleted", "flag.rules_set", "flag.override_set", "flag.override_deleted"].includes(a)) && ["flag.created", "flag.updated", "flag.toggled", "flag.rules_set", "flag.override_set", "flag.override_deleted"].every((a) => allActions.has(a)), JSON.stringify([...allActions]))
+    // A flag sharing a secret's key: each side's detail must show only its own.
+    await flagCall("flags.create", { key: "api/stripe.key", type: "bool", defaultValue: false, enabled: true })
+    await flagCall("flags.setEnabled", { key: "api/stripe.key", enabled: false })
+    const flagSide = await flagActions("api/stripe.key")
+    const secretSide = (data(await vaultCall("secrets.detail", "query", { key: "api/stripe.key" }))?.recentAudit ?? []).map((e) => e.action)
+    vaultCheck("secrets.detail's recentAudit leaves out flag rows", secretSide.length > 0 && secretSide.every((a) => a.startsWith("secret.")), JSON.stringify(secretSide))
+    vaultCheck("flags.detail's recentAudit leaves out secret rows", same(flagSide, ["flag.toggled", "flag.created"]), JSON.stringify(flagSide))
+    const flagDeleteAudit = await flagCall("flags.delete", { key: "api/stripe.key" })
+    vaultCheck("flags.delete records flag.deleted without touching the secret", flagDeleteAudit.body?.ok === true && (await vaultCall("secrets.detail", "query", { key: "api/stripe.key" })).body?.ok === true, JSON.stringify(flagDeleteAudit.body))
+
+    // The manifest's invalidates, for the seven flag commands.
+    const flagInvalidates = [
+      ["flags.create", fcreated, "flags.detail,flags.evaluate,flags.list"],
+      ["flags.update", updDesc, "flags.detail,flags.evaluate,flags.list"],
+      ["flags.delete", dropped, "flags.detail,flags.evaluate,flags.list"],
+      ["flags.setEnabled", off, "flags.detail,flags.evaluate,flags.list"],
+      ["flags.setRules", ordered, "flags.detail,flags.evaluate"],
+      ["flags.setTenantOverride", ovSet, "flags.detail,flags.evaluate"],
+      ["flags.deleteTenantOverride", ovDeleted, "flags.detail,flags.evaluate"],
+    ]
+    for (const [intent, response, want] of flagInvalidates) {
+      vaultCheck(`${intent} declares the manifest's invalidates`, invalidates(response) === want, `${invalidates(response)} vs ${want}`)
+    }
+
+    // Clean up every flag this block made, then prove the seed count is back.
+    for (const key of ["spot/flag.a", "spot/flag.str", "spot/flag.json", "spot/flag.int", "spot/flag.win", "spot/flag.trip"]) await flagCall("flags.delete", { key })
+    const flagsAfter = data(await flagCall("flags.list", {}))
+    vaultCheck("the flag spot checks cleaned up after themselves", flagsAfter?.total === flist?.total, `${flagsAfter?.total} vs ${flist?.total}`)
   }
 
   console.log(`\nFinal: ${passed + (failures.length === 0 ? 0 : 0)} handler calls verified, ${failures.length} total failures (including spot checks).`)
