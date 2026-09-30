@@ -243,6 +243,9 @@ const INPUT = {
   "chronicle::reports.generate": { type: "soc2" },
   "chronicle::reports.generateCustom": { title: "fixture", sections: [{ title: "logins", actions: ["user.login"] }] },
   "chronicle::reports.export": { id: "report_soc2", format: "csv" },
+
+  // keysmith: the seed key "Billing service" (keysmith-fixtures.mjs). keys.list takes no input.
+  "keysmith::keys.detail": { id: "akey_01j9k4m2e7t8x3q5r6v0w1y2za" },
   "streaming-contract::rooms.detail": { id: "room_1" },
   "streaming-contract::rooms.create": { name: "Verify room", description: "d", owner: "usr_1", private: false },
   "streaming-contract::rooms.delete": { id: "room_2" },
