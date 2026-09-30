@@ -51,6 +51,29 @@ export function stackAreas(areas: NavArea[]): NavGroup[] {
   )
 }
 
+function nodesOf(group: NavGroup): NavNode[] {
+  return group.items.flatMap((item) => [item, ...(item.children ?? [])])
+}
+
+/**
+ * The one href that owns the current path across every section, by the rule
+ * NavMain uses within a section: an exact match or a path prefix, longest wins.
+ */
+function activeHref(groups: NavGroup[], currentPath: string): string | undefined {
+  return groups
+    .flatMap(nodesOf)
+    .filter(
+      (node) =>
+        node.href === currentPath ||
+        (node.href !== "/" && currentPath.startsWith(`${node.href}/`)),
+    )
+    .sort((a, b) => b.href.length - a.href.length)[0]?.href
+}
+
+function holdsHref(group: NavGroup, href: string | undefined): boolean {
+  return href !== undefined && nodesOf(group).some((node) => node.href === href)
+}
+
 function EmptyNotice({
   message,
   href,
@@ -104,6 +127,8 @@ export function AppSidebar({
       : active!.groups
     : groups
 
+  const winner = activeHref(shown, currentPath)
+
   return (
     <Sidebar collapsible="offcanvas" {...props}>
       <SidebarHeader>
@@ -128,7 +153,7 @@ export function AppSidebar({
             ) : null}
             <Navigation
               groups={[{ ...group, label: undefined }]}
-              currentPath={currentPath}
+              currentPath={holdsHref(group, winner) ? currentPath : ""}
               search={search}
               renderLink={renderLink}
             />

@@ -96,6 +96,22 @@ describe("AppSidebar", () => {
     expect(header(container).textContent).toBe("")
   })
 
+  it("highlights one row across sections when a shorter href prefixes the path", () => {
+    const { container } = renderSidebar({
+      areas: undefined,
+      groups: [
+        { label: "Identity", items: [{ label: "Users", href: "/@auth/users" }] },
+        { label: "System", items: [{ label: "Overview", href: "/@auth" }] },
+      ],
+      currentPath: "/@auth/users",
+    })
+    const c = content(container)
+    const active = (name: string) =>
+      within(c).getByRole("link", { name }).closest("[data-slot='sidebar-menu-item']")?.querySelector("[data-active]")
+    expect(active("Users")).toBeTruthy()
+    expect(active("Overview")).toBeNull()
+  })
+
   it("renders no label for an unlabelled group", () => {
     const { container } = renderSidebar({
       areas: undefined,
