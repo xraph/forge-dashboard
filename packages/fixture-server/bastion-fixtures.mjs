@@ -31,7 +31,11 @@ function seed() {
         id: ORDERS, path: "/gw/orders", methods: ["GET", "POST"], source: "manual", priority: 105,
         editable: true, input: { path: "/orders", priority: 5 }, stripPrefix: true,
         transform: { requestHeaders: { set: { "X-Api-Key": "[redacted]", "X-Env": "prod" } }, responseHeaders: {} },
-        retry: { enabled: true, maxAttempts: 3 },
+        retry: {
+          enabled: true, maxAttempts: 3, backoff: "exponential",
+          initialDelay: 100000000, maxDelay: 5000000000, multiplier: 2, jitter: true,
+          retryableStatus: [502, 503, 504], retryableMethods: ["GET"], budgetPercent: 20,
+        },
         targets: [
           t(`${ORDERS}/0`, "http://orders-a:8080", true, "closed", { totalRequests: 1840, totalErrors: 12, avgLatencyMs: 42.5 }, { healthCheckPath: "/healthz", metadataKeys: ["health_check_path"] }),
           t(`${ORDERS}/1`, "http://orders-b:8080", true, "open", { totalRequests: 310, totalErrors: 44, avgLatencyMs: 180.2 }),
