@@ -1,6 +1,8 @@
 import { definePlugin } from "@forge-go/dashboard-plugin"
-import { SettingsIcon, ShieldCheckIcon } from "@forge-go/dashboard-kit/icons"
+import { MilestoneIcon, SettingsIcon, ShieldCheckIcon } from "@forge-go/dashboard-kit/icons"
 import { ChainPage } from "./pages/chain"
+import { CheckpointDetailPage } from "./pages/checkpoint-detail"
+import { CheckpointsPage } from "./pages/checkpoints"
 import { SettingsPage } from "./pages/settings"
 
 export type * from "./types"
@@ -19,6 +21,7 @@ export const chroniclePlugin = definePlugin({
   label: "Chronicle",
   nav: [
     { label: "Chain", to: "/chain", priority: 0, icon: <ShieldCheckIcon />, group: "Integrity" },
+    { label: "Checkpoints", to: "/checkpoints", priority: 10, icon: <MilestoneIcon />, group: "Integrity" },
     { label: "Settings", to: "/settings", priority: 90, icon: <SettingsIcon />, group: "Settings" },
   ],
   routes: [
@@ -26,6 +29,9 @@ export const chroniclePlugin = definePlugin({
     { path: "/chain", element: ChainPage },
     { path: "/chain/:streamId", element: ChainPage },
     { path: "/chain/:streamId/:fromSeq/:toSeq", element: ChainPage },
+    { path: "/checkpoints", element: CheckpointsPage },
+    { path: "/checkpoints/in/:streamId", element: CheckpointsPage },
+    { path: "/checkpoint/:id", element: CheckpointDetailPage },
     { path: "/settings", element: SettingsPage },
   ],
 })
