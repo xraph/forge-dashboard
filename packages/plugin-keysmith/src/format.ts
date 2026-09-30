@@ -37,3 +37,23 @@ export const ENVIRONMENTS: { value: Environment; label: string }[] = [
   { value: "test", label: "Test" },
   { value: "staging", label: "Staging" },
 ]
+
+/**
+ * A length of time as people say it: the largest unit that divides the
+ * seconds exactly, so 90 days stays "90 days" and 25 hours does not become
+ * "1 day". Never rounds.
+ */
+export function formatDuration(seconds: number): string {
+  const units: [number, string][] = [
+    [86400, "day"],
+    [3600, "hour"],
+    [60, "minute"],
+  ]
+  for (const [size, name] of units) {
+    if (seconds !== 0 && seconds % size === 0) {
+      const n = seconds / size
+      return `${n} ${name}${n === 1 ? "" : "s"}`
+    }
+  }
+  return `${seconds} ${seconds === 1 ? "second" : "seconds"}`
+}
