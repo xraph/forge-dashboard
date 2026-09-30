@@ -26,6 +26,7 @@ import { WardenResourceTypeDetailPage } from "./pages/resource-type-detail"
 import { WardenResourceTypesPage } from "./pages/resource-types"
 import { WardenRoleDetailPage } from "./pages/role-detail"
 import { WardenRolesPage } from "./pages/roles"
+import { WardenSubjectDetailPage } from "./pages/subject-detail"
 
 export type { ConfigDetail } from "./pages/config"
 export type { OverviewStats, RecentChecks } from "./pages/overview"
@@ -34,6 +35,14 @@ export type { AssignmentSummary, AssignmentsList } from "./pages/assignments"
 export type { RoleSummary, RolesList, AckResponse } from "./pages/roles"
 export type { RoleDetail, PermissionSummary } from "./pages/role-detail"
 export type { PermissionsList } from "./pages/permissions"
+export type {
+  SubjectAssignment,
+  SubjectDetail,
+  SubjectPermission,
+  SubjectPolicy,
+  SubjectRelation,
+  SubjectRole,
+} from "./pages/subject-detail"
 export type {
   LaneState,
   PlaygroundInput,
@@ -83,6 +92,7 @@ export {
   WardenResourceTypesPage,
   WardenRolesPage,
   WardenRoleDetailPage,
+  WardenSubjectDetailPage,
 }
 export { NamespaceCell, useNamespaceFilter, namespaceParam } from "./components/namespace-filter"
 export type { NamespaceValue } from "./components/namespace-filter"
@@ -210,6 +220,12 @@ export const wardenPlugin = definePlugin({
     // No nav entry: a sidebar link to "a check" with none chosen points
     // nowhere. This route is reached only from a row's timestamp.
     { path: "/check-log/:id", element: WardenCheckLogDetailPage },
+    // No nav entry: a sidebar link to "a subject" with none chosen points
+    // nowhere. The route is reached from a subject named on another page. The
+    // params arrive URI-decoded and the page sends them as given. A subject
+    // with an empty kind cannot reach it, because its links render as plain
+    // text.
+    { path: "/subjects/:kind/:id", element: WardenSubjectDetailPage },
     { path: "/playground", element: WardenPlaygroundPage },
     // No nav entry: a sidebar link to "a check" with none chosen points
     // nowhere. This route is reached only from a check's own page, and it

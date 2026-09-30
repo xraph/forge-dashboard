@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest"
 import { resolvePluginState } from "@forge-go/dashboard-plugin"
 import type { Capabilities } from "@forge-go/dashboard-plugin"
 import wardenPlugin, { wardenPlugin as named } from "../src/index"
+import { WardenSubjectDetailPage } from "../src/pages/subject-detail"
 
 function capabilities(
   ...contributors: { name: string; configured?: boolean }[]
@@ -155,5 +156,13 @@ describe("wardenPlugin", () => {
     expect(wardenPlugin.routes.map((r) => r.path)).toContain("/playground/check/:checkId")
     expect(nav.map((n) => n.to)).not.toContain("/playground/check/:checkId")
     expect(nav.find((n) => n.label === "Playground")?.to).toBe("/playground")
+  })
+
+  it("routes one subject's access page to the page itself, with no nav entry for it", () => {
+    // A sidebar link to "a subject" with none chosen would point nowhere.
+    const nav = wardenPlugin.nav ?? []
+    const route = wardenPlugin.routes.find((r) => r.path === "/subjects/:kind/:id")
+    expect(route?.element).toBe(WardenSubjectDetailPage)
+    expect(nav.map((n) => n.to)).not.toContain("/subjects/:kind/:id")
   })
 })
