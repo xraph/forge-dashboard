@@ -49,4 +49,14 @@ describe("SettingsPage", () => {
     renderPage(SettingsPage, failingClient(new ContractError("PERMISSION_DENIED", "an app-wide view needs the chronicle.admin scope")))
     await waitFor(() => expect(screen.getByText(/chronicle.admin/)).toBeTruthy())
   })
+
+  it("says the digest scheme applies to new events and points to each chain's pin", async () => {
+    renderPage(SettingsPage, stubClient({ "settings.detail": defaults }))
+    expect(
+      await screen.findByText(
+        "The digest scheme applies to new events only: events already recorded keep the scheme they were written with, and the Chain page shows where each chain's current scheme begins.",
+      ),
+    ).toBeTruthy()
+  })
 })
+

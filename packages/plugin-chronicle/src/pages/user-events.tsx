@@ -6,7 +6,7 @@ import { useQuery } from "@forge-go/dashboard-plugin"
 import type { PluginPageProps } from "@forge-go/dashboard-plugin"
 import type { EventListResponse } from "../types"
 import { eventColumns } from "../components/event-columns"
-import { formatSeq } from "../format"
+import { pageOf } from "../format"
 
 const PAGE = 50
 
@@ -34,7 +34,7 @@ function UserEventsView({ userId }: { userId: string }) {
             columns={eventColumns({ showUser: false })}
             rows={data.events}
             rowKey={(e) => e.id}
-            caption={`${formatSeq(data.events.length)} of ${formatSeq(data.total)} events`}
+            caption={pageOf(data.events.length, data.total, "event", "events")}
             emptyMessage="No events are recorded for this user."
             pagination={{ page: offset / PAGE + 1, pageSize: PAGE, total: data.total }}
             onPageChange={(page) => setOffset((page - 1) * PAGE)}

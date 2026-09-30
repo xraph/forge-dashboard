@@ -85,4 +85,9 @@ describe("RetentionPage", () => {
     expect(await screen.findByRole("alertdialog")).toBeTruthy()
     await waitFor(() => expect(c.queried.map((q) => q.intent)).toContain("retention.preview"))
   })
+
+  it("counts one policy in the singular", async () => {
+    renderPage(RetentionPage, scriptedClient({ "retention.policies": { policies: [pol({})], total: 1 } }).client)
+    expect(await screen.findByText("1 policy")).toBeTruthy()
+  })
 })

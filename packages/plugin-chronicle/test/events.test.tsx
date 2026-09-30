@@ -101,4 +101,23 @@ describe("EventsPage", () => {
     await waitFor(() => expect(screen.getByRole("link", { name: "user.login" })).toBeTruthy())
     expect(screen.queryByRole("button", { name: "Reset filters" })).toBeNull()
   })
+
+  it("agrees the caption's noun with a total of one", async () => {
+    renderPage(EventsPage, client(() => ({ events: [ev(1)], total: 1, hasMore: false })).client)
+    expect(await screen.findByText("1 of 1 event")).toBeTruthy()
+  })
+
+  it("says a page past the end is empty, not the chain, and offers the way back", async () => {
+    // The total was 60 when the first page loaded; by the time the second is read the rows have gone.
+    const c = client((p) =>
+      p.offset === 0 ? { events: Array.from({ length: 50 }, (_, i) => ev(60 - i)), total: 60, hasMore: true } : { events: [], total: 0, hasMore: false },
+    )
+    renderPage(EventsPage, c.client)
+    fireEvent.click(await screen.findByRole("button", { name: "Next page" }))
+    expect(await screen.findByText("No events on this page.")).toBeTruthy()
+    expect(screen.queryByText("This chain holds no events yet.")).toBeNull()
+    fireEvent.click(screen.getByRole("button", { name: "Back to the first page" }))
+    await waitFor(() => expect(c.queried.at(-1)?.params).toMatchObject({ offset: 0 }))
+    expect(await screen.findByText("50 of 60 events")).toBeTruthy()
+  })
 })

@@ -9,7 +9,7 @@ import { useQuery } from "@forge-go/dashboard-plugin"
 import type { PluginPageProps } from "@forge-go/dashboard-plugin"
 import type { EventListResponse } from "../types"
 import { eventColumns } from "../components/event-columns"
-import { formatSeq } from "../format"
+import { pageOf } from "../format"
 
 const PAGE = 50
 
@@ -124,27 +124,37 @@ export const EventsPage: ComponentType<PluginPageProps> = () => {
         </div>
       </form>
       <QueryBoundary title="events" query={q} skeletonRows={10}>
-        {(data) => (
-          <ResourceTable
-            columns={eventColumns({ showUser: true })}
-            rows={data.events}
-            rowKey={(e) => e.id}
-            caption={`${formatSeq(data.events.length)} of ${formatSeq(data.total)} events`}
-            emptyMessage={active.length ? "No events match these filters" : "This chain holds no events yet."}
-            emptyAction={
-              active.length ? (
-                <div className="flex flex-col items-center gap-2 text-sm">
-                  <p>{active.map((f) => `${f.label}: ${f.value}`).join("; ")}</p>
-                  <Button type="button" variant="outline" onClick={clear}>
-                    Clear filters
+        {(data) => {
+          // A later page can come back empty while the first still holds rows,
+          // when events were removed after the first page was read. That says
+          // nothing about the chain, and the pager is gone with the rows.
+          const pastEnd = offset > 0 && data.events.length === 0
+          return (
+            <ResourceTable
+              columns={eventColumns({ showUser: true })}
+              rows={data.events}
+              rowKey={(e) => e.id}
+              caption={pageOf(data.events.length, data.total, "event", "events")}
+              emptyMessage={pastEnd ? "No events on this page." : active.length ? "No events match these filters" : "This chain holds no events yet."}
+              emptyAction={
+                pastEnd ? (
+                  <Button type="button" variant="outline" onClick={() => setOffset(0)}>
+                    Back to the first page
                   </Button>
-                </div>
-              ) : undefined
-            }
-            pagination={{ page: offset / PAGE + 1, pageSize: PAGE, total: data.total }}
-            onPageChange={(page) => setOffset((page - 1) * PAGE)}
-          />
-        )}
+                ) : active.length ? (
+                  <div className="flex flex-col items-center gap-2 text-sm">
+                    <p>{active.map((f) => `${f.label}: ${f.value}`).join("; ")}</p>
+                    <Button type="button" variant="outline" onClick={clear}>
+                      Clear filters
+                    </Button>
+                  </div>
+                ) : undefined
+              }
+              pagination={{ page: offset / PAGE + 1, pageSize: PAGE, total: data.total }}
+              onPageChange={(page) => setOffset((page - 1) * PAGE)}
+            />
+          )
+        }}
       </QueryBoundary>
     </section>
   )

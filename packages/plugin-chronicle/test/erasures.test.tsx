@@ -108,4 +108,9 @@ describe("ErasuresPage", () => {
     expect(screen.getByLabelText("Subject ID")).toBeTruthy()
     expect(c.queried.map((q) => q.intent)).toEqual(["erasures.list"])
   })
+
+  it("agrees the caption's noun with a total of one", async () => {
+    renderPage(ErasuresPage, scriptedClient({ "erasures.list": { erasures: [erasure(1)], total: 1, hasMore: false } }).client)
+    expect(await screen.findByText("1 of 1 erasure")).toBeTruthy()
+  })
 })

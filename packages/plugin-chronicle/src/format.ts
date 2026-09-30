@@ -5,6 +5,16 @@ export function formatSeq(n: number): string {
   return grouped.format(n)
 }
 
+/** A count with its noun agreeing: "1 policy", "2 policies". */
+export function countOf(n: number, one: string, many: string): string {
+  return `${formatSeq(n)} ${n === 1 ? one : many}`
+}
+
+/** A page of a counted list, the noun agreeing with the total: "1 of 1 event", "2 of 60 events". */
+export function pageOf(shown: number, total: number, one: string, many: string): string {
+  return `${formatSeq(shown)} of ${countOf(total, one, many)}`
+}
+
 /** The first 12 characters of a hash. The full value goes in a title attribute. */
 export function shortHash(h: string): string {
   return h.length > 12 ? h.slice(0, 12) : h

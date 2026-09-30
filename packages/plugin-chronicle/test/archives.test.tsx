@@ -71,4 +71,9 @@ describe("ArchivesPage", () => {
     await waitFor(() => expect(screen.getByText("No retention run has archived anything yet.")).toBeTruthy())
     expect(screen.getByText("0 archives shown")).toBeTruthy()
   })
+
+  it("counts one archive in the singular", async () => {
+    renderPage(ArchivesPage, scriptedClient({ "retention.archives": { archives: [archive(1)], hasMore: false } }).client)
+    expect(await screen.findByText("1 archive shown")).toBeTruthy()
+  })
 })

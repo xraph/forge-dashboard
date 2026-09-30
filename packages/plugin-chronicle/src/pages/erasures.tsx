@@ -10,7 +10,7 @@ import type { PluginPageProps } from "@forge-go/dashboard-plugin"
 import type { ErasureListResponse, ErasureSummary } from "../types"
 import { ErasureStatusBadge, KeyBadge } from "../badges"
 import { ErasureRequestDialog } from "../components/erasure-request-dialog"
-import { formatSeq } from "../format"
+import { formatSeq, pageOf } from "../format"
 
 const PAGE = 50
 
@@ -55,7 +55,7 @@ export const ErasuresPage: ComponentType<PluginPageProps> = () => {
             columns={columns}
             rows={data.erasures}
             rowKey={(e) => e.id}
-            caption={`${formatSeq(data.erasures.length)} of ${formatSeq(data.total)} erasures`}
+            caption={pageOf(data.erasures.length, data.total, "erasure", "erasures")}
             emptyMessage="No erasures have been requested in this scope."
             pagination={{ page: offset / PAGE + 1, pageSize: PAGE, total: data.total }}
             onPageChange={(page) => setOffset((page - 1) * PAGE)}

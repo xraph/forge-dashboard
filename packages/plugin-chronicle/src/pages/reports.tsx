@@ -7,7 +7,7 @@ import { Timestamp } from "@forge-go/dashboard-kit/components/timestamp"
 import { PluginLink, useQuery } from "@forge-go/dashboard-plugin"
 import type { PluginPageProps } from "@forge-go/dashboard-plugin"
 import type { ReportListResponse, ReportSummary } from "../types"
-import { formatSeq, reportTypeLabel } from "../format"
+import { countOf, reportTypeLabel } from "../format"
 
 const PAGE = 50
 
@@ -63,7 +63,7 @@ export const ReportsPage: ComponentType<PluginPageProps> = () => {
               columns={columns}
               rows={data.reports}
               rowKey={(r) => r.id}
-              caption={`${formatSeq(data.reports.length)} reports shown`}
+              caption={`${countOf(data.reports.length, "report", "reports")} shown`}
               emptyMessage="No reports have been generated in this scope."
             />
             {/* The store keeps no count, so there is no "page 2 of N": only whether another page exists. */}

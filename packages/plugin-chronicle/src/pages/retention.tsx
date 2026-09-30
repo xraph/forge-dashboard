@@ -8,7 +8,7 @@ import { PluginLink, useQuery } from "@forge-go/dashboard-plugin"
 import type { PluginPageProps } from "@forge-go/dashboard-plugin"
 import type { PolicyListResponse, PolicySummary } from "../types"
 import { EnforceDialog } from "../components/enforce-dialog"
-import { durationLabel, formatSeq } from "../format"
+import { countOf, durationLabel } from "../format"
 import { categoryLabel, policyScopeLabel } from "../policy"
 
 export { categoryLabel, policyScopeLabel }
@@ -65,7 +65,7 @@ export const RetentionPage: ComponentType<PluginPageProps> = () => {
             columns={columns}
             rows={data.policies}
             rowKey={(p) => p.id}
-            caption={`${formatSeq(data.total)} policies`}
+            caption={countOf(data.total, "policy", "policies")}
             emptyMessage="No retention policies: nothing is removed from this audit trail automatically."
           />
         )}

@@ -1,6 +1,6 @@
 import { lazy } from "react"
 import { definePlugin } from "@forge-go/dashboard-plugin"
-import { ArchiveIcon, ChartColumnIcon, EraserIcon, FileCheckIcon, MilestoneIcon, ScrollTextIcon, SettingsIcon, ShieldCheckIcon, TimerResetIcon } from "@forge-go/dashboard-kit/icons"
+import { ArchiveIcon, ChartColumnIcon, EraserIcon, FileTextIcon, MilestoneIcon, ScrollTextIcon, SettingsIcon, ShieldIcon, TimerResetIcon } from "@forge-go/dashboard-kit/icons"
 import { ArchivesPage } from "./pages/archives"
 import { ChainPage } from "./pages/chain"
 import { CheckpointDetailPage } from "./pages/checkpoint-detail"
@@ -38,12 +38,14 @@ export const chroniclePlugin = definePlugin({
   extension: "chronicle",
   namespace: "chronicle",
   label: "Chronicle",
+  // No nav icon carries a check mark: it would be a pass shown permanently, on
+  // a deployment whose chain may be unkeyed and has not been verified.
   nav: [
-    { label: "Chain", to: "/chain", priority: 0, icon: <ShieldCheckIcon />, group: "Integrity" },
+    { label: "Chain", to: "/chain", priority: 0, icon: <ShieldIcon />, group: "Integrity" },
     { label: "Checkpoints", to: "/checkpoints", priority: 10, icon: <MilestoneIcon />, group: "Integrity" },
     { label: "Events", to: "/events", priority: 20, icon: <ScrollTextIcon />, group: "Log" },
     { label: "Activity", to: "/activity", priority: 30, icon: <ChartColumnIcon />, group: "Log" },
-    { label: "Reports", to: "/reports", priority: 40, icon: <FileCheckIcon />, group: "Compliance" },
+    { label: "Reports", to: "/reports", priority: 40, icon: <FileTextIcon />, group: "Compliance" },
     { label: "Erasures", to: "/erasures", priority: 50, icon: <EraserIcon />, group: "Compliance" },
     { label: "Policies", to: "/retention", priority: 60, icon: <TimerResetIcon />, group: "Retention" },
     { label: "Archives", to: "/archives", priority: 70, icon: <ArchiveIcon />, group: "Retention" },

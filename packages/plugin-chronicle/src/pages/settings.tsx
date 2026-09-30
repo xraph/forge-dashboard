@@ -19,6 +19,10 @@ export const SettingsPage: ComponentType<PluginPageProps> = () => {
         {(s) => (
           <>
             <p className="max-w-prose text-sm">{postureSentence(s)}</p>
+            {/* A scheme read here is easily taken as the scheme every event carries, including ones recorded before it was set. */}
+            <p className="max-w-prose text-sm">
+              The digest scheme applies to new events only: events already recorded keep the scheme they were written with, and the Chain page shows where each chain's current scheme begins.
+            </p>
             <DescriptionList
               items={[
                 { term: "Digest scheme", value: <span className="font-mono text-xs">{s.digestScheme}</span> },

@@ -12,7 +12,7 @@ import type { ExportReportResponse, ReportDetail, ReportSection } from "../types
 import { ReportVerification } from "../components/report-verification"
 import { eventColumns } from "../components/event-columns"
 import { saveFile } from "../download"
-import { formatSeq, reportTypeLabel } from "../format"
+import { formatSeq, pageOf, reportTypeLabel } from "../format"
 
 const FORMATS = [
   { format: "json", label: "Download JSON" },
@@ -96,7 +96,7 @@ function Section({ section: s }: { section: ReportSection }) {
         columns={columns}
         rows={s.events}
         rowKey={(e) => e.id}
-        caption={`${formatSeq(s.events.length)} of ${formatSeq(s.matchedEvents)} matching events`}
+        caption={pageOf(s.events.length, s.matchedEvents, "matching event", "matching events")}
         emptyMessage="No events matched this section."
       />
       {s.eventsTruncated && (

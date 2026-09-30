@@ -8,7 +8,7 @@ import { Timestamp } from "@forge-go/dashboard-kit/components/timestamp"
 import { useQuery } from "@forge-go/dashboard-plugin"
 import type { PluginPageProps } from "@forge-go/dashboard-plugin"
 import type { ArchiveListResponse, ArchiveSummary } from "../types"
-import { formatSeq } from "../format"
+import { countOf, formatSeq } from "../format"
 import { categoryLabel } from "../policy"
 
 const PAGE = 50
@@ -43,7 +43,7 @@ export const ArchivesPage: ComponentType<PluginPageProps> = () => {
               columns={columns}
               rows={data.archives}
               rowKey={(a) => a.id}
-              caption={`${formatSeq(data.archives.length)} archives shown`}
+              caption={`${countOf(data.archives.length, "archive", "archives")} shown`}
               emptyMessage="No retention run has archived anything yet."
             />
             {/* The store keeps no count, so there is no "page 2 of N": only whether another page exists. */}

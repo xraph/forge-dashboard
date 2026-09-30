@@ -8,7 +8,7 @@ import { PluginLink, useCommand, useQuery } from "@forge-go/dashboard-plugin"
 import type { PluginPageProps, QueryState } from "@forge-go/dashboard-plugin"
 import type { CheckpointListResponse, CheckpointSummary, MineResponse, StreamListResponse, TakeCheckpointResponse } from "../types"
 import { LIMITS } from "../types"
-import { formatSeq } from "../format"
+import { countOf, formatSeq } from "../format"
 import { ChainPicker, listTruncated } from "../components/chain-picker"
 import { DialogError } from "../components/dialog-error"
 
@@ -77,7 +77,7 @@ function CheckpointsView({ streamId }: { streamId?: string }) {
               columns={columns}
               rows={rows}
               rowKey={(c) => c.id}
-              caption={`${formatSeq(rows.length)} ${rows.length === 1 ? "checkpoint" : "checkpoints"} shown`}
+              caption={`${countOf(rows.length, "checkpoint", "checkpoints")} shown`}
               emptyMessage="This chain has no checkpoints yet."
             />
             {/* The store keeps no count, so there is no "page 2 of N": only whether another page exists. */}

@@ -91,4 +91,9 @@ describe("ReportsPage", () => {
     expect(screen.getByRole("link", { name: "Generate a report" }).getAttribute("href")).toBe("/new-report")
     expect(screen.getByRole("link", { name: "Build a custom report" }).getAttribute("href")).toBe("/new-custom-report")
   })
+
+  it("counts one report in the singular", async () => {
+    renderPage(ReportsPage, scriptedClient({ "reports.list": { reports: [summary(1)], hasMore: false } }).client)
+    expect(await screen.findByText("1 report shown")).toBeTruthy()
+  })
 })

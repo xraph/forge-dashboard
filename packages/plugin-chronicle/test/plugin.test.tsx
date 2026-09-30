@@ -1,3 +1,4 @@
+import { render } from "@testing-library/react"
 import { describe, expect, it } from "vitest"
 import { resolvePluginState } from "@forge-go/dashboard-plugin"
 import type { Capabilities } from "@forge-go/dashboard-plugin"
@@ -82,4 +83,12 @@ describe("chroniclePlugin", () => {
       expect(allowed, `nav "${item.label}" is in group "${item.group}"`).toContain(item.group)
     }
   })
+
+  it("draws no check mark in the nav, which would read as a pass on a chain nobody verified", () => {
+    const { container } = render(<>{chroniclePlugin.nav!.map((n) => <span key={n.to}>{n.icon}</span>)}</>)
+    const classes = [...container.querySelectorAll("svg")].map((svg) => svg.getAttribute("class") ?? "")
+    expect(classes).toHaveLength(chroniclePlugin.nav!.length)
+    expect(classes.filter((c) => /check/.test(c))).toEqual([])
+  })
 })
+

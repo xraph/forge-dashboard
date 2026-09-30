@@ -198,4 +198,9 @@ describe("ReportDetailPage", () => {
     renderPage(ReportDetailPage, c.client, { id: "nope" })
     expect(await screen.findByText(/NOT_FOUND/)).toBeTruthy()
   })
+
+  it("agrees a section's caption with one matching event", async () => {
+    renderPage(ReportDetailPage, scriptedClient({ "reports.detail": detail({ sections: [section({ events: [event(1)], matchedEvents: 1 })] }) }).client, { id: "report_soc2" })
+    expect(await screen.findByText("1 of 1 matching event")).toBeTruthy()
+  })
 })
