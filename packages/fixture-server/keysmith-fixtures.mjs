@@ -155,7 +155,9 @@ function seedKeysmithState() {
       policyId: KEYSMITH_IDS.standardPolicy,
       scopes: ["catalog:read"],
       createdBy: "usr_2",
-      expiresAt: null,
+      // CreateKey gives a key whose policy sets a max lifetime the expiry
+      // createdAt + maxKeyLifetime (90 days), so a policy-bound key never has none.
+      expiresAt: now - 15 * day + 90 * day,
       lastUsedAt: now - 9 * day,
       rotatedAt: null,
       revokedAt: null,
