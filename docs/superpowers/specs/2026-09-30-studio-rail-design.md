@@ -169,3 +169,41 @@ pages." as it does now.
   they carry now were written for the merged sidebar.
 - Icons for the settings-only sub-plugins, which show initials until they get
   one.
+
+## Revision, 2026-09-30: core pages in the rail, no top bar
+
+You looked at the first build and asked for three changes. They replace the
+parts of this spec they contradict.
+
+**The scope's own pages go in the rail.** Authsome's Users, Sessions, Devices,
+Roles, Apps and the rest are rail entries, grouped the way their `group` says
+(Identity, Configuration, Security, System). A narrow rail separates the
+groups with a gap; a wide one shows each group's label. There is no separate
+"Authsome" entry any more. The plugins follow under the Plugins heading as
+before.
+
+**Only a plugin with more than one page gets the secondary sidebar.** Billing
+has five pages, so picking it opens the secondary sidebar with them. API Keys
+and SSO have one each, so their rail entry links straight to the page and
+nothing opens. On a core page there is no secondary sidebar either, and the
+page sits right beside the rail. On mobile the sheet still lists everything.
+
+A plugin's own area never folds clusters. Clusters grouped rows from different
+plugins in the old merged sidebar; inside one plugin they only added a layer.
+
+**The top bar goes.** The page sits in an inset card beside the rail (and the
+secondary sidebar, when there is one). The card's first row holds the sidebar
+toggle, shown only when there is a secondary sidebar or on mobile, and the
+breadcrumb: the plugin's name, or the scope's when you are on a core page,
+then the page title. Anything a host passes as header actions sits at the
+right of that row. The theme switcher moves into the account menu as a Theme
+submenu with Light, Dark and System.
+
+The kit changes: `NavRail` takes `groups` (the core pages, in labelled groups)
+and `plugins` in place of `items`. `DashboardShell` derives both from the
+areas, computes which rail entry is active, renders `AppSidebar` only for a
+multi-page plugin on desktop (always on mobile, where it is the sheet), and
+replaces `SiteHeader` with a new `ContentHeader` inside a rounded
+`SidebarInset`. `NavUser` gains `theme?: { value, onChange }`. The host passes
+the theme through from `ForgeDashboard`, and `apps/shell` hands it the theme
+provider's value in place of its header button.
