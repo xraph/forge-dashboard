@@ -244,3 +244,57 @@ names `event-detail` and `activity` only in its `__vite__mapDeps` table.
 The CSS is 273.54 KB (40.93 KB gzip) in both builds, because chronicle's
 Tailwind `@source` line lives in `apps/shell/src/styles.css`, which is
 untracked and was present for both.
+
+## Ledger, and three more lazy chunks (2026-09-30)
+
+Measured with `vite build` in `apps/shell` on 2026-09-30, written to a scratch
+directory so the shared `dist` stayed as it was. Eight plugins are registered
+in the shell: core, streaming, authsome, warden, vault, chronicle, relay and
+ledger. There are two builds, the tree as it stands and the same tree with
+ledger taken out of `App.tsx`. Removing only the array entry changes nothing,
+because the import alone keeps the plugin in the build, so the import went too.
+Sizes are Vite's own kB, and the eager figure is the entry plus everything it
+imports with `from"./..."`, for the reason given in the chronicle section.
+
+| chunk | raw | gzip | loaded |
+|---|---|---|---|
+| eager, without ledger | 1,218.67 KB | 344.61 KB | eager |
+| eager, with ledger | 1,303.76 KB | 366.51 KB | eager |
+| `plan-detail` | 6.25 KB | 2.32 KB | lazy, when you open a plan |
+| `invoice-detail` | 9.37 KB | 3.40 KB | lazy, when you open an invoice |
+| `ledger-table` (react-table, shared by the two above) | 30.50 KB | 9.59 KB | lazy, with either |
+| `usage` | 9.72 KB | 3.64 KB | lazy, when you open Usage |
+| `chart` (recharts, shared with chronicle's Activity) | 339.87 KB | 101.11 KB | lazy, with either page |
+
+Ledger's eighteen eager routes cost 85.09 KB raw and 21.90 KB gzip. The entry
+chunk itself grew by 20.11 KB raw and shrank by 0.83 KB gzip, which looks like
+a bargain until you notice that four shared chunks joined the eager set beside
+it: `confirm-dialog` (55.73 KB), `empty-state` (5.45 KB), `label` (4.85 KB) and
+`none-cell` (0.25 KB), 66.28 KB raw and 23.33 KB gzip between them. Vite names
+a shared chunk after its first module, so the names say less than they seem to.
+Read the eager row, not the entry.
+
+The three lazy routes really are lazy. For each of `usage`, `plan-detail` and
+`invoice-detail`, a search of the built entry for `from"./<chunk>-..."` found
+no static import. Each name turns up twice: once in `__vite__mapDeps`, and once
+in the `lazy()` call that imports it. Opening a plan loads `plan-detail` and
+`ledger-table`, 36.75 KB raw and 11.91 KB gzip. An invoice loads
+`invoice-detail` and `ledger-table`, 39.87 KB and 12.99 KB. Usage loads `usage`
+and `chart`, 349.59 KB and 104.75 KB, and that is where the weight is.
+
+Recharts is not in the entry. `recharts-bar-rectangle` and
+`recharts-cartesian-grid` each have zero matches in it, and so does the bare
+word `recharts`. Over every built asset, `grep -l recharts` lists one file,
+`chart-*.js`. The entry has no match for `tanstack` or `react-table` either.
+
+The chart chunk is new in the with-ledger build. Without ledger, recharts lives
+inside chronicle's `activity` chunk (345.42 KB raw, 103.06 KB gzip). With
+ledger, two lazy pages want it, so Vite pulls it out, and `activity` drops to
+5.74 KB. Opening Activity now loads 345.61 KB raw and 103.48 KB gzip across the
+two files, which is within half a kilobyte of before.
+
+The CSS is 273.83 KB (40.96 KB gzip) in both builds. Ledger's Tailwind
+`@source` line lives in `apps/shell/src/styles.css`, which is untracked and was
+present for both. As in the sections above, this tree carries other
+workstreams' uncommitted work in both builds, so the 85.09 KB is ledger's share
+and the rest of the eager total is not.

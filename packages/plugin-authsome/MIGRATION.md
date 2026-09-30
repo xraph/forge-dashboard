@@ -7,8 +7,9 @@ repository in front of them.
 
 Read this before you switch the templ dashboard off. It tells you what the
 React dashboard covers, what it doesn't, and why. The short version is that
-user and tenant administration is done, and billing and SCIM directory
-management are not.
+user and tenant administration is done, and so is billing wherever the ledger
+extension runs, through the Billing scope at `/@ledger`. SCIM directory
+management is not.
 
 ## What you get
 
@@ -39,20 +40,29 @@ by how much work that actually is.
 
 ### Billing
 
-Invoices, invoice detail, coupons and the feature catalog have no intents at
-all. Neither does subscription lifecycle: create, pause, resume, cancel and
-change-plan are HTMX form posts handled directly in `dashboard.go`. Neither
-does plan editing: pricing, tiers, features and plan info are the same. The
-subscription plugin registers five intents and ships an entire billing product
-on top of them.
+Billing is the exception on this list now. If the ledger extension runs behind
+the same server, you don't need the templ dashboard for it any more. The React
+pages live in `plugin-ledger`, which appears in the shell as the Billing scope
+at `/@ledger`.
 
-So `/plans` lists plans and `/plans/:id` reads one, with archive and activate
-as the only writes on the page. There's no editor, deliberately: a pricing form
-with nothing to submit to would be worse than no form at all. The plans page
-carries a line pointing at the templ dashboard for invoices, coupons and
-subscription changes, because an operator who finds Plans in the new dashboard
-and concludes billing has moved will go looking for invoices and find nothing.
-Do not switch that one off.
+Plans, subscriptions, invoices, coupons, the feature catalog, usage and payment
+methods are all pages there, written against the ledger contract and its 51
+intents. That includes the writes the templ pages handled as HTMX form posts:
+creating and editing a plan, every subscription change (create, pause, resume,
+cancel, change plan), generating, finalizing, paying and voiding an invoice,
+and applying a coupon. Operators can also sync a plan, feature, subscription or
+invoice out to the payment provider, and they can now import one in from it, so
+a record the provider already holds doesn't have to be typed in again.
+
+Authsome's own subscription pages are a different thing. They speak authsome's
+`subscription` contributor, which is a separate contract from ledger's, and
+they stay what they are. Don't read them as the billing UI. `plugin-ledger` is.
+
+One loose end. The plans page in this plugin still carries a line pointing at
+the templ dashboard for invoices, coupons and subscription changes, and that
+pointer should now send operators to the Billing scope. Its wording is left for
+the work that is changing those pages, so until that lands, treat the pointer
+as out of date.
 
 ### SCIM directory management
 
@@ -176,7 +186,12 @@ it is a single intent on the Go side.
 
 ## Where that leaves you
 
-Turn off the templ dashboard for user and tenant administration. Keep it
-running for billing and for SCIM directory management, and keep it in the
-deployment until somebody registers those intents. Everything else either
+Turn off the templ dashboard for user and tenant administration. Turn it off
+for billing too, once the ledger extension is installed and its React pages are
+in the shell. Set the extension's `app_id` first: with no app, every billing
+page answers `PERMISSION_DENIED`, and the ledger repository's own migration
+record explains how to re-stamp the rows you already have.
+
+Keep the templ dashboard running for SCIM directory management, and keep it in
+the deployment until somebody registers those intents. Everything else either
 works, or tells you on screen why it doesn't.
