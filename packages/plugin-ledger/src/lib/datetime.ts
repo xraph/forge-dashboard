@@ -18,11 +18,16 @@ export function toLocalInput(iso: string | undefined): string {
   return `${at.getFullYear()}-${pad(at.getMonth() + 1)}-${pad(at.getDate())}T${pad(at.getHours())}:${pad(at.getMinutes())}`
 }
 
-/** A date without its time, for billing periods. Unparseable text prints as it arrived. */
+/**
+ * A date without its time, for billing periods. Shown as the UTC date, because
+ * the engine cuts periods at UTC instants: 2026-10-01T00:00:00Z is October 1
+ * everywhere, not September 30 west of Greenwich. Unparseable text prints as
+ * it arrived.
+ */
 export function formatDay(iso: string): string {
   const at = new Date(iso)
   if (Number.isNaN(at.getTime())) return iso
-  return at.toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric" })
+  return at.toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric", timeZone: "UTC" })
 }
 
 export function formatPeriod(start: string, end: string): string {

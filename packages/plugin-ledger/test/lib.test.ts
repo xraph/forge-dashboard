@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest"
 import { currencyDigits, formatMinor, formatMoney, parseMajor, toMajorInput } from "../src/lib/money"
 import { pageCaption, pageParams, PAGE_SIZE } from "../src/lib/paging"
 import { couponPath, invoicePath, planEditPath, planPath, subscriptionPath } from "../src/lib/paths"
-import { formatPeriod, toLocalInput, toRFC3339 } from "../src/lib/datetime"
+import { formatDay, formatPeriod, toLocalInput, toRFC3339 } from "../src/lib/datetime"
 import { couponState, describeDiscount } from "../src/lib/coupons"
 import { aCoupon, usd } from "./fixtures"
 
@@ -86,6 +86,18 @@ describe("datetime", () => {
     expect(toRFC3339("")).toBeUndefined()
     expect(toLocalInput(undefined)).toBe("")
     expect(toLocalInput("garbage")).toBe("")
+  })
+
+  it("prints a billing day as the UTC date the engine cut it on", () => {
+    // The engine cuts periods at UTC instants. Local formatting would print
+    // the first as Sep 30 west of UTC and the second as Oct 2 east of it.
+    const midnight = formatDay("2026-10-01T00:00:00Z")
+    expect(midnight).toMatch(/Oct/)
+    expect(midnight).toMatch(/\b1\b/)
+    expect(midnight).not.toMatch(/Sep/)
+    const lateEvening = formatDay("2026-10-01T23:30:00Z")
+    expect(lateEvening).toMatch(/\b1\b/)
+    expect(lateEvening).not.toMatch(/\b2\b/)
   })
 
   it("prints a period as two dates", () => {
