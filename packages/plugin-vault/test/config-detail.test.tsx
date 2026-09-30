@@ -624,7 +624,7 @@ describe("ConfigDetailPage versions", () => {
     await ready()
     await screen.findByText("v2")
     fireEvent.click(within(rowOf(2)).getByRole("button", { name: /Compare/ }))
-    expect(await screen.findByText(/same as the current value/i)).toBeTruthy()
+    expect(await screen.findByText(/^Version 2 is the same as the current value/)).toBeTruthy()
     expect(screen.queryByText(/^Was/)).toBeNull()
   })
 
@@ -663,6 +663,77 @@ describe("ConfigDetailPage versions", () => {
     expect(document.getElementById(reasonId)?.textContent).toMatch(/not a valid duration/i)
     fireEvent.click(roll)
     expect(screen.queryByRole("alertdialog")).toBeNull()
+  })
+
+  it("cannot roll back to an older version that holds the current value, and says why", async () => {
+    // What the list looks like after a rollback to v1: v4 is v1 again, so v1
+    // would change nothing, while v3 and v2 differ from the live value.
+    const after = {
+      versions: [
+        version(4, "10s", { current: true }),
+        version(3, "30s"),
+        version(2, "20s"),
+        version(1, "10s"),
+      ],
+    }
+    renderDetail(
+      harness({
+        "config.detail": detail({ entry: entry({ value: "10s", version: 4 }) }),
+        "config.versions": after,
+      }).client,
+    )
+    await ready()
+    await screen.findByText("v1")
+    const same = within(rowOf(1)).getByRole("button", { name: /Roll back/ }) as HTMLButtonElement
+    expect(same.disabled).toBe(true)
+    const reasonId = same.getAttribute("aria-describedby") as string
+    expect(document.getElementById(reasonId)?.textContent).toBe("Same as the current value.")
+    fireEvent.click(same)
+    expect(screen.queryByRole("alertdialog")).toBeNull()
+    // The versions that differ are still offered.
+    for (const n of [2, 3]) {
+      const roll = within(rowOf(n)).getByRole("button", { name: /Roll back/ }) as HTMLButtonElement
+      expect(roll.disabled).toBe(false)
+      expect(roll.getAttribute("aria-describedby")).toBeNull()
+    }
+  })
+
+  it("compares json values by content, not by how they were laid out, when refusing a same-value rollback", async () => {
+    const versions = {
+      versions: [
+        version(2, { a: 1, b: 2 }, { current: true }),
+        version(1, { b: 2, a: 1 }),
+      ],
+    }
+    renderDetail(
+      harness({
+        "config.detail": detail({
+          entry: entry({ valueType: "json", value: { a: 1, b: 2 }, version: 2 }),
+        }),
+        "config.versions": versions,
+      }).client,
+    )
+    await ready()
+    await screen.findByText("v1")
+    const roll = within(rowOf(1)).getByRole("button", { name: /Roll back/ }) as HTMLButtonElement
+    expect(roll.disabled).toBe(true)
+  })
+
+  it("truncates the value cell and keeps the whole value in a title, so the actions stay in view", async () => {
+    const long = "x".repeat(300)
+    const versions = {
+      versions: [version(3, "30s", { current: true }), version(2, long)],
+    }
+    renderDetail(harness({ "config.versions": versions }).client)
+    await ready()
+    await screen.findByText("v2")
+    const row = rowOf(2)
+    const cell = within(row).getByTitle(JSON.stringify(long))
+    expect(cell.className).toMatch(/\btruncate\b/)
+    expect(cell.className).toMatch(/max-w-/)
+    // The actions are still in the same row.
+    expect(within(row).getByRole("button", { name: /Compare/ })).toBeTruthy()
+    expect(within(row).getByRole("button", { name: /Roll back/ })).toBeTruthy()
   })
 
   it("shows a read failure of the versions without taking the page down", async () => {

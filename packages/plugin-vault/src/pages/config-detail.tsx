@@ -510,6 +510,14 @@ function VersionsTable({
   onCompare: (version: number) => void
   onRollback: (version: number) => void
 }) {
+  const current = versions.find((v) => v.current)
+  const chosen = versions.find((v) => v.version === compared)
+
+  // A version that holds what the entry holds now would save a new version
+  // that changes nothing. It is not offered, and says so.
+  const sameAsCurrent = (v: ConfigVersion) =>
+    !v.current && current !== undefined && sameJson(v.value, current.value)
+
   const columns: Column<ConfigVersion>[] = [
     {
       id: "version",
@@ -525,9 +533,16 @@ function VersionsTable({
       id: "value",
       header: "Value",
       cell: (v) => (
-        <span className="flex flex-col gap-1">
-          <span className="flex flex-wrap items-center gap-1.5">
-            <ConfigValue value={v.value} valueType={entry.valueType} />
+        // Capped, so a long value cannot push Compare and Roll back out of
+        // view. The whole of it is the title here, and Compare shows it.
+        <span className="flex min-w-0 flex-col gap-1">
+          <span className="flex min-w-0 items-center gap-1.5">
+            <span
+              title={JSON.stringify(v.value) ?? String(v.value)}
+              className="max-w-xs min-w-0 truncate"
+            >
+              <ConfigValue value={v.value} valueType={entry.valueType} />
+            </span>
             {v.valueMatchesType ? null : <WrongTypeBadge />}
           </span>
           {v.valueMatchesType ? null : (
@@ -535,6 +550,11 @@ function VersionsTable({
               {`Not a valid ${entry.valueType} value, so it cannot be rolled back to.`}
             </span>
           )}
+          {v.valueMatchesType && sameAsCurrent(v) ? (
+            <span id={`config-version-${v.version}-reason`} className="text-xs text-muted-foreground">
+              Same as the current value.
+            </span>
+          ) : null}
         </span>
       ),
     },
@@ -544,9 +564,6 @@ function VersionsTable({
       cell: (v) => <Timestamp value={v.createdAt} label="save time" />,
     },
   ]
-
-  const current = versions.find((v) => v.current)
-  const chosen = versions.find((v) => v.version === compared)
 
   // The server refuses a rollback on an entry whose type it does not validate,
   // whatever the version holds. One sentence says so, and every Roll back
@@ -584,13 +601,13 @@ function VersionsTable({
                 variant="outline"
                 size="xs"
                 aria-label={`Roll back to version ${v.version}`}
-                disabled={!entry.knownType || !v.valueMatchesType}
+                disabled={!entry.knownType || !v.valueMatchesType || sameAsCurrent(v)}
                 aria-describedby={
                   !entry.knownType
                     ? unsupportedId
-                    : v.valueMatchesType
-                      ? undefined
-                      : `config-version-${v.version}-reason`
+                    : !v.valueMatchesType || sameAsCurrent(v)
+                      ? `config-version-${v.version}-reason`
+                      : undefined
                 }
                 onClick={() => onRollback(v.version)}
               >
