@@ -10,13 +10,25 @@ export interface CheckRow {
 }
 
 const NO_STORE = "Not checked, this deployment stores no checkpoints"
+const NO_EVENTS = "Not checked, the range holds no events"
+
+/** What the page knows about the deployment that the report cannot say. */
+export interface ChecksContext {
+  /**
+   * Whether the deployment stores checkpoints. A report's `checkpointsChecked`
+   * is false for an empty range even when checkpoints exist, so "stores no
+   * checkpoints" is only said when the deployment says so.
+   */
+  checkpointingConfigured?: boolean
+}
 
 function checkpointOk(c: CheckpointResult): boolean {
   return c.signatureValid && (!c.hashChecked || c.hashMatch) && (!c.continuityChecked || c.continuityOk)
 }
 
 /** What the verification examined, one row per question, each in three states. */
-export function checksOf(r: VerifyReport): CheckRow[] {
+export function checksOf(r: VerifyReport, ctx: ChecksContext = {}): CheckRow[] {
+  const noStore = ctx.checkpointingConfigured === false
   const linksChecked = r.verified > 0
   const linksOk = (r.tampered ?? []).length === 0 && (r.downgrades ?? []).length === 0
   return [
@@ -25,14 +37,16 @@ export function checksOf(r: VerifyReport): CheckRow[] {
       state: tri(linksChecked, linksOk),
       held: "Every event recomputes and links",
       failed: "Some events do not recompute or link",
-      notChecked: "Not checked, the range holds no events",
+      notChecked: NO_EVENTS,
     },
     {
       label: "Gaps",
-      state: tri(linksChecked, (r.gaps ?? []).length === 0),
+      // The gap check runs whether or not any event comes back, so a gap it
+      // found must never read as "not checked".
+      state: tri(true, (r.gaps ?? []).length === 0),
       held: "No unexplained gaps",
       failed: "Sequences missing",
-      notChecked: "Not checked, the range holds no events",
+      notChecked: NO_EVENTS,
     },
     {
       label: "Head",
@@ -46,14 +60,20 @@ export function checksOf(r: VerifyReport): CheckRow[] {
       state: tri(r.checkpointsChecked, (r.checkpoints ?? []).every(checkpointOk)),
       held: (r.checkpoints ?? []).length === 0 ? "None in this range" : "All hold",
       failed: "At least one fails",
-      notChecked: NO_STORE,
+      notChecked: noStore ? NO_STORE : r.verified === 0 ? NO_EVENTS : "Not checked",
     },
     {
       label: "Checkpoint against head",
       state: tri(r.checkpointHeadChecked, r.checkpointHeadOk),
       held: "Consistent with the head",
       failed: "Reaches past the head",
-      notChecked: r.checkpointsChecked ? "Not checked, the chain has no checkpoint yet" : NO_STORE,
+      notChecked: noStore
+        ? NO_STORE
+        : r.checkpointsChecked
+          ? "Not checked, the chain has no checkpoint yet"
+          : r.verified === 0
+            ? NO_EVENTS
+            : "Not checked",
     },
   ]
 }

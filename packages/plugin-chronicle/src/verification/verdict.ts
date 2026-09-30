@@ -39,27 +39,59 @@ function plural(n: number, one: string, many: string): string {
   return `${n} ${n === 1 ? one : many}`
 }
 
-/** The first sequence at or above which the chain is keyed, if it is mixed. */
-function keyedBoundary(spans: CoverageSpan[]): number | null {
-  const hasUnkeyed = spans.some((s) => s.level === "unkeyed")
-  const firstAbove = spans.find((s) => s.level !== "unkeyed")
-  return hasUnkeyed && firstAbove ? firstAbove.fromSeq : null
+/** What the page knows about the deployment that the report itself cannot say. */
+export interface VerdictContext {
+  /**
+   * Whether the deployment stores checkpoints at all. `checkpointsChecked` on
+   * a report cannot answer that: the verifier leaves it false for an empty
+   * range even when checkpoints exist. Undefined means the page does not know,
+   * and the verdict then says nothing about checkpoint storage.
+   */
+  checkpointingConfigured?: boolean
 }
 
-function limitsOf(r: VerifyReport, spans: CoverageSpan[]): string[] {
+/**
+ * Adjacent spans of one kind merged into ranges, in sequence order. Coverage
+ * is not guaranteed to be monotonic: a chain pinned to plain digests but
+ * covered by signed checkpoints comes back with unkeyed spans on both sides of
+ * a signed one, so the verdict works from ranges and never from a boundary.
+ */
+function ranges(spans: CoverageSpan[], pick: (s: CoverageSpan) => boolean): [number, number][] {
+  const out: [number, number][] = []
+  for (const s of [...spans].sort((x, y) => x.fromSeq - y.fromSeq)) {
+    if (!pick(s)) continue
+    const last = out[out.length - 1]
+    if (last && s.fromSeq === last[1] + 1) last[1] = Math.max(last[1], s.toSeq)
+    else out.push([s.fromSeq, s.toSeq])
+  }
+  return out
+}
+
+const isUnkeyed = (s: CoverageSpan) => s.level === "unkeyed"
+const isDetecting = (s: CoverageSpan) => s.level !== "unkeyed"
+
+/** "1 to 1,500", "1 to 1,500 and 2,000 to 3,000", as verdict parts. */
+function rangeListParts(list: [number, number][]): VerdictPart[] {
+  const out: VerdictPart[] = []
+  list.forEach(([from, to], i) => {
+    if (i > 0) out.push(t(i === list.length - 1 ? " and " : ", "))
+    out.push(seq(from))
+    if (to !== from) out.push(t(" to "), seq(to))
+  })
+  return out
+}
+
+function limitsOf(r: VerifyReport, spans: CoverageSpan[], ctx: VerdictContext): string[] {
   const out: string[] = []
-  const unkeyed = spans.filter((s) => s.level === "unkeyed")
-  if (unkeyed.length > 0) {
-    const from = unkeyed[0].fromSeq
-    const to = unkeyed[unkeyed.length - 1].toSeq
+  for (const [from, to] of ranges(spans, isUnkeyed)) {
     out.push(
       `Sequences ${formatSeq(from)} to ${formatSeq(to)} rest on unkeyed digests. Anyone who can write the database can recompute them, so a deliberate rewrite of those events would not be detected.`,
     )
   }
-  if (!r.checkpointsChecked) {
+  if (ctx.checkpointingConfigured === false) {
     out.push("This deployment stores no checkpoints, so events removed from the end of the chain cannot be detected.")
   }
-  if (r.partial) {
+  if (r.partial && r.verified > 0) {
     out.push(
       `Only sequences ${formatSeq(r.firstEvent)} to ${formatSeq(r.lastEvent)} were examined. The chain's head is at sequence ${formatSeq(r.headSeq)}.`,
     )
@@ -68,6 +100,24 @@ function limitsOf(r: VerifyReport, spans: CoverageSpan[]): string[] {
     out.push("Nothing anchors this chain outside the deployment, so someone who controls both the database and the signing key could rewrite it consistently.")
   }
   return out
+}
+
+/** One sentence per unkeyed range in a mixed chain. */
+function unkeyedQualifiers(spans: CoverageSpan[]): string[] {
+  const unkeyed = ranges(spans, isUnkeyed)
+  const detecting = spans.filter(isDetecting)
+  // "Predate the key" is only true when every unkeyed range comes before all
+  // detection and a keyed span exists. A signed span alone can sit over a
+  // plain digest, where there is no key to predate.
+  const firstDetecting = Math.min(...detecting.map((s) => s.fromSeq))
+  const predates =
+    detecting.some((s) => s.level === "keyed") && unkeyed.every(([, to]) => to < firstDetecting)
+  const tail = "no corruption was detected there, and a deliberate rewrite of them would not show."
+  return unkeyed.map(([from, to]) =>
+    predates
+      ? `Sequences ${formatSeq(from)} to ${formatSeq(to)} predate the key and rest on an unkeyed digest: ${tail}`
+      : `Sequences ${formatSeq(from)} to ${formatSeq(to)} rest on an unkeyed digest: ${tail}`,
+  )
 }
 
 function retainedQualifiers(r: VerifyReport): string[] {
@@ -96,7 +146,7 @@ function tolerantQualifier(r: VerifyReport): string | null {
   return `${plural(n, "event", "events")} recorded no digest scheme, so their scheme was inferred when they were checked.`
 }
 
-export function verdictOf(response: VerifyResponse): Verdict {
+export function verdictOf(response: VerifyResponse, ctx: VerdictContext = {}): Verdict {
   const r = response.report
   if (response.noChain || !r) {
     return {
@@ -109,7 +159,7 @@ export function verdictOf(response: VerifyResponse): Verdict {
   }
 
   const spans = r.coverage ?? []
-  const limits = limitsOf(r, spans)
+  const limits = limitsOf(r, spans, ctx)
   const partial = r.partial ? ["This check does not speak for the rest of the chain."] : []
 
   if (!r.valid) {
@@ -123,44 +173,50 @@ export function verdictOf(response: VerifyResponse): Verdict {
     if (breaks.some((b) => b.kind === "truncated")) head.push("the head does not match the last event")
     if (breaks.some((b) => b.kind === "head-contradicted")) head.push("a signed checkpoint says the chain once reached further")
     const summary = [kinds.join(", "), head.join(", and ")].filter(Boolean).join("; ")
-    const from = r.firstEvent || 1
-    const to = r.lastEvent || r.headSeq
+    const said = summary || "a checkpoint check failed"
+    // With nothing examined there is no range to name, and inventing one
+    // ("1 to 0") would be a claim about events nobody looked at.
+    const examined = r.verified > 0
     return {
       tone: "failed",
-      headline: rangeParts("Breaks found in", from, to, `: ${summary || "a checkpoint check failed"}.`),
-      qualifiers: [...partial, ...[retentionQualifier(r)].filter((q): q is string => q !== null), ...retainedQualifiers(r)],
+      headline: examined
+        ? rangeParts("Breaks found in", r.firstEvent || 1, r.lastEvent || r.headSeq, `: ${said}.`)
+        : [t(`Breaks found: ${said}.`)],
+      qualifiers: [...(examined ? [] : ["No events were examined in the requested range."]), ...partial, ...[retentionQualifier(r)].filter((q): q is string => q !== null), ...retainedQualifiers(r)],
       limits,
       limitsLoud: false,
     }
   }
 
   if (r.verified === 0) {
-    const wiped = r.checkpointsChecked
-      ? "The chain has no events in this range."
-      : "Without signed checkpoints a chain wiped to its start looks exactly like this."
+    const retained = retainedQualifiers(r)
+    const why =
+      retained.length > 0
+        ? "Retention records account for this range: its events were removed by a retention policy."
+        : ctx.checkpointingConfigured === false
+          ? "Without signed checkpoints a chain wiped to its start looks exactly like this."
+          : "The requested range holds no events."
     return {
       tone: "nothing-checked",
       headline: [t("No events verified.")],
-      qualifiers: [`An empty range verifies trivially, and that is not a pass. ${wiped}`],
+      qualifiers: [`An empty range verifies trivially, and that is not a pass. ${why}`, ...retained],
       limits,
       limitsLoud: false,
     }
   }
 
-  const allUnkeyed = spans.length === 0 || spans.every((s) => s.level === "unkeyed")
-  const boundary = keyedBoundary(spans)
+  const allUnkeyed = spans.length === 0 || spans.every(isUnkeyed)
+  const mixed = !allUnkeyed && spans.some(isUnkeyed)
   const qualifiers: string[] = [...partial]
   let headline: VerdictPart[]
   if (allUnkeyed) {
     headline = rangeParts("No corruption detected in", r.firstEvent, r.lastEvent, ".")
     qualifiers.unshift("This chain uses unkeyed digests: they detect accidental corruption, not deliberate alteration.")
-  } else if (boundary !== null) {
-    headline = [
-      ...rangeParts("No alteration detected in", r.firstEvent, r.lastEvent, ". "),
-      t("Keyed from "),
-      seq(boundary),
-      t(" onward, and everything below that predates the key and rests on an unkeyed digest."),
-    ]
+  } else if (mixed) {
+    // The headline claims only what a detecting digest covers. The unkeyed
+    // ranges get their own sentence, so the claim never reaches past its method.
+    headline = [t("No alteration detected in sequences "), ...rangeListParts(ranges(spans, isDetecting)), t(".")]
+    qualifiers.push(...unkeyedQualifiers(spans))
   } else {
     headline = rangeParts("No alteration detected in", r.firstEvent, r.lastEvent, ".")
   }
@@ -168,7 +224,7 @@ export function verdictOf(response: VerifyResponse): Verdict {
   if (tolerant) qualifiers.push(tolerant)
   qualifiers.push(...retainedQualifiers(r))
 
-  return { tone: "pass", headline, qualifiers, limits, limitsLoud: allUnkeyed || boundary !== null }
+  return { tone: "pass", headline, qualifiers, limits, limitsLoud: allUnkeyed || mixed }
 }
 
 /** The verdict as one string: the page's accessible description, and what tests read. */

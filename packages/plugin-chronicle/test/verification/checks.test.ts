@@ -16,7 +16,7 @@ describe("checksOf", () => {
     expect(failed["Head"].state).toBe("failed")
     expect(failed["Checkpoint against head"].state).toBe("failed")
     // not checked
-    const none = byLabel(checksOf(plainNoCheckpoints))
+    const none = byLabel(checksOf(plainNoCheckpoints, { checkpointingConfigured: false }))
     expect(none["Checkpoints"].state).toBe("not-checked")
     expect(none["Checkpoints"].notChecked).toBe("Not checked, this deployment stores no checkpoints")
     expect(none["Checkpoint against head"].state).toBe("not-checked")
@@ -36,6 +36,39 @@ describe("checksOf", () => {
       checkpoints: [{ id: "c", fromSeq: 1, toSeq: 10, signatureValid: false, hashMatch: true, hashChecked: true, continuityOk: true, continuityChecked: true }],
     })
     expect(byLabel(checksOf(bad))["Checkpoints"].state).toBe("failed")
+  })
+})
+
+describe("checksOf, deployment context", () => {
+  const wiped = report({
+    valid: false,
+    verified: 0,
+    firstEvent: 0,
+    lastEvent: 0,
+    headSeq: 0,
+    coverage: undefined,
+    checkpointsChecked: false,
+    checkpointHeadChecked: true,
+    checkpointHeadOk: false,
+  })
+  it("does not claim the deployment stores no checkpoints when it does", () => {
+    for (const ctx of [{ checkpointingConfigured: true }, undefined]) {
+      const rows = checksOf(wiped, ctx)
+      const all = rows.flatMap((r) => [r.held, r.failed, r.notChecked]).join("\n")
+      expect(all).not.toMatch(/stores no checkpoints/)
+    }
+    const rows = byLabel(checksOf(wiped, { checkpointingConfigured: true }))
+    expect(rows["Checkpoints"].notChecked).toBe("Not checked, the range holds no events")
+    expect(rows["Checkpoint against head"].state).toBe("failed")
+  })
+  it("falls back to a bare not-checked when events were examined and the store is unknown", () => {
+    const rows = byLabel(checksOf(report({ checkpointsChecked: false, checkpointHeadChecked: false, checkpointHeadOk: false })))
+    expect(rows["Checkpoints"].notChecked).toBe("Not checked")
+    expect(rows["Checkpoint against head"].notChecked).toBe("Not checked")
+  })
+  it("shows gaps the check found as failed even when no event came back", () => {
+    const rows = byLabel(checksOf(report({ verified: 0, gaps: [5, 6] })))
+    expect(rows["Gaps"].state).toBe("failed")
   })
 })
 
