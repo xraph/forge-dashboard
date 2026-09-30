@@ -28,23 +28,23 @@ export function SyncPanel({ intent, id, providerName, providerId }: { intent: st
           { term: "Provider ID", value: providerId ? <span className="font-mono text-xs">{providerId}</span> : <NoneCell label="provider ID" /> },
         ]}
       />
-      {result?.success === true && (
-        <p role="status" className="text-sm text-muted-foreground">
-          Synced to {result.provider_name}.
-        </p>
-      )}
+      {/* One live region that is always mounted, so a screen reader hears the text that appears in it. */}
+      <div aria-live="polite" className="flex flex-col gap-1">
+        {result?.success === true && <p className="text-sm text-muted-foreground">Synced to {result.provider_name}.</p>}
+        {noProvider && (
+          <>
+            <p className="text-sm text-muted-foreground">No payment provider is configured, so there is nothing to sync to.</p>
+            {/* UNAVAILABLE also covers an unregistered stored provider and a store that is not ready, so say what the server said. */}
+            <p className="text-xs text-muted-foreground">{sync.error?.message}</p>
+          </>
+        )}
+      </div>
       {result?.success === false && (
         <p role="alert" className="text-sm text-destructive">
           Sync failed: {result.error || "the provider gave no reason"}
         </p>
       )}
-      {noProvider ? (
-        <p role="status" className="text-sm text-muted-foreground">
-          No payment provider is configured, so there is nothing to sync to.
-        </p>
-      ) : (
-        <CommandAlert error={sync.error} title="Could not sync" />
-      )}
+      {!noProvider && <CommandAlert error={sync.error} title="Could not sync" />}
       <div>
         <Button variant="outline" size="sm" disabled={sync.loading} onClick={() => void sync.execute({ id })}>
           {sync.loading ? "Syncing…" : "Sync to provider"}

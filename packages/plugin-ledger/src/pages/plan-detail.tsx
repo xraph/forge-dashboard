@@ -43,21 +43,39 @@ interface TierRow extends PriceTier {
 const tierColumns: LedgerColumn<TierRow>[] = [
   { id: "type", header: "Type", cell: (t) => t.type.charAt(0).toUpperCase() + t.type.slice(1) },
   { id: "from", header: "From", align: "end", className: "tabular-nums", cell: (t) => number.format(t.from) },
-  { id: "to", header: "Up to", align: "end", className: "tabular-nums", cell: (t) => (t.up_to === -1 ? "No limit" : number.format(t.up_to)) },
+  { id: "to", header: "Up to", align: "end", className: "tabular-nums", cell: (t) => (isUnbounded(t.up_to) ? "No limit" : number.format(t.up_to)) },
   { id: "unit", header: "Unit price", align: "end", cell: (t) => <MoneyText value={t.unit_amount} /> },
   { id: "flat", header: "Flat fee", align: "end", cell: (t) => <MoneyText value={t.flat_amount} /> },
 ]
 
-/** Tiers grouped by feature in priority order, each knowing where it starts. */
+/** The engine's isUnbounded (invoice/pricing.go): zero, -1 and anything else non-positive have no ceiling. */
+const isUnbounded = (upTo: number) => upTo <= 0
+
+/**
+ * The engine's SortTiers: up_to ascending, unbounded tiers last, priority
+ * breaking ties, stable. Returns a copy; the plan's own array is not touched.
+ */
+function sortTiers(tiers: PriceTier[]): PriceTier[] {
+  return [...tiers].sort((a, b) => {
+    const aOpen = isUnbounded(a.up_to)
+    const bOpen = isUnbounded(b.up_to)
+    if (aOpen && bOpen) return a.priority - b.priority
+    if (aOpen) return 1
+    if (bOpen) return -1
+    if (a.up_to !== b.up_to) return a.up_to - b.up_to
+    return a.priority - b.priority
+  })
+}
+
+/** Tiers grouped by feature in the order the engine prices them, each knowing where it starts. */
 function tierGroups(plan: Plan): { key: string; name: string; tiers: TierRow[] }[] {
   const groups = new Map<string, PriceTier[]>()
   for (const t of plan.pricing?.tiers ?? []) groups.set(t.feature_key, [...(groups.get(t.feature_key) ?? []), t])
   return [...groups.entries()].map(([key, tiers]) => {
-    const sorted = [...tiers].sort((a, b) => a.priority - b.priority)
     let from = 1
-    const rows = sorted.map((t) => {
+    const rows = sortTiers(tiers).map((t) => {
       const row = { ...t, from }
-      from = t.up_to === -1 ? from : t.up_to + 1
+      from = isUnbounded(t.up_to) ? from : t.up_to + 1
       return row
     })
     return { key, name: (plan.features ?? []).find((f) => f.key === key)?.name ?? key, tiers: rows }
@@ -160,7 +178,7 @@ function PlanDetailView({ plan }: { plan: Plan }) {
                     <LedgerTable<TierRow>
                       columns={tierColumns}
                       rows={g.tiers}
-                      rowKey={(t) => `${t.feature_key}-${t.priority}`}
+                      rowKey={(t) => `${t.feature_key}-${g.tiers.indexOf(t)}`}
                       caption={`${g.tiers.length} ${g.tiers.length === 1 ? "tier" : "tiers"} for ${g.key}`}
                       emptyMessage="No tiers."
                     />
