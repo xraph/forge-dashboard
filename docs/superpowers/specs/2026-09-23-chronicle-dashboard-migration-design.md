@@ -403,9 +403,11 @@ Three cases the page has to get right that the templ page cannot:
   the chain." `Partial` qualifies the verdict, it is not a footnote.
 - No checkpoint store renders as "Not checked, this deployment stores no
   checkpoints", never as "No".
-- A mixed-level chain names its boundary: "No alteration detected in sequences
-  1 to 61,004. Keyed from 48,201 onward, and everything below that predates the
-  key and rests on an unkeyed digest."
+- A mixed-level chain names only its keyed or signed range in the headline:
+  "No alteration detected in sequences 48,201 to 61,004." The next sentence
+  covers the rest: "Sequences 1 to 48,200 predate the key and rest on an
+  unkeyed digest: no corruption was detected there, and a deliberate rewrite of
+  them would not show."
 
 ### A chain is not one level, and the page must not claim it is
 
@@ -935,6 +937,45 @@ components, one of which `plugin-authsome` needs for its brand mark). A worktree
 cut from HEAD would be a broken checkout. Either that foundation gets committed
 before Plan B starts, or Plan B runs in the shared tree and lives with the risk
 of colliding with the other sessions working there.
+
+### Changed by building the plugin
+
+Plan B built the pages and then ran them against the fixture. These are the
+places where the page now does something the text above doesn't say.
+
+The events table doesn't virtualise. Every list is paged on the server, 50 rows
+by default and 200 at most, so a virtualiser would add a dependency and a second
+scroll model for no gain. The rule that matters is that the browser never
+filters or pages, and it holds without one.
+
+The chain page has a picker, for an app-wide operator only. The final review
+gave `verify.run` a `streamId` so that operator can check each tenant's chain,
+and the picker is how you choose one. A tenant operator has one chain and never
+sees it. When the app has no chain of its own, the page body offers the picker
+and the header doesn't offer a second.
+
+The verdict for a mixed-level chain names only the keyed or signed range in its
+headline. The old example, "No alteration detected in sequences 1 to 61,004",
+claimed alteration was ruled out over sequences that rest on an unkeyed digest,
+which breaks this spec's own rule that an unkeyed pass must not read as a pass.
+The page now reads "No alteration detected in sequences 48,201 to 61,004." and
+then "Sequences 1 to 48,200 predate the key and rest on an unkeyed digest: no
+corruption was detected there, and a deliberate rewrite of them would not
+show." The example in "The verification surface" has been changed to match.
+
+The chain page clamps a requested range to the chain's head. Ask chronicle to
+verify past its head and it reports a head mismatch on a chain that's intact,
+so a deep link is held to the head before it runs, and the To field refuses a
+number past it and says where the head is. One consequence: on the fixture you
+can't reach the server's over-the-cap refusal by typing, since no fixture chain
+is longer than 100,000 events. Tests cover that path instead.
+
+Erasures show chronicle's status and what happened to the key, following
+chronicle main's `e81e2a2`. Status is Pending or Completed. The key is Key
+destroyed, Legacy key retained, Key intact or Not confirmed. A pending erasure
+is shown in the failure colour, and its page tells you to run it again. The page headers
+no longer say every erasure destroyed a key, because the rows beside them can
+say otherwise.
 
 ## Testing
 

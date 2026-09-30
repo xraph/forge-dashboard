@@ -376,6 +376,95 @@ describe("relay in the shell", () => {
   })
 })
 
+describe("chronicle in the shell", () => {
+  it("mounts at @chronicle, groups its nav, and lands on the chain without verifying anything", async () => {
+    const intents: string[] = []
+    const base = serverFetch([
+      { name: "core-contract", envelopes: ["v1"], configured: true },
+      { name: "chronicle", envelopes: ["v1"], configured: true },
+    ])
+    const stream = {
+      id: "stream_own",
+      appId: "app_forge",
+      headHash: "9f2c4e1a7b3d5f60",
+      headSeq: 12431,
+      scheme: "chronicle/v4",
+      schemeSince: 1,
+      coverageCeiling: "unkeyed",
+      checkpointingConfigured: false,
+    }
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+        if (String(input) === CONTRACT_BASE && init?.body) {
+          const req = JSON.parse(String(init.body)) as {
+            contributor?: string
+            intent?: string
+          }
+          if (req.contributor === "chronicle") {
+            intents.push(req.intent ?? "")
+            if (req.intent === "streams.mine") {
+              return jsonOk({ ok: true, data: { stream } })
+            }
+            if (req.intent === "streams.list") {
+              return jsonOk({
+                ok: true,
+                data: { streams: [stream], total: 1, hasMore: false },
+              })
+            }
+          }
+        }
+        return base(input, init)
+      })
+    )
+
+    window.history.replaceState({}, "", `${SHELL_BASE}/@chronicle`)
+    render(
+      <ThemeProvider>
+        <App />
+      </ThemeProvider>
+    )
+    // The scope's pages are in the rail, one labelled list per nav group.
+    const rail = await screen.findByRole("navigation", {
+      name: "Scope navigation",
+    })
+    await within(rail).findByRole("link", { name: "Chain" })
+    const groups = Array.from(
+      rail.querySelectorAll<HTMLElement>('[data-slot="rail-entries"]')
+    )
+    expect(groups.map((ul) => ul.getAttribute("aria-label"))).toEqual([
+      "Integrity",
+      "Log",
+      "Compliance",
+      "Retention",
+      "Settings",
+    ])
+    expect(
+      groups.flatMap((ul) =>
+        within(ul)
+          .getAllByRole("link")
+          .map((a) => a.getAttribute("href"))
+      )
+    ).toEqual([
+      "/dashboard/ui/@chronicle/chain",
+      "/dashboard/ui/@chronicle/checkpoints",
+      "/dashboard/ui/@chronicle/events",
+      "/dashboard/ui/@chronicle/activity",
+      "/dashboard/ui/@chronicle/reports",
+      "/dashboard/ui/@chronicle/erasures",
+      "/dashboard/ui/@chronicle/retention",
+      "/dashboard/ui/@chronicle/archives",
+      "/dashboard/ui/@chronicle/settings",
+    ])
+    // The landing route is the chain, read from the chronicle contributor.
+    await screen.findByRole("heading", { name: "Chain" })
+    await screen.findByText("chronicle/v4")
+    expect(intents).toContain("streams.mine")
+    // Verification is an operator's act, so landing on the page runs none.
+    expect(intents).not.toContain("verify.run")
+  })
+})
+
 describe("authsome's routed app segment", () => {
   /**
    * The app is a path segment now, so a URL names one. These two pin the

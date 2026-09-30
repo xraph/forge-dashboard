@@ -197,3 +197,50 @@ The entry is 1,056 KB here, against 748 KB in the relay section above. The
 difference is not vault's: this tree carries other workstreams' uncommitted
 work, and the "without" build (1,046.64 KB) already has it. Read the 9.75 KB
 as this task's share and the rest as theirs.
+
+## Chronicle, and recharts off the entry (2026-09-30)
+
+Measured with `vite build` in `apps/shell`, written to a scratch directory so
+the shared `dist` stayed as it was. The shell's own `build` script stops at
+`tsc -b` on type errors in `src/design-preview`, which is another session's
+untracked work, so these numbers come from the Vite step alone. The plugin's
+source compiled clean under the shell's flags in that same `tsc -b` run. As
+before there are two builds: the tree as it stands, and the same tree with
+`chroniclePlugin` taken out of `App.tsx`. Sizes are Vite's own kB.
+
+The entry now statically imports a handful of small shared chunks, so the
+eager figure below is the entry plus everything it imports with `from"./..."`.
+Comparing the entry chunk alone would mislead, because code shifts between
+those chunks from one build to the next.
+
+| chunk | raw | gzip | loaded |
+|---|---|---|---|
+| eager, without chronicle | 1,213.32 KB | 342.01 KB | eager |
+| eager, with chronicle | 1,286.26 KB | 362.12 KB | eager |
+| `event-detail` | 5.37 KB | 2.02 KB | lazy, when you open an event |
+| `json-editor` (chronicle's viewer) | 1.17 KB | 0.65 KB | lazy, inside the event page |
+| `activity` | 5.74 KB | 2.37 KB | lazy, when you open Activity |
+| `chart` (recharts, shared with ledger's usage page) | 339.87 KB | 101.11 KB | lazy, with either page |
+| CodeMirror, shared (two `dist-*` chunks) | 338.08 KB | 110.11 KB | lazy, as before |
+
+Chronicle's eighteen pages cost 72.94 KB raw and 20.11 KB gzip in the eager
+set.
+
+The first build with chronicle mounted was a lot worse: the eager set was
+1,631.83 KB raw and 463.96 KB gzip, 419 KB and 123 KB gzip above the build
+without it. The Activity page imported the kit's chart statically, and the
+chart is recharts, so every operator paid for it whether or not they ever
+opened Activity. The entry held 84 `recharts` strings and the build without
+chronicle held none. Activity is a `lazy()` route now, and a test in the
+plugin fails if anything else there imports the chart.
+
+CodeMirror is not in the eager set. Every eager chunk was searched for
+`cm-editor`, `@codemirror`, `EditorView`, `cm-content`, `cm-scroller`,
+`cm-gutter`, `cm-line`, `codemirror`, `lezer` and `recharts`, with no matches.
+`grep -l codemirror` over the built assets lists one file, the shared
+`dist-*` chunk, and `grep -l recharts` lists only the `chart` chunk. The entry
+names `event-detail` and `activity` only in its `__vite__mapDeps` table.
+
+The CSS is 273.54 KB (40.93 KB gzip) in both builds, because chronicle's
+Tailwind `@source` line lives in `apps/shell/src/styles.css`, which is
+untracked and was present for both.
