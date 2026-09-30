@@ -271,3 +271,27 @@ Six curl runs against a fresh `node server.mjs`, output captured verbatim in
 4. A stale token (`?stale=1`) producing 403 `UNAUTHENTICATED`.
 5. `capabilities` carrying both contributors, `configured` present on each.
 6. `users.ban` followed by `users.list`, showing the mutation.
+
+## ledger
+
+`ledger-fixtures.mjs` answers all 47 intents of the ledger contract at
+`forgery/ledger/extension/contract/manifest.yaml`, with the Go handlers'
+rules: snake_case fields, money as `{amount, currency, display}` in minor
+units, lists as `{items, limit, offset, has_more}` with no total, a
+provider's refusal as `success: false` rather than an error.
+
+The seed has four plans (one draft, one archived), a catalog with one shared
+feature, six subscriptions in six states, invoices in every status, coupons
+that are active, expired, scheduled and exhausted, thirty days of usage for
+two tenants and one batch of events sharing a timestamp.
+
+Two switches, read on every call:
+
+```bash
+LEDGER_FIXTURE_NO_APP=1 node server.mjs       # no app selected
+LEDGER_FIXTURE_NO_PROVIDER=1 node server.mjs  # no payment provider
+```
+
+The first makes every intent except the feature catalog and `settings.detail`
+answer `PERMISSION_DENIED` "no app selected", which is what an unconfigured
+deployment sees. The second makes every `syncToProvider` answer `UNAVAILABLE`.

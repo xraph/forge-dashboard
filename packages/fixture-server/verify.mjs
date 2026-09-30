@@ -182,6 +182,25 @@ const INPUT = {
   "ledger::coupons.update": { id: "cpn_launch20", name: "Launch offer" },
   "ledger::coupons.delete": { id: "cpn_summer50" },
   "ledger::coupons.apply": { subscription_id: "sub_globex", code: "WELCOME10" },
+  "ledger::subscriptions.detail": { id: "sub_acme" },
+  "ledger::subscriptions.usage": { id: "sub_acme" },
+  "ledger::subscriptions.create": { tenant_id: "verify-tenant", plan_id: "plan_starter" },
+  "ledger::subscriptions.changePlan": { id: "sub_globex", plan_id: "plan_pro" },
+  "ledger::subscriptions.pause": { id: "sub_wayne" },
+  "ledger::subscriptions.resume": { id: "sub_hooli" },
+  "ledger::subscriptions.cancel": { id: "sub_wayne", immediately: true },
+  "ledger::subscriptions.syncToProvider": { id: "sub_acme" },
+  "ledger::invoices.detail": { id: "inv_acme_4" },
+  "ledger::invoices.export": { id: "inv_acme_4", format: "csv" },
+  "ledger::invoices.generate": { subscription_id: "sub_acme" },
+  "ledger::invoices.finalize": { id: "inv_globex_1" },
+  "ledger::invoices.markPaid": { id: "inv_initech_1", payment_ref: "verify" },
+  "ledger::invoices.void": { id: "inv_acme_4", reason: "Voided by verify.mjs" },
+  "ledger::invoices.syncToProvider": { id: "inv_acme_1" },
+  "ledger::usage.aggregate": { tenant_id: "acme", feature_keys: ["api_calls"], period: "monthly" },
+  "ledger::entitlements.check": { tenant_id: "acme", feature_key: "api_calls" },
+  "ledger::entitlements.invalidate": { tenant_id: "acme" },
+  "ledger::paymentMethods.list": { tenant_id: "acme" },
   // config: the fixture lists the commands create, update, rollback, delete, so
   // update makes version 2 of the entry create made, rollback goes back to 1,
   // and delete removes it. overrides.set runs before overrides.delete, on a
@@ -1439,6 +1458,63 @@ async function main() {
     const nulledDetail = body(await lc("plans.detail", "query", { id: "plan_pro" }))
     check("a null update field leaves the plan alone", nulled.body?.ok === true && nulledDetail?.features?.length === 3 && nulledDetail?.name === "Pro", JSON.stringify({ update: nulled.body, features: nulledDetail?.features?.length, name: nulledDetail?.name }))
     await lc("plans.delete", "command", { id: body(created)?.id })
+  }
+
+  // ledger billing: lifecycles, refusals and writes visible in the next read.
+  {
+    const lc = (intent, kind, input) => dispatch("ledger", intent, kind, input, csrf)
+    const check = (name, ok, detail) => {
+      console.log(`  ledger ${name}: ${ok}`)
+      if (!ok) failures.push({ key: `spot-check::ledger ${name}`, reason: detail })
+    }
+    const body = (r) => r.body?.data
+    const code = (r) => r.body?.error?.code
+
+    const sub = await lc("subscriptions.create", "command", { tenant_id: "spot-tenant", plan_id: "plan_starter" })
+    check("a plan with a trial starts trialing", body(sub)?.status === "trialing" && typeof body(sub)?.trial_end === "string", JSON.stringify(sub.body))
+    check("subscriptions.create declares the manifest's invalidates", (sub.body?.meta?.invalidates ?? []).join(",") === "subscriptions.list,overview.stats,entitlements.check,paymentMethods.list", JSON.stringify(sub.body?.meta))
+    check("a second live subscription for the tenant is CONFLICT", code(await lc("subscriptions.create", "command", { tenant_id: "spot-tenant", plan_id: "plan_pro" })) === "CONFLICT", "")
+    check("an unknown plan cannot be subscribed to", code(await lc("subscriptions.create", "command", { tenant_id: "spot-other", plan_id: "plan_missing" })) === "NOT_FOUND", "")
+    const draftPlan = body(await lc("plans.create", "command", { name: "Draft only", slug: "draft-only", currency: "usd" }))
+    check("a draft plan cannot be subscribed to", code(await lc("subscriptions.create", "command", { tenant_id: "spot-other", plan_id: draftPlan?.id })) === "CONFLICT", "")
+    await lc("plans.delete", "command", { id: draftPlan?.id })
+    const listed = body(await lc("subscriptions.list", "query", { tenant_id: "spot-tenant" }))
+    check("the new subscription is in subscriptions.list", listed?.items?.length === 1, JSON.stringify(listed))
+    const id = body(sub)?.id
+    check("pause from trialing", body(await lc("subscriptions.pause", "command", { id }))?.status === "paused", "")
+    check("resume from paused", body(await lc("subscriptions.resume", "command", { id }))?.status === "active", "")
+    check("pausing an active subscription twice is BAD_REQUEST the second time", (await lc("subscriptions.pause", "command", { id }), code(await lc("subscriptions.pause", "command", { id }))) === "BAD_REQUEST", "")
+    check("an immediate cancel ends it now", body(await lc("subscriptions.cancel", "command", { id, immediately: true }))?.status === "canceled", "")
+    check("cancelling an ended subscription is CONFLICT", code(await lc("subscriptions.cancel", "command", { id, immediately: true })) === "CONFLICT", "")
+
+    const usage = body(await lc("subscriptions.usage", "query", { id: "sub_acme" }))
+    const seats = usage?.features?.find((f) => f.key === "seats")
+    check("subscriptions.usage reads seats from the quantity", seats?.used === 6, JSON.stringify(usage))
+    const unlimited = body(await lc("subscriptions.usage", "query", { id: "sub_acme" }))?.features?.find((f) => f.key === "sso")
+    check("a boolean feature reports enabled and remaining -1", unlimited?.enabled === true && unlimited.remaining === -1, JSON.stringify(unlimited))
+
+    const gen = await lc("invoices.generate", "command", { subscription_id: "sub_initech" })
+    check("invoices.generate answers a draft", body(gen)?.status === "draft" && Array.isArray(body(gen)?.line_items), JSON.stringify(gen.body))
+    check("a second invoice for the same period is CONFLICT", code(await lc("invoices.generate", "command", { subscription_id: "sub_initech" })) === "CONFLICT", "")
+    const invId = body(gen)?.id
+    await lc("invoices.finalize", "command", { id: invId })
+    check("finalize is visible in invoices.detail", body(await lc("invoices.detail", "query", { id: invId }))?.invoice?.status === "pending", "")
+    check("finalizing twice is CONFLICT", code(await lc("invoices.finalize", "command", { id: invId })) === "CONFLICT", "")
+    check("void without a reason is BAD_REQUEST", code(await lc("invoices.void", "command", { id: invId })) === "BAD_REQUEST", "")
+    await lc("invoices.markPaid", "command", { id: invId, payment_ref: "  ch_spot  " })
+    const paid = body(await lc("invoices.detail", "query", { id: invId }))?.invoice
+    check("markPaid trims the reference and stamps paid_at", paid?.status === "paid" && paid.payment_ref === "ch_spot" && typeof paid.paid_at === "string", JSON.stringify(paid))
+    check("voiding a paid invoice is CONFLICT", code(await lc("invoices.void", "command", { id: invId, reason: "x" })) === "CONFLICT", "")
+    const exported = body(await lc("invoices.export", "query", { id: invId, format: "csv" }))
+    check("invoices.export answers base64 csv", Buffer.from(exported?.content ?? "", "base64").toString("utf8").startsWith("description,"), JSON.stringify(exported))
+    check("an unregistered export format is BAD_REQUEST", code(await lc("invoices.export", "query", { id: invId, format: "pdf" })) === "BAD_REQUEST", "")
+
+    const events = body(await lc("usage.events", "query", { tenant_id: "acme", limit: 200 }))
+    check("usage.events keeps every event of a single-instant batch", ["evt_batch_1", "evt_batch_2", "evt_batch_3"].every((e) => events?.items?.some((i) => i.id === e)), JSON.stringify(events?.items?.slice(0, 5)))
+    const nobody = body(await lc("entitlements.check", "query", { tenant_id: "nobody", feature_key: "api_calls" }))
+    check("no subscription is not allowed", nobody?.allowed === false && nobody.reason === "no active subscription", JSON.stringify(nobody))
+    check("payment methods for a tenant with no subscription here are NOT_FOUND", code(await lc("paymentMethods.list", "query", { tenant_id: "nobody" })) === "NOT_FOUND", "")
+    check("payment methods for acme are listed", body(await lc("paymentMethods.list", "query", { tenant_id: "acme" }))?.methods?.length === 2, "")
   }
 
   console.log(`\nFinal: ${passed + (failures.length === 0 ? 0 : 0)} handler calls verified, ${failures.length} total failures (including spot checks).`)
