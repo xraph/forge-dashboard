@@ -6,9 +6,11 @@ import { PageHeader } from "@forge-go/dashboard-kit/components/page-header"
 import { QueryBoundary } from "@forge-go/dashboard-kit/components/query-boundary"
 import { ResourceTable } from "@forge-go/dashboard-kit/components/resource-table"
 import { invoiceColumns } from "../components/invoice-columns"
+import { ImportFromProviderAction } from "../components/import-from-provider"
 import { OffsetPager } from "../components/offset-pager"
 import { listEmptyMessage, pageCaption, pageParams } from "../lib/paging"
-import type { Invoice, InvoiceStatus, Page } from "../types"
+import { invoicePath } from "../lib/paths"
+import type { Invoice, InvoiceDetail, InvoiceStatus, Page } from "../types"
 
 const STATUSES: { value: InvoiceStatus; label: string }[] = [
   { value: "draft", label: "Draft" },
@@ -37,7 +39,18 @@ export function LedgerInvoicesPage() {
 
   return (
     <section className="flex flex-col gap-4">
-      <PageHeader title="Invoices" description="Newest first. Generate one from a subscription's page." />
+      <PageHeader
+        title="Invoices"
+        description="Newest first. Generate one from a subscription's page."
+        actions={
+          <ImportFromProviderAction<InvoiceDetail>
+            intent="invoices.importFromProvider"
+            noun="invoice"
+            description="Copies one invoice from the payment provider into this app. Its subscription must already be here, so import that first if it isn't. A second live invoice for the same subscription and period is refused."
+            pathOf={(d) => invoicePath(d.invoice.id)}
+          />
+        }
+      />
       <FilterBar
         search={{
           value: tenant,

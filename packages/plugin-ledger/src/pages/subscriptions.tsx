@@ -7,11 +7,12 @@ import { QueryBoundary } from "@forge-go/dashboard-kit/components/query-boundary
 import { ResourceTable, type Column } from "@forge-go/dashboard-kit/components/resource-table"
 import { Timestamp } from "@forge-go/dashboard-kit/components/timestamp"
 import { SubscriptionStatusBadge } from "../badges"
+import { ImportFromProviderAction } from "../components/import-from-provider"
 import { OffsetPager } from "../components/offset-pager"
 import { formatPeriod } from "../lib/datetime"
 import { listEmptyMessage, pageCaption, pageParams } from "../lib/paging"
 import { subscriptionPath } from "../lib/paths"
-import type { Page, Plan, Subscription, SubscriptionStatus } from "../types"
+import type { Page, Plan, Subscription, SubscriptionDetail, SubscriptionStatus } from "../types"
 
 /**
  * Plan names by id, from one wide read of the plan list. A subscription
@@ -86,7 +87,21 @@ export function LedgerSubscriptionsPage() {
 
   return (
     <section className="flex flex-col gap-4">
-      <PageHeader title="Subscriptions" description="Every tenant's subscription in this app." actions={<NewSubscriptionLink />} />
+      <PageHeader
+        title="Subscriptions"
+        description="Every tenant's subscription in this app."
+        actions={
+          <>
+            <ImportFromProviderAction<SubscriptionDetail>
+              intent="subscriptions.importFromProvider"
+              noun="subscription"
+              description="Copies one subscription from the payment provider into this app. Its plan must already be an active plan here, so import the plan first if it isn't."
+              pathOf={(d) => subscriptionPath(d.subscription.id)}
+            />
+            <NewSubscriptionLink />
+          </>
+        }
+      />
       <FilterBar
         search={{
           value: tenant,

@@ -6,6 +6,7 @@ import { PageHeader } from "@forge-go/dashboard-kit/components/page-header"
 import { QueryBoundary } from "@forge-go/dashboard-kit/components/query-boundary"
 import { ResourceTable, type Column } from "@forge-go/dashboard-kit/components/resource-table"
 import { FeatureStatusBadge, SharedBadge } from "../badges"
+import { ImportFromProviderAction } from "../components/import-from-provider"
 import { OffsetPager } from "../components/offset-pager"
 import { listEmptyMessage, pageCaption, pageParams } from "../lib/paging"
 import { featurePath } from "../lib/paths"
@@ -57,7 +58,21 @@ export function LedgerFeaturesPage() {
 
   return (
     <section className="flex flex-col gap-4">
-      <PageHeader title="Features" description="The catalog plans draw their features from." actions={<NewFeatureLink />} />
+      <PageHeader
+        title="Features"
+        description="The catalog plans draw their features from."
+        actions={
+          <>
+            <ImportFromProviderAction<CatalogFeature>
+              intent="features.importFromProvider"
+              noun="feature"
+              description="Copies one feature from the payment provider into this app's catalog, or into the shared catalog when no app is selected. A key the catalog already uses is refused."
+              pathOf={(f) => featurePath(f.id)}
+            />
+            <NewFeatureLink />
+          </>
+        }
+      />
       <FilterBar
         filters={[
           {

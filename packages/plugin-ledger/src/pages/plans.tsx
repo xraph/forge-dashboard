@@ -9,6 +9,7 @@ import { ResourceTable, type Column } from "@forge-go/dashboard-kit/components/r
 import { Timestamp } from "@forge-go/dashboard-kit/components/timestamp"
 import { PlanStatusBadge } from "../badges"
 import { MoneyText } from "../components/money"
+import { ImportFromProviderAction } from "../components/import-from-provider"
 import { OffsetPager } from "../components/offset-pager"
 import { listEmptyMessage, pageCaption, pageParams } from "../lib/paging"
 import { planPath } from "../lib/paths"
@@ -67,7 +68,21 @@ export function LedgerPlansPage() {
 
   return (
     <section className="flex flex-col gap-4">
-      <PageHeader title="Plans" description="What a subscription can be on, and what it costs." actions={<NewPlanLink />} />
+      <PageHeader
+        title="Plans"
+        description="What a subscription can be on, and what it costs."
+        actions={
+          <>
+            <ImportFromProviderAction<Plan>
+              intent="plans.importFromProvider"
+              noun="plan"
+              description="Copies one plan from the payment provider into this app, as a new plan with its own ID. A plan whose slug this app already uses is refused."
+              pathOf={(p) => planPath(p.id)}
+            />
+            <NewPlanLink />
+          </>
+        }
+      />
       <FilterBar
         filters={[
           {
