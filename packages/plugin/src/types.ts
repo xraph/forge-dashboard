@@ -55,23 +55,6 @@ export interface PluginRoute {
   element: ComponentType<PluginPageProps>
 }
 
-/**
- * One entry in a scope's section rail.
- *
- * A section collects every nav item, the plugin's own and its sub-plugins',
- * whose `group` equals `group`. Nothing else in the contract changes: items
- * keep naming their group, and a plugin that declares no sections renders the
- * single pane it always has.
- */
-export interface PluginSection {
-  /** The nav `group` this section collects. Matches `PluginNavItem.group` exactly. */
-  group: string
-  /** Rail and heading label. Defaults to `group`. */
-  label?: string
-  /** Required: a narrow rail shows nothing else. */
-  icon: ReactNode
-}
-
 export interface ForgePlugin {
   /**
    * The Go contributor name this plugin belongs to. This is the join key: the
@@ -118,12 +101,6 @@ export interface ForgePlugin {
   setup?: ComponentType<{ message?: string }>
   /** Scope-wide selectors rendered in the sidebar. Most plugins declare none. */
   context: ContextDimension[]
-  /**
-   * Sections for a rail beside the pane, in rail order. Omit it and the scope
-   * gets no rail. Items whose group no section names land in a trailing
-   * "More" section, so none disappear.
-   */
-  sections?: PluginSection[]
 }
 
 /** What an author passes to definePlugin. nav is optional; the rest mirrors ForgePlugin. */
