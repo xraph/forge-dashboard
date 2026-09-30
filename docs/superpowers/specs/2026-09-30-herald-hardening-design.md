@@ -364,8 +364,12 @@ not-found sentinels.
 ## F. REST API (`api/`)
 
 - Herald can't know the host's auth scheme, so it doesn't pick one.
-  `extension.WithAPIMiddleware(mw ...forge.Middleware)` wraps the route group
-  with `forge.WithGroupMiddleware`, and that's the only way offered. We looked at
+  `extension.WithAPIMiddleware(mw ...forge.Middleware)` puts the host's
+  middleware in front of the route group with `group.Use(mw...)`, and that's
+  the only way offered. `forge.WithGroupMiddleware` looked like the tool and
+  isn't: at v1.10.0 a sub-group copies its parent's `Use` chain but not
+  group-option middleware, and the API opens a sub-group per resource, so it
+  guarded nothing. The every-route test caught that during implementation. We looked at
   forge's `WithGroupAuth(providerNames...)` too, and it doesn't enforce anything:
   at v1.10.0 and v1.11.2 it only writes `auth.providers` into route metadata,
   which the OpenAPI generator and the client introspector read and no middleware
@@ -379,8 +383,10 @@ not-found sentinels.
   `credentials` (keys to set) and `remove_credentials`, and go through the engine
   methods, so they're validated and, with a key, encrypted.
 - Every by-ID route checks ownership against `app_id` from the query string.
-  An absent `app_id` means the `""` app, consistent with how every list already
-  behaves, and a row from another app is a 404.
+  An absent `app_id` on a by-ID route means the `""` app (the only rows it can
+  reach are ones stored with an empty app ID), and a row from another app is a
+  404. List routes are unchanged and still answer 400 when `app_id` is
+  missing, because forge treats that query parameter as required there.
 - Update bodies use pointers. Today a PUT that leaves out `"enabled": true`
   disables the provider or template, and priority can never go back to 0.
 - Version routes check the version belongs to `:id`.
