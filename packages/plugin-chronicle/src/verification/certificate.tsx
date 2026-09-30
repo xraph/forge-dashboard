@@ -5,6 +5,7 @@ import { formatSeq } from "../format"
 import { breakAnchor, breaksOf } from "./breaks"
 import { checkpointRows, checksOf, type CheckRow } from "./checks"
 import { Ribbon } from "./ribbon"
+import { tolerantRowsOf, type TolerantRow } from "./tolerant"
 import { TriStateMark } from "./tri-state"
 import { verdictOf } from "./verdict"
 
@@ -62,6 +63,8 @@ export function Certificate({
     ) : null
 
   const breaks = breaksOf(r)
+  const tolerant = tolerantRowsOf(r)
+  const tolerantCount = (r.tolerant ?? []).length
   // The ribbon is scaled to the range that was examined. Scaled to the head, a
   // check of 2,730 to 2,830 on a long chain would stack every marker at the
   // left edge, and the ribbon exists so a break's position can be seen.
@@ -125,6 +128,23 @@ export function Certificate({
           </ul>
         </Section>
       )}
+      {tolerant.length > 0 && (
+        <Section title="Scheme inferred">
+          <table className="w-full text-sm">
+            <caption className="sr-only">{tolerantCount === 1 ? "1 event" : `${formatSeq(tolerantCount)} events`}</caption>
+            <tbody>
+              {tolerant.map((row) => (
+                <tr key={row.fromSeq} className="border-b align-top">
+                  <td className="py-2 pr-4 font-mono text-xs whitespace-nowrap">
+                    {row.fromSeq === row.toSeq ? formatSeq(row.fromSeq) : `${formatSeq(row.fromSeq)} to ${formatSeq(row.toSeq)}`}
+                  </td>
+                  <td className="py-2 text-muted-foreground">{tolerantExplanation(row)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </Section>
+      )}
       <Section title="What was examined">
         <p className="mb-3 text-sm">
           {examined ? `${formatSeq(r.verified)} events read, sequences ${formatSeq(from)} to ${formatSeq(to)}.` : "No events were read."}
@@ -162,6 +182,18 @@ export function Certificate({
   )
 }
 
+function tolerantExplanation(row: TolerantRow): string {
+  const one = row.fromSeq === row.toSeq
+  if (row.altered) {
+    return one
+      ? "It recorded no digest scheme, and it is listed as altered above."
+      : "They recorded no digest scheme, and they are listed as altered above."
+  }
+  return one
+    ? "It recorded no digest scheme, so its scheme was inferred when it was checked."
+    : "They recorded no digest scheme, so their scheme was inferred when they were checked."
+}
+
 function Section({ title, loud, children }: { title: string; loud?: boolean; children: ReactNode }) {
   const id = `cert-${title.toLowerCase().replace(/[^a-z]+/g, "-")}`
   return (
@@ -182,6 +214,7 @@ function CheckTable({ rows }: { rows: CheckRow[] }) {
           <dt>{row.label}</dt>
           <dd>
             <TriStateMark state={row.state} held={row.held} failed={row.failed} notChecked={row.notChecked} />
+            {row.state === "failed" && row.failedNote ? <span className="ml-2">{row.failedNote}</span> : null}
           </dd>
         </div>
       ))}

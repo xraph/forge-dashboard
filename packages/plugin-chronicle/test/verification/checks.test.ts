@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest"
 import { checkpointRows, checksOf } from "../../src/verification/checks"
+import type { CheckpointResult } from "../../src/types"
 import { plainNoCheckpoints, report, truncated } from "./fixtures"
 
 const byLabel = (rows: ReturnType<typeof checksOf>) => Object.fromEntries(rows.map((r) => [r.label, r]))
@@ -105,5 +106,37 @@ describe("checkpointRows", () => {
       ["Hash", "not-checked"],
       ["Continuity", "held"],
     ])
+  })
+
+  // chronicle keeps one note per checkpoint: the first reason it found, in the
+  // order signature, hash, continuity. It belongs to the first row that did not hold.
+  const cp = (over: Partial<CheckpointResult>): CheckpointResult => ({
+    id: "ckpt_1", fromSeq: 1, toSeq: 100, signatureValid: true, hashMatch: true, hashChecked: true, continuityOk: true, continuityChecked: true, ...over,
+  })
+  const rowsOf = (c: CheckpointResult) => Object.fromEntries(checkpointRows(c).map((r) => [r.label, r]))
+
+  it("puts a failed hash's note on the hash row", () => {
+    const rows = rowsOf(cp({ hashMatch: false, note: "chain hash at to_seq no longer matches what the checkpoint recorded" }))
+    expect(rows["Hash"].state).toBe("failed")
+    expect(rows["Hash"].failedNote).toBe("chain hash at to_seq no longer matches what the checkpoint recorded")
+    expect(rows["Signature"].failedNote).toBeUndefined()
+  })
+
+  it("puts an invalid signature's note on the signature row, never on a hash that did not run", () => {
+    const rows = rowsOf(cp({ signatureValid: false, hashChecked: false, hashMatch: false, note: "signature does not verify: bad key" }))
+    expect(rows["Signature"].failedNote).toBe("signature does not verify: bad key")
+    expect(rows["Hash"].notChecked).toBe("Not checked")
+  })
+
+  it("puts broken continuity's note on the continuity row", () => {
+    const rows = rowsOf(cp({ continuityOk: false, note: "does not continue from the previous checkpoint without a gap" }))
+    expect(rows["Continuity"].failedNote).toBe("does not continue from the previous checkpoint without a gap")
+    expect(rows["Hash"].failedNote).toBeUndefined()
+  })
+
+  it("says why continuity was not checked when that is the note", () => {
+    const rows = rowsOf(cp({ continuityChecked: false, continuityOk: false, note: "predecessor checkpoint not in the verified range; continuity not checked" }))
+    expect(rows["Continuity"].notChecked).toBe("Not checked. predecessor checkpoint not in the verified range; continuity not checked")
+    expect(rows["Hash"].notChecked).toBe("Not checked")
   })
 })

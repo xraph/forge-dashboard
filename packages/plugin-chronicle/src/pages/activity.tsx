@@ -66,14 +66,16 @@ export const ActivityPage: ComponentType<PluginPageProps & { now?: Date }> = ({ 
           <>
             <StatGrid
               items={[
-                { label: "Total events", value: formatSeq(s.totalEvents) },
-                { label: "Critical", value: formatSeq(s.criticalEvents) },
+                // The counts cover the whole scope and the volume chart below a
+                // shorter period, so each count says it is all time.
+                { label: "Total events", value: formatSeq(s.totalEvents), hint: "All time" },
+                { label: "Critical", value: formatSeq(s.criticalEvents), hint: "All time" },
                 {
                   label: "Failed or denied",
                   value: formatSeq(s.failedEvents + s.deniedEvents),
-                  hint: `${formatSeq(s.failedEvents)} failed, ${formatSeq(s.deniedEvents)} denied`,
+                  hint: `All time: ${formatSeq(s.failedEvents)} failed, ${formatSeq(s.deniedEvents)} denied`,
                 },
-                { label: "Erasures", value: formatSeq(s.erasureCount) },
+                { label: "Erasures", value: formatSeq(s.erasureCount), hint: "All time" },
               ]}
             />
             <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">

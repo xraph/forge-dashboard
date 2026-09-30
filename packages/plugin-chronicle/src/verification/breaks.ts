@@ -17,7 +17,7 @@ export interface Break {
 }
 
 /** Consecutive sequences as [from, to] runs. */
-function runs(seqs: number[]): [number, number][] {
+export function runs(seqs: number[]): [number, number][] {
   const sorted = [...seqs].sort((a, b) => a - b)
   const out: [number, number][] = []
   for (const s of sorted) {
@@ -66,7 +66,7 @@ export function breaksOf(r: VerifyReport): Break[] {
       toSeq: s,
       title: `Sequence ${formatSeq(s)} relabelled`,
       explanation:
-        "It claims a weaker digest scheme than the chain required at that point, which is how an attacker would dodge a keyed digest.",
+        "It claims a weaker digest scheme than the chain required at that point, which is how an attacker would dodge a keyed digest. Treat it as tampering, and find out who has write access to the events table.",
     })
   }
   out.sort((a, b) => a.fromSeq - b.fromSeq)
@@ -77,7 +77,7 @@ export function breaksOf(r: VerifyReport): Break[] {
       toSeq: r.headSeq,
       title: `Head at sequence ${formatSeq(r.headSeq)} does not match`,
       explanation:
-        "The chain's recorded head does not match its last event, so events after it may have been removed. No link inside the chain can show this.",
+        "The chain's recorded head does not match its last event, so events after it may have been removed. No link inside the chain can show this, so find out who holds write access to the events and streams tables.",
     })
   }
   if (r.checkpointHeadChecked && !r.checkpointHeadOk) {
@@ -86,7 +86,7 @@ export function breaksOf(r: VerifyReport): Break[] {
       fromSeq: r.headSeq,
       toSeq: r.headSeq,
       title: "A signed checkpoint contradicts the head",
-      explanation: `A signed checkpoint says the chain once reached past sequence ${formatSeq(r.headSeq)}. Events the chain no longer claims were there when it was signed.`,
+      explanation: `A signed checkpoint says the chain once reached past sequence ${formatSeq(r.headSeq)}. Events the chain no longer claims were there when it was signed. Nothing inside the surviving range has to look wrong for that, so find out who holds write access to the events and streams tables.`,
     })
   }
   return out

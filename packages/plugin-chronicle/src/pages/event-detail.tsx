@@ -34,6 +34,31 @@ function field(value: string | undefined, label: string, ev: EventDetail, mono =
   return mono ? <span className="font-mono text-xs">{value}</span> : value
 }
 
+/** A hash or id: monospace, and selected whole on click so it can be copied. */
+function Raw({ value, wrap = false }: { value: string; wrap?: boolean }) {
+  return <span className={`select-all font-mono text-xs${wrap ? " break-all" : ""}`}>{value}</span>
+}
+
+/**
+ * Only sequence 1 is the genesis event. A later event with no previous hash is
+ * not a first event, and calling it one would explain away the thing a
+ * verification exists to find.
+ */
+function previousHash(ev: EventDetail): ReactNode {
+  if (ev.sequence === 1) {
+    return (
+      <span className="flex flex-col gap-1">
+        <span>{ev.prevHash ? "Genesis event, the first in its chain." : "Genesis event, the first in its chain. Nothing precedes it."}</span>
+        {ev.prevHash ? <Raw value={ev.prevHash} wrap /> : null}
+      </span>
+    )
+  }
+  if (!ev.prevHash) {
+    return <span>None recorded. Only a chain's first event has no previous hash, so check the chain around this event.</span>
+  }
+  return <Raw value={ev.prevHash} wrap />
+}
+
 export const EventDetailPage: ComponentType<PluginPageProps> = ({ params }) => {
   const id = params.id ?? ""
   const q = useQuery<EventDetail>("events.detail", { id })
@@ -43,6 +68,10 @@ export const EventDetailPage: ComponentType<PluginPageProps> = ({ params }) => {
       <QueryBoundary title="event" query={q} skeletonRows={8}>
         {(ev) => <Body key={ev.id} ev={ev} />}
       </QueryBoundary>
+      {/* Outside the boundary, so an event that cannot be read still has a way back. */}
+      <PluginLink to="/events" className="self-start text-sm underline underline-offset-4">
+        Back to events
+      </PluginLink>
     </section>
   )
 }
@@ -65,7 +94,7 @@ function Body({ ev }: { ev: EventDetail }) {
         <div className="flex flex-col gap-6">
           <DescriptionList
             items={[
-              { term: "Event", value: <span className="font-mono text-xs">{ev.id}</span> },
+              { term: "Event", value: <Raw value={ev.id} /> },
               { term: "Action", value: <span className="font-medium">{ev.action}</span> },
               { term: "Resource", value: <span>{ev.resource} {field(ev.resourceId, "resource id", ev, true)}</span> },
               { term: "Category", value: ev.category },
@@ -118,11 +147,11 @@ function Body({ ev }: { ev: EventDetail }) {
           <DescriptionList
             items={[
               { term: "Sequence", value: <span className="font-mono text-xs">{formatSeq(ev.sequence)}</span> },
-              { term: "Hash", value: <span className="font-mono text-xs break-all">{ev.hash}</span> },
-              { term: "Previous hash", value: <span className="font-mono text-xs break-all">{ev.prevHash}</span> },
+              { term: "Hash", value: <Raw value={ev.hash} wrap /> },
+              { term: "Previous hash", value: previousHash(ev) },
               { term: "Digest scheme", value: field(ev.hashScheme, "digest scheme", ev, true) },
               { term: "Key id", value: field(ev.hashKeyId, "key id", ev, true) },
-              { term: "Chain", value: <span className="font-mono text-xs">{ev.streamId}</span> },
+              { term: "Chain", value: <Raw value={ev.streamId} /> },
             ]}
           />
           <Button variant="outline" className="self-start" onClick={() => (checking ? verify.refetch() : setChecking(true))} disabled={checking && verify.loading}>

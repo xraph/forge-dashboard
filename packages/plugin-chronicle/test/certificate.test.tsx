@@ -108,5 +108,49 @@ describe("Certificate", () => {
       unmount()
     }
   })
-})
 
+  it("lists the sequences resolved without a recorded scheme, in mono and merged into runs", () => {
+    render(<Certificate response={{ noChain: false, report: report({ tolerant: [7, 5, 6, 40] }) }} />)
+    const section = screen.getByRole("region", { name: "Scheme inferred" })
+    expect(within(section).getByText("5 to 7").className).toContain("font-mono")
+    expect(within(section).getByText("40").className).toContain("font-mono")
+    expect(within(section).getByRole("table").querySelector("caption")?.textContent).toBe("4 events")
+    expect(within(section).getAllByText(/recorded no digest scheme/)).toHaveLength(2)
+  })
+
+  it("never lists a tolerant sequence that is also altered as if it passed", () => {
+    const r = report({ valid: false, tolerant: [5, 6, 7], tampered: [6] })
+    render(<Certificate response={{ noChain: false, report: r }} />)
+    const section = screen.getByRole("region", { name: "Scheme inferred" })
+    const rows = within(section).getAllByRole("row").map((row) => row.textContent)
+    expect(rows).toEqual([
+      expect.stringMatching(/^5.*scheme was inferred/),
+      expect.stringMatching(/^6.*listed as altered above/),
+      expect.stringMatching(/^7.*scheme was inferred/),
+    ])
+    // The break row owns the colour; this list only says where the scheme was guessed.
+    expect(section.querySelector(".text-destructive")).toBeNull()
+  })
+
+  it("lists tolerant sequences on a failed check too", () => {
+    render(<Certificate response={{ noChain: false, report: { ...broken, tolerant: [12] } }} />)
+    expect(within(screen.getByRole("region", { name: "Scheme inferred" })).getByText("12")).toBeTruthy()
+  })
+
+  it("has no tolerant section when every event recorded its scheme", () => {
+    render(<Certificate response={{ noChain: false, report: report({ tolerant: [] }) }} />)
+    expect(screen.queryByRole("region", { name: "Scheme inferred" })).toBeNull()
+  })
+
+  it("shows a failed checkpoint's note beside its failed badge", () => {
+    const r = report({
+      valid: false,
+      checkpoints: [{ id: "ckpt_1", fromSeq: 1, toSeq: 100, signatureValid: true, hashChecked: true, hashMatch: false, continuityOk: true, continuityChecked: true, note: "chain hash at to_seq no longer matches what the checkpoint recorded" }],
+    })
+    render(<Certificate response={{ noChain: false, report: r }} />)
+    const note = screen.getByText("chain hash at to_seq no longer matches what the checkpoint recorded")
+    expect(note.closest('[data-slot="badge"]')).toBeNull()
+    const badge = within(note.parentElement!).getByText("Does not match")
+    expect(badge.closest('[data-slot="badge"]')?.getAttribute("data-variant")).toBe("destructive")
+  })
+})

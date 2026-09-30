@@ -7,6 +7,8 @@ export interface CheckRow {
   held: string
   failed: string
   notChecked: string
+  /** Why a failed row failed, in the server's words. Shown beside the badge, never inside it. */
+  failedNote?: string
 }
 
 const NO_STORE = "Not checked, this deployment stores no checkpoints"
@@ -92,8 +94,18 @@ export function checksOf(r: VerifyReport, ctx: ChecksContext = {}): CheckRow[] {
   ]
 }
 
+/**
+ * One row per check on a checkpoint, with the checkpoint's note on the row it
+ * explains.
+ *
+ * chronicle keeps one note per checkpoint: the first reason it found, trying
+ * the signature, then the hash, then continuity (verify/verifier.go). So the
+ * note belongs to the first row that did not hold. Beside any other row it
+ * would name the wrong check: a hash that did not run after a bad signature
+ * would read "Not checked. signature does not verify".
+ */
 export function checkpointRows(c: CheckpointResult): CheckRow[] {
-  return [
+  const rows: CheckRow[] = [
     {
       label: "Signature",
       state: tri(true, c.signatureValid),
@@ -106,8 +118,7 @@ export function checkpointRows(c: CheckpointResult): CheckRow[] {
       state: tri(c.hashChecked, c.hashMatch),
       held: "Matches",
       failed: "Does not match",
-      // The note says why; the row still has to say first that it was not checked.
-      notChecked: c.note ? `Not checked. ${c.note}` : "Not checked",
+      notChecked: "Not checked",
     },
     {
       label: "Continuity",
@@ -117,4 +128,11 @@ export function checkpointRows(c: CheckpointResult): CheckRow[] {
       notChecked: "Not checked",
     },
   ]
+  const owner = rows.find((r) => r.state !== "held")
+  if (c.note && owner) {
+    // An unchecked row still has to say first that it was not checked; the note says why.
+    if (owner.state === "not-checked") owner.notChecked = `Not checked. ${c.note}`
+    else owner.failedNote = c.note
+  }
+  return rows
 }

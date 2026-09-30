@@ -37,9 +37,17 @@ describe("ActivityPage", () => {
     await waitFor(() => expect(screen.getByText("12,431")).toBeTruthy())
     expect(screen.getByText("Failed or denied")).toBeTruthy()
     expect(screen.getByText("52")).toBeTruthy()
-    expect(screen.getByText("40 failed, 12 denied")).toBeTruthy()
+    expect(screen.getByText("All time: 40 failed, 12 denied")).toBeTruthy()
     expect(screen.getByText("21")).toBeTruthy()
     expect(screen.getByText("Erasures")).toBeTruthy()
+  })
+
+  it("labels every count as all time, since the volume chart below covers a shorter period", async () => {
+    renderPage(ActivityPage, client().client)
+    await waitFor(() => expect(screen.getByText("12,431")).toBeTruthy())
+    expect(screen.getAllByText("All time")).toHaveLength(3)
+    expect(screen.getByText("All time: 40 failed, 12 denied")).toBeTruthy()
+    expect(screen.queryByText(/30 days/)).toBeNull()
   })
 
   it("states each breakdown's numbers in the chart's own label, sorted by count", async () => {

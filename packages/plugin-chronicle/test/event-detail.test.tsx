@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor } from "@testing-library/react"
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react"
 import { describe, expect, it } from "vitest"
 import { ContractError, PluginProvider } from "@forge-go/dashboard-plugin"
 import { EventDetailPage } from "../src/pages/event-detail"
@@ -186,4 +186,38 @@ describe("EventDetailPage", () => {
     await waitFor(() => expect(screen.getByLabelText("no metadata")).toBeTruthy())
     expect(screen.queryByText(/Erased with the rest/)).toBeNull()
   })
+
+  it("says the chain's first event is its genesis event instead of an empty previous hash", async () => {
+    renderPage(EventDetailPage, client(detail({ sequence: 1, prevHash: "" })).client, { id: "audit_globex_1" })
+    await waitFor(() => expect(screen.getByText("Genesis event, the first in its chain. Nothing precedes it.")).toBeTruthy())
+  })
+
+  it("still shows a previous hash the first event carries", async () => {
+    renderPage(EventDetailPage, client(detail({ sequence: 1, prevHash: "bb".repeat(32) })).client, { id: "audit_globex_1" })
+    await waitFor(() => expect(screen.getByText(/^Genesis event/)).toBeTruthy())
+    expect(screen.getByText("bb".repeat(32))).toBeTruthy()
+  })
+
+  it("never calls a later event with no previous hash the genesis event", async () => {
+    renderPage(EventDetailPage, client(detail({ sequence: 2780, prevHash: "" })).client, { id: "audit_globex_2780" })
+    await waitFor(() => expect(screen.getByText(/Only a chain's first event has no previous hash/)).toBeTruthy())
+    expect(screen.queryByText(/Genesis/)).toBeNull()
+  })
+
+  it("links back to the events list, even when the event cannot be read", async () => {
+    renderPage(EventDetailPage, client(detail()).client, { id: "audit_globex_2780" })
+    expect((await screen.findByRole("link", { name: "Back to events" })).getAttribute("href")).toMatch(/\/events$/)
+    const gone = renderPage(EventDetailPage, failingClient(new ContractError("NOT_FOUND", "not found")), { id: "audit_x" })
+    await waitFor(() => expect(within(gone.container).getByText(/not found/i)).toBeTruthy())
+    expect(within(gone.container).getByRole("link", { name: "Back to events" })).toBeTruthy()
+  })
+
+  it("selects a whole hash or id on click, for copying, as the templ page did", async () => {
+    renderPage(EventDetailPage, client(detail()).client, { id: "audit_globex_2780" })
+    await waitFor(() => expect(screen.getByText("2,780")).toBeTruthy())
+    for (const value of ["aa".repeat(32), "bb".repeat(32), "audit_globex_2780", "stream_globex"]) {
+      expect(screen.getByText(value).className).toContain("select-all")
+    }
+  })
 })
+
