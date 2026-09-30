@@ -8,6 +8,8 @@
 // server.mjs's own badRequest() helper would produce. That keeps this file
 // free of a circular import back into server.mjs.
 
+import { createHash } from "node:crypto"
+
 // ---------------------------------------------------------------------------
 // In-memory state: warden
 //
@@ -1002,7 +1004,7 @@ const isIdentPart = (c) => isIdentStart(c) || isDigit(c) || c === 0x2d
 // Single-byte punctuation the lexer emits as a token of its own.
 const PUNCT = new Set("{}()[],:;.|#&/".split("").map((c) => c.charCodeAt(0)))
 
-function lexExpression(src) {
+function lexExpression(src, { floats = false } = {}) {
   const buf = Buffer.from(src, "utf8")
   let pos = 0
   let line = 1
@@ -1069,7 +1071,9 @@ function lexExpression(src) {
       pending = null
       return t
     }
-    const at = { line, col }
+    // start is the token's byte offset, so the schema parser can cut an
+    // expression's text back out of the source.
+    const at = { line, col, start: pos }
     if (pos >= buf.length) return { kind: "EOF", value: "", ...at }
     const ch = buf[pos]
 
@@ -1115,6 +1119,13 @@ function lexExpression(src) {
     if (isDigit(ch)) {
       const start = pos
       while (pos < buf.length && isDigit(buf[pos])) advance()
+      // dsl.Lexer.readNumber: a decimal when a "." and a digit follow. Only
+      // the schema parser asks for it; an expression has no use for a number.
+      if (floats && peek(0) === 0x2e && isDigit(peek(1))) {
+        advance()
+        while (pos < buf.length && isDigit(buf[pos])) advance()
+        return { kind: "FLOAT", value: buf.toString("utf8", start, pos), ...at }
+      }
       return { kind: "INT", value: buf.toString("utf8", start, pos), ...at }
     }
     if (PUNCT.has(ch)) {
@@ -3462,6 +3473,1950 @@ function playgroundBatchCheck(params) {
   }
 }
 
+// ---------------------------------------------------------------------------
+// schema.export, schema.plan and schema.apply
+//
+// handlers_schema.go is the authority for the wire shapes, the refusals and
+// their order, and planDigest. The fixture cannot run warden's dsl package, so
+// this section is a port of the parts of it the three intents touch: the
+// formatter (dsl/format.go, for export), the lexer and parser (dsl/lexer.go
+// and parser.go, reusing lexExpression above), the resolver (resolver.go) and
+// the applier's comparison and write order (applier.go). It works on fields,
+// not on text: a submitted declaration is compared with the stored row the way
+// the applier compares them, so an edit that only reflows the source plans as
+// nothing, and a `~` line names the fields that changed, as in Go.
+//
+// Where the fixture differs from Go, on purpose:
+//
+//   - Grants. The Go handlers refuse PERMISSION_DENIED when the caller lacks a
+//     read (export, plan) or manage (apply) grant on any of warden:role,
+//     warden:permission, warden:policy, warden:resourcetype and
+//     warden:relation, in that order, and that check comes first. The fixture
+//     viewer holds every grant, so the check never refuses and is not
+//     modelled. The order of the refusals that remain is the Go order: input
+//     decoding, then source diagnostics, then the digest.
+//   - Condition operators. Go's parser refuses an operator it does not know,
+//     so the export of a store that holds one (the seeded fuzzy-network-allow
+//     uses "approximately") is source the real server cannot plan. The fixture
+//     reads any bare word as an operator so that exporting the seed and
+//     planning it back gives an empty diff.
+//   - Failing part way. Go answers INTERNAL "the apply stopped part way: ..."
+//     when a write fails after the dry run. Nothing in memory fails, so a
+//     source that contains SCHEMA_FAIL_MARKER (for example in a comment) makes
+//     the write phase stop after resource types and permissions have been
+//     written, with the same answer. Writes before the stop stay.
+//   - diverged is computed as Go computes it (the digest of what was written
+//     against the digest that was approved). State cannot change between the
+//     two steps in a single-threaded fixture, so it is false unless the source
+//     repeats a relation line: the dry run lists both, the write finds the
+//     second already there.
+//   - Deeper traversal checks in the resolver (a step that hops through
+//     another type) are not ported; every other Resolve check is.
+//
+// CONFLICT, INTERNAL and the other codes below are set on the thrown object,
+// but server.mjs maps any error that is not its own FixtureError class to
+// 400/BAD_REQUEST on the wire (see the note on WardenFixtureError), so a
+// browser sees the message, not the code.
+// ---------------------------------------------------------------------------
+
+/** A source that contains this text makes schema.apply fail part way. See above. */
+const SCHEMA_FAIL_MARKER = "fixture:fail-apply"
+
+/** The id the applier stamps on rows it writes (declarativeActor.ID). */
+const DECLARATIVE_ACTOR = "system"
+
+const SCHEMA_KEYWORDS = new Set([...DSL_KEYWORDS, "true", "false"])
+
+const cmpString = (a, b) => (a < b ? -1 : a > b ? 1 : 0)
+const schemaKey = (ns, name) => ns + "\0" + name
+
+// ---- formatting (dsl/format.go) --------------------------------------------
+
+const BARE_NAME = /^[A-Za-z_][A-Za-z0-9_-]*$/
+
+/** quoteString: only the escapes the lexer reads. */
+function schemaQuote(s) {
+  let out = '"'
+  for (const ch of s) {
+    if (ch === "\\") out += "\\\\"
+    else if (ch === '"') out += '\\"'
+    else if (ch === "\n") out += "\\n"
+    else if (ch === "\t") out += "\\t"
+    else if (ch === "\r") out += "\\r"
+    else out += ch
+  }
+  return out + '"'
+}
+
+/** formatName: bare when the lexer reads it back as the same identifier. */
+function schemaName(s) {
+  return BARE_NAME.test(s) && !SCHEMA_KEYWORDS.has(s) ? s : schemaQuote(s)
+}
+
+function schemaParent(parent) {
+  if (parent.startsWith("/")) {
+    const segs = parent.slice(1).split("/")
+    if (segs.every((seg) => schemaName(seg) === seg)) return parent
+  }
+  return schemaName(parent)
+}
+
+/** formatField: a dotted path of bare words is written bare, anything else quoted. */
+function schemaField(field) {
+  const segs = field.split(".")
+  for (let i = 0; i < segs.length; i++) {
+    if (!BARE_NAME.test(segs[i])) return schemaQuote(field)
+    if (i === 0 && (segs[i] === "all_of" || segs[i] === "any_of")) return schemaQuote(field)
+  }
+  return field
+}
+
+const CANONICAL_OPS = {
+  eq: "==", neq: "!=", gt: ">", lt: "<", gte: ">=", lte: "<=", regex: "=~", not_in: "not in", not_exists: "not exists",
+}
+const canonicalOp = (op) => CANONICAL_OPS[op] ?? op
+
+/** Numbers in plain decimal, never an exponent, which the lexer does not read. */
+function plainDecimal(n) {
+  if (Number.isInteger(n)) return Math.abs(n) < 1e21 ? String(n) : BigInt(n).toString()
+  const s = String(n)
+  return /e/i.test(s) ? n.toFixed(20).replace(/0+$/, "") : s
+}
+
+function schemaLiteral(v) {
+  if (typeof v === "string") return schemaQuote(v)
+  if (typeof v === "boolean") return String(v)
+  if (typeof v === "number") return plainDecimal(v)
+  if (Array.isArray(v)) return "[" + v.map(schemaLiteral).join(", ") + "]"
+  return schemaQuote(goSprint(v))
+}
+
+/** time.RFC3339Nano in UTC: the fraction is written only when there is one, without trailing zeros. */
+function formatRFC3339Nano(ns) {
+  let seconds = ns / 1_000_000_000n
+  let nanos = ns % 1_000_000_000n
+  if (nanos < 0n) {
+    seconds -= 1n
+    nanos += 1_000_000_000n
+  }
+  const whole = new Date(Number(seconds) * 1000).toISOString().replace(/\.\d{3}Z$/, "")
+  const frac = nanos.toString().padStart(9, "0").replace(/0+$/, "")
+  return whole + (frac ? "." + frac : "") + "Z"
+}
+
+/** FormatExpr: an expression in canonical text, parentheses only where precedence needs them. */
+function formatExpr(e) {
+  switch (e.type) {
+    case "ref": return e.name
+    case "traverse": return e.steps.join("->")
+    case "or": return formatExprPrec(e.left, 0) + " or " + formatExprPrec(e.right, 0)
+    case "and": return formatExprPrec(e.left, 1) + " and " + formatExprPrec(e.right, 1)
+    case "not": return "not " + formatExprPrec(e.inner, 2)
+    default: return ""
+  }
+}
+function formatExprPrec(e, ctx) {
+  if (e.type === "or") return ctx > 0 ? "(" + formatExpr(e) + ")" : formatExpr(e)
+  if (e.type === "and") return ctx > 1 ? "(" + formatExpr(e) + ")" : formatExpr(e)
+  return formatExpr(e)
+}
+
+/** The expression text as FormatExpr writes it, or the text unchanged when it does not parse. */
+function canonicalExpr(src) {
+  const { expr, diags } = compileExpression(src)
+  return diags.length > 0 ? src : formatExpr(expr)
+}
+
+class SchemaWriter {
+  constructor() {
+    this.lines = []
+    this.depth = 0
+  }
+  line(text) {
+    this.lines.push("    ".repeat(this.depth) + text)
+  }
+  blank() {
+    this.lines.push("")
+  }
+  /** Inline up to three items; otherwise one per line with a trailing comma, a level in from the line it opens on. */
+  list(items) {
+    if (items.length === 0) return "[]"
+    if (items.length <= 3) return "[" + items.join(", ") + "]"
+    const inner = "    ".repeat(this.depth + 1)
+    return "[\n" + items.map((it) => inner + it + ",\n").join("") + "    ".repeat(this.depth) + "]"
+  }
+  strings(items) {
+    return this.list(items.map(schemaQuote))
+  }
+  /** One matcher is written inline, more are one per line. */
+  subjects(list) {
+    const items = list.map((m) => {
+      const fields = []
+      if (m.kind) fields.push("kind = " + schemaQuote(m.kind))
+      if (m.id) fields.push("id = " + schemaQuote(m.id))
+      if (m.role) fields.push("role = " + schemaQuote(m.role))
+      return fields.length === 0 ? "{}" : "{ " + fields.join(", ") + " }"
+    })
+    if (items.length === 1) return "[" + items[0] + "]"
+    const inner = "    ".repeat(this.depth + 1)
+    return "[\n" + items.map((it) => inner + it + ",\n").join("") + "    ".repeat(this.depth) + "]"
+  }
+  text() {
+    return this.lines.join("\n") + "\n"
+  }
+}
+
+function writeResourceType(w, rt) {
+  w.line(`resource ${schemaName(rt.name)} {`)
+  w.depth++
+  if (rt.description) w.line(`description = ${schemaQuote(rt.description)}`)
+  for (const rel of rt.relations) {
+    const subjects = rel.allowedSubjects.map((s) => (s.relation === "" ? schemaName(s.type) : schemaName(s.type) + "#" + schemaName(s.relation)))
+    w.line(subjects.length === 0 ? `relation ${schemaName(rel.name)}:` : `relation ${schemaName(rel.name)}: ${subjects.join(" | ")}`)
+  }
+  if (rt.relations.length > 0 && rt.permissions.length > 0) w.blank()
+  for (const perm of rt.permissions) w.line(`permission ${schemaName(perm.name)} = ${formatExpr(perm.expr)}`)
+  w.depth--
+  w.line("}")
+}
+
+function writePermission(w, p) {
+  if (!p.description && !p.isSystem) {
+    w.line(`permission ${schemaQuote(p.name)} (${schemaName(p.resource)} : ${schemaName(p.action)})`)
+    return
+  }
+  w.line(`permission ${schemaQuote(p.name)} {`)
+  w.depth++
+  w.line(`resource = ${schemaName(p.resource)}`)
+  w.line(`action = ${schemaName(p.action)}`)
+  if (p.description) w.line(`description = ${schemaQuote(p.description)}`)
+  if (p.isSystem) w.line("is_system = true")
+  w.depth--
+  w.line("}")
+}
+
+function writeRole(w, r) {
+  w.line(r.parent ? `role ${schemaName(r.slug)} : ${schemaParent(r.parent)} {` : `role ${schemaName(r.slug)} {`)
+  w.depth++
+  if (r.name) w.line(`name = ${schemaQuote(r.name)}`)
+  if (r.description) w.line(`description = ${schemaQuote(r.description)}`)
+  if (r.isSystem) w.line("is_system = true")
+  if (r.isDefault) w.line("is_default = true")
+  if (r.maxMembers !== 0) w.line(`max_members = ${r.maxMembers}`)
+  if (r.grantsSet || r.grants.length > 0 || r.qualifiedGrants.length > 0) {
+    const items = [
+      ...r.grants.map(schemaQuote),
+      ...r.qualifiedGrants.map((g) => `{ namespace = ${schemaQuote(g.ns)}, name = ${schemaQuote(g.name)} }`),
+    ]
+    w.line(`grants ${r.grantsAppend ? "+=" : "="} ${w.list(items)}`)
+  }
+  w.depth--
+  w.line("}")
+}
+
+function writePolicy(w, p) {
+  w.line(`policy ${schemaQuote(p.name)} {`)
+  w.depth++
+  if (p.description) w.line(`description = ${schemaQuote(p.description)}`)
+  if (p.effect) w.line(`effect = ${p.effect}`)
+  if (p.priority !== 0) w.line(`priority = ${p.priority}`)
+  w.line(`active = ${p.active}`)
+  if (p.notBefore !== null) w.line(`not_before = ${schemaQuote(formatRFC3339Nano(p.notBefore))}`)
+  if (p.notAfter !== null) w.line(`not_after = ${schemaQuote(formatRFC3339Nano(p.notAfter))}`)
+  if (p.obligations.length > 0) w.line(`obligations = ${w.strings(p.obligations)}`)
+  if (p.subjects.length > 0) w.line(`subjects = ${w.subjects(p.subjects)}`)
+  if (p.actions.length > 0) w.line(`actions = ${w.strings(p.actions)}`)
+  if (p.resources.length > 0) w.line(`resources = ${w.strings(p.resources)}`)
+  if (p.conditions.length > 0) {
+    w.line("when {")
+    w.depth++
+    for (const c of p.conditions) {
+      const head = `${schemaField(c.field)} ${canonicalOp(c.operator)}`
+      w.line(c.value === undefined || c.value === null ? head : `${head} ${schemaLiteral(c.value)}`)
+    }
+    w.depth--
+    w.line("}")
+  }
+  w.depth--
+  w.line("}")
+}
+
+const TUPLE_KEY = (t) => [t.objectType, t.objectId, t.relation, t.subjectType, t.subjectId, t.subjectRelation]
+
+function writeRelation(w, r) {
+  let subject = schemaName(r.subjectType) + ":" + schemaName(r.subjectId)
+  if (r.subjectRelation) subject += "#" + schemaName(r.subjectRelation)
+  w.line(`relation ${schemaName(r.objectType)}:${schemaName(r.objectId)} ${schemaName(r.relation)} = ${subject}`)
+}
+
+/** One namespace's declarations in section order, a blank line between sections. Reports whether it wrote anything. */
+function writeSections(w, g) {
+  const byName = (key) => (a, b) => cmpString(a[key], b[key])
+  const sections = [
+    [g.resourceTypes.sort(byName("name")), writeResourceType, true],
+    [g.permissions.sort(byName("name")), writePermission, false],
+    [g.roles.sort(byName("slug")), writeRole, true],
+    [g.policies.sort(byName("name")), writePolicy, true],
+    [
+      g.relations.sort((a, b) => {
+        const ka = TUPLE_KEY(a)
+        const kb = TUPLE_KEY(b)
+        for (let i = 0; i < ka.length; i++) if (ka[i] !== kb[i]) return cmpString(ka[i], kb[i])
+        return 0
+      }),
+      writeRelation,
+      false,
+    ],
+  ]
+  let first = true
+  for (const [rows, write, spaced] of sections) {
+    if (rows.length === 0) continue
+    if (!first) w.blank()
+    first = false
+    rows.forEach((row, i) => {
+      if (spaced && i > 0) w.blank()
+      write(w, row)
+    })
+  }
+  return !first
+}
+
+/** dsl.Format: the header, the tenant root's declarations, then one flat `namespace` block per path, sorted. */
+function formatSchema(tenant, groups) {
+  const w = new SchemaWriter()
+  w.line("warden config 1")
+  if (tenant) w.line(`tenant ${schemaName(tenant)}`)
+  w.blank()
+  let wrote = false
+  if (groups.has("")) wrote = writeSections(w, groups.get(""))
+  for (const path of [...groups.keys()].filter((p) => p !== "").sort(cmpString)) {
+    if (wrote) w.blank()
+    wrote = true
+    w.line(`namespace ${schemaQuote(path)} {`)
+    w.depth++
+    writeSections(w, groups.get(path))
+    w.depth--
+    w.line("}")
+  }
+  return w.text()
+}
+
+// ---- export: the seed as declarations (dsl.BuildProgram) --------------------
+
+function emptyGroup() {
+  return { resourceTypes: [], permissions: [], roles: [], policies: [], relations: [] }
+}
+
+/** grantIsPlain: a bare name reaches the permission from the role's namespace, or from the root unless a same-named one shadows it. */
+function grantIsPlain(roleNs, perm) {
+  if (perm.namespacePath === roleNs) return true
+  if (perm.namespacePath !== "") return false
+  return !warden.permissions.some((p) => p.namespacePath === roleNs && p.name === perm.name)
+}
+
+function exportDecls(prefix) {
+  const matches = (ns) => prefix === "" || ns === prefix || ns.startsWith(prefix + "/")
+  const groups = new Map()
+  const group = (ns) => {
+    if (!groups.has(ns)) groups.set(ns, emptyGroup())
+    return groups.get(ns)
+  }
+
+  for (const rt of warden.resourceTypes) {
+    if (!matches(rt.namespacePath)) continue
+    group(rt.namespacePath).resourceTypes.push({
+      name: rt.name,
+      description: rt.description ?? "",
+      relations: rt.relations.map((d) => ({
+        name: d.name,
+        allowedSubjects: d.allowedSubjects.map((s) => {
+          const i = s.indexOf("#")
+          return i < 0 ? { type: s, relation: "" } : { type: s.slice(0, i), relation: s.slice(i + 1) }
+        }),
+      })),
+      permissions: rt.permissions.map((d) => {
+        const { expr, diags } = compileExpression(d.expression)
+        // The exporter falls back to the stored text as a placeholder reference.
+        return { name: d.name, expr: diags.length > 0 ? { type: "ref", name: d.expression } : expr }
+      }),
+    })
+  }
+  for (const p of warden.permissions) {
+    if (!matches(p.namespacePath)) continue
+    group(p.namespacePath).permissions.push({
+      name: p.name, resource: p.resource, action: p.action, description: p.description ?? "", isSystem: Boolean(p.isSystem),
+    })
+  }
+  for (const r of warden.roles) {
+    if (!matches(r.namespacePath)) continue
+    const held = warden.grants
+      .filter((g) => g.roleId === r.id)
+      .map((g) => warden.permissions.find((p) => p.namespacePath === g.namespacePath && p.name === g.name))
+      .filter(Boolean)
+    // A role owns its grant set in the export: `grants = []` is written for a
+    // role with none, so removing a grant from the source revokes it.
+    const plain = held.filter((p) => grantIsPlain(r.namespacePath, p))
+    const qualified = held.filter((p) => !grantIsPlain(r.namespacePath, p))
+    group(r.namespacePath).roles.push({
+      slug: r.slug,
+      parent: r.parentSlug ?? "",
+      name: r.name,
+      description: r.description ?? "",
+      isSystem: Boolean(r.isSystem),
+      isDefault: Boolean(r.isDefault),
+      maxMembers: r.maxMembers ?? 0,
+      grantsSet: true,
+      grantsAppend: false,
+      grants: plain.map((p) => p.name).sort(cmpString),
+      qualifiedGrants: qualified
+        .map((p) => ({ ns: p.namespacePath, name: p.name }))
+        .sort((a, b) => cmpString(a.ns, b.ns) || cmpString(a.name, b.name)),
+    })
+  }
+  for (const p of warden.policies) {
+    if (!matches(p.namespacePath)) continue
+    group(p.namespacePath).policies.push({
+      name: p.name,
+      description: p.description ?? "",
+      effect: p.effect,
+      priority: p.priority,
+      active: p.isActive,
+      notBefore: p.notBefore ?? null,
+      notAfter: p.notAfter ?? null,
+      obligations: [...p.obligations],
+      subjects: p.subjects.map((s) => ({ kind: s.kind ?? "", id: s.id ?? "", role: s.role ?? "" })),
+      actions: [...p.actions],
+      resources: [...p.resources],
+      conditions: p.conditions.map((c) => ({ field: c.field, operator: c.operator, value: c.value })),
+    })
+  }
+  for (const t of warden.relations) {
+    if (!matches(t.namespacePath)) continue
+    group(t.namespacePath).relations.push({
+      objectType: t.objectType, objectId: t.objectId, relation: t.relation,
+      subjectType: t.subjectType, subjectId: t.subjectId, subjectRelation: t.subjectRelation ?? "",
+    })
+  }
+  return groups
+}
+
+// ---- parsing (dsl/parser.go) -----------------------------------------------
+
+const joinNs = (parent, child) => (parent === "" ? child : child === "" ? parent : parent + "/" + child)
+
+/**
+ * dsl.Parse over lexExpression's tokens. Every diagnostic, and the error
+ * recovery that decides which ones follow, is the parser's own, so a bad
+ * source shows the editor the same markers. Decls carry a `ns` (the absolute
+ * namespace path, stamped by flattening) and a `pos`.
+ */
+function parseSchemaSource(src) {
+  const next = lexExpression(src, { floats: true })
+  const errs = []
+  let cur = next()
+  const advance = () => {
+    const prev = cur
+    cur = next()
+    return prev
+  }
+  const pos = (t = cur) => ({ line: t.line, col: t.col })
+  const errf = (t, message) => errs.push({ line: t.line, col: t.col, message })
+  const got = () => `${cur.kind} ${goQuote(cur.value)}`
+  const expect = (kind) => {
+    if (cur.kind !== kind) {
+      errf(cur, `expected ${kind}, got ${got()}`)
+      return cur
+    }
+    return advance()
+  }
+  const accept = (kind) => {
+    if (cur.kind !== kind) return false
+    advance()
+    return true
+  }
+  /** A name: a bare identifier or a string literal. null when it is neither, and nothing is consumed. */
+  const name = () => {
+    if (cur.kind !== "IDENT" && cur.kind !== "STRING") return null
+    return advance().value
+  }
+  const isWord = (t) => t.kind === "IDENT" || (t.kind !== "STRING" && SCHEMA_KEYWORDS.has(t.value))
+  const atEnd = (close) => cur.kind === close || cur.kind === "EOF"
+
+  // ---- expressions (Pratt-style: or < and < not < traversal) ----
+  function parseExpr() {
+    let left = parseAnd()
+    while (cur.kind === "or" || cur.kind === "+") {
+      advance()
+      left = { type: "or", left, right: parseAnd() }
+    }
+    return left
+  }
+  function parseAnd() {
+    let left = parseNot()
+    while (cur.kind === "and" || cur.kind === "&") {
+      advance()
+      left = { type: "and", left, right: parseNot() }
+    }
+    return left
+  }
+  function parseNot() {
+    if (cur.kind === "not" || cur.kind === "!" || cur.kind === "-") {
+      advance()
+      return { type: "not", inner: parseNot() }
+    }
+    return parsePrimary()
+  }
+  function parsePrimary() {
+    if (cur.kind === "(") {
+      advance()
+      const e = parseExpr()
+      if (!accept(")")) errf(cur, "expected `)`")
+      return e
+    }
+    if (cur.kind === "IDENT") {
+      const at = pos()
+      const first = advance().value
+      if (cur.kind !== "->") return { type: "ref", name: first, ...at }
+      const steps = [first]
+      while (accept("->")) {
+        if (cur.kind !== "IDENT") {
+          errf(cur, "expected identifier after `->`")
+          break
+        }
+        steps.push(advance().value)
+      }
+      return { type: "traverse", steps, ...at }
+    }
+    errf(cur, `expected expression, got ${got()}`)
+    return { type: "ref", name: "<error>", ...pos() }
+  }
+
+  // ---- literals ----
+  const startsLiteral = (k) => k === "STRING" || k === "INT" || k === "FLOAT" || k === "BOOL" || k === "[" || k === "-"
+
+  /** An INT with an optional leading `-`, for an integer the store keeps signed. */
+  function parseSignedInt(what) {
+    const neg = accept("-")
+    if (cur.kind !== "INT") {
+      errf(cur, `expected an integer after ${what} =, got ${got()}`)
+      return null
+    }
+    const tok = advance()
+    const raw = (neg ? "-" : "") + tok.value
+    const v = Number(raw)
+    if (!Number.isSafeInteger(v)) {
+      errf(tok, `invalid integer ${goQuote(raw)} for ${what}: strconv.Atoi: parsing ${goQuote(raw)}: value out of range`)
+      return null
+    }
+    return v
+  }
+  function parseNumber() {
+    const neg = accept("-")
+    const tok = cur
+    if (tok.kind === "INT" || tok.kind === "FLOAT") {
+      advance()
+      return (neg ? -1 : 1) * Number(tok.value)
+    }
+    errf(tok, `expected a number after \`-\`, got ${tok.kind} ${goQuote(tok.value)}`)
+    return undefined
+  }
+  function parseLiteralValue() {
+    switch (cur.kind) {
+      case "STRING": return { value: advance().value }
+      case "INT":
+      case "FLOAT":
+      case "-": {
+        const v = parseNumber()
+        return v === undefined ? null : { value: v }
+      }
+      case "BOOL": return { value: advance().value === "true" }
+      case "[": return parseValueList()
+    }
+    errf(cur, `expected literal value, got ${got()}`)
+    return null
+  }
+  function parseValueList() {
+    if (!accept("[")) {
+      errf(cur, "expected `[` to open list")
+      return null
+    }
+    const items = []
+    while (!atEnd("]")) {
+      if (cur.kind === "[") {
+        errf(cur, "a list value cannot hold another list")
+        advance()
+        continue
+      }
+      const v = parseLiteralValue()
+      if (v === null) {
+        advance()
+        continue
+      }
+      items.push(v.value)
+      if (!accept(",")) break
+    }
+    expect("]")
+    return { value: items }
+  }
+  function parseStringList() {
+    if (!accept("[")) {
+      errf(cur, "expected `[` to open string list")
+      return []
+    }
+    const out = []
+    while (!atEnd("]")) {
+      if (cur.kind !== "STRING") {
+        errf(cur, "expected string literal")
+        advance()
+        continue
+      }
+      out.push(advance().value)
+      if (!accept(",")) break
+    }
+    expect("]")
+    return out
+  }
+  /** `{ key = "value", ... }`, every value a string literal, every key one of keys. */
+  function parseObject(what, keys) {
+    const fields = new Map()
+    expect("{")
+    while (!atEnd("}")) {
+      const keyTok = cur
+      if (!isWord(keyTok)) {
+        errf(keyTok, `expected a ${what} field (${keys.join(", ")}), got ${keyTok.kind} ${goQuote(keyTok.value)}`)
+        advance()
+        continue
+      }
+      advance()
+      const known = keys.includes(keyTok.value)
+      if (!known) errf(keyTok, `unknown ${what} field ${goQuote(keyTok.value)}: expected ${keys.join(", ")}`)
+      if (!accept("=")) errf(cur, `expected \`=\` after ${goQuote(keyTok.value)}`)
+      if (cur.kind !== "STRING") {
+        errf(cur, `expected a string after ${keyTok.value} =`)
+      } else {
+        if (fields.has(keyTok.value)) errf(keyTok, `${what} field ${goQuote(keyTok.value)} is given twice`)
+        if (known) fields.set(keyTok.value, cur.value)
+        advance()
+      }
+      accept(",")
+    }
+    expect("}")
+    return fields
+  }
+
+  // ---- declarations ----
+  function parseImport() {
+    const at = pos()
+    advance()
+    if (cur.kind !== "STRING") {
+      errf(cur, "expected string after `import`")
+      return null
+    }
+    const d = { path: advance().value, pos: at }
+    return d
+  }
+
+  function parseRelationDef() {
+    const at = pos()
+    advance()
+    const relName = name()
+    if (relName === null) {
+      errf(cur, "expected relation name")
+      return null
+    }
+    const def = { name: relName, allowedSubjects: [], pos: at }
+    if (!accept(":")) {
+      errf(cur, "expected `:` after relation name")
+      return null
+    }
+    // A relation may allow no subject type at all (`relation x:` and nothing after).
+    if (cur.kind !== "IDENT" && cur.kind !== "STRING") return def
+    for (;;) {
+      const type = name()
+      if (type === null) {
+        errf(cur, "expected subject type identifier")
+        return def
+      }
+      const st = { type, relation: "" }
+      if (accept("#")) {
+        const rel = name()
+        if (rel !== null) st.relation = rel
+        else errf(cur, "expected relation name after `#`")
+      }
+      def.allowedSubjects.push(st)
+      if (!accept("|")) break
+    }
+    return def
+  }
+
+  function parseResource() {
+    const at = pos()
+    advance()
+    const rtName = name()
+    if (rtName === null) {
+      errf(cur, "expected resource type name")
+      return null
+    }
+    const d = { name: rtName, ns: "", description: "", relations: [], permissions: [], pos: at }
+    if (!accept("{")) {
+      errf(cur, "expected `{` to open resource block")
+      return null
+    }
+    while (!atEnd("}")) {
+      switch (cur.kind) {
+        case "relation": {
+          const rel = parseRelationDef()
+          if (rel) d.relations.push(rel)
+          break
+        }
+        case "permission": {
+          const pat = pos()
+          advance()
+          const permName = name()
+          if (permName === null) {
+            errf(cur, "expected permission name (identifier)")
+            break
+          }
+          const perm = { name: permName, expr: null, pos: pat }
+          d.permissions.push(perm)
+          if (!accept("=")) {
+            errf(cur, "expected `=` after permission name")
+            break
+          }
+          perm.expr = parseExpr()
+          break
+        }
+        case "description":
+          advance()
+          if (!accept("=")) errf(cur, "expected `=` after description")
+          if (cur.kind === "STRING") d.description = advance().value
+          else errf(cur, "expected string after description =")
+          break
+        default:
+          errf(cur, `unexpected token ${got()} inside resource block`)
+          advance()
+      }
+    }
+    expect("}")
+    return d
+  }
+
+  function parsePermission() {
+    const at = pos()
+    advance()
+    if (cur.kind !== "STRING") {
+      errf(cur, "expected permission name as string literal")
+      return null
+    }
+    const d = { name: cur.value, ns: "", resource: "", action: "", description: "", isSystem: false, pos: at }
+    const colon = d.name.indexOf(":")
+    if (colon >= 0) {
+      d.resource = d.name.slice(0, colon)
+      d.action = d.name.slice(colon + 1)
+    }
+    advance()
+    if (cur.kind === "(") {
+      advance()
+      const res = name()
+      if (res !== null) d.resource = res
+      else errf(cur, "expected resource type identifier")
+      if (!accept(":")) errf(cur, "expected `:` between resource and action")
+      const act = name()
+      if (act !== null) d.action = act
+      else errf(cur, "expected action identifier")
+      if (!accept(")")) errf(cur, "expected `)` to close permission shorthand")
+    } else if (cur.kind === "{") {
+      advance()
+      while (!atEnd("}")) {
+        switch (cur.kind) {
+          case "resource": {
+            advance()
+            if (!accept("=")) errf(cur, "expected `=` after `resource`")
+            const v = name()
+            if (v !== null) d.resource = v
+            else errf(cur, "expected resource identifier")
+            break
+          }
+          case "IDENT": {
+            const key = advance().value
+            if (!accept("=")) errf(cur, `expected \`=\` after ${goQuote(key)}`)
+            if (key === "action") {
+              if (cur.kind === "IDENT" || cur.kind === "STRING") d.action = cur.value
+              else errf(cur, "expected action identifier")
+              advance()
+            } else {
+              errf(cur, `unknown permission attribute ${goQuote(key)}`)
+              advance()
+            }
+            break
+          }
+          case "description":
+            advance()
+            if (!accept("=")) errf(cur, "expected `=` after description")
+            if (cur.kind === "STRING") d.description = advance().value
+            break
+          case "is_system":
+            advance()
+            if (!accept("=")) errf(cur, "expected `=` after is_system")
+            if (cur.kind === "BOOL") d.isSystem = advance().value === "true"
+            break
+          default:
+            errf(cur, `unexpected token in permission block: ${got()}`)
+            advance()
+        }
+      }
+      expect("}")
+    }
+    return d
+  }
+
+  function parseGrantList(d) {
+    if (!accept("[")) {
+      errf(cur, "expected `[` to open string list")
+      return
+    }
+    while (!atEnd("]")) {
+      if (cur.kind === "STRING") {
+        d.grants.push(advance().value)
+      } else if (cur.kind === "{") {
+        const at = pos()
+        const fields = parseObject("qualified grant", ["namespace", "name"])
+        if (!fields.has("name")) errf(at, "a qualified grant needs a name")
+        d.qualifiedGrants.push({ ns: fields.get("namespace") ?? "", name: fields.get("name") ?? "", pos: at })
+      } else {
+        errf(cur, "expected string literal or a qualified grant `{ namespace = ..., name = ... }`")
+        advance()
+        continue
+      }
+      if (!accept(",")) break
+    }
+    expect("]")
+  }
+
+  function parseRole() {
+    const at = pos()
+    advance()
+    const slug = name()
+    if (slug === null) {
+      errf(cur, "expected role slug")
+      return null
+    }
+    const d = {
+      slug, ns: "", parent: "", name: "", description: "", isSystem: false, isDefault: false, maxMembers: 0,
+      grants: [], grantsAppend: false, qualifiedGrants: [], grantsSet: false, pos: at,
+    }
+    // Optional parent: `: <slug>` or `: /seg/seg/.../slug`.
+    if (accept(":")) {
+      if (cur.kind === "/") {
+        let sb = "/"
+        advance()
+        for (;;) {
+          if (cur.kind !== "IDENT") {
+            errf(cur, "expected identifier in absolute parent path")
+            break
+          }
+          sb += advance().value
+          if (!accept("/")) break
+          sb += "/"
+        }
+        d.parent = sb
+      } else if (cur.kind === "IDENT" || cur.kind === "STRING") {
+        d.parent = advance().value
+      } else {
+        errf(cur, "expected parent role slug after `:`")
+      }
+    }
+    if (!accept("{")) {
+      errf(cur, "expected `{` to open role block")
+      return d
+    }
+    while (!atEnd("}")) {
+      switch (cur.kind) {
+        case "name":
+          advance()
+          if (!accept("=")) errf(cur, "expected `=` after name")
+          if (cur.kind === "STRING") d.name = advance().value
+          else errf(cur, "expected string after name =")
+          break
+        case "description":
+          advance()
+          if (!accept("=")) errf(cur, "expected `=` after description")
+          if (cur.kind === "STRING") d.description = advance().value
+          break
+        case "is_system":
+          advance()
+          if (!accept("=")) errf(cur, "expected `=` after is_system")
+          if (cur.kind === "BOOL") d.isSystem = advance().value === "true"
+          break
+        case "is_default":
+          advance()
+          if (!accept("=")) errf(cur, "expected `=` after is_default")
+          if (cur.kind === "BOOL") d.isDefault = advance().value === "true"
+          break
+        case "max_members": {
+          advance()
+          if (!accept("=")) errf(cur, "expected `=` after max_members")
+          const v = parseSignedInt("max_members")
+          if (v !== null) d.maxMembers = v
+          break
+        }
+        case "grants":
+          advance()
+          if (cur.kind === "+=") {
+            d.grantsAppend = true
+            advance()
+          } else if (!accept("=")) {
+            errf(cur, "expected `=` or `+=` after grants")
+          }
+          d.grantsSet = true
+          parseGrantList(d)
+          break
+        default:
+          errf(cur, `unexpected token in role block: ${got()}`)
+          advance()
+      }
+    }
+    expect("}")
+    return d
+  }
+
+  function parseSubjectList() {
+    if (!accept("[")) {
+      errf(cur, "expected `[` to open the subjects list")
+      return []
+    }
+    const out = []
+    while (!atEnd("]")) {
+      if (cur.kind !== "{") {
+        errf(cur, `expected a subject matcher \`{ kind = ..., id = ..., role = ... }\`, got ${got()}`)
+        advance()
+        continue
+      }
+      const fields = parseObject("subject matcher", ["kind", "id", "role"])
+      out.push({ kind: fields.get("kind") ?? "", id: fields.get("id") ?? "", role: fields.get("role") ?? "" })
+      if (!accept(",")) break
+    }
+    expect("]")
+    return out
+  }
+
+  function parseFieldPath() {
+    if (!isWord(cur)) {
+      errf(cur, `expected field path identifier, got ${got()}`)
+      return ""
+    }
+    let out = advance().value
+    while (accept(".")) {
+      if (isWord(cur)) {
+        out += "." + advance().value
+      } else if (cur.kind === "[") {
+        // .[...] for map access
+        advance()
+        if (cur.kind === "STRING") {
+          out += "[" + goQuote(advance().value) + "]"
+        }
+        expect("]")
+      } else {
+        errf(cur, "expected identifier after `.`")
+        return out
+      }
+    }
+    return out
+  }
+
+  const OPERATORS = {
+    "==": "eq", "!=": "neq", in: "in", contains: "contains", starts_with: "starts_with", ends_with: "ends_with",
+    ">": "gt", "<": "lt", ">=": "gte", "<=": "lte", exists: "exists", ip_in_cidr: "ip_in_cidr",
+    time_after: "time_after", time_before: "time_before", "=~": "regex",
+  }
+  /** The canonical operator, or null after a diagnostic. A bare word the language does not know is taken as is (see the header note). */
+  function parseOperator() {
+    const at = cur
+    if (cur.kind === "not") {
+      advance()
+      if (cur.kind === "in") {
+        advance()
+        return "not_in"
+      }
+      if (cur.kind === "exists") {
+        advance()
+        return "not_exists"
+      }
+      errf(cur, "expected `in` or `exists` after `not`")
+      return null
+    }
+    if (Object.hasOwn(OPERATORS, cur.kind)) {
+      advance()
+      return OPERATORS[at.kind]
+    }
+    if (cur.kind === "IDENT") return advance().value
+    errf(at, `expected condition operator, got ${at.kind} ${goQuote(at.value)}`)
+    return null
+  }
+
+  function parseCondition() {
+    const at = pos()
+    if (cur.kind === "all_of" || cur.kind === "any_of") {
+      const kind = advance().kind
+      if (!accept("{")) {
+        errf(cur, `expected \`{\` after ${kind}`)
+        return null
+      }
+      const c = { field: "", operator: "", value: undefined, negate: false, allOf: null, anyOf: null, pos: at }
+      const inner = []
+      while (!atEnd("}")) {
+        const child = parseCondition()
+        if (child) inner.push(child)
+      }
+      expect("}")
+      if (kind === "all_of") c.allOf = inner
+      else c.anyOf = inner
+      return c
+    }
+    // Atomic: field-path operator value [negate]. A field a bare path cannot spell is a string literal.
+    let field
+    if (cur.kind === "STRING") field = advance().value
+    else field = parseFieldPath()
+    if (field === "") {
+      advance() // ensure progress
+      return null
+    }
+    const opLine = cur.line
+    const op = parseOperator()
+    if (op === null) return null
+    // exists and not_exists take a value only when it starts on the operator's own line.
+    let value
+    if ((op !== "exists" && op !== "not_exists") || (cur.line === opLine && startsLiteral(cur.kind))) {
+      const lit = parseLiteralValue()
+      if (lit === null) return null
+      value = lit.value
+    }
+    const c = { field, operator: op, value, negate: false, allOf: null, anyOf: null, pos: at }
+    if (accept("negate")) c.negate = true
+    return c
+  }
+
+  function parseTimeField(label) {
+    advance()
+    if (!accept("=")) errf(cur, `expected \`=\` after ${label}`)
+    if (cur.kind === "STRING") {
+      const tok = advance()
+      const t = parseGoTime(tok.value)
+      if (t === null) {
+        errf(tok, `${label} must be RFC3339 timestamp: expected RFC3339 (e.g. "2026-06-01T00:00:00Z"), got ${goQuote(tok.value)}`)
+        return null
+      }
+      return t
+    }
+    errf(cur, `expected RFC3339 timestamp string after ${label} =`)
+    return null
+  }
+
+  function parsePolicy() {
+    const at = pos()
+    advance()
+    if (cur.kind !== "STRING") {
+      errf(cur, "expected policy name as string literal")
+      return null
+    }
+    const d = {
+      name: advance().value, ns: "", description: "", effect: "", priority: 0, active: true, notBefore: null, notAfter: null,
+      obligations: [], subjects: [], actions: [], resources: [], conditions: [], pos: at,
+    }
+    if (!accept("{")) {
+      errf(cur, "expected `{` to open policy block")
+      return d
+    }
+    while (!atEnd("}")) {
+      switch (cur.kind) {
+        case "effect":
+          advance()
+          if (!accept("=")) errf(cur, "expected `=` after effect")
+          if (cur.kind === "allow" || cur.kind === "deny") {
+            d.effect = advance().kind
+          } else {
+            errf(cur, `expected \`allow\` or \`deny\`, got ${got()}`)
+            advance()
+          }
+          break
+        case "priority": {
+          advance()
+          if (!accept("=")) errf(cur, "expected `=` after priority")
+          const v = parseSignedInt("priority")
+          if (v !== null) d.priority = v
+          break
+        }
+        case "active":
+          advance()
+          if (!accept("=")) errf(cur, "expected `=` after active")
+          if (cur.kind === "BOOL") d.active = advance().value === "true"
+          break
+        case "subjects":
+          advance()
+          if (!accept("=")) errf(cur, "expected `=` after subjects")
+          d.subjects.push(...parseSubjectList())
+          break
+        case "actions":
+          advance()
+          if (!accept("=")) errf(cur, "expected `=` after actions")
+          d.actions.push(...parseStringList())
+          break
+        case "resources":
+          advance()
+          if (!accept("=")) errf(cur, "expected `=` after resources")
+          d.resources.push(...parseStringList())
+          break
+        case "description":
+          advance()
+          if (!accept("=")) errf(cur, "expected `=` after description")
+          if (cur.kind === "STRING") d.description = advance().value
+          break
+        case "not_before": {
+          const t = parseTimeField("not_before")
+          if (t !== null) d.notBefore = t
+          break
+        }
+        case "not_after": {
+          const t = parseTimeField("not_after")
+          if (t !== null) d.notAfter = t
+          break
+        }
+        case "obligations":
+          advance()
+          if (!accept("=")) errf(cur, "expected `=` after obligations")
+          d.obligations.push(...parseStringList())
+          break
+        case "when":
+          advance()
+          if (!accept("{")) {
+            errf(cur, "expected `{` after `when`")
+            continue
+          }
+          while (!atEnd("}")) {
+            const c = parseCondition()
+            if (c) d.conditions.push(c)
+          }
+          expect("}")
+          break
+        default:
+          errf(cur, `unexpected token in policy block: ${got()}`)
+          advance()
+      }
+    }
+    expect("}")
+    return d
+  }
+
+  function parseTopLevelRelation() {
+    const at = pos()
+    advance()
+    const d = { ns: "", objectType: "", objectId: "", relation: "", subjectType: "", subjectId: "", subjectRelation: "", pos: at }
+    const step = (field, what) => {
+      const v = name()
+      if (v === null) {
+        errf(cur, `expected ${what}`)
+        return false
+      }
+      d[field] = v
+      return true
+    }
+    const punct = (kind, what) => {
+      if (accept(kind)) return true
+      errf(cur, `expected ${what}`)
+      return false
+    }
+    if (!step("objectType", "object type")) return null
+    if (!punct(":", "`:` after object type")) return d
+    if (!step("objectId", "object id")) return d
+    if (!step("relation", "relation name")) return d
+    if (!punct("=", "`=` after relation name")) return d
+    if (!step("subjectType", "subject type")) return d
+    if (!punct(":", "`:` after subject type")) return d
+    if (!step("subjectId", "subject id")) return d
+    if (accept("#")) {
+      const rel = name()
+      if (rel !== null) d.subjectRelation = rel
+      else errf(cur, "expected relation name after `#`")
+    }
+    return d
+  }
+
+  const newScope = () => ({ namespaces: [], resourceTypes: [], permissions: [], roles: [], policies: [], relations: [] })
+  const SCOPE_KEY = {
+    resource: ["resourceTypes", parseResource],
+    permission: ["permissions", parsePermission],
+    role: ["roles", parseRole],
+    policy: ["policies", parsePolicy],
+    relation: ["relations", parseTopLevelRelation],
+  }
+
+  function parseNamespace() {
+    const at = pos()
+    advance()
+    if (cur.kind !== "STRING" && cur.kind !== "IDENT") {
+      errf(cur, "expected namespace name as identifier or string literal")
+      return null
+    }
+    const d = { name: advance().value, pos: at, ...newScope() }
+    if (!accept("{")) {
+      errf(cur, "expected `{` to open namespace block")
+      return null
+    }
+    while (!atEnd("}")) {
+      if (cur.kind === "namespace") {
+        const child = parseNamespace()
+        if (child) d.namespaces.push(child)
+      } else if (Object.hasOwn(SCOPE_KEY, cur.kind)) {
+        const [key, parse] = SCOPE_KEY[cur.kind]
+        const child = parse()
+        if (child) d[key].push(child)
+      } else {
+        errf(cur, `unexpected token ${got()} inside namespace`)
+        advance()
+      }
+    }
+    expect("}")
+    return d
+  }
+
+  /** One top-level declaration. False when nothing was consumed, so the caller skips a token. */
+  function parseTopLevel(prog) {
+    if (cur.kind === "ILLEGAL") {
+      errf(cur, `lexer error: ${cur.value}`)
+      advance()
+      return true
+    }
+    if (cur.kind === "import") {
+      const d = parseImport()
+      if (d) prog.imports.push(d)
+      return true
+    }
+    if (cur.kind === "namespace") {
+      const d = parseNamespace()
+      if (d) prog.namespaces.push(d)
+      return true
+    }
+    if (Object.hasOwn(SCOPE_KEY, cur.kind)) {
+      const [key, parse] = SCOPE_KEY[cur.kind]
+      const d = parse()
+      if (d) prog[key].push(d)
+      return true
+    }
+    if (cur.kind === "EOF") return false
+    errf(cur, `unexpected token ${got()} at top level`)
+    return false
+  }
+
+  // ---- the program ----
+  const prog = { version: 0, tenant: "", app: "", imports: [], headerPos: pos(), ...newScope(), blocks: [] }
+  if (cur.kind !== "warden") {
+    errf(cur, "expected `warden config <version>` header")
+  } else {
+    advance()
+    expect("config")
+    prog.version = Number.parseInt(expect("INT").value, 10) || 0
+  }
+  for (;;) {
+    if (cur.kind === "tenant") {
+      advance()
+      const v = name()
+      if (v !== null) prog.tenant = v
+      else errf(cur, "expected tenant identifier after `tenant`")
+    } else if (cur.kind === "app") {
+      advance()
+      const v = name()
+      if (v !== null) prog.app = v
+      else errf(cur, "expected app identifier after `app`")
+    } else {
+      break
+    }
+  }
+  while (cur.kind !== "EOF") {
+    if (!parseTopLevel(prog)) advance()
+  }
+
+  // flattenNamespaces: stamp the absolute path on every wrapped decl and promote it to the flat lists.
+  const flatten = (nsDecl, parent) => {
+    const abs = joinNs(parent, nsDecl.name)
+    prog.blocks.push(abs)
+    for (const key of ["resourceTypes", "permissions", "roles", "policies", "relations"]) {
+      for (const d of nsDecl[key]) {
+        d.ns = abs
+        prog[key].push(d)
+      }
+    }
+    for (const child of nsDecl.namespaces) flatten(child, abs)
+  }
+  for (const nsDecl of prog.namespaces) flatten(nsDecl, "")
+  return { prog, errs }
+}
+
+// ---- resolving (dsl/resolver.go) -------------------------------------------
+
+/** warden.ValidateNamespacePath's message, or "" when the path is valid. */
+function namespaceProblem(path) {
+  try {
+    validateNamespace(path)
+    return ""
+  } catch (err) {
+    return err.message
+  }
+}
+
+/** Resolve: duplicates, conventions, role parents and cycles, expression names, and conditions the store cannot hold. */
+function resolveSchema(prog) {
+  const errs = []
+  const errf = (at, message) => errs.push({ line: at.line, col: at.col, message })
+  const posText = (p) => `schema.warden:${p.line}:${p.col}`
+  const rolesByKey = new Map()
+  const permsByKey = new Map()
+  const policyByKey = new Map()
+  const rtsByKey = new Map()
+
+  const index = (list, map, label, nameOf) => {
+    for (const d of list) {
+      const k = schemaKey(d.ns, nameOf(d))
+      if (map.has(k)) errf(d.pos, `${label} ${goQuote(nameOf(d))} already declared at ${posText(map.get(k).pos)}`)
+      else map.set(k, d)
+    }
+  }
+  index(prog.roles, rolesByKey, "role", (d) => d.slug)
+  index(prog.permissions, permsByKey, "permission", (d) => d.name)
+  index(prog.policies, policyByKey, "policy", (d) => d.name)
+  index(prog.resourceTypes, rtsByKey, "resource type", (d) => d.name)
+
+  // checkConventions
+  for (const r of prog.roles) {
+    if (r.slug === "") errf(r.pos, `role slug ${goQuote(r.slug)} must not be empty`)
+    const bad = namespaceProblem(r.ns)
+    if (bad) errf(r.pos, bad)
+    for (const g of r.qualifiedGrants) {
+      if (g.name === "") errf(g.pos, `role ${goQuote(r.slug)} has a qualified grant with no permission name`)
+      const gbad = namespaceProblem(g.ns)
+      if (gbad) errf(g.pos, gbad)
+    }
+  }
+  for (const p of prog.permissions) {
+    if (p.name === "" || p.resource === "" || p.action === "") {
+      errf(p.pos, `permission name ${goQuote(p.name)} must be \`<resource>:<action>\`, with a resource and an action that are not empty`)
+    }
+    const bad = namespaceProblem(p.ns)
+    if (bad) errf(p.pos, bad)
+  }
+  for (const p of prog.policies) {
+    if (goTrimSpace(p.name) === "") errf(p.pos, `policy name ${goQuote(p.name)} must not be empty`)
+    if (p.effect === "") errf(p.pos, `policy ${goQuote(p.name)} is missing \`effect\``)
+    if (p.notBefore !== null && p.notAfter !== null && p.notAfter < p.notBefore) {
+      errf(p.pos, `policy ${goQuote(p.name)} has not_after (${formatGoTime(p.notAfter)}) before not_before (${formatGoTime(p.notBefore)})`)
+    }
+  }
+  for (const rt of prog.resourceTypes) {
+    if (rt.name === "") errf(rt.pos, `resource type name ${goQuote(rt.name)} must not be empty`)
+    const bad = namespaceProblem(rt.ns)
+    if (bad) errf(rt.pos, bad)
+  }
+
+  // checkRoleParents: a bare slug resolves at the role's namespace and then each ancestor, an absolute path exactly.
+  const lookupParent = (role) => {
+    if (role.parent.startsWith("/")) {
+      const rest = role.parent.slice(1)
+      const i = rest.lastIndexOf("/")
+      return rolesByKey.get(i < 0 ? schemaKey("", rest) : schemaKey(rest.slice(0, i), rest.slice(i + 1)))
+    }
+    for (const ns of ancestorNamespaces(role.ns)) {
+      const found = rolesByKey.get(schemaKey(ns, role.parent))
+      if (found) return found
+    }
+    return undefined
+  }
+  for (const role of prog.roles) {
+    if (role.parent !== "" && !lookupParent(role)) {
+      errf(role.pos, `role ${goQuote(role.slug)} references unknown parent ${goQuote(role.parent)} (in namespace ${goQuote(role.ns)})`)
+    }
+  }
+
+  // checkCycles
+  const state = new Map()
+  const dfs = (role, path) => {
+    const s = state.get(role)
+    if (s === 1) {
+      errf(role.pos, `role ${goQuote(role.slug)} is part of a parent cycle: ${[...path, role].map((r) => r.slug).join(" -> ")}`)
+      return
+    }
+    if (s === 2) return
+    state.set(role, 1)
+    if (role.parent !== "") {
+      const parent = lookupParent(role)
+      if (parent) dfs(parent, [...path, role])
+    }
+    state.set(role, 2)
+  }
+  for (const role of prog.roles) dfs(role, [])
+
+  // checkExpressions: every name resolves to a relation declared on the owning type.
+  const checkExpr = (rt, e, targets) => {
+    switch (e?.type) {
+      case "ref":
+        if (!targets.has(e.name)) errf(e, `expression references undeclared relation ${goQuote(e.name)} on resource ${goQuote(rt.name)}`)
+        break
+      case "traverse": {
+        if (e.steps.length < 2) {
+          errf(e, "traversal must have at least one `->` hop")
+          return
+        }
+        if (!targets.has(e.steps[0])) {
+          errf(e, `traversal starts with undeclared relation ${goQuote(e.steps[0])} on resource ${goQuote(rt.name)}`)
+          return
+        }
+        // Later hops belong to whatever type the first one lands on. Not ported: see the header note.
+        break
+      }
+      case "or":
+      case "and":
+        checkExpr(rt, e.left, targets)
+        checkExpr(rt, e.right, targets)
+        break
+      case "not":
+        checkExpr(rt, e.inner, targets)
+        break
+    }
+  }
+  for (const rt of prog.resourceTypes) {
+    const targets = new Map(rt.relations.map((rel) => [rel.name, rel.allowedSubjects[0]?.type ?? ""]))
+    for (const perm of rt.permissions) checkExpr(rt, perm.expr, targets)
+  }
+
+  // checkConditions: only shapes that flatten to a list that must all hold.
+  const checkCondition = (pol, c) => {
+    if (c.anyOf !== null) {
+      if (c.anyOf.length === 0) {
+        errf(c.pos, `policy ${goQuote(pol.name)}: an empty any_of can never hold, and a stored policy cannot say that (its conditions are a list that must all hold)`)
+      } else if (c.anyOf.length === 1) {
+        checkCondition(pol, c.anyOf[0])
+      } else {
+        errf(c.pos, `policy ${goQuote(pol.name)}: any_of with ${c.anyOf.length} conditions cannot be stored: a stored policy's conditions must all hold, and it has no OR. Split it into one policy per alternative`)
+      }
+    } else if (c.allOf !== null) {
+      for (const inner of c.allOf) checkCondition(pol, inner)
+    } else if (c.negate) {
+      errf(c.pos, `policy ${goQuote(pol.name)}: \`negate\` cannot be stored: a stored condition has no negation, so it would mean the opposite. Use the opposite operator (!=, not in, not exists) instead`)
+    }
+  }
+  for (const pol of prog.policies) for (const c of pol.conditions) checkCondition(pol, c)
+  return errs
+}
+
+/**
+ * checkSource: syntax first (a parse failure stops there, the program is
+ * partial), then what the dashboard refuses outright, reported together in
+ * position order, then the resolver. Plan and apply both call it.
+ */
+function checkSchemaSource(src) {
+  const { prog, errs } = parseSchemaSource(src)
+  if (errs.length > 0) return { diags: errs }
+
+  const refused = []
+  if (prog.imports.length > 0) {
+    const { line, col } = prog.imports[0].pos
+    refused.push({ line, col, message: "imports are not supported here: paste the imported source instead" })
+  }
+  // Program keeps no position for the tenant or app lines, so both report the
+  // header's. A program with no header position reports 1:1.
+  const line = prog.headerPos.line < 1 ? 1 : prog.headerPos.line
+  const col = prog.headerPos.line < 1 ? 1 : prog.headerPos.col
+  if (prog.tenant !== "" && prog.tenant !== WARDEN_TENANT) {
+    refused.push({ line, col, message: `this source names tenant ${goQuote(prog.tenant)}; the dashboard applies to your tenant only` })
+  }
+  // The dashboard sets no app, and Apply would otherwise stamp the source's onto every entity it writes.
+  if (prog.app !== "") {
+    refused.push({ line, col, message: `this source names app ${goQuote(prog.app)}; the dashboard does not set an app: remove the declaration` })
+  }
+  if (refused.length > 0) return { diags: refused.sort((a, b) => a.line - b.line || a.col - b.col) }
+
+  const resolved = resolveSchema(prog)
+  return resolved.length > 0 ? { diags: resolved } : { prog }
+}
+
+// ---- applying (dsl/applier.go) ---------------------------------------------
+
+const updateLine = (kind, ns, name, fields) => `~ ${kind}/${ns}/${name} (${fields.join(", ")})`
+
+const sameList = (a, b) => a.length === b.length && a.every((v, i) => v === b[i])
+
+/** Numbers compare as numbers and a list of strings equals the same list, however the store typed them. */
+const sameValue = (a, b) => JSON.stringify(a ?? null) === JSON.stringify(b ?? null)
+
+function grantsManaged(r) {
+  return r.grantsSet || r.grantsAppend || r.grants.length > 0 || r.qualifiedGrants.length > 0
+}
+
+const parentSlugForStorage = (parent) => (parent.startsWith("/") ? parent.slice(parent.lastIndexOf("/") + 1) : parent)
+
+/** topoSortRoles: a role after its parent when the parent is in the same source. */
+function topoSortRoles(roles) {
+  const byKey = new Map(roles.map((r) => [schemaKey(r.ns, r.slug), r]))
+  const parentInSet = (r) => {
+    if (r.parent.startsWith("/")) {
+      const rest = r.parent.slice(1)
+      const i = rest.lastIndexOf("/")
+      return byKey.get(i < 0 ? schemaKey("", rest) : schemaKey(rest.slice(0, i), rest.slice(i + 1)))
+    }
+    for (const ns of ancestorNamespaces(r.ns)) {
+      const found = byKey.get(schemaKey(ns, r.parent))
+      if (found) return found
+    }
+    return undefined
+  }
+  const seen = new Set()
+  const out = []
+  const visit = (r) => {
+    if (seen.has(r)) return
+    seen.add(r)
+    if (r.parent !== "") {
+      const p = parentInSet(r)
+      if (p) visit(p)
+    }
+    out.push(r)
+  }
+  roles.forEach(visit)
+  return out
+}
+
+/** flattenConditions: atomic conditions, `all_of` at any depth, and an `any_of` of exactly one. */
+function flattenConditions(list) {
+  const out = []
+  const walk = (c) => {
+    if (c.anyOf !== null) {
+      if (c.anyOf.length === 1) walk(c.anyOf[0])
+    } else if (c.allOf !== null) {
+      c.allOf.forEach(walk)
+    } else if (c.field !== "") {
+      // exists and not_exists may carry no value, and a stored one then has no value key.
+      out.push(c.value === undefined ? { field: c.field, operator: c.operator } : { field: c.field, operator: c.operator, value: c.value })
+    }
+  }
+  list.forEach(walk)
+  return out
+}
+
+/**
+ * dsl.Apply over the seed arrays. write=false is the dry run: the same walk,
+ * the same lines, nothing stored. Returns { diags } when a grant names no
+ * permission (checked before anything is written, as checkGrants does), else
+ * the lines. A write stops at SCHEMA_FAIL_MARKER, after resource types and
+ * permissions, and throws: what was written stays.
+ */
+function runSchemaApplier(prog, prune, write, source) {
+  const res = { created: [], updated: [], deleted: [], noOps: 0 }
+  const covered = new Set([...prog.resourceTypes, ...prog.permissions, ...prog.roles, ...prog.policies, ...prog.relations].map((d) => d.ns))
+  for (const path of prog.blocks) covered.add(path)
+  const covers = (ns) => covered.has(ns)
+  const declaredPerms = new Set(prog.permissions.map((p) => schemaKey(p.ns, p.name)))
+  const now = () => new Date().toISOString()
+
+  // A permission will exist once this apply has written its permissions: the
+  // source declares it, or the store holds it and prune will not delete it.
+  const permExists = (ns, name) => {
+    if (declaredPerms.has(schemaKey(ns, name))) return true
+    if (prune && covers(ns)) return false
+    return warden.permissions.some((p) => p.namespacePath === ns && p.name === name)
+  }
+  // A bare grant is looked up in the role's namespace, then at the root.
+  const resolveGrant = (roleNs, name) => {
+    if (permExists(roleNs, name)) return { ns: roleNs, name }
+    if (roleNs !== "" && permExists("", name)) return { ns: "", name }
+    return null
+  }
+  const desiredGrants = (r) => {
+    const refs = []
+    const diags = []
+    const seen = new Set()
+    const add = (ref) => {
+      const k = schemaKey(ref.ns, ref.name)
+      if (seen.has(k)) return
+      seen.add(k)
+      refs.push(ref)
+    }
+    for (const n of r.grants) {
+      const ref = resolveGrant(r.ns, n)
+      if (ref) add(ref)
+      else diags.push({ line: r.pos.line, col: r.pos.col, message: `role ${r.slug} grants unknown permission ${goQuote(n)}` })
+    }
+    for (const g of r.qualifiedGrants) {
+      if (permExists(g.ns, g.name)) add({ ns: g.ns, name: g.name })
+      else diags.push({ line: g.pos.line, col: g.pos.col, message: `role ${r.slug} grants unknown permission ${goQuote(g.name)} in namespace ${goQuote(g.ns)}` })
+    }
+    return { refs, diags }
+  }
+
+  const grantDiags = prog.roles.flatMap((r) => desiredGrants(r).diags)
+  if (grantDiags.length > 0) return { diags: grantDiags }
+
+  // ---- resource types ----
+  {
+    const declared = new Set()
+    for (const rt of prog.resourceTypes) {
+      declared.add(schemaKey(rt.ns, rt.name))
+      const relations = rt.relations.map((rel) => ({
+        name: rel.name,
+        allowedSubjects: rel.allowedSubjects.map((s) => (s.relation === "" ? s.type : s.type + "#" + s.relation)),
+      }))
+      const permissions = rt.permissions.map((p) => ({ name: p.name, expression: formatExpr(p.expr) }))
+      const existing = warden.resourceTypes.find((x) => x.namespacePath === rt.ns && x.name === rt.name)
+      if (!existing) {
+        if (write) {
+          const at = now()
+          warden.resourceTypes.push({
+            id: newId("rtype"), namespacePath: rt.ns, name: rt.name, description: rt.description, relations, permissions,
+            createdBy: DECLARATIVE_ACTOR, updatedBy: DECLARATIVE_ACTOR, createdAt: at, updatedAt: at,
+          })
+        }
+        res.created.push(`+ resource_type/${rt.ns}/${rt.name}`)
+        continue
+      }
+      const changed = []
+      if ((existing.description ?? "") !== rt.description) changed.push("description")
+      const relationsSame =
+        existing.relations.length === relations.length &&
+        existing.relations.every((d, i) => d.name === relations[i].name && sameList(d.allowedSubjects, relations[i].allowedSubjects))
+      if (!relationsSame) changed.push("relations")
+      // Expressions compare in canonical form: the store keeps what was typed, the language keeps its meaning.
+      const permsSame =
+        existing.permissions.length === permissions.length &&
+        existing.permissions.every((d, i) => d.name === permissions[i].name && canonicalExpr(d.expression) === canonicalExpr(permissions[i].expression))
+      if (!permsSame) changed.push("permissions")
+      if (changed.length === 0) {
+        res.noOps++
+        continue
+      }
+      if (write) Object.assign(existing, { description: rt.description, relations, permissions, updatedBy: DECLARATIVE_ACTOR, updatedAt: now() })
+      res.updated.push(updateLine("resource_type", rt.ns, rt.name, changed))
+    }
+    if (prune) {
+      for (const rt of [...warden.resourceTypes]) {
+        if (!covers(rt.namespacePath) || declared.has(schemaKey(rt.namespacePath, rt.name))) continue
+        if (write) warden.resourceTypes.splice(warden.resourceTypes.indexOf(rt), 1)
+        res.deleted.push(`- resource_type/${rt.namespacePath}/${rt.name}`)
+      }
+    }
+  }
+
+  // ---- permissions ----
+  {
+    const declared = new Set()
+    for (const p of prog.permissions) {
+      declared.add(schemaKey(p.ns, p.name))
+      const existing = warden.permissions.find((x) => x.namespacePath === p.ns && x.name === p.name)
+      if (!existing) {
+        if (write) {
+          const at = now()
+          warden.permissions.push({
+            id: newId("perm"), namespacePath: p.ns, name: p.name, resource: p.resource, action: p.action,
+            description: p.description, isSystem: p.isSystem, createdAt: at, updatedAt: at,
+          })
+        }
+        res.created.push(`+ permission/${p.ns}/${p.name}`)
+        continue
+      }
+      const changed = []
+      if (existing.resource !== p.resource) changed.push("resource")
+      if (existing.action !== p.action) changed.push("action")
+      if ((existing.description ?? "") !== p.description) changed.push("description")
+      if (Boolean(existing.isSystem) !== p.isSystem) changed.push("is_system")
+      if (changed.length === 0) {
+        res.noOps++
+        continue
+      }
+      if (write) Object.assign(existing, { resource: p.resource, action: p.action, description: p.description, isSystem: p.isSystem, updatedAt: now() })
+      res.updated.push(updateLine("permission", p.ns, p.name, changed))
+    }
+    if (prune) {
+      for (const p of [...warden.permissions]) {
+        if (!covers(p.namespacePath) || declared.has(schemaKey(p.namespacePath, p.name))) continue
+        if (write) {
+          warden.permissions.splice(warden.permissions.indexOf(p), 1)
+          // The junction row would otherwise name a permission that is gone.
+          warden.grants = warden.grants.filter((g) => !(g.namespacePath === p.namespacePath && g.name === p.name))
+        }
+        res.deleted.push(`- permission/${p.namespacePath}/${p.name}`)
+      }
+    }
+  }
+
+  // A real apply that has written resource types and permissions stops here.
+  if (write && source.includes(SCHEMA_FAIL_MARKER)) {
+    throw new Error(`fixture: the store refused a write (the source contains ${goQuote(SCHEMA_FAIL_MARKER)})`)
+  }
+
+  // ---- roles ----
+  {
+    const declared = new Set()
+    for (const r of topoSortRoles(prog.roles)) {
+      declared.add(schemaKey(r.ns, r.slug))
+      const name = r.name || r.slug
+      const parentSlug = parentSlugForStorage(r.parent)
+      const existing = warden.roles.find((x) => x.namespacePath === r.ns && x.slug === r.slug)
+      if (!existing) {
+        if (write) {
+          const at = now()
+          warden.roles.push({
+            id: newId("role"), namespacePath: r.ns, name, slug: r.slug, description: r.description, parentSlug,
+            isSystem: r.isSystem, isDefault: r.isDefault, maxMembers: r.maxMembers, createdAt: at, updatedAt: at,
+          })
+        }
+        res.created.push(`+ role/${r.ns}/${r.slug}`)
+        continue
+      }
+      const changed = []
+      if (existing.name !== name) changed.push("name")
+      if ((existing.description ?? "") !== r.description) changed.push("description")
+      if (Boolean(existing.isSystem) !== r.isSystem) changed.push("is_system")
+      if (Boolean(existing.isDefault) !== r.isDefault) changed.push("is_default")
+      if ((existing.maxMembers ?? 0) !== r.maxMembers) changed.push("max_members")
+      if ((existing.parentSlug ?? "") !== parentSlug) changed.push("parent")
+      const rowChanged = changed.length > 0
+      // grantsDiffer: a role with no grants clause leaves its grants alone.
+      if (grantsManaged(r)) {
+        const have = new Set(warden.grants.filter((g) => g.roleId === existing.id).map((g) => schemaKey(g.namespacePath, g.name)))
+        const want = new Set(desiredGrants(r).refs.map((ref) => schemaKey(ref.ns, ref.name)))
+        if (have.size !== want.size || [...want].some((k) => !have.has(k))) changed.push("grants")
+      }
+      if (changed.length === 0) {
+        res.noOps++
+        continue
+      }
+      // A grant-only change is written with the grants below; the row is left alone.
+      if (write && rowChanged) {
+        Object.assign(existing, { name, description: r.description, isSystem: r.isSystem, isDefault: r.isDefault, maxMembers: r.maxMembers, parentSlug, updatedAt: now() })
+      }
+      res.updated.push(updateLine("role", r.ns, r.slug, changed))
+    }
+    if (prune) {
+      for (const r of [...warden.roles]) {
+        if (!covers(r.namespacePath) || declared.has(schemaKey(r.namespacePath, r.slug))) continue
+        if (r.isSystem) continue // system roles are protected from prune
+        if (write) {
+          warden.roles.splice(warden.roles.indexOf(r), 1)
+          // The store cascades a role's assignments and grants.
+          warden.assignments = warden.assignments.filter((a) => a.roleId !== r.id)
+          warden.grants = warden.grants.filter((g) => g.roleId !== r.id)
+        }
+        res.deleted.push(`- role/${r.namespacePath}/${r.slug}`)
+      }
+    }
+  }
+
+  // ---- role permissions: each role with a grants clause owns its whole set ----
+  if (write) {
+    for (const r of prog.roles) {
+      if (!grantsManaged(r)) continue
+      const stored = warden.roles.find((x) => x.namespacePath === r.ns && x.slug === r.slug)
+      const refs = desiredGrants(r).refs
+      warden.grants = warden.grants
+        .filter((g) => g.roleId !== stored.id)
+        .concat(refs.map((ref) => ({ roleId: stored.id, namespacePath: ref.ns, name: ref.name })))
+    }
+  }
+
+  // ---- policies ----
+  {
+    const declared = new Set()
+    for (const p of prog.policies) {
+      declared.add(schemaKey(p.ns, p.name))
+      const conditions = flattenConditions(p.conditions)
+      const existing = warden.policies.find((x) => x.namespacePath === p.ns && x.name === p.name)
+      if (!existing) {
+        if (write) {
+          const at = nextPolicyCreatedAt()
+          warden.policies.push({
+            id: newId("wpol"), namespacePath: p.ns, name: p.name, description: p.description, effect: p.effect,
+            priority: p.priority, isActive: p.active, notBefore: p.notBefore, notAfter: p.notAfter, version: 1,
+            subjects: p.subjects.map((s) => ({ ...s })), actions: [...p.actions], resources: [...p.resources],
+            conditions: conditions.map((c) => ({ id: newId("cond"), ...c })), obligations: [...p.obligations],
+            createdBy: DECLARATIVE_ACTOR, updatedBy: DECLARATIVE_ACTOR, createdAt: at, updatedAt: at,
+          })
+        }
+        res.created.push(`+ policy/${p.ns}/${p.name}`)
+        continue
+      }
+      const changed = []
+      if ((existing.description ?? "") !== p.description) changed.push("description")
+      if (existing.effect !== p.effect) changed.push("effect")
+      if (existing.priority !== p.priority) changed.push("priority")
+      if (existing.isActive !== p.active) changed.push("active")
+      if ((existing.notBefore ?? null) !== p.notBefore) changed.push("not_before")
+      if ((existing.notAfter ?? null) !== p.notAfter) changed.push("not_after")
+      if (!sameList(existing.obligations, p.obligations)) changed.push("obligations")
+      const sameSubjects =
+        existing.subjects.length === p.subjects.length &&
+        existing.subjects.every((s, i) => (s.kind ?? "") === p.subjects[i].kind && (s.id ?? "") === p.subjects[i].id && (s.role ?? "") === p.subjects[i].role)
+      if (!sameSubjects) changed.push("subjects")
+      if (!sameList(existing.actions, p.actions)) changed.push("actions")
+      if (!sameList(existing.resources, p.resources)) changed.push("resources")
+      const sameConditions =
+        existing.conditions.length === conditions.length &&
+        existing.conditions.every((c, i) => c.field === conditions[i].field && c.operator === conditions[i].operator && sameValue(c.value, conditions[i].value))
+      if (!sameConditions) changed.push("conditions")
+      if (changed.length === 0) {
+        res.noOps++
+        continue
+      }
+      if (write) {
+        Object.assign(existing, {
+          description: p.description, effect: p.effect, priority: p.priority, isActive: p.active,
+          notBefore: p.notBefore, notAfter: p.notAfter, obligations: [...p.obligations],
+          subjects: p.subjects.map((s) => ({ ...s })), actions: [...p.actions], resources: [...p.resources],
+          conditions: sameConditions ? existing.conditions : conditions.map((c) => ({ id: newId("cond"), ...c })),
+          version: existing.version + 1, updatedBy: DECLARATIVE_ACTOR, updatedAt: now(),
+        })
+      }
+      res.updated.push(updateLine("policy", p.ns, p.name, changed))
+    }
+    if (prune) {
+      for (const p of [...warden.policies]) {
+        if (!covers(p.namespacePath) || declared.has(schemaKey(p.namespacePath, p.name))) continue
+        if (write) warden.policies.splice(warden.policies.indexOf(p), 1)
+        res.deleted.push(`- policy/${p.namespacePath}/${p.name}`)
+      }
+    }
+  }
+
+  // ---- relations: created when missing, never updated, never pruned ----
+  for (const t of prog.relations) {
+    const dup = warden.relations.some(
+      (x) =>
+        x.namespacePath === t.ns && x.objectType === t.objectType && x.objectId === t.objectId && x.relation === t.relation &&
+        x.subjectType === t.subjectType && x.subjectId === t.subjectId && (x.subjectRelation ?? "") === t.subjectRelation
+    )
+    if (dup) {
+      res.noOps++
+      continue
+    }
+    if (write) {
+      warden.relations.push({
+        id: newId("rel"), namespacePath: t.ns, objectType: t.objectType, objectId: t.objectId, relation: t.relation,
+        subjectType: t.subjectType, subjectId: t.subjectId, subjectRelation: t.subjectRelation,
+        createdBy: DECLARATIVE_ACTOR, createdAt: now(),
+      })
+    }
+    res.created.push(`+ relation/${t.ns}/${t.objectType}:${t.objectId}#${t.relation}`)
+  }
+  return { res }
+}
+
+// ---- the digest, the dry run and the three handlers ------------------------
+
+const byteOrder = (a, b) => Buffer.compare(Buffer.from(a, "utf8"), Buffer.from(b, "utf8"))
+
+/**
+ * planDigest: SHA-256 over the prune flag (one byte); the SHA-256 of the
+ * submitted source; then created, updated and deleted, each sorted by bytes
+ * and length-prefixed (the count, then each line with its own length, all as
+ * big-endian uint64); then the no-op count. Hex, 64 characters. The source is
+ * in it because a `~` line names the fields that change and not their
+ * values, so two sources can give the same lines and mean different things.
+ */
+function planDigest(prune, source, r) {
+  const h = createHash("sha256")
+  const uint = (n) => {
+    const buf = Buffer.alloc(8)
+    buf.writeBigUInt64BE(BigInt(n))
+    h.update(buf)
+  }
+  h.update(Buffer.from([prune ? 1 : 0]))
+  h.update(createHash("sha256").update(Buffer.from(source, "utf8")).digest())
+  for (const list of [r.created, r.updated, r.deleted]) {
+    const lines = [...list].sort(byteOrder)
+    uint(lines.length)
+    for (const line of lines) {
+      uint(Buffer.byteLength(line, "utf8"))
+      h.update(Buffer.from(line, "utf8"))
+    }
+  }
+  uint(r.noOps)
+  return h.digest("hex")
+}
+
+/** dryRunSchema: the one path plan and apply share, so the diff an operator sees and the diff apply verifies cannot differ. */
+function dryRunSchema(source, prune) {
+  const checked = checkSchemaSource(source)
+  if (checked.diags) return { diags: checked.diags }
+  const ran = runSchemaApplier(checked.prog, prune, false, source)
+  if (ran.diags) return { diags: ran.diags }
+  return { prog: checked.prog, res: ran.res }
+}
+
+function decodeBool(v, struct, field) {
+  if (v === undefined || v === null) return false
+  if (typeof v !== "boolean") throw decodeFail(struct, field, v, "bool")
+  return v
+}
+
+const schemaChanged = () => conflict("the schema changed since you planned: plan again")
+
+function schemaExport(params) {
+  const prefix = decodeString(params?.namespacePrefix, "SchemaExportInput", "namespacePrefix")
+  if (prefix !== "") validateNamespace(prefix)
+  return { source: formatSchema(WARDEN_TENANT, exportDecls(prefix)) }
+}
+
+function schemaPlan(params) {
+  const S = "SchemaPlanInput"
+  const source = decodeString(params?.source, S, "source")
+  const prune = decodeBool(params?.prune, S, "prune")
+  const dry = dryRunSchema(source, prune)
+  if (dry.diags) {
+    return { valid: false, diagnostics: dry.diags, created: [], updated: [], deleted: [], noOps: 0, digest: "" }
+  }
+  const { res } = dry
+  return {
+    valid: true,
+    diagnostics: [],
+    created: res.created,
+    updated: res.updated,
+    deleted: res.deleted,
+    noOps: res.noOps,
+    digest: planDigest(prune, source, res),
+  }
+}
+
+function schemaApply(payload) {
+  const S = "SchemaApplyInput"
+  const source = decodeString(payload?.source, S, "source")
+  const prune = decodeBool(payload?.prune, S, "prune")
+  const digest = decodeString(payload?.digest, S, "digest")
+
+  // Invalid source is refused before the digest is looked at: there is
+  // nothing to plan, so nothing the operator could have seen.
+  const dry = dryRunSchema(source, prune)
+  if (dry.diags) {
+    const d = dry.diags[0]
+    throw badRequest(`the source has an error at line ${d.line}, column ${d.col}: ${d.message}`)
+  }
+  // The operator applies the diff they saw or nothing. An empty digest never
+  // matches: planDigest is always 64 hex characters.
+  const planned = planDigest(prune, source, dry.res)
+  if (digest === "" || digest !== planned) throw schemaChanged()
+
+  let written
+  try {
+    written = runSchemaApplier(dry.prog, prune, true, source)
+    if (written.diags) throw new Error(written.diags[0].message)
+  } catch (err) {
+    // The dry run passed, so anything that fails now failed after other
+    // writes, and the store has no transaction: a half apply, not a refusal.
+    throw new WardenFixtureError(500, "INTERNAL", "the apply stopped part way: " + err.message)
+  }
+  const { res } = written
+  return {
+    created: res.created,
+    updated: res.updated,
+    deleted: res.deleted,
+    noOps: res.noOps,
+    diverged: planDigest(prune, source, res) !== planned,
+  }
+}
+
 export const wardenHandlers = {
   "config.detail": {
     kind: "query",
@@ -4498,5 +6453,28 @@ export const wardenHandlers = {
   "playground.batchCheck": {
     kind: "query",
     handler: (params) => playgroundBatchCheck(params),
+  },
+  // -------------------------------------------------------------------------
+  // Schema: the tenant's model as Warden source. See the section above
+  // wardenHandlers for what is ported and what differs from Go.
+  // -------------------------------------------------------------------------
+
+  "schema.export": {
+    kind: "query",
+    handler: (params) => schemaExport(params),
+  },
+  "schema.plan": {
+    kind: "query",
+    handler: (params) => schemaPlan(params),
+  },
+  "schema.apply": {
+    kind: "command",
+    // The invalidates list in warden's manifest.yaml for schema.apply, verbatim.
+    invalidates: [
+      "roles.list", "roles.detail", "permissions.list", "permissions.detail", "policies.list", "policies.detail",
+      "resourceTypes.list", "resourceTypes.detail", "relations.list", "assignments.list", "assignments.expiring",
+      "namespaces.list", "overview.stats", "subjects.detail", "schema.export", "schema.plan",
+    ],
+    handler: (payload) => schemaApply(payload),
   },
 }
