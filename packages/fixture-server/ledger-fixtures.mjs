@@ -1197,7 +1197,9 @@ function billingHandlers(h) {
   /**
    * The period invoices.generate bills, as the engine's namedPeriod and
    * periodBelongsTo in invoice_period.go: the current period, unless
-   * period_start and period_end both name one the subscription had.
+   * period_start and period_end both name one the subscription had. It omits
+   * the engine's yearly 29 February branch, so it can disagree with the engine
+   * about the periods of a yearly plan anchored on 29 February.
    */
   function billedPeriod(sub, p, input) {
     const current = { startMs: Date.parse(sub.current_period_start), endMs: Date.parse(sub.current_period_end), named: false }
@@ -1207,7 +1209,8 @@ function billingHandlers(h) {
     if (!hasStart || !hasEnd) throw badRequest("period_start and period_end go together")
     const startMs = Date.parse(input.period_start)
     const endMs = Date.parse(input.period_end)
-    if (Number.isNaN(startMs) || Number.isNaN(endMs)) throw badRequest("period_start and period_end must be RFC 3339 times")
+    if (Number.isNaN(startMs)) throw badRequest("period_start must be an RFC3339 timestamp")
+    if (Number.isNaN(endMs)) throw badRequest("period_end must be an RFC3339 timestamp")
     if (startMs === current.startMs && endMs === current.endMs) return current
     const refuse = () => badRequest(`ledger: invalid input: subscription ${sub.id} had no billing period from ${iso(startMs)} to ${iso(endMs)}`)
     if (!(startMs < endMs) || startMs > Date.now() || !(endMs > Date.parse(sub.created_at))) throw refuse()
@@ -1467,15 +1470,19 @@ function billingHandlers(h) {
       handler: (input) => {
         const sub = loadSub(input?.id)
         if (ENDED.has(sub.status)) throw conflict(`subscription is already ${sub.status}`)
-        // As the stores' CancelSubscription: cancel_at is always set, and only a
-        // cancel_at that is not in the future ends the subscription. ended_at is
+        // As the engine's CancelSubscription: an immediate cancel ends the
+        // subscription now, with cancel_at and canceled_at both that moment.
+        // Otherwise only cancel_at is recorded, at the period end, and the
+        // status stays as it is: the engine's lifecycle clock enacts it on its
+        // first run after the date, and this fixture has no clock. ended_at is
         // never written.
         const nowMs = Date.now()
-        const cancelMs = input?.immediately === true ? nowMs : Date.parse(sub.current_period_end)
-        sub.cancel_at = iso(cancelMs)
-        if (cancelMs <= nowMs) {
+        if (input?.immediately === true) {
+          sub.cancel_at = iso(nowMs)
           sub.status = "canceled"
           sub.canceled_at = iso(nowMs)
+        } else {
+          sub.cancel_at = sub.current_period_end
         }
         return clone(sub)
       },
@@ -1597,7 +1604,7 @@ function billingHandlers(h) {
         const live = ledger.invoices.find(
           (i) => i.subscription_id === sub.id && Date.parse(i.period_start) === period.startMs && Date.parse(i.period_end) === period.endMs && i.status !== "voided",
         )
-        if (live) throw conflict("an invoice already exists for this subscription's current period")
+        if (live) throw conflict(`ledger: already exists: invoice ${live.id} already covers this billing period`)
         const metered = p.features.find((f) => f.key === "api_calls" && f.type === "metered")
         const used = !metered ? 0 : period.named ? usedBetween(sub, "api_calls", period.startMs, period.endMs) : usedFor(sub.tenant_id, sub.app_id, "api_calls", metered.period)
         const overageQty = metered && metered.limit > 0 && used > metered.limit ? used - metered.limit : 0
