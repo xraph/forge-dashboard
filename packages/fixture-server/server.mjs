@@ -37,6 +37,7 @@ import { createVaultHandlers, resetVault } from "./vault-fixtures.mjs"
 import { createLedgerHandlers, resetLedger } from "./ledger-fixtures.mjs"
 import { createChronicleHandlers, resetChronicle } from "./chronicle-fixtures.mjs"
 import { createBastionHandlers, resetBastion } from "./bastion-fixtures.mjs"
+import { createKeysmithHandlers, resetKeysmith } from "./keysmith-fixtures.mjs"
 
 // ---------------------------------------------------------------------------
 // Config
@@ -2838,6 +2839,7 @@ const CONTRIBUTORS = [
   { name: "vault", envPrefix: "VAULT", handlers: createVaultHandlers(FixtureError) },
   { name: "ledger", envPrefix: "LEDGER", handlers: createLedgerHandlers(FixtureError) },
   { name: "chronicle", envPrefix: "CHRONICLE", handlers: createChronicleHandlers(FixtureError) },
+  { name: "keysmith", envPrefix: "KEYSMITH", handlers: createKeysmithHandlers(FixtureError) },
   { name: "bastion", envPrefix: "BASTION", handlers: createBastionHandlers(FixtureError) },
   ...SETTINGS_ONLY_EXTENSIONS.map((extension) => ({
     name: extension,
@@ -3107,6 +3109,7 @@ function handleReset(res) {
   resetVault()
   resetLedger()
   resetChronicle()
+  resetKeysmith()
   resetBastion()
   csrfTokens.clear()
   idempotencyStore.clear()
