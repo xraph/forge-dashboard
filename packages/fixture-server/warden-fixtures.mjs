@@ -2985,14 +2985,14 @@ const EXPLAIN_SCENARIOS = [
   // Contractor (role_01hv), which grants document:delete, and
   // contractor-lockout denies a contractor's delete unless they are on the
   // office network. Its two conditions read subject.employment and
-  // context.network, so the request has to carry them for the deny to apply.
+  // context.network, so the request has to carry the first for the deny to
+  // apply. The second may be missing: a missing field is not "office".
   // Its "audit" obligation rides on the merged answer.
   {
     key: ["user", "dave", "delete", "document", ""],
-    when: (r) =>
-      r.subjectAttributes.employment === "contractor" &&
-      typeof r.context.network === "string" &&
-      r.context.network !== "office",
+    // A missing context.network is not "office", as the engine's neq reads a
+    // missing field, so the lockout applies to a contractor who sent none.
+    when: (r) => r.subjectAttributes.employment === "contractor" && r.context.network !== "office",
     evalTimeNs: 902_000,
     lanes: () => ({
       rbac: { state: "allow", result: laneResult("allow", { matchedBy: rbacMatch("role_01hv", "document:delete") }) },
@@ -4192,9 +4192,10 @@ export const wardenHandlers = {
         subjectAttributes: decodeBag(params?.subjectAttributes, "subjectAttributes"),
         resourceAttributes: decodeBag(params?.resourceAttributes, "resourceAttributes"),
       }
-      if (!SUBJECT_KINDS.has(req.subjectKind)) {
-        throw badRequest("subjectKind must be one of user, api_key, service, service_acct")
-      }
+      // The subject kind is not checked, as in the handler: warden logs checks
+      // under other kinds ("" from the REST API, anything from Go callers) and
+      // a logged check must be replayable. An unlisted kind falls through to
+      // the scenario table and then the fallback.
       if (req.subjectId === "") throw badRequest("subjectId is required")
       if (req.action === "") throw badRequest("action is required")
       if (req.resourceType === "") throw badRequest("resourceType is required")
