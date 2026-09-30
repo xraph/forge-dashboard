@@ -723,8 +723,11 @@ async function main() {
       ["rotation.deletePolicy", policyDeleted, "rotation.detail,rotation.policies,secrets.detail"],
       ["rotation.rotateNow", rotated, "rotation.detail,rotation.policies,secrets.detail,secrets.list,secrets.versions"],
     ]
+    // Every vault command also invalidates audit.list and overview.stats: the
+    // manifest appends the same two to all nineteen.
+    const withAudit = (want) => [...want.split(","), "audit.list", "overview.stats"].sort().join(",")
     for (const [intent, response, want] of expectedInvalidates) {
-      vaultCheck(`${intent} declares the manifest's invalidates`, invalidates(response) === want, `${invalidates(response)} vs ${want}`)
+      vaultCheck(`${intent} declares the manifest's invalidates`, invalidates(response) === withAudit(want), `${invalidates(response)} vs ${withAudit(want)}`)
     }
     vaultCheck("the metadata-key cleanup delete succeeded", metaRemoved.body?.data?.ok === true, JSON.stringify(metaRemoved.body))
 
@@ -1084,7 +1087,7 @@ async function main() {
       ["flags.deleteTenantOverride", ovDeleted, "flags.detail,flags.evaluate"],
     ]
     for (const [intent, response, want] of flagInvalidates) {
-      vaultCheck(`${intent} declares the manifest's invalidates`, invalidates(response) === want, `${invalidates(response)} vs ${want}`)
+      vaultCheck(`${intent} declares the manifest's invalidates`, invalidates(response) === withAudit(want), `${invalidates(response)} vs ${withAudit(want)}`)
     }
 
     // Clean up every flag this block made, then prove the seed count is back.
@@ -1458,7 +1461,7 @@ async function main() {
       ["overrides.delete", odOk, "config.detail,config.resolve,overrides.list"],
     ]
     for (const [intent, response, want] of configInvalidates) {
-      vaultCheck(`${intent} declares the manifest's invalidates`, invalidates(response) === want, `${invalidates(response)} vs ${want}`)
+      vaultCheck(`${intent} declares the manifest's invalidates`, invalidates(response) === withAudit(want), `${invalidates(response)} vs ${withAudit(want)}`)
     }
 
     // Audit: every action is one Go writes, and the ones this block caused are all there.
@@ -1476,6 +1479,245 @@ async function main() {
     for (const key of ["spot/config.a", "spot/config.json", "spot/config.dur0", "spot/config.dur1", "spot/config.dur2", "spot/config.dur3", "spot/config.dur4", rt, dl, "legacy.retired-flag"]) await cfgCall("config.delete", { key })
     const configAfter = data(await cfgCall("config.list", {}))
     vaultCheck("the config spot checks cleaned up after themselves", configAfter?.total === clist?.total, `${configAfter?.total} vs ${clist?.total}`)
+
+    // -- audit.list and overview.stats (handlers_audit.go, handlers_overview.go) --
+    {
+      const aud = async (input) => (await vaultCall("audit.list", "query", input)).body?.data
+      const audRaw = (input) => vaultCall("audit.list", "query", input)
+      const ov = async () => (await vaultCall("overview.stats", "query", {})).body?.data
+      const eq = (a, b) => JSON.stringify(a) === JSON.stringify(b)
+      const ACTIONS = [
+        "secret.get", "secret.set", "secret.delete", "secret.rotated",
+        "flag.created", "flag.updated", "flag.toggled", "flag.deleted", "flag.rules_set", "flag.override_set", "flag.override_deleted",
+        "config.set", "config.rolled_back", "config.deleted", "override.set", "override.deleted",
+        "rotation.policy_saved", "rotation.policy_deleted",
+      ]
+      const RESOURCES = ["secret", "flag", "config", "override", "rotation"]
+      const refusedWith = (r, message) => r.status === 400 && r.body?.error?.code === "BAD_REQUEST" && r.body?.error?.message === message
+
+      // Reads: hidden by default, shown by includeReads, and an action named alone is honoured.
+      const hidden = await aud({ limit: 100 })
+      const shown = await aud({ includeReads: true, limit: 100 })
+      const readsOnly = await aud({ action: "secret.get", limit: 100 })
+      vaultCheck(
+        "audit.list hides secret reads by default, and includeReads brings exactly them back",
+        hidden?.entries?.every((e) => e.action !== "secret.get") && readsOnly?.total > 0 && shown?.total === hidden.total + readsOnly.total,
+        JSON.stringify([hidden?.total, readsOnly?.total, shown?.total]),
+      )
+      vaultCheck("naming secret.get returns the reads without includeReads", readsOnly.entries.length > 0 && readsOnly.entries.every((e) => e.action === "secret.get"), JSON.stringify(readsOnly.entries.slice(0, 2)))
+      const setDefault = await aud({ action: "secret.set" })
+      const setReads = await aud({ action: "secret.set", includeReads: true })
+      vaultCheck("includeReads changes nothing once an action is named", eq(setDefault, setReads), `${setDefault?.total} vs ${setReads?.total}`)
+
+      // Every action the vault writes has rows, and each filter counts exactly what it shows.
+      const perAction = await Promise.all(ACTIONS.map(async (action) => [action, await aud({ action, limit: 100 })]))
+      vaultCheck(
+        "every one of the 18 actions has seeded rows, and the total counts them all",
+        perAction.every(([action, r]) => r?.total > 0 && r.entries.length === Math.min(r.total, 100) && r.entries.every((e) => e.action === action)),
+        JSON.stringify(perAction.map(([a, r]) => [a, r?.total])),
+      )
+      const onePerPage = await aud({ action: "secret.rotated", limit: 1 })
+      const allRotated = await aud({ action: "secret.rotated", limit: 100 })
+      vaultCheck("an action filter's total is the same whatever the page", onePerPage?.entries?.length === 1 && onePerPage.total === allRotated?.total && allRotated.total === allRotated.entries.length, `${onePerPage?.total} vs ${allRotated?.total}`)
+
+      // Resource.
+      const perResource = await Promise.all(RESOURCES.map(async (resource) => [resource, await aud({ resource, includeReads: true, limit: 100 })]))
+      vaultCheck(
+        "every resource filter changes the page and the total, and the five sum to the whole log",
+        perResource.every(([resource, r]) => r?.total > 0 && r.entries.every((e) => e.resource === resource)) && perResource.reduce((n, [, r]) => n + r.total, 0) === shown.total,
+        JSON.stringify(perResource.map(([r, x]) => [r, x?.total])),
+      )
+      const readsSecretOnly = await aud({ resource: "secret" })
+      vaultCheck("the resource filter still hides reads by default", readsSecretOnly.entries.every((e) => e.action !== "secret.get") && readsSecretOnly.total < perResource[0][1].total, `${readsSecretOnly.total} vs ${perResource[0][1].total}`)
+
+      // Key: exact, so a prefix or a substring finds nothing.
+      const byKey = await aud({ key: "cache/redis.auth", includeReads: true, limit: 100 })
+      const byPrefix = await aud({ key: "cache/redis", includeReads: true })
+      const byPaddedKey = await aud({ key: "  cache/redis.auth  ", includeReads: true, limit: 100 })
+      vaultCheck(
+        "the key filter matches exactly, and is trimmed",
+        byKey?.total > 0 && byKey.total < shown.total && byKey.entries.every((e) => e.key === "cache/redis.auth") && byPrefix?.total === 0 && eq(byPaddedKey, byKey),
+        JSON.stringify([byKey?.total, byPrefix?.total, byPaddedKey?.total]),
+      )
+
+      // Outcome.
+      const failed = await aud({ outcome: "failure", limit: 100 })
+      const succeeded = await aud({ outcome: "success", limit: 100 })
+      vaultCheck(
+        "the outcome filter splits the default view exactly",
+        failed?.total > 0 && failed.entries.every((e) => e.outcome === "failure" && e.action === "secret.rotated") && succeeded.entries.every((e) => e.outcome === "success") && failed.total + succeeded.total === hidden.total,
+        JSON.stringify([failed?.total, succeeded?.total, hidden?.total]),
+      )
+      vaultCheck("a failure row carries its error, and a failure with none recorded omits it", failed.entries.filter((e) => e.error).length === failed.total - 1 && failed.entries.filter((e) => !("error" in e)).length === 1, JSON.stringify(failed.entries.map((e) => e.error)))
+      vaultCheck("no success row carries an error", succeeded.entries.every((e) => !("error" in e)), "a success row has an error")
+
+      // Since: created at or after it, and the total follows.
+      const hourAgo = new Date(Date.now() - 3600_000).toISOString()
+      const recent = await aud({ since: hourAgo, limit: 100 })
+      vaultCheck(
+        "the since filter keeps only rows created at or after it, and the total follows",
+        recent?.total > 0 && recent.total < hidden.total && recent.entries.every((e) => Date.parse(e.createdAt) >= Date.parse(hourAgo) - 1000),
+        JSON.stringify([recent?.total, hidden?.total]),
+      )
+      const future = await aud({ since: new Date(Date.now() + 86_400_000).toISOString() })
+      vaultCheck("a since in the future matches nothing, with an empty list rather than null", future?.total === 0 && Array.isArray(future.entries) && future.entries.length === 0, JSON.stringify(future))
+      const offsetSince = await aud({ since: "2099-01-01T00:00:00+02:00", includeReads: true })
+      vaultCheck("since accepts an RFC3339 offset", offsetSince?.total === 0, JSON.stringify(offsetSince))
+      const days = (n) => new Date(Date.now() - n * 86_400_000).toISOString()
+      const combined = await aud({ action: "secret.rotated", outcome: "failure", since: days(1), limit: 100 })
+      const combinedOlder = await aud({ action: "secret.rotated", outcome: "failure", since: days(2), limit: 100 })
+      vaultCheck("filters combine: three failed rotations in the last day, more in the last two", combined?.total === 3 && combinedOlder?.total === 4, JSON.stringify([combined?.total, combinedOlder?.total]))
+
+      // Refusals: a typo must not read as no filter, and the outcome is judged first.
+      const badOutcome = await audRaw({ outcome: "failed" })
+      const badSince = await audRaw({ since: "yesterday" })
+      const badBoth = await audRaw({ outcome: "failed", since: "yesterday" })
+      const dateOnly = await audRaw({ since: "2026-09-01" })
+      vaultCheck("an unknown outcome is BAD_REQUEST", refusedWith(badOutcome, "outcome must be success or failure"), `${badOutcome.status} ${badOutcome.body?.error?.message}`)
+      vaultCheck("an unparseable since is BAD_REQUEST", refusedWith(badSince, "since must be an RFC3339 time"), `${badSince.status} ${badSince.body?.error?.message}`)
+      vaultCheck("a date with no time is not RFC3339", refusedWith(dateOnly, "since must be an RFC3339 time"), `${dateOnly.status} ${dateOnly.body?.error?.message}`)
+      vaultCheck("the outcome is refused before the since", refusedWith(badBoth, "outcome must be success or failure"), `${badBoth.status} ${badBoth.body?.error?.message}`)
+      const blankFilters = await aud({ resource: " ", key: " ", action: " ", outcome: " ", since: " " })
+      vaultCheck("blank filters are no filters", eq(blankFilters, await aud({})), `${blankFilters?.total}`)
+
+      // Paging: newest first, limit capped at 100, offset past the end is an empty page with the same total.
+      const p1 = await aud({ limit: 5, includeReads: true })
+      const p2 = await aud({ limit: 5, offset: 5, includeReads: true })
+      const everything = await aud({ limit: 100, includeReads: true })
+      vaultCheck(
+        "audit.list pages newest first, and the total does not move with the page",
+        p1.entries.length === 5 && p2.entries.length === 5 && eq(p1.entries.concat(p2.entries), everything.entries.slice(0, 10)) && p1.total === p2.total && p1.total === shown.total && everything.entries.every((e, i, all) => i === 0 || Date.parse(all[i - 1].createdAt) >= Date.parse(e.createdAt)),
+        JSON.stringify([p1.total, p2.total]),
+      )
+      const huge = await aud({ limit: 100000, includeReads: true })
+      const dflt = await aud({ includeReads: true })
+      const negative = await aud({ limit: -3, offset: -9, includeReads: true })
+      vaultCheck(
+        "audit.list caps the limit at 100, defaults it to 25, and treats a negative offset as 0",
+        huge.entries.length === 100 && huge.total > 100 && dflt.entries.length === 25 && eq(negative.entries, dflt.entries),
+        JSON.stringify([huge.entries.length, huge.total, dflt.entries.length]),
+      )
+      const pastEnd = await aud({ offset: 100000 })
+      vaultCheck("an offset past the end is an empty list and the same total", pastEnd?.entries?.length === 0 && Array.isArray(pastEnd.entries) && pastEnd.total === hidden.total, JSON.stringify(pastEnd))
+
+      // The row: userId, tenantId and error are omitted when empty.
+      // The newest hundred are what the spot checks above just wrote, all by
+      // the operator, so the reads and the rotations are added for the mix.
+      const rows = [...shown.entries, ...readsOnly.entries, ...allRotated.entries]
+      const isRow = (e) => ["id", "action", "resource", "key", "outcome", "createdAt"].every((k) => typeof e[k] === "string" && e[k] !== "")
+      vaultCheck("every audit row carries id, action, resource, key, outcome and createdAt", rows.every(isRow), "a row is missing a field")
+      vaultCheck("the seed has rows with and without a user, and with and without a tenant", rows.some((e) => e.userId) && rows.some((e) => !("userId" in e)) && rows.some((e) => e.tenantId) && rows.some((e) => !("tenantId" in e)), "no mix")
+      vaultCheck("no row carries an empty userId, tenantId or error", rows.every((e) => e.userId !== "" && e.tenantId !== "" && e.error !== ""), "an empty string reached the wire")
+      vaultCheck("every failure in the seed is a secret.rotated on the secret resource", rows.filter((e) => e.outcome === "failure").every((e) => e.action === "secret.rotated" && e.resource === "secret"), "a failure has another action")
+      const overrideRow = (await aud({ resource: "override", limit: 100 })).entries.find((e) => e.action === "override.set")
+      vaultCheck("an override row is attributed to the tenant it targets", typeof overrideRow?.tenantId === "string" && overrideRow.tenantId !== "", JSON.stringify(overrideRow))
+
+      // overview.stats against the seed and the other lists.
+      const stats = await ov()
+      const secretList = (await vaultCall("secrets.list", "query", { limit: 200 })).body?.data
+      const policyList = (await vaultCall("rotation.policies", "query", { limit: 200 })).body?.data
+      const flagTotal = (await vaultCall("flags.list", "query", {})).body?.data?.total
+      const configTotal = (await vaultCall("config.list", "query", {})).body?.data?.total
+      const tenantOverrides = (await Promise.all(["acme", "globex", "initech"].map(async (tenantId) => (await vaultCall("overrides.list", "query", { tenantId })).body?.data?.total ?? 0))).reduce((n, t) => n + t, 0)
+      const enabledPolicies = policyList.policies.filter((p) => p.enabled)
+      vaultCheck(
+        "overview.stats counts secrets, flags, config entries and overrides like their lists",
+        stats?.secrets === secretList.total && stats.unencryptedSecrets === secretList.secrets.filter((s) => s.encryptionAlg === "").length && stats.flags === flagTotal && stats.configEntries === configTotal && stats.configOverrides === tenantOverrides,
+        JSON.stringify(stats),
+      )
+      vaultCheck("the seed leaves an unencrypted secret, so the overview cannot call the vault encrypted", stats.unencryptedSecrets >= 1, `${stats.unencryptedSecrets}`)
+      vaultCheck(
+        "overview.stats' rotation figures come from the one policy list",
+        stats.rotationPolicies === policyList.total && stats.rotationEnabled === enabledPolicies.length && stats.rotationWithoutRotator === enabledPolicies.filter((p) => !p.rotatable).length && stats.rotationOverdue === enabledPolicies.filter((p) => p.rotatable && p.nextRotationAt && Date.parse(p.nextRotationAt) < Date.now()).length,
+        JSON.stringify(stats),
+      )
+      vaultCheck("the seed has an overdue policy, a policy without a rotator and a disabled one", stats.rotationOverdue >= 1 && stats.rotationWithoutRotator >= 1 && stats.rotationEnabled < stats.rotationPolicies, JSON.stringify(stats))
+      vaultCheck("a disabled policy is neither overdue nor without a rotator", policyList.policies.filter((p) => !p.enabled).length >= 1 && stats.rotationOverdue + stats.rotationWithoutRotator <= stats.rotationEnabled, JSON.stringify(stats))
+      vaultCheck("failures in the last 24 hours count only the three inside the window", stats.rotationFailures24h === 3 && stats.rotationFailures24h === combined.total, `${stats.rotationFailures24h}`)
+      vaultCheck("overview.stats reports the keyed algorithm", stats.encryptionEnabled === true && stats.encryptionAlgorithm === "AES-256-GCM", JSON.stringify([stats.encryptionEnabled, stats.encryptionAlgorithm]))
+      vaultCheck(
+        "recent activity is the ten newest rows of the default view, no reads",
+        Array.isArray(stats.recentActivity) && stats.recentActivity.length === 10 && eq(stats.recentActivity, hidden.entries.slice(0, 10)) && stats.recentActivity.every((e) => e.action !== "secret.get"),
+        JSON.stringify(stats.recentActivity.map((e) => e.action)),
+      )
+      const overviewKeys = ["secrets", "unencryptedSecrets", "flags", "configEntries", "configOverrides", "rotationPolicies", "rotationEnabled", "rotationOverdue", "rotationWithoutRotator", "rotationFailures24h", "encryptionEnabled", "encryptionAlgorithm", "recentActivity"]
+      vaultCheck("overview.stats carries every field and nothing else", eq(Object.keys(stats).sort(), overviewKeys.slice().sort()), JSON.stringify(Object.keys(stats)))
+
+      // Every command writes a row that names the operator, and a refused or read call writes none.
+      const total0 = (await aud({ includeReads: true })).total
+      const madeKey = "spot/audit.key"
+      const statsBefore = await ov()
+      await vaultCall("secrets.create", "command", { key: madeKey, value: canary })
+      await vaultCall("secrets.create", "command", { key: madeKey, value: canary })
+      await vaultCall("secrets.create", "command", { key: "spot/audit.empty", value: "" })
+      await audRaw({ outcome: "nope" })
+      await ov()
+      const afterCreate = await aud({ includeReads: true })
+      vaultCheck("a refused command and a query write no audit row", afterCreate.total === total0 + 1, `${afterCreate.total} vs ${total0 + 1}`)
+      const createdRow = afterCreate.entries[0]
+      vaultCheck(
+        "secrets.create writes secret.set naming the operator",
+        createdRow?.action === "secret.set" && createdRow.resource === "secret" && createdRow.key === madeKey && createdRow.outcome === "success" && createdRow.userId === "usr_1" && !("tenantId" in createdRow) && !("error" in createdRow),
+        JSON.stringify(createdRow),
+      )
+      const statsAfter = await ov()
+      vaultCheck("a create moves the overview: one more secret, and it heads recent activity", statsAfter.secrets === statsBefore.secrets + 1 && eq(statsAfter.recentActivity[0], createdRow), JSON.stringify(statsAfter.recentActivity[0]))
+
+      await vaultCall("secrets.update", "command", { key: madeKey, value: canary })
+      await vaultCall("rotation.savePolicy", "command", { key: madeKey, intervalSeconds: 3600, enabled: true })
+      const savedRow = (await aud({ key: madeKey, resource: "rotation" })).entries[0]
+      vaultCheck(
+        "rotation.savePolicy writes rotation.policy_saved on the rotation resource, keyed by the secret",
+        savedRow?.action === "rotation.policy_saved" && savedRow.resource === "rotation" && savedRow.key === madeKey && savedRow.userId === "usr_1",
+        JSON.stringify(savedRow),
+      )
+      // Enabled with no rotator: the overview must say so.
+      const withoutRotator = await ov()
+      vaultCheck("saving an enabled policy with no rotator raises rotationWithoutRotator", withoutRotator.rotationWithoutRotator === statsAfter.rotationWithoutRotator + 1 && withoutRotator.rotationPolicies === statsAfter.rotationPolicies + 1, JSON.stringify(withoutRotator))
+      await vaultCall("rotation.deletePolicy", "command", { key: madeKey })
+      const deletedPolicyRow = (await aud({ key: madeKey, resource: "rotation" })).entries[0]
+      vaultCheck("rotation.deletePolicy writes rotation.policy_deleted", deletedPolicyRow?.action === "rotation.policy_deleted" && deletedPolicyRow.userId === "usr_1" && deletedPolicyRow.resource === "rotation", JSON.stringify(deletedPolicyRow))
+
+      await vaultCall("rotation.rotateNow", "command", { key: "smtp/relay.password" })
+      const rotationRows = (await aud({ key: "smtp/relay.password", includeReads: true, limit: 3 })).entries
+      vaultCheck(
+        "rotation.rotateNow writes the read, the set and secret.rotated, all naming the operator",
+        eq(rotationRows.map((e) => e.action), ["secret.rotated", "secret.set", "secret.get"]) && rotationRows.every((e) => e.userId === "usr_1" && e.outcome === "success" && e.resource === "secret"),
+        JSON.stringify(rotationRows),
+      )
+
+      await vaultCall("secrets.delete", "command", { key: madeKey })
+      const removedRow = (await aud({ key: madeKey })).entries[0]
+      vaultCheck("secrets.delete writes secret.delete naming the operator", removedRow?.action === "secret.delete" && removedRow.userId === "usr_1", JSON.stringify(removedRow))
+
+      await vaultCall("flags.setTenantOverride", "command", { key: "search.typeahead", tenantId: "globex", value: false })
+      const flagOverrideRow = (await aud({ key: "search.typeahead", action: "flag.override_set" })).entries[0]
+      vaultCheck("a flag override row names the operator and the tenant it targets", flagOverrideRow?.userId === "usr_1" && flagOverrideRow.tenantId === "globex" && flagOverrideRow.resource === "flag", JSON.stringify(flagOverrideRow))
+      await vaultCall("flags.deleteTenantOverride", "command", { key: "search.typeahead", tenantId: "globex" })
+      const flagOverrideGone = (await aud({ key: "search.typeahead", action: "flag.override_deleted" })).entries[0]
+      vaultCheck("deleting it writes flag.override_deleted with the same tenant", flagOverrideGone?.userId === "usr_1" && flagOverrideGone.tenantId === "globex", JSON.stringify(flagOverrideGone))
+
+      // The resource each of the other commands writes under.
+      await vaultCall("flags.create", "command", { key: "spot/audit.flag", type: "bool", defaultValue: false, enabled: true })
+      await vaultCall("flags.setEnabled", "command", { key: "spot/audit.flag", enabled: false })
+      await vaultCall("flags.delete", "command", { key: "spot/audit.flag" })
+      const flagRows = (await aud({ key: "spot/audit.flag", limit: 10 })).entries
+      vaultCheck(
+        "flag commands write flag.created, flag.toggled and flag.deleted on the flag resource",
+        eq(flagRows.map((e) => e.action), ["flag.deleted", "flag.toggled", "flag.created"]) && flagRows.every((e) => e.resource === "flag" && e.userId === "usr_1"),
+        JSON.stringify(flagRows),
+      )
+      await vaultCall("config.create", "command", { key: "spot/audit.config", valueType: "int", value: 1 })
+      await vaultCall("overrides.set", "command", { key: "spot/audit.config", tenantId: "acme", value: 2 })
+      await vaultCall("overrides.delete", "command", { key: "spot/audit.config", tenantId: "acme" })
+      await vaultCall("config.delete", "command", { key: "spot/audit.config" })
+      const cfgRows = (await aud({ key: "spot/audit.config", limit: 10 })).entries
+      vaultCheck(
+        "config commands write config.set, override.set, override.deleted and config.deleted, with the override rows on the tenant",
+        eq(cfgRows.map((e) => [e.action, e.resource]), [["config.deleted", "config"], ["override.deleted", "override"], ["override.set", "override"], ["config.set", "config"]]) && cfgRows.every((e) => e.userId === "usr_1") && cfgRows.filter((e) => e.resource === "override").every((e) => e.tenantId === "acme") && !("tenantId" in cfgRows[0]),
+        JSON.stringify(cfgRows),
+      )
+    }
     }
   }
 
