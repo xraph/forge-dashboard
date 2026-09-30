@@ -115,6 +115,8 @@ export interface RailEntriesProps {
   search?: string
   /** Labels are visible when true and screen-reader-only when false. */
   expanded?: boolean
+  /** Accessible name for the list, so a screen reader hears the group it belongs to. */
+  label?: string
 }
 
 export function RailEntries({
@@ -123,10 +125,12 @@ export function RailEntries({
   renderLink,
   search = "",
   expanded = false,
+  label,
 }: RailEntriesProps) {
   return (
     <ul
       data-slot="rail-entries"
+      aria-label={label}
       className={cn("flex flex-col gap-1", expanded ? "items-stretch" : "items-center")}
     >
       {items.map((item) => (

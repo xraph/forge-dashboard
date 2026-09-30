@@ -85,7 +85,7 @@ describe("navAreas", () => {
     expect(area.href).toBe("/@auth/security/risk")
   })
 
-  it("still folds a cluster in the scope's own nav", () => {
+  it("does not fold a cluster in the scope's own nav", () => {
     const clustered = definePlugin({
       extension: "auth",
       namespace: "auth",
@@ -96,9 +96,8 @@ describe("navAreas", () => {
       routes: [],
     })
     const area = navAreas(clustered, []).find((a) => a.id === "auth")!
-    const cluster = area.groups[0].items[0]
-    expect(cluster.label).toBe("Threat detection")
-    expect(cluster.children?.map((c) => c.label)).toEqual(["Risk Engine", "Risk Rules"])
+    expect(area.groups[0].items.map((n) => n.label)).toEqual(["Risk Engine", "Risk Rules"])
+    expect(area.groups[0].items.every((n) => !n.children)).toBe(true)
   })
 
   it("returns only plugin areas when the scope itself has no nav", () => {
@@ -123,5 +122,12 @@ describe("activeAreaId", () => {
   it("falls back to the first area, and to undefined for none", () => {
     expect(activeAreaId(areas, "/@warden")).toBe("auth")
     expect(activeAreaId([], "/@auth")).toBeUndefined()
+  })
+
+  it("does not light a plugin for an unlisted route when the scope has no nav of its own", () => {
+    const empty = definePlugin({ extension: "auth", namespace: "auth", routes: [] })
+    const pluginOnly = navAreas(empty, [apikey])
+    expect(activeAreaId(pluginOnly, "/@auth/unknown")).toBeUndefined()
+    expect(activeAreaId(pluginOnly, "/@auth/apikeys")).toBe("apikey")
   })
 })

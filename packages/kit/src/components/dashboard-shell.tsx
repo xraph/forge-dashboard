@@ -37,17 +37,24 @@ export interface DashboardShellProps
   children: ReactNode
 }
 
-/** The scope's own pages as rail groups. A folded cluster links to its first page. */
+/**
+ * The scope's own pages as rail groups. A node that still carries `children`
+ * becomes one entry per child, so no page is reachable only through another.
+ */
 export function railGroupsFor(area: NavArea | undefined): RailGroup[] {
   if (!area) return []
   return area.groups.map((group) => ({
     label: group.label,
-    items: group.items.map((node) => ({
-      id: node.href,
-      label: node.label,
-      href: node.children?.[0]?.href ?? node.href,
-      icon: node.icon,
-    })),
+    items: group.items.flatMap((node) =>
+      node.children?.length
+        ? node.children.map((child) => ({
+            id: child.href,
+            label: child.label,
+            href: child.href,
+            icon: child.icon ?? node.icon,
+          }))
+        : [{ id: node.href, label: node.label, href: node.href, icon: node.icon }],
+    ),
   }))
 }
 

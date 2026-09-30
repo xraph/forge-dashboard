@@ -12,9 +12,9 @@ import type {
 import { PluginHost } from "../src/host/PluginHost"
 import type { AuthScreens } from "../src/auth/routes"
 
-// The setup message now shows twice by design: once in the page's own setup
-// panel and once in the pane's empty notice. These tests are about the page,
-// so they look in the content area.
+// The setup message shows in the page's own setup panel, and on mobile in the
+// sheet's empty notice too. These tests are about the page, so they look in
+// the content area.
 const dashboardMain = () => document.getElementById("dashboard-main") as HTMLElement
 const rail = () => screen.getByRole("navigation", { name: "Scope navigation" })
 
@@ -546,7 +546,7 @@ describe("root plugin", () => {
     expect(await screen.findByText("root page")).toBeTruthy()
   })
 
-  it("does not leak the root plugin's nav into the body inside a scope", async () => {
+  it("does not leak the root plugin's nav into the rail inside a scope", async () => {
     const fetchImpl = capabilitiesFetch([
       { name: "core-contract", envelopes: ["v1"], configured: true },
       { name: "streaming-contract", envelopes: ["v1"], configured: true },
@@ -582,9 +582,9 @@ describe("root plugin", () => {
 
     // The rail's pages belong to the scope you are in, and the root's
     // "Overview" is not one of them.
-    const body = rail()
-    expect(within(body).getByRole("link", { name: "Rooms" })).toBeTruthy()
-    expect(within(body).queryByRole("link", { name: "Overview" })).toBeNull()
+    const railNav = rail()
+    expect(within(railNav).getByRole("link", { name: "Rooms" })).toBeTruthy()
+    expect(within(railNav).queryByRole("link", { name: "Overview" })).toBeNull()
   })
 })
 

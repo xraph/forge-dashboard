@@ -2,19 +2,25 @@ import type { ComponentType, ReactNode } from "react"
 
 import type { PluginAuth } from "./auth"
 
-/** One sidebar entry contributed by a plugin. `to` is relative to the plugin's scope. */
+/** One rail entry contributed by a plugin. `to` is relative to the plugin's scope. */
 export interface PluginNavItem {
   label: string
   to: string
   /** Lower sorts earlier within this plugin's own group. */
   priority?: number
   icon?: ReactNode
-  /** Nested entries rendered by the sidebar's collapsible branch. */
+  /**
+   * Nested entries. The rail layout does not nest them: each child is listed
+   * as its own entry, in order.
+   */
   children?: PluginNavItem[]
-  /** Join related ready sub-plugin links into one collapsible sidebar entry. */
+  /**
+   * Groups related links under one label. The rail layout does not fold
+   * clusters: every item is listed on its own.
+   */
   cluster?: { label: string; icon?: ReactNode }
   /**
-   * The sidebar heading this item sorts under. Items with no group render
+   * The section heading this item sorts under. Items with no group render
    * first, in one unlabelled group, which is what every plugin does today.
    * The Go manifests already declare these: Identity, Security, Auth,
    * Compliance, Enterprise, Configuration.
@@ -99,7 +105,7 @@ export interface ForgePlugin {
   routes: PluginRoute[]
   /** Rendered when the extension is present but reports Configured: false. */
   setup?: ComponentType<{ message?: string }>
-  /** Scope-wide selectors rendered in the sidebar. Most plugins declare none. */
+  /** Scope-wide selectors rendered in the rail's App and Environment control. Most plugins declare none. */
   context: ContextDimension[]
 }
 
@@ -258,7 +264,12 @@ export interface ForgeSubPlugin {
   extension: string
   /** The `extension` of the plugin whose namespace this mounts inside. */
   host: string
+  /**
+   * Names this sub-plugin's rail entry and its breadcrumb. Falls back to the
+   * first nav item's label, then to `extension`.
+   */
   label?: string
+  /** The rail entry's icon. Falls back to the first nav item's icon. */
   icon?: ReactNode
   requires?: string
   nav: PluginNavItem[]

@@ -148,4 +148,12 @@ describe("NavRail", () => {
     renderRail()
     expect(screen.queryByRole("navigation", { name: "Scope navigation" })).toBeNull()
   })
+
+  it.each([false, true])("labels the plugin list and each core list (expanded=%s)", (expanded) => {
+    renderRail({ expanded })
+    const nav = within(rail())
+    expect(within(nav.getByRole("list", { name: "Plugins" })).getByRole("link", { name: "Billing" })).toBeTruthy()
+    expect(within(nav.getByRole("list", { name: "Identity" })).getByRole("link", { name: "Users" })).toBeTruthy()
+    expect(within(nav.getByRole("list", { name: "System" })).getByRole("link", { name: "Overview" })).toBeTruthy()
+  })
 })

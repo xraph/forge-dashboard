@@ -61,7 +61,7 @@ export function ContextControl({
           className="size-4 shrink-0 text-muted-foreground group-data-[collapsible=icon]:hidden"
         />
       </PopoverTrigger>
-      <PopoverContent side="right" align="start" className="w-72">
+      <PopoverContent side="right" align="start" className="w-72" aria-label="App and environment">
         <ContextSwitchers dimensions={dimensions} plugin={plugin} />
       </PopoverContent>
     </Popover>

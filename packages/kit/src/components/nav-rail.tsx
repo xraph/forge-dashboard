@@ -167,6 +167,7 @@ export function NavRail({
             {!expanded && index > 0 ? <span data-slot="rail-gap" aria-hidden="true" className="h-3" /> : null}
             <RailEntries
               items={group.items}
+              label={group.label}
               activeId={activeId}
               renderLink={renderLink}
               search={search}
@@ -185,6 +186,7 @@ export function NavRail({
             )}
             <RailEntries
               items={plugins}
+              label="Plugins"
               activeId={activeId}
               renderLink={renderLink}
               search={search}

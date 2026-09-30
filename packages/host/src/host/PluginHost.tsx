@@ -89,8 +89,7 @@ type HostSidebar = Omit<
 >
 
 /**
- * The chrome every host state renders inside: sidebar, header, and the content
- * container. Loading, error and the resolved plugins all go through here, so
+ * The chrome every host state renders inside: rail, secondary sidebar and page card. Loading, error and the resolved plugins all go through here, so
  * none of them can produce a bare page.
  */
 function HostShell({
@@ -288,8 +287,7 @@ export function navGroups(
  */
 function groupItems(plugin: ForgePlugin, items: PluginNavItem[], segment?: string): NavGroup[] {
   const buckets = new Map<string | typeof UNGROUPED, PluginNavItem[]>()
-  const unclustered = items.map((item) => ({ ...item, cluster: undefined }))
-  for (const item of sortByPriority(unclustered)) {
+  for (const item of sortByPriority(unfoldedNav(items))) {
     const key = item.group ?? UNGROUPED
     const bucket = buckets.get(key)
     if (bucket) bucket.push(item)
@@ -299,8 +297,12 @@ function groupItems(plugin: ForgePlugin, items: PluginNavItem[], segment?: strin
     .sort(([a], [b]) => (a === UNGROUPED ? -1 : b === UNGROUPED ? 1 : 0))
     .map(([key, list]) => ({
       label: key === UNGROUPED ? undefined : key,
-      items: toNodes(plugin, foldClusters(list), segment),
+      items: toNodes(plugin, list, segment),
     }))
+}
+
+function unfoldedNav(items: PluginNavItem[]): PluginNavItem[] {
+  return items.map((item) => ({ ...item, cluster: undefined }))
 }
 
 function firstHref(node: NavNode): string {
@@ -321,7 +323,9 @@ export function navAreas(
 ): NavArea[] {
   const areas: NavArea[] = []
 
-  const own = navGroups(plugin, [], segment)
+  // Nothing folds in any area: the rail lists every page as its own entry, so
+  // a cluster would hide its later pages behind the first.
+  const own = navGroups({ ...plugin, nav: unfoldedNav(plugin.nav) }, [], segment)
   const ownFirst = own[0]?.items[0]
   if (ownFirst) {
     areas.push({
@@ -339,7 +343,6 @@ export function navAreas(
     if (sub.nav.length === 0) continue
     const groups = groupItems(plugin, sub.nav, segment)
     const first = groups[0]?.items[0]
-    if (!first) continue
     const lead = sortByPriority(sub.nav)[0]
     plugins.push({
       id: sub.extension,
@@ -358,7 +361,7 @@ export function navAreas(
 /**
  * The rail entry holding the current page: the node whose href is the pathname
  * or its longest prefix, the rule `pageTitle` uses. A route no nav item names
- * lands on the first entry.
+ * lands on the scope's own entry, or on none when the scope has no nav.
  */
 export function activeAreaId(areas: NavArea[], pathname: string): string | undefined {
   let best: { id: string; length: number } | undefined
@@ -376,7 +379,7 @@ export function activeAreaId(areas: NavArea[], pathname: string): string | undef
       }
     }
   }
-  return best?.id ?? areas[0]?.id
+  return best?.id ?? areas.find((area) => area.kind === "scope")?.id
 }
 
 // Two sub-plugins of one host can both claim a path, and so can a sub-plugin
@@ -888,10 +891,6 @@ export function PluginHost({
   // left the body empty on the root's own pages and put a second nav above
   // the switcher everywhere else. One nav, in the body, belonging to the
   // place you are.
-  //
-  // No group label for a scope with one group: the rail already names the
-  // active scope, by label and by "@namespace", so a heading repeating either
-  // is text a screen reader (and a test) would find twice.
   const navOwner = activeScope ?? root
 
   // The real value, read off the current URL -- never the ":app" pattern the
@@ -1027,7 +1026,7 @@ export function PluginHost({
     search,
     // aria-current only when true. The rail merges its own aria-current onto
     // this element through base-ui's render prop, and an explicit undefined
-    // here would win over it and strip the active section's marker.
+    // here would win over it and strip the active entry's marker.
     renderLink: (node: NavNode, href: string) => (
       <Link to={href} {...(node.href === pathname ? { "aria-current": "page" as const } : {})}>
         {node.icon}

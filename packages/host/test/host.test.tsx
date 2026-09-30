@@ -1191,7 +1191,7 @@ describe("PluginHost root destination", () => {
     expect(await screen.findByText("root overview body")).toBeTruthy()
   })
 
-  it("shows no back row at the root, and puts the root nav in the rail", async () => {
+  it("has no secondary sidebar at the root, and puts the root nav in the rail", async () => {
     const { container } = renderHost(
       [rootPlugin(), authScopePlugin()],
       bothReady(),
@@ -1208,7 +1208,7 @@ describe("PluginHost root destination", () => {
     ).toBe("page")
   })
 
-  it("shows no back row inside a scope when no root plugin is mounted", async () => {
+  it("has no secondary sidebar inside a scope, and lists its page in the rail, when no root plugin is mounted", async () => {
     const { container } = renderHost([authScopePlugin()], bothReady(), "/@auth/users")
     await screen.findByText("auth users body")
 

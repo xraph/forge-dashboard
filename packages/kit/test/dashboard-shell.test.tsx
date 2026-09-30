@@ -187,4 +187,34 @@ describe("DashboardShell", () => {
     expect(screen.queryByRole("navigation", { name: "Scope navigation" })).toBeNull()
     expect(screen.getByRole("button", { name: "Toggle Sidebar" })).toBeTruthy()
   })
+
+  it("lists each child of a scope node as its own rail entry", () => {
+    renderShell({
+      areas: [
+        {
+          id: "auth",
+          label: "Authsome",
+          href: "/@auth/risk",
+          kind: "scope",
+          groups: [
+            {
+              items: [
+                {
+                  label: "Threat detection",
+                  href: "/@auth/risk",
+                  children: [
+                    { label: "Risk Engine", href: "/@auth/risk" },
+                    { label: "Risk Rules", href: "/@auth/rules" },
+                  ],
+                },
+              ],
+            },
+          ],
+        },
+      ],
+    })
+    expect(railLink("Risk Engine").getAttribute("href")).toContain("/@auth/risk")
+    expect(railLink("Risk Rules").getAttribute("href")).toContain("/@auth/rules")
+    expect(within(rail()).queryByRole("link", { name: "Threat detection" })).toBeNull()
+  })
 })
