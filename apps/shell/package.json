@@ -19,6 +19,7 @@
     "@forge-go/dashboard-plugin": "workspace:*",
     "@forge-go/dashboard-plugin-authsome": "workspace:*",
     "@forge-go/dashboard-plugin-core": "workspace:*",
+    "@forge-go/dashboard-plugin-ledger": "workspace:*",
     "@forge-go/dashboard-plugin-relay": "workspace:*",
     "@forge-go/dashboard-plugin-streaming": "workspace:*",
     "@forge-go/dashboard-plugin-vault": "workspace:*",

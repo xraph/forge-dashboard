@@ -1,0 +1,56 @@
+import { definePlugin } from "@forge-go/dashboard-plugin"
+import type { PluginNavItem, PluginRoute } from "@forge-go/dashboard-plugin"
+import { WalletIcon } from "@forge-go/dashboard-kit/icons"
+
+export type * from "./types"
+export {
+  couponEditPath,
+  couponPath,
+  featureEditPath,
+  featurePath,
+  invoicePath,
+  planEditPath,
+  planPath,
+  subscriptionPath,
+} from "./lib/paths"
+
+/**
+ * Sidebar groups render in the order their first item appears, so the nav is
+ * sorted into this order before definePlugin sees it. Page tasks append to
+ * navItems in any order and the sidebar still reads Overview, Catalog,
+ * Billing, Configuration.
+ */
+const GROUP_ORDER = ["Overview", "Catalog", "Billing", "Configuration"]
+
+function inGroupOrder(items: PluginNavItem[]): PluginNavItem[] {
+  const rank = (item: PluginNavItem) => GROUP_ORDER.indexOf(item.group ?? "")
+  return [...items].sort((a, b) => rank(a) - rank(b))
+}
+
+/*
+ * Each page task appends its entries here. Detail, create and edit routes get
+ * no nav entry: a sidebar link to "a plan" with none chosen points nowhere.
+ * /usage, /plans/:id and /invoices/:id are lazy(): their modules are imported
+ * nowhere else, so recharts and the table code stay out of the entry chunk.
+ */
+const navItems: PluginNavItem[] = []
+const routes: PluginRoute[] = []
+
+/**
+ * The first-party UI for the `ledger` extension.
+ *
+ * `extension` is "ledger", the Go contributor name from
+ * `ledger/extension/contract/manifest.yaml`, and `test/plugin.test.tsx` checks
+ * it by resolving against a capabilities document. No `requires` range, for
+ * the reason warden and vault have none.
+ */
+export const ledgerPlugin = definePlugin({
+  extension: "ledger",
+  namespace: "ledger",
+  label: "Billing",
+  icon: <WalletIcon />,
+  nav: inGroupOrder(navItems),
+  routes,
+})
+
+export default ledgerPlugin
