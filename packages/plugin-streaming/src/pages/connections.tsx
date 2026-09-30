@@ -1,6 +1,5 @@
 import { useState } from "react"
-import { useCommand, useQuery } from "@forge-go/dashboard-plugin"
-import { usePoll } from "../use-poll"
+import { useCommand, useQuery, usePoll } from "@forge-go/dashboard-plugin"
 import { Badge } from "@forge-go/dashboard-kit/components/badge"
 import { Button } from "@forge-go/dashboard-kit/components/button"
 import { ConfirmDialog } from "@forge-go/dashboard-kit/components/confirm-dialog"

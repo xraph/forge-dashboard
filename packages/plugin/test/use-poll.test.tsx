@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 import { render } from "@testing-library/react"
-import { usePoll } from "../src/use-poll"
+import { usePoll } from "../src/poll"
 
 function Poller({ refetch, interval }: { refetch: () => void; interval?: number }) {
   usePoll(refetch, interval)

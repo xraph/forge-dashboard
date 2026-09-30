@@ -1,5 +1,4 @@
-import { useQuery } from "@forge-go/dashboard-plugin"
-import { usePoll } from "../use-poll"
+import { useQuery, usePoll } from "@forge-go/dashboard-plugin"
 import { PageHeader } from "@forge-go/dashboard-kit/components/page-header"
 import { StatGrid } from "@forge-go/dashboard-kit/components/stat-grid"
 import { QueryBoundary } from "@forge-go/dashboard-kit/components/query-boundary"

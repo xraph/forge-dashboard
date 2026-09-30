@@ -1,5 +1,4 @@
-import { useCommand, useQuery } from "@forge-go/dashboard-plugin"
-import { usePoll } from "../use-poll"
+import { useCommand, useQuery, usePoll } from "@forge-go/dashboard-plugin"
 import { PageHeader } from "@forge-go/dashboard-kit/components/page-header"
 import {
   CommandAlert,

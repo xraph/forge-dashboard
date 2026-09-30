@@ -6,10 +6,9 @@ const DEFAULT_INTERVAL_MS = 10_000
 /**
  * Calls `refetch` on an interval, and only while somebody is looking.
  *
- * Streaming counts move continuously, so a stale connection count is worse
- * than no connection count. The visibility half matters just as much: a
- * dashboard left open on a second monitor overnight would otherwise issue
- * eight thousand requests nobody reads.
+ * Live counts move continuously, so a stale one is worse than none. The
+ * visibility half matters just as much: a dashboard left open on a second
+ * monitor overnight would otherwise issue eight thousand requests nobody reads.
  *
  * Coming back from hidden refetches immediately instead of waiting out the
  * rest of the interval. Whatever is on screen is exactly as stale as the time
