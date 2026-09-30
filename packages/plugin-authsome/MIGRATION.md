@@ -32,7 +32,7 @@ Nobody touches React. You can ship a new setting on the server alone.
 
 ## What stays in templ
 
-Fourteen surfaces have no contract intent behind them. The templ dashboard
+Eight surfaces have no contract intent behind them. The templ dashboard
 reads its plugin stores in-process, which is the whole reason it can render
 them, and a React page has only the contract to work with, so none of these can
 be built until somebody adds the intents on the Go side. They're grouped below
@@ -189,8 +189,9 @@ it is a single intent on the Go side.
 Turn off the templ dashboard for user and tenant administration. Turn it off
 for billing too, once the ledger extension is installed and its React pages are
 in the shell. Set the extension's `app_id` first: with no app, every billing
-page answers `PERMISSION_DENIED`, and the ledger repository's own migration
-record explains how to re-stamp the rows you already have.
+page except Features and Settings answers `PERMISSION_DENIED`, and the ledger
+repository's own migration record explains how to re-stamp the rows you
+already have.
 
 Keep the templ dashboard running for SCIM directory management, and keep it in
 the deployment until somebody registers those intents. Everything else either
