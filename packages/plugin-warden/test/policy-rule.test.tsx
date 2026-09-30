@@ -342,14 +342,14 @@ describe("PolicyRule", () => {
           conditions: [{ field, operator: "eq", value, problem, reason }],
         })
         expect(noteOf(conditionRow(container, 0))).toBe(text)
-        expect(conditionNote(problem, reason, field, value)).toBe(text)
+        expect(conditionNote(problem, reason, field)).toBe(text)
       })
     }
 
     it("has no note for a condition that depends on the check", () => {
       const { container } = show()
       expect(noteOf(conditionRow(container, 0))).toBeNull()
-      expect(conditionNote(undefined, undefined, "context.ip", "x")).toBeNull()
+      expect(conditionNote(undefined, undefined, "context.ip")).toBeNull()
     })
 
     it("puts each note under its own row and no other", () => {
@@ -366,39 +366,21 @@ describe("PolicyRule", () => {
       expect(noteOf(conditionRow(container, 2))).toBeNull()
     })
 
-    // The analysis is right about the outcome, but a store can hand warden a
-    // value whose Go type it refuses while the JSON looks fine (mongo decodes
-    // a list as bson.A). The reason sentence would then be false, so only the
-    // problem sentence shows.
-    it("withholds 'needs a list' when the value sent is a list", () => {
-      expect(conditionNote("alwaysFalse", "notAList", "context.ip", ["10.0.0.0/8"])).toBe(
-        "This is always false."
-      )
-      expect(conditionNote("alwaysTrue", "notAList", "context.ip", ["10.0.0.0/8"])).toBe(
-        "This is always true, so it restricts nothing."
-      )
-    })
-
-    it("withholds 'none of these parse' when the value sent is a list", () => {
-      expect(conditionNote("alwaysFalse", "noValidCIDR", "context.ip", ["10.0.0.0/8"])).toBe(
-        "This is always false."
-      )
-    })
-
-    it("withholds 'not an RFC3339 time' when the value sent reads as one", () => {
-      expect(conditionNote("alwaysFalse", "notATime", "context.at", "2026-06-01T09:00:00Z")).toBe(
-        "This is always false."
-      )
-    })
-
-    it("withholds 'the value is not one' when the value sent is a number", () => {
-      expect(conditionNote("alwaysFalse", "notANumber", "subject.level", 3)).toBe(
-        "This is always false."
+    it("keeps the reason for a list value, trusting the server's analysis", () => {
+      // The mongo store hands the engine plain values now, so the server
+      // never marks a real list notAList. The page does not second-guess it.
+      const { container } = show({
+        conditions: [
+          { field: "context.ip", operator: "in", value: ["10.0.0.0/8"], problem: "alwaysFalse", reason: "notAList" },
+        ],
+      })
+      expect(noteOf(conditionRow(container, 0))).toBe(
+        "This is always false. It needs a list of values, not one."
       )
     })
 
     it("shows the empty field as quotes in a note", () => {
-      expect(conditionNote("alwaysFalse", "unresolvableField", "", "x")).toBe(
+      expect(conditionNote("alwaysFalse", "unresolvableField", "")).toBe(
         'This is always false. Warden never gives "" a value.'
       )
     })
@@ -478,19 +460,21 @@ describe("PolicyRule", () => {
       expect(block(container).className).not.toContain("opacity")
     })
 
-    it("never dims a deny that fails closed", () => {
+    it("never dims an active deny that fails closed", () => {
       const { container } = show({ failsClosed: true, decidingCondition: 0 })
       expect(block(container).className).not.toContain("opacity")
     })
 
-    it("never dims a deny that fails closed, even while it is inactive", () => {
-      const { container } = show({
-        failsClosed: true,
-        decidingCondition: 0,
-        state: "inactive",
-        isActive: false,
+    for (const state of ["inactive", "scheduled", "expired", "never"] as const) {
+      it(`dims a fail-closed deny that is ${state}, since it has no effect now`, () => {
+        const { container } = show({
+          failsClosed: true,
+          decidingCondition: 0,
+          state,
+          isActive: state !== "inactive",
+        })
+        expect(block(container).className).toContain("opacity-60")
       })
-      expect(block(container).className).not.toContain("opacity")
-    })
+    }
   })
 })

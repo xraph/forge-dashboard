@@ -104,47 +104,6 @@ function fieldText(field: string): string {
   return field === "" ? '""' : field
 }
 
-/**
- * The shape an RFC3339 time has. Used only to withhold a sentence, never to
- * make a claim: see `reasonHolds`.
- */
-const RFC3339_SHAPE = /^\d{4}-\d{2}-\d{2}[Tt]\d{2}:\d{2}:\d{2}(\.\d+)?([Zz]|[+-]\d{2}:\d{2})$/
-
-/**
- * Whether a reason's sentence is true of the value the page was sent.
- *
- * The analysis is right about the outcome in every case: it mirrors the
- * evaluator's type switches, and the evaluator rejects what it rejects. But
- * some reason sentences also describe the value, and a store can hand warden
- * a value whose Go type neither accepts while its JSON looks fine. On the
- * mongo backend a list decodes as `bson.A`, which is neither `[]string` nor
- * `[]any`, so an `in` list is `notAList` and an `ip_in_cidr` list is
- * `noValidCIDR`, and the wire shows a perfectly good list. A `time.Time`
- * written by a Go caller decodes as `bson.DateTime` and arrives as an RFC3339
- * string marked `notATime`. A Go number type `asNumber` refuses (uint8, say,
- * on the memory store) arrives as a number marked `notANumber`.
- *
- * In those cases the reason sentence would be false, so it is withheld and
- * only the problem sentence ("This is always false.") shows, which is still
- * true. This only ever removes a sentence. It never adds one, and never
- * changes the problem the server reported.
- */
-function reasonHolds(reason: ConditionReason, value: unknown): boolean {
-  switch (reason) {
-    case "notAList":
-      return !Array.isArray(value)
-    case "noValidCIDR":
-      // A []any whose entries do not parse and a bson.A whose entries do
-      // look the same on the wire, so a list never gets the sentence.
-      return !Array.isArray(value)
-    case "notATime":
-      return !(typeof value === "string" && RFC3339_SHAPE.test(value))
-    case "notANumber":
-      return typeof value !== "number"
-  }
-  return true
-}
-
 function reasonText(reason: ConditionReason, field: string): string | null {
   switch (reason) {
     case "matchesAnything":
@@ -172,15 +131,16 @@ function reasonText(reason: ConditionReason, field: string): string | null {
  * check being made.
  *
  * Every sentence here was checked against `classifyCondition` in
- * `policy_analysis.go` for every condition that can carry the pair. `value`
- * is the condition's value as sent, which `reasonHolds` needs to withhold a
- * reason sentence the value makes false.
+ * `policy_analysis.go` for every condition that can carry the pair. Some of
+ * them describe the value ("It needs a list of values, not one."), and they
+ * are true of what warden evaluates because every store hands the engine
+ * plain Go values: the mongo store normalises its driver types (bson.A,
+ * bson.DateTime) on read, so a stored list is a list to the evaluator too.
  */
 export function conditionNote(
   problem: ConditionProblem | undefined,
   reason: ConditionReason | undefined,
-  field: string,
-  value: unknown
+  field: string
 ): string | null {
   if (!problem) return null
   if (problem === "throws") {
@@ -194,7 +154,7 @@ export function conditionNote(
   }
   const lead =
     problem === "alwaysTrue" ? "This is always true, so it restricts nothing." : "This is always false."
-  const why = reason && reasonHolds(reason, value) ? reasonText(reason, field) : null
+  const why = reason ? reasonText(reason, field) : null
   return why ? `${lead} ${why}` : lead
 }
 
@@ -323,13 +283,12 @@ function wildcardNote(list: string[], noun: string): ReactNode {
 }
 
 /**
- * Whether the block reads dimmed. Visual weight tracks real effect: a policy
- * that is off, out of its window or can never hold is dimmed. A deny that
- * fails closed is never dimmed, whatever its state, because it is the most
- * consequential thing a policy can do.
+ * Whether the block reads dimmed. Visual weight tracks real effect now: a
+ * policy that is off, out of its window or can never hold does nothing, so it
+ * is dimmed. An active deny that fails closed is never dimmed, because it is
+ * the most consequential thing a policy can do, and it is doing it.
  */
 export function isDimmed(policy: PolicyDetail): boolean {
-  if (policy.failsClosed) return false
   return policy.state !== "active" || policy.neverApplies
 }
 
@@ -399,7 +358,7 @@ export function PolicyRule({ policy }: { policy: PolicyDetail }) {
         </dd>
 
         {conditions.map((c, i) => {
-          const note = conditionNote(c.problem, c.reason, c.field, c.value)
+          const note = conditionNote(c.problem, c.reason, c.field)
           const deciding = policy.decidingCondition === i
           return (
             <Fragment key={c.id || i}>

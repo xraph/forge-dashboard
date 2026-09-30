@@ -60,28 +60,32 @@ export function stateLine(p: PolicyDetail): string | null {
 }
 
 /**
- * What the policy does when it is in effect and evaluated, as the callout
- * says it. Empty when it behaves as written.
+ * What the policy does when it is evaluated, as the callout says it. Empty
+ * when it behaves as written.
  *
  * Each sentence was checked against the evaluator (`evaluateConditions` stops
  * at the first false and the first error; a deny that errors applies anyway,
  * an allow that errors is skipped) for every policy that can carry the flag.
+ * Every flag is the server's, never derived here.
  *
- * `matchesEverything` is the server's flag, and it is about the matchers
- * only: a policy with no matcher but a condition that depends on the check
- * does not match every check. So its sentence shows only when every
- * condition is one the server found always true, which is the only case in
- * which the sentence is true.
+ * The fail-closed and matches-every-check sentences say what the policy does
+ * when it takes effect. For a policy that is not in effect now (inactive, not
+ * yet in effect, expired, never in effect) the present tense would be false,
+ * so they read "Once it is in effect, ...". The never-applies sentences are
+ * true whatever the state, so they keep one form.
  */
 export function effectSentences(p: PolicyDetail): string[] {
   const d = p.decidingCondition
   const conditions = p.conditions ?? []
+  // `rest` starts lower case: "this deny applies ...".
+  const when = (rest: string) =>
+    p.state === "active" ? rest[0].toUpperCase() + rest.slice(1) : `Once it is in effect, ${rest}`
   if (p.failsClosed && d !== undefined) {
     return [
       `Condition ${d + 1} cannot be evaluated, so warden treats it, and every condition after it, as met.`,
       d === 0
-        ? "This deny applies to every check its subjects, actions and resources select."
-        : "This deny applies whenever the conditions before it hold.",
+        ? when("this deny applies to every check its subjects, actions and resources select.")
+        : when("this deny applies whenever the conditions before it hold."),
     ]
   }
   if (p.neverApplies && d !== undefined) {
@@ -89,8 +93,8 @@ export function effectSentences(p: PolicyDetail): string[] {
       ? [`Condition ${d + 1} cannot be evaluated, so this allow never grants anything.`]
       : [`Condition ${d + 1} is always false, so this policy never applies.`]
   }
-  if (p.matchesEverything && conditions.every((c) => c.problem === "alwaysTrue")) {
-    return ["It matches every check in its namespace and below."]
+  if (p.matchesEverything) {
+    return [when("it matches every check in its namespace and below.")]
   }
   return []
 }
@@ -166,12 +170,15 @@ export function WardenPolicyDetailPage({ params }: PolicyPageProps) {
     <QueryBoundary title="Policy" query={detail} skeletonRows={4}>
       {(policy) => {
         const state = stateLine(policy)
-        // One line above the block. A policy not in effect gets its state,
-        // because what it would do when evaluated is not what it does now.
-        // With evaluation off, nothing it would do happens at all.
-        const effect = state === null && !abacOff ? effectSentences(policy) : []
+        // Above the block: the state when the policy is not in effect, and
+        // what it does when evaluated, worded for whether it is in effect
+        // now. With evaluation off nothing it would do happens at all, and
+        // the ABAC alert says so instead.
+        const effect = abacOff ? [] : effectSentences(policy)
         const inEffect = windowPhrase(policy.notBefore, policy.notAfter)
-        // What activating will do, in the callout's own words.
+        // What activating will do, in the callout's own words. Only an
+        // inactive policy is offered Activate, so these are the conditional
+        // forms, and the window says when "in effect" is.
         const onActivate = abacOff
           ? [ABAC_OFF]
           : [

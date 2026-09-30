@@ -102,13 +102,18 @@ const EVERYTHING: Partial<PolicyDetail> = {
   conditions: [],
 }
 
-const FAILS_CLOSED_AT_0 =
-  "Condition 1 cannot be evaluated, so warden treats it, and every condition after it, as met. This deny applies to every check its subjects, actions and resources select."
-const FAILS_CLOSED_LATER =
-  "Condition 3 cannot be evaluated, so warden treats it, and every condition after it, as met. This deny applies whenever the conditions before it hold."
+const THROWS_1 =
+  "Condition 1 cannot be evaluated, so warden treats it, and every condition after it, as met."
+const THROWS_3 =
+  "Condition 3 cannot be evaluated, so warden treats it, and every condition after it, as met."
+const FAILS_CLOSED_AT_0 = `${THROWS_1} This deny applies to every check its subjects, actions and resources select.`
+const FAILS_CLOSED_AT_0_ONCE = `${THROWS_1} Once it is in effect, this deny applies to every check its subjects, actions and resources select.`
+const FAILS_CLOSED_LATER = `${THROWS_3} This deny applies whenever the conditions before it hold.`
+const FAILS_CLOSED_LATER_ONCE = `${THROWS_3} Once it is in effect, this deny applies whenever the conditions before it hold.`
 const NEVER_GRANTS = "Condition 2 cannot be evaluated, so this allow never grants anything."
 const NEVER_APPLIES = "Condition 1 is always false, so this policy never applies."
 const MATCHES_EVERY = "It matches every check in its namespace and below."
+const MATCHES_EVERY_ONCE = "Once it is in effect, it matches every check in its namespace and below."
 const ABAC_OFF =
   "Policy evaluation is turned off in this deployment, so this policy takes no effect."
 
@@ -296,20 +301,53 @@ describe("WardenPolicyDetailPage", () => {
   })
 
   describe("callouts", () => {
-    it("says a deny failing at its first condition applies to every check it selects", async () => {
+    const inactive = { state: "inactive" as const, isActive: false }
+
+    it("says an active deny failing at its first condition applies to every check it selects", async () => {
       show(FAILS_AT_0)
       await heading()
       expect(callout()!.textContent).toBe(FAILS_CLOSED_AT_0)
     })
 
-    it("says a deny failing at a later condition applies whenever the ones before it hold", async () => {
+    it("says an inactive deny failing at its first condition will apply once it is in effect", async () => {
+      show({ ...FAILS_AT_0, ...inactive })
+      await heading()
+      expect(callout()!.textContent).toBe(FAILS_CLOSED_AT_0_ONCE)
+      // Both lines: the state, and what taking effect will do.
+      expect(stateLine()!.querySelector("p")!.textContent).toBe(
+        "Inactive. It takes no effect until you activate it."
+      )
+    })
+
+    it("says an active deny failing at a later condition applies whenever the ones before it hold", async () => {
       show(FAILS_AT_2)
       await heading()
       expect(callout()!.textContent).toBe(FAILS_CLOSED_LATER)
     })
 
+    it("words a later fail-closed condition conditionally while the policy is not yet in effect", async () => {
+      show({ ...FAILS_AT_2, state: "scheduled" })
+      await heading()
+      expect(callout()!.textContent).toBe(FAILS_CLOSED_LATER_ONCE)
+    })
+
+    for (const state of ["scheduled", "expired", "never"] as const) {
+      it(`never uses the present tense for a fail-closed deny that is ${state}`, async () => {
+        show({ ...FAILS_AT_0, state })
+        await heading()
+        expect(callout()!.textContent).toBe(FAILS_CLOSED_AT_0_ONCE)
+        expect(screen.queryByText(/This deny applies/)).toBeNull()
+      })
+    }
+
     it("says an allow whose condition throws never grants anything", async () => {
       show(ALLOW_THROWS)
+      await heading()
+      expect(callout()!.textContent).toBe(NEVER_GRANTS)
+    })
+
+    it("says an inactive allow whose condition throws never grants anything, true in any state", async () => {
+      show({ ...ALLOW_THROWS, ...inactive })
       await heading()
       expect(callout()!.textContent).toBe(NEVER_GRANTS)
     })
@@ -320,13 +358,27 @@ describe("WardenPolicyDetailPage", () => {
       expect(callout()!.textContent).toBe(NEVER_APPLIES)
     })
 
-    it("says a policy with nothing narrowing it matches every check", async () => {
+    it("says an active policy the server flags matches every check", async () => {
       show(EVERYTHING)
       await heading()
       expect(callout()!.textContent).toBe(MATCHES_EVERY)
     })
 
-    it("counts a condition the server found always true as narrowing nothing", async () => {
+    it("says an inactive policy the server flags will match every check once it is in effect", async () => {
+      show({ ...EVERYTHING, ...inactive })
+      await heading()
+      expect(callout()!.textContent).toBe(MATCHES_EVERY_ONCE)
+      expect(screen.queryByText(MATCHES_EVERY)).toBeNull()
+    })
+
+    it("words matches-every-check conditionally for an expired policy too", async () => {
+      show({ ...EVERYTHING, state: "expired" })
+      await heading()
+      expect(callout()!.textContent).toBe(MATCHES_EVERY_ONCE)
+    })
+
+    it("reads matches-every-check from the server's flag, conditions and all", async () => {
+      // The server walks the conditions; the page does not.
       show({
         ...EVERYTHING,
         conditions: [
@@ -337,26 +389,16 @@ describe("WardenPolicyDetailPage", () => {
       expect(callout()!.textContent).toBe(MATCHES_EVERY)
     })
 
-    it("does not claim every check when a condition still depends on the check", async () => {
-      // matchesEverything is about the matchers only. A condition that
-      // depends on the check narrows it, so the sentence would be false.
-      show({ ...EVERYTHING, conditions: [DEPENDS] })
+    it("does not claim every check when the server's flag is clear, whatever the matchers", async () => {
+      show({ ...EVERYTHING, matchesEverything: false, conditions: [DEPENDS] })
       await heading()
       expect(callout()).toBeNull()
-      expect(screen.queryByText(MATCHES_EVERY)).toBeNull()
+      expect(screen.queryByText(/matches every check/)).toBeNull()
     })
 
     it("shows no callout for a policy that behaves as written", async () => {
       show()
       await heading()
-      expect(callout()).toBeNull()
-    })
-
-    it("shows the state, not what it would do, while a fail-closed deny is inactive", async () => {
-      // "This deny applies to every check" is not true of a policy that is off.
-      show({ ...FAILS_AT_0, state: "inactive", isActive: false })
-      await heading()
-      expect(stateLine()!.textContent).toContain("Inactive.")
       expect(callout()).toBeNull()
     })
 
@@ -387,10 +429,16 @@ describe("WardenPolicyDetailPage", () => {
       expect(dimmed()).toBe(true)
     })
 
-    it("never dims a fail-closed deny", async () => {
+    it("never dims an active fail-closed deny", async () => {
       show(FAILS_AT_0)
       await heading()
       expect(dimmed()).toBe(false)
+    })
+
+    it("dims an inactive fail-closed deny, which has no effect now", async () => {
+      show({ ...FAILS_AT_0, state: "inactive", isActive: false })
+      await heading()
+      expect(dimmed()).toBe(true)
     })
 
     it("does not dim an active policy that behaves as written", async () => {
@@ -503,21 +551,23 @@ describe("WardenPolicyDetailPage", () => {
       })
     })
 
-    it("says in the activate dialog that a fail-closed deny will apply to every check it selects", async () => {
+    it("says in the activate dialog that a fail-closed deny will apply to every check it selects once in effect", async () => {
       show({ ...FAILS_AT_0, state: "inactive", isActive: false, notBefore: undefined, notAfter: undefined })
       await openDialog("Activate")
       expect(screen.getByRole("alertdialog").textContent).toContain(
         "Condition 1 cannot be evaluated, so warden treats it, and every condition after it, as met."
       )
       expect(
-        dialog().getByText("This deny applies to every check its subjects, actions and resources select.")
+        dialog().getByText(
+          "Once it is in effect, this deny applies to every check its subjects, actions and resources select."
+        )
       ).toBeTruthy()
     })
 
     it("says in the activate dialog that a policy with nothing narrowing it matches every check", async () => {
       show({ ...EVERYTHING, state: "inactive", isActive: false, notBefore: undefined, notAfter: undefined })
       await openDialog("Activate")
-      expect(dialog().getByText(MATCHES_EVERY)).toBeTruthy()
+      expect(dialog().getByText(MATCHES_EVERY_ONCE)).toBeTruthy()
     })
 
     it("names the window in the activate dialog, since it only applies inside it", async () => {
