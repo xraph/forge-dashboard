@@ -108,6 +108,11 @@ function seedWardenState() {
       // them in the check log ask for.
       { id: "asgn_01i", namespacePath: "", roleId: "role_01hw", subjectKind: "user", subjectId: "erin", expiresAt: null, createdAt: hourAgo, grantedBy: WARDEN_ACTOR },
       { id: "asgn_01j", namespacePath: "", roleId: "role_01hy", subjectKind: "user", subjectId: "frank", expiresAt: null, createdAt: hourAgo, grantedBy: WARDEN_ACTOR },
+      // Bob's lapsed Reader grant, so one subject holds an expired row (this)
+      // and an expiring one (asgn_01c) and the subject view shows both flags
+      // side by side. It changes no check: an expired row grants nothing, and
+      // bob's check log rows never relied on Reader.
+      { id: "asgn_01k", namespacePath: "", roleId: "role_01hq", subjectKind: "user", subjectId: "bob", expiresAt: new Date(Date.now() - 1800_000).toISOString(), createdAt: hourAgo, grantedBy: WARDEN_ACTOR },
     ],
     // Tuples in two namespaces. Two chains a person can trace, one the engine
     // walks and one it does not. Walked: document:readme#editor names the
@@ -705,10 +710,14 @@ function byNamespace(rows, params) {
 // resource type intents, and the seven policy intents
 // ---------------------------------------------------------------------------
 
-/** Every distinct namespace on any warden entity, plus the tenant root. */
+/**
+ * Every distinct namespace on any warden entity or check log row, plus the
+ * tenant root. Check log rows count because a leaf namespace where checks run
+ * may hold no role, grant or assignment of its own.
+ */
 function wardenNamespaces() {
   const seen = new Set([""])
-  for (const group of [warden.roles, warden.permissions, warden.assignments, warden.relations, warden.policies, warden.resourceTypes]) {
+  for (const group of [warden.roles, warden.permissions, warden.assignments, warden.relations, warden.policies, warden.resourceTypes, warden.checkLogs]) {
     for (const row of group) seen.add(row.namespacePath)
   }
   return [...seen].sort()
@@ -3176,6 +3185,265 @@ function decodeBag(v, field) {
   return v
 }
 
+/**
+ * One dry-run check, answered from the scenario table. playground.explain and
+ * every playground.batchCheck item go through here, so a batch item's verdict
+ * is the one the explain page would show for the same request.
+ */
+function explainRequest(req) {
+  const scenario = findExplainScenario(req)
+  if (scenario) return projectExplanation(req, scenario.lanes(req), scenario.evalTimeNs)
+  const abac = inSandbox(req.namespacePath) ? sandboxAbac(req) : ABAC_NO_MATCH
+  return projectExplanation(req, { rbac: RBAC_NO_ROLES(req), rebac: REBAC_NO_RELATION(req), abac }, 96_000)
+}
+
+// ---------------------------------------------------------------------------
+// subjects.detail
+//
+// handlers_subjects.go: what one subject can do at a namespace, and why. The
+// subject kind is never validated (the check log and the stores accept any
+// string), and it always matches exactly. The Go stores read an empty kind as
+// "any kind" in their filters, so the handler pages past every other kind to
+// keep only rows whose kind is exactly "". Matching exactly here gives the
+// same rows without the paging.
+// ---------------------------------------------------------------------------
+
+// How many assignments and relations the view returns. The Go handler asks the
+// store for one more, so a full page proves there is more.
+const SUBJECT_LIST_CAP = 200
+// How many check log rows the view returns.
+const SUBJECT_RECENT_CHECKS = 10
+
+/**
+ * SubjectRoles: the roles assigned at the namespace or an ancestor (expired
+ * rows and resource-scoped rows excluded), then every parent reached through
+ * parentSlug, looked up in the child's own namespace. Breadth first and
+ * deduplicated by id, the order resolveInheritedRoleObjects gives. direct
+ * keeps repeats, as the store does: it only decides each role's via.
+ */
+function resolveSubjectRoles(kind, subjectId, namespacePath, nowMs) {
+  const scope = new Set(ancestorNamespaces(namespacePath))
+  const direct = []
+  for (const a of warden.assignments) {
+    if (a.subjectKind !== kind || a.subjectId !== subjectId || a.resourceType) continue
+    if (!scope.has(a.namespacePath) || !isLive(a, nowMs)) continue
+    const r = warden.roles.find((x) => x.id === a.roleId)
+    if (r) direct.push(r)
+  }
+  const seen = new Set()
+  const all = []
+  let level = direct
+  for (let depth = 0; level.length > 0 && depth <= 20; depth++) {
+    const next = []
+    for (const r of level) {
+      if (seen.has(r.id)) continue
+      seen.add(r.id)
+      all.push(r)
+      if (!r.parentSlug) continue
+      const parent = warden.roles.find((x) => x.namespacePath === r.namespacePath && x.slug === r.parentSlug)
+      if (parent && !seen.has(parent.id)) next.push(parent)
+    }
+    level = next
+  }
+  return { direct, all }
+}
+
+/** projectSubjectRoles: one entry per resolved role, in resolution order. */
+function projectSubjectRoles(direct, all) {
+  const assigned = new Set(direct.map((r) => r.id))
+  return all.map((r) => {
+    const names = warden.grants.filter((g) => g.roleId === r.id)
+    const permissions = warden.permissions
+      .filter((p) => names.some((g) => g.name === p.name && g.namespacePath === p.namespacePath))
+      .map((p) => ({ name: p.name, resource: p.resource, action: p.action }))
+      .sort((a, b) => (a.name < b.name ? -1 : a.name > b.name ? 1 : 0))
+    return {
+      id: r.id,
+      slug: r.slug,
+      name: r.name,
+      namespacePath: r.namespacePath,
+      via: assigned.has(r.id) ? "assigned" : "inherited",
+      inheritedBy: all
+        .filter((c) => c.parentSlug === r.slug && c.namespacePath === r.namespacePath)
+        .map((c) => c.slug)
+        .sort(),
+      permissions,
+    }
+  })
+}
+
+/**
+ * subjectPolicySelection: how the first agreeing matcher selects the subject,
+ * by its most specific field. An empty list, or an empty matcher, is everyone.
+ */
+function subjectPolicySelection(p, kind, subjectId, roleSlugs) {
+  for (const sm of p.subjects) {
+    if (sm.kind && sm.kind !== kind) continue
+    if (sm.id && sm.id !== subjectId) continue
+    if (sm.role && !roleSlugs.includes(sm.role)) continue
+    if (sm.role) return "role:" + sm.role
+    if (sm.id) return "id"
+    if (sm.kind) return "kind"
+    return "everyone"
+  }
+  return "everyone"
+}
+
+/** PolicySelectsSubject: no matchers select everyone, else any agreeing matcher. */
+function policySelectsSubject(p, kind, subjectId, roleSlugs) {
+  if (p.subjects.length === 0) return true
+  return p.subjects.some(
+    (sm) => (!sm.kind || sm.kind === kind) && (!sm.id || sm.id === subjectId) && (!sm.role || roleSlugs.includes(sm.role))
+  )
+}
+
+/** EffectiveAt: active, not before the window opens, not after it closes. */
+function policyEffectiveAt(p, atNs) {
+  if (!p.isActive) return false
+  if (p.notBefore !== null && atNs < p.notBefore) return false
+  if (p.notAfter !== null && atNs > p.notAfter) return false
+  return true
+}
+
+/** namespaceField: a malformed namespace, with the field named. */
+function namespaceField(path) {
+  try {
+    validateNamespace(path)
+  } catch (err) {
+    if (err instanceof WardenFixtureError && err.code === "BAD_REQUEST") throw badRequest("namespacePath: " + err.message)
+    throw err
+  }
+}
+
+function subjectsDetail(params) {
+  const S = "SubjectDetailInput"
+  const kind = decodeString(params?.subjectKind, S, "subjectKind")
+  const subjectId = decodeString(params?.subjectId, S, "subjectId")
+  const namespacePath = decodeString(params?.namespacePath, S, "namespacePath")
+  if (subjectId === "") throw badRequest("subjectId is required: name the subject to look up")
+  namespaceField(namespacePath)
+
+  const nowMs = Date.now()
+  const { direct, all } = resolveSubjectRoles(kind, subjectId, namespacePath, nowMs)
+  const roles = projectSubjectRoles(direct, all)
+  const slugs = all.map((r) => r.slug)
+
+  // Every namespace, not the one asked about: the roles above are what
+  // resolves here, and this is where each came from and what else is held.
+  let rows = warden.assignments
+    .filter((a) => a.subjectKind === kind && a.subjectId === subjectId)
+    .sort(byCreated)
+    .slice(0, SUBJECT_LIST_CAP + 1)
+  const assignmentsTruncated = rows.length > SUBJECT_LIST_CAP
+  if (assignmentsTruncated) rows = rows.slice(0, SUBJECT_LIST_CAP)
+  const horizonMs = nowMs + DEFAULT_EXPIRING_HOURS * 3600_000
+  const assignments = rows.map((a) => {
+    const r = warden.roles.find((x) => x.id === a.roleId)
+    const expired = !isLive(a, nowMs)
+    const out = { id: a.id, namespacePath: a.namespacePath, roleId: a.roleId, roleSlug: r?.slug ?? "" }
+    if (a.resourceType) out.resourceType = a.resourceType
+    if (a.resourceId) out.resourceId = a.resourceId
+    let expiringSoon = false
+    if (a.expiresAt) {
+      out.expiresAt = rfc3339(a.expiresAt)
+      expiringSoon = !expired && Date.parse(a.expiresAt) <= horizonMs
+    }
+    out.expired = expired
+    out.expiringSoon = expiringSoon
+    return out
+  })
+
+  let tuples = warden.relations
+    .filter((t) => t.subjectType === kind && t.subjectId === subjectId)
+    .sort(byCreated)
+    .slice(0, SUBJECT_LIST_CAP + 1)
+  const relationsTruncated = tuples.length > SUBJECT_LIST_CAP
+  if (relationsTruncated) tuples = tuples.slice(0, SUBJECT_LIST_CAP)
+  const relations = tuples.map((t) => ({
+    id: t.id,
+    namespacePath: t.namespacePath,
+    objectType: t.objectType,
+    objectId: t.objectId,
+    relation: t.relation,
+  }))
+
+  // A candidate is stored at this namespace or an ancestor, in effect right
+  // now, and selects a subject holding these roles. Selecting is not
+  // applying: its actions, resources and conditions still decide each check.
+  const scope = new Set(ancestorNamespaces(namespacePath))
+  const atNs = nowNs()
+  const policies = warden.policies
+    .filter((p) => p.isActive && scope.has(p.namespacePath))
+    .sort(compareByPriority)
+    .filter((p) => policyEffectiveAt(p, atNs) && policySelectsSubject(p, kind, subjectId, slugs))
+    .map((p) => ({
+      id: p.id,
+      name: p.name,
+      effect: p.effect,
+      priority: p.priority,
+      namespacePath: p.namespacePath,
+      selectedBy: subjectPolicySelection(p, kind, subjectId, slugs),
+    }))
+
+  const recentChecks = newestFirst(warden.checkLogs.filter((e) => e.subjectKind === kind && e.subjectId === subjectId))
+    .slice(0, SUBJECT_RECENT_CHECKS)
+    .map(projectCheckLog)
+
+  return { roles, assignments, assignmentsTruncated, relations, relationsTruncated, policies, recentChecks }
+}
+
+// ---------------------------------------------------------------------------
+// playground.batchCheck
+//
+// handlers_playground.go: several dry-run checks at one namespace. Everything
+// is validated before the first item runs, so a refused batch ran nothing.
+// ---------------------------------------------------------------------------
+
+/** warden.Config documents "Defaults to 100" for a MaxBatchChecks of 0. */
+const DEFAULT_MAX_BATCH_CHECKS = 100
+
+function playgroundBatchCheck(params) {
+  const S = "PlaygroundBatchInput"
+  const namespacePath = decodeString(params?.namespacePath, S, "namespacePath")
+  let raw = params?.items
+  if (raw === undefined || raw === null) raw = []
+  if (!Array.isArray(raw)) throw decodeFail(S, "items", raw, "[]contract.PlaygroundBatchItem")
+  const items = raw.map((it) => {
+    if (it === null || it === undefined) return { subjectKind: "", subjectId: "", action: "", resourceType: "", resourceId: "" }
+    if (typeof it !== "object" || Array.isArray(it)) throw decodeFail(S, "items", it, "contract.PlaygroundBatchItem")
+    return {
+      subjectKind: decodeString(it.subjectKind, S, "items.subjectKind"),
+      subjectId: decodeString(it.subjectId, S, "items.subjectId"),
+      action: decodeString(it.action, S, "items.action"),
+      resourceType: decodeString(it.resourceType, S, "items.resourceType"),
+      resourceId: decodeString(it.resourceId, S, "items.resourceId"),
+    }
+  })
+
+  if (items.length === 0) throw badRequest("items is required")
+  const limit = warden.config.maxBatchChecks > 0 ? warden.config.maxBatchChecks : DEFAULT_MAX_BATCH_CHECKS
+  if (items.length > limit) throw badRequest(`a batch holds at most ${limit} checks`)
+  // The subject kind is not validated, for the reason explain does not: a
+  // logged check under any kind must be replayable.
+  items.forEach((it, i) => {
+    if (it.subjectId === "") throw badRequest(`items[${i}].subjectId is required`)
+    if (it.action === "") throw badRequest(`items[${i}].action is required`)
+    if (it.resourceType === "") throw badRequest(`items[${i}].resourceType is required`)
+  })
+  validateNamespace(namespacePath)
+
+  // Nothing here writes: no check log row, no cache, no state change.
+  return {
+    results: items.map((it) => {
+      const ex = explainRequest({ ...it, namespacePath, context: {}, subjectAttributes: {}, resourceAttributes: {} })
+      const out = { decision: ex.decision, allowed: ex.allowed }
+      if (ex.reason) out.reason = ex.reason
+      if (ex.error) out.error = ex.error
+      return out
+    }),
+  }
+}
+
 export const wardenHandlers = {
   "config.detail": {
     kind: "query",
@@ -4202,10 +4470,15 @@ export const wardenHandlers = {
       validateNamespace(req.namespacePath)
 
       // Nothing here writes: no check log row, no cache, no state change.
-      const scenario = findExplainScenario(req)
-      if (scenario) return projectExplanation(req, scenario.lanes(req), scenario.evalTimeNs)
-      const abac = inSandbox(req.namespacePath) ? sandboxAbac(req) : ABAC_NO_MATCH
-      return projectExplanation(req, { rbac: RBAC_NO_ROLES(req), rebac: REBAC_NO_RELATION(req), abac }, 96_000)
+      return explainRequest(req)
     },
+  },
+  "subjects.detail": {
+    kind: "query",
+    handler: (params) => subjectsDetail(params),
+  },
+  "playground.batchCheck": {
+    kind: "query",
+    handler: (params) => playgroundBatchCheck(params),
   },
 }
