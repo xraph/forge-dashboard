@@ -572,6 +572,16 @@ Recorded here so they are not lost between now and step 1.
   `overview.stats`.
 - The Overrides stat on the overview, as it was. It was never populated and
   always read zero; it is replaced by a real count.
+- `secrets.setExpiry`. Nothing in the store or the service changes an expiry
+  without rewriting the value, and the server can't read the value back under
+  the write-only decision. Expiry is set on create and changed on update.
+- The key filter on the secrets list. The templ page filtered the first 100
+  rows after reading them and reported that as a complete search. A real
+  filter needs a store filter across four backends.
+- The `yaml` flag type on the create page. It was never a flag type: the
+  engine and every typed reader ignore it.
+- The flag list's free-text type box. It is now a type select backed by a
+  real store filter, so the page and the total agree.
 
 **Blocked, with the blocker named**
 
@@ -581,13 +591,9 @@ Recorded here so they are not lost between now and step 1.
   fails.
 - `when_tenant_tag` and `custom` rules. The engine returns false for both. They
   are displayed where data contains them and cannot be created.
-
-- `secrets.setExpiry`. Nothing in the store or the service changes an expiry
-  without rewriting the value, and the server can't read the value back under
-  the write-only decision. Expiry is set on create and changed on update.
-- The key filter on the secrets list. The templ page filtered the first 100
-  rows after reading them and reported that as a complete search. A real
-  filter needs a store filter across four backends.
+- A tag filter on the flag list. Tags are a JSON array in three different
+  column types across the backends, so a filter that keeps paging exact
+  needs three dialects of array query.
 
 **Bugs found, not migrated**
 
@@ -603,6 +609,20 @@ Recorded here so they are not lost between now and step 1.
   it.
 - A policy saved from the dashboard never fell due: `NextRotationAt` was only
   ever set after a rotation.
+- Flag create stored every default as a string. A bool flag got `"true"`,
+  an int got `"42"`, so every non-string flag made there evaluates to the
+  caller's own fallback. Those rows still exist: the new pages mark each one
+  "Wrong type" and leave the fix to the operator, since only they know the
+  value they meant.
+- Flag create set no ID, so the second flag made there failed on a unique
+  violation on sqlite, postgres and mongo. It also overwrote an existing key,
+  type included, because `DefineFlag` is an upsert.
+- Flag create took the app id from a form field, and the detail page took it
+  from the query string, so either could read or write another app's flags.
+- Enable and disable ran over GET, with no cache invalidation and no audit
+  row, so a disabled flag kept answering from cache for up to 30 seconds.
+- The flag list and detail pages swallowed store errors into their empty
+  states, and the list counted at most 100 flags.
 
 ## Testing
 
@@ -768,3 +788,72 @@ save on `updated_at` would close it.
 Two creates of the same key can both pass the existence check. Memory and
 sqlite then quietly add a version 2, and postgres answers `INTERNAL` on its
 unique constraint, so the `CONFLICT` promise is best effort.
+
+## What slice 3 found that slice 4 must know
+
+Slice 3 shipped feature flags: ten intents, a list, a create page, and the
+ladder with evaluation and a whole-list rule editor. On vault's `main` it
+starts at `bffe17f`, not pushed.
+
+### Check the write path before you design anything
+
+It paid off again. The flag store upserted on create, stored `""` as a
+primary key when no ID was set, rewrote columns no request named, and
+accepted rules and overrides for keys that didn't exist, which then attached
+themselves to whatever flag got that key later. None of it showed up in the
+templ pages, because they never wrote enough to hit it. Config and overrides
+sit on the same kind of store code, so read `config/`, `override/` and all
+four backends' config paths, and probe them on sqlite, before you sketch a
+page.
+
+### Things that changed underneath you
+
+Every flag write goes through `Vault.FlagManager()`. It validates values
+against the flag's type, refuses an existing key, sets IDs, clears orphans
+before it creates, invalidates the engine cache and writes an audit row.
+Handlers stay thin. If config writes need the same guarantees, give config
+the same kind of service instead of putting the rules in handlers.
+
+The audit store filters by resource: `audit.ListOpts.Resource`, and
+`CountAuditMatching` for totals. Slice 5 builds on both. The flag store has a
+type filter, `flag.ListOpts.Type` with `CountFlagDefinitionsMatching`; that
+is the shape to copy for any filter a list page needs, so the page and its
+total come from the same predicate.
+
+`vault.ErrOverrideNotFound` is shared by flag overrides and config overrides,
+so `mapError` deliberately leaves it unmapped. The flag handler maps it to
+"tenant override not found". Config's handlers must map it to their own
+message.
+
+The evaluation trace names each rule by ID (`ruleId`, `matchedRuleId`), and
+the ladder matches on that. Matching by position or priority broke the
+moment someone else reordered the rules, because the write service renumbers
+priorities from zero on every save.
+
+### Patterns to reuse
+
+`ValueInput` and `FlagValue` in `plugin-vault/src/components` handle typed
+values: bool, string, int, float and JSON, with `""` a valid string and a
+saved value never rewritten on mount. Config's scalar editor can use them
+as they are.
+
+`flags.evaluate` runs only when you press Evaluate, and `useQuery` has no way
+to wait for that, so `use-evaluate.ts` drives the public `queryStore`
+directly. `config.resolve` needs the same thing. Add an `enabled` option to
+`useQuery` in `packages/plugin` first, move flags onto it, and delete
+`use-evaluate.ts`, so two pages don't grow two copies.
+
+Both repositories are shared with other live sessions. Commit with
+`git commit --only -- <paths>`, never run an index-wide `git reset`,
+`git restore --staged .` or `git stash`, and stage `verify.mjs` with the
+`git hash-object` and `git update-index --cacheinfo` recipe, because other
+sessions keep uncommitted edits in it.
+
+### Still open
+
+The flag list has no tag filter. Two people editing one flag at once means
+the last save wins, because no store has a version column. Mongo's
+`SetFlagRules` deletes and reinserts without a transaction, so a failure
+halfway leaves a partial rule list live. Cache invalidation reaches only the
+replica that served the write; other replicas catch up within the TTL, and
+the evaluate panel says so.
