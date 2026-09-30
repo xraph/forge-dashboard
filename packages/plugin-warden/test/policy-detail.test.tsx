@@ -315,13 +315,51 @@ describe("WardenPolicyDetailPage", () => {
 
   describe("the state line", () => {
     it("says an inactive policy takes no effect, and offers Activate", async () => {
-      show({ state: "inactive", isActive: false })
+      show({ ...INACTIVE, ...OPEN })
       await heading()
       expect(stateLine()!.querySelector("p")!.textContent).toBe(
         "Inactive. It takes no effect until you activate it."
       )
       expect(within(stateLine()!).getByRole("button", { name: "Activate" })).toBeTruthy()
       expect(screen.queryByRole("button", { name: "Deactivate" })).toBeNull()
+    })
+
+    it("says the same of an inactive policy with no window", async () => {
+      show({ ...INACTIVE, notBefore: undefined, notAfter: undefined })
+      await heading()
+      expect(stateLine()!.querySelector("p")!.textContent).toBe(
+        "Inactive. It takes no effect until you activate it."
+      )
+    })
+
+    it("does not promise an effect on activation when the window has ended", async () => {
+      show({ ...INACTIVE, ...ENDED })
+      await heading()
+      expect(stateLine()!.querySelector("p")!.textContent).toBe(
+        "Inactive, and its window has ended."
+      )
+    })
+
+    it("does not promise an effect on activation when the window ends before it starts", async () => {
+      show({ ...INACTIVE, ...INVERTED })
+      await heading()
+      expect(stateLine()!.querySelector("p")!.textContent).toBe(
+        "Inactive, and its window ends before it starts."
+      )
+    })
+
+    it("says an inactive policy whose window has not opened takes effect on its date once activated", async () => {
+      show({ ...INACTIVE, notBefore: "2099-01-01T00:00:00Z", notAfter: undefined })
+      await heading()
+      expect(stateLine()!.querySelector("p")!.textContent).toBe(
+        "Inactive. If you activate it, it takes effect on 1 Jan 2099, 00:00 UTC."
+      )
+    })
+
+    it("does not promise an effect on activation for a policy that never applies", async () => {
+      show({ ...ALWAYS_FALSE, ...INACTIVE, ...OPEN })
+      await heading()
+      expect(stateLine()!.querySelector("p")!.textContent).toBe("Inactive.")
     })
 
     it("says when a scheduled policy starts", async () => {
@@ -449,6 +487,30 @@ describe("WardenPolicyDetailPage", () => {
         expect(text()).toBe(
           `Condition 2 cannot be evaluated, so warden treats it, and every condition after it, as met. ${MATCHES_EVERY_WOULD}`
         )
+      })
+    })
+
+    describe("fail closed, following the server's matchesEverything", () => {
+      it("says it matches every check when the server says so and an action list holds only *", async () => {
+        // Non-empty but unrestricted: a reading of the lists would say no.
+        show({ ...FAILS_EVERYTHING, actions: ["*"] })
+        await heading()
+        expect(text()).toBe(FAILS_EVERYTHING_TEXT)
+      })
+
+      it("keeps the narrower sentence when the server says no, however open the matchers", async () => {
+        // Every matcher unrestricted, but the first condition depends on the
+        // check, so the server's flag is clear.
+        show({
+          ...FAILS_EVERYTHING,
+          matchesEverything: false,
+          conditions: [DEPENDS, THROWS],
+        })
+        await heading()
+        expect(text()).toBe(
+          `Condition 2 cannot be evaluated, so warden treats it, and every condition after it, as met. ${FAILS_LATER}`
+        )
+        expect(text()).not.toContain("matches every check")
       })
     })
 
@@ -716,7 +778,7 @@ describe("WardenPolicyDetailPage", () => {
       const { client: c, sent } = recording()
       renderPage(WardenPolicyDetailPage, c, { id: "pol_01" })
       await openDialog("Deactivate")
-      expect(dialog().getByText("It takes no effect until you activate it again.")).toBeTruthy()
+      expect(dialog().getByText("It stops taking effect.")).toBeTruthy()
       fireEvent.click(dialog().getByRole("button", { name: "Deactivate" }))
       await waitFor(() => expect(sent.length).toBe(1))
       expect(sent[0]).toEqual({
@@ -770,6 +832,47 @@ describe("WardenPolicyDetailPage", () => {
       await openDialog("Activate")
       expect(dialog().getByText(WINDOW_INVERTED)).toBeTruthy()
       expect(screen.getByRole("alertdialog").textContent).not.toContain("Once it is in effect")
+    })
+
+    describe("the deactivate dialog says what deactivating changes, by state", () => {
+      const CASES: [string, Partial<PolicyDetail>, string][] = [
+        ["an active policy in effect", {}, "It stops taking effect."],
+        ["a scheduled policy", { state: "scheduled" }, "It will not take effect on 1 Jun 2026, 00:00 UTC."],
+        ["an expired policy", { state: "expired" }, "It already takes no effect, because its window has ended."],
+        [
+          "a never-in-effect policy",
+          { state: "never" },
+          "It already takes no effect, because its window ends before it starts.",
+        ],
+        [
+          "a policy that never applies",
+          ALWAYS_FALSE,
+          "It already takes no effect, because it never applies.",
+        ],
+      ]
+      for (const [label, over, text] of CASES) {
+        it(`for ${label}`, async () => {
+          show(over)
+          await openDialog("Deactivate")
+          expect(dialog().getByText(text)).toBeTruthy()
+          expect(dialog().queryByText(/until you activate it/)).toBeNull()
+        })
+      }
+    })
+
+    it("says a restricted policy with no window takes effect as soon as it is activated", async () => {
+      show({ ...INACTIVE, notBefore: undefined, notAfter: undefined })
+      await openDialog("Activate")
+      expect(dialog().getByText("It takes effect as soon as you activate it.")).toBeTruthy()
+    })
+
+    it("does not say it takes effect at once when there is a window", async () => {
+      show({ ...INACTIVE, ...OPEN })
+      await openDialog("Activate")
+      expect(dialog().queryByText("It takes effect as soon as you activate it.")).toBeNull()
+      expect(
+        dialog().getByText("In effect from 1 Jan 2020, 00:00 UTC until 31 Dec 2099, 00:00 UTC.")
+      ).toBeTruthy()
     })
 
     it("says in the activate dialog that nothing will happen while evaluation is off", async () => {

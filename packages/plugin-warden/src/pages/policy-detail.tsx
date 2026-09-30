@@ -45,10 +45,10 @@ const LINK_CLASS = "text-sm underline underline-offset-4"
  * window, so these lines then describe only the switch and the window, and
  * promise nothing about activation or a start date.
  */
-export function stateLine(p: PolicyDetail, evaluationOff = false): string | null {
+export function stateLine(p: PolicyDetail, evaluationOff: boolean, now: number): string | null {
   switch (p.state) {
     case "inactive":
-      return evaluationOff ? "Inactive." : "Inactive. It takes no effect until you activate it."
+      return inactiveLine(p, evaluationOff, now)
     case "scheduled":
       if (!p.notBefore) return evaluationOff ? null : "Not yet in effect."
       return evaluationOff
@@ -63,6 +63,47 @@ export function stateLine(p: PolicyDetail, evaluationOff = false): string | null
       return "Never in effect. Its end is before its start."
   }
   return null
+}
+
+/**
+ * The state line for an inactive policy. "Until you activate it" is said only
+ * where activating really would put it into effect: evaluation on, a window
+ * that is open or absent, and conditions that can hold. A window that has
+ * ended or ends before it starts keeps it out of effect activated or not, a
+ * window that has not opened puts it into effect only on its date, and a
+ * policy that never applies takes no effect in any state.
+ */
+function inactiveLine(p: PolicyDetail, evaluationOff: boolean, now: number): string {
+  if (evaluationOff || p.neverApplies) return "Inactive."
+  const closed = closedWindow(p, now)
+  if (closed === "ended") return "Inactive, and its window has ended."
+  if (closed === "inverted") return "Inactive, and its window ends before it starts."
+  const start = p.notBefore ? Date.parse(p.notBefore) : Number.NaN
+  if (p.notBefore && !Number.isNaN(start) && start > now) {
+    return `Inactive. If you activate it, it takes effect on ${windowTime(p.notBefore)}.`
+  }
+  return "Inactive. It takes no effect until you activate it."
+}
+
+/**
+ * What the deactivate dialog says. It opens for any policy with `isActive`
+ * set, which includes one whose window keeps it out of effect already, so it
+ * is worded by the server's state.
+ */
+export function deactivateSentence(p: PolicyDetail, evaluationOff: boolean): string {
+  if (evaluationOff) return ABAC_OFF
+  if (p.neverApplies) return "It already takes no effect, because it never applies."
+  switch (p.state) {
+    case "scheduled":
+      return p.notBefore
+        ? `It will not take effect on ${windowTime(p.notBefore)}.`
+        : "It will not take effect."
+    case "expired":
+      return "It already takes no effect, because its window has ended."
+    case "never":
+      return "It already takes no effect, because its window ends before it starts."
+  }
+  return "It stops taking effect."
 }
 
 /**
@@ -183,7 +224,11 @@ export function activateSentences(p: PolicyDetail, now: number, evaluationOff: b
     return ["Its window has ended, so activating it will not put it into effect."]
   }
   const inEffect = windowPhrase(p.notBefore, p.notAfter)
-  return [...effectSentences(p, now), ...(inEffect ? [`In effect ${inEffect}.`] : [])]
+  const effect = effectSentences(p, now)
+  // Nothing to warn about and no window: it takes effect the moment it is
+  // active, and the dialog says so rather than saying nothing.
+  if (effect.length === 0 && !inEffect) return ["It takes effect as soon as you activate it."]
+  return [...effect, ...(inEffect ? [`In effect ${inEffect}.`] : [])]
 }
 
 /**
@@ -261,7 +306,7 @@ export function WardenPolicyDetailPage({ params }: PolicyPageProps) {
   return (
     <QueryBoundary title="Policy" query={detail} skeletonRows={4}>
       {(policy) => {
-        const state = stateLine(policy, abacOff)
+        const state = stateLine(policy, abacOff, now)
         // Above the block: the state when the policy is not in effect, and
         // what it does when evaluated, in the mood its state allows. With
         // evaluation off nothing it would do happens at all, and the ABAC
@@ -388,7 +433,7 @@ export function WardenPolicyDetailPage({ params }: PolicyPageProps) {
                     onActivate.map((s) => <span key={s}>{s}</span>)
                   ) : (
                     <span>
-                      {abacOff ? ABAC_OFF : "It takes no effect until you activate it again."}
+                      {deactivateSentence(policy, abacOff)}
                     </span>
                   )}
                   <CommandAlert
