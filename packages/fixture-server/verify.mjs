@@ -1278,11 +1278,15 @@ async function main() {
 
     const od = (input) => cfgCall("overrides.delete", input)
     const odNoEntry = await od({ key: "spot/none.config", tenantId: "acme" })
-    vaultCheck("overrides.delete on a missing key says the entry is missing", refused(odNoEntry, 404, "NOT_FOUND", "config entry not found"), failure(odNoEntry))
+    vaultCheck("overrides.delete on a missing key with no override is 404 NOT_FOUND about the override, not the entry", refused(odNoEntry, 404, "NOT_FOUND", "tenant override not found"), failure(odNoEntry))
     const odBlank = await od({ key: "spot/config.a", tenantId: "" })
     vaultCheck("overrides.delete refuses a blank tenant", badRequest(odBlank, "config: tenantId: is required"), failure(odBlank))
-    const odOrphan = await od({ key: "legacy.retired-flag", tenantId: "acme" })
-    vaultCheck("overrides.delete on an orphaned override says the entry is missing, as the manager does", refused(odOrphan, 404, "NOT_FOUND", "config entry not found"), failure(odOrphan))
+    const odOrphan = await od({ key: "legacy.retired-flag", tenantId: " acme " })
+    vaultCheck("overrides.delete removes an orphaned override without reading its entry", same([odOrphan.body?.data?.ok, odOrphan.body?.data?.key, odOrphan.body?.data?.tenantId], [true, "legacy.retired-flag", "acme"]), JSON.stringify(odOrphan.body))
+    const odOrphanList = data(await cfgCall("overrides.list", { key: "legacy.retired-flag" }))
+    vaultCheck("the removed orphan is gone and the other one is still listed", odOrphanList?.total === 1 && odOrphanList.overrides[0].tenantId === "globex" && odOrphanList.overrides[0].keyExists === false, JSON.stringify(odOrphanList))
+    const odOrphanAgain = await od({ key: "legacy.retired-flag", tenantId: "acme" })
+    vaultCheck("removing that orphan again is 404 NOT_FOUND about the override", refused(odOrphanAgain, 404, "NOT_FOUND", "tenant override not found"), failure(odOrphanAgain))
     const odNone = await od({ key: "spot/config.a", tenantId: "initech" })
     vaultCheck("overrides.delete with none set is 404 NOT_FOUND", refused(odNone, 404, "NOT_FOUND", "tenant override not found"), failure(odNone))
     const odOk = await od({ key: "spot/config.a", tenantId: " globex " })
@@ -1290,6 +1294,25 @@ async function main() {
     const rReverted = data(await cfgCall("config.resolve", { key: "spot/config.a", tenantId: "globex" }))
     vaultCheck("deleting the override hands the tenant back to the app default", rReverted?.source === "appDefault" && rReverted.value === "eight" && !("overrideValue" in rReverted), JSON.stringify(rReverted))
     vaultCheck("overrides.delete records override.deleted", (await cfgActions("spot/config.a"))[0] === "override.deleted", JSON.stringify(await cfgActions("spot/config.a")))
+
+    // config.update: a type change is refused while an override would stop being a value of the type.
+    const rt = "spot/config.retype"
+    await mk({ key: rt, valueType: "string", value: "s" })
+    await os({ key: rt, tenantId: "zeta", value: "12" })
+    await os({ key: rt, tenantId: "acme", value: "7" })
+    const rtRefused = await cfgCall("config.update", { key: rt, valueType: "int", value: 3 })
+    vaultCheck("a type change is refused while an override is not a valid value of the new type, naming the first tenant", badRequest(rtRefused, "config: valueType: tenant acme has an override of a string, which is not a valid int; change or revert it first"), failure(rtRefused))
+    const rtStill = data(await cfgCall("config.detail", { key: rt }))
+    vaultCheck("the refused type change wrote nothing", rtStill?.entry?.valueType === "string" && rtStill.entry.value === "s" && rtStill.entry.version === 1 && same(rtStill.overrides.map((o) => o.tenantId), ["acme", "zeta"]), JSON.stringify(rtStill))
+    await od({ key: rt, tenantId: "acme" })
+    const rtSecond = await cfgCall("config.update", { key: rt, valueType: "int", value: 3 })
+    vaultCheck("reverting the first names the next tenant in order", badRequest(rtSecond, "config: valueType: tenant zeta has an override of a string, which is not a valid int; change or revert it first"), failure(rtSecond))
+    await od({ key: rt, tenantId: "zeta" })
+    const rtOk = await cfgCall("config.update", { key: rt, valueType: "int", value: 3 })
+    vaultCheck("the type change goes through once no override is left to strand", rtOk.body?.data?.entry?.valueType === "int" && rtOk.body.data.entry.value === 3 && rtOk.body.data.entry.version === 2, JSON.stringify(rtOk.body))
+    await os({ key: rt, tenantId: "acme", value: 9 })
+    const rtFits = await cfgCall("config.update", { key: rt, valueType: "float", value: 3.5 })
+    vaultCheck("an override that is a valid value of the new type does not block the change", rtFits.body?.data?.entry?.valueType === "float" && rtFits.body.data.entry.version === 3, JSON.stringify(rtFits.body))
 
     // config.delete: overrides go with the key and stay gone when it is made again.
     const dl = "spot/config.del"
@@ -1348,7 +1371,7 @@ async function main() {
     vaultCheck("the seed has a rolled-back entry", rolledSeed.includes("config.rolled_back"), JSON.stringify(rolledSeed))
 
     // Clean up every entry this block made, then prove the seed count is back.
-    for (const key of ["spot/config.a", "spot/config.json", "spot/config.dur0", "spot/config.dur1", "spot/config.dur2", "spot/config.dur3", "spot/config.dur4", dl, "legacy.retired-flag"]) await cfgCall("config.delete", { key })
+    for (const key of ["spot/config.a", "spot/config.json", "spot/config.dur0", "spot/config.dur1", "spot/config.dur2", "spot/config.dur3", "spot/config.dur4", rt, dl, "legacy.retired-flag"]) await cfgCall("config.delete", { key })
     const configAfter = data(await cfgCall("config.list", {}))
     vaultCheck("the config spot checks cleaned up after themselves", configAfter?.total === clist?.total, `${configAfter?.total} vs ${clist?.total}`)
     }

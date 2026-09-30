@@ -1731,6 +1731,18 @@ export function createVaultHandlers(FixtureError) {
           if (!hasValue) throw configInvalid("valueType", "changing the type needs a value of that type")
           const refusal = configValueRefusal(newType, newValue)
           if (refusal !== null) throw configInvalid("value", refusal)
+          // A tenant whose override is not a value of the new type would
+          // silently read the caller's fallback instead. The first in tenant
+          // order is named, and nothing is written.
+          const overrides = [...(vault.configOverrides.get(key)?.values() ?? [])].sort(byTenant)
+          for (const o of overrides) {
+            if (configValueRefusal(newType, wireValue(o.value)) !== null) {
+              throw configInvalid(
+                "valueType",
+                `tenant ${o.tenantId} has an override of ${describeValue(o.value)}, which is not a valid ${newType}; change or revert it first`,
+              )
+            }
+          }
           merged.valueType = newType
           merged.value = newValue
         } else if (hasValue) {
@@ -1817,10 +1829,9 @@ export function createVaultHandlers(FixtureError) {
       invalidates: ["config.detail", "config.resolve", "overrides.list"],
       handler: (payload) => {
         const key = requireKey(payload?.key)
-        // The entry is read first, so an orphan's override cannot be reverted
-        // here: the manager says the entry is not found, and recreating the key
-        // is what clears it.
-        findConfig(key)
+        // The entry is not read: an override whose entry is gone still
+        // resolves for its tenant, so it has to be removable. A tenant with no
+        // override is not found, whether or not the key exists.
         const tenantId = configTenant(payload?.tenantId)
         const byTenant = vault.configOverrides.get(key)
         if (!byTenant?.delete(tenantId)) throw overrideNotFound()
