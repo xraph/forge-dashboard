@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from "vitest"
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 import {
   fireEvent,
   render,
@@ -742,6 +742,457 @@ describe("ConfigDetailPage rollback", () => {
     await new Promise((r) => setTimeout(r, 30))
     expect(screen.queryByRole("alertdialog")).not.toBeNull()
     expect(h.commands).toHaveLength(1)
+  })
+})
+
+describe("ConfigDetailPage overrides", () => {
+  const OVERRIDE_SET = { override: override("t-acme") }
+  const withOverrides = (...tenants: string[]) =>
+    detail({ overrides: tenants.map((t) => override(t)) })
+  const overrideRow = (tenant: string) =>
+    screen.getByText(tenant).closest("tr") as HTMLElement
+
+  it("lists each tenant in mono with its value, a wrong-type badge and when it changed", async () => {
+    const h = harness({
+      "config.detail": detail({
+        overrides: [override("t-acme"), { ...override("t-globex"), value: "oops", valueMatchesType: false }],
+      }),
+    })
+    renderDetail(h.client)
+    await ready()
+    const row = overrideRow("t-acme")
+    expect(within(row).getByText("t-acme").className).toContain("font-mono")
+    expect(within(row).getByText("t-acme").className).toContain("font-medium")
+    expect(within(row).getByText("5s")).toBeTruthy()
+    expect(within(row).queryByText("Wrong type")).toBeNull()
+    expect(within(overrideRow("t-globex")).getByText("Wrong type")).toBeTruthy()
+    expect(screen.getByText("2 tenant overrides")).toBeTruthy()
+  })
+
+  it("says so when there are none, and still offers Add override", async () => {
+    renderDetail(harness().client)
+    await ready()
+    expect(screen.getByText("No tenant overrides.")).toBeTruthy()
+    expect(screen.getByRole("button", { name: "Add override" })).toBeTruthy()
+  })
+
+  it("adds an override with the typed value", async () => {
+    const h = harness(
+      { "config.detail": detail({ entry: entry({ valueType: "int", value: 8080 }) }) },
+      { "overrides.set": OVERRIDE_SET },
+    )
+    renderDetail(h.client)
+    await ready()
+    click("Add override")
+    const dialog = await screen.findByRole("dialog")
+    const submit = within(dialog).getByRole("button", { name: "Save override" }) as HTMLButtonElement
+    expect(submit.disabled).toBe(true)
+    fireEvent.change(within(dialog).getByLabelText("Tenant ID"), { target: { value: " t-acme " } })
+    expect(submit.disabled).toBe(true)
+    fireEvent.change(within(dialog).getByLabelText("Value"), { target: { value: "9090" } })
+    expect(submit.disabled).toBe(false)
+    fireEvent.click(submit)
+    await waitFor(() =>
+      expect(h.commands).toEqual([
+        { intent: "overrides.set", payload: { key: KEY, tenantId: "t-acme", value: 9090 } },
+      ]),
+    )
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull())
+  })
+
+  it("lets a string entry's override be the empty string, and sends it", async () => {
+    const h = harness(
+      { "config.detail": detail({ entry: entry({ valueType: "string", value: "hello" }) }) },
+      { "overrides.set": OVERRIDE_SET },
+    )
+    renderDetail(h.client)
+    await ready()
+    click("Add override")
+    const dialog = await screen.findByRole("dialog")
+    fireEvent.change(within(dialog).getByLabelText("Tenant ID"), { target: { value: "t-acme" } })
+    const submit = within(dialog).getByRole("button", { name: "Save override" }) as HTMLButtonElement
+    expect(submit.disabled).toBe(false)
+    // It says what empty means, and it does not use the words for the delete.
+    expect(dialog.textContent).toMatch(/empty string/i)
+    expect(dialog.textContent).not.toMatch(/Revert to app default/)
+    fireEvent.click(submit)
+    await waitFor(() =>
+      expect(h.commands[0]).toEqual({
+        intent: "overrides.set",
+        payload: { key: KEY, tenantId: "t-acme", value: "" },
+      }),
+    )
+  })
+
+  it("draws a string override of the empty string quoted", async () => {
+    const h = harness({
+      "config.detail": detail({
+        entry: entry({ valueType: "string", value: "hello" }),
+        overrides: [{ ...override("t-acme"), value: "" }],
+      }),
+    })
+    renderDetail(h.client)
+    await ready()
+    expect(within(overrideRow("t-acme")).getByText('""')).toBeTruthy()
+  })
+
+  it("shows a refused add inside the dialog and keeps what was typed", async () => {
+    const h = failingCommands(new ContractError("BAD_REQUEST", "config: value: not a duration"))
+    renderDetail(h.client)
+    await ready()
+    click("Add override")
+    const dialog = await screen.findByRole("dialog")
+    fireEvent.change(within(dialog).getByLabelText("Tenant ID"), { target: { value: "t-acme" } })
+    fireEvent.change(within(dialog).getByLabelText("Value"), { target: { value: "5s" } })
+    fireEvent.click(within(dialog).getByRole("button", { name: "Save override" }))
+    expect((await within(dialog).findAllByText(/config: value: not a duration/)).length).toBeGreaterThan(0)
+    expect((within(dialog).getByLabelText("Tenant ID") as HTMLInputElement).value).toBe("t-acme")
+  })
+
+  it("cannot be closed while an add is in flight", async () => {
+    const h = neverSettles()
+    renderDetail(h.client)
+    await ready()
+    click("Add override")
+    const dialog = await screen.findByRole("dialog")
+    fireEvent.change(within(dialog).getByLabelText("Tenant ID"), { target: { value: "t-acme" } })
+    fireEvent.change(within(dialog).getByLabelText("Value"), { target: { value: "5s" } })
+    fireEvent.click(within(dialog).getByRole("button", { name: "Save override" }))
+    await within(dialog).findByRole("button", { name: "Saving…" })
+    fireEvent.keyDown(dialog, { key: "Escape" })
+    await new Promise((r) => setTimeout(r, 30))
+    expect(screen.queryByRole("dialog")).not.toBeNull()
+  })
+
+  it("starts each add with no earlier refusal or text", async () => {
+    const h = failingCommands(new ContractError("BAD_REQUEST", "config: value: not a duration"))
+    renderDetail(h.client)
+    await ready()
+    click("Add override")
+    let dialog = await screen.findByRole("dialog")
+    fireEvent.change(within(dialog).getByLabelText("Tenant ID"), { target: { value: "t-acme" } })
+    fireEvent.change(within(dialog).getByLabelText("Value"), { target: { value: "5s" } })
+    fireEvent.click(within(dialog).getByRole("button", { name: "Save override" }))
+    await within(dialog).findAllByText(/not a duration/)
+    fireEvent.click(within(dialog).getByRole("button", { name: "Cancel" }))
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull())
+    click("Add override")
+    dialog = await screen.findByRole("dialog")
+    expect(within(dialog).queryByText(/not a duration/)).toBeNull()
+    expect((within(dialog).getByLabelText("Tenant ID") as HTMLInputElement).value).toBe("")
+  })
+
+  it("refuses to add for a type the vault does not validate, and says why", async () => {
+    const h = harness({
+      "config.detail": detail({ entry: entry({ valueType: "yaml", knownType: false, value: "a: b" }) }),
+    })
+    renderDetail(h.client)
+    await ready()
+    const button = screen.getByRole("button", { name: "Add override" }) as HTMLButtonElement
+    expect(button.disabled).toBe(true)
+    const reason = document.getElementById(button.getAttribute("aria-describedby") ?? "")
+    expect(reason?.textContent).toMatch(/yaml/)
+  })
+
+  it("changes an override: starts from its value, sends tenant and value, and waits for a difference", async () => {
+    const h = harness(
+      { "config.detail": withOverrides("t-acme") },
+      { "overrides.set": OVERRIDE_SET },
+    )
+    renderDetail(h.client)
+    await ready()
+    fireEvent.click(within(overrideRow("t-acme")).getByRole("button", { name: /Change/ }))
+    const dialog = await screen.findByRole("dialog")
+    expect(dialog.textContent).toContain("t-acme")
+    const input = within(dialog).getByLabelText("Value") as HTMLInputElement
+    expect(input.value).toBe("5s")
+    const submit = within(dialog).getByRole("button", { name: "Save override" }) as HTMLButtonElement
+    expect(submit.disabled).toBe(true)
+    fireEvent.change(input, { target: { value: "8s" } })
+    expect(submit.disabled).toBe(false)
+    expect(dialog.textContent).not.toMatch(/Revert to app default/)
+    fireEvent.click(submit)
+    await waitFor(() =>
+      expect(h.commands).toEqual([
+        { intent: "overrides.set", payload: { key: KEY, tenantId: "t-acme", value: "8s" } },
+      ]),
+    )
+  })
+
+  it("does not offer a wrong-typed override's value back as if it were valid", async () => {
+    const h = harness({
+      "config.detail": detail({
+        overrides: [{ ...override("t-acme"), value: "oops", valueMatchesType: false }],
+      }),
+    })
+    renderDetail(h.client)
+    await ready()
+    fireEvent.click(within(overrideRow("t-acme")).getByRole("button", { name: /Change/ }))
+    const dialog = await screen.findByRole("dialog")
+    expect((within(dialog).getByLabelText("Value") as HTMLInputElement).value).toBe("")
+    expect(
+      (within(dialog).getByRole("button", { name: "Save override" }) as HTMLButtonElement).disabled,
+    ).toBe(true)
+  })
+
+  it("sends a bool override as the button pressed", async () => {
+    const h = harness(
+      {
+        "config.detail": detail({
+          entry: entry({ valueType: "bool", value: true }),
+          overrides: [{ ...override("t-acme"), value: true }],
+        }),
+      },
+      { "overrides.set": OVERRIDE_SET },
+    )
+    renderDetail(h.client)
+    await ready()
+    fireEvent.click(within(overrideRow("t-acme")).getByRole("button", { name: /Change/ }))
+    const dialog = await screen.findByRole("dialog")
+    fireEvent.click(within(dialog).getByRole("button", { name: "false" }))
+    expect(within(dialog).getByRole("button", { name: "false" }).getAttribute("aria-pressed")).toBe("true")
+    fireEvent.click(within(dialog).getByRole("button", { name: "Save override" }))
+    await waitFor(() =>
+      expect(h.commands[0]?.payload).toEqual({ key: KEY, tenantId: "t-acme", value: false }),
+    )
+  })
+})
+
+describe("ConfigDetailPage revert to app default", () => {
+  async function open(h: Harness, tenant = "t-acme") {
+    renderDetail(h.client)
+    await ready()
+    fireEvent.click(
+      within(screen.getByText(tenant).closest("tr") as HTMLElement).getByRole("button", {
+        name: /Revert to app default/,
+      }),
+    )
+    return await screen.findByRole("alertdialog")
+  }
+  const withOne = (over: Record<string, unknown> = {}) =>
+    harness({ "config.detail": detail({ overrides: [override("t-acme")], ...over }) }, {
+      "overrides.delete": { ok: true, key: KEY, tenantId: "t-acme" },
+    })
+
+  it("says the tenant goes back to the app default, and names it", async () => {
+    const dialog = await open(withOne())
+    expect(dialog.textContent).toContain("Tenant t-acme goes back to the app default, 30s.")
+    expect(within(dialog).getByRole("button", { name: "Revert to app default" })).toBeTruthy()
+  })
+
+  it("quotes an app default that is a string", async () => {
+    const dialog = await open(
+      withOne({ entry: entry({ valueType: "string", value: "" }) }),
+    )
+    expect(dialog.textContent).toContain('Tenant t-acme goes back to the app default, "".')
+  })
+
+  it("sends overrides.delete with the key and tenant, and closes", async () => {
+    const h = withOne()
+    const dialog = await open(h)
+    fireEvent.click(within(dialog).getByRole("button", { name: "Revert to app default" }))
+    await waitFor(() =>
+      expect(h.commands).toEqual([
+        { intent: "overrides.delete", payload: { key: KEY, tenantId: "t-acme" } },
+      ]),
+    )
+    await waitFor(() => expect(screen.queryByRole("alertdialog")).toBeNull())
+  })
+
+  it("is the only place those words appear: a set is never a revert", async () => {
+    renderDetail(withOne().client)
+    await ready()
+    const revertButtons = screen.getAllByRole("button", { name: /Revert to app default/ })
+    expect(revertButtons).toHaveLength(1)
+    fireEvent.click(screen.getByRole("button", { name: "Add override" }))
+    expect((await screen.findByRole("dialog")).textContent).not.toMatch(/Revert to app default/)
+  })
+
+  it("shows a refusal inside the dialog and keeps it open", async () => {
+    const h = failingCommands(new ContractError("NOT_FOUND", "tenant override not found"), {
+      "config.detail": detail({ overrides: [override("t-acme")] }),
+    })
+    const dialog = await open(h)
+    fireEvent.click(within(dialog).getByRole("button", { name: "Revert to app default" }))
+    expect(await within(dialog).findByText(/tenant override not found/)).toBeTruthy()
+    expect(screen.queryByRole("alertdialog")).not.toBeNull()
+  })
+
+  it("does not send twice or close while pending", async () => {
+    const h = neverSettles({ "config.detail": detail({ overrides: [override("t-acme")] }) })
+    const dialog = await open(h)
+    const confirm = within(dialog).getByRole("button", { name: "Revert to app default" })
+    fireEvent.click(confirm)
+    fireEvent.click(confirm)
+    await waitFor(() => expect(h.commands).toHaveLength(1))
+    fireEvent.keyDown(dialog, { key: "Escape" })
+    await new Promise((r) => setTimeout(r, 30))
+    expect(screen.queryByRole("alertdialog")).not.toBeNull()
+  })
+
+  it("starts each open with no earlier refusal", async () => {
+    const h = failingCommands(new ContractError("NOT_FOUND", "tenant override not found"), {
+      "config.detail": detail({ overrides: [override("t-acme"), override("t-globex")] }),
+    })
+    const first = await open(h)
+    fireEvent.click(within(first).getByRole("button", { name: "Revert to app default" }))
+    await within(first).findByText(/tenant override not found/)
+    fireEvent.click(within(first).getByRole("button", { name: "Cancel" }))
+    await waitFor(() => expect(screen.queryByRole("alertdialog")).toBeNull())
+    fireEvent.click(
+      within(screen.getByText("t-globex").closest("tr") as HTMLElement).getByRole("button", {
+        name: /Revert to app default/,
+      }),
+    )
+    const second = await screen.findByRole("alertdialog")
+    expect(within(second).queryByText(/tenant override not found/)).toBeNull()
+  })
+})
+
+describe("ConfigDetailPage resolve", () => {
+  it("has a Resolve for tenant panel that asks only after Resolve is pressed", async () => {
+    const h = harness({
+      "config.resolve": {
+        value: "5s",
+        valueMatchesType: true,
+        source: "override",
+        appValue: "30s",
+        overrideValue: "5s",
+        tenantId: "t-acme",
+      },
+    })
+    renderDetail(h.client)
+    await ready()
+    expect(h.queries.some((q) => q.intent === "config.resolve")).toBe(false)
+    fireEvent.change(screen.getByLabelText("Resolve for tenant"), { target: { value: "t-acme" } })
+    fireEvent.click(screen.getByRole("button", { name: "Resolve" }))
+    await screen.findByText(/from its override/)
+    expect(h.queries.find((q) => q.intent === "config.resolve")?.params).toEqual({
+      key: KEY,
+      tenantId: "t-acme",
+    })
+  })
+})
+
+describe("ConfigDetailPage recent activity", () => {
+  it("lists what happened, with who and when", async () => {
+    const h = harness({
+      "config.detail": detail({
+        recentAudit: [
+          { id: "a1", action: "config.update", outcome: "success", userId: "u-rex", createdAt: "2026-09-23T10:00:00Z" },
+          { id: "a2", action: "config.override.set", outcome: "denied", createdAt: "2026-09-22T10:00:00Z" },
+        ],
+      }),
+    })
+    renderDetail(h.client)
+    await ready()
+    expect(screen.getByRole("heading", { name: "Recent activity" })).toBeTruthy()
+    expect(screen.getByText("config.update")).toBeTruthy()
+    expect(screen.getByText("u-rex")).toBeTruthy()
+    expect(screen.getByText("config.override.set")).toBeTruthy()
+  })
+
+  it("says so when nothing has been recorded", async () => {
+    renderDetail(harness().client)
+    await ready()
+    expect(screen.getByText("No recorded activity yet.")).toBeTruthy()
+  })
+})
+
+describe("ConfigDetailPage leaving with an unsaved value", () => {
+  // jsdom cannot navigate, so a click that gets through is stopped at the
+  // bubbling end. One the guard blocks never reaches it.
+  let reached = false
+  const sink = (e: Event) => {
+    reached = true
+    e.preventDefault()
+  }
+  beforeEach(() => {
+    reached = false
+    document.addEventListener("click", sink)
+    vi.spyOn(window, "confirm").mockReturnValue(false)
+  })
+  afterEach(() => {
+    document.removeEventListener("click", sink)
+    vi.restoreAllMocks()
+  })
+
+  function renderWithLink(client: ScopedClient) {
+    renderDetail(client)
+    const link = document.createElement("a")
+    link.href = "/elsewhere"
+    link.textContent = "Elsewhere"
+    document.body.appendChild(link)
+    return link
+  }
+  function clickBlocked(link: HTMLElement): boolean {
+    reached = false
+    link.dispatchEvent(new MouseEvent("click", { bubbles: true, cancelable: true, button: 0 }))
+    return !reached
+  }
+  function beforeUnload(): boolean {
+    const event = new Event("beforeunload", { cancelable: true })
+    window.dispatchEvent(event)
+    return event.defaultPrevented
+  }
+
+  it("does not ask while the value is as stored", async () => {
+    const link = renderWithLink(harness().client)
+    await ready()
+    expect(beforeUnload()).toBe(false)
+    expect(clickBlocked(link)).toBe(false)
+    expect(window.confirm).not.toHaveBeenCalled()
+    link.remove()
+  })
+
+  it("asks before the tab closes, and before a link, once the value differs", async () => {
+    const link = renderWithLink(harness().client)
+    await ready()
+    fireEvent.change(screen.getByLabelText("Value"), { target: { value: "45s" } })
+    expect(beforeUnload()).toBe(true)
+    expect(clickBlocked(link)).toBe(true)
+    expect(window.confirm).toHaveBeenCalledTimes(1)
+    link.remove()
+  })
+
+  it("asks for text that is not yet a value too: it is still unsaved", async () => {
+    const link = renderWithLink(harness().client)
+    await ready()
+    fireEvent.change(screen.getByLabelText("Value"), { target: { value: "soon" } })
+    expect(beforeUnload()).toBe(true)
+    link.remove()
+  })
+
+  it("lets the link through on yes", async () => {
+    vi.mocked(window.confirm).mockReturnValue(true)
+    const link = renderWithLink(harness().client)
+    await ready()
+    fireEvent.change(screen.getByLabelText("Value"), { target: { value: "45s" } })
+    expect(clickBlocked(link)).toBe(false)
+    link.remove()
+  })
+
+  it("stops asking when the text goes back to what is stored", async () => {
+    const link = renderWithLink(harness().client)
+    await ready()
+    const input = screen.getByLabelText("Value")
+    fireEvent.change(input, { target: { value: "45s" } })
+    fireEvent.change(input, { target: { value: "30s" } })
+    expect(beforeUnload()).toBe(false)
+    link.remove()
+  })
+
+  it("stops asking once the value is saved", async () => {
+    const h = harness({}, { "config.update": { entry: entry({ value: "45s", version: 4 }) } })
+    const link = renderWithLink(h.client)
+    await ready()
+    fireEvent.change(screen.getByLabelText("Value"), { target: { value: "45s" } })
+    // Submitted rather than clicked: the sink above cancels every click, and
+    // a cancelled click on a submit button never submits.
+    fireEvent.submit(saveButton().closest("form") as HTMLFormElement)
+    await screen.findByText("Saved as version 4.")
+    expect(beforeUnload()).toBe(false)
+    link.remove()
   })
 })
 

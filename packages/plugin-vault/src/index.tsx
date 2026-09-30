@@ -1,5 +1,4 @@
 import { definePlugin } from "@forge-go/dashboard-plugin"
-import { PageHeader } from "@forge-go/dashboard-kit/components/page-header"
 import {
   FlagIcon,
   KeyRoundIcon,
@@ -8,13 +7,12 @@ import {
   SlidersHorizontalIcon,
 } from "@forge-go/dashboard-kit/icons"
 import { lazy } from "react"
-import type { ComponentType } from "react"
-import type { PluginPageProps } from "@forge-go/dashboard-plugin"
 import { ConfigCreatePage } from "./pages/config-create"
 import { ConfigPage } from "./pages/config"
 import { FlagCreatePage } from "./pages/flag-create"
 import { FlagDetailPage } from "./pages/flag-detail"
 import { FlagsPage } from "./pages/flags"
+import { OverridesPage } from "./pages/overrides"
 import { RotationDetailPage } from "./pages/rotation-detail"
 import { RotationPage } from "./pages/rotation"
 import { SecretCreatePage } from "./pages/secret-create"
@@ -27,6 +25,7 @@ export {
   FlagCreatePage,
   FlagDetailPage,
   FlagsPage,
+  OverridesPage,
   RotationDetailPage,
   RotationPage,
   SecretCreatePage,
@@ -61,17 +60,6 @@ export { configPath, flagPath, rotationPath, secretPath } from "./keys"
  * wraps every page in `Suspense`, so a lazy route is legal.
  */
 const ConfigDetailPage = lazy(() => import("./pages/config-detail"))
-
-/**
- * A stand-in until the overrides page lands. It keeps the nav link from
- * pointing at nothing.
- */
-const OverridesPlaceholder: ComponentType<PluginPageProps> = () => (
-  <PageHeader
-    title="Overrides"
-    description="The overrides page is not available yet."
-  />
-)
 
 /**
  * The first-party UI for the `vault` extension.
@@ -149,7 +137,7 @@ export const vaultPlugin = definePlugin({
     // entry keyed "new" encodes to /config/new.
     { path: "/new-config", element: ConfigCreatePage },
     { path: "/config/:key", element: ConfigDetailPage },
-    { path: "/overrides", element: OverridesPlaceholder },
+    { path: "/overrides", element: OverridesPage },
   ],
 })
 

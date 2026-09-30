@@ -40,6 +40,9 @@ import {
   WrongTypeBadge,
 } from "../badges"
 import { ConfigValue } from "../components/config-value"
+import { OverridesSection } from "../components/overrides-section"
+import { RecentActivity } from "../components/recent-activity"
+import { ResolvePanel } from "../components/resolve-panel"
 import { ValueInput } from "../components/value-input"
 import { isConfigType } from "../config-types"
 import type {
@@ -50,6 +53,7 @@ import type {
   ConfigVersions,
 } from "../config-types"
 import { prettyJson, sameJson } from "../json-text"
+import { useUnsavedGuard } from "../use-unsaved-guard"
 import type { JsonEdit } from "../components/json-editor"
 
 // Both editors are their own chunks. Nothing on this page imports CodeMirror
@@ -291,6 +295,11 @@ function ConfigDetailView({
         )}
       </section>
 
+      <OverridesSection entry={entry} overrides={overrides} />
+
+      {/* Keyed by entry, so a typed tenant and an answer are not carried to the next. */}
+      <ResolvePanel key={entryKey} entryKey={entryKey} valueType={entry.valueType} />
+
       <section className="flex flex-col gap-2">
         <h2 className="text-sm font-medium">Versions</h2>
         {versions.data !== undefined ? (
@@ -315,6 +324,8 @@ function ConfigDetailView({
           </QueryBoundary>
         )}
       </section>
+
+      <RecentActivity entries={data.recentAudit} />
 
       {editingDescription && (
         <EditDescriptionDialog entry={entry} onClose={() => setEditingDescription(false)} />
@@ -413,9 +424,18 @@ function ValueEditor({
     !sameJson(draft.value, entry.value) &&
     !(saved !== undefined && sameJson(draft.value, saved.value))
 
+  // Whether anything was typed. A draft of undefined is "no value" for two
+  // reasons: nothing was touched (a stored value that is not valid for the
+  // type), or what is typed is not a value yet. Only the second is a change
+  // somebody would lose.
+  const [touched, setTouched] = useState(false)
+  const dirty = canSave || (touched && draft === undefined)
+  useUnsavedGuard(dirty, "You have a value change that is not saved. Leave this page and lose it?")
+
   function changed(next: { value: unknown } | undefined) {
     if (save.error !== undefined || save.data !== undefined) save.reset()
     onEdit()
+    setTouched(true)
     setDraft(next)
   }
 
