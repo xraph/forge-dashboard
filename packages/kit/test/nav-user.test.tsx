@@ -3,6 +3,7 @@ import { describe, expect, it, vi } from "vitest"
 import { fireEvent, render, screen } from "@testing-library/react"
 import { SidebarProvider } from "../src/components/sidebar"
 import { NavUser } from "../src/components/nav-user"
+import { ThemeProvider } from "../src/components/theme-provider"
 
 /**
  * NavUser drives the same base-ui Menu primitives as ScopeSwitcher, so this
@@ -67,5 +68,29 @@ describe("NavUser", () => {
     fireEvent.click(screen.getByRole("button"))
     fireEvent.click(screen.getByText("Log out"))
     expect(onSignOut).toHaveBeenCalledTimes(1)
+  })
+})
+
+describe("NavUser theme submenu", () => {
+  it("offers Light, Dark and System when a theme provider is mounted", async () => {
+    render(
+      <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
+        <SidebarProvider>
+          <NavUser user={user} />
+        </SidebarProvider>
+      </ThemeProvider>,
+    )
+    fireEvent.click(screen.getByRole("button", { name: /Ada Lovelace/ }))
+    fireEvent.click(await screen.findByRole("menuitem", { name: /Theme/ }))
+    expect(await screen.findByRole("menuitemradio", { name: "Light" })).toBeTruthy()
+    expect(screen.getByRole("menuitemradio", { name: "Dark" })).toBeTruthy()
+    expect(screen.getByRole("menuitemradio", { name: "System" }).getAttribute("aria-checked")).toBe("true")
+  })
+
+  it("shows no Theme item without a theme provider", async () => {
+    renderNavUser()
+    fireEvent.click(screen.getByRole("button", { name: /Ada Lovelace/ }))
+    await screen.findByRole("menuitem", { name: "Account" })
+    expect(screen.queryByRole("menuitem", { name: /Theme/ })).toBeNull()
   })
 })

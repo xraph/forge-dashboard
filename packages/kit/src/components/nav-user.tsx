@@ -9,7 +9,12 @@ import {
   DropdownMenuGroup,
   DropdownMenuItem,
   DropdownMenuLabel,
+  DropdownMenuRadioGroup,
+  DropdownMenuRadioItem,
   DropdownMenuSeparator,
+  DropdownMenuSub,
+  DropdownMenuSubContent,
+  DropdownMenuSubTrigger,
   DropdownMenuTrigger,
 } from "@forge-go/dashboard-kit/components/dropdown-menu"
 import {
@@ -18,7 +23,8 @@ import {
   SidebarMenuItem,
   useSidebar,
 } from "@forge-go/dashboard-kit/components/sidebar"
-import { EllipsisVerticalIcon, CircleUserRoundIcon, CreditCardIcon, BellIcon, LogOutIcon } from "lucide-react"
+import { useTheme } from "@forge-go/dashboard-kit/components/theme-provider"
+import { EllipsisVerticalIcon, CircleUserRoundIcon, CreditCardIcon, BellIcon, LogOutIcon, SunMoonIcon } from "lucide-react"
 
 /**
  * Initials for the avatar fallback, derived from the name rather than
@@ -83,6 +89,9 @@ export function NavUser({
   onSignOut?: () => void
 }) {
   const { isMobile } = useSidebar()
+  // Without a provider next-themes returns an empty `themes`, so the submenu
+  // only renders where there is a theme to change.
+  const { theme, setTheme, themes } = useTheme()
   return (
     <SidebarMenu>
       <SidebarMenuItem>
@@ -138,6 +147,29 @@ export function NavUser({
                 Notifications
               </DropdownMenuItem>
             </DropdownMenuGroup>
+            {themes && themes.length > 0 ? (
+              <>
+                <DropdownMenuSeparator />
+                <DropdownMenuGroup>
+                  <DropdownMenuSub>
+                    <DropdownMenuSubTrigger>
+                      <SunMoonIcon />
+                      Theme
+                    </DropdownMenuSubTrigger>
+                    <DropdownMenuSubContent>
+                      <DropdownMenuRadioGroup
+                        value={theme ?? "system"}
+                        onValueChange={(value) => setTheme(String(value))}
+                      >
+                        <DropdownMenuRadioItem value="light">Light</DropdownMenuRadioItem>
+                        <DropdownMenuRadioItem value="dark">Dark</DropdownMenuRadioItem>
+                        <DropdownMenuRadioItem value="system">System</DropdownMenuRadioItem>
+                      </DropdownMenuRadioGroup>
+                    </DropdownMenuSubContent>
+                  </DropdownMenuSub>
+                </DropdownMenuGroup>
+              </>
+            ) : null}
             {onSignOut ? (
               <>
                 <DropdownMenuSeparator />
