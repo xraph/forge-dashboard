@@ -68,6 +68,22 @@ export function money(amount, currency = "usd") {
 
 const clone = (value) => structuredClone(value)
 
+/** Go's %q for the plain strings a provider sends. */
+const q = (value) => JSON.stringify(String(value ?? ""))
+
+const MONEY_SYMBOLS = { usd: "$", eur: "\u20ac", gbp: "\u00a3", jpy: "\u00a5", cad: "C$", aud: "A$", chf: "CHF ", cny: "\u00a5", sek: "kr ", nzd: "NZ$" }
+const ZERO_DECIMAL = new Set(["jpy", "krw", "vnd"])
+
+/** types.Money's String(): the symbol, then the major units, as `%v` prints it in the engine's messages. */
+function goMoney(m) {
+  const code = String(m?.currency ?? "").toLowerCase()
+  const amount = Number(m?.amount ?? 0)
+  const symbol = MONEY_SYMBOLS[code] ?? `${code.toUpperCase()} `
+  if (ZERO_DECIMAL.has(code)) return `${symbol}${amount}`
+  const abs = Math.abs(amount)
+  return `${symbol}${amount < 0 ? "-" : ""}${Math.trunc(abs / 100)}.${String(abs % 100).padStart(2, "0")}`
+}
+
 /** created_at ascending, id ascending: plans and catalog features. */
 function oldestFirst(a, b) {
   return a.created_at.localeCompare(b.created_at) || (a.id < b.id ? -1 : a.id > b.id ? 1 : 0)
@@ -371,11 +387,13 @@ function seedLedgerState() {
       sub_1Stark: providerSub("stark", "plan_starter"),
       sub_1Wonka: providerSub("wonka", "plan_pro", { quantity: { seats: 2 } }),
       sub_1Orphan: providerSub("stark", "plan_retired"),
+      sub_1Retired: providerSub("stark", "plan_enterprise"),
     },
     invoices: {
       in_1AcmeA: providerInvoice(190, 160),
       in_1AcmeB: providerInvoice(220, 190),
       in_1Orphan: providerInvoice(250, 220, { subscription_id: "sub_retired" }),
+      in_1BadTotals: providerInvoice(280, 250, { total: money(100) }),
     },
   }
 
@@ -535,6 +553,76 @@ function catalogHandlers(h) {
     return { id: text(raw.id) || ledger.nextId("price"), plan_id: planId, base_amount: base, billing_period: period, ...(tiers.length ? { tiers } : {}), created_at: stamp, updated_at: stamp }
   }
 
+  const invalid = (message) => badRequest(`ledger: invalid input: ${message}`)
+
+  /**
+   * normalisePlan then validatePlan (plan_write.go), as CreatePlan runs them on
+   * an import. Answers the normalised copy of the provider's plan.
+   */
+  function importedPlan(record) {
+    const p = { ...record, name: text(record.name), slug: text(record.slug), currency: text(record.currency).toLowerCase() }
+    p.status = text(record.status) || "draft"
+    p.features = Array.isArray(record.features) ? record.features : []
+    if (record.pricing) {
+      const base = record.pricing.base_amount ?? { amount: 0 }
+      const code = text(base.currency).toLowerCase() || p.currency
+      p.pricing = { ...record.pricing, base_amount: { ...base, currency: code } }
+    }
+    if (p.name === "") throw invalid("a plan needs a name")
+    if (p.slug === "") throw invalid("a plan needs a slug")
+    if (p.currency === "") throw invalid("a plan needs a currency")
+    if (!PLAN_STATUSES.includes(p.status)) throw invalid(`unknown plan status ${q(p.status)}`)
+    if (wholeNumber(p.trial_days) < 0) throw invalid("trial days cannot be negative")
+    const keys = new Set()
+    for (const f of p.features) {
+      if (text(f.key) === "") throw invalid("every plan feature needs a key")
+      if (keys.has(f.key)) throw badRequest(`ledger: duplicate feature key: ${q(f.key)}`)
+      keys.add(f.key)
+      if (!FEATURE_TYPES.includes(f.type)) throw invalid(`feature ${q(f.key)} has unknown type ${q(f.type)}`)
+      const period = f.period ?? ""
+      if (period !== "" && !PERIODS.includes(period)) throw invalid(`feature ${q(f.key)} has unknown period ${q(period)}`)
+      if (wholeNumber(f.limit) < -1) throw invalid(`feature ${q(f.key)} has limit ${wholeNumber(f.limit)}; use -1 for unlimited`)
+    }
+    if (!p.pricing) return p
+    const pricingError = (message) => badRequest(`ledger: invalid pricing configuration: ${message}`)
+    const base = p.pricing.base_amount
+    if (wholeNumber(base.amount) < 0) throw pricingError("the base price cannot be negative")
+    if (base.currency !== p.currency) throw pricingError(`the base price is in ${base.currency} but the plan bills in ${p.currency}`)
+    const byFeature = new Map()
+    for (const t of p.pricing.tiers ?? []) {
+      if (!keys.has(t.feature_key)) throw pricingError(`a tier prices feature ${q(t.feature_key)}, which the plan does not have`)
+      byFeature.set(t.feature_key, [...(byFeature.get(t.feature_key) ?? []), t])
+    }
+    for (const [key, tiers] of byFeature) validateTiers(key, tiers, p.currency)
+    return p
+  }
+
+  /** invoice.ValidateTiers, for one feature's ladder. */
+  function validateTiers(featureKey, tiers, currency) {
+    const wantType = tiers[0].type
+    const wantKey = tiers[0].feature_key
+    const seen = new Set()
+    tiers.forEach((t, idx) => {
+      const at = `tier ${idx} (UpTo ${wholeNumber(t.up_to)}, feature ${q(t.feature_key)})`
+      const fail = (message) => badRequest(`feature ${q(featureKey)}: invoice: invalid price tiers: ${at} ${message}`)
+      if (t.type !== wantType) throw fail(`mixes types ${q(wantType)} and ${q(t.type)}`)
+      if (!TIER_TYPES.includes(t.type)) throw fail(`has invalid type ${q(t.type)}`)
+      const unit = t.unit_amount ?? { amount: 0, currency: "" }
+      const flat = t.flat_amount ?? { amount: 0, currency: "" }
+      if (text(unit.currency) !== "" && text(unit.currency).toLowerCase() !== currency) throw fail(`unit amount currency ${q(unit.currency)} does not match ${q(currency)}`)
+      if (text(flat.currency) !== "" && text(flat.currency).toLowerCase() !== currency) throw fail(`flat amount currency ${q(flat.currency)} does not match ${q(currency)}`)
+      if (wholeNumber(unit.amount) < 0) throw fail(`has a negative unit amount ${wholeNumber(unit.amount)}`)
+      if (wholeNumber(flat.amount) < 0) throw fail(`has a negative flat amount ${wholeNumber(flat.amount)}`)
+      if (t.feature_key !== wantKey) throw fail(`does not match feature key ${q(wantKey)}`)
+      const upTo = wholeNumber(t.up_to)
+      const bucket = upTo <= 0 ? 0 : upTo
+      if (seen.has(bucket)) throw fail("duplicates another tier's UpTo")
+      seen.add(bucket)
+      if (t.type !== "flat" && wholeNumber(flat.amount) !== 0) throw fail(`is ${t.type} but carries a non-zero flat amount`)
+      if (t.type === "flat" && wholeNumber(unit.amount) !== 0) throw fail("is flat but carries a non-zero unit amount")
+    })
+  }
+
   const slugTaken = (app, slug, exceptId) => ledger.plans.some((p) => p.app_id === app && p.slug === slug && p.id !== exceptId)
 
   const canRead = (row) => row.app_id === currentApp() || row.app_id === ""
@@ -677,13 +765,18 @@ function catalogHandlers(h) {
       handler: (input) => {
         const app = requireApp()
         const { pid, record } = fromProvider(input, "plan", ledger.provider.plans, app)
-        // Go imports through CreatePlan, whose slug check refuses a slug the app uses.
-        if (slugTaken(app, record.slug)) throw conflict(`ledger: already exists: slug "${record.slug}" is already used in this app`)
+        // Go imports through CreatePlan: it normalises and validates the plan,
+        // then refuses a slug the app uses.
+        const normal = importedPlan(record)
+        if (slugTaken(app, normal.slug)) throw conflict(`ledger: already exists: slug ${q(normal.slug)} is already used in this app`)
         const stamp = iso(Date.now())
         const id = ledger.nextId("plan")
-        const row = { ...record, id, status: record.status || "draft", app_id: app, provider_id: pid, provider_name: PROVIDER, created_at: stamp, updated_at: stamp }
-        row.features = (record.features ?? []).map((f, i) => ({ ...f, id: f.id || `pf_${id}_${i + 1}`, created_at: stamp, updated_at: stamp }))
-        if (record.pricing) row.pricing = { ...record.pricing, id: record.pricing.id || `price_${id}`, plan_id: id, created_at: stamp, updated_at: stamp }
+        const row = { ...normal, id, app_id: app, provider_id: pid, provider_name: PROVIDER, created_at: stamp, updated_at: stamp }
+        row.features = normal.features.map((f, i) => ({ ...f, id: f.id || `pf_${id}_${i + 1}`, created_at: stamp, updated_at: stamp }))
+        if (normal.pricing) {
+          const base = normal.pricing.base_amount
+          row.pricing = { ...normal.pricing, base_amount: money(wholeNumber(base.amount), base.currency), id: normal.pricing.id || `price_${id}`, plan_id: id, created_at: stamp, updated_at: stamp }
+        }
         ledger.plans.push(row)
         return clone(row)
       },
@@ -791,12 +884,19 @@ function catalogHandlers(h) {
         // As features.create: the empty scope imports into the shared catalog.
         const app = currentApp()
         const { pid, record } = fromProvider(input, "feature", ledger.provider.features, app)
+        // ledger.ValidateFeature, then the import's own status rule.
         const key = text(record.key)
-        if (key === "") throw badRequest(`ledger: invalid input: the provider's feature "${pid}" has no key`)
+        if (key === "") throw invalid("a feature needs a key")
+        if (!FEATURE_TYPES.includes(record.type)) throw invalid(`unknown feature type ${q(record.type)}`)
+        const period = record.period ?? ""
+        if (period !== "" && !PERIODS.includes(period)) throw invalid(`unknown feature period ${q(period)}`)
+        if (wholeNumber(record.default_limit) < -1) throw invalid(`default_limit ${wholeNumber(record.default_limit)} is below -1; use -1 for unlimited`)
+        const status = text(record.status) === "" ? "active" : record.status
+        if (status !== "active" && status !== "archived") throw invalid(`unknown feature status ${q(status)}`)
         const existing = ledger.features.find((f) => f.app_id === app && f.key === key)
-        if (existing) throw conflict(`ledger: already exists: feature key "${key}" is already used by ${existing.id}`)
+        if (existing) throw conflict(`ledger: already exists: feature key ${q(key)} is already used by ${existing.id}`)
         const stamp = iso(Date.now())
-        const row = { ...record, key, id: ledger.nextId("feat"), status: record.status || "active", app_id: app, provider_id: pid, provider_name: PROVIDER, created_at: stamp, updated_at: stamp }
+        const row = { ...record, key, id: ledger.nextId("feat"), status, app_id: app, provider_id: pid, provider_name: PROVIDER, created_at: stamp, updated_at: stamp }
         ledger.features.push(row)
         return clone(row)
       },
@@ -1069,6 +1169,54 @@ function billingHandlers(h) {
     return { subscription: clone(sub), plan: { ...clone(p), features: clone(p.features ?? []) }, applied_coupons: coupons }
   }
 
+  /**
+   * validateImportedInvoice (provider_import.go): a figure the engine would never
+   * have written is refused before anything is stored. Charge lines sum to the
+   * subtotal, discount lines to minus the discount, tax lines to the tax, and the
+   * total is the net amount clamped at zero, plus tax.
+   */
+  function validateImportedInvoice(inv, p) {
+    const bad = (message) => badRequest(`ledger: invalid input: the provider's invoice ${message}`)
+    const currency = String(p.currency).toLowerCase()
+    if (inv.currency !== currency) throw bad(`is in ${q(inv.currency)}, but plan ${q(p.slug)} bills in lowercase ${q(currency)}`)
+    const fields = [["subtotal", inv.subtotal], ["tax amount", inv.tax_amount], ["discount amount", inv.discount_amount], ["total", inv.total]]
+    for (const [name, m] of fields) {
+      if (String(m?.currency ?? "") !== currency) throw bad(`has its ${name} in ${q(m?.currency)}, want ${q(currency)}`)
+      if (m.amount < 0) throw bad(`has a negative ${name} ${goMoney(m)}`)
+    }
+    let charges = 0
+    let discounts = 0
+    let taxes = 0
+    let hasDiscount = false
+    let hasTax = false
+    ;(inv.line_items ?? []).forEach((li, i) => {
+      if (li.amount?.currency !== currency || li.unit_amount?.currency !== currency) {
+        throw bad(`has line item ${i + 1} in ${q(li.amount?.currency)} and ${q(li.unit_amount?.currency)}, want ${q(currency)}`)
+      }
+      if (li.type === "discount") {
+        hasDiscount = true
+        discounts += li.amount.amount
+      } else if (li.type === "tax") {
+        hasTax = true
+        taxes += li.amount.amount
+      } else {
+        charges += li.amount.amount
+      }
+    })
+    const as = (amount) => goMoney({ amount, currency })
+    if (charges !== inv.subtotal.amount) throw bad(`has line items charging ${as(charges)} but a subtotal of ${goMoney(inv.subtotal)}`)
+    if (hasDiscount && -discounts !== inv.discount_amount.amount) throw bad(`has discount lines of ${as(-discounts)} but a discount amount of ${goMoney(inv.discount_amount)}`)
+    if (hasTax && taxes !== inv.tax_amount.amount) throw bad(`has tax lines of ${as(taxes)} but a tax amount of ${goMoney(inv.tax_amount)}`)
+    const want = Math.max(inv.subtotal.amount - inv.discount_amount.amount, 0) + inv.tax_amount.amount
+    if (want !== inv.total.amount) throw bad(`has a total of ${goMoney(inv.total)}, but its subtotal, discount and tax make ${as(want)}`)
+    const startMs = Date.parse(inv.period_start ?? "")
+    const endMs = Date.parse(inv.period_end ?? "")
+    if (Number.isNaN(startMs) || Number.isNaN(endMs)) throw bad("needs both a period start and a period end")
+    if (!(endMs > startMs)) throw bad("ends its period before it starts")
+    if (inv.status === "paid" && !inv.paid_at) throw bad("is paid but has no paid-at time")
+    if ((inv.status === "pending" || inv.status === "past_due") && !inv.due_date) throw bad(`is ${inv.status} but has no due date`)
+  }
+
   /** invoices.detail's answer for a stored invoice. */
   function invoiceDetail(inv) {
     const sub = ledger.subscriptions.find((s) => s.id === inv.subscription_id)
@@ -1216,17 +1364,20 @@ function billingHandlers(h) {
         const { pid, record } = fromProvider(input, "subscription", ledger.provider.subscriptions, app)
         // The engine's checks, in its order (provider_import.go).
         const status = text(record.status)
-        if (status !== "" && !SUB_STATUSES.includes(status)) throw badRequest(`ledger: invalid input: unknown subscription status "${status}"`)
+        if (status !== "" && !SUB_STATUSES.includes(status)) throw badRequest(`ledger: invalid input: unknown subscription status ${q(status)}`)
         const tenant = text(record.tenant_id)
-        if (tenant === "") throw badRequest(`ledger: invalid input: the provider's subscription "${pid}" has no tenant id`)
+        if (tenant === "") throw badRequest(`ledger: invalid input: the provider's subscription ${q(pid)} has no tenant id`)
         if (!record.plan_id) throw badRequest("ledger: invalid input: the provider's subscription names no plan")
         const p = ledger.plans.find((x) => x.id === record.plan_id)
         if (!p || p.app_id !== app) {
           throw badRequest(`ledger: invalid input: the provider's subscription is on plan ${record.plan_id}, which is not a plan in this app; import the plan first`)
         }
+        // importedPlanInApp words the inactive plan for an import, before the duplicate scan.
+        if (p.status !== "active") {
+          throw badRequest(`ledger: invalid input: plan ${q(p.slug)} is ${p.status}, not active; activate plan ${p.slug} before importing its subscriptions`)
+        }
         const dup = ledger.subscriptions.find((s) => s.app_id === app && s.tenant_id === tenant && s.provider_name === PROVIDER && s.provider_id === pid)
-        if (dup) throw conflict(`ledger: already exists: provider subscription "${pid}" is already stored as ${dup.id}`)
-        if (p.status !== "active") throw badRequest(`ledger: invalid input: plan "${p.slug}" is ${p.status}, not active`)
+        if (dup) throw conflict(`ledger: already exists: provider subscription ${q(pid)} is already stored as ${dup.id}`)
         const quantity = checkQuantity(record.quantity, p)
         const nowMs = Date.now()
         const stamp = iso(nowMs)
@@ -1397,14 +1548,17 @@ function billingHandlers(h) {
         const app = requireApp()
         const { pid, record } = fromProvider(input, "invoice", ledger.provider.invoices, app)
         const status = text(record.status) || "draft"
-        if (!INVOICE_STATUSES.includes(status)) throw badRequest(`ledger: invalid input: unknown invoice status "${status}"`)
+        if (!INVOICE_STATUSES.includes(status)) throw badRequest(`ledger: invalid input: unknown invoice status ${q(status)}`)
         const tenant = text(record.tenant_id)
-        if (tenant === "") throw badRequest(`ledger: invalid input: the provider's invoice "${pid}" has no tenant id`)
+        if (tenant === "") throw badRequest(`ledger: invalid input: the provider's invoice ${q(pid)} has no tenant id`)
         if (!record.subscription_id) throw badRequest("ledger: invalid input: the provider's invoice names no subscription")
         const sub = ledger.subscriptions.find((s) => s.id === record.subscription_id)
         if (!sub || sub.app_id !== app || sub.tenant_id !== tenant) {
           throw badRequest(`ledger: invalid input: the provider's invoice is for subscription ${record.subscription_id}, which is not this app's subscription for tenant "${tenant}"; import the subscription first`)
         }
+        const invPlan = ledger.plans.find((x) => x.id === sub.plan_id)
+        if (!invPlan) throw notFound("ledger: plan")
+        validateImportedInvoice({ ...record, status }, invPlan)
         // Go lists the tenant's invoices whose period lies inside the imported one.
         const startMs = Date.parse(record.period_start)
         const endMs = Date.parse(record.period_end)
@@ -1413,7 +1567,7 @@ function billingHandlers(h) {
         )
         for (const stored of inPeriod) {
           if (stored.provider_name === PROVIDER && stored.provider_id === pid) {
-            throw conflict(`ledger: already exists: provider invoice "${pid}" is already stored as ${stored.id}`)
+            throw conflict(`ledger: already exists: provider invoice ${q(pid)} is already stored as ${stored.id}`)
           }
           const live = stored.status !== "voided" && status !== "voided"
           if (live && stored.subscription_id === sub.id && stored.period_start === record.period_start && stored.period_end === record.period_end) {

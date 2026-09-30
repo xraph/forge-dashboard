@@ -328,7 +328,7 @@ feature, six subscriptions in six states, invoices in every status, coupons
 that are active, expired, scheduled and exhausted, thirty days of usage for
 two tenants and one batch of events sharing a timestamp.
 
-The provider has its own small catalog, so each `importFromProvider` has something to copy. You can import plans `prod_growth` and `prod_scale`, features `mtr_exports` and `mtr_webhooks`, subscriptions `sub_1Stark` and `sub_1Wonka`, and invoices `in_1AcmeA` and `in_1AcmeB`. The rest are there to be refused: `prod_starter` and `mtr_api_calls` collide with a slug or key this app already uses, `prod_partner` is filed under another app, and `sub_1Orphan` and `in_1Orphan` point at a plan or subscription that isn't here.
+The provider has its own small catalog, so each `importFromProvider` has something to copy. You can import plans `prod_growth` and `prod_scale`, features `mtr_exports` and `mtr_webhooks`, subscriptions `sub_1Stark` and `sub_1Wonka`, and invoices `in_1AcmeA` and `in_1AcmeB`. The rest are there to be refused: `prod_starter` and `mtr_api_calls` collide with a slug or key this app already uses, `prod_partner` is filed under another app, `sub_1Orphan` and `in_1Orphan` point at a plan or subscription that isn't here, `sub_1Retired` is on the Enterprise plan, which isn't active, and `in_1BadTotals` has a total that doesn't add up.
 
 Two switches, read on every call:
 
