@@ -103,6 +103,15 @@ export function couponState(c, nowMs = Date.now()) {
 }
 
 /**
+ * Whether a coupon's validity window holds now, inclusive at both ends: the
+ * rule ListCoupons' Active filter and ApplyCoupon share. It ignores the
+ * redemption cap, so an exhausted coupon inside its window still lists.
+ */
+export function inValidityWindow(c, nowMs = Date.now()) {
+  return !(c.valid_from && Date.parse(c.valid_from) > nowMs) && !(c.valid_until && Date.parse(c.valid_until) < nowMs)
+}
+
+/**
  * An invoice the way GenerateInvoice builds one: base, seats, overage, then a
  * discount on the subtotal and 8% tax on the net. Lines carry their own
  * signed amounts; the invoice carries discount_amount as a positive number.
@@ -283,6 +292,19 @@ function seedLedgerState() {
       }),
     )
   }
+  // Rows another app owns. No request from app_ledger can read or change them,
+  // so each answers NOT_FOUND exactly as an unknown id does (a shared feature is
+  // the one exception: it is readable from every app).
+  const OTHER_APP = "app_other"
+  const outsiderPlan = plan({
+    id: "plan_other", slug: "other", name: "Other app's plan", description: "Belongs to another app on this server.",
+    status: "active", base: 2500, trialDays: 0, createdDays: 80,
+    features: [["api_calls", "API calls", "metered", 1000, "monthly"]],
+  })
+  outsiderPlan.app_id = OTHER_APP
+  const outsider = sub("sub_outsider", "outsider", outsiderPlan, "active", 40, { app_id: OTHER_APP })
+  state.features.push({ id: "feat_other_exports", key: "exports", name: "Exports", description: "Belongs to another app on this server.", type: "metered", default_limit: 50, period: "monthly", soft_limit: false, status: "active", app_id: OTHER_APP, created_at: ago(60), updated_at: ago(60) })
+
   const lastStart = now - 40 * DAY
   const lastEnd = now - 10 * DAY
   state.invoices.push(
@@ -291,6 +313,10 @@ function seedLedgerState() {
     buildInvoice({ id: "inv_globex_1", sub: globex, plan: starter, periodStartMs: periodStart, periodEndMs: periodEnd, status: "draft", createdMs: now - DAY }),
     buildInvoice({ id: "inv_umbrella_1", sub: umbrella, plan: starter, periodStartMs: now - 70 * DAY, periodEndMs: now - 40 * DAY, status: "voided", createdMs: now - 40 * DAY, extra: { voided_at: ago(39), void_reason: "Customer left during the trial" } }),
     buildInvoice({ id: "inv_hooli_1", sub: hooli, plan: starter, periodStartMs: lastStart, periodEndMs: lastEnd, status: "paid", createdMs: lastEnd + 2000, extra: { due_date: iso(lastEnd + 14 * DAY), paid_at: ago(8), payment_ref: "ch_hooli_1" } }),
+  )
+
+  state.invoices.push(
+    buildInvoice({ id: "inv_outsider_1", sub: outsider, plan: outsiderPlan, periodStartMs: lastStart, periodEndMs: lastEnd, status: "pending", createdMs: lastEnd, extra: { app_id: OTHER_APP, due_date: iso(now + 4 * DAY) } }),
   )
 
   const coupon = (id, code, name, type, value, extra, createdDays) => {
@@ -368,6 +394,8 @@ function seedLedgerState() {
     const { id: _id, app_id: _app, created_at: _created, updated_at: _updated, ...rest } = built
     return { ...rest, line_items: rest.line_items.map(({ id: _line, invoice_id: _invoice, ...line }) => line), ...extra }
   }
+  // The lines providerInvoice carries, mapped one by one, for a record that needs a line changed.
+  const providerLines = (change) => providerInvoice(190, 160).line_items.map(change)
   const providerSub = (tenant_id, plan_id, extra = {}) => ({
     tenant_id, plan_id, status: "active", current_period_start: iso(periodStart), current_period_end: iso(periodEnd), ...extra,
   })
@@ -381,6 +409,7 @@ function seedLedgerState() {
     features: {
       mtr_exports: { key: "exports", name: "Exports", description: "Scheduled CSV exports.", type: "metered", default_limit: 100, period: "monthly", soft_limit: false, status: "active" },
       mtr_webhooks: { key: "webhooks", name: "Webhooks", description: "Outbound event delivery.", type: "boolean", default_limit: 1, period: "none", soft_limit: false, status: "active" },
+      mtr_draft: { key: "draft_feature", name: "Draft feature", description: "A provider feature that is still a draft.", type: "boolean", default_limit: 1, period: "none", soft_limit: false, status: "draft" },
       mtr_api_calls: { key: "api_calls", name: "API calls", description: "The provider's copy of a key this app uses.", type: "metered", default_limit: 10000, period: "monthly", soft_limit: false, status: "active" },
     },
     subscriptions: {
@@ -388,12 +417,18 @@ function seedLedgerState() {
       sub_1Wonka: providerSub("wonka", "plan_pro", { quantity: { seats: 2 } }),
       sub_1Orphan: providerSub("stark", "plan_retired"),
       sub_1Retired: providerSub("stark", "plan_enterprise"),
+      // Half a period, and a period that runs backwards: both refused, never defaulted.
+      sub_1NoEnd: providerSub("stark", "plan_starter", { current_period_end: undefined }),
+      sub_1Backwards: providerSub("stark", "plan_starter", { current_period_start: iso(periodEnd), current_period_end: iso(periodStart) }),
     },
     invoices: {
       in_1AcmeA: providerInvoice(190, 160),
       in_1AcmeB: providerInvoice(220, 190),
       in_1Orphan: providerInvoice(250, 220, { subscription_id: "sub_retired" }),
       in_1BadTotals: providerInvoice(280, 250, { total: money(100) }),
+      // A line of a type the engine never writes is refused: the dashboard groups lines by six types, so it would count toward the subtotal and appear on no page.
+      in_1OddLine: providerInvoice(310, 280, { line_items: providerLines((l, i) => (i === 1 ? { ...l, type: "subscription" } : l)) }),
+      in_1BlankLine: providerInvoice(340, 310, { line_items: providerLines((l, i) => (i === 0 ? { ...l, type: "" } : l)) }),
     },
   }
 
@@ -412,6 +447,7 @@ export function makeHelpers(FixtureError) {
   const badRequest = (message) => new FixtureError(400, "BAD_REQUEST", message)
   const notFound = (what) => new FixtureError(404, "NOT_FOUND", `${what} not found`)
   const conflict = (message) => new FixtureError(409, "CONFLICT", message)
+  const permissionDenied = (message) => new FixtureError(403, "PERMISSION_DENIED", message)
   const unavailable = (message) => new FixtureError(503, "UNAVAILABLE", message)
 
   /** The resolved app: APP_ID, or "" when the no-app switch is on. */
@@ -422,7 +458,7 @@ export function makeHelpers(FixtureError) {
   function requireApp() {
     const app = currentApp()
     if (app === "") {
-      throw new FixtureError(403, "PERMISSION_DENIED", "no app selected: set the extension's app_id or send an app_id claim")
+      throw permissionDenied("no app selected: set the extension's app_id or send an app_id claim")
     }
     return app
   }
@@ -446,10 +482,26 @@ export function makeHelpers(FixtureError) {
     return { items: window.slice(0, limit).map(clone), limit, offset, has_more: window.length > limit }
   }
 
+  /** The prefix each entity's id carries (ledger/id/id.go). */
+  const ID_PREFIX = { plan: "plan", subscription: "sub", invoice: "inv", coupon: "cpn", feature: "feat" }
+
+  /**
+   * A required id field, as the contract's parseID reads it: BAD_REQUEST
+   * naming the field when it is missing, truncated or carries another entity's
+   * prefix. Go also parses the typeid suffix; the fixture's seeded ids are
+   * short, so it checks the prefix and that something follows it.
+   */
+  function parseId(rawId, field, what) {
+    const id = requireText(rawId, field)
+    const prefix = ID_PREFIX[what]
+    if (!id.startsWith(`${prefix}_`) || id.length === prefix.length + 1) throw badRequest(`${field} is not a valid id: ${id}`)
+    return id
+  }
+
   /** Loads a row the app owns, or answers NOT_FOUND exactly as for an unknown id. */
   function owned(list, rawId, field, what) {
     const app = requireApp()
-    const id = requireText(rawId, field)
+    const id = parseId(rawId, field, what)
     const row = list.find((r) => r.id === id)
     if (!row || row.app_id !== app) throw notFound(what)
     return row
@@ -509,13 +561,13 @@ export function makeHelpers(FixtureError) {
   }
 
   return {
-    badRequest, notFound, conflict, unavailable, currentApp, providerConfigured, requireApp,
-    text, requireText, wholeNumber, page, owned, optionalTime, moneyInput, syncRow, fromProvider,
+    badRequest, notFound, conflict, permissionDenied, unavailable, currentApp, providerConfigured, requireApp,
+    text, requireText, parseId, wholeNumber, page, owned, optionalTime, moneyInput, syncRow, fromProvider,
   }
 }
 
 function catalogHandlers(h) {
-  const { badRequest, notFound, conflict, currentApp, providerConfigured, requireApp, text, requireText, wholeNumber, page, owned, optionalTime, moneyInput, syncRow, fromProvider } = h
+  const { badRequest, notFound, conflict, permissionDenied, currentApp, providerConfigured, requireApp, text, requireText, parseId, wholeNumber, page, owned, optionalTime, moneyInput, syncRow, fromProvider } = h
 
   function planFeatures(raw, stamp) {
     if (raw === undefined || raw === null) return []
@@ -627,15 +679,21 @@ function catalogHandlers(h) {
 
   const canRead = (row) => row.app_id === currentApp() || row.app_id === ""
   function readableFeature(rawId) {
-    const id = requireText(rawId, "id")
+    const id = parseId(rawId, "id", "feature")
     const row = ledger.features.find((f) => f.id === id)
     if (!row || !canRead(row)) throw notFound("feature")
     return row
   }
   function writableFeature(rawId) {
-    const id = requireText(rawId, "id")
+    const id = parseId(rawId, "id", "feature")
     const row = ledger.features.find((f) => f.id === id)
-    if (!row || row.app_id !== currentApp()) throw notFound("feature")
+    if (!row) throw notFound("feature")
+    if (row.app_id !== currentApp()) {
+      // A shared feature is readable from an app, so its existence is no secret: the refusal says why.
+      // Another app's feature stays NOT_FOUND.
+      if (row.app_id === "") throw permissionDenied("shared features can be changed only with no app selected")
+      throw notFound("feature")
+    }
     return row
   }
 
@@ -892,7 +950,7 @@ function catalogHandlers(h) {
         if (period !== "" && !PERIODS.includes(period)) throw invalid(`unknown feature period ${q(period)}`)
         if (wholeNumber(record.default_limit) < -1) throw invalid(`default_limit ${wholeNumber(record.default_limit)} is below -1; use -1 for unlimited`)
         const status = text(record.status) === "" ? "active" : record.status
-        if (status !== "active" && status !== "archived") throw invalid(`unknown feature status ${q(status)}`)
+        if (status !== "active" && status !== "archived") throw invalid(`a feature imports as active or archived, not ${q(status)}`)
         const existing = ledger.features.find((f) => f.app_id === app && f.key === key)
         if (existing) throw conflict(`ledger: already exists: feature key ${q(key)} is already used by ${existing.id}`)
         const stamp = iso(Date.now())
@@ -908,7 +966,7 @@ function catalogHandlers(h) {
         const app = requireApp()
         const nowMs = Date.now()
         const rows = ledger.coupons
-          .filter((c) => c.app_id === app && (input?.active !== true || couponState(c, nowMs) === "active"))
+          .filter((c) => c.app_id === app && (input?.active !== true || inValidityWindow(c, nowMs)))
           .sort(newestFirst)
         return page(rows, input)
       },
@@ -1058,13 +1116,13 @@ function catalogHandlers(h) {
 }
 
 function billingHandlers(h) {
-  const { badRequest, notFound, conflict, providerConfigured, requireApp, text, requireText, page, owned, optionalTime, syncRow, fromProvider } = h
+  const { badRequest, notFound, conflict, providerConfigured, requireApp, text, requireText, parseId, page, owned, optionalTime, syncRow, fromProvider } = h
   const SUB_STATUSES = ["active", "trialing", "past_due", "canceled", "expired", "paused"]
   const INVOICE_STATUSES = ["draft", "pending", "paid", "past_due", "voided"]
   const ENDED = new Set(["canceled", "expired"])
 
   function subscribablePlan(rawId, app) {
-    const id = requireText(rawId, "plan_id")
+    const id = parseId(rawId, "plan_id", "plan")
     const p = ledger.plans.find((x) => x.id === id)
     if (!p) throw notFound("plan")
     // The contract's loadPlan refuses another app's plan as not found before the engine's active check runs.
@@ -1199,8 +1257,11 @@ function billingHandlers(h) {
       } else if (li.type === "tax") {
         hasTax = true
         taxes += li.amount.amount
-      } else {
+      } else if (["base", "usage", "overage", "seat"].includes(li.type)) {
         charges += li.amount.amount
+      } else {
+        // The dashboard groups lines by these six types, so a line outside them would count toward the subtotal and appear on no page.
+        throw bad(`has line item ${i + 1} of unknown type ${q(li.type)}`)
       }
     })
     const as = (amount) => goMoney({ amount, currency })
@@ -1368,6 +1429,13 @@ function billingHandlers(h) {
         const tenant = text(record.tenant_id)
         if (tenant === "") throw badRequest(`ledger: invalid input: the provider's subscription ${q(pid)} has no tenant id`)
         if (!record.plan_id) throw badRequest("ledger: invalid input: the provider's subscription names no plan")
+        // validateImportedSubscriptionPeriod: no period at all is fine (the import opens one), half of one or one that runs backwards is not.
+        const periodStart = text(record.current_period_start)
+        const periodEnd = text(record.current_period_end)
+        if (periodStart !== "" || periodEnd !== "") {
+          if (periodStart === "" || periodEnd === "") throw badRequest(`ledger: invalid input: the provider's subscription ${q(pid)} needs both a period start and a period end`)
+          if (!(Date.parse(periodEnd) > Date.parse(periodStart))) throw badRequest(`ledger: invalid input: the provider's subscription ${q(pid)} ends its period before it starts`)
+        }
         const p = ledger.plans.find((x) => x.id === record.plan_id)
         if (!p || p.app_id !== app) {
           throw badRequest(`ledger: invalid input: the provider's subscription is on plan ${record.plan_id}, which is not a plan in this app; import the plan first`)
