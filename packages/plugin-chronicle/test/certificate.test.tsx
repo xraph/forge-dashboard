@@ -38,8 +38,9 @@ describe("Certificate", () => {
     const failed = within(examined).getByText("Does not match the last event")
     expect(failed.closest('[data-slot="badge"]')?.getAttribute("data-variant")).toBe("destructive")
 
-    // Not checked is no opinion: no badge, and muted.
-    const notChecked = within(examined).getByText("The checkpoint ends past the chain's head, so its hash could not be compared.")
+    // Not checked is no opinion: no badge, and muted. It opens with "Not
+    // checked" like every other unchecked row, and the server's note says why.
+    const notChecked = within(examined).getByText("Not checked. The checkpoint ends past the chain's head, so its hash could not be compared.")
     expect(notChecked.closest('[data-slot="badge"]')).toBeNull()
     expect(notChecked.className).toContain("text-muted-foreground")
   })

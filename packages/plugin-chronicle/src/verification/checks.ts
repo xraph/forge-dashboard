@@ -92,7 +92,8 @@ export function checkpointRows(c: CheckpointResult): CheckRow[] {
       state: tri(c.hashChecked, c.hashMatch),
       held: "Matches",
       failed: "Does not match",
-      notChecked: c.note ?? "Not checked",
+      // The note says why; the row still has to say first that it was not checked.
+      notChecked: c.note ? `Not checked. ${c.note}` : "Not checked",
     },
     {
       label: "Continuity",
