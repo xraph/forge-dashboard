@@ -277,6 +277,29 @@ describe("WardenSchemaPage: plan", () => {
     expect(button("Apply")).toHaveProperty("disabled", true)
   })
 
+  it("comes back stale, with Apply disabled, when the text was edited while the plan was in flight", async () => {
+    let release: (p: Plan) => void = () => {}
+    const made = scripted({})
+    const client = {
+      ...made.client,
+      query: (intent: string, params?: Record<string, unknown>) =>
+        intent === "schema.plan"
+          ? new Promise<Plan>((resolve) => (release = resolve))
+          : made.client.query(intent, params),
+    } as ScopedClient
+    renderPage(WardenSchemaPage, client)
+    await waitFor(() => expect(document.querySelector(".cm-editor")).not.toBeNull())
+    fireEvent.click(button("Plan"))
+    await waitFor(() => expect(button("Planning…")).toHaveProperty("disabled", true))
+    setText(docText() + "\n// edited while planning\n")
+    await act(async () => release(VALID))
+    await waitFor(() => expect(button("Plan")).toHaveProperty("disabled", false))
+    expect(
+      screen.getByText("The source has changed since this plan. Plan again before applying.")
+    ).toBeTruthy()
+    expect(button("Apply")).toHaveProperty("disabled", true)
+  })
+
   it("shows a failed plan request and leaves Apply disabled", async () => {
     await mount({
       plan: () => {
@@ -398,7 +421,7 @@ describe("WardenSchemaPage: prune", () => {
     await mount({})
     expect(
       screen.getByText(
-        "Only namespaces this source declares something in are pruned, and system roles are never deleted."
+        "Only namespaces this source names, including by an empty namespace block, are pruned."
       )
     ).toBeTruthy()
   })
@@ -412,7 +435,7 @@ describe("WardenSchemaPage: prune", () => {
     const dialog = await screen.findByRole("alertdialog")
     const warning = within(dialog).getByText(/^This deletes 7 entities/)
     expect(warning.textContent).toBe(
-      "This deletes 7 entities in the namespaces this source covers: - role//r1, - role//r2, - role//r3, - role//r4, - role//r5, and 2 more."
+      "This deletes 7 entities in the namespaces this source covers: - role//r1, - role//r2, - role//r3, - role//r4, - role//r5, and 2 more. Deleting a role also deletes its assignments and grants."
     )
     expect(warning.className).toContain("text-destructive")
     const confirm = within(dialog).getByRole("button", { name: "Apply changes" })
@@ -429,7 +452,7 @@ describe("WardenSchemaPage: prune", () => {
     fireEvent.click(button("Apply"))
     const dialog = await screen.findByRole("alertdialog")
     expect(within(dialog).getByText(/^This deletes 2 entities/).textContent).toBe(
-      "This deletes 2 entities in the namespaces this source covers: - role//a, - role//b."
+      "This deletes 2 entities in the namespaces this source covers: - role//a, - role//b. Deleting a role also deletes its assignments and grants."
     )
   })
 
@@ -440,7 +463,32 @@ describe("WardenSchemaPage: prune", () => {
     fireEvent.click(button("Apply"))
     const dialog = await screen.findByRole("alertdialog")
     expect(within(dialog).getByText(/^This deletes 1 entity/).textContent).toBe(
-      "This deletes 1 entity in the namespaces this source covers: - role//a."
+      "This deletes 1 entity in the namespaces this source covers: - role//a. Deleting a role also deletes its assignments and grants."
+    )
+  })
+
+  it("does not say a role's assignments go when no deleted line is a role", async () => {
+    await mount({ plan: () => ({ ...VALID, deleted: ["- policy//old", "- permission//doc:read"] }) })
+    fireEvent.click(pruneSwitch())
+    await plan()
+    fireEvent.click(button("Apply"))
+    const dialog = await screen.findByRole("alertdialog")
+    expect(within(dialog).getByText(/^This deletes 2 entities/).textContent).toBe(
+      "This deletes 2 entities in the namespaces this source covers: - policy//old, - permission//doc:read."
+    )
+    expect(within(dialog).queryByText(/Deleting a role/)).toBeNull()
+  })
+
+  it("says a role's assignments go when a deleted line past the first five is a role", async () => {
+    const deleted = [...Array.from({ length: 5 }, (_, i) => `- policy//p${i + 1}`), "- role//late"]
+    await mount({ plan: () => ({ ...VALID, deleted }) })
+    fireEvent.click(pruneSwitch())
+    await plan()
+    fireEvent.click(button("Apply"))
+    const dialog = await screen.findByRole("alertdialog")
+    expect(within(dialog).getByText(/^This deletes 6 entities/).textContent).toBe(
+      "This deletes 6 entities in the namespaces this source covers: - policy//p1, - policy//p2, - policy//p3, - policy//p4, - policy//p5, and 1 more." +
+        " Deleting a role also deletes its assignments and grants."
     )
   })
 
@@ -597,6 +645,42 @@ describe("WardenSchemaPage: results", () => {
   })
 })
 
+describe("WardenSchemaPage: results, diverged with nothing written", () => {
+  it("says nothing was written, not that the lines above were", async () => {
+    await mount({
+      plan: () => VALID,
+      apply: () => ({ created: [], updated: [], deleted: [], noOps: 6, diverged: true }),
+    })
+    await plan()
+    fireEvent.click(button("Apply"))
+    fireEvent.click(
+      within(await screen.findByRole("alertdialog")).getByRole("button", { name: "Apply changes" })
+    )
+    expect(await screen.findByText("Applied: 0 created, 0 changed, 0 deleted.")).toBeTruthy()
+    const result = screen.getByRole("region", { name: "Apply result" })
+    expect(
+      within(result).getByText(
+        "The store changed while this apply ran, so what was written differs from the plan. Nothing was written."
+      )
+    ).toBeTruthy()
+    expect(within(result).queryByText(/The lines above/)).toBeNull()
+  })
+
+  it("drops the result when you load the current schema", async () => {
+    await mount({ exports: [EXPORT, EXPORT_AFTER, EXPORT_AFTER], plan: () => VALID, apply: () => APPLIED })
+    await plan()
+    fireEvent.click(button("Apply"))
+    fireEvent.click(
+      within(await screen.findByRole("alertdialog")).getByRole("button", { name: "Apply changes" })
+    )
+    await screen.findByText("Applied: 1 created, 1 changed, 1 deleted.")
+    await waitFor(() => expect(docText()).toBe(EXPORT_AFTER))
+    fireEvent.click(button("Load current schema"))
+    await waitFor(() => expect(screen.queryByText(/^Applied:/)).toBeNull())
+    expect(screen.queryByRole("region", { name: "Apply result" })).toBeNull()
+  })
+})
+
 describe("WardenSchemaPage: refusals stay in the dialog", () => {
   async function refused(error: ContractError) {
     const made = await mount({
@@ -626,7 +710,7 @@ describe("WardenSchemaPage: refusals stay in the dialog", () => {
     )
     expect(
       await within(dialog).findByText(
-        "The apply stopped with an error: the apply stopped part way: delete role r1: store unavailable. Changes written before the error are kept; plan again to see what remains."
+        "The apply stopped with an error: delete role r1: store unavailable. Changes written before the error are kept; plan again to see what remains."
       )
     ).toBeTruthy()
   })
@@ -663,6 +747,14 @@ describe("WardenSchemaPage: refusals stay in the dialog", () => {
   it("spends the plan after a half apply", async () => {
     const { dialog } = await refused(new ContractError("INTERNAL", "the apply stopped part way: boom"))
     await within(dialog).findByText(/^The apply stopped with an error/)
+    fireEvent.click(within(dialog).getByRole("button", { name: "Cancel" }))
+    await waitFor(() => expect(screen.queryByRole("alertdialog")).toBeNull())
+    expect(button("Apply")).toHaveProperty("disabled", true)
+  })
+
+  it("spends the plan after a bad request, so Apply does not repeat the same refusal", async () => {
+    const { dialog } = await refused(new ContractError("BAD_REQUEST", "the source has an error at line 1, column 1: x"))
+    await within(dialog).findByText(/^the source has an error/)
     fireEvent.click(within(dialog).getByRole("button", { name: "Cancel" }))
     await waitFor(() => expect(screen.queryByRole("alertdialog")).toBeNull())
     expect(button("Apply")).toHaveProperty("disabled", true)

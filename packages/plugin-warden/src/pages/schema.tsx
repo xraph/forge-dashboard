@@ -70,15 +70,38 @@ function refusal(error: ContractError): string {
     return "The schema changed since you planned. Plan again to see the current diff."
   }
   if (error.code === "INTERNAL" && error.message.startsWith(HALF_APPLY)) {
-    return `The apply stopped with an error: ${error.message.replace(/\.+$/, "")}. Changes written before the error are kept; plan again to see what remains.`
+    // Warden's message starts with the phrase the sentence already says, so
+    // only what follows it is interpolated.
+    const rest = error.message
+      .slice(HALF_APPLY.length)
+      .replace(/^:\s*/, "")
+      .replace(/\.+$/, "")
+    const stopped = rest === "" ? "The apply stopped part way" : `The apply stopped with an error: ${rest}`
+    return `${stopped}. Changes written before the error are kept; plan again to see what remains.`
   }
   return error.message
 }
 
-/** A refusal after which the plan no longer describes the store. */
+/**
+ * A refusal after which the same plan would only be refused again: the store
+ * moved on (`CONFLICT`), the apply stopped part way, or the server rejected
+ * the source it was sent (`BAD_REQUEST`).
+ */
 function spendsPlan(error: ContractError): boolean {
-  return error.code === "CONFLICT" || (error.code === "INTERNAL" && error.message.startsWith(HALF_APPLY))
+  return (
+    error.code === "CONFLICT" ||
+    error.code === "BAD_REQUEST" ||
+    (error.code === "INTERNAL" && error.message.startsWith(HALF_APPLY))
+  )
 }
+
+/** What a diverged apply says after "what was written differs". */
+function divergedSentence(applied: SchemaApplyResult): string {
+  const written = applied.created.length + applied.updated.length + applied.deleted.length
+  return `The store changed while this apply ran, so what was written differs from the plan. ${written > 0 ? "The lines above are what was written." : "Nothing was written."}`
+}
+
+const DELETES_ROLE = /^- role\//
 
 function Lines({ lines }: { lines: string[] }) {
   return (
@@ -208,8 +231,16 @@ export function WardenSchemaPage() {
     }
   }
 
+  // A manual load drops the last apply's result: it describes a schema the
+  // editor no longer shows. The reload after an apply calls `load` itself and
+  // keeps it.
+  function loadFresh() {
+    setApplied(null)
+    void load()
+  }
+
   function askToLoad() {
-    if (text === baseline) void load()
+    if (text === baseline) loadFresh()
     else setConfirmingLoad(true)
   }
 
@@ -291,8 +322,7 @@ export function WardenSchemaPage() {
                 />
               </div>
               <p className="text-xs text-muted-foreground">
-                Only namespaces this source declares something in are pruned, and system roles are
-                never deleted.
+                Only namespaces this source names, including by an empty namespace block, are pruned.
               </p>
             </div>
 
@@ -365,10 +395,7 @@ export function WardenSchemaPage() {
                 </p>
                 <Lines lines={[...applied.created, ...applied.updated, ...applied.deleted]} />
                 {applied.diverged && (
-                  <p className="text-sm">
-                    The store changed while this apply ran, so what was written differs from the
-                    plan. The lines above are what was written.
-                  </p>
+                  <p className="text-sm">{divergedSentence(applied)}</p>
                 )}
               </section>
             )}
@@ -381,9 +408,10 @@ export function WardenSchemaPage() {
         onOpenChange={setConfirmingLoad}
         title="Replace your edits with the current schema?"
         confirmLabel="Replace"
+        pending={loading}
         onConfirm={() => {
           setConfirmingLoad(false)
-          void load()
+          loadFresh()
         }}
       />
 
@@ -410,7 +438,7 @@ export function WardenSchemaPage() {
               {deletions !== null && (
                 <>
                   <span className="text-destructive">
-                    {`This deletes ${count(deletions.length, "entity", "entities")} in the namespaces this source covers: ${deletions.slice(0, SHOWN_DELETIONS).join(", ")}${deletions.length > SHOWN_DELETIONS ? `, and ${deletions.length - SHOWN_DELETIONS} more` : ""}.`}
+                    {`This deletes ${count(deletions.length, "entity", "entities")} in the namespaces this source covers: ${deletions.slice(0, SHOWN_DELETIONS).join(", ")}${deletions.length > SHOWN_DELETIONS ? `, and ${deletions.length - SHOWN_DELETIONS} more` : ""}.${deletions.some((line) => DELETES_ROLE.test(line)) ? " Deleting a role also deletes its assignments and grants." : ""}`}
                   </span>
                   <span className="flex items-center gap-2">
                     <Checkbox
