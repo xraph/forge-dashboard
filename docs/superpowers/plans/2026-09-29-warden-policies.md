@@ -295,6 +295,10 @@ func RunPolicyRoundTripContract(t *testing.T, mk MakeStore) {
 		if err := s.UpdatePolicy(ctx, want); err != nil {
 			t.Fatalf("UpdatePolicy: %v", err)
 		}
+		// created_by is immutable on update in every backend (memory keeps
+		// existing.CreatedBy; sqlite and postgres write policyUpdateColumns),
+		// so the read-back carries the ORIGINAL creator, not want's.
+		want.CreatedBy = p.CreatedBy
 		got, err := s.GetPolicy(ctx, roundTripTenant, p.ID)
 		if err != nil {
 			t.Fatalf("GetPolicy: %v", err)
