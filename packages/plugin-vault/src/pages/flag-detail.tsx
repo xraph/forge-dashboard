@@ -31,7 +31,6 @@ import {
 } from "@forge-go/dashboard-kit/components/query-boundary"
 import { Switch } from "@forge-go/dashboard-kit/components/switch"
 import { TagList } from "@forge-go/dashboard-kit/components/tag-list"
-import { Timestamp } from "@forge-go/dashboard-kit/components/timestamp"
 import {
   DecidedHereBadge,
   FlagEnabledBadge,
@@ -39,6 +38,7 @@ import {
   NotReachedBadge,
   WrongTypeBadge,
 } from "../badges"
+import { RecentActivity } from "../components/recent-activity"
 import { EvaluateBar, EvaluationSummary } from "../components/evaluate-bar"
 import { FlagValue } from "../components/flag-value"
 import { Ladder, LadderRow, LadderRows, Rung } from "../components/ladder"
@@ -48,7 +48,6 @@ import { ValueInput } from "../components/value-input"
 import { readEvaluation } from "../evaluation"
 import { isFlagType } from "../flag-types"
 import type {
-  AuditEntry,
   FlagDetail,
   FlagEvaluation,
   FlagOverrideSummary,
@@ -738,32 +737,6 @@ function Metadata({ metadata }: { metadata: Record<string, string> }) {
     .sort(([a], [b]) => a.localeCompare(b))
     .map(([k, v]) => `${k}=${v}`)
   return <TagList values={tags} label="metadata" />
-}
-
-function RecentActivity({ entries }: { entries: AuditEntry[] }) {
-  return (
-    <section className="flex flex-col gap-2">
-      <h2 className="text-sm font-medium">Recent activity</h2>
-      {entries.length === 0 ? (
-        <EmptyState title="No recorded activity yet." />
-      ) : (
-        <ul className="flex flex-col gap-1 text-sm">
-          {entries.map((e) => (
-            <li key={e.id} className="flex flex-wrap items-baseline justify-between gap-x-3">
-              <span className="flex flex-wrap items-baseline gap-x-2">
-                <span className="font-mono text-xs">{e.action}</span>
-                <span className="text-muted-foreground">{e.outcome}</span>
-                {e.userId ? (
-                  <span className="font-mono text-xs text-muted-foreground">{e.userId}</span>
-                ) : null}
-              </span>
-              <Timestamp value={e.createdAt} label="time" className="text-muted-foreground" />
-            </li>
-          ))}
-        </ul>
-      )}
-    </section>
-  )
 }
 
 interface FieldDialogProps {

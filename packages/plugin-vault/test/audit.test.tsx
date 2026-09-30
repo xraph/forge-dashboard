@@ -198,6 +198,52 @@ describe("AuditPage", () => {
     expect(select("Outcome").value).toBe("failure")
   })
 
+  it("sends since from the URL and shows it as a chip", async () => {
+    window.history.replaceState(
+      null,
+      "",
+      "/audit?action=secret.rotated&outcome=failure&since=2026-09-29T10%3A00%3A00.000Z"
+    )
+    const { client, sent } = recordingQueryClient({ "audit.list": ROWS })
+    renderPage(AuditPage, client)
+    await screen.findByText("api/token")
+    expect(listParams(sent)[0]).toEqual({
+      action: "secret.rotated",
+      outcome: "failure",
+      since: "2026-09-29T10:00:00.000Z",
+      includeReads: false,
+      limit: 25,
+      offset: 0,
+    })
+    expect(
+      screen.getByText(`Since ${new Date("2026-09-29T10:00:00.000Z").toLocaleString()}`)
+    ).toBeTruthy()
+  })
+
+  it("removing the since chip drops since and goes back to page one", async () => {
+    window.history.replaceState(null, "", "/audit?since=2026-09-29T10%3A00%3A00Z")
+    const { client, sent } = recordingQueryClient({
+      "audit.list": { entries: ROWS.entries, total: 60 },
+    })
+    renderPage(AuditPage, client)
+    await screen.findByText("api/token")
+    fireEvent.click(screen.getByRole("button", { name: /next/i }))
+    await waitFor(() => expect(lastParams(sent)).toMatchObject({ offset: 25 }))
+    fireEvent.click(screen.getByRole("button", { name: "Remove since filter" }))
+    await waitFor(() => expect("since" in lastParams(sent)).toBe(false))
+    expect(lastParams(sent)).toMatchObject({ offset: 0 })
+    expect(screen.queryByText(/^Since /)).toBeNull()
+  })
+
+  it("ignores a since that is not an RFC3339 time", async () => {
+    window.history.replaceState(null, "", "/audit?since=yesterday")
+    const { client, sent } = recordingQueryClient({ "audit.list": ROWS })
+    renderPage(AuditPage, client)
+    await screen.findByText("api/token")
+    expect("since" in listParams(sent)[0]!).toBe(false)
+    expect(screen.queryByText(/^Since /)).toBeNull()
+  })
+
   it("seeds resource and key from the URL too, and ignores a value it does not offer", async () => {
     window.history.replaceState(null, "", "/audit?resource=flag&key=checkout%2Fnew-flow&outcome=bogus")
     const { client, sent } = recordingQueryClient({ "audit.list": ROWS })

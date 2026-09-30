@@ -98,9 +98,16 @@ describe("OverviewPage", () => {
   it("lists failed rotations alone, linked to the audit log filtered to them", async () => {
     show({ rotationFailures24h: 4 })
     const line = await screen.findByText("4 rotation attempts failed in the last 24 hours.")
-    expect(line.closest("a")?.getAttribute("href")).toBe(
-      "/audit?action=secret.rotated&outcome=failure"
-    )
+    const href = line.closest("a")?.getAttribute("href") ?? ""
+    const url = new URL(href, "http://x")
+    expect(url.pathname).toBe("/audit")
+    expect(url.searchParams.get("action")).toBe("secret.rotated")
+    expect(url.searchParams.get("outcome")).toBe("failure")
+    // The count is the last 24 hours, so the link is too.
+    const since = url.searchParams.get("since") ?? ""
+    expect(since).toBe(new Date(since).toISOString())
+    const ago = Date.now() - Date.parse(since)
+    expect(Math.abs(ago - 24 * 60 * 60 * 1000)).toBeLessThan(60_000)
     expect(screen.queryByText(UNENCRYPTED)).toBeNull()
     expect(screen.queryByText(OVERDUE)).toBeNull()
     expect(screen.queryByText(NO_ROTATOR)).toBeNull()

@@ -37,6 +37,7 @@ import {
 import { TagList } from "@forge-go/dashboard-kit/components/tag-list"
 import { Timestamp } from "@forge-go/dashboard-kit/components/timestamp"
 import { EncryptionBadge, PolicyStatusBadge, RotatorBadge } from "../badges"
+import { RecentActivity } from "../components/recent-activity"
 import { toRFC3339 } from "../datetime"
 import { formatInterval } from "../interval"
 import type { AuditEntry } from "../flag-types"
@@ -330,26 +331,6 @@ function RotationPane({
             Open the rotation page
           </PluginLink>
         </>
-      )}
-    </section>
-  )
-}
-
-function RecentActivity({ entries }: { entries: AuditEntry[] }) {
-  return (
-    <section className="flex flex-col gap-2">
-      <h2 className="text-sm font-medium">Recent activity</h2>
-      {entries.length === 0 ? (
-        <EmptyState title="No recorded activity yet." />
-      ) : (
-        <ul className="flex flex-col gap-1 text-sm">
-          {entries.map((e) => (
-            <li key={e.id} className="flex flex-wrap items-baseline justify-between gap-x-3">
-              <span className="font-mono text-xs">{e.action}</span>
-              <Timestamp value={e.createdAt} label="time" className="text-muted-foreground" />
-            </li>
-          ))}
-        </ul>
       )}
     </section>
   )

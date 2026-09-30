@@ -370,6 +370,31 @@ describe("FlagDetailPage header and definition", () => {
     expect(screen.getByText("flag.update")).toBeTruthy()
   })
 
+  it("shows a failure row's outcome, user, tenant and error", async () => {
+    renderDetail(
+      harness(
+        detail({
+          recentAudit: [
+            {
+              id: "a9",
+              action: "flag.update",
+              outcome: "failure",
+              userId: "usr_1",
+              tenantId: "acme",
+              error: "flag is archived",
+              createdAt: "2026-09-23T10:00:00Z",
+            },
+          ],
+        })
+      ).client
+    )
+    await ready()
+    expect(screen.getByText("failure")).toBeTruthy()
+    expect(screen.getByText("usr_1")).toBeTruthy()
+    expect(screen.getByText("acme")).toBeTruthy()
+    expect(screen.getByText("flag is archived")).toBeTruthy()
+  })
+
   it("says there is no recorded activity", async () => {
     renderDetail(harness().client)
     await ready()

@@ -30,8 +30,17 @@ export interface OverviewStats {
   recentActivity: AuditEntry[]
 }
 
-/** The audit page reads these filters from its URL search params. */
-const FAILED_ROTATIONS = "/audit?action=secret.rotated&outcome=failure"
+const DAY_MS = 24 * 60 * 60 * 1000
+
+/**
+ * The audit page reads these filters from its URL search params. The count
+ * above it is the last 24 hours, so the link is too: without `since` it would
+ * open every failure the vault has ever logged.
+ */
+function failedRotationsPath(now: number = Date.now()): string {
+  const since = new Date(now - DAY_MS).toISOString()
+  return `/audit?action=secret.rotated&outcome=failure&since=${encodeURIComponent(since)}`
+}
 
 interface Problem {
   id: string
@@ -71,7 +80,7 @@ function problems(s: OverviewStats): Problem[] {
     out.push({
       id: "failed",
       text: `${n} rotation ${n === 1 ? "attempt" : "attempts"} failed in the last 24 hours.`,
-      to: FAILED_ROTATIONS,
+      to: failedRotationsPath(),
     })
   }
   return out

@@ -2,6 +2,8 @@ import { useEffect, useRef, useState } from "react"
 import type { ComponentType } from "react"
 import { PluginLink, useQuery } from "@forge-go/dashboard-plugin"
 import type { PluginPageProps } from "@forge-go/dashboard-plugin"
+import { Badge } from "@forge-go/dashboard-kit/components/badge"
+import { Button } from "@forge-go/dashboard-kit/components/button"
 import { Checkbox } from "@forge-go/dashboard-kit/components/checkbox"
 import { FilterBar } from "@forge-go/dashboard-kit/components/filter-bar"
 import { Label } from "@forge-go/dashboard-kit/components/label"
@@ -13,6 +15,7 @@ import {
   type Column,
 } from "@forge-go/dashboard-kit/components/resource-table"
 import { Timestamp } from "@forge-go/dashboard-kit/components/timestamp"
+import { formatTimestamp } from "@forge-go/dashboard-kit/lib/format"
 import {
   AUDIT_ACTIONS,
   AUDIT_OUTCOMES,
@@ -123,21 +126,32 @@ const columns: Column<AuditEntry>[] = [
   },
 ]
 
+/** The times the server accepts for `since`: RFC3339 with a zone, and nothing looser. */
+const RFC3339 = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d+)?(Z|[+-]\d{2}:\d{2})$/
+
+/** True for a time the server would take as `since`. */
+function isSince(v: string): boolean {
+  return RFC3339.test(v) && !Number.isNaN(Date.parse(v))
+}
+
 /**
- * Filters the overview's links can carry: `?action=secret.rotated&outcome=failure`.
+ * Filters the overview's links can carry:
+ * `?action=secret.rotated&outcome=failure&since=2026-09-30T10:00:00.000Z`.
  *
  * The plugin API hands a page route params and no search string, and the host
  * mounts the dashboard on the browser's own location, so the search is read
  * from `window.location` exactly once, when the page mounts. A value the
  * filter does not offer is dropped rather than sent: the select would have no
  * option to show for it, and the page would filter by something it cannot say.
- * The key is free text, so it is taken as given.
+ * The key is free text, so it is taken as given. `since` must be an RFC3339
+ * time: the server refuses anything else, so anything else is ignored here.
  */
 function initialFilters(): {
   resource: string
   action: string
   outcome: string
   key: string
+  since: string
 } {
   let search: URLSearchParams
   try {
@@ -154,6 +168,7 @@ function initialFilters(): {
     action: pick("action", isAuditAction),
     outcome: pick("outcome", isAuditOutcome),
     key: (search.get("key") ?? "").trim(),
+    since: pick("since", isSince),
   }
 }
 
@@ -171,7 +186,8 @@ function initialFilters(): {
  *
  * The key box shows what you type at once and asks the server 300ms after you
  * stop, trimmed, as the config page does. Filters are read from the URL once
- * and never written back to it.
+ * and never written back to it. A `since` from the URL shows as a chip that
+ * removes it.
  */
 export const AuditPage: ComponentType<PluginPageProps> = () => {
   const [initial] = useState(initialFilters)
@@ -180,6 +196,8 @@ export const AuditPage: ComponentType<PluginPageProps> = () => {
   const [resource, setResource] = useState(initial.resource)
   const [action, setAction] = useState(initial.action)
   const [outcome, setOutcome] = useState(initial.outcome)
+  // Only ever set from the URL, and only ever cleared by its chip.
+  const [since, setSince] = useState(initial.since)
   const [includeReads, setIncludeReads] = useState(false)
   // What is in the box, and what the server was last asked for.
   const [keyText, setKeyText] = useState(initial.key)
@@ -210,6 +228,7 @@ export const AuditPage: ComponentType<PluginPageProps> = () => {
     ...(key === "" ? {} : { key }),
     ...(action === "" ? {} : { action }),
     ...(outcome === "" ? {} : { outcome }),
+    ...(since === "" ? {} : { since }),
     includeReads,
     limit: PAGE_SIZE,
     offset: (page - 1) * PAGE_SIZE,
@@ -271,6 +290,27 @@ export const AuditPage: ComponentType<PluginPageProps> = () => {
           </div>
         }
       />
+
+      {since === "" ? null : (
+        <div className="flex flex-wrap gap-1">
+          <Badge variant="outline" className="gap-1 pr-0.5 text-xs">
+            {`Since ${formatTimestamp(since)}`}
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon-xs"
+              className="size-4"
+              aria-label="Remove since filter"
+              onClick={() => {
+                setSince("")
+                setPage(1)
+              }}
+            >
+              <span aria-hidden="true">×</span>
+            </Button>
+          </Badge>
+        </div>
+      )}
 
       <QueryBoundary title="Audit" query={list} skeletonRows={5}>
         {(data) => {

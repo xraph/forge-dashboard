@@ -365,6 +365,30 @@ describe("SecretDetailPage recent activity", () => {
     expect(screen.queryByText("No recorded activity yet.")).toBeNull()
   })
 
+  it("shows a failure row's outcome, user, tenant and error", async () => {
+    renderDetail(
+      harness({
+        ...DETAIL,
+        recentAudit: [
+          {
+            id: "a2",
+            action: "secret.rotated",
+            outcome: "failure",
+            userId: "usr_7",
+            tenantId: "acme",
+            error: "rotator refused the new value",
+            createdAt: "2026-09-23T10:00:00Z",
+          },
+        ],
+      }).client
+    )
+    expect(await screen.findByText("secret.rotated")).toBeTruthy()
+    expect(screen.getByText("failure")).toBeTruthy()
+    expect(screen.getByText("usr_7")).toBeTruthy()
+    expect(screen.getByText("acme")).toBeTruthy()
+    expect(screen.getByText("rotator refused the new value")).toBeTruthy()
+  })
+
   it("says so when there is no activity", async () => {
     renderDetail(harness().client)
     expect(await screen.findByText("No recorded activity yet.")).toBeTruthy()
