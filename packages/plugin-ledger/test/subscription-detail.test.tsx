@@ -1,0 +1,362 @@
+import { describe, expect, it, vi } from "vitest"
+import { fireEvent, screen, waitFor, within } from "@testing-library/react"
+import { ContractError, queryStore } from "@forge-go/dashboard-plugin"
+import { legalActions, LedgerSubscriptionDetailPage } from "../src/pages/subscription-detail"
+import { failingClient, renderPage, renderWithNavigation, scriptedClient } from "./harness"
+import { aCoupon, anInvoice, aPage, aPlan, aSubscription } from "./fixtures"
+
+const USAGE = {
+  features: [
+    { key: "api_calls", name: "API calls", type: "metered", period: "monthly", limit: 100000, used: 112000, remaining: 0, soft_limit: true, over_limit: true, enabled: false },
+    { key: "seats", name: "Seats", type: "seat", period: "none", limit: 10, used: 6, remaining: 4, soft_limit: false, over_limit: false, enabled: false },
+    { key: "sso", name: "Single sign-on", type: "boolean", period: "none", limit: 1, used: 0, remaining: -1, soft_limit: false, over_limit: false, enabled: true },
+  ],
+}
+
+const STARTER = aPlan({ id: "plan_starter", name: "Starter", slug: "starter" })
+// A plan with no seat feature, so the seat counts a subscription carries have nowhere to go.
+const BASIC = aPlan({ id: "plan_basic", name: "Basic", slug: "basic", features: aPlan().features.filter((f) => f.type !== "seat") })
+
+function answers(sub = aSubscription(), over: Record<string, unknown> = {}) {
+  return {
+    "subscriptions.detail": { subscription: sub, plan: aPlan(), applied_coupons: [aCoupon()] },
+    "subscriptions.usage": USAGE,
+    "invoices.list": aPage([anInvoice(), anInvoice({ id: "inv_other", subscription_id: "sub_old" })]),
+    "plans.list": aPage([aPlan(), STARTER]),
+    ...over,
+  }
+}
+
+function open(sub = aSubscription(), commands: Record<string, unknown> = {}, over: Record<string, unknown> = {}) {
+  const { client, sent } = scriptedClient(answers(sub, over), commands)
+  return { ...renderWithNavigation(LedgerSubscriptionDetailPage, client, { id: sub.id }), sent }
+}
+
+describe("legalActions", () => {
+  // Checked against ledger's ChangePlan, PauseSubscription, ResumeSubscription
+  // and CancelSubscription: pause takes active and trialing, resume takes
+  // paused, cancel and change-plan refuse only canceled and expired. The engine
+  // puts no status rule on generating an invoice or applying a coupon. The page
+  // still withholds both from a paused or finished subscription, so an operator
+  // is not invited to bill or discount one that is not running.
+  it("offers only what the engine allows from each state", () => {
+    expect(legalActions("active")).toEqual(["generate", "changePlan", "applyCoupon", "pause", "cancel"])
+    expect(legalActions("trialing")).toEqual(["generate", "changePlan", "applyCoupon", "pause", "cancel"])
+    expect(legalActions("past_due")).toEqual(["generate", "changePlan", "applyCoupon", "cancel"])
+    expect(legalActions("paused")).toEqual(["changePlan", "resume", "cancel"])
+    expect(legalActions("canceled")).toEqual([])
+    expect(legalActions("expired")).toEqual([])
+  })
+})
+
+describe("LedgerSubscriptionDetailPage", () => {
+  it("leads with usage against limits", async () => {
+    open()
+    const panel = await screen.findByRole("region", { name: "Usage against limits" })
+    expect(within(panel).getByText("12,000 over the soft limit, billed as overage")).toBeTruthy()
+    expect(within(panel).getByText("6 of 10")).toBeTruthy()
+    expect(within(panel).getByText("Included")).toBeTruthy()
+  })
+
+  it("shows only this subscription's invoices", async () => {
+    open()
+    await screen.findByText("inv_1")
+    expect(screen.queryByText("inv_other")).toBeNull()
+    expect(screen.getByText("1 invoice for this subscription")).toBeTruthy()
+  })
+
+  it("says when the tenant has more invoices than one read holds", async () => {
+    open(aSubscription(), {}, { "invoices.list": aPage([anInvoice()], { has_more: true }) })
+    expect(await screen.findByText(/200 most recent invoices/)).toBeTruthy()
+  })
+
+  it("does not claim there are none when the read was cut short and none matched", async () => {
+    open(aSubscription(), {}, { "invoices.list": aPage([anInvoice({ id: "inv_other", subscription_id: "sub_old" })], { has_more: true }) })
+    expect(await screen.findByText("0 invoices for this subscription")).toBeTruthy()
+    expect(screen.queryByText("No invoices for this subscription yet.")).toBeNull()
+    expect(screen.getByText(/None of the tenant's 200 most recent invoices/)).toBeTruthy()
+  })
+
+  it("describes the subscription in the aside", async () => {
+    open(aSubscription({ cancel_at: "2026-10-20T00:00:00Z" }))
+    await screen.findByText("inv_1")
+    const aside = screen.getByRole("complementary")
+    expect(within(aside).getByRole("link", { name: "Pro" }).getAttribute("href")).toBe("/plans/plan_pro")
+    expect(within(aside).getByRole("link", { name: "LAUNCH20" }).getAttribute("href")).toBe("/coupons/cpn_launch20")
+    expect(within(aside).getByText("20% off")).toBeTruthy()
+    expect(within(aside).getByText("seats: 6")).toBeTruthy()
+    expect(within(aside).getByLabelText("no trial")).toBeTruthy()
+    expect(within(aside).queryByLabelText("no scheduled cancellation")).toBeNull()
+    expect(within(aside).getByText("Cancels", { selector: "dt" })).toBeTruthy()
+  })
+
+  it("reads a canceled subscription's end from canceled_at, which is what the engine writes", async () => {
+    // The engine never writes ended_at, so a page reading it would show nothing.
+    open(aSubscription({ status: "canceled", canceled_at: "2026-09-25T12:00:00Z", cancel_at: "2026-09-25T12:00:00Z" }))
+    await screen.findByText("inv_1")
+    const aside = screen.getByRole("complementary")
+    expect(within(aside).getByText("Canceled", { selector: "dt" })).toBeTruthy()
+    expect(within(aside).queryByText("Cancels", { selector: "dt" })).toBeNull()
+    expect(within(aside).queryByLabelText("no scheduled cancellation")).toBeNull()
+  })
+
+  it("says so when nothing is scheduled and no coupon is applied", async () => {
+    open(aSubscription(), {}, { "subscriptions.detail": { subscription: aSubscription(), plan: aPlan(), applied_coupons: null } })
+    await screen.findByText("inv_1")
+    const aside = screen.getByRole("complementary")
+    expect(within(aside).getByLabelText("no scheduled cancellation")).toBeTruthy()
+    expect(within(aside).getByLabelText("no applied coupons")).toBeTruthy()
+  })
+
+  it("offers nothing on a canceled subscription", async () => {
+    open(aSubscription({ status: "canceled" }))
+    await screen.findByText("inv_1")
+    for (const name of ["Pause", "Resume", "Cancel subscription", "Change plan", "Apply coupon", "Generate invoice"]) {
+      expect(screen.queryByRole("button", { name })).toBeNull()
+    }
+  })
+
+  it("cancels at the end of the period unless told otherwise", async () => {
+    const { sent } = open(aSubscription(), { "subscriptions.cancel": aSubscription({ cancel_at: "2026-10-20T00:00:00Z" }) })
+    fireEvent.click(await screen.findByRole("button", { name: "Cancel subscription" }))
+    const dialog = await screen.findByRole("alertdialog")
+    fireEvent.click(within(dialog).getByRole("button", { name: "Cancel it" }))
+    await waitFor(() => expect(sent).toEqual([{ intent: "subscriptions.cancel", payload: { id: "sub_acme", immediately: false } }]))
+  })
+
+  it("names the day a period-end cancellation takes effect", async () => {
+    open()
+    fireEvent.click(await screen.findByRole("button", { name: "Cancel subscription" }))
+    const dialog = await screen.findByRole("alertdialog")
+    expect(within(dialog).getByLabelText(/At the end of the current period, Oct 20, 2026/)).toBeTruthy()
+  })
+
+  it("cancels now when asked, and keeps a refusal inside the dialog", async () => {
+    const { sent } = open(aSubscription(), { "subscriptions.cancel": new ContractError("CONFLICT", "subscription is already canceled") })
+    fireEvent.click(await screen.findByRole("button", { name: "Cancel subscription" }))
+    const dialog = await screen.findByRole("alertdialog")
+    fireEvent.click(within(dialog).getByLabelText("End it now"))
+    fireEvent.click(within(dialog).getByRole("button", { name: "Cancel it" }))
+    expect(await within(dialog).findByText("subscription is already canceled")).toBeTruthy()
+    expect(sent[0].payload).toEqual({ id: "sub_acme", immediately: true })
+    expect(screen.getByRole("alertdialog")).toBeTruthy()
+  })
+
+  // A dialog's description is a paragraph, so anything block-level inside it
+  // (the kit's NativeSelect wraps its select in a div) is invalid markup that
+  // React reports on the console.
+  it("opens every dialog as valid markup", async () => {
+    const complaints = vi.spyOn(console, "error").mockImplementation(() => {})
+    try {
+      open(aSubscription({ status: "active" }), {}, { "plans.list": aPage([aPlan(), STARTER, BASIC]) })
+      for (const [button, dialogTitle] of [
+        ["Change plan", /Move acme to another plan/],
+        ["Apply coupon", /Apply a coupon to acme/],
+        ["Pause", /Pause acme/],
+        ["Cancel subscription", /Cancel acme/],
+      ] as const) {
+        fireEvent.click(await screen.findByRole("button", { name: button }))
+        const dialog = await screen.findByRole("alertdialog")
+        expect(within(dialog).getByText(dialogTitle)).toBeTruthy()
+        if (button === "Change plan") fireEvent.change(await within(dialog).findByLabelText("New plan"), { target: { value: "plan_basic" } })
+        fireEvent.click(within(dialog).getByRole("button", { name: "Cancel" }))
+        await waitFor(() => expect(screen.queryByRole("alertdialog")).toBeNull())
+      }
+      expect(complaints).not.toHaveBeenCalled()
+    } finally {
+      complaints.mockRestore()
+    }
+  })
+
+  it("does not carry one attempt's refusal or choice into the next", async () => {
+    open(aSubscription(), { "subscriptions.cancel": new ContractError("CONFLICT", "subscription is already canceled") })
+    fireEvent.click(await screen.findByRole("button", { name: "Cancel subscription" }))
+    let dialog = await screen.findByRole("alertdialog")
+    fireEvent.click(within(dialog).getByLabelText("End it now"))
+    fireEvent.click(within(dialog).getByRole("button", { name: "Cancel it" }))
+    await within(dialog).findByText("subscription is already canceled")
+    fireEvent.click(within(dialog).getByRole("button", { name: "Cancel" }))
+    await waitFor(() => expect(screen.queryByRole("alertdialog")).toBeNull())
+    fireEvent.click(screen.getByRole("button", { name: "Cancel subscription" }))
+    dialog = await screen.findByRole("alertdialog")
+    expect(within(dialog).queryByText("subscription is already canceled")).toBeNull()
+    expect((within(dialog).getByLabelText("End it now") as HTMLInputElement).checked).toBe(false)
+  })
+
+  it("pauses an active subscription and resumes a paused one", async () => {
+    const first = open(aSubscription(), { "subscriptions.pause": aSubscription({ status: "paused" }) })
+    fireEvent.click(await screen.findByRole("button", { name: "Pause" }))
+    fireEvent.click(within(await screen.findByRole("alertdialog")).getByRole("button", { name: "Pause subscription" }))
+    await waitFor(() => expect(first.sent[0]).toEqual({ intent: "subscriptions.pause", payload: { id: "sub_acme" } }))
+    first.unmount()
+    queryStore.clear()
+
+    const second = open(aSubscription({ status: "paused" }), { "subscriptions.resume": aSubscription() })
+    fireEvent.click(await screen.findByRole("button", { name: "Resume" }))
+    fireEvent.click(within(await screen.findByRole("alertdialog")).getByRole("button", { name: "Resume subscription" }))
+    await waitFor(() => expect(second.sent[0]).toEqual({ intent: "subscriptions.resume", payload: { id: "sub_acme" } }))
+  })
+
+  it("does not offer to pause a subscription the engine would refuse to pause", async () => {
+    open(aSubscription({ status: "past_due" }))
+    await screen.findByText("inv_1")
+    expect(screen.queryByRole("button", { name: "Pause" })).toBeNull()
+    expect(screen.getByRole("button", { name: "Change plan" })).toBeTruthy()
+  })
+
+  it("changes plan to another active plan, keeping seat counts", async () => {
+    const { sent } = open(aSubscription(), { "subscriptions.changePlan": aSubscription({ plan_id: "plan_starter" }) })
+    fireEvent.click(await screen.findByRole("button", { name: "Change plan" }))
+    const dialog = await screen.findByRole("alertdialog")
+    const confirm = within(dialog).getByRole("button", { name: "Change plan" }) as HTMLButtonElement
+    expect(confirm.disabled).toBe(true)
+    fireEvent.change(await within(dialog).findByLabelText("New plan"), { target: { value: "plan_starter" } })
+    expect(within(dialog).queryByRole("option", { name: "Pro" })).toBeNull()
+    // Nothing to ask about: the counts carry over, so no quantity is sent and the engine keeps them.
+    expect(within(dialog).queryByLabelText(/Clear the seat counts/)).toBeNull()
+    fireEvent.click(confirm)
+    await waitFor(() => expect(sent).toEqual([{ intent: "subscriptions.changePlan", payload: { id: "sub_acme", plan_id: "plan_starter" } }]))
+  })
+
+  // With no quantity the engine validates the subscription's current counts
+  // against the new plan and refuses a count for a feature the plan has no seat
+  // feature for. The page says so before it is asked, and clearing is a choice.
+  it("asks before dropping seat counts the new plan has no seat feature for", async () => {
+    const { sent } = open(aSubscription(), { "subscriptions.changePlan": aSubscription({ plan_id: "plan_basic", quantity: {} }) }, { "plans.list": aPage([aPlan(), STARTER, BASIC]) })
+    fireEvent.click(await screen.findByRole("button", { name: "Change plan" }))
+    const dialog = await screen.findByRole("alertdialog")
+    fireEvent.change(await within(dialog).findByLabelText("New plan"), { target: { value: "plan_basic" } })
+    expect(within(dialog).getByText(/Basic has no seat feature for seats/)).toBeTruthy()
+    const confirm = within(dialog).getByRole("button", { name: "Change plan" }) as HTMLButtonElement
+    expect(confirm.disabled).toBe(true)
+    fireEvent.click(within(dialog).getByLabelText("Clear the seat counts for seats"))
+    expect(confirm.disabled).toBe(false)
+    fireEvent.click(confirm)
+    await waitFor(() => expect(sent).toEqual([{ intent: "subscriptions.changePlan", payload: { id: "sub_acme", plan_id: "plan_basic", quantity: {} } }]))
+  })
+
+  it("keeps the seat counts the new plan can hold when it clears the others", async () => {
+    const sub = aSubscription({ quantity: { seats: 6, editors: 2 } })
+    const { sent } = open(sub, { "subscriptions.changePlan": aSubscription() }, { "plans.list": aPage([aPlan(), STARTER]) })
+    fireEvent.click(await screen.findByRole("button", { name: "Change plan" }))
+    const dialog = await screen.findByRole("alertdialog")
+    fireEvent.change(await within(dialog).findByLabelText("New plan"), { target: { value: "plan_starter" } })
+    fireEvent.click(within(dialog).getByLabelText("Clear the seat counts for editors"))
+    fireEvent.click(within(dialog).getByRole("button", { name: "Change plan" }))
+    await waitFor(() => expect(sent[0].payload).toEqual({ id: "sub_acme", plan_id: "plan_starter", quantity: { seats: 6 } }))
+  })
+
+  it("forgets the clear choice when another plan is picked", async () => {
+    open(aSubscription(), {}, { "plans.list": aPage([aPlan(), STARTER, BASIC]) })
+    fireEvent.click(await screen.findByRole("button", { name: "Change plan" }))
+    const dialog = await screen.findByRole("alertdialog")
+    const select = await within(dialog).findByLabelText("New plan")
+    fireEvent.change(select, { target: { value: "plan_basic" } })
+    fireEvent.click(within(dialog).getByLabelText("Clear the seat counts for seats"))
+    fireEvent.change(select, { target: { value: "plan_starter" } })
+    fireEvent.change(select, { target: { value: "plan_basic" } })
+    expect((within(dialog).getByLabelText("Clear the seat counts for seats") as HTMLInputElement).checked).toBe(false)
+    expect((within(dialog).getByRole("button", { name: "Change plan" }) as HTMLButtonElement).disabled).toBe(true)
+  })
+
+  it("shows the engine's refusal of a plan change inside the dialog", async () => {
+    open(aSubscription(), { "subscriptions.changePlan": new ContractError("NOT_FOUND", "plan not found") })
+    fireEvent.click(await screen.findByRole("button", { name: "Change plan" }))
+    const dialog = await screen.findByRole("alertdialog")
+    fireEvent.change(await within(dialog).findByLabelText("New plan"), { target: { value: "plan_starter" } })
+    fireEvent.click(within(dialog).getByRole("button", { name: "Change plan" }))
+    expect(await within(dialog).findByText("plan not found")).toBeTruthy()
+    expect(screen.getByRole("alertdialog")).toBeTruthy()
+  })
+
+  it("links the plan picker to its help text", async () => {
+    open()
+    fireEvent.click(await screen.findByRole("button", { name: "Change plan" }))
+    const dialog = await screen.findByRole("alertdialog")
+    const select = await within(dialog).findByLabelText("New plan")
+    const help = document.getElementById(select.getAttribute("aria-describedby") ?? "")
+    expect(help?.textContent).toMatch(/not prorated/)
+  })
+
+  it("says so when the plan list cannot be read, and sends nothing", async () => {
+    open(aSubscription(), {}, { "plans.list": new ContractError("INTERNAL", "internal error") })
+    fireEvent.click(await screen.findByRole("button", { name: "Change plan" }))
+    const dialog = await screen.findByRole("alertdialog")
+    expect(await within(dialog).findByText("internal error")).toBeTruthy()
+    expect((within(dialog).getByRole("button", { name: "Change plan" }) as HTMLButtonElement).disabled).toBe(true)
+  })
+
+  it("applies a coupon by code and shows a refusal in the dialog", async () => {
+    const { sent } = open(aSubscription(), { "coupons.apply": new ContractError("BAD_REQUEST", "coupon has expired") })
+    fireEvent.click(await screen.findByRole("button", { name: "Apply coupon" }))
+    const dialog = await screen.findByRole("alertdialog")
+    fireEvent.change(within(dialog).getByLabelText("Coupon code"), { target: { value: " SUMMER50 " } })
+    fireEvent.click(within(dialog).getByRole("button", { name: "Apply" }))
+    expect(await within(dialog).findByText("coupon has expired")).toBeTruthy()
+    expect(sent[0]).toEqual({ intent: "coupons.apply", payload: { subscription_id: "sub_acme", code: "SUMMER50" } })
+  })
+
+  // The engine matches a coupon code exactly, so what is sent must be what was
+  // typed. A style that only displays capitals would make "summer50" look like
+  // SUMMER50 while asking for something else.
+  it("sends the code as typed and does not restyle it", async () => {
+    const { sent } = open(aSubscription(), { "coupons.apply": aCoupon() })
+    fireEvent.click(await screen.findByRole("button", { name: "Apply coupon" }))
+    const dialog = await screen.findByRole("alertdialog")
+    const input = within(dialog).getByLabelText("Coupon code") as HTMLInputElement
+    expect(input.className).not.toMatch(/uppercase/)
+    fireEvent.change(input, { target: { value: "Summer50" } })
+    fireEvent.click(within(dialog).getByRole("button", { name: "Apply" }))
+    await waitFor(() => expect(sent[0].payload).toEqual({ subscription_id: "sub_acme", code: "Summer50" }))
+    await waitFor(() => expect(screen.queryByRole("alertdialog")).toBeNull())
+  })
+
+  it("holds Apply back until there is a code, and links the code to its help", async () => {
+    open()
+    fireEvent.click(await screen.findByRole("button", { name: "Apply coupon" }))
+    const dialog = await screen.findByRole("alertdialog")
+    const apply = within(dialog).getByRole("button", { name: "Apply" }) as HTMLButtonElement
+    expect(apply.disabled).toBe(true)
+    fireEvent.change(within(dialog).getByLabelText("Coupon code"), { target: { value: "   " } })
+    expect(apply.disabled).toBe(true)
+    const help = document.getElementById(within(dialog).getByLabelText("Coupon code").getAttribute("aria-describedby") ?? "")
+    expect(help?.textContent).toMatch(/next invoice/)
+  })
+
+  it("generates an invoice and opens it", async () => {
+    const { navigate, sent } = open(aSubscription(), { "invoices.generate": anInvoice({ id: "inv_new", status: "draft" }) })
+    fireEvent.click(await screen.findByRole("button", { name: "Generate invoice" }))
+    await waitFor(() => expect(navigate).toHaveBeenCalledWith("/invoices/inv_new"))
+    expect(sent[0]).toEqual({ intent: "invoices.generate", payload: { subscription_id: "sub_acme" } })
+  })
+
+  it("shows why an invoice could not be generated", async () => {
+    open(aSubscription(), { "invoices.generate": new ContractError("CONFLICT", "an invoice already exists for this subscription's current period") })
+    fireEvent.click(await screen.findByRole("button", { name: "Generate invoice" }))
+    expect(await screen.findByText("an invoice already exists for this subscription's current period")).toBeTruthy()
+  })
+
+  it("says so when the subscription does not exist", async () => {
+    const { client } = scriptedClient({ "subscriptions.detail": new ContractError("NOT_FOUND", "subscription not found") })
+    renderWithNavigation(LedgerSubscriptionDetailPage, client, { id: "sub_gone" })
+    expect(await screen.findByText("No subscription with the id sub_gone.")).toBeTruthy()
+  })
+
+  it("says so for the engine's own not-found wording too", async () => {
+    const { client } = scriptedClient({ "subscriptions.detail": new ContractError("NOT_FOUND", "ledger: subscription not found") })
+    renderWithNavigation(LedgerSubscriptionDetailPage, client, { id: "sub_gone" })
+    expect(await screen.findByText("No subscription with the id sub_gone.")).toBeTruthy()
+  })
+
+  it("shows the engine's refusal, such as no app selected, never a missing subscription", async () => {
+    renderPage(LedgerSubscriptionDetailPage, failingClient(new ContractError("PERMISSION_DENIED", "no app selected: set the extension's app_id or send an app_id claim")), { id: "sub_acme" })
+    expect(await screen.findByText(/PERMISSION_DENIED: no app selected/)).toBeTruthy()
+    expect(screen.queryByText(/No subscription with the id/)).toBeNull()
+  })
+
+  it("says so when the address carries no id", () => {
+    const { client } = scriptedClient({})
+    renderPage(LedgerSubscriptionDetailPage, client, {})
+    expect(screen.getByText("No subscription id in the address, so there is nothing to show.")).toBeTruthy()
+  })
+})

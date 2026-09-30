@@ -17,6 +17,7 @@ import { LedgerPlanEditPage } from "./pages/plan-edit"
 import { LedgerPlansPage } from "./pages/plans"
 import { LedgerSettingsPage } from "./pages/settings"
 import { LedgerSubscriptionCreatePage } from "./pages/subscription-create"
+import { LedgerSubscriptionDetailPage } from "./pages/subscription-detail"
 import { LedgerSubscriptionsPage } from "./pages/subscriptions"
 
 // Lazy: its module is imported nowhere else, so the table code loads only here.
@@ -78,6 +79,7 @@ const routes: PluginRoute[] = [
   { path: "/coupons/:id", element: LedgerCouponDetailPage },
   { path: "/subscriptions", element: LedgerSubscriptionsPage },
   { path: "/subscriptions/new", element: LedgerSubscriptionCreatePage },
+  { path: "/subscriptions/:id", element: LedgerSubscriptionDetailPage },
   { path: "/payment-methods", element: LedgerPaymentMethodsPage },
   { path: "/settings", element: LedgerSettingsPage },
 ]
