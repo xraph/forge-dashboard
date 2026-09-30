@@ -710,7 +710,12 @@ backends plus the conformance suite, which is larger than `WithCallDryRun` and
 larger than anything else proposed here.
 
 Recommendation: do the first two, which are plain column predicates in every
-backend.
+backend. Defer `MatchedRuleID`, which needs a JSON containment query and reads
+differently on postgres `jsonb`, sqlite JSON strings and mongo arrays, so it is
+its own piece of work. Until then the check log shows `MatchedBy` and
+`Obligations` on each check's detail page and says in the filter bar that checks
+cannot be filtered by the rule that decided them, which is better than offering
+a control that silently does nothing.
 
 Correction (plan 3b): only `Cached` is needed. Evaluation failures are already
 queryable. `buildCheckLogEntry` writes `decision "error"` on exactly the rows
@@ -718,11 +723,7 @@ that carry an error, and `failCheck` is the only caller that passes one, so the
 existing decision filter answers the first query, and `HasError` would add
 nothing. `checkLogs.purge` is also dropped from the intent surface:
 `PurgeCheckLogs` takes no tenant id, so a dashboard purge would let one tenant
-delete every tenant's audit trail. Retention runs through `maintenance.run`. Defer `MatchedRuleID`, which needs a JSON containment query and reads
-differently on postgres `jsonb`, sqlite JSON strings and mongo arrays, so it is
-its own piece of work. Until then the check log renders both fields as columns
-and says in the filter bar that they cannot be filtered, which is better than
-offering a control that silently does nothing.
+delete every tenant's audit trail. Retention runs through `maintenance.run`.
 
 This is flagged as a decision rather than taken, because it is the second core
 change and the first one was scoped as small.
