@@ -252,13 +252,17 @@ function BatchSection({
   function submit(event: FormEvent) {
     event.preventDefault()
     const parsed = parseBatch(text)
+    // A local refusal is the only answer on screen: the previous run's
+    // results, or its server refusal, are cleared with it.
     if ("bad" in parsed) {
       setProblem(`Line ${parsed.bad} is not kind:id action type[:id].`)
+      setRun(null)
       return
     }
     const cap = config.data?.maxBatchChecks
     if (cap !== undefined && cap > 0 && parsed.lines.length > cap) {
       setProblem(`A batch holds at most ${cap} checks.`)
+      setRun(null)
       return
     }
     setProblem(null)
@@ -278,6 +282,17 @@ function BatchSection({
     setRun(next)
     if (sameKey) query.refetch()
   }
+
+  // The results answer the lines and namespace that were sent. Parsed items
+  // are compared, not the text, so a whitespace-only edit is not a change. A
+  // text that no longer parses is a change.
+  const current = parseBatch(text)
+  const stale =
+    run !== null &&
+    (run.namespacePath !== (namespacePath === "/" ? "" : namespacePath) ||
+      "bad" in current ||
+      JSON.stringify(current.lines.map((l) => l.item)) !==
+        JSON.stringify(run.lines.map((l) => l.item)))
 
   const columns: Column<BatchRow>[] = [
     { id: "line", header: "Line", cell: (r) => String(r.n) },
@@ -352,24 +367,32 @@ function BatchSection({
               result: results[i],
             }))
             return (
-              <ResourceTable<BatchRow>
-                columns={columns}
-                rows={rows}
-                rowKey={(r) => String(r.n)}
-                caption={`${rows.length} ${rows.length === 1 ? "check" : "checks"}`}
-                emptyMessage="The batch returned no results."
-                rowActions={(r) => (
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    aria-label={`Open in builder, line ${r.n}`}
-                    onClick={() => onOpen(r.item)}
-                  >
-                    Open in builder
-                  </Button>
+              <div className="flex flex-col gap-3">
+                {stale && (
+                  <p className="text-sm text-muted-foreground">
+                    The lines or namespace have changed since this run. Run the batch again
+                    to check them.
+                  </p>
                 )}
-              />
+                <ResourceTable<BatchRow>
+                  columns={columns}
+                  rows={rows}
+                  rowKey={(r) => String(r.n)}
+                  caption={`${rows.length} ${rows.length === 1 ? "check" : "checks"}`}
+                  emptyMessage="The batch returned no results."
+                  rowActions={(r) => (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      aria-label={`Open in builder, line ${r.n}`}
+                      onClick={() => onOpen(r.item)}
+                    >
+                      Open in builder
+                    </Button>
+                  )}
+                />
+              </div>
             )
           }}
         </QueryBoundary>

@@ -819,6 +819,124 @@ describe("WardenPlaygroundPage: the batch", () => {
     expect(value("Resource id")).toBe("d1")
   })
 
+  describe("a result the lines or namespace have moved on from", () => {
+    const CHANGED =
+      "The lines or namespace have changed since this run. Run the batch again to check them."
+
+    async function ran(text = LINES.join("\n")) {
+      const t = batchSetup()
+      typeBatch(text)
+      runBatch()
+      await screen.findByText("no role grants it")
+      return t
+    }
+
+    it("says nothing before anything changes", async () => {
+      await ran()
+      expect(screen.queryByText(CHANGED)).toBeNull()
+    })
+
+    it("appears above the table, which stays, when a line is edited", async () => {
+      await ran()
+      typeBatch(LINES.join("\n").replace("read", "view"))
+      const note = screen.getByText(CHANGED)
+      expect(note.className).toContain("text-muted-foreground")
+      const table = screen.getByRole("region", { name: "3 checks" })
+      expect(note.compareDocumentPosition(table) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+      expect(screen.getByText("no role grants it")).toBeTruthy()
+    })
+
+    it("appears when a line is removed, or the text stops parsing", async () => {
+      await ran()
+      typeBatch(LINES.slice(0, 2).join("\n"))
+      expect(screen.getByText(CHANGED)).toBeTruthy()
+      typeBatch(LINES.join("\n"))
+      expect(screen.queryByText(CHANGED)).toBeNull()
+      typeBatch("nope")
+      expect(screen.getByText(CHANGED)).toBeTruthy()
+    })
+
+    it("appears when the builder's namespace changes", async () => {
+      await ran()
+      fill("Namespace", "eng/platform")
+      expect(screen.getByText(CHANGED)).toBeTruthy()
+      expect(screen.getByText("no role grants it")).toBeTruthy()
+    })
+
+    it("does not count / against a root run, or whitespace-only edits", async () => {
+      await ran()
+      fill("Namespace", "/")
+      expect(screen.queryByText(CHANGED)).toBeNull()
+      typeBatch(`\n  ${LINES[0]}  \n\n${LINES[1]}\t\n${LINES[2]}\n\n`)
+      expect(screen.queryByText(CHANGED)).toBeNull()
+    })
+
+    it("clears on the next run", async () => {
+      const t = await ran()
+      fill("Namespace", "eng/platform")
+      expect(screen.getByText(CHANGED)).toBeTruthy()
+      runBatch()
+      await waitFor(() => expect(t.batches()).toHaveLength(2))
+      await waitFor(() => expect(screen.queryByText(CHANGED)).toBeNull())
+      expect(screen.getByText("no role grants it")).toBeTruthy()
+    })
+  })
+
+  describe("a local refusal is the only answer on screen", () => {
+    it("clears the previous run's results when a line does not parse", async () => {
+      batchSetup()
+      typeBatch(LINES.join("\n"))
+      runBatch()
+      await screen.findByText("no role grants it")
+      typeBatch("nope")
+      runBatch()
+      expect(await screen.findByText("Line 1 is not kind:id action type[:id].")).toBeTruthy()
+      expect(screen.queryByRole("region", { name: "3 checks" })).toBeNull()
+      expect(screen.queryByText("no role grants it")).toBeNull()
+      expect(screen.queryByText(/have changed since this run/)).toBeNull()
+    })
+
+    it("clears the previous run's results when the batch is over the cap", async () => {
+      const t = batchSetup({ "config.detail": { maxBatchChecks: 2 } })
+      await configRead(t.sent)
+      typeBatch(LINES.slice(0, 2).join("\n"))
+      runBatch()
+      await screen.findByText("no role grants it")
+      typeBatch(LINES.join("\n"))
+      runBatch()
+      expect(await screen.findByText("A batch holds at most 2 checks.")).toBeTruthy()
+      expect(screen.queryByRole("region", { name: /checks$/ })).toBeNull()
+      expect(screen.queryByText("no role grants it")).toBeNull()
+    })
+
+    it("clears the previous run's server refusal", async () => {
+      let refuse = true
+      const inner = stubClient({
+        "playground.explain": DENIED,
+        "namespaces.list": NAMESPACES,
+        "config.detail": { maxBatchChecks: 100 },
+      })
+      const client = {
+        extension: "warden",
+        query: (intent: string, params?: Record<string, unknown>) =>
+          intent === "playground.batchCheck" && refuse
+            ? Promise.reject(new ContractError("BAD_REQUEST", "the server said no"))
+            : inner.query(intent, params),
+        command: inner.command,
+      } as unknown as ScopedClient
+      renderPage(WardenPlaygroundPage, client)
+      typeBatch(LINES[0]!)
+      runBatch()
+      expect(await screen.findByText("the server said no")).toBeTruthy()
+      refuse = false
+      typeBatch("nope")
+      runBatch()
+      await screen.findByText("Line 1 is not kind:id action type[:id].")
+      expect(screen.queryByText("the server said no")).toBeNull()
+      expect(screen.getAllByRole("alert")).toHaveLength(1)
+    })
+  })
+
   it("sends a second request when Run batch is pressed again with the same lines", async () => {
     const t = batchSetup()
     typeBatch(LINES[0]!)
