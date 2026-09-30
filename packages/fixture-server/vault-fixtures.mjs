@@ -5,7 +5,8 @@
 // Mirrors forgery/vault/extension/contract (handlers_secrets.go,
 // handlers_rotation.go, handlers_flags.go, project.go, errors.go) and, for the
 // flag intents, the flag package behind them (manager.go, validate.go,
-// engine.go). Field names are the Go JSON tags, and every rule below is the Go
+// engine.go), and for the config and override intents, handlers_config.go,
+// configmgr/manager.go and config/validate.go. Field names are the Go JSON tags, and every rule below is the Go
 // handler's rule, in the Go handler's order, so a refusal here is a refusal
 // there.
 //
@@ -51,6 +52,19 @@ const MAX_SAFE_INT = 2 ** 53
 const FLAG_TYPES = ["bool", "string", "int", "float", "json"]
 // The rule types the engine can match. when_tenant_tag and custom never do.
 const IMPLEMENTED_RULE_TYPES = new Set(["when_tenant", "when_user", "rollout", "schedule"])
+
+// config.list and overrides.list paging: default 25, capped at 100.
+const DEFAULT_CONFIG_LIST_LIMIT = 25
+const MAX_CONFIG_LIST_LIMIT = 100
+// config.detail returns at most this many audit entries.
+const RECENT_CONFIG_AUDIT_LIMIT = 10
+// configmgr/manager.go maxKeyBytes.
+const MAX_CONFIG_KEY_BYTES = 256
+// The six value types the write service validates. Any other stored label
+// (the templ page's "yaml", say) is readable but its value cannot be judged.
+const CONFIG_TYPES = ["string", "int", "float", "bool", "json", "duration"]
+// configmgr/manager.go typeList.
+const CONFIG_TYPE_LIST = "must be one of string, int, float, bool, json, duration"
 
 // The algorithm a keyed vault stamps on what it writes.
 const ENCRYPTION_ALG = "AES-256-GCM"
@@ -128,13 +142,34 @@ function seedVaultState() {
   let counter = 0
   const nextId = (prefix) => `${prefix}_${String(++counter).padStart(6, "0")}`
 
-  const state = { nextId, secrets: new Map(), policies: new Map(), records: new Map(), flags: new Map(), audit: [] }
+  const state = {
+    nextId,
+    secrets: new Map(),
+    policies: new Map(),
+    records: new Map(),
+    flags: new Map(),
+    // key -> entry row, and key -> (tenant -> override). An override may sit
+    // under a key that has no entry: an orphan.
+    configs: new Map(),
+    configOverrides: new Map(),
+    audit: [],
+  }
 
   // resource is what audit.ListOpts.Resource filters by: secrets.detail asks
   // for "secret" rows and flags.detail for "flag" rows, so a flag and a secret
   // that share a key never show in each other's history.
-  const pushAudit = (key, action, at, userId, resource = "secret") => {
-    state.audit.push({ id: nextId("aud"), resource, key, action, outcome: "success", userId, createdAt: iso(at) })
+  // tenantId is set on override rows only: the override's own tenant.
+  const pushAudit = (key, action, at, userId, resource = "secret", tenantId = "") => {
+    state.audit.push({
+      id: nextId("aud"),
+      resource,
+      key,
+      action,
+      outcome: "success",
+      userId,
+      createdAt: iso(at),
+      ...(tenantId === "" ? {} : { tenantId }),
+    })
   }
 
   SEED_KEYS.forEach((key, index) => {
@@ -231,6 +266,7 @@ function seedVaultState() {
   pushAudit("api/stripe.key", "secret.get", nowMs - 30 * 60_000, "usr_1")
   pushAudit("legacy/ftp.password", "secret.set", nowMs - 5 * 60_000, "usr_1")
   seedFlags(state, nowMs, pushAudit)
+  seedConfig(state, nowMs, pushAudit)
   state.audit.sort((a, b) => Date.parse(b.createdAt) - Date.parse(a.createdAt))
 
   return state
@@ -410,6 +446,171 @@ function seedFlags(state, nowMs, pushAudit) {
   pushAudit("beta.dark-mode", "flag.toggled", nowMs - 6 * day, "usr_1", "flag")
 }
 
+// ---------------------------------------------------------------------------
+// Config seed
+//
+// 30 entries, so config.list has a second page at the default limit. 28 are
+// well formed across all six types; the other two are what the old page wrote:
+//   - legacy.deploy-manifest: type "yaml", a label the vault does not validate
+//     (knownType false, valueMatchesType false, read-only to the write service).
+//   - limits.page-size: an int entry whose stored value is the STRING "50"
+//     (valueMatchesType false). Its first version is a valid int, so a rollback
+//     to it is accepted.
+// Version histories are the point of most rows: 3 or more versions on a dozen
+// of them, and the json ones change in nested places, so a diff has something
+// to show. Two more shapes worth having:
+//   - cache.ttl changed type from int to duration, so its old versions hold
+//     numbers and a rollback to one is refused.
+//   - search.page-size was rolled back (its third version is config.rolled_back).
+// Overrides for acme and globex on several keys, including one holding "" on a
+// string entry (an override of nothing, not a missing one), one whose value is
+// the wrong type, and an orphan: overrides on legacy.retired-flag, whose entry
+// was deleted by a write that did not clear them.
+// ---------------------------------------------------------------------------
+
+function seedConfig(state, nowMs, pushAudit) {
+  const day = 24 * 3600_000
+  const hour = 3600_000
+
+  // [key, type, description, versions oldest first (the last is current), metadata]
+  const table = [
+    ["app.name", "string", "What the console calls itself in the header.", ["Forge", "Forge Console"], {}],
+    ["app.base-url", "string", "Public URL, used in emailed links.", ["http://localhost:3000", "https://staging.example.com", "https://console.example.com"], { owner: "platform" }],
+    ["billing/invoice.currency", "string", "Currency new invoices are issued in.", ["EUR", "GBP", "USD"], {}],
+    ["mail.from-address", "string", "Sender on transactional mail.", ["no-reply@example.com"], {}],
+    ["support.email", "string", "Where the help link goes.", ["help@example.com", "support@example.com"], {}],
+    ["ui.theme-default", "string", "Theme a tenant gets before it picks one.", ["light", "system"], {}],
+
+    ["limits.api-rate", "int", "Requests per minute per tenant.", [100, 250, 500, 1000], { owner: "platform", runbook: "https://wiki.example/runbooks/rate-limits" }],
+    ["retry.max-attempts", "int", "Attempts before a job is dead-lettered.", [3, 5], {}],
+    ["search.page-size", "int", "Hits per page in search.", [20, 50, 20], {}],
+    ["session.max-devices", "int", "Trusted devices a user may keep.", [5], {}],
+
+    ["billing/tax.rate", "float", "VAT applied when no regional rate is known.", [0.2, 0.2075, 0.0825], {}],
+    ["ml.rerank-threshold", "float", "Score under which a reranked hit is dropped.", [0.5, 0.72], {}],
+    ["sampling.trace-ratio", "float", "Fraction of requests traced.", [0.05], {}],
+
+    ["auth.require-mfa", "bool", "Force a second factor at sign-in.", [false, true], {}],
+    ["export.csv-streaming", "bool", "Stream CSV exports instead of buffering them.", [false, true], {}],
+    ["features.maintenance-mode", "bool", "Show the maintenance page to everyone but operators.", [false, true, false], {}],
+    ["signup.open", "bool", "Accept new sign-ups.", [true], {}],
+    ["ui.compact-tables", "bool", "Denser table rows.", [false], {}],
+
+    [
+      "billing/plans",
+      "json",
+      "Plans on the pricing page: price in cents and the limits each one carries.",
+      [
+        { free: { priceCents: 0, limits: { seats: 1, projects: 3 } }, pro: { priceCents: 2900, limits: { seats: 5, projects: 20 } } },
+        { free: { priceCents: 0, limits: { seats: 1, projects: 3 } }, pro: { priceCents: 3900, limits: { seats: 5, projects: 20 } } },
+        { free: { priceCents: 0, limits: { seats: 2, projects: 3 } }, pro: { priceCents: 3900, limits: { seats: 10, projects: 50 } }, team: { priceCents: 9900, limits: { seats: 25, projects: 200 } } },
+        { free: { priceCents: 0, limits: { seats: 2, projects: 5 } }, pro: { priceCents: 3900, limits: { seats: 10, projects: 50 } }, team: { priceCents: 9900, limits: { seats: 25, projects: 200 }, trialDays: 14 } },
+      ],
+      { owner: "growth", ticket: "GRO-118" },
+    ],
+    [
+      "ui.nav-items",
+      "json",
+      "Sidebar entries, in order.",
+      [
+        [{ label: "Overview", path: "/" }, { label: "Billing", path: "/billing" }],
+        [{ label: "Overview", path: "/" }, { label: "Billing", path: "/billing" }, { label: "Settings", path: "/settings" }],
+        [{ label: "Overview", path: "/" }, { label: "Billing", path: "/billing", badge: "new" }, { label: "Settings", path: "/settings" }],
+      ],
+      {},
+    ],
+    [
+      "search.synonyms",
+      "json",
+      "Query expansion table.",
+      [
+        { car: ["auto"], invoice: ["bill"] },
+        { car: ["auto", "vehicle"], invoice: ["bill"] },
+        { car: ["auto", "vehicle"], invoice: ["bill", "receipt"], sku: ["product code"] },
+      ],
+      {},
+    ],
+    [
+      "notifications.channels",
+      "json",
+      "Where each kind of notification goes.",
+      [
+        { email: { enabled: true, digest: "daily" }, slack: { enabled: false } },
+        { email: { enabled: true, digest: "hourly" }, slack: { enabled: true, channel: "#alerts" } },
+        { email: { enabled: true, digest: "hourly" }, slack: { enabled: true, channel: "#ops-alerts" } },
+      ],
+      {},
+    ],
+    ["routing.rules", "json", "Path rewrites applied before routing.", [{ "/old": "/new" }, { "/old": "/new", "/blog": "/news" }], {}],
+    ["features.rollout", "json", "Rollout plan. null while there is none.", [{ phase: 1 }, null], {}],
+
+    ["session.timeout", "duration", "Idle time before a session ends.", ["15m", "20m", "30m"], {}],
+    ["http.client-timeout", "duration", "Outbound HTTP timeout.", ["5s"], {}],
+    ["jobs.retry-backoff", "duration", "Wait before a failed job is retried.", ["30s", "1h30m"], {}],
+    ["cache.ttl", "duration", "How long the edge cache holds a page. Was a number of seconds.", [300, 600, "10m"], {}],
+
+    ["legacy.deploy-manifest", "yaml", "Written by the old page. Kept as it was.", ["replicas: 2\nimage: forge:1.3\n", "replicas: 3\nimage: forge:1.4\n"], {}],
+    ["limits.page-size", "int", "Written by the old page with a string.", [10, "50"], {}],
+  ]
+
+  // Where a version is not a plain set: search.page-size's third was a rollback.
+  const rolledBack = { "search.page-size": 3 }
+
+  table.forEach(([key, valueType, description, values, metadata], index) => {
+    const count = values.length
+    const createdMs = nowMs - ((count + 2) * 4 + (index % 9) + 3) * day
+    const versions = values.map((value, i) => ({ version: i + 1, value: structuredClone(value), createdAt: iso(createdMs + i * 4 * day + (index % 5) * hour) }))
+    const last = versions[versions.length - 1]
+    state.configs.set(key, {
+      id: state.nextId("cfg"),
+      key,
+      valueType,
+      value: structuredClone(last.value),
+      description,
+      metadata: { ...metadata },
+      version: count,
+      createdAt: iso(createdMs),
+      updatedAt: last.createdAt,
+      versions,
+    })
+    for (const v of versions) {
+      pushAudit(key, rolledBack[key] === v.version ? "config.rolled_back" : "config.set", Date.parse(v.createdAt), "usr_1", "config")
+    }
+  })
+
+  // key -> [[tenant, value], ...], newest write last. An override's updatedAt
+  // is when it was written; its audit row carries the tenant.
+  const overrides = (key, entries, atMs) => {
+    const byTenant = state.configOverrides.get(key) ?? new Map()
+    entries.forEach(([tenantId, value], i) => {
+      const at = atMs + i * 10 * 60_000
+      byTenant.set(tenantId, { id: state.nextId("ovr"), key, tenantId, value: structuredClone(value), createdAt: iso(at), updatedAt: iso(at) })
+      pushAudit(key, "override.set", at, "usr_1", "override", tenantId)
+    })
+    state.configOverrides.set(key, byTenant)
+  }
+  overrides("limits.api-rate", [["acme", 5000], ["globex", 250]], nowMs - 3 * day)
+  overrides("features.maintenance-mode", [["globex", true]], nowMs - 2 * day)
+  overrides("session.timeout", [["acme", "1h"]], nowMs - 5 * day)
+  // "" is an override of the empty string, which is not the same act as having
+  // none: the tenant reads "" and not the app default.
+  overrides("ui.theme-default", [["acme", "dark"], ["globex", ""]], nowMs - 4 * day)
+  overrides("billing/tax.rate", [["globex", 0.2]], nowMs - 6 * day)
+  overrides("app.base-url", [["acme", "https://acme.console.example.com"], ["globex", "https://globex.console.example.com"]], nowMs - 8 * day)
+  overrides("search.synonyms", [["acme", { car: ["auto"], sku: ["part number"] }]], nowMs - 1 * day)
+  overrides("features.rollout", [["acme", null]], nowMs - 7 * day)
+  // The entry's stored value is the wrong type, and so is globex's override.
+  overrides("limits.page-size", [["acme", 50], ["globex", "abc"]], nowMs - 9 * day)
+  // The entry has a type the vault does not validate, so nothing matches it.
+  overrides("legacy.deploy-manifest", [["acme", "replicas: 5\n"]], nowMs - 10 * day)
+
+  // An orphan: the entry was deleted by a write that left its overrides, and
+  // nothing has recreated the key. It resolves for no one.
+  pushAudit("legacy.retired-flag", "config.set", nowMs - 40 * day, "usr_1", "config")
+  overrides("legacy.retired-flag", [["acme", true], ["globex", false]], nowMs - 35 * day)
+  pushAudit("legacy.retired-flag", "config.deleted", nowMs - 20 * day, "usr_1", "config")
+}
+
 let vault = seedVaultState()
 
 /** Restores the seed. server.mjs calls this from its _fixture/reset. */
@@ -535,6 +736,143 @@ function wireValue(v) {
 /** valueMatchesType: whether v, as it will appear on the wire, is a value of type t. */
 function valueMatchesType(t, v) {
   return valueRefusal(t, wireValue(v)) === null
+}
+
+// ---------------------------------------------------------------------------
+// Config values and projections (config/validate.go, project.go)
+// ---------------------------------------------------------------------------
+
+/** config.KnownType: one of the six types the write service supports. */
+function knownConfigType(t) {
+  return CONFIG_TYPES.includes(t)
+}
+
+const DURATION_UNITS = { ns: 1, us: 1e3, "µs": 1e3, "μs": 1e3, ms: 1e6, s: 1e9, m: 60e9, h: 3600e9 }
+
+/**
+ * time.ParseDuration: null when s parses, else Go's own error text. Go quotes
+ * the input with strconv.Quote, which for the text a person types is JSON's
+ * quoting.
+ */
+function durationRefusal(s) {
+  const q = (x) => JSON.stringify(x)
+  const invalid = () => `time: invalid duration ${q(s)}`
+  let rest = s
+  if (rest !== "" && (rest[0] === "-" || rest[0] === "+")) rest = rest.slice(1)
+  if (rest === "0") return null
+  if (rest === "") return invalid()
+  let total = 0
+  while (rest !== "") {
+    if (!(rest[0] === "." || (rest[0] >= "0" && rest[0] <= "9"))) return invalid()
+    const whole = /^\d*/.exec(rest)[0]
+    rest = rest.slice(whole.length)
+    let fraction = ""
+    if (rest[0] === ".") {
+      rest = rest.slice(1)
+      fraction = /^\d*/.exec(rest)[0]
+      rest = rest.slice(fraction.length)
+    }
+    // No digits at all, e.g. ".s".
+    if (whole === "" && fraction === "") return invalid()
+    const unit = /^[^.\d]*/.exec(rest)[0]
+    if (unit === "") return `time: missing unit in duration ${q(s)}`
+    rest = rest.slice(unit.length)
+    if (!Object.hasOwn(DURATION_UNITS, unit)) return `time: unknown unit ${q(unit)} in duration ${q(s)}`
+    total += (Number(whole === "" ? "0" : whole) + Number(`0.${fraction === "" ? "0" : fraction}`)) * DURATION_UNITS[unit]
+    // A Duration is an int64 of nanoseconds.
+    if (total > 9.223372036854775807e18) return invalid()
+  }
+  return null
+}
+
+/**
+ * config.ValidateValue for a known type: the refusal text for a value that is
+ * not acceptable, or null. A JSON number is a float64, so int takes one with no
+ * fractional part up to 2^53 in magnitude. null is refused for every type but
+ * json, where it is the JSON null. Callers check knownConfigType first.
+ */
+function configValueRefusal(t, v) {
+  switch (t) {
+    case "string":
+      return typeof v === "string" ? null : `must be a string, got ${describeValue(v)}`
+    case "int":
+      if (typeof v !== "number") return `must be a whole number, got ${describeValue(v)}`
+      if (!Number.isFinite(v) || v !== Math.trunc(v)) return `must be a whole number, got ${goFloat(v)}`
+      if (Math.abs(v) > MAX_SAFE_INT) return `must not exceed 2^53 in magnitude, got ${goFloat(v)}`
+      return null
+    case "float":
+      if (typeof v !== "number") return `must be a number, got ${describeValue(v)}`
+      return Number.isFinite(v) ? null : `must be a finite number, got ${goFloat(v)}`
+    case "bool":
+      return typeof v === "boolean" ? null : `must be a boolean, got ${describeValue(v)}`
+    case "json":
+      return null
+    case "duration": {
+      if (typeof v !== "string") return `must be a duration string such as "30s", got ${describeValue(v)}`
+      const refusal = durationRefusal(v)
+      return refusal === null ? null : `must be a duration such as "30s" or "1h30m": ${refusal}`
+    }
+    default:
+      return `unknown type ${JSON.stringify(t)}`
+  }
+}
+
+/** configValueMatchesType: a type the vault does not know never matches. */
+function configValueMatchesType(t, v) {
+  return knownConfigType(t) && configValueRefusal(t, wireValue(v)) === null
+}
+
+/**
+ * sameValue: two values as the wire would show them, deep-compared. Object key
+ * order does not matter.
+ */
+function sameValue(a, b) {
+  if (a === b) return true
+  if (a === null || b === null || typeof a !== "object" || typeof b !== "object") return false
+  if (Array.isArray(a) !== Array.isArray(b)) return false
+  if (Array.isArray(a)) return a.length === b.length && a.every((x, i) => sameValue(x, b[i]))
+  const ka = Object.keys(a)
+  const kb = Object.keys(b)
+  return ka.length === kb.length && ka.every((k) => Object.hasOwn(b, k) && sameValue(a[k], b[k]))
+}
+
+function projectConfigEntry(row) {
+  return {
+    id: row.id,
+    key: row.key,
+    value: wireValue(row.value),
+    valueType: row.valueType,
+    knownType: knownConfigType(row.valueType),
+    valueMatchesType: configValueMatchesType(row.valueType, row.value),
+    version: row.version,
+    description: row.description,
+    metadata: { ...row.metadata },
+    createdAt: row.createdAt,
+    updatedAt: row.updatedAt,
+  }
+}
+
+/** A version keeps only its value, so it is judged against the entry's current type. */
+function projectConfigVersion(v, row) {
+  return {
+    version: v.version,
+    value: wireValue(v.value),
+    valueMatchesType: configValueMatchesType(row.valueType, v.value),
+    createdAt: v.createdAt,
+    current: v.version === row.version,
+  }
+}
+
+/** row is the key's entry, or undefined for an orphan, whose value can match no type. */
+function projectConfigOverride(o, row) {
+  return {
+    key: o.key,
+    tenantId: o.tenantId,
+    value: wireValue(o.value),
+    valueMatchesType: row !== undefined && configValueMatchesType(row.valueType, o.value),
+    keyExists: row !== undefined,
+    updatedAt: o.updatedAt,
+  }
 }
 
 /** flag.RolloutBucket: sha256(tenantId + ":" + key), first four bytes big-endian, mod 100. */
@@ -732,8 +1070,18 @@ export function createVaultHandlers(FixtureError) {
     return iso(ms)
   }
 
-  function recordAudit(key, action, resource = "secret") {
-    vault.audit.unshift({ id: vault.nextId("aud"), resource, key, action, outcome: "success", userId: "usr_1", createdAt: iso(Date.now()) })
+  // tenantId is set on override rows only: the tenant that was overridden.
+  function recordAudit(key, action, resource = "secret", tenantId = "") {
+    vault.audit.unshift({
+      id: vault.nextId("aud"),
+      resource,
+      key,
+      action,
+      outcome: "success",
+      userId: "usr_1",
+      createdAt: iso(Date.now()),
+      ...(tenantId === "" ? {} : { tenantId }),
+    })
   }
 
   /** ListAuditByKey with a Resource: only the rows written for that kind of thing, newest first. */
@@ -843,6 +1191,50 @@ export function createVaultHandlers(FixtureError) {
     const refusal = valueRefusal(flagType, wireValue(raw.returnValue))
     if (refusal !== null) throw invalid(`rules[${i}].returnValue`, refusal)
     return cfg
+  }
+
+  // -- config ---------------------------------------------------------------
+
+  const configExists = () => conflict("a config entry with this key already exists")
+  /** config.ValidationError as mapError sends it: "config: <field>: <message>", BAD_REQUEST. */
+  const configInvalid = (field, message) => badRequest(`config: ${field}: ${message}`)
+  /** configmgr.unsupportedType: an entry whose stored type the write service does not know. */
+  const unsupportedConfigType = (t) => configInvalid("valueType", `this entry's type ${t} is not one the vault supports`)
+
+  function findConfig(key) {
+    const row = vault.configs.get(key)
+    if (!row) throw new FixtureError(404, "NOT_FOUND", "config entry not found")
+    return row
+  }
+
+  /** limit <= 0 gets the default, over the cap is capped, offset < 0 is 0. */
+  function configPageParams(payload) {
+    let limit = wholeNumber(payload?.limit)
+    if (limit <= 0) limit = DEFAULT_CONFIG_LIST_LIMIT
+    if (limit > MAX_CONFIG_LIST_LIMIT) limit = MAX_CONFIG_LIST_LIMIT
+    return { limit, offset: Math.max(0, wholeNumber(payload?.offset)) }
+  }
+
+  const byKey = (a, b) => (a.key < b.key ? -1 : a.key > b.key ? 1 : 0)
+  const byTenant = (a, b) => (a.tenantId < b.tenantId ? -1 : a.tenantId > b.tenantId ? 1 : 0)
+
+  /** configmgr.validateTenant: trimmed, and required. */
+  function configTenant(raw) {
+    const tenantId = typeof raw === "string" ? raw.trim() : ""
+    if (tenantId === "") throw configInvalid("tenantId", "is required")
+    return tenantId
+  }
+
+  /** The manager's write: a new version whatever changed, the row otherwise kept whole, then the audit row. */
+  function writeConfig(row, merged, action) {
+    const now = iso(Date.now())
+    row.valueType = merged.valueType
+    row.value = structuredClone(merged.value)
+    row.description = merged.description
+    row.version += 1
+    row.updatedAt = now
+    row.versions.push({ version: row.version, value: structuredClone(merged.value), createdAt: now })
+    recordAudit(row.key, action, "config")
   }
 
   /** The manager's write: stamp updatedAt, record the audit row, answer the flag. */
@@ -1191,6 +1583,248 @@ export function createVaultHandlers(FixtureError) {
         if (tenantId === "") throw invalid("tenantId", "is required")
         if (!row.overrides.delete(tenantId)) throw overrideNotFound()
         recordAudit(key, "flag.override_deleted", "flag")
+        return { ok: true, key, tenantId }
+      },
+    },
+
+    // -- config and overrides (handlers_config.go, configmgr/manager.go) -------
+
+    "config.list": {
+      kind: "query",
+      handler: (payload) => {
+        const { limit, offset } = configPageParams(payload)
+        const prefix = trimmedString(payload?.keyPrefix)
+        const all = [...vault.configs.values()].filter((r) => r.key.startsWith(prefix)).sort(byKey)
+        return { entries: all.slice(offset, offset + limit).map(projectConfigEntry), total: all.length }
+      },
+    },
+
+    "config.detail": {
+      kind: "query",
+      handler: (payload) => {
+        const key = requireKey(payload?.key)
+        const row = findConfig(key)
+        const overrides = [...(vault.configOverrides.get(key)?.values() ?? [])].sort(byTenant)
+        // A key's history is on two resources, the entry's own writes and its
+        // overrides'. Go fetches each with the full limit and merges by time;
+        // the fixture's audit list is already newest first, so the ten newest
+        // of the two together are its first ten.
+        const rows = vault.audit.filter((e) => (e.resource === "config" || e.resource === "override") && e.key === key)
+        return {
+          entry: projectConfigEntry(row),
+          overrides: overrides.map((o) => projectConfigOverride(o, row)),
+          recentAudit: rows.slice(0, RECENT_CONFIG_AUDIT_LIMIT).map(projectAudit),
+        }
+      },
+    },
+
+    "config.versions": {
+      kind: "query",
+      handler: (payload) => {
+        const key = requireKey(payload?.key)
+        const row = findConfig(key)
+        const versions = [...row.versions].sort((a, b) => b.version - a.version)
+        return { versions: versions.map((v) => projectConfigVersion(v, row)) }
+      },
+    },
+
+    "config.resolve": {
+      kind: "query",
+      handler: (payload) => {
+        const key = requireKey(payload?.key)
+        const tenantId = trimmedString(payload?.tenantId)
+        const row = findConfig(key)
+        const out = { value: wireValue(row.value), valueMatchesType: false, source: "appDefault", appValue: wireValue(row.value) }
+        let valueForType = row.value
+        const o = tenantId === "" ? undefined : vault.configOverrides.get(key)?.get(tenantId)
+        if (o !== undefined) {
+          out.value = wireValue(o.value)
+          out.source = "override"
+          // Present exactly when the override answered, whatever it holds: "",
+          // false, 0 and null are values.
+          out.overrideValue = wireValue(o.value)
+          valueForType = o.value
+        }
+        out.valueMatchesType = configValueMatchesType(row.valueType, valueForType)
+        if (tenantId !== "") out.tenantId = tenantId
+        return out
+      },
+    },
+
+    "overrides.list": {
+      kind: "query",
+      handler: (payload) => {
+        const tenantId = trimmedString(payload?.tenantId)
+        const key = trimmedString(payload?.key)
+        if (tenantId === "" && key === "") throw badRequest("give a tenantId or a key")
+        const { limit, offset } = configPageParams(payload)
+
+        let all
+        if (tenantId !== "" && key !== "") {
+          const o = vault.configOverrides.get(key)?.get(tenantId)
+          all = o === undefined ? [] : [o]
+        } else if (tenantId !== "") {
+          all = [...vault.configOverrides.values()].flatMap((byTenant) => (byTenant.has(tenantId) ? [byTenant.get(tenantId)] : [])).sort(byKey)
+        } else {
+          all = [...(vault.configOverrides.get(key)?.values() ?? [])].sort(byTenant)
+        }
+        // An orphan is listed, not hidden: keyExists false, valueMatchesType false.
+        const page = all.slice(offset, offset + limit).map((o) => projectConfigOverride(o, vault.configs.get(o.key)))
+        return { overrides: page, total: all.length }
+      },
+    },
+
+    "config.create": {
+      kind: "command",
+      invalidates: ["config.list", "config.detail", "config.versions", "config.resolve", "overrides.list"],
+      handler: (payload) => {
+        const key = requireKey(payload?.key)
+        const valueType = trimmedString(payload?.valueType)
+        if (valueType === "") throw badRequest("valueType is required")
+        if (Buffer.byteLength(key) > MAX_CONFIG_KEY_BYTES) throw configInvalid("key", `must be at most ${MAX_CONFIG_KEY_BYTES} bytes`)
+        if (!knownConfigType(valueType)) throw configInvalid("valueType", CONFIG_TYPE_LIST)
+        // An absent value and a null one are both null, which only json takes.
+        const value = wireValue(payload?.value)
+        const refusal = configValueRefusal(valueType, value)
+        if (refusal !== null) throw configInvalid("value", refusal)
+        if (vault.configs.has(key)) throw configExists()
+
+        // Overrides left for this key before the entry existed are live the
+        // moment it is, so a new entry starts with none. They are cleared
+        // without an audit row, as the manager does.
+        vault.configOverrides.delete(key)
+        const now = iso(Date.now())
+        vault.configs.set(key, {
+          id: vault.nextId("cfg"),
+          key,
+          valueType,
+          value: structuredClone(value),
+          description: typeof payload?.description === "string" ? payload.description : "",
+          metadata: {},
+          version: 1,
+          createdAt: now,
+          updatedAt: now,
+          versions: [{ version: 1, value: structuredClone(value), createdAt: now }],
+        })
+        recordAudit(key, "config.set", "config")
+        return { entry: projectConfigEntry(vault.configs.get(key)) }
+      },
+    },
+
+    "config.update": {
+      kind: "command",
+      invalidates: ["config.list", "config.detail", "config.versions", "config.resolve"],
+      handler: (payload) => {
+        const key = requireKey(payload?.key)
+        // Absent leaves the value; a present null is null, which only a json
+        // entry accepts. valueType and description are pointers in Go, so a
+        // null is absent for them.
+        const hasValue = payload?.value !== undefined
+        const newValue = payload?.value
+        const newType = typeof payload?.valueType === "string" ? payload.valueType.trim() : undefined
+        const newDescription = typeof payload?.description === "string" ? payload.description : undefined
+        const row = findConfig(key)
+
+        const merged = { valueType: row.valueType, value: row.value, description: row.description }
+        if (newType !== undefined && newType !== row.valueType) {
+          if (!knownConfigType(newType)) throw configInvalid("valueType", CONFIG_TYPE_LIST)
+          if (!hasValue) throw configInvalid("valueType", "changing the type needs a value of that type")
+          const refusal = configValueRefusal(newType, newValue)
+          if (refusal !== null) throw configInvalid("value", refusal)
+          merged.valueType = newType
+          merged.value = newValue
+        } else if (hasValue) {
+          if (!knownConfigType(row.valueType)) throw unsupportedConfigType(row.valueType)
+          const refusal = configValueRefusal(row.valueType, newValue)
+          if (refusal !== null) throw configInvalid("value", refusal)
+          merged.value = newValue
+        }
+        if (newDescription !== undefined) merged.description = newDescription
+
+        // Asking for what the entry already holds writes, audits and versions nothing.
+        if (merged.valueType === row.valueType && merged.description === row.description && sameValue(merged.value, row.value)) {
+          return { entry: projectConfigEntry(row) }
+        }
+        writeConfig(row, merged, "config.set")
+        return { entry: projectConfigEntry(row) }
+      },
+    },
+
+    "config.rollback": {
+      kind: "command",
+      invalidates: ["config.list", "config.detail", "config.versions", "config.resolve"],
+      handler: (payload) => {
+        const key = requireKey(payload?.key)
+        const row = findConfig(key)
+        const version = typeof payload?.version === "number" ? Math.trunc(payload.version) : 0
+        const target = row.versions.find((v) => v.version === version)
+        if (target === undefined) throw new FixtureError(404, "NOT_FOUND", "config version not found")
+        if (!knownConfigType(row.valueType)) throw unsupportedConfigType(row.valueType)
+        if (configValueRefusal(row.valueType, wireValue(target.value)) !== null) {
+          throw configInvalid("version", `version ${version} holds ${describeValue(target.value)}, not a ${row.valueType}`)
+        }
+        // The entry keeps its type, description and metadata and takes the old
+        // value as a new version. The value it already holds writes nothing.
+        if (sameValue(target.value, row.value)) return { entry: projectConfigEntry(row) }
+        writeConfig(row, { valueType: row.valueType, value: target.value, description: row.description }, "config.rolled_back")
+        return { entry: projectConfigEntry(row) }
+      },
+    },
+
+    "config.delete": {
+      kind: "command",
+      invalidates: ["config.list", "config.detail", "config.versions", "config.resolve", "overrides.list"],
+      handler: (payload) => {
+        const key = requireKey(payload?.key)
+        findConfig(key)
+        // Overrides go first and the entry last, so a failure part way leaves
+        // the entry and a retry finishes the job. Neither an override's removal
+        // nor the entry's versions get an audit row of their own.
+        vault.configOverrides.delete(key)
+        vault.configs.delete(key)
+        recordAudit(key, "config.deleted", "config")
+        return { ok: true, key }
+      },
+    },
+
+    "overrides.set": {
+      kind: "command",
+      invalidates: ["config.detail", "config.resolve", "overrides.list"],
+      handler: (payload) => {
+        const key = requireKey(payload?.key)
+        // A missing value is refused; null and "" are values.
+        if (payload?.value === undefined) throw badRequest("value is required")
+        const row = findConfig(key)
+        const tenantId = configTenant(payload?.tenantId)
+        if (!knownConfigType(row.valueType)) throw unsupportedConfigType(row.valueType)
+        const refusal = configValueRefusal(row.valueType, payload.value)
+        if (refusal !== null) throw configInvalid("value", refusal)
+
+        const byTenant = vault.configOverrides.get(key) ?? new Map()
+        const now = iso(Date.now())
+        // An existing override keeps its id and creation time.
+        const existing = byTenant.get(tenantId)
+        const o = { id: existing?.id ?? vault.nextId("ovr"), key, tenantId, value: structuredClone(payload.value), createdAt: existing?.createdAt ?? now, updatedAt: now }
+        byTenant.set(tenantId, o)
+        vault.configOverrides.set(key, byTenant)
+        recordAudit(key, "override.set", "override", tenantId)
+        return { override: projectConfigOverride(o, row) }
+      },
+    },
+
+    "overrides.delete": {
+      kind: "command",
+      invalidates: ["config.detail", "config.resolve", "overrides.list"],
+      handler: (payload) => {
+        const key = requireKey(payload?.key)
+        // The entry is read first, so an orphan's override cannot be reverted
+        // here: the manager says the entry is not found, and recreating the key
+        // is what clears it.
+        findConfig(key)
+        const tenantId = configTenant(payload?.tenantId)
+        const byTenant = vault.configOverrides.get(key)
+        if (!byTenant?.delete(tenantId)) throw overrideNotFound()
+        recordAudit(key, "override.deleted", "override", tenantId)
         return { ok: true, key, tenantId }
       },
     },

@@ -162,6 +162,20 @@ const INPUT = {
   "vault::flags.setRules": { key: "auth.passkeys", rules: [{ type: "rollout", percentage: 10, returnValue: true }] },
   "vault::flags.setTenantOverride": { key: "auth.passkeys", tenantId: "acme", value: true },
   "vault::flags.deleteTenantOverride": { key: "auth.passkeys", tenantId: "acme" },
+  // config: the fixture lists the commands create, update, rollback, delete, so
+  // update makes version 2 of the entry create made, rollback goes back to 1,
+  // and delete removes it. overrides.set runs before overrides.delete, on a
+  // seeded key the tenant has no override for.
+  "vault::config.detail": { key: "limits.api-rate" },
+  "vault::config.versions": { key: "limits.api-rate" },
+  "vault::config.resolve": { key: "limits.api-rate", tenantId: "acme" },
+  "vault::overrides.list": { tenantId: "acme" },
+  "vault::config.create": { key: "verify/new.config", valueType: "int", value: 1, description: "made by verify.mjs" },
+  "vault::config.update": { key: "verify/new.config", value: 2 },
+  "vault::config.rollback": { key: "verify/new.config", version: 1 },
+  "vault::config.delete": { key: "verify/new.config" },
+  "vault::overrides.set": { key: "features.maintenance-mode", tenantId: "acme", value: true },
+  "vault::overrides.delete": { key: "features.maintenance-mode", tenantId: "acme" },
   "streaming-contract::rooms.detail": { id: "room_1" },
   "streaming-contract::rooms.create": { name: "Verify room", description: "d", owner: "usr_1", private: false },
   "streaming-contract::rooms.delete": { id: "room_2" },
@@ -975,6 +989,369 @@ async function main() {
     for (const key of ["spot/flag.a", "spot/flag.str", "spot/flag.json", "spot/flag.int", "spot/flag.win", "spot/flag.trip"]) await flagCall("flags.delete", { key })
     const flagsAfter = data(await flagCall("flags.list", {}))
     vaultCheck("the flag spot checks cleaned up after themselves", flagsAfter?.total === flist?.total, `${flagsAfter?.total} vs ${flist?.total}`)
+
+    // -- config and overrides: the rules configmgr, config/validate.go and the handlers enforce --
+    // Its own block: the names above are the secret and flag checks' own.
+    {
+    const cfgCall = (intent, input) => vaultCall(intent, /\.(list|detail|versions|resolve)$/.test(intent) ? "query" : "command", input)
+    const cfgActions = async (key) => (data(await cfgCall("config.detail", { key }))?.recentAudit ?? []).map((e) => e.action)
+    const CONFIG_TYPE_LIST = "must be one of string, int, float, bool, json, duration"
+
+    // Seed: 30 entries, a second page, all six types, a yaml one, a wrong-typed one.
+    const cpage1 = await cfgCall("config.list", {})
+    const cpage2 = await cfgCall("config.list", { offset: 25 })
+    const clist = data(cpage1)
+    vaultCheck(
+      "config.list pages (25 then the rest, exact total)",
+      clist?.entries?.length === 25 && data(cpage2)?.entries?.length === clist.total - 25 && clist.total === 30,
+      `got ${clist?.entries?.length} then ${data(cpage2)?.entries?.length} of ${clist?.total}`,
+    )
+    const call = data(await cfgCall("config.list", { limit: 500 }))?.entries ?? []
+    vaultCheck(
+      "the config seed covers all six types and is in key order",
+      ["string", "int", "float", "bool", "json", "duration"].every((t) => call.some((e) => e.valueType === t)) && same(call.map((e) => e.key), call.map((e) => e.key).sort()),
+      JSON.stringify([...new Set(call.map((e) => e.valueType))]),
+    )
+    vaultCheck(
+      "a config row carries every projected field, and metadata is always an object",
+      call.every((e) => ["id", "key", "value", "valueType", "knownType", "valueMatchesType", "version", "description", "metadata", "createdAt", "updatedAt"].every((k) => k in e) && e.metadata !== null && typeof e.metadata === "object"),
+      "a field is missing or metadata is not an object",
+    )
+    const yamlEntry = call.find((e) => e.valueType === "yaml")
+    vaultCheck("the seed has a yaml entry: knownType false and valueMatchesType false", yamlEntry?.knownType === false && yamlEntry.valueMatchesType === false, JSON.stringify(yamlEntry))
+    const wrongTyped = call.filter((e) => e.knownType && !e.valueMatchesType)
+    vaultCheck(
+      "the seed has one known-type entry whose stored value is the wrong type",
+      wrongTyped.length === 1 && wrongTyped[0].key === "limits.page-size" && wrongTyped[0].valueType === "int" && wrongTyped[0].value === "50",
+      JSON.stringify(wrongTyped),
+    )
+    vaultCheck("every other seeded value matches its type", call.filter((e) => e.key !== "limits.page-size" && e.valueType !== "yaml").every((e) => e.valueMatchesType === true), "a seed value does not match its type")
+    vaultCheck("several seeded entries have three or more versions", call.filter((e) => e.version >= 3).length >= 8, `${call.filter((e) => e.version >= 3).length}`)
+    const prefixed = data(await cfgCall("config.list", { keyPrefix: "billing/", limit: 1 }))
+    vaultCheck("config.list filters by key prefix, and total counts the filter not the page", prefixed?.entries?.length === 1 && prefixed.entries[0].key.startsWith("billing/") && prefixed.total === 3, JSON.stringify(prefixed))
+    const bigLimit = await cfgCall("config.list", { limit: 100000 })
+    vaultCheck("config.list caps an over-large limit rather than refusing it", bigLimit.body?.ok === true && data(bigLimit).entries.length === 30, failure(bigLimit))
+
+    // Versions: newest first, current marked, each judged against the entry's current type.
+    const plans = data(await cfgCall("config.versions", { key: "billing/plans" }))?.versions ?? []
+    vaultCheck("config.versions is newest first with exactly one current", same(plans.map((v) => v.version), [4, 3, 2, 1]) && same(plans.map((v) => v.current), [true, false, false, false]), JSON.stringify(plans.map((v) => [v.version, v.current])))
+    vaultCheck("a json entry's versions change in nested places", plans.length === 4 && plans[0].value.team.trialDays === 14 && plans[1].value.team.trialDays === undefined && plans[1].value.pro.limits.seats === 10 && plans[2].value.pro.limits.seats === 5 && plans[3].value.pro.priceCents === 2900, JSON.stringify(plans.map((v) => v.value.pro)))
+    const ttl = data(await cfgCall("config.versions", { key: "cache.ttl" }))?.versions ?? []
+    vaultCheck("versions written under an earlier type are flagged valueMatchesType false", same(ttl.map((v) => v.valueMatchesType), [true, false, false]) && ttl[1].value === 600, JSON.stringify(ttl))
+    const noVersions = await cfgCall("config.versions", { key: "spot/none.config" })
+    vaultCheck("config.versions on a missing key is 404 NOT_FOUND", refused(noVersions, 404, "NOT_FOUND", "config entry not found"), failure(noVersions))
+    const noDetail = await cfgCall("config.detail", { key: "spot/none.config" })
+    vaultCheck("config.detail on a missing key is 404 NOT_FOUND", refused(noDetail, 404, "NOT_FOUND", "config entry not found"), failure(noDetail))
+    const noKey = await cfgCall("config.detail", { key: "  " })
+    vaultCheck("config.detail refuses a blank key", badRequest(noKey, "key is required"), failure(noKey))
+
+    // Detail: overrides in tenant order, audit from both resources and never a flag's.
+    const rate = data(await cfgCall("config.detail", { key: "limits.api-rate" }))
+    vaultCheck(
+      "config.detail answers the entry, its overrides in tenant order and never null lists",
+      rate?.entry?.key === "limits.api-rate" && same((rate.overrides ?? []).map((o) => o.tenantId), ["acme", "globex"]) && (rate.overrides ?? []).every((o) => o.keyExists === true && o.valueMatchesType === true) && Array.isArray(rate.recentAudit),
+      JSON.stringify(rate?.overrides),
+    )
+    const rateActions = (rate?.recentAudit ?? []).map((e) => e.action)
+    vaultCheck(
+      "config.detail's recentAudit holds config and override rows, newest first, and no flag row",
+      rateActions.includes("override.set") && rateActions.includes("config.set") && rateActions.every((a) => a.startsWith("config.") || a.startsWith("override.")) && (rate.recentAudit ?? []).every((e, i, all) => i === 0 || Date.parse(all[i - 1].createdAt) >= Date.parse(e.createdAt)),
+      JSON.stringify(rateActions),
+    )
+    const flagSharing = (data(await flagCall("flags.detail", { key: "limits.api-rate" }))?.recentAudit ?? []).map((e) => e.action)
+    vaultCheck("flags.detail's recentAudit leaves out config rows for the same key", flagSharing.length > 0 && flagSharing.every((a) => a.startsWith("flag.")), JSON.stringify(flagSharing))
+    const secretSharing = (data(await vaultCall("secrets.detail", "query", { key: "api/stripe.key" }))?.recentAudit ?? []).map((e) => e.action)
+    vaultCheck("secrets.detail's recentAudit leaves out config rows", secretSharing.every((a) => a.startsWith("secret.")), JSON.stringify(secretSharing))
+
+    // Resolve: which source answered, and what each held.
+    const rAcme = data(await cfgCall("config.resolve", { key: "limits.api-rate", tenantId: "acme" }))
+    vaultCheck(
+      "config.resolve for a tenant with an override answers from the override and still says the app value",
+      rAcme?.source === "override" && rAcme.value === 5000 && rAcme.overrideValue === 5000 && rAcme.appValue === 1000 && rAcme.tenantId === "acme" && rAcme.valueMatchesType === true,
+      JSON.stringify(rAcme),
+    )
+    const rNone = data(await cfgCall("config.resolve", { key: "limits.api-rate", tenantId: "initech" }))
+    vaultCheck(
+      "config.resolve for a tenant with none answers appDefault, with no overrideValue key",
+      rNone?.source === "appDefault" && rNone.value === 1000 && rNone.appValue === 1000 && !("overrideValue" in rNone) && rNone.tenantId === "initech",
+      JSON.stringify(rNone),
+    )
+    const rNoTenant = data(await cfgCall("config.resolve", { key: "limits.api-rate" }))
+    vaultCheck("config.resolve with no tenant answers appDefault and omits tenantId", rNoTenant?.source === "appDefault" && !("tenantId" in rNoTenant) && !("overrideValue" in rNoTenant), JSON.stringify(rNoTenant))
+    const rTrim = data(await cfgCall("config.resolve", { key: "limits.api-rate", tenantId: "  globex " }))
+    vaultCheck("config.resolve trims the tenant it echoes", rTrim?.source === "override" && rTrim.tenantId === "globex" && rTrim.overrideValue === 250, JSON.stringify(rTrim))
+    const rEmpty = data(await cfgCall("config.resolve", { key: "ui.theme-default", tenantId: "globex" }))
+    vaultCheck(
+      "an override of \"\" is still the override: source override, overrideValue \"\"",
+      rEmpty?.source === "override" && rEmpty.value === "" && "overrideValue" in rEmpty && rEmpty.overrideValue === "" && rEmpty.appValue === "system",
+      JSON.stringify(rEmpty),
+    )
+    const rNull = data(await cfgCall("config.resolve", { key: "features.rollout", tenantId: "acme" }))
+    vaultCheck("an override of JSON null keeps its overrideValue key", rNull?.source === "override" && "overrideValue" in rNull && rNull.overrideValue === null && rNull.value === null, JSON.stringify(rNull))
+    const rWrong = data(await cfgCall("config.resolve", { key: "limits.page-size", tenantId: "globex" }))
+    vaultCheck("valueMatchesType judges the value that answered", rWrong?.source === "override" && rWrong.valueMatchesType === false && data(await cfgCall("config.resolve", { key: "limits.page-size", tenantId: "acme" }))?.valueMatchesType === true, JSON.stringify(rWrong))
+    const rOrphan = await cfgCall("config.resolve", { key: "legacy.retired-flag", tenantId: "acme" })
+    vaultCheck("config.resolve on a key with no entry is NOT_FOUND even when an orphaned override exists", refused(rOrphan, 404, "NOT_FOUND", "config entry not found"), failure(rOrphan))
+
+    // overrides.list.
+    const oNeither = await cfgCall("overrides.list", {})
+    vaultCheck("overrides.list refuses neither a tenant nor a key", badRequest(oNeither, "give a tenantId or a key"), failure(oNeither))
+    const oAcme = data(await cfgCall("overrides.list", { tenantId: "acme" }))
+    vaultCheck(
+      "overrides.list by tenant is in key order and counts every match",
+      oAcme?.total === 9 && oAcme.overrides.length === 9 &&same(oAcme.overrides.map((o) => o.key), oAcme.overrides.map((o) => o.key).sort()) && oAcme.overrides.every((o) => o.tenantId === "acme"),
+      JSON.stringify(oAcme?.overrides?.map((o) => o.key)),
+    )
+    const oPaged = data(await cfgCall("overrides.list", { tenantId: "acme", limit: 3, offset: 3 }))
+    vaultCheck("overrides.list pages: total is the match count, the page a slice of it", oPaged?.total === 9 &&same(oPaged.overrides.map((o) => o.key), oAcme.overrides.slice(3, 6).map((o) => o.key)), JSON.stringify(oPaged))
+    const oKey = data(await cfgCall("overrides.list", { key: "ui.theme-default" }))
+    vaultCheck("overrides.list by key is in tenant order and keeps the empty string", same(oKey?.overrides?.map((o) => [o.tenantId, o.value]), [["acme", "dark"], ["globex", ""]]), JSON.stringify(oKey))
+    const oBoth = data(await cfgCall("overrides.list", { key: "ui.theme-default", tenantId: "globex" }))
+    const oBothNone = data(await cfgCall("overrides.list", { key: "ui.theme-default", tenantId: "initech" }))
+    vaultCheck("overrides.list with a key and a tenant is that one override, or nothing", oBoth?.total === 1 && oBoth.overrides[0].value === "" && oBothNone?.total === 0 && same(oBothNone.overrides, []), JSON.stringify([oBoth, oBothNone]))
+    const oOrphan = data(await cfgCall("overrides.list", { key: "legacy.retired-flag" }))
+    vaultCheck(
+      "an orphaned override is listed with keyExists false and valueMatchesType false",
+      oOrphan?.total === 2 && oOrphan.overrides.every((o) => o.keyExists === false && o.valueMatchesType === false),
+      JSON.stringify(oOrphan),
+    )
+    const oGlobex = data(await cfgCall("overrides.list", { tenantId: "globex" }))
+    vaultCheck("the wrong-typed override is flagged and the orphan is listed under its tenant", oGlobex?.overrides?.some((o) => o.key === "limits.page-size" && o.valueMatchesType === false && o.keyExists === true) && oGlobex.overrides.some((o) => o.key === "legacy.retired-flag" && o.keyExists === false), JSON.stringify(oGlobex?.overrides?.map((o) => [o.key, o.keyExists, o.valueMatchesType])))
+    const oNone = data(await cfgCall("overrides.list", { tenantId: "nobody" }))
+    vaultCheck("overrides.list for a tenant with none is an empty list, not an error", oNone?.total === 0 && same(oNone.overrides, []), JSON.stringify(oNone))
+
+    // config.create: every refusal, in the Go order, with the Go words.
+    const mk = (input) => cfgCall("config.create", input)
+    const cNoType = await mk({ key: "spot/config.a", value: "x" })
+    vaultCheck("config.create refuses an absent valueType", badRequest(cNoType, "valueType is required"), failure(cNoType))
+    const cUnknownType = await mk({ key: "spot/config.a", valueType: "yaml", value: "x" })
+    vaultCheck("config.create refuses a type the vault does not validate", badRequest(cUnknownType, `config: valueType: ${CONFIG_TYPE_LIST}`), failure(cUnknownType))
+    const cNoKey = await mk({ key: " ", valueType: "string", value: "x" })
+    vaultCheck("config.create refuses a blank key", badRequest(cNoKey, "key is required"), failure(cNoKey))
+    const cLongKey = await mk({ key: "k".repeat(257), valueType: "string", value: "x" })
+    vaultCheck("config.create refuses a key over 256 bytes", badRequest(cLongKey, "config: key: must be at most 256 bytes"), failure(cLongKey))
+    const cRefusals = [
+      ["a string", { valueType: "string", value: 5 }, "config: value: must be a string, got a number"],
+      ["a string given null", { valueType: "string", value: null }, "config: value: must be a string, got null"],
+      ["a string given nothing", { valueType: "string" }, "config: value: must be a string, got null"],
+      ["an int given a string", { valueType: "int", value: "5" }, "config: value: must be a whole number, got a string"],
+      ["an int given a fraction", { valueType: "int", value: 2.5 }, "config: value: must be a whole number, got 2.5"],
+      ["an int over 2^53", { valueType: "int", value: 2 ** 60 }, "config: value: must not exceed 2^53 in magnitude, got 1.152921504606847e+18"],
+      ["a float given a string", { valueType: "float", value: "0.5" }, "config: value: must be a number, got a string"],
+      ["a bool given a string", { valueType: "bool", value: "true" }, "config: value: must be a boolean, got a string"],
+      ["a duration given a number", { valueType: "duration", value: 30 }, 'config: value: must be a duration string such as "30s", got a number'],
+      ["a duration given text", { valueType: "duration", value: "abc" }, 'config: value: must be a duration such as "30s" or "1h30m": time: invalid duration "abc"'],
+      ["a duration with no unit", { valueType: "duration", value: "5" }, 'config: value: must be a duration such as "30s" or "1h30m": time: missing unit in duration "5"'],
+      ["a duration with an unknown unit", { valueType: "duration", value: "5x" }, 'config: value: must be a duration such as "30s" or "1h30m": time: unknown unit "x" in duration "5x"'],
+      ["a duration given \"\"", { valueType: "duration", value: "" }, 'config: value: must be a duration such as "30s" or "1h30m": time: invalid duration ""'],
+    ]
+    for (const [name, input, message] of cRefusals) {
+      const r = await mk({ key: "spot/config.a", ...input })
+      vaultCheck(`config.create refuses ${name}`, badRequest(r, message), failure(r))
+    }
+    vaultCheck("no refused create left an entry behind", (await cfgCall("config.detail", { key: "spot/config.a" })).status === 404, "the entry exists")
+    const cDurations = await Promise.all(["30s", "1h30m", "-1.5h", "0", "2h45m30s500ms"].map((v, i) => mk({ key: `spot/config.dur${i}`, valueType: "duration", value: v })))
+    vaultCheck("config.create accepts every duration Go's ParseDuration does", cDurations.every((r) => r.body?.ok === true), JSON.stringify(cDurations.map((r) => r.body?.error?.message)))
+    const cJsonNull = await mk({ key: "spot/config.json", valueType: "json" })
+    vaultCheck("config.create takes null (and no value at all) for a json entry", cJsonNull.body?.ok === true && cJsonNull.body.data.entry.value === null && cJsonNull.body.data.entry.valueMatchesType === true && cJsonNull.body.data.entry.version === 1, JSON.stringify(cJsonNull.body))
+    const cMade = await mk({ key: "spot/config.a", valueType: "int", value: 7, description: "  as typed  " })
+    const cEntry = cMade.body?.data?.entry
+    vaultCheck(
+      "config.create answers the new entry: version 1, empty metadata, the description as given",
+      cEntry?.key === "spot/config.a" && cEntry.value === 7 && cEntry.version === 1 && cEntry.knownType === true && cEntry.valueMatchesType === true && same(cEntry.metadata, {}) && cEntry.description === "  as typed  " && cEntry.createdAt === cEntry.updatedAt,
+      JSON.stringify(cMade.body),
+    )
+    vaultCheck("config.create records config.set", same(await cfgActions("spot/config.a"), ["config.set"]), JSON.stringify(await cfgActions("spot/config.a")))
+    const cAgain = await mk({ key: "spot/config.a", valueType: "string", value: "clobber" })
+    vaultCheck("config.create on an existing key is 409 CONFLICT and leaves the entry as it was", refused(cAgain, 409, "CONFLICT", "a config entry with this key already exists") && data(await cfgCall("config.detail", { key: "spot/config.a" }))?.entry?.value === 7, failure(cAgain))
+    vaultCheck("config.create grows the list total", data(await cfgCall("config.list", {}))?.total === 30 + 1 + 5 + 1, `${data(await cfgCall("config.list", {}))?.total}`)
+
+    // config.update: only what is named changes.
+    const up = (input) => cfgCall("config.update", { key: "spot/config.a", ...input })
+    const uNone = await cfgCall("config.update", { key: "spot/none.config", description: "x" })
+    vaultCheck("config.update on a missing key is 404 NOT_FOUND", refused(uNone, 404, "NOT_FOUND", "config entry not found"), failure(uNone))
+    const uBad = await up({ value: "8" })
+    vaultCheck("config.update refuses a value of the wrong type", badRequest(uBad, "config: value: must be a whole number, got a string"), failure(uBad))
+    const uNull = await up({ value: null })
+    vaultCheck("config.update refuses null for an int entry", badRequest(uNull, "config: value: must be a whole number, got null"), failure(uNull))
+    const uDesc = await up({ description: "changed" })
+    vaultCheck("updating the description alone keeps the value and adds a version", uDesc.body?.data?.entry?.value === 7 && uDesc.body.data.entry.description === "changed" && uDesc.body.data.entry.version === 2, JSON.stringify(uDesc.body))
+    const uVal = await up({ value: 8 })
+    vaultCheck("updating the value alone keeps the description", uVal.body?.data?.entry?.value === 8 && uVal.body.data.entry.description === "changed" && uVal.body.data.entry.version === 3, JSON.stringify(uVal.body))
+    const uSame = await up({ value: 8, description: "changed" })
+    vaultCheck(
+      "asking for what the entry already holds is not an error, and adds no version and no audit row",
+      uSame.body?.ok === true && uSame.body.data.entry.version === 3 && uSame.body.data.entry.updatedAt === uVal.body.data.entry.updatedAt && same(await cfgActions("spot/config.a"), ["config.set", "config.set", "config.set"]),
+      JSON.stringify([uSame.body, await cfgActions("spot/config.a")]),
+    )
+    const uSameType = await up({ valueType: "int", value: 8 })
+    vaultCheck("naming the type it already has is a no-op too", uSameType.body?.ok === true && uSameType.body.data.entry.version === 3, JSON.stringify(uSameType.body))
+    const uEmptyDesc = await up({ description: "" })
+    vaultCheck("an empty description clears it and is a change", uEmptyDesc.body?.data?.entry?.description === "" && uEmptyDesc.body.data.entry.version === 4, JSON.stringify(uEmptyDesc.body))
+    const uTypeNoValue = await up({ valueType: "string" })
+    vaultCheck("changing the type needs a value", badRequest(uTypeNoValue, "config: valueType: changing the type needs a value of that type"), failure(uTypeNoValue))
+    const uTypeUnknown = await up({ valueType: "yaml", value: "x" })
+    vaultCheck("changing to a type the vault does not validate is refused", badRequest(uTypeUnknown, `config: valueType: ${CONFIG_TYPE_LIST}`), failure(uTypeUnknown))
+    const uTypeBadValue = await up({ valueType: "bool", value: 8 })
+    vaultCheck("changing the type validates the value against the new type", badRequest(uTypeBadValue, "config: value: must be a boolean, got a number"), failure(uTypeBadValue))
+    const uTypeOk = await up({ valueType: "string", value: "eight" })
+    vaultCheck("changing the type with a value of that type works", uTypeOk.body?.data?.entry?.valueType === "string" && uTypeOk.body.data.entry.value === "eight" && uTypeOk.body.data.entry.valueMatchesType === true && uTypeOk.body.data.entry.version === 5, JSON.stringify(uTypeOk.body))
+    const uJsonNull = await cfgCall("config.update", { key: "spot/config.json", value: null })
+    vaultCheck("config.update of a json entry to null is a no-op when it is null already", uJsonNull.body?.ok === true && uJsonNull.body.data.entry.version === 1, JSON.stringify(uJsonNull.body))
+    const uJsonObj = await cfgCall("config.update", { key: "spot/config.json", value: { a: { b: [1, 2] } } })
+    const uJsonBack = await cfgCall("config.update", { key: "spot/config.json", value: null })
+    vaultCheck("a json entry takes an object, then null", same(uJsonObj.body?.data?.entry?.value, { a: { b: [1, 2] } }) && uJsonBack.body?.data?.entry?.value === null && uJsonBack.body.data.entry.version === 3, JSON.stringify([uJsonObj.body, uJsonBack.body]))
+    const uJsonReordered = await cfgCall("config.update", { key: "spot/config.json", value: { y: 1, x: 2 } })
+    const uJsonSameOrder = await cfgCall("config.update", { key: "spot/config.json", value: { x: 2, y: 1 } })
+    vaultCheck("key order does not make a json value different", uJsonReordered.body?.data?.entry?.version === 4 && uJsonSameOrder.body?.data?.entry?.version === 4, JSON.stringify([uJsonReordered.body, uJsonSameOrder.body]))
+    const uYaml = await cfgCall("config.update", { key: "legacy.deploy-manifest", value: "replicas: 4\n" })
+    vaultCheck("a yaml entry's value is read-only", badRequest(uYaml, "config: valueType: this entry's type yaml is not one the vault supports"), failure(uYaml))
+    const uYamlDesc = await cfgCall("config.update", { key: "legacy.deploy-manifest", description: "Kept as it was, and described." })
+    vaultCheck("a yaml entry's description can still change", uYamlDesc.body?.data?.entry?.description === "Kept as it was, and described." && uYamlDesc.body.data.entry.valueType === "yaml", JSON.stringify(uYamlDesc.body))
+    const uMeta = await cfgCall("config.update", { key: "app.base-url", value: "https://console2.example.com" })
+    vaultCheck(
+      "updating the value keeps the description and metadata",
+      uMeta.body?.data?.entry?.description === "Public URL, used in emailed links." && same(uMeta.body.data.entry.metadata, { owner: "platform" }) && uMeta.body.data.entry.version === 4,
+      JSON.stringify(uMeta.body),
+    )
+
+    // config.rollback: the value goes back, the rest stays.
+    const rb = (key, version) => cfgCall("config.rollback", { key, version })
+    const rbBefore = data(await cfgCall("config.detail", { key: "limits.api-rate" }))?.entry
+    const rbMissing = await rb("limits.api-rate", 99)
+    vaultCheck("config.rollback to a version that does not exist is 404 NOT_FOUND", refused(rbMissing, 404, "NOT_FOUND", "config version not found"), failure(rbMissing))
+    const rbNone = await rb("spot/none.config", 1)
+    vaultCheck("config.rollback on a missing key is 404 NOT_FOUND", refused(rbNone, 404, "NOT_FOUND", "config entry not found"), failure(rbNone))
+    const rbSame = await rb("limits.api-rate", 4)
+    vaultCheck("rolling back to the value it already holds writes nothing", rbSame.body?.ok === true && rbSame.body.data.entry.version === 4 && rbSame.body.data.entry.updatedAt === rbBefore?.updatedAt, JSON.stringify(rbSame.body))
+    const rbOk = await rb("limits.api-rate", 1)
+    const rbEntry = rbOk.body?.data?.entry
+    vaultCheck(
+      "config.rollback keeps type, description and metadata and takes the old value as a new version",
+      rbEntry?.value === 100 && rbEntry.version === 5 && rbEntry.valueType === rbBefore?.valueType && rbEntry.description === rbBefore?.description && same(rbEntry.metadata, rbBefore?.metadata) && rbEntry.createdAt === rbBefore?.createdAt,
+      JSON.stringify([rbEntry, rbBefore]),
+    )
+    vaultCheck("config.rollback records config.rolled_back", (await cfgActions("limits.api-rate"))[0] === "config.rolled_back", JSON.stringify(await cfgActions("limits.api-rate")))
+    const rbHistory = data(await cfgCall("config.versions", { key: "limits.api-rate" }))?.versions ?? []
+    vaultCheck("a rollback is a new version, not a rewrite of history", same(rbHistory.map((v) => [v.version, v.value, v.current]), [[5, 100, true], [4, 1000, false], [3, 500, false], [2, 250, false], [1, 100, false]]), JSON.stringify(rbHistory))
+    const rbType = await rb("cache.ttl", 1)
+    vaultCheck("config.rollback refuses a version that does not fit the current type", badRequest(rbType, "config: version: version 1 holds a number, not a duration"), failure(rbType))
+    const rbYaml = await rb("legacy.deploy-manifest", 1)
+    vaultCheck("config.rollback on a yaml entry is refused", badRequest(rbYaml, "config: valueType: this entry's type yaml is not one the vault supports"), failure(rbYaml))
+    const rbWrongVersion = await rb("limits.page-size", 2)
+    vaultCheck("config.rollback to a wrong-typed version is refused", badRequest(rbWrongVersion, "config: version: version 2 holds a string, not a int"), failure(rbWrongVersion))
+    const rbRepair = await rb("limits.page-size", 1)
+    vaultCheck("rolling a wrong-typed entry back to a valid version repairs it", rbRepair.body?.data?.entry?.value === 10 && rbRepair.body.data.entry.valueMatchesType === true && rbRepair.body.data.entry.version === 3, JSON.stringify(rbRepair.body))
+    const rbSpot = await rb("spot/config.a", 1)
+    vaultCheck("rolling back after a type change is refused, whatever the old value", badRequest(rbSpot, "config: version: version 1 holds a number, not a string"), failure(rbSpot))
+
+    // overrides.set and overrides.delete: "set to empty" and "revert" are different acts.
+    const os = (input) => cfgCall("overrides.set", input)
+    const osNoEntry = await os({ key: "spot/none.config", tenantId: "acme", value: 1 })
+    vaultCheck("overrides.set on a missing key is 404 NOT_FOUND", refused(osNoEntry, 404, "NOT_FOUND", "config entry not found"), failure(osNoEntry))
+    const osNoValue = await os({ key: "spot/config.dur0", tenantId: "acme" })
+    vaultCheck("overrides.set refuses an absent value", badRequest(osNoValue, "value is required"), failure(osNoValue))
+    const osBlank = await os({ key: "spot/config.dur0", tenantId: "  ", value: "5s" })
+    vaultCheck("overrides.set refuses a blank tenant", badRequest(osBlank, "config: tenantId: is required"), failure(osBlank))
+    const osBadType = await os({ key: "spot/config.dur0", tenantId: "acme", value: "abc" })
+    vaultCheck("overrides.set refuses a value that is not one of the entry's type", badRequest(osBadType, 'config: value: must be a duration such as "30s" or "1h30m": time: invalid duration "abc"'), failure(osBadType))
+    const osNull = await os({ key: "spot/config.a", tenantId: "acme", value: null })
+    vaultCheck("overrides.set refuses null for a non-json entry", badRequest(osNull, "config: value: must be a string, got null"), failure(osNull))
+    const osYaml = await os({ key: "legacy.deploy-manifest", tenantId: "initech", value: "replicas: 9\n" })
+    vaultCheck("overrides.set on a yaml entry is refused", badRequest(osYaml, "config: valueType: this entry's type yaml is not one the vault supports"), failure(osYaml))
+    const osSet = await os({ key: "spot/config.a", tenantId: " acme ", value: "override" })
+    vaultCheck(
+      "overrides.set trims the tenant and answers the override",
+      osSet.body?.data?.override?.tenantId === "acme" && osSet.body.data.override.value === "override" && osSet.body.data.override.valueMatchesType === true && osSet.body.data.override.keyExists === true && osSet.body.data.override.key === "spot/config.a" && typeof osSet.body.data.override.updatedAt === "string",
+      JSON.stringify(osSet.body),
+    )
+    const osEmpty = await os({ key: "spot/config.a", tenantId: "globex", value: "" })
+    vaultCheck("overrides.set takes \"\" on a string entry as a value", osEmpty.body?.data?.override?.value === "" && osEmpty.body.data.override.valueMatchesType === true, JSON.stringify(osEmpty.body))
+    const rEmptyOverride = data(await cfgCall("config.resolve", { key: "spot/config.a", tenantId: "globex" }))
+    vaultCheck("resolve then says the override answered, with \"\"", rEmptyOverride?.source === "override" && rEmptyOverride.value === "" && rEmptyOverride.appValue === "eight", JSON.stringify(rEmptyOverride))
+    const osJsonNull = await os({ key: "spot/config.json", tenantId: "acme", value: null })
+    vaultCheck("overrides.set takes null on a json entry", osJsonNull.body?.data?.override?.value === null, JSON.stringify(osJsonNull.body))
+    const osReplace = await os({ key: "spot/config.a", tenantId: "acme", value: "replaced" })
+    const osList = data(await cfgCall("overrides.list", { key: "spot/config.a" }))
+    vaultCheck("overrides.set for a tenant that has one replaces it", osReplace.body?.ok === true && osList?.total === 2 && osList.overrides[0].value === "replaced", JSON.stringify(osList))
+    vaultCheck("overrides.set records override.set", (await cfgActions("spot/config.a"))[0] === "override.set", JSON.stringify(await cfgActions("spot/config.a")))
+
+    const od = (input) => cfgCall("overrides.delete", input)
+    const odNoEntry = await od({ key: "spot/none.config", tenantId: "acme" })
+    vaultCheck("overrides.delete on a missing key says the entry is missing", refused(odNoEntry, 404, "NOT_FOUND", "config entry not found"), failure(odNoEntry))
+    const odBlank = await od({ key: "spot/config.a", tenantId: "" })
+    vaultCheck("overrides.delete refuses a blank tenant", badRequest(odBlank, "config: tenantId: is required"), failure(odBlank))
+    const odOrphan = await od({ key: "legacy.retired-flag", tenantId: "acme" })
+    vaultCheck("overrides.delete on an orphaned override says the entry is missing, as the manager does", refused(odOrphan, 404, "NOT_FOUND", "config entry not found"), failure(odOrphan))
+    const odNone = await od({ key: "spot/config.a", tenantId: "initech" })
+    vaultCheck("overrides.delete with none set is 404 NOT_FOUND", refused(odNone, 404, "NOT_FOUND", "tenant override not found"), failure(odNone))
+    const odOk = await od({ key: "spot/config.a", tenantId: " globex " })
+    vaultCheck("overrides.delete answers ok, the key and the trimmed tenant", same([odOk.body?.data?.ok, odOk.body?.data?.key, odOk.body?.data?.tenantId], [true, "spot/config.a", "globex"]), JSON.stringify(odOk.body))
+    const rReverted = data(await cfgCall("config.resolve", { key: "spot/config.a", tenantId: "globex" }))
+    vaultCheck("deleting the override hands the tenant back to the app default", rReverted?.source === "appDefault" && rReverted.value === "eight" && !("overrideValue" in rReverted), JSON.stringify(rReverted))
+    vaultCheck("overrides.delete records override.deleted", (await cfgActions("spot/config.a"))[0] === "override.deleted", JSON.stringify(await cfgActions("spot/config.a")))
+
+    // config.delete: overrides go with the key and stay gone when it is made again.
+    const dl = "spot/config.del"
+    await mk({ key: dl, valueType: "string", value: "first", description: "to be deleted" })
+    await cfgCall("config.update", { key: dl, value: "second" })
+    await os({ key: dl, tenantId: "acme", value: "a" })
+    await os({ key: dl, tenantId: "globex", value: "g" })
+    const dropped = await cfgCall("config.delete", { key: dl })
+    vaultCheck("config.delete answers ok and the key", same([dropped.body?.data?.ok, dropped.body?.data?.key], [true, dl]), JSON.stringify(dropped.body))
+    const droppedDetail = await cfgCall("config.detail", { key: dl })
+    vaultCheck("a deleted entry is gone", refused(droppedDetail, 404, "NOT_FOUND", "config entry not found"), failure(droppedDetail))
+    const droppedOverrides = data(await cfgCall("overrides.list", { key: dl }))
+    const droppedByTenant = data(await cfgCall("overrides.list", { tenantId: "acme" }))
+    vaultCheck("config.delete removes the key's overrides, so none is left to list as an orphan", droppedOverrides?.total === 0 && !(droppedByTenant?.overrides ?? []).some((o) => o.key === dl), JSON.stringify([droppedOverrides, droppedByTenant?.total]))
+    const droppedTwice = await cfgCall("config.delete", { key: dl })
+    vaultCheck("config.delete on a missing key is 404 NOT_FOUND", refused(droppedTwice, 404, "NOT_FOUND", "config entry not found"), failure(droppedTwice))
+    await mk({ key: dl, valueType: "string", value: "reborn" })
+    const reborn = data(await cfgCall("config.detail", { key: dl }))
+    const rebornVersions = data(await cfgCall("config.versions", { key: dl }))?.versions ?? []
+    vaultCheck(
+      "create after delete starts clean: no overrides, one version",
+      same(reborn?.overrides, []) && reborn?.entry?.version === 1 && rebornVersions.length === 1 && reborn.entry.description === "",
+      JSON.stringify([reborn?.overrides, rebornVersions]),
+    )
+    const rebornResolve = data(await cfgCall("config.resolve", { key: dl, tenantId: "acme" }))
+    vaultCheck("and no tenant resolves through an old override", rebornResolve?.source === "appDefault" && rebornResolve.value === "reborn", JSON.stringify(rebornResolve))
+    const rebornActions = await cfgActions(dl)
+    vaultCheck("the history keeps the deletion, and clearing the overrides wrote no override.deleted rows", rebornActions.includes("config.deleted") && !rebornActions.includes("override.deleted"), JSON.stringify(rebornActions))
+    // Recreating a key that has an orphan clears the orphan.
+    await mk({ key: "legacy.retired-flag", valueType: "bool", value: true })
+    const orphanGone = data(await cfgCall("overrides.list", { key: "legacy.retired-flag" }))
+    vaultCheck("creating a key that has orphaned overrides clears them", orphanGone?.total === 0, JSON.stringify(orphanGone))
+
+    // The manifest's invalidates, for the six config and override commands.
+    const configInvalidates = [
+      ["config.create", cMade, "config.detail,config.list,config.resolve,config.versions,overrides.list"],
+      ["config.update", uVal, "config.detail,config.list,config.resolve,config.versions"],
+      ["config.delete", dropped, "config.detail,config.list,config.resolve,config.versions,overrides.list"],
+      ["config.rollback", rbOk, "config.detail,config.list,config.resolve,config.versions"],
+      ["overrides.set", osSet, "config.detail,config.resolve,overrides.list"],
+      ["overrides.delete", odOk, "config.detail,config.resolve,overrides.list"],
+    ]
+    for (const [intent, response, want] of configInvalidates) {
+      vaultCheck(`${intent} declares the manifest's invalidates`, invalidates(response) === want, `${invalidates(response)} vs ${want}`)
+    }
+
+    // Audit: every action is one Go writes, and the ones this block caused are all there.
+    const cfgAudit = new Set()
+    for (const key of ["spot/config.a", "spot/config.json", dl, "limits.api-rate", "search.page-size", "legacy.retired-flag", "ui.theme-default"]) for (const a of await cfgActions(key)) cfgAudit.add(a)
+    vaultCheck(
+      "every config audit action is one Go writes",
+      [...cfgAudit].every((a) => ["config.set", "config.deleted", "config.rolled_back", "override.set", "override.deleted"].includes(a)) && ["config.set", "config.deleted", "config.rolled_back", "override.set", "override.deleted"].every((a) => cfgAudit.has(a)),
+      JSON.stringify([...cfgAudit]),
+    )
+    const rolledSeed = await cfgActions("search.page-size")
+    vaultCheck("the seed has a rolled-back entry", rolledSeed.includes("config.rolled_back"), JSON.stringify(rolledSeed))
+
+    // Clean up every entry this block made, then prove the seed count is back.
+    for (const key of ["spot/config.a", "spot/config.json", "spot/config.dur0", "spot/config.dur1", "spot/config.dur2", "spot/config.dur3", "spot/config.dur4", dl, "legacy.retired-flag"]) await cfgCall("config.delete", { key })
+    const configAfter = data(await cfgCall("config.list", {}))
+    vaultCheck("the config spot checks cleaned up after themselves", configAfter?.total === clist?.total, `${configAfter?.total} vs ${clist?.total}`)
+    }
   }
 
   console.log(`\nFinal: ${passed + (failures.length === 0 ? 0 : 0)} handler calls verified, ${failures.length} total failures (including spot checks).`)
