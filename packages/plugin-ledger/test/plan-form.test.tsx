@@ -85,6 +85,19 @@ describe("parsePlanForm", () => {
     const parsed = parsePlanForm(form, "edit")
     expect(parsed.ok && parsed.value.features[0].id).toBe("pf_api")
   })
+
+  it("shows a stored -1 on an on-or-off feature as limit 0, and never sends -1 for one", () => {
+    const plan = aPlan()
+    plan.features[2] = { ...plan.features[2], limit: -1 }
+    const form = planToForm(plan)
+    expect(form.features[2]).toMatchObject({ type: "boolean", limit: "0", unlimited: false })
+    const parsed = parsePlanForm(form, "edit")
+    expect(parsed.ok && parsed.value.features[2].limit).toBe(0)
+    // A stale unlimited flag on a boolean row is ignored.
+    form.features[2] = { ...form.features[2], unlimited: true, limit: "1" }
+    const again = parsePlanForm(form, "edit")
+    expect(again.ok && again.value.features[2].limit).toBe(1)
+  })
 })
 
 describe("LedgerPlanCreatePage", () => {
@@ -135,6 +148,18 @@ describe("LedgerPlanCreatePage", () => {
     fireEvent.change(screen.getByLabelText("Feature 1 type"), { target: { value: "boolean" } })
     expect((screen.getByLabelText("Feature 1 limit") as HTMLInputElement).value).toBe("1")
     expect(screen.getByText("1 means on, 0 means off")).toBeTruthy()
+  })
+
+  it("offers no Unlimited box on an on-or-off row, and a switch from unlimited starts it on", () => {
+    renderWithNavigation(LedgerPlanCreatePage, stubClient({}))
+    fireEvent.click(screen.getByRole("button", { name: "Add feature" }))
+    fireEvent.click(screen.getByLabelText("Feature 1: unlimited"))
+    expect((screen.getByLabelText("Feature 1 limit") as HTMLInputElement).disabled).toBe(true)
+    fireEvent.change(screen.getByLabelText("Feature 1 type"), { target: { value: "boolean" } })
+    expect(screen.queryByLabelText("Feature 1: unlimited")).toBeNull()
+    const limit = screen.getByLabelText("Feature 1 limit") as HTMLInputElement
+    expect(limit.disabled).toBe(false)
+    expect(limit.value).toBe("1")
   })
 
   it("gives each row's checkboxes a name of their own", () => {

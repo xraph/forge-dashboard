@@ -10,10 +10,7 @@ import { OffsetPager } from "../components/offset-pager"
 import { listEmptyMessage, pageCaption, pageParams } from "../lib/paging"
 import { featurePath } from "../lib/paths"
 import type { CatalogFeature, Page } from "../types"
-import { defaultLimitText } from "./feature-form"
-
-const PERIOD: Record<string, string> = { monthly: "Monthly", yearly: "Yearly", none: "Never" }
-const TYPE: Record<string, string> = { metered: "Metered", seat: "Seats", boolean: "On or off" }
+import { defaultLimitText, PERIOD, TYPE } from "./feature-form"
 
 const columns: Column<CatalogFeature>[] = [
   {

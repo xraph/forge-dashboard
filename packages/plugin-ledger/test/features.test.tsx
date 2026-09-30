@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest"
-import { fireEvent, screen, within } from "@testing-library/react"
+import { fireEvent, screen, waitFor, within } from "@testing-library/react"
 import { LedgerFeaturesPage } from "../src/pages/features"
 import { recordingQueryClient, renderPage, stubClient } from "./harness"
 import { aCatalogFeature, aPage } from "./fixtures"
@@ -18,7 +18,23 @@ describe("LedgerFeaturesPage", () => {
     expect(sent[0].params).toEqual({ limit: 50, offset: 0 })
     fireEvent.change(screen.getByLabelText("Catalog"), { target: { value: "shared" } })
     await screen.findByRole("link", { name: "Seats" })
-    expect(sent.at(-1)?.params).toEqual({ limit: 50, offset: 0, global: true })
+    await waitFor(() => expect(sent.at(-1)?.params).toEqual({ limit: 50, offset: 0, global: true }))
+  })
+
+  it("sends the status filter, and goes back to the first page when it changes", async () => {
+    const { client, sent } = recordingQueryClient({ "features.list": LIST })
+    renderPage(LedgerFeaturesPage, client)
+    await screen.findByRole("link", { name: "Seats" })
+    fireEvent.change(screen.getByLabelText("Status"), { target: { value: "draft" } })
+    await waitFor(() => expect(sent.at(-1)?.params).toEqual({ limit: 50, offset: 0, status: "draft" }))
+  })
+
+  it("asks for the next offset when there is more", async () => {
+    const { client, sent } = recordingQueryClient({ "features.list": aPage([aCatalogFeature()], { has_more: true }) })
+    renderPage(LedgerFeaturesPage, client)
+    await screen.findByRole("link", { name: "API calls" })
+    fireEvent.click(screen.getByRole("button", { name: "Next page" }))
+    await waitFor(() => expect(sent.at(-1)?.params).toEqual({ limit: 50, offset: 50 }))
   })
 
   it("reads limits as a person would and counts the rows", async () => {

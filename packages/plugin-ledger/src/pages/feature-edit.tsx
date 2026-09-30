@@ -32,27 +32,30 @@ function FeatureEditBody({ id }: { id: string }) {
     navigate(featurePath(id))
   }
 
-  if (isNotFound(detail.error, "feature")) return <NotFoundState noun="feature" id={id} backTo="/features" backLabel="Back to features" />
+  const form = (f: CatalogFeature) => (
+    <section className="flex flex-col gap-4">
+      <PageHeader title={`Edit ${f.name}`} />
+      <FeatureForm
+        key={f.id}
+        mode="edit"
+        initial={featureToForm(f)}
+        submitLabel="Save changes"
+        pendingLabel="Saving…"
+        pending={update.loading}
+        error={update.error}
+        errorTitle="Could not save the feature"
+        cancelTo={featurePath(id)}
+        onSubmit={(parsed) => void submit(parsed)}
+      />
+    </section>
+  )
 
+  // Data already on screen stays up while a write's invalidation refetches, so the form keeps what was typed.
+  if (detail.data !== undefined) return form(detail.data)
+  if (isNotFound(detail.error, "feature")) return <NotFoundState noun="feature" id={id} backTo="/features" backLabel="Back to features" />
   return (
     <QueryBoundary title="Feature" query={detail} skeletonRows={4}>
-      {(f) => (
-        <section className="flex flex-col gap-4">
-          <PageHeader title={`Edit ${f.name}`} />
-          <FeatureForm
-            key={f.id}
-            mode="edit"
-            initial={featureToForm(f)}
-            submitLabel="Save changes"
-            pendingLabel="Saving…"
-            pending={update.loading}
-            error={update.error}
-            errorTitle="Could not save the feature"
-            cancelTo={featurePath(id)}
-            onSubmit={(parsed) => void submit(parsed)}
-          />
-        </section>
-      )}
+      {form}
     </QueryBoundary>
   )
 }

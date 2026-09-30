@@ -69,6 +69,22 @@ describe("LedgerFeatureCreatePage", () => {
   })
 })
 
+describe("FeatureForm accessibility", () => {
+  it("ties the limit input to its help text and focuses the problems after a failed submit", async () => {
+    const { client } = scriptedClient({})
+    renderWithNavigation(LedgerFeatureCreatePage, client)
+    expect(screen.getByLabelText("Key").getAttribute("aria-describedby")).toBe("feature-key-help")
+    fireEvent.change(screen.getByLabelText("Type"), { target: { value: "boolean" } })
+    const limit = screen.getByLabelText("Default limit")
+    const helpId = limit.getAttribute("aria-describedby")
+    expect(helpId).toBeTruthy()
+    expect(document.getElementById(helpId!)?.textContent).toMatch(/1 or more includes the feature/)
+    fireEvent.click(screen.getByRole("button", { name: "Create feature" }))
+    const alert = await screen.findByText("Key is required.")
+    await waitFor(() => expect(document.activeElement).toBe(alert.closest('[role="alert"]')))
+  })
+})
+
 describe("parseFeatureForm", () => {
   it("drops unlimited for a boolean feature and keeps the typed limit", () => {
     const v = { ...emptyFeatureForm(), key: "sso", type: "boolean" as const, unlimited: true, limit: "0" }
@@ -116,6 +132,12 @@ describe("LedgerFeatureEditPage", () => {
     expect("key" in payload).toBe(false)
     expect("type" in payload).toBe(false)
     expect(Object.values(payload).every((v) => v !== null)).toBe(true)
+  })
+
+  it("says so when the feature does not exist", async () => {
+    const { client } = scriptedClient({ "features.detail": new ContractError("NOT_FOUND", "feature not found") })
+    renderWithNavigation(LedgerFeatureEditPage, client, { id: "feat_gone" })
+    expect(await screen.findByText("No feature with the id feat_gone.")).toBeTruthy()
   })
 
   it("shows a refused save and keeps the form", async () => {

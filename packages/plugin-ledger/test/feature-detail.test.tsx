@@ -20,6 +20,15 @@ describe("LedgerFeatureDetailPage", () => {
     expect((screen.getByRole("link", { name: "Edit" }) as HTMLAnchorElement).getAttribute("href")).toBe("/features/feat_api_calls/edit")
   })
 
+  it("offers the provider sync, and words the archive dialog as the engine behaves", async () => {
+    open()
+    expect(await screen.findByRole("button", { name: "Sync to provider" })).toBeTruthy()
+    fireEvent.click(screen.getByRole("button", { name: "Archive" }))
+    const dialog = await screen.findByRole("alertdialog")
+    expect(within(dialog).getByText(/marked archived in the catalog/)).toBeTruthy()
+    expect(within(dialog).queryByText(/no longer pick/)).toBeNull()
+  })
+
   it("explains who can change a shared feature", async () => {
     open(aCatalogFeature({ app_id: "" }))
     await screen.findByRole("heading", { name: "API calls" })

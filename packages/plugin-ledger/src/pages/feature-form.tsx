@@ -1,4 +1,4 @@
-import { useState } from "react"
+import { useEffect, useRef, useState } from "react"
 import type { FormEvent } from "react"
 import { PluginLink } from "@forge-go/dashboard-plugin"
 import { Button } from "@forge-go/dashboard-kit/components/button"
@@ -10,6 +10,9 @@ import { Textarea } from "@forge-go/dashboard-kit/components/textarea"
 import type { CatalogFeature, FeatureType, Period } from "../types"
 
 const number = new Intl.NumberFormat()
+
+export const PERIOD: Record<string, string> = { monthly: "Monthly", yearly: "Yearly", none: "Never" }
+export const TYPE: Record<string, string> = { metered: "Metered", seat: "Seats", boolean: "On or off" }
 
 /**
  * A catalog feature's default limit as a person reads it. An on-or-off
@@ -110,6 +113,11 @@ export function FeatureForm({
   const [problems, setProblems] = useState<string[]>([])
   const set = <K extends keyof FeatureFormValue>(key: K, value: FeatureFormValue[K]) => setV((prev) => ({ ...prev, [key]: value }))
   const isBoolean = v.type === "boolean"
+  const problemsRef = useRef<HTMLDivElement>(null)
+  // A failed parse moves focus to the alert, so a keyboard or screen-reader user hears it.
+  useEffect(() => {
+    if (problems.length > 0) problemsRef.current?.focus()
+  }, [problems])
 
   function changeType(type: FeatureType) {
     setV((prev) => {
@@ -136,7 +144,7 @@ export function FeatureForm({
     <form onSubmit={submit} className="flex max-w-2xl flex-col gap-4">
       <CommandAlert error={error} title={errorTitle} />
       {problems.length > 0 && (
-        <div role="alert" className="flex flex-col gap-0.5 rounded-md border border-destructive/50 px-3 py-2 text-sm text-destructive">
+        <div ref={problemsRef} tabIndex={-1} role="alert" className="flex flex-col gap-0.5 rounded-md border border-destructive/50 px-3 py-2 text-sm text-destructive">
           {problems.map((p) => (
             <span key={p}>{p}</span>
           ))}
@@ -145,8 +153,8 @@ export function FeatureForm({
       {mode === "create" ? (
         <div className="flex flex-col gap-1.5">
           <Label htmlFor="feature-key">Key</Label>
-          <Input id="feature-key" className="font-mono" autoComplete="off" spellCheck={false} value={v.key} onChange={(e) => set("key", e.target.value)} />
-          <p className="text-xs text-muted-foreground">What code checks entitlements with. It cannot change later.</p>
+          <Input id="feature-key" aria-describedby="feature-key-help" className="font-mono" autoComplete="off" spellCheck={false} value={v.key} onChange={(e) => set("key", e.target.value)} />
+          <p id="feature-key-help" className="text-xs text-muted-foreground">What code checks entitlements with. It cannot change later.</p>
         </div>
       ) : (
         <p className="text-sm">
@@ -164,18 +172,19 @@ export function FeatureForm({
       {mode === "create" && (
         <div className="flex flex-col gap-1.5">
           <Label htmlFor="feature-type">Type</Label>
-          <NativeSelect id="feature-type" value={v.type} onChange={(e) => changeType(e.target.value as FeatureType)}>
+          <NativeSelect id="feature-type" aria-describedby="feature-type-help" value={v.type} onChange={(e) => changeType(e.target.value as FeatureType)}>
             <NativeSelectOption value="metered">Metered</NativeSelectOption>
             <NativeSelectOption value="seat">Seats</NativeSelectOption>
             <NativeSelectOption value="boolean">On or off</NativeSelectOption>
           </NativeSelect>
-          <p className="text-xs text-muted-foreground">It cannot change later.</p>
+          <p id="feature-type-help" className="text-xs text-muted-foreground">It cannot change later.</p>
         </div>
       )}
       <div className="flex flex-col gap-1.5">
         <Label htmlFor="feature-limit">Default limit</Label>
         <Input
           id="feature-limit"
+          aria-describedby={isBoolean ? "feature-limit-help" : undefined}
           inputMode="numeric"
           className="w-40 text-right tabular-nums"
           disabled={v.unlimited && !isBoolean}
@@ -183,7 +192,7 @@ export function FeatureForm({
           onChange={(e) => set("limit", e.target.value)}
         />
         {isBoolean ? (
-          <p className="text-xs text-muted-foreground">1 or more includes the feature. 0 leaves it out.</p>
+          <p id="feature-limit-help" className="text-xs text-muted-foreground">1 or more includes the feature. 0 leaves it out.</p>
         ) : (
           <label className="flex items-center gap-1.5 text-sm">
             <input type="checkbox" checked={v.unlimited} onChange={(e) => set("unlimited", e.target.checked)} />

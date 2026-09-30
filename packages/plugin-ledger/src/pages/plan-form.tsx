@@ -102,8 +102,9 @@ export function planToForm(p: Plan): PlanFormValue {
         key: f.key,
         name: f.name,
         type: f.type,
-        limit: f.limit === -1 ? "" : String(f.limit),
-        unlimited: f.limit === -1,
+        // An on-or-off feature is on only above zero, so a stored -1 is "off", not "unlimited".
+        limit: f.limit === -1 ? (f.type === "boolean" ? "0" : "") : String(f.limit),
+        unlimited: f.limit === -1 && f.type !== "boolean",
         period: f.period,
         soft_limit: f.soft_limit,
       }
@@ -167,7 +168,7 @@ export function parsePlanForm(v: PlanFormValue, mode: "create" | "edit"): { ok: 
     else if (seen.has(key)) errors.push(`Feature ${n}: the key ${key} is already used.`)
     seen.add(key)
     let limit = -1
-    if (!f.unlimited) {
+    if (!(f.unlimited && f.type !== "boolean")) {
       const parsedLimit = wholeNumber(f.limit)
       if (parsedLimit === undefined) errors.push(`Feature ${n}: the limit must be a whole number, 0 or more, or unlimited.`)
       else limit = parsedLimit
@@ -355,8 +356,9 @@ export function PlanForm({ mode, initial, submitLabel, pendingLabel, pending, er
                 <Label htmlFor={`feature-${n}-type`}>Feature {n} type</Label>
                 <NativeSelect id={`feature-${n}-type`} value={f.type} onChange={(e) => {
                     const type = e.target.value as FeatureType
-                    // A fresh row's limit is 0, which reads as "off" for a boolean feature.
-                    setFeature(i, type === "boolean" && !f.unlimited && f.limit.trim() === "0" ? { type, limit: "1" } : { type })
+                    // A fresh row's limit is 0 and an unlimited one is -1, and both read as "off" for a boolean feature.
+                    const startOn = type === "boolean" && (f.unlimited || f.limit.trim() === "" || f.limit.trim() === "0")
+                    setFeature(i, startOn ? { type, limit: "1", unlimited: false } : { type })
                   }}>
                   {FEATURE_TYPES.map((t) => (
                     <NativeSelectOption key={t.value} value={t.value}>
@@ -371,15 +373,17 @@ export function PlanForm({ mode, initial, submitLabel, pendingLabel, pending, er
                   id={`feature-${n}-limit`}
                   inputMode="numeric"
                   className="text-right tabular-nums"
-                  disabled={f.unlimited}
-                  value={f.unlimited ? "" : f.limit}
+                  disabled={f.unlimited && f.type !== "boolean"}
+                  value={f.unlimited && f.type !== "boolean" ? "" : f.limit}
                   onChange={(e) => setFeature(i, { limit: e.target.value })}
                 />
                 {f.type === "boolean" && <p className="text-xs text-muted-foreground">1 means on, 0 means off</p>}
-                <label className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                  <input type="checkbox" aria-label={`Feature ${n}: unlimited`} checked={f.unlimited} onChange={(e) => setFeature(i, { unlimited: e.target.checked })} />
-                  Unlimited
-                </label>
+                {f.type !== "boolean" && (
+                  <label className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                    <input type="checkbox" aria-label={`Feature ${n}: unlimited`} checked={f.unlimited} onChange={(e) => setFeature(i, { unlimited: e.target.checked })} />
+                    Unlimited
+                  </label>
+                )}
               </div>
               <div className="flex flex-col gap-1.5">
                 <Label htmlFor={`feature-${n}-period`}>Feature {n} resets</Label>

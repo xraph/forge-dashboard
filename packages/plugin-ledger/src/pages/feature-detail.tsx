@@ -13,10 +13,7 @@ import { isNotFound, NotFoundState } from "../components/not-found"
 import { SyncPanel } from "../components/sync-panel"
 import { featureEditPath } from "../lib/paths"
 import type { Ack, CatalogFeature } from "../types"
-import { defaultLimitText } from "./feature-form"
-
-const PERIOD: Record<string, string> = { monthly: "Monthly", yearly: "Yearly", none: "Never" }
-const TYPE: Record<string, string> = { metered: "Metered", seat: "Seats", boolean: "On or off" }
+import { defaultLimitText, PERIOD, TYPE } from "./feature-form"
 
 export function LedgerFeatureDetailPage({ params }: PluginPageProps) {
   const id = params.id
@@ -106,7 +103,7 @@ function FeatureDetailView({ feature }: { feature: CatalogFeature }) {
         open={pending === "archive"}
         onOpenChange={(o) => !o && setPending(null)}
         title={`Archive ${feature.name}?`}
-        description="Plans that already grant it keep it. New plans can no longer pick it."
+        description="It stays on plans that already include it and is marked archived in the catalog."
         confirmLabel="Archive feature"
         command={archive}
         payload={{ id: feature.id }}
