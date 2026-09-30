@@ -37,6 +37,7 @@ export function ImportFromProviderAction<T>(props: ImportProps<T>) {
       <Button variant="outline" onClick={() => setOpen(true)}>
         Import from provider
       </Button>
+      {/* Unmounting on close is what resets the command and the fields. */}
       {open && <ImportDialog {...props} onClose={() => setOpen(false)} />}
     </>
   )
@@ -50,6 +51,9 @@ function ImportDialog<T>({ intent, noun, description, pathOf, onClose }: ImportP
   const [chosen, setChosen] = useState("")
   const [providerId, setProviderId] = useState("")
   const errorRef = useRef<HTMLDivElement>(null)
+  // Set the moment a submit starts, before React re-renders, so a second submit
+  // in the same tick cannot slip past the disabled button.
+  const inFlight = useRef(false)
   const providers = settings.data?.providers ?? []
   // One provider needs no choice. Several do: the engine's default is the one
   // registered first, and settings.detail lists them sorted, so this page
@@ -67,8 +71,14 @@ function ImportDialog<T>({ intent, noun, description, pathOf, onClose }: ImportP
   async function submit(event: FormEvent) {
     event.preventDefault()
     // Enter in a field submits even when the button is disabled.
-    if (!canSubmit) return
-    const result = await command.execute({ provider_name: provider, provider_id: id })
+    if (!canSubmit || inFlight.current) return
+    inFlight.current = true
+    let result: T | undefined
+    try {
+      result = await command.execute({ provider_name: provider, provider_id: id })
+    } finally {
+      inFlight.current = false
+    }
     // undefined means the command failed; the dialog stays open on its error.
     if (result === undefined) return
     navigate(pathOf(result))

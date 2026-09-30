@@ -95,7 +95,7 @@ export function LedgerSubscriptionsPage() {
             <ImportFromProviderAction<SubscriptionDetail>
               intent="subscriptions.importFromProvider"
               noun="subscription"
-              description="Copies one subscription from the payment provider into this app. Its plan must already be an active plan here, so import the plan first if it isn't."
+              description="Copies one subscription from the payment provider into this app. Its plan must already be an active plan here. Import the plan first if this app lacks it, or activate it if it is archived."
               pathOf={(d) => subscriptionPath(d.subscription.id)}
             />
             <NewSubscriptionLink />

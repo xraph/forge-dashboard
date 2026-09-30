@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest"
-import { fireEvent, screen, waitFor, within } from "@testing-library/react"
+import { act, fireEvent, screen, waitFor, within } from "@testing-library/react"
 import { ContractError } from "@forge-go/dashboard-plugin"
 import { ImportFromProviderAction } from "../src/components/import-from-provider"
 import { planPath } from "../src/lib/paths"
@@ -120,23 +120,29 @@ describe("ImportFromProviderAction", () => {
 })
 
 describe("ImportFromProviderAction: dialog behaviour", () => {
-  function expectPhrasingOnly(dialog: HTMLElement) {
+  // The real invariant: a refusal is never rendered inside the description,
+  // which the kit renders as a <p>. The description itself stays text only.
+  function expectAlertsOutsideDescription(dialog: HTMLElement) {
     const description = dialog.querySelector("[data-slot=dialog-description]")
     expect(description).not.toBeNull()
-    expect(description?.querySelector("div, p, ul, ol, table, section, h1, h2, h3")).toBeNull()
+    expect(description?.querySelector("div, p, ul, ol, table, section, h1, h2, h3, [role=alert]")).toBeNull()
+    for (const alert of dialog.querySelectorAll("[role=alert]")) {
+      expect(alert.closest("[data-slot=dialog-description]")).toBeNull()
+    }
   }
 
-  it("keeps the description phrasing-only in every state", async () => {
+  it("never renders an error inside the description, in any state", async () => {
     const refusal = new ContractError("CONFLICT", "slug already used")
     const { client } = scriptedClient({ "settings.detail": SETTINGS }, { "plans.importFromProvider": refusal })
     renderWithNavigation(PlanImport, client)
     const dialog = await openDialog()
-    expectPhrasingOnly(dialog)
+    expectAlertsOutsideDescription(dialog)
     fireEvent.change(await within(dialog).findByLabelText("Provider ID"), { target: { value: "prod_pro" } })
-    expectPhrasingOnly(dialog)
+    expectAlertsOutsideDescription(dialog)
     fireEvent.click(within(dialog).getByRole("button", { name: "Import plan" }))
-    await within(dialog).findByRole("alert")
-    expectPhrasingOnly(dialog)
+    const alert = await within(dialog).findByRole("alert")
+    expect(alert.closest("[data-slot=dialog-description]")).toBeNull()
+    expectAlertsOutsideDescription(dialog)
   })
 
   it("links the help text to the field and names the provider in it", async () => {
@@ -172,6 +178,35 @@ describe("ImportFromProviderAction: dialog behaviour", () => {
     await waitFor(() => expect(navigate).toHaveBeenCalledWith("/plans/plan_slow"))
   })
 
+  it("sends once when two submits arrive in the same tick", async () => {
+    let release: (value: unknown) => void = () => {}
+    const { client, sent } = scriptedClient({ "settings.detail": SETTINGS })
+    const slow = {
+      ...client,
+      command: (intent: string, payload?: unknown) => {
+        sent.push({ intent, payload })
+        return new Promise((resolve) => {
+          release = resolve as (value: unknown) => void
+        })
+      },
+    } as typeof client
+    const { navigate } = renderWithNavigation(PlanImport, slow)
+    const dialog = await openDialog()
+    fireEvent.change(await within(dialog).findByLabelText("Provider ID"), { target: { value: "prod_1" } })
+    const button = within(dialog).getByRole("button", { name: "Import plan" })
+    const form = button.closest("form")!
+    // One act: React has not re-rendered, so the button is still enabled for both.
+    act(() => {
+      button.click()
+      button.click()
+      form.requestSubmit()
+    })
+    expect(sent).toHaveLength(1)
+    release(aPlan({ id: "plan_once" }))
+    await waitFor(() => expect(navigate).toHaveBeenCalledWith("/plans/plan_once"))
+    expect(sent).toHaveLength(1)
+  })
+
   it("moves focus to the refusal after a failed submit", async () => {
     const refusal = new ContractError("NOT_FOUND", "stripe has no plan prod_x")
     const { client } = scriptedClient({ "settings.detail": SETTINGS }, { "plans.importFromProvider": refusal })
@@ -183,7 +218,7 @@ describe("ImportFromProviderAction: dialog behaviour", () => {
     await waitFor(() => expect(alert.parentElement).toBe(document.activeElement))
   })
 
-  it("keeps the entered ID after a refusal so the operator can correct it", async () => {
+  it("keeps the ID while the dialog stays open, and starts clean when it is reopened", async () => {
     const refusal = new ContractError("NOT_FOUND", "stripe has no plan prod_x")
     const { client } = scriptedClient({ "settings.detail": SETTINGS }, { "plans.importFromProvider": refusal })
     renderWithNavigation(PlanImport, client)
@@ -191,7 +226,15 @@ describe("ImportFromProviderAction: dialog behaviour", () => {
     fireEvent.change(await within(dialog).findByLabelText("Provider ID"), { target: { value: "prod_x" } })
     fireEvent.click(within(dialog).getByRole("button", { name: "Import plan" }))
     await within(dialog).findByRole("alert")
+    // While the dialog stays open on its refusal, the ID is kept for correction.
     expect((within(dialog).getByLabelText("Provider ID") as HTMLInputElement).value).toBe("prod_x")
+    fireEvent.click(within(dialog).getByRole("button", { name: "Cancel" }))
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull())
+    // Reopened: no stale error, and an empty field.
+    const reopened = await openDialog()
+    const field = (await within(reopened).findByLabelText("Provider ID")) as HTMLInputElement
+    expect(field.value).toBe("")
+    expect(within(reopened).queryByRole("alert")).toBeNull()
   })
 })
 
