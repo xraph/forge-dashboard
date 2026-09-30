@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
-import { fireEvent, screen, waitFor, within } from "@testing-library/react"
-import { ContractError, queryStore } from "@forge-go/dashboard-plugin"
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react"
+import { ContractError, PluginProvider, queryStore } from "@forge-go/dashboard-plugin"
+import type { ScopedClient } from "@forge-go/dashboard-plugin"
 import { legalActions, LedgerSubscriptionDetailPage } from "../src/pages/subscription-detail"
 import { failingClient, renderPage, renderWithNavigation, scriptedClient } from "./harness"
 import { aCoupon, anInvoice, aPage, aPlan, aSubscription } from "./fixtures"
@@ -244,6 +245,46 @@ describe("LedgerSubscriptionDetailPage", () => {
     } finally {
       complaints.mockRestore()
     }
+  })
+
+  it("judges the period against the moment the cancel dialog opens, not the page load", async () => {
+    // The period ends a minute after the pinned clock; the page loads before it and the dialog opens after.
+    open(aSubscription({ current_period_end: "2026-09-30T12:01:00Z" }))
+    const cancelButton = await screen.findByRole("button", { name: "Cancel subscription" })
+    vi.setSystemTime(new Date("2026-09-30T12:05:00Z"))
+    fireEvent.click(cancelButton)
+    const dialog = await screen.findByRole("alertdialog")
+    expect(within(dialog).getByLabelText("The period ended on Sep 30, 2026, so this cancels now.")).toBeTruthy()
+  })
+
+  it("starts clean when the address moves to another subscription in place", async () => {
+    const subs = { sub_one: aSubscription({ id: "sub_one", tenant_id: "one" }), sub_two: aSubscription({ id: "sub_two", tenant_id: "two" }) }
+    const client = {
+      extension: "ledger",
+      query: async (intent: string, params?: { id?: string }) => {
+        if (intent === "subscriptions.detail") return { subscription: subs[params?.id as keyof typeof subs], plan: aPlan(), applied_coupons: [] }
+        return answers()[intent as keyof ReturnType<typeof answers>]
+      },
+      command: async () => aCoupon(),
+    } as unknown as ScopedClient
+    const page = (id: string) => (
+      <PluginProvider client={client}>
+        <LedgerSubscriptionDetailPage params={{ id }} />
+      </PluginProvider>
+    )
+    // Visit sub_two first so its detail is cached: the move back is then instant,
+    // the view never unmounts on a skeleton, and only the key can reset it.
+    const view = render(page("sub_two"))
+    await screen.findByText("two on Pro")
+    view.rerender(page("sub_one"))
+    await screen.findByText("one on Pro")
+    fireEvent.click(await screen.findByRole("button", { name: "Apply coupon" }))
+    fireEvent.change(within(await screen.findByRole("alertdialog")).getByLabelText("Coupon code"), { target: { value: "KEEP" } })
+    view.rerender(page("sub_two"))
+    await screen.findByText("two on Pro")
+    expect(screen.queryByRole("alertdialog")).toBeNull()
+    fireEvent.click(screen.getByRole("button", { name: "Apply coupon" }))
+    expect((within(await screen.findByRole("alertdialog")).getByLabelText("Coupon code") as HTMLInputElement).value).toBe("")
   })
 
   it("does not carry one attempt's refusal or choice into the next", async () => {

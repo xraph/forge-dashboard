@@ -13,6 +13,7 @@ import { Timestamp } from "@forge-go/dashboard-kit/components/timestamp"
 import { SubscriptionStatusBadge } from "../badges"
 import { ConfirmAction } from "../components/confirm-action"
 import { EntitlementPanel } from "../components/entitlement-panel"
+import { InlineAlert } from "../components/inline-alert"
 import { invoiceColumns } from "../components/invoice-columns"
 import { isNotFound, NotFoundState } from "../components/not-found"
 import { SyncPanel } from "../components/sync-panel"
@@ -66,7 +67,8 @@ export function LedgerSubscriptionDetailPage({ params }: PluginPageProps) {
       </p>
     )
   }
-  return <SubscriptionDetailBody id={id} />
+  // Keyed by id, so moving between subscriptions in place starts with fresh dialog state and a fresh clock.
+  return <SubscriptionDetailBody key={id} id={id} />
 }
 
 function SubscriptionDetailBody({ id }: { id: string }) {
@@ -100,8 +102,10 @@ function SubscriptionDetailView({ detail }: { detail: SubscriptionDetail }) {
   const [dialog, setDialog] = useState<Dialog>(null)
   const [immediately, setImmediately] = useState(false)
   const [code, setCode] = useState("")
-  // Read once per visit: "past" is judged against when the page was opened, not on every render.
+  // The aside judges "past" against when the page was opened, not on every render.
   const [now] = useState(() => Date.now())
+  // The cancel dialog judges it against the moment the dialog opens (set in openDialog).
+  const [openedAt, setOpenedAt] = useState(() => Date.now())
 
   function openDialog(which: Exclude<Dialog, null>) {
     // Reset at open, and clear what the dialog collects, so nothing from an
@@ -111,6 +115,7 @@ function SubscriptionDetailView({ detail }: { detail: SubscriptionDetail }) {
     if (which !== "changePlan") ({ pause, resume, cancel, applyCoupon })[which].reset()
     setImmediately(false)
     setCode("")
+    setOpenedAt(Date.now())
     setDialog(which)
   }
 
@@ -135,7 +140,7 @@ function SubscriptionDetailView({ detail }: { detail: SubscriptionDetail }) {
       </span>
     ),
   }
-  const periodEnded = Date.parse(sub.current_period_end) <= now
+  const periodEnded = Date.parse(sub.current_period_end) <= openedAt
   const seatText = Object.entries(sub.quantity ?? {}).map(([k, n]) => `${k}: ${n}`)
 
   return (
@@ -368,14 +373,7 @@ function ChangePlanDialog({ subscription: sub, current, onClose }: { subscriptio
               </label>
             </>
           )}
-          {plans.error && (
-            // Spans, not CommandAlert: its div would sit inside the description paragraph.
-            <span role="alert" className="flex flex-col gap-0.5 rounded-md border border-destructive/50 px-3 py-2 text-sm text-destructive">
-              <span className="font-medium">Could not load the plans</span>
-              <span>{plans.error.message}</span>
-              <span className="font-mono text-xs opacity-70">{plans.error.code}</span>
-            </span>
-          )}
+          {plans.error && <InlineAlert title="Could not load the plans" error={plans.error} />}
         </span>
       }
       confirmLabel="Change plan"

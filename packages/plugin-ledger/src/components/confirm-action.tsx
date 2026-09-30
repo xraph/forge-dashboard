@@ -1,6 +1,7 @@
 import type { ReactNode } from "react"
 import type { CommandState } from "@forge-go/dashboard-plugin"
 import { ConfirmDialog } from "@forge-go/dashboard-kit/components/confirm-dialog"
+import { InlineAlert } from "./inline-alert"
 
 /**
  * One confirmation dialog for one command. The refusal renders inside the
@@ -50,16 +51,7 @@ export function ConfirmAction<T>({
       description={
         <span className="flex flex-col gap-2">
           <span>{description}</span>
-          {command.error && (
-            <span
-              role="alert"
-              className="flex flex-col gap-0.5 rounded-md border border-destructive/50 px-3 py-2 text-sm text-destructive"
-            >
-              <span className="font-medium">{`Could not ${confirmLabel.toLowerCase()}`}</span>
-              <span>{command.error.message}</span>
-              <span className="font-mono text-xs opacity-70">{command.error.code}</span>
-            </span>
-          )}
+          {command.error && <InlineAlert title={`Could not ${confirmLabel.toLowerCase()}`} error={command.error} />}
         </span>
       }
       confirmLabel={confirmLabel}
