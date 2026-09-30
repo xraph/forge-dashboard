@@ -1,4 +1,4 @@
-import { useId, useState, type FormEvent } from "react"
+import { Fragment, useId, useState, type FormEvent } from "react"
 import { PluginLink, useQuery } from "@forge-go/dashboard-plugin"
 import type { PluginPageProps } from "@forge-go/dashboard-plugin"
 import { Badge } from "@forge-go/dashboard-kit/components/badge"
@@ -97,6 +97,7 @@ const RECENT_CHECKS = 10
 
 const NOTE = "text-sm text-muted-foreground"
 const LINK = "underline underline-offset-4"
+const SLUG = "font-mono text-xs"
 
 /** The root is shown, and typed, as "/". It is sent as "". */
 function shown(path: string): string {
@@ -193,7 +194,11 @@ function SubjectAccess({ kind, id }: { kind: string; id: string }) {
             <p className={NOTE}>
               {`Roles and policies are shown at ${at}. Assignments, relations and recent checks cover every namespace.`}
             </p>
-            <RolesSection roles={data.roles ?? []} at={at} />
+            <RolesSection
+              roles={data.roles ?? []}
+              at={at}
+              assignmentsTruncated={data.assignmentsTruncated}
+            />
             <AssignmentsSection
               rows={data.assignments ?? []}
               truncated={data.assignmentsTruncated}
@@ -229,13 +234,35 @@ function PermissionChips({ permissions }: { permissions: SubjectPermission[] }) 
   )
 }
 
-function RolesSection({ roles, at }: { roles: SubjectRole[]; at: string }) {
+/** Role slugs in mono, joined by ", ". */
+function Slugs({ slugs }: { slugs: string[] }) {
+  return (
+    <>
+      {slugs.map((slug, i) => (
+        <Fragment key={slug}>
+          {i > 0 && ", "}
+          <span className={SLUG}>{slug}</span>
+        </Fragment>
+      ))}
+    </>
+  )
+}
+
+function RolesSection({
+  roles,
+  at,
+  assignmentsTruncated,
+}: {
+  roles: SubjectRole[]
+  at: string
+  assignmentsTruncated: boolean
+}) {
   const columns: Column<SubjectRole>[] = [
     {
       id: "role",
       header: "Role",
       cell: (r) => (
-        <PluginLink to={`/roles/${r.id}`} className={LINK}>
+        <PluginLink to={`/roles/${r.id}`} className={`${LINK} ${SLUG}`}>
           {r.slug}
         </PluginLink>
       ),
@@ -251,11 +278,20 @@ function RolesSection({ roles, at }: { roles: SubjectRole[]; at: string }) {
       header: "How it was reached",
       cell: (r) => {
         const by = r.inheritedBy ?? []
-        const through = by.join(", ")
         if (r.via === "assigned") {
-          return by.length > 0 ? `assigned, also held through ${through}` : "assigned"
+          if (by.length === 0) return "assigned"
+          return (
+            <>
+              assigned, also held through <Slugs slugs={by} />
+            </>
+          )
         }
-        return by.length > 0 ? `held through ${through}` : "inherited"
+        if (by.length === 0) return "inherited"
+        return (
+          <>
+            held through <Slugs slugs={by} />
+          </>
+        )
       },
     },
     {
@@ -275,8 +311,9 @@ function RolesSection({ roles, at }: { roles: SubjectRole[]; at: string }) {
         emptyMessage={`No role reaches this subject at ${at}. Assignments for a single resource, in another namespace, or already expired are listed below.`}
       />
       <p className={NOTE}>
-        Roles assigned for one resource only are listed under assignments. They grant
-        only for checks on that resource.
+        {`Roles assigned for one resource only ${
+          assignmentsTruncated ? "are among the assignments" : "are listed under assignments"
+        }. They grant only for checks on that resource.`}
       </p>
     </section>
   )
@@ -295,7 +332,7 @@ function AssignmentsSection({
       header: "Role",
       cell: (a) =>
         a.roleSlug ? (
-          <PluginLink to={`/roles/${a.roleId}`} className={LINK}>
+          <PluginLink to={`/roles/${a.roleId}`} className={`${LINK} ${SLUG}`}>
             {a.roleSlug}
           </PluginLink>
         ) : (
@@ -370,7 +407,7 @@ function RelationsSection({
         <span className="font-mono text-xs">{`${t.objectType}:${t.objectId}`}</span>
       ),
     },
-    { id: "relation", header: "Relation", cell: (t) => t.relation, className: "font-medium" },
+    { id: "relation", header: "Relation", cell: (t) => t.relation, className: SLUG },
     {
       id: "namespace",
       header: "Namespace",
@@ -385,11 +422,12 @@ function RelationsSection({
         rows={rows}
         rowKey={(t) => t.id}
         caption={rows.length > 0 ? count(rows.length, "relation", "relations") : undefined}
-        emptyMessage="No relation tuple names this subject."
+        emptyMessage="No relation tuple has this subject as its subject."
       />
       <p className={NOTE}>
-        Direct relation tuples only. A relation reached through a group or a parent object
-        is found by the check itself; try it in the playground.
+        Direct relation tuples only. A relation reached through a group, a parent object or
+        a resource type's permission expression is found by the check itself; try it in the
+        playground.
       </p>
       {truncated && (
         <p className={NOTE}>{`Showing the first ${SUBJECT_LIST_CAP} relations.`}</p>
@@ -443,12 +481,16 @@ function PoliciesSection({ rows, at }: { rows: SubjectPolicy[]; at: string }) {
   return (
     <section className="flex flex-col gap-3">
       <Heading>{`Policies that select this subject at ${at}`}</Heading>
+      <p className={NOTE}>
+        A policy that selects by a role held for one resource only selects this subject on
+        checks for that resource, and is not listed here.
+      </p>
       <ResourceTable<SubjectPolicy>
         columns={columns}
         rows={rows}
         rowKey={(p) => p.id}
         caption={rows.length > 0 ? count(rows.length, "policy", "policies") : undefined}
-        emptyMessage={`No policy in effect selects this subject at ${at}.`}
+        emptyMessage={`No policy in effect at ${at} selects this subject through its kind, its id or a role it holds for every resource.`}
       />
       <p className={NOTE}>
         {"Selecting is not applying. Each policy's actions, resources, window and conditions decide whether it applies to a given check."}
@@ -474,7 +516,7 @@ function RecentChecksSection({ rows }: { rows: CheckSummary[] }) {
         caption={
           shownRows.length > 0 ? count(shownRows.length, "check", "checks") : undefined
         }
-        emptyMessage="No check has been logged for this subject."
+        emptyMessage="No logged check names this subject."
       />
     </section>
   )
