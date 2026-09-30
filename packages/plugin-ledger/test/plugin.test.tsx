@@ -1,7 +1,8 @@
 import { describe, expect, it } from "vitest"
 import { resolvePluginState } from "@forge-go/dashboard-plugin"
 import type { Capabilities } from "@forge-go/dashboard-plugin"
-import ledgerPlugin, { ledgerPlugin as named } from "../src/index"
+import type { PluginNavItem } from "@forge-go/dashboard-plugin"
+import ledgerPlugin, { inGroupOrder, ledgerPlugin as named } from "../src/index"
 
 function capabilities(...contributors: { name: string; configured?: boolean }[]): Capabilities {
   return {
@@ -41,5 +42,20 @@ describe("ledgerPlugin", () => {
     const order = ["Overview", "Catalog", "Billing", "Configuration"]
     const seen = ledgerPlugin.nav.map((n) => n.group as string).filter((g, i, all) => all.indexOf(g) === i)
     expect(seen).toEqual(order.filter((g) => seen.includes(g)))
+  })
+
+  it("sorts out-of-order entries into group order, and puts an unknown group first", () => {
+    const item = (label: string, group: string): PluginNavItem => ({ label, to: `/${label}`, group })
+    const sorted = inGroupOrder([
+      item("settings", "Configuration"),
+      item("invoices", "Billing"),
+      item("mystery", "Elsewhere"),
+      item("plans", "Catalog"),
+      item("overview", "Overview"),
+      item("usage", "Billing"),
+    ])
+    // The unknown group ranks -1 and so leads the sidebar. It is not dropped,
+    // and entries within a group keep the order they were given in.
+    expect(sorted.map((n) => n.label)).toEqual(["mystery", "overview", "plans", "invoices", "usage", "settings"])
   })
 })

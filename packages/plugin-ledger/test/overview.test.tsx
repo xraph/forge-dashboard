@@ -57,6 +57,10 @@ describe("LedgerOverviewPage", () => {
     renderPage(LedgerOverviewPage, stubClient(answers({ "overview.stats": { ...STATS, capped: true } })))
     await screen.findByText("inv_r1")
     expect(screen.getByText("6+")).toBeTruthy()
+    // The hints are counts of the same scan, so they are floors too.
+    expect(screen.getByText("2+ active")).toBeTruthy()
+    expect(screen.getByText("1+ trialing")).toBeTruthy()
+    expect(screen.getByText("2+")).toBeTruthy()
     expect(screen.getByText(/at least these/)).toBeTruthy()
   })
 
@@ -65,6 +69,9 @@ describe("LedgerOverviewPage", () => {
     await screen.findByText("inv_r1")
     expect(screen.getByText("1 invoice awaiting payment")).toBeTruthy()
     expect(screen.getByText("2 recent invoices")).toBeTruthy()
+    // Only the recent table has a Status column: the pending table is all one status.
+    expect(screen.getAllByRole("columnheader", { name: "Status" })).toHaveLength(1)
+    expect(screen.getByText("Invoices awaiting payment", { selector: "*:not(h2)" })).toBeTruthy()
     expect(screen.getByRole("link", { name: "inv_p1" }).getAttribute("href")).toBe("/invoices/inv_p1")
     expect(variantOf("Past due")).toMatch(/destructive/)
   })
@@ -82,6 +89,11 @@ describe("LedgerOverviewPage", () => {
     )
     const alerts = await screen.findAllByText(/PERMISSION_DENIED: no app selected/)
     expect(alerts.length).toBeGreaterThan(0)
+    // ResourceTable renders an EmptyState, not a table, so a table query proves
+    // nothing. These are what an empty dashboard would have said instead.
+    expect(screen.queryByText("Nothing is awaiting payment.")).toBeNull()
+    expect(screen.queryByText("No invoices have been issued yet.")).toBeNull()
+    expect(screen.queryByText("Live subscriptions")).toBeNull()
     expect(screen.queryByRole("table")).toBeNull()
   })
 })

@@ -24,7 +24,7 @@ const columns: Column<PaymentMethod>[] = [
     id: "expiry",
     header: "Expires",
     className: "tabular-nums",
-    cell: (m) => (m.expiry_year > 0 ? `${m.expiry_month}/${m.expiry_year}` : <NoneCell label="expiry" />),
+    cell: (m) => (m.expiry_year > 0 ? `${String(m.expiry_month).padStart(2, "0")}/${m.expiry_year}` : <NoneCell label="expiry" />),
   },
   // Most tenants hold one method, the default, so default is the majority and
   // could recede; it is kept secondary because it is the one a person looks
@@ -93,7 +93,7 @@ export function LedgerPaymentMethodsPage() {
           Look up
         </Button>
       </form>
-      {tenant !== "" && <Methods key={tenant} tenant={tenant} />}
+      <div aria-live="polite">{tenant !== "" && <Methods key={tenant} tenant={tenant} />}</div>
     </section>
   )
 }

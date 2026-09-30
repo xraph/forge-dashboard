@@ -3,7 +3,7 @@ import { fireEvent, screen, waitFor } from "@testing-library/react"
 import { ContractError } from "@forge-go/dashboard-plugin"
 import type { ScopedClient } from "@forge-go/dashboard-plugin"
 import { LedgerPaymentMethodsPage } from "../src/pages/payment-methods"
-import { recordingQueryClient, renderPage, stubClient } from "./harness"
+import { failingClient, recordingQueryClient, renderPage, stubClient } from "./harness"
 
 const METHODS = {
   configured: true,
@@ -56,6 +56,30 @@ describe("LedgerPaymentMethodsPage", () => {
     renderPage(LedgerPaymentMethodsPage, client)
     lookUp("nobody")
     expect(await screen.findByText("nobody has no subscription in this app, so there are no payment methods to show.")).toBeTruthy()
+  })
+
+  it("pads a single-digit expiry month", async () => {
+    const card = { ...METHODS.methods[0], expiry_month: 3 }
+    renderPage(LedgerPaymentMethodsPage, stubClient({ "paymentMethods.list": { configured: true, methods: [card] } }))
+    lookUp("acme")
+    expect(await screen.findByText("03/2028")).toBeTruthy()
+  })
+
+  it("shows the no-app refusal for a lookup, not an empty result", async () => {
+    renderPage(
+      LedgerPaymentMethodsPage,
+      failingClient(new ContractError("PERMISSION_DENIED", "no app selected: set the extension's app_id or send an app_id claim")),
+    )
+    lookUp("acme")
+    expect((await screen.findAllByText(/PERMISSION_DENIED: no app selected/)).length).toBeGreaterThan(0)
+    expect(screen.queryByText(/has no subscription in this app/)).toBeNull()
+  })
+
+  it("keeps the no-subscription state for that exact NOT_FOUND only", async () => {
+    renderPage(LedgerPaymentMethodsPage, failingClient(new ContractError("NOT_FOUND", "provider not found")))
+    lookUp("acme")
+    expect(await screen.findByText("Payment methods unavailable")).toBeTruthy()
+    expect(screen.queryByText(/has no subscription in this app/)).toBeNull()
   })
 
   it("says so when a tenant has none", async () => {

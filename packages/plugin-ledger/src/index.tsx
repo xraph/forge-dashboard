@@ -25,7 +25,7 @@ export {
  */
 const GROUP_ORDER = ["Overview", "Catalog", "Billing", "Configuration"]
 
-function inGroupOrder(items: PluginNavItem[]): PluginNavItem[] {
+export function inGroupOrder(items: PluginNavItem[]): PluginNavItem[] {
   const rank = (item: PluginNavItem) => GROUP_ORDER.indexOf(item.group ?? "")
   return [...items].sort((a, b) => rank(a) - rank(b))
 }

@@ -35,10 +35,10 @@ export function LedgerOverviewPage() {
             <div className="flex flex-col gap-2">
               <StatGrid
                 items={[
-                  { label: "Plans", value: n(s.plans), hint: `${s.active_plans} active` },
-                  { label: "Live subscriptions", value: n(live), hint: `${by.trialing ?? 0} trialing` },
+                  { label: "Plans", value: n(s.plans), hint: `${n(s.active_plans)} active` },
+                  { label: "Live subscriptions", value: n(live), hint: `${n(by.trialing ?? 0)} trialing` },
                   { label: "Subscriptions past due", value: n(by.past_due ?? 0) },
-                  { label: "Awaiting payment", value: n(s.pending_invoices), hint: "invoices" },
+                  { label: "Invoices awaiting payment", value: n(s.pending_invoices) },
                   { label: "Coupons", value: n(s.coupons) },
                 ]}
               />
