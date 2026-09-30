@@ -157,3 +157,18 @@ describe("NavRail", () => {
     expect(within(nav.getByRole("list", { name: "System" })).getByRole("link", { name: "Overview" })).toBeTruthy()
   })
 })
+
+describe("NavRail search slot", () => {
+  it("fits the search trigger to the rail: no indent, no shadow, full width only when wide", () => {
+    const narrow = renderRail()
+    const slot = (name: string) =>
+      within(rail()).getByRole("button", { name }).closest('[data-slot="rail-slot"]') as HTMLElement
+    expect(slot("Search pages").className).toContain("[&>button]:mx-0")
+    expect(slot("Search pages").className).toContain("[&>button]:shadow-none")
+    expect(slot("Search pages").className).not.toContain("[&>button]:w-full")
+    narrow.unmount()
+    renderRail({ expanded: true })
+    expect(slot("Search pages").className).toContain("[&>button]:w-full")
+    expect(slot("Search pages").className).toContain("[&>button]:h-8")
+  })
+})

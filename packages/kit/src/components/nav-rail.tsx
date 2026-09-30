@@ -47,10 +47,13 @@ export interface NavRailProps {
  */
 function RailSlot({
   children,
+  className,
   expanded,
   title,
 }: {
   children: ReactNode
+  /** Extra classes for the cell, used to fit a child the rail does not own. */
+  className?: string
   expanded: boolean
   title: string
 }) {
@@ -60,7 +63,10 @@ function RailSlot({
         render={
           <div
             data-slot="rail-slot"
-            className={expanded ? "flex w-full items-center" : "flex w-10 items-center justify-center"}
+            className={cn(
+              expanded ? "flex w-full items-center" : "flex w-10 items-center justify-center",
+              className,
+            )}
           />
         }
       >
@@ -72,6 +78,18 @@ function RailSlot({
     </Tooltip>
   )
 }
+
+/**
+ * Fits the host's search trigger to the rail. That trigger is an outline
+ * Button built for the old sidebar header: indented, 36px tall, white with a
+ * shadow. Here it should read like the context control above it: full width,
+ * 32px, sidebar-toned, no shadow. Narrow, it keeps its own 32px square.
+ */
+const SEARCH_SLOT =
+  "[&>button]:mx-0 [&>button]:border-sidebar-border [&>button]:bg-transparent [&>button]:shadow-none [&>button]:text-sidebar-foreground/70 [&>button]:hover:bg-sidebar-accent [&>button]:hover:text-sidebar-accent-foreground"
+
+/** Wide rail only: the trigger fills the row at the context control's height. */
+const SEARCH_SLOT_WIDE = "[&>button]:h-8 [&>button]:w-full [&>button]:px-2"
 
 /**
  * The rail's right border, made clickable: a 16px strip straddling it with a
@@ -152,7 +170,7 @@ export function NavRail({
         </RailSlot>
       ) : null}
       {searchControl ? (
-        <RailSlot expanded={expanded} title="Search pages">
+        <RailSlot expanded={expanded} title="Search pages" className={cn(SEARCH_SLOT, expanded && SEARCH_SLOT_WIDE)}>
           {searchControl}
         </RailSlot>
       ) : null}
