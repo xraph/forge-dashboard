@@ -113,9 +113,7 @@ function seedWardenState() {
       { id: "rel_01d", namespacePath: "eng/platform", objectType: "document", objectId: "runbook", relation: "viewer", subjectType: "user", subjectId: "alice", subjectRelation: "", createdBy: WARDEN_ACTOR, createdAt: hourAgo },
       { id: "rel_01e", namespacePath: "eng/platform", objectType: "cluster", objectId: "prod", relation: "admin", subjectType: "service", subjectId: "deployer", subjectRelation: "", createdAt: hourAgo },
     ],
-    policies: [
-      { id: "pol_01a", namespacePath: "", name: "contractor-lockout", effect: "deny", priority: 10, isActive: true, createdAt: hourAgo, updatedAt: now },
-    ],
+    policies: seedPolicies(hourAgo, now),
     resourceTypes: [
       // Two relations and a permission derived from both. Tuples still use
       // it as their object type (three of them, two at the root and one in
@@ -187,6 +185,246 @@ function seedWardenState() {
   }
 }
 
+/**
+ * The policies. One for every state and flag the pages render, so each has a
+ * row to look at, plus the shapes the analysis exists to catch. Stored rows,
+ * so a few of them are shapes the write path now refuses (a window that ends
+ * before it starts, an unknown operator): that is what a policy created before
+ * validation, or through the REST API, looks like. The list and detail flags
+ * come from analysePolicy at read time, never from here.
+ *
+ * Windows are relative to server start, like every other seed here, and are
+ * stored as nanoseconds since the epoch (BigInt) so comparisons stay exact.
+ *
+ * This is a function declaration on purpose: it runs when the module loads,
+ * before any const declared further down has been initialised, so it must not
+ * use one.
+ */
+function seedPolicies(hourAgo, now) {
+  const dayNs = (days) => BigInt(Math.round(Date.now() + days * 86_400_000)) * 1_000_000n
+  // Older rows first, so the tie-break on age is visible and the order is stable.
+  let minutes = 60
+  const born = () => new Date(Date.now() - minutes-- * 60_000).toISOString()
+  const condition = (id, field, operator, value) => {
+    const c = { id: "cond_" + id, field, operator }
+    if (value !== undefined) c.value = value
+    return c
+  }
+  const policy = (id, fields) => {
+    const at = born()
+    return {
+      id: "wpol_" + id,
+      namespacePath: "",
+      name: id,
+      description: "",
+      effect: "allow",
+      priority: 100,
+      isActive: true,
+      notBefore: null,
+      notAfter: null,
+      version: 1,
+      subjects: [],
+      actions: [],
+      resources: [],
+      conditions: [],
+      obligations: [],
+      createdBy: WARDEN_ACTOR,
+      updatedBy: WARDEN_ACTOR,
+      createdAt: at,
+      updatedAt: at,
+      ...fields,
+    }
+  }
+  return [
+    // ACTIVE DENY: a role matcher and a two-row condition list, both of which
+    // depend on the check, so nothing is flagged. The reference row.
+    policy("contractor-lockout", {
+      description: "Contractors are locked out of documents unless they are on the office network.",
+      effect: "deny",
+      priority: 10,
+      version: 4,
+      updatedAt: now,
+      subjects: [{ kind: "user", id: "", role: "contractor" }],
+      actions: ["delete", "export"],
+      resources: ["document:*"],
+      conditions: [
+        condition("lock1", "subject.employment", "eq", "contractor"),
+        condition("lock2", "context.network", "neq", "office"),
+      ],
+      obligations: ["audit"],
+    }),
+    // ACTIVE ALLOW.
+    policy("staff-read-documents", {
+      description: "Staff can read documents from a corporate network.",
+      priority: 100,
+      version: 3,
+      subjects: [{ kind: "user", id: "", role: "staff" }],
+      actions: ["read"],
+      resources: ["document:*"],
+      conditions: [condition("staff1", "context.ip", "ip_in_cidr", ["10.0.0.0/8", "192.168.0.0/16"])],
+    }),
+    // The same name in another namespace: the name is unique per namespace,
+    // not per tenant, so this is legal and a rename onto it from the root is not.
+    policy("staff-read-documents", {
+      id: "wpol_staff-read-documents-platform",
+      namespacePath: "eng/platform",
+      description: "The platform team's copy, narrower than the root one.",
+      priority: 100,
+      subjects: [{ kind: "user", id: "", role: "platform-admin" }],
+      actions: ["read"],
+      resources: ["cluster:*"],
+      conditions: [condition("staffp1", "subject.level", "gte", 2)],
+    }),
+    // INACTIVE.
+    policy("draft-export-block", {
+      description: "Not switched on yet.",
+      effect: "deny",
+      priority: 20,
+      isActive: false,
+      subjects: [{ kind: "service", id: "", role: "" }],
+      actions: ["export"],
+      resources: ["report:*"],
+    }),
+    // SCHEDULED: active, but the window has not opened.
+    policy("quarter-end-freeze", {
+      description: "Blocks deploys at quarter end.",
+      effect: "deny",
+      priority: 15,
+      notBefore: dayNs(10),
+      notAfter: dayNs(20),
+      subjects: [{ kind: "service", id: "", role: "" }],
+      actions: ["deploy"],
+      resources: ["cluster:prod"],
+    }),
+    // EXPIRED: active, but the window has closed.
+    policy("holiday-freeze", {
+      description: "Last winter's change freeze.",
+      effect: "deny",
+      priority: 15,
+      notBefore: dayNs(-20),
+      notAfter: dayNs(-3),
+      subjects: [{ kind: "service", id: "", role: "" }],
+      actions: ["deploy"],
+      resources: ["cluster:prod"],
+    }),
+    // NEVER: the window ends before it starts, so it cannot be in effect at
+    // any instant. The write path refuses this now; a stored one still exists.
+    policy("misordered-window", {
+      description: "Saved with the end before the start.",
+      priority: 100,
+      notBefore: dayNs(5),
+      notAfter: dayNs(2),
+      subjects: [{ kind: "user", id: "", role: "" }],
+      actions: ["read"],
+      resources: ["report:*"],
+    }),
+    // OBLIGATIONS AND A WINDOW, in effect right now.
+    policy("after-hours-approval", {
+      description: "Out-of-hours access is allowed for the on-call window, with obligations.",
+      priority: 50,
+      notBefore: dayNs(-2),
+      notAfter: dayNs(30),
+      subjects: [{ kind: "user", id: "", role: "oncall" }],
+      actions: ["read", "write"],
+      resources: ["cluster:*"],
+      conditions: [condition("after1", "context.hour", "gte", 18)],
+      obligations: ["log", "notify:security"],
+    }),
+    // FAILS CLOSED: a deny whose first condition is a regex that does not
+    // compile. The engine errors, and a deny that errors applies. A working
+    // condition after it changes nothing.
+    policy("legacy-id-pattern-deny", {
+      description: "Saved with a pattern that never compiled.",
+      effect: "deny",
+      priority: 30,
+      subjects: [{ kind: "user", id: "", role: "" }],
+      actions: ["delete"],
+      resources: ["document:*"],
+      conditions: [
+        condition("legacy1", "subject.id", "regex", "(unclosed"),
+        condition("legacy2", "subject.level", "lt", 3),
+      ],
+    }),
+    // NEVER APPLIES, unknown operator: an allow that throws is skipped.
+    policy("fuzzy-network-allow", {
+      description: "Uses an operator warden does not have.",
+      priority: 100,
+      subjects: [{ kind: "user", id: "", role: "" }],
+      actions: ["read"],
+      resources: ["document:*"],
+      conditions: [condition("fuzzy1", "context.ip", "approximately", "10.0.0.0/8")],
+    }),
+    // NEVER APPLIES, and the deciding condition is the SECOND one: the first
+    // varies with the check, the second is an ip_in_cidr with no valid CIDR.
+    policy("vpn-only-access", {
+      description: "The CIDRs were typed wrong.",
+      priority: 100,
+      subjects: [{ kind: "user", id: "", role: "employee" }],
+      actions: ["read"],
+      resources: ["document:*"],
+      conditions: [
+        condition("vpn1", "subject.level", "gte", 2),
+        condition("vpn2", "context.ip", "ip_in_cidr", ["10.0.0.0/99", "not-a-network"]),
+      ],
+    }),
+    // MATCHES EVERYTHING: all three matcher lists empty.
+    policy("catch-all-allow", {
+      description: "No subjects, actions or resources: it applies to every check.",
+      priority: 900,
+    }),
+    // A SUBJECT MATCHER THAT IS EMPTY inside a list: it matches everyone, so
+    // the subject list restricts nothing although it has two entries. The
+    // actions and resources still restrict, so the policy as a whole does not
+    // match everything.
+    policy("legacy-empty-subject", {
+      description: "One of its subjects is the empty matcher.",
+      effect: "deny",
+      priority: 40,
+      subjects: [{ kind: "user", id: "u1", role: "" }, { kind: "", id: "", role: "" }],
+      actions: ["delete"],
+      resources: ["report:*"],
+    }),
+    // A not_in GIVEN A STRING: not_in against something that is not a list is
+    // always true, so this deny denies everyone the other matchers select.
+    policy("office-ip-lockout", {
+      description: "not_in was given a string, not a list.",
+      effect: "deny",
+      priority: 25,
+      subjects: [{ kind: "user", id: "", role: "" }],
+      actions: ["export"],
+      resources: ["document:*"],
+      conditions: [condition("office1", "context.ip", "not_in", "10.0.0.0/8")],
+    }),
+    // ACTIONS *:* matches every action.
+    policy("wildcard-actions-deny", {
+      description: "Every action, for services only.",
+      effect: "deny",
+      priority: 35,
+      subjects: [{ kind: "service", id: "", role: "" }],
+      actions: ["*:*"],
+      resources: ["report:*"],
+    }),
+    // ALWAYS PRESENT: subject.id is never absent, so not_exists is never true.
+    policy("anonymous-only-allow", {
+      description: "Meant for callers with no id. Every caller has one.",
+      priority: 100,
+      subjects: [{ kind: "user", id: "", role: "" }],
+      actions: ["read"],
+      resources: ["public:*"],
+      conditions: [condition("anon1", "subject.id", "not_exists")],
+    }),
+    // MATCHES ANYTHING: an empty prefix is a prefix of every value.
+    policy("any-ip-allow", {
+      description: "Meant to restrict by IP. An empty prefix restricts nothing.",
+      priority: 100,
+      subjects: [{ kind: "user", id: "", role: "employee" }],
+      actions: ["read"],
+      resources: ["document:*"],
+      conditions: [condition("anyip1", "context.ip", "starts_with", "")],
+    }),
+  ]
+}
+
 let warden = seedWardenState()
 
 /**
@@ -229,8 +467,9 @@ class WardenFixtureError extends Error {
     super(message)
     this.status = status
     this.code = code
-    // Mirrors contract.Error.Details. Only resourceTypes.create and update
-    // set it (the expression diagnostics). It does not reach the wire, for
+    // Mirrors contract.Error.Details. resourceTypes.create and update set it
+    // (the expression diagnostics), and so do the policy writes ({ fields,
+    // conditions } for a rejected draft). It does not reach the wire, for
     // the reason in the comment above: server.mjs sends err.details only
     // for its own FixtureError.
     this.details = details
@@ -287,8 +526,8 @@ function byNamespace(rows, params) {
 
 // ---------------------------------------------------------------------------
 // Warden intents: the original four queries and two commands, the thirteen
-// roles and permissions intents, and the twelve assignment, relation and
-// resource type intents
+// roles and permissions intents, the twelve assignment, relation and
+// resource type intents, and the seven policy intents
 // ---------------------------------------------------------------------------
 
 /** Every distinct namespace on any warden entity, plus the tenant root. */
@@ -877,6 +1116,1399 @@ function projectResourceType(rt) {
   out.updatedAt = rfc3339(rt.updatedAt)
   return out
 }
+
+// ---------------------------------------------------------------------------
+// Policies: the analysis and the validation, ported from the Go contract
+//
+// The authority is the committed Go in warden's extension/contract
+// (policy_analysis.go, policy_validate.go, handlers_policies.go). This is an
+// independent double of it, not a translation of the plan's snippets, and it
+// is deliberately as unforgiving as Go: a fixture that forgives what Go
+// refuses lets a page look right here and wrong against the server.
+//
+// Go's own standard library decides several of the outcomes (fmt.Sprint,
+// strconv.ParseFloat, time.Parse, net.ParseCIDR, regexp), so each of those is
+// ported below as a small function rather than approximated with the nearest
+// JavaScript built-in. Where JavaScript cannot match Go exactly the fixture is
+// CONSERVATIVE: it never claims a fixed outcome Go would not. The known gaps
+// are listed at goRegex and at the end of classifyCondition.
+// ---------------------------------------------------------------------------
+
+/** strings.TrimSpace: Go trims unicode.IsSpace, which is not JavaScript's trim (no U+FEFF, but U+0085). */
+const GO_SPACE = "\\t\\n\\v\\f\\r \\u0085\\u00a0\\u1680\\u2000-\\u200a\\u2028\\u2029\\u202f\\u205f\\u3000"
+const GO_TRIM = new RegExp(`^[${GO_SPACE}]+|[${GO_SPACE}]+$`, "g")
+function goTrimSpace(s) {
+  return s.replace(GO_TRIM, "")
+}
+
+/** Go's %q for the strings these messages quote. */
+function goQuote(value) {
+  let out = '"'
+  for (const ch of String(value)) {
+    const cp = ch.codePointAt(0)
+    const simple = { 7: "\\a", 8: "\\b", 12: "\\f", 10: "\\n", 13: "\\r", 9: "\\t", 11: "\\v", 92: "\\\\", 34: '\\"' }[cp]
+    if (simple) out += simple
+    else if (cp < 0x20 || cp === 0x7f) out += "\\x" + cp.toString(16).padStart(2, "0")
+    else if (cp >= 0xd800 && cp <= 0xdfff) out += "\\ufffd"
+    else if (cp >= 0x20 && cp < 0x7f) out += ch
+    else if (/^[\p{L}\p{M}\p{N}\p{P}\p{S}]$/u.test(ch)) out += ch
+    else out += cp < 0x10000 ? "\\u" + cp.toString(16).padStart(4, "0") : "\\U" + cp.toString(16).padStart(8, "0")
+  }
+  return out + '"'
+}
+
+/** fmt.Sprint's %v for a float64: %g, shortest digits, exponent below -4 or at 6 and above. */
+function goFloatString(n) {
+  if (Number.isNaN(n)) return "NaN"
+  if (n === Infinity) return "+Inf"
+  if (n === -Infinity) return "-Inf"
+  if (n === 0) return Object.is(n, -0) ? "-0" : "0"
+  const [mantissa, expText] = Math.abs(n).toExponential().split("e")
+  const digits = mantissa.replace(".", "")
+  const exp = Number(expText)
+  let out
+  if (exp < -4 || exp >= 6) {
+    out =
+      digits[0] + (digits.length > 1 ? "." + digits.slice(1) : "") +
+      "e" + (exp < 0 ? "-" : "+") + String(Math.abs(exp)).padStart(2, "0")
+  } else if (exp >= 0) {
+    out = digits.length > exp + 1 ? digits.slice(0, exp + 1) + "." + digits.slice(exp + 1) : digits.padEnd(exp + 1, "0")
+  } else {
+    out = "0." + "0".repeat(-exp - 1) + digits
+  }
+  return (n < 0 ? "-" : "") + out
+}
+
+/**
+ * fmt.Sprint of a decoded JSON value. nil is "<nil>", which is what a missing
+ * attribute prints as and what the analysis compares against.
+ */
+function goSprint(v) {
+  if (v === undefined || v === null) return "<nil>"
+  switch (typeof v) {
+    case "string": return v
+    case "boolean": return v ? "true" : "false"
+    case "number": return goFloatString(v)
+  }
+  if (Array.isArray(v)) return "[" + v.map(goSprint).join(" ") + "]"
+  return "map[" + Object.keys(v).sort().map((k) => k + ":" + goSprint(v[k])).join(" ") + "]"
+}
+
+/** strconv's underscoreOK: an underscore only between digits, or after a base prefix. */
+function underscoreOK(text) {
+  let s = text
+  let saw = "^"
+  let i = 0
+  if (s.length >= 1 && (s[0] === "-" || s[0] === "+")) s = s.slice(1)
+  let hex = false
+  if (s.length >= 2 && s[0] === "0" && "bBoOxX".includes(s[1])) {
+    i = 2
+    saw = "0"
+    hex = s[1] === "x" || s[1] === "X"
+  }
+  for (; i < s.length; i++) {
+    const c = s[i]
+    if (/[0-9]/.test(c) || (hex && /[a-fA-F]/.test(c))) {
+      saw = "0"
+      continue
+    }
+    if (c === "_") {
+      if (saw !== "0") return false
+      saw = "_"
+      continue
+    }
+    if (saw === "_") return false
+    saw = "!"
+  }
+  return saw !== "_"
+}
+
+/**
+ * strconv.ParseFloat(s, 64). Returns the number, or null when Go returns an
+ * error, which includes a value out of range: asNumber reads `err == nil`, so
+ * "1e999" is not a number to warden even though it is +Inf to ParseFloat.
+ */
+function parseGoFloat(s) {
+  if (typeof s !== "string") return null
+  let m = /^([+-]?)(?:inf|infinity)$/i.exec(s)
+  if (m) return m[1] === "-" ? -Infinity : Infinity
+  if (/^nan$/i.test(s)) return NaN
+  if (s.includes("_")) {
+    if (!underscoreOK(s)) return null
+    s = s.replaceAll("_", "")
+  }
+  m = /^([+-]?)0[xX]([0-9a-fA-F]*)\.?([0-9a-fA-F]*)[pP]([+-]?\d+)$/.exec(s)
+  if (m) {
+    const whole = m[2]
+    const fraction = /^([+-]?)0[xX][0-9a-fA-F]*\.([0-9a-fA-F]*)/.exec(s)?.[2] ?? ""
+    if (whole.length + fraction.length === 0) return null
+    const value = Number(BigInt("0x" + (whole + fraction))) * 2 ** (Number(m[4]) - 4 * fraction.length)
+    if (!Number.isFinite(value)) return null
+    return m[1] === "-" ? -value : value
+  }
+  if (!/^[+-]?(?:\d+\.?\d*|\.\d+)(?:[eE][+-]?\d+)?$/.test(s)) return null
+  const value = Number(s)
+  return Number.isFinite(value) ? value : null
+}
+
+/** asNumber in policy_analysis.go: a JSON number, or a string ParseFloat accepts. */
+function goAsNumber(v) {
+  if (typeof v === "number") return v
+  if (typeof v === "string") return parseGoFloat(v)
+  return null
+}
+
+// ---- time.Parse(time.RFC3339, s) ------------------------------------------
+
+function daysInMonth(year, month) {
+  if (month === 2) return year % 4 === 0 && (year % 100 !== 0 || year % 400 === 0) ? 29 : 28
+  return [4, 6, 9, 11].includes(month) ? 30 : 31
+}
+
+function daysFromCivil(y0, m, d) {
+  const y = m <= 2 ? y0 - 1 : y0
+  const era = Math.floor(y / 400)
+  const yoe = y - era * 400
+  const doy = Math.floor((153 * (m + (m > 2 ? -3 : 9)) + 2) / 5) + d - 1
+  return era * 146097 + yoe * 365 + Math.floor(yoe / 4) - Math.floor(yoe / 100) + doy - 719468
+}
+
+/**
+ * time.Parse(time.RFC3339, s) as an instant in nanoseconds since the epoch
+ * (a BigInt), or null. It follows Go's general parser, not a regex for what
+ * RFC 3339 says: the hour may be one digit, the fraction may follow a comma,
+ * an offset may reach 24:60, a second of 60 is refused and lower case is
+ * refused. Date.parse forgives most of what Go refuses.
+ */
+function parseGoTime(text) {
+  if (typeof text !== "string") return null
+  const m = /^(\d{4})-(\d{2})-(\d{2})T(\d{1,2}):(\d{2}):(\d{2})(?:[.,](\d+))?(?:(Z)|([+-])(\d{2}):(\d{2}))$/.exec(text)
+  if (!m) return null
+  const [year, month, day, hour, minute, second] = m.slice(1, 7).map(Number)
+  if (month < 1 || month > 12) return null
+  if (day < 1 || day > daysInMonth(year, month)) return null
+  if (hour > 23 || minute > 59 || second > 59) return null
+  let offset = 0
+  if (!m[8]) {
+    const oh = Number(m[10])
+    const om = Number(m[11])
+    if (oh > 24 || om > 60) return null
+    offset = (oh * 60 + om) * 60
+    if (m[9] === "-") offset = -offset
+  }
+  const nanos = m[7] ? Number(m[7].slice(0, 9).padEnd(9, "0")) : 0
+  const seconds = daysFromCivil(year, month, day) * 86400 + hour * 3600 + minute * 60 + second - offset
+  return BigInt(seconds) * 1_000_000_000n + BigInt(nanos)
+}
+
+/** Go's time.Format(time.RFC3339) of an instant, in UTC, whole seconds. */
+function formatGoTime(ns) {
+  let seconds = ns / 1_000_000_000n
+  if (ns % 1_000_000_000n < 0n) seconds -= 1n
+  return new Date(Number(seconds) * 1000).toISOString().replace(/\.\d{3}Z$/, "Z")
+}
+
+// ---- net.ParseCIDR ---------------------------------------------------------
+
+function parseStrictIPv4(s) {
+  const parts = s.split(".")
+  if (parts.length !== 4) return false
+  return parts.every((p) => /^\d{1,3}$/.test(p) && !(p.length > 1 && p[0] === "0") && Number(p) <= 255)
+}
+
+/** netip.parseIPv6, minus the zone (a zone makes ParseCIDR refuse anyway). */
+function parseStrictIPv6(text) {
+  let s = text
+  let ellipsis = -1
+  if (s.length >= 2 && s[0] === ":" && s[1] === ":") {
+    ellipsis = 0
+    s = s.slice(2)
+    if (s.length === 0) return true
+  }
+  let i = 0
+  while (i < 16) {
+    let off = 0
+    let acc = 0
+    for (; off < s.length; off++) {
+      const c = s[off]
+      if (!/[0-9a-fA-F]/.test(c)) break
+      acc = acc * 16 + parseInt(c, 16)
+      if (off > 3) return false
+    }
+    if (off === 0) return false
+    if (off < s.length && s[off] === ".") {
+      if (ellipsis < 0 && i !== 12) return false
+      if (i + 4 > 16) return false
+      if (!parseStrictIPv4(s)) return false
+      s = ""
+      i += 4
+      break
+    }
+    i += 2
+    s = s.slice(off)
+    if (s.length === 0) break
+    if (s[0] !== ":" || s.length === 1) return false
+    s = s.slice(1)
+    if (s[0] === ":") {
+      if (ellipsis >= 0) return false
+      ellipsis = i
+      s = s.slice(1)
+      if (s.length === 0) break
+    }
+  }
+  if (s.length !== 0) return false
+  if (i < 16) return ellipsis >= 0
+  return ellipsis < 0
+}
+
+/** net.ParseCIDR reports no error. */
+function goParseCIDR(s) {
+  if (typeof s !== "string") return false
+  const slash = s.indexOf("/")
+  if (slash < 0) return false
+  const addr = s.slice(0, slash)
+  const mask = s.slice(slash + 1)
+  if (addr.includes("%")) return false
+  let bits
+  const first = /[.:]/.exec(addr)?.[0]
+  if (first === ".") {
+    if (!parseStrictIPv4(addr)) return false
+    bits = 32
+  } else if (first === ":") {
+    if (!parseStrictIPv6(addr)) return false
+    bits = 128
+  } else {
+    return false
+  }
+  if (!/^\d+$/.test(mask)) return false
+  const n = Number(mask)
+  return n < 0xffffff && n <= bits
+}
+
+// ---- regexp (Go's RE2 dialect) ---------------------------------------------
+//
+// warden compiles a regex condition with Go's regexp, and JavaScript's RegExp
+// is a different language: it has lookaround and back references RE2 refuses,
+// it refuses `^*` which RE2 accepts, it reads `[[:alpha:]]` as something else
+// and it has no `(?i)` group. So the pattern is parsed here by Go's grammar.
+// The analysis needs two answers from it: does the pattern compile, and does
+// it match the text "<nil>" (a field warden never resolves prints as that).
+//
+// compileGoRegex answers "ok", "invalid" or "unknown". "invalid" is claimed
+// only for what Go's parser is known to refuse. "unknown" is returned for the
+// few things this port cannot settle (a Unicode script name the JavaScript
+// engine does not know), and the analysis then claims nothing.
+//
+// Not ported, so the fixture ACCEPTS what Go might refuse: the size limits
+// (expression too large, nesting depth 1000). Repeat counts are checked,
+// including the nested product Go's repeatIsValid limits to 1000.
+
+const GO_CATEGORIES = new Set(
+  "C Cc Cf Cn Co Cs L LC Ll Lm Lo Lt Lu M Mc Me Mn N Nd Nl No P Pc Pd Pe Pf Pi Po Ps S Sc Sk Sm So Z Zl Zp Zs".split(" ")
+)
+const GO_SCRIPTS = new Set(
+  ("Adlam Ahom Anatolian_Hieroglyphs Arabic Armenian Avestan Balinese Bamum Bassa_Vah Batak Bengali Bhaiksuki Bopomofo Brahmi Braille " +
+    "Buginese Buhid Canadian_Aboriginal Carian Caucasian_Albanian Chakma Cham Cherokee Chorasmian Common Coptic Cuneiform Cypriot " +
+    "Cypro_Minoan Cyrillic Deseret Devanagari Dives_Akuru Dogra Duployan Egyptian_Hieroglyphs Elbasan Elymaic Ethiopic Georgian " +
+    "Glagolitic Gothic Grantha Greek Gujarati Gunjala_Gondi Gurmukhi Han Hangul Hanifi_Rohingya Hanunoo Hatran Hebrew Hiragana " +
+    "Imperial_Aramaic Inherited Inscriptional_Pahlavi Inscriptional_Parthian Javanese Kaithi Kannada Katakana Kawi Kayah_Li " +
+    "Kharoshthi Khitan_Small_Script Khmer Khojki Khudawadi Lao Latin Lepcha Limbu Linear_A Linear_B Lisu Lycian Lydian Mahajani " +
+    "Makasar Malayalam Mandaic Manichaean Marchen Masaram_Gondi Medefaidrin Meetei_Mayek Mende_Kikakui Meroitic_Cursive " +
+    "Meroitic_Hieroglyphs Miao Modi Mongolian Mro Multani Myanmar Nabataean Nag_Mundari Nandinagari New_Tai_Lue Newa Nko Nushu " +
+    "Nyiakeng_Puachue_Hmong Ogham Ol_Chiki Old_Hungarian Old_Italic Old_North_Arabian Old_Permic Old_Persian Old_Sogdian " +
+    "Old_South_Arabian Old_Turkic Old_Uyghur Oriya Osage Osmanya Pahawh_Hmong Palmyrene Pau_Cin_Hau Phags_Pa Phoenician " +
+    "Psalter_Pahlavi Rejang Runic Samaritan Saurashtra Sharada Shavian Siddham SignWriting Sinhala Sogdian Sora_Sompeng Soyombo " +
+    "Sundanese Syloti_Nagri Syriac Tagalog Tagbanwa Tai_Le Tai_Tham Tai_Viet Takri Tamil Tangsa Tangut Telugu Thaana Thai Tibetan " +
+    "Tifinagh Tirhuta Toto Ugaritic Vai Vithkuqi Wancho Warang_Citi Yezidi Yi Zanabazar_Square").split(" ")
+)
+
+class GoRegexInvalid extends Error {}
+class GoRegexUnknown extends Error {}
+
+const inRange = (cp, lo, hi) => cp >= lo && cp <= hi
+const RE_PERL = {
+  d: (cp) => inRange(cp, 0x30, 0x39),
+  s: (cp) => cp === 0x20 || inRange(cp, 0x09, 0x0a) || cp === 0x0c || cp === 0x0d,
+  w: (cp) => inRange(cp, 0x30, 0x39) || inRange(cp, 0x41, 0x5a) || inRange(cp, 0x61, 0x7a) || cp === 0x5f,
+}
+const RE_POSIX = {
+  alnum: (cp) => inRange(cp, 0x30, 0x39) || inRange(cp, 0x41, 0x5a) || inRange(cp, 0x61, 0x7a),
+  alpha: (cp) => inRange(cp, 0x41, 0x5a) || inRange(cp, 0x61, 0x7a),
+  ascii: (cp) => cp <= 0x7f,
+  blank: (cp) => cp === 0x09 || cp === 0x20,
+  cntrl: (cp) => cp <= 0x1f || cp === 0x7f,
+  digit: (cp) => inRange(cp, 0x30, 0x39),
+  graph: (cp) => inRange(cp, 0x21, 0x7e),
+  lower: (cp) => inRange(cp, 0x61, 0x7a),
+  print: (cp) => inRange(cp, 0x20, 0x7e),
+  punct: (cp) => inRange(cp, 0x21, 0x2f) || inRange(cp, 0x3a, 0x40) || inRange(cp, 0x5b, 0x60) || inRange(cp, 0x7b, 0x7e),
+  space: (cp) => cp === 0x20 || inRange(cp, 0x09, 0x0d),
+  upper: (cp) => inRange(cp, 0x41, 0x5a),
+  word: (cp) => inRange(cp, 0x30, 0x39) || inRange(cp, 0x41, 0x5a) || inRange(cp, 0x61, 0x7a) || cp === 0x5f,
+  xdigit: (cp) => inRange(cp, 0x30, 0x39) || inRange(cp, 0x41, 0x46) || inRange(cp, 0x61, 0x66),
+}
+
+const isAlnumASCII = (cp) => inRange(cp, 0x30, 0x39) || inRange(cp, 0x41, 0x5a) || inRange(cp, 0x61, 0x7a)
+const unhex = (cp) => (inRange(cp, 0x30, 0x39) ? cp - 0x30 : inRange(cp, 0x61, 0x66) ? cp - 0x61 + 10 : inRange(cp, 0x41, 0x46) ? cp - 0x41 + 10 : -1)
+
+// unicode.CategoryAliases, keyed by the canonical form of each name.
+const GO_CATEGORY_ALIASES = Object.fromEntries(
+  Object.entries({
+    Cased_Letter: "LC", Close_Punctuation: "Pe", Combining_Mark: "M", Connector_Punctuation: "Pc", Control: "Cc",
+    Currency_Symbol: "Sc", Dash_Punctuation: "Pd", Decimal_Number: "Nd", Enclosing_Mark: "Me", Final_Punctuation: "Pf",
+    Format: "Cf", Initial_Punctuation: "Pi", Letter: "L", Letter_Number: "Nl", Line_Separator: "Zl", Lowercase_Letter: "Ll",
+    Mark: "M", Math_Symbol: "Sm", Modifier_Letter: "Lm", Modifier_Symbol: "Sk", Nonspacing_Mark: "Mn", Number: "N",
+    Open_Punctuation: "Ps", Other: "C", Other_Letter: "Lo", Other_Number: "No", Other_Punctuation: "Po", Other_Symbol: "So",
+    Paragraph_Separator: "Zp", Private_Use: "Co", Punctuation: "P", Separator: "Z", Space_Separator: "Zs", Spacing_Mark: "Mc",
+    Surrogate: "Cs", Symbol: "S", Titlecase_Letter: "Lt", Unassigned: "Cn", Uppercase_Letter: "Lu",
+    cntrl: "Cc", digit: "Nd", punct: "P",
+  }).map(([name, actual]) => [canonicalGoName(name), actual])
+)
+
+/**
+ * canonicalName in regexp/syntax: a leading capital, then lower case, with
+ * underscores, spaces and hyphens dropped. Go 1.26 looks a script up by this
+ * form against keys that still carry their underscores, so a script such as
+ * Old_Italic can never be found: \p{Old_Italic} does not compile.
+ */
+function canonicalGoName(name) {
+  let out = ""
+  let first = true
+  for (let c of name) {
+    if (c === "_" || c === "-" || c === " ") continue
+    if (first) {
+      if (c >= "a" && c <= "z") c = c.toUpperCase()
+      first = false
+    } else if (c >= "A" && c <= "Z") {
+      c = c.toLowerCase()
+    }
+    out += c
+  }
+  return out
+}
+
+/** A predicate for \p{Name}, by regexp/syntax's unicodeTable (Go 1.26). */
+function goUnicodePredicate(rawName) {
+  const name = canonicalGoName(rawName)
+  const fromJS = (source) => {
+    let re
+    try {
+      re = new RegExp(source, "u")
+    } catch {
+      throw new GoRegexUnknown(rawName)
+    }
+    return (cp) => re.test(String.fromCodePoint(cp))
+  }
+  if (name === "Any") return () => true
+  if (name === "Assigned") return fromJS("^\\P{Cn}$")
+  if (name === "Ascii") return (cp) => cp < 0x80
+  if (name === "Lc") return fromJS("^\\p{LC}$")
+  if (GO_CATEGORIES.has(name)) return fromJS(`^\\p{${name}}$`)
+  if (GO_SCRIPTS.has(name)) return fromJS(`^\\p{Script=${name}}$`)
+  if (GO_CATEGORY_ALIASES[name]) return fromJS(`^\\p{${GO_CATEGORY_ALIASES[name]}}$`)
+  throw new GoRegexInvalid("invalid character class range")
+}
+
+/** The characters case folding puts in one class with cp, for the ASCII this fixture ever matches. */
+function foldVariants(cp) {
+  const ch = String.fromCodePoint(cp)
+  const out = new Set([cp, ch.toLowerCase().codePointAt(0), ch.toUpperCase().codePointAt(0)])
+  return [...out]
+}
+
+function compileGoRegex(pattern) {
+  const cps = Array.from(pattern)
+  let pos = 0
+
+  const invalid = (why) => {
+    throw new GoRegexInvalid(why)
+  }
+  const peek = (k = 0) => cps[pos + k]
+  const is = (ch, k = 0) => cps[pos + k] === ch
+
+  /** parseEscape: one escaped character, as a code point. */
+  function parseEscape() {
+    pos++ // the backslash
+    if (pos >= cps.length) invalid("trailing backslash")
+    const c = cps[pos++]
+    const cp = c.codePointAt(0)
+    if (cp < 0x80 && !isAlnumASCII(cp)) return cp
+    const octal = () => pos < cps.length && cps[pos] >= "0" && cps[pos] <= "7"
+    if ((c >= "1" && c <= "7" && octal()) || c === "0") {
+      let r = cp - 0x30
+      for (let i = 1; i < 3 && octal(); i++) r = r * 8 + (cps[pos++].codePointAt(0) - 0x30)
+      return r
+    }
+    if (c === "x") {
+      if (pos >= cps.length) invalid("invalid escape")
+      let d = cps[pos++]
+      if (d === "{") {
+        let n = 0
+        let r = 0
+        for (;;) {
+          if (pos >= cps.length) invalid("invalid escape")
+          d = cps[pos++]
+          if (d === "}") break
+          const v = unhex(d.codePointAt(0))
+          if (v < 0) invalid("invalid escape")
+          r = r * 16 + v
+          if (r > 0x10ffff) invalid("invalid escape")
+          n++
+        }
+        if (n === 0) invalid("invalid escape")
+        return r
+      }
+      const x = unhex(d.codePointAt(0))
+      if (pos >= cps.length) invalid("invalid escape")
+      const y = unhex(cps[pos++].codePointAt(0))
+      if (x < 0 || y < 0) invalid("invalid escape")
+      return x * 16 + y
+    }
+    const simple = { a: 7, f: 12, n: 10, r: 13, t: 9, v: 11 }[c]
+    if (simple !== undefined) return simple
+    return invalid("invalid escape")
+  }
+
+  /** \pN, \p{Name}, \P{^Name}: a predicate, or null when this is not one. */
+  function parseUnicodeClass() {
+    if (!(is("\\") && (is("p", 1) || is("P", 1)))) return null
+    let sign = is("P", 1) ? -1 : 1
+    pos += 2
+    let name
+    if (pos < cps.length && cps[pos] === "{") {
+      const end = cps.indexOf("}", pos)
+      if (end < 0) invalid("invalid character class range")
+      name = cps.slice(pos + 1, end).join("")
+      pos = end + 1
+    } else {
+      name = pos < cps.length ? cps[pos++] : ""
+    }
+    if (name.startsWith("^")) {
+      sign = -sign
+      name = name.slice(1)
+    }
+    const pred = goUnicodePredicate(name)
+    return sign > 0 ? pred : (cp) => !pred(cp)
+  }
+
+  /** \d \D \s \S \w \W as a predicate, or null. */
+  function parsePerlClass() {
+    if (!is("\\")) return null
+    const c = peek(1)
+    const base = c && RE_PERL[c.toLowerCase()]
+    if (!base || !"dDsSwW".includes(c)) return null
+    pos += 2
+    return c === c.toLowerCase() ? base : (cp) => !base(cp)
+  }
+
+  function parseClass(flags) {
+    pos++ // [
+    let negate = false
+    if (is("^")) {
+      negate = true
+      pos++
+    }
+    const items = []
+    let first = true
+    while (pos >= cps.length || cps[pos] !== "]" || first) {
+      first = false
+      if (pos < cps.length - 2 && is("[") && is(":", 1)) {
+        const rest = cps.slice(pos + 2).join("")
+        const end = rest.indexOf(":]")
+        if (end >= 0) {
+          let name = rest.slice(0, end)
+          const neg = name.startsWith("^")
+          if (neg) name = name.slice(1)
+          const pred = Object.hasOwn(RE_POSIX, name) ? RE_POSIX[name] : null
+          if (!pred) invalid("invalid character class range")
+          items.push(neg ? (cp) => !pred(cp) : pred)
+          pos += 2 + Array.from(rest.slice(0, end + 2)).length
+          continue
+        }
+      }
+      const uni = pos < cps.length - 2 ? parseUnicodeClass() : null
+      if (uni) {
+        items.push(uni)
+        continue
+      }
+      const perl = parsePerlClass()
+      if (perl) {
+        items.push(perl)
+        continue
+      }
+      const classChar = () => {
+        if (pos >= cps.length) invalid("missing closing ]")
+        return is("\\") ? parseEscape() : cps[pos++].codePointAt(0)
+      }
+      const lo = classChar()
+      let hi = lo
+      if (cps.length - pos >= 2 && is("-") && !is("]", 1)) {
+        pos++
+        hi = classChar()
+        if (hi < lo) invalid("invalid character class range")
+      }
+      items.push((cp) => cp >= lo && cp <= hi)
+    }
+    pos++ // ]
+    const fold = flags.i
+    const raw = (cp) => items.some((f) => f(cp))
+    const positive = fold ? (cp) => foldVariants(cp).some(raw) : raw
+    return { t: "cls", test: negate ? (cp) => !positive(cp) : positive }
+  }
+
+  function repeatIsValid(node, n) {
+    let limit = n
+    if (node.t === "rep" && node.counted) {
+      let m = node.max
+      if (m === 0) return true
+      if (m < 0) m = node.min
+      if (m > limit) return false
+      if (m > 0) limit = Math.floor(limit / m)
+    }
+    return childrenOf(node).every((sub) => repeatIsValid(sub, limit))
+  }
+
+  /**
+   * The `{n}`, `{n,}` or `{n,m}` at pos, or null when the brace is a literal
+   * (no digits, a leading zero, no closing brace). On success pos moves past
+   * it. A count too large for Go's parser comes back as min -1, which is
+   * refused as an invalid repeat count.
+   */
+  function parseCounted() {
+    let p = pos + 1
+    const int = () => {
+      if (p >= cps.length || cps[p] < "0" || cps[p] > "9") return undefined
+      if (cps[p] === "0" && p + 1 < cps.length && cps[p + 1] >= "0" && cps[p + 1] <= "9") return undefined
+      let n = 0
+      while (p < cps.length && cps[p] >= "0" && cps[p] <= "9") {
+        if (n >= 1e8) n = -1
+        if (n >= 0) n = n * 10 + (cps[p].codePointAt(0) - 0x30)
+        p++
+      }
+      return n
+    }
+    let min = int()
+    if (min === undefined) return null
+    let max = min
+    if (p < cps.length && cps[p] === ",") {
+      p++
+      if (p < cps.length && cps[p] === "}") max = -1
+      else {
+        max = int()
+        if (max === undefined) return null
+        if (max < 0) min = -1
+      }
+    }
+    if (p >= cps.length || cps[p] !== "}") return null
+    pos = p + 1
+    return { min, max }
+  }
+
+  function parseFlagsGroup(flags) {
+    // At "(?". Returns { capture: true } for a named capture, { flags, open } otherwise.
+    const named = (cps[pos + 2] === "P" && cps[pos + 3] === "<" && cps.length - pos > 4) || (cps[pos + 2] === "<" && cps.length - pos > 3)
+    if (named) {
+      const end = cps.indexOf(">", pos)
+      if (end < 0) invalid("invalid named capture")
+      const from = cps[pos + 2] === "P" ? pos + 4 : pos + 3
+      const name = cps.slice(from, end).join("")
+      if (name === "" || !/^\w+$/.test(name) || /[^\x00-\x7f]/.test(name)) invalid("invalid named capture")
+      pos = end + 1
+      return { capture: true }
+    }
+    pos += 2
+    const next = { ...flags }
+    let sign = 1
+    let sawFlag = false
+    while (pos < cps.length) {
+      const c = cps[pos++]
+      if (c === "i" || c === "m" || c === "s" || c === "U") {
+        next[c] = sign > 0
+        sawFlag = true
+      } else if (c === "-") {
+        if (sign < 0) invalid("invalid or unsupported Perl syntax")
+        sign = -1
+        sawFlag = false
+      } else if (c === ":" || c === ")") {
+        if (sign < 0 && !sawFlag) invalid("invalid or unsupported Perl syntax")
+        return { flags: next, open: c === ":" }
+      } else {
+        invalid("invalid or unsupported Perl syntax")
+      }
+    }
+    return invalid("invalid or unsupported Perl syntax")
+  }
+
+  /** One alternation, up to an unconsumed ")" or the end. */
+  function parseAlternation(startFlags) {
+    let flags = { ...startFlags }
+    const alts = []
+    let seq = []
+    let lastRepeat = false
+    while (pos < cps.length && !is(")")) {
+      let repeated = false
+      const c = cps[pos]
+      const counted = c === "{" ? parseCounted() : null
+      if (c === "(") {
+        if (is("?", 1)) {
+          const g = parseFlagsGroup(flags)
+          if (g.capture) {
+            const inner = parseAlternation(flags)
+            if (!is(")")) invalid("missing closing )")
+            pos++
+            seq.push({ t: "cap", sub: inner })
+          } else if (g.open) {
+            const inner = parseAlternation(g.flags)
+            if (!is(")")) invalid("missing closing )")
+            pos++
+            seq.push({ t: "cap", sub: inner })
+          } else {
+            flags = g.flags
+          }
+        } else {
+          pos++
+          const inner = parseAlternation(flags)
+          if (!is(")")) invalid("missing closing )")
+          pos++
+          seq.push({ t: "cap", sub: inner })
+        }
+      } else if (c === "|") {
+        pos++
+        alts.push({ t: "cat", subs: seq })
+        seq = []
+      } else if (c === "^") {
+        pos++
+        seq.push({ t: "bot" })
+      } else if (c === "$") {
+        pos++
+        seq.push({ t: "eot" })
+      } else if (c === ".") {
+        pos++
+        seq.push({ t: "any", nl: flags.s })
+      } else if (c === "[") {
+        seq.push(parseClass(flags))
+      } else if (c === "*" || c === "+" || c === "?" || counted) {
+        let min, max
+        if (counted) {
+          min = counted.min
+          max = counted.max
+          if (min < 0 || min > 1000 || max > 1000 || (max >= 0 && min > max)) invalid("invalid repeat count")
+        } else {
+          pos++
+          min = c === "+" ? 1 : 0
+          max = c === "?" ? 1 : -1
+        }
+        if (is("?")) pos++ // non-greedy: same set of matches for a yes or no answer
+        if (lastRepeat) invalid("invalid nested repetition operator")
+        if (seq.length === 0) invalid("missing argument to repetition operator")
+        const sub = seq.pop()
+        const node = { t: "rep", sub, min, max, counted: Boolean(counted) }
+        if (counted && (min >= 2 || max >= 2) && !repeatIsValid(node, 1000)) invalid("invalid repeat count")
+        seq.push(node)
+        repeated = true
+      } else if (c === "\\") {
+        const t1 = cps[pos + 1]
+        if (t1 === "A") {
+          pos += 2
+          seq.push({ t: "bot" })
+        } else if (t1 === "z") {
+          pos += 2
+          seq.push({ t: "eot" })
+        } else if (t1 === "b" || t1 === "B") {
+          pos += 2
+          seq.push({ t: t1 === "b" ? "wb" : "nwb" })
+        } else if (t1 === "C") {
+          invalid("invalid escape")
+        } else if (t1 === "Q") {
+          pos += 2
+          let end = pos
+          while (end < cps.length && !(cps[end] === "\\" && cps[end + 1] === "E")) end++
+          for (; pos < end; pos++) seq.push({ t: "lit", cp: cps[pos].codePointAt(0), fold: flags.i })
+          pos = Math.min(end + 2, cps.length)
+        } else {
+          const uni = parseUnicodeClass()
+          const perl = uni ? null : parsePerlClass()
+          const pred = uni ?? perl
+          if (pred) {
+            seq.push({ t: "cls", test: flags.i ? (cp) => foldVariants(cp).some(pred) : pred })
+          } else {
+            seq.push({ t: "lit", cp: parseEscape(), fold: flags.i })
+          }
+        }
+      } else {
+        pos++
+        seq.push({ t: "lit", cp: c.codePointAt(0), fold: flags.i })
+      }
+      lastRepeat = repeated
+    }
+    alts.push({ t: "cat", subs: seq })
+    return alts.length === 1 ? alts[0] : { t: "alt", subs: alts }
+  }
+
+  try {
+    const tree = parseAlternation({ i: false, m: false, s: false, U: false })
+    if (pos < cps.length) invalid("unexpected )")
+    return { status: "ok", tree }
+  } catch (err) {
+    if (err instanceof GoRegexInvalid) return { status: "invalid" }
+    if (err instanceof GoRegexUnknown) return { status: "unknown" }
+    throw err
+  }
+}
+
+function childrenOf(node) {
+  if (node.t === "cat" || node.t === "alt") return node.subs
+  if (node.t === "rep" || node.t === "cap") return [node.sub]
+  return []
+}
+
+/**
+ * regexp.MatchString over a short text with no newline in it, by backtracking
+ * the parsed tree. Backtracking can blow up where Go's engine does not
+ * (`(.?){1000}`), so it gives up after a fixed number of steps and returns
+ * null, and the analysis then claims nothing.
+ */
+function goRegexMatches(tree, text) {
+  const cps = Array.from(text).map((c) => c.codePointAt(0))
+  const word = (i) => i >= 0 && i < cps.length && RE_PERL.w(cps[i])
+  let steps = 0
+  const giveUp = new Error("regex step budget exhausted")
+  const step = (node, i, k) => {
+    if (++steps > 200_000) throw giveUp
+    switch (node.t) {
+      case "lit": {
+        if (i >= cps.length) return false
+        const c = cps[i]
+        const same = c === node.cp || (node.fold && foldVariants(node.cp).includes(c))
+        return same && k(i + 1)
+      }
+      case "any": return i < cps.length && (node.nl || cps[i] !== 10) && k(i + 1)
+      case "cls": return i < cps.length && node.test(cps[i]) && k(i + 1)
+      case "bot": return i === 0 && k(i)
+      case "eot": return i === cps.length && k(i)
+      case "wb": return word(i - 1) !== word(i) && k(i)
+      case "nwb": return word(i - 1) === word(i) && k(i)
+      case "cap": return step(node.sub, i, k)
+      case "cat": {
+        const run = (j, at) => (j === node.subs.length ? k(at) : step(node.subs[j], at, (next) => run(j + 1, next)))
+        return run(0, i)
+      }
+      case "alt": return node.subs.some((sub) => step(sub, i, k))
+      case "rep": {
+        const loop = (count, at) => {
+          if (count < node.min) return step(node.sub, at, (next) => loop(count + 1, next))
+          if (node.max < 0 || count < node.max) {
+            const more = step(node.sub, at, (next) => next !== at && loop(count + 1, next))
+            if (more) return true
+          }
+          return k(at)
+        }
+        return loop(0, i)
+      }
+    }
+    return false
+  }
+  try {
+    for (let start = 0; start <= cps.length; start++) if (step(tree, start, () => true)) return true
+    return false
+  } catch (err) {
+    if (err === giveUp || err instanceof RangeError) return null // out of steps, or out of stack
+    throw err
+  }
+}
+
+// ---- classifyCondition, policyState, analysePolicy -------------------------
+
+const CONDITION_OPERATORS = new Set([
+  "eq", "neq", "in", "not_in", "contains", "starts_with", "ends_with", "gt", "lt", "gte", "lte",
+  "exists", "not_exists", "ip_in_cidr", "time_after", "time_before", "regex",
+])
+
+/**
+ * fieldResolves: only subject.<x>, resource.<x>, action.name and context.<x>
+ * ever produce a value. An empty suffix on subject, resource and context is
+ * an attribute lookup of the name "", so it can vary; "action." cannot.
+ */
+function fieldResolves(field) {
+  const dot = field.indexOf(".")
+  if (dot < 0) return false
+  const prefix = field.slice(0, dot)
+  const suffix = field.slice(dot + 1)
+  if (prefix === "subject" || prefix === "resource" || prefix === "context") return true
+  return prefix === "action" && suffix === "name"
+}
+
+// Fields resolveField returns as a plain string on every request, so the value
+// is never nil, even when it is empty. Only exists and not_exists have a fixed
+// outcome on them.
+const ALWAYS_PRESENT_FIELDS = new Set(["subject.kind", "subject.id", "resource.type", "resource.id", "action.name"])
+
+// The patterns known to match every string. "^.*$" is absent on purpose: the
+// dot does not match a newline, so it fails on a value that contains one.
+const MATCH_EVERYTHING_REGEX = new Set(["", ".*", "^.*", ".*$"])
+
+/** listOf: a list is the only shape in() accepts; each item prints as fmt.Sprint does. */
+function goListOf(v) {
+  return Array.isArray(v) ? v.map(goSprint) : null
+}
+
+function anyCIDRParses(v) {
+  const cidrs = typeof v === "string" ? [v] : goListOf(v)
+  return cidrs !== null && cidrs.some(goParseCIDR)
+}
+
+/**
+ * nilOutcome: what evaluateCondition returns when the field resolved to nil,
+ * for the operators whose result then depends only on the stored value.
+ * Returns null when a regex the port cannot settle decides it.
+ */
+function nilOutcome(c, compiled) {
+  const actual = "<nil>"
+  const expected = goSprint(c.value)
+  switch (c.operator) {
+    case "eq": return actual === expected
+    case "neq": return actual !== expected
+    case "in":
+    case "not_in": {
+      const found = (goListOf(c.value) ?? []).includes(actual)
+      return c.operator === "in" ? found : !found
+    }
+    case "contains": return actual.includes(expected)
+    case "starts_with": return actual.startsWith(expected)
+    case "ends_with": return actual.endsWith(expected)
+    case "not_exists": return true
+    case "regex": return compiled.status === "ok" ? goRegexMatches(compiled.tree, actual) : null
+  }
+  return false
+}
+
+/**
+ * classifyCondition: whether a condition's outcome is fixed, and why. Returns
+ * { problem, reason }, both "" when the outcome depends on the check.
+ *
+ * Conservative where JavaScript cannot match Go: a regex whose compilation
+ * this port cannot settle claims nothing (see compileGoRegex).
+ */
+function classifyCondition(c) {
+  const none = { problem: "", reason: "" }
+  if (!CONDITION_OPERATORS.has(c.operator)) return { problem: "throws", reason: "unknownOperator" }
+  let compiled = null
+  if (c.operator === "regex") {
+    compiled = compileGoRegex(goSprint(c.value))
+    if (compiled.status === "invalid") return { problem: "throws", reason: "invalidRegex" }
+  }
+  if (!fieldResolves(c.field)) {
+    const outcome = nilOutcome(c, compiled)
+    if (outcome === null) return none
+    return { problem: outcome ? "alwaysTrue" : "alwaysFalse", reason: "unresolvableField" }
+  }
+  if (c.operator === "contains" || c.operator === "starts_with" || c.operator === "ends_with") {
+    if (goSprint(c.value) === "") return { problem: "alwaysTrue", reason: "matchesAnything" }
+  } else if (c.operator === "regex") {
+    if (MATCH_EVERYTHING_REGEX.has(goSprint(c.value))) return { problem: "alwaysTrue", reason: "matchesAnything" }
+  }
+  if (ALWAYS_PRESENT_FIELDS.has(c.field)) {
+    if (c.operator === "exists") return { problem: "alwaysTrue", reason: "alwaysPresent" }
+    if (c.operator === "not_exists") return { problem: "alwaysFalse", reason: "alwaysPresent" }
+  }
+  switch (c.operator) {
+    case "in":
+    case "not_in": {
+      const items = goListOf(c.value)
+      let reason = "notAList"
+      if (items !== null) {
+        if (items.length > 0) return none
+        reason = "emptyList"
+      }
+      return { problem: c.operator === "in" ? "alwaysFalse" : "alwaysTrue", reason }
+    }
+    case "gt":
+    case "lt":
+    case "gte":
+    case "lte": {
+      const n = goAsNumber(c.value)
+      if (n === null) return { problem: "alwaysFalse", reason: "notANumber" }
+      // gt and lt against NaN are false for every actual. gte and lte are TRUE
+      // for a numeric actual (the comparator gives (0, true) for NaN), and
+      // infinities hold for every finite actual, so those are left unclassified.
+      if (Number.isNaN(n) && (c.operator === "gt" || c.operator === "lt")) return { problem: "alwaysFalse", reason: "notANumber" }
+      break
+    }
+    case "ip_in_cidr":
+      if (!anyCIDRParses(c.value)) return { problem: "alwaysFalse", reason: "noValidCIDR" }
+      break
+    case "time_after":
+    case "time_before":
+      if (typeof c.value !== "string" || parseGoTime(c.value) === null) return { problem: "alwaysFalse", reason: "notATime" }
+      break
+  }
+  return none
+}
+
+/** policyState, as of nowNs (BigInt nanoseconds). Instants compare exactly. */
+function policyState(p, nowNs) {
+  if (!p.isActive) return "inactive"
+  if (p.notBefore !== null && p.notAfter !== null && p.notAfter < p.notBefore) return "never"
+  if (p.notBefore !== null && nowNs < p.notBefore) return "scheduled"
+  if (p.notAfter !== null && nowNs > p.notAfter) return "expired"
+  return "active"
+}
+
+function matchesEveryValue(pattern) {
+  return pattern === "*" || pattern === "*:*" || pattern === "*.*"
+}
+
+/**
+ * analysePolicy: everything the pages show about a policy that the stored
+ * fields do not say. The first condition with a fixed false or a throw decides,
+ * because evaluation stops there, and a condition that merely depends on the
+ * check cannot rescue a later one.
+ */
+function analysePolicy(p, nowNs) {
+  const a = {
+    state: policyState(p, nowNs),
+    failsClosed: false,
+    neverApplies: false,
+    decidingCondition: -1,
+    problems: [],
+    reasons: [],
+    subjectsUnrestricted: p.subjects.length === 0,
+    actionsUnrestricted: false,
+    resourcesUnrestricted: false,
+    matchesEverything: false,
+    hasRoleMatcher: false,
+  }
+  for (const c of p.conditions) {
+    const { problem, reason } = classifyCondition(c)
+    a.problems.push(problem)
+    a.reasons.push(reason)
+  }
+  for (let i = 0; i < a.problems.length; i++) {
+    if (a.problems[i] === "throws") {
+      a.decidingCondition = i
+      if (p.effect === "allow") a.neverApplies = true
+      else a.failsClosed = true // anything but exactly "allow" is a deny
+      break
+    }
+    if (a.problems[i] === "alwaysFalse") {
+      a.decidingCondition = i
+      a.neverApplies = true
+      break
+    }
+  }
+  for (const s of p.subjects) {
+    if (s.kind === "" && s.id === "" && s.role === "") a.subjectsUnrestricted = true
+    if (s.role !== "") a.hasRoleMatcher = true
+  }
+  a.actionsUnrestricted = p.actions.length === 0 || p.actions.some(matchesEveryValue)
+  a.resourcesUnrestricted = p.resources.length === 0 || p.resources.some(matchesEveryValue)
+  a.matchesEverything = a.subjectsUnrestricted && a.actionsUnrestricted && a.resourcesUnrestricted
+  return a
+}
+
+// ---- write-time validation -------------------------------------------------
+
+const POLICY_SUBJECT_KINDS = SUBJECT_KINDS // warden's closed set, declared with the assignments
+const MAX_EXACT_INTEGER = 2 ** 53
+const WINDOW_START_NOT_A_TIME = "The start is not an RFC3339 time."
+const WINDOW_END_NOT_A_TIME = "The end is not an RFC3339 time."
+const WINDOW_END_NOT_AFTER = "The end must be after the start."
+
+/** storedCondition: the one place a wire condition becomes a stored one; the field is trimmed here, once. */
+function storedCondition(c) {
+  return { field: goTrimSpace(c.field), operator: c.operator, value: c.value }
+}
+
+/** storedSubject: trimmed once, so a subject of only whitespace is refused, never stored as the empty matcher. */
+function storedSubject(s) {
+  return { kind: goTrimSpace(s.kind), id: goTrimSpace(s.id), role: goTrimSpace(s.role) }
+}
+
+const trimmedList = (list) => list.map(goTrimSpace)
+const hasEmptyEntry = (list) => list.some((v) => goTrimSpace(v) === "")
+
+const isComparison = (op) => op === "gt" || op === "lt" || op === "gte" || op === "lte"
+
+function nonFinite(v) {
+  const n = goAsNumber(v)
+  return n !== null && !Number.isFinite(n)
+}
+
+function largestMagnitude(v) {
+  if (Array.isArray(v)) {
+    let best = 0
+    let found = false
+    for (const item of v) {
+      const n = largestMagnitude(item)
+      if (n !== null) {
+        found = true
+        best = Math.max(best, n)
+      }
+    }
+    return found ? best : null
+  }
+  return typeof v === "number" ? Math.abs(v) : null
+}
+
+/** conditionIssue: why one condition cannot be saved, or "". The messages are Go's, word for word. */
+function conditionIssue(c) {
+  const pc = storedCondition(c)
+  // classifyCondition first: its messages say what the condition would DO.
+  const { problem, reason } = classifyCondition(pc)
+  if (reason === "unknownOperator") return `${goQuote(c.operator)} is not an operator warden knows, so this condition would fail every check.`
+  if (reason === "invalidRegex") return "This pattern does not compile, so this condition would fail every check."
+  if (reason === "unresolvableField") {
+    return `Warden never gives ${goQuote(pc.field)} a value, so this condition would always be ${problem === "alwaysTrue"}. Use subject., resource., context., or action.name.`
+  }
+  if (reason === "alwaysPresent") {
+    return `Warden always gives ${goQuote(pc.field)} a value, even an empty one, so this condition would always be ${problem === "alwaysTrue"}.`
+  }
+  if (reason === "matchesAnything") return "This matches every value, so this condition is always true and restricts nothing."
+  if (isComparison(pc.operator) && nonFinite(pc.value)) return "The value is not a finite number."
+  if (reason === "notAList") return "This operator needs a list of values."
+  if (reason === "emptyList" && problem === "alwaysFalse") return "The list is empty, so this condition is never met and the policy never applies."
+  if (reason === "emptyList") return "The list is empty, so this condition restricts nothing."
+  if (reason === "notANumber") return "This operator compares numbers, and the value is not one."
+  if (reason === "noValidCIDR") return "None of these parse as a network like 10.0.0.0/8."
+  if (reason === "notATime") return "The value must be an RFC3339 time, like 2026-06-01T09:00:00Z."
+  // policy.ValidateCondition. Its operator, field, time and empty-list checks
+  // cannot fail here (the classification above caught them), so what is left
+  // is the 512 byte regex cap and a CIDR list with some bad entries.
+  if (pc.operator === "regex" && Buffer.byteLength(goSprint(pc.value)) > 512) return "regex condition pattern exceeds 512 characters"
+  if (pc.operator === "ip_in_cidr") {
+    const cidrs = typeof pc.value === "string" ? [pc.value] : goListOf(pc.value)
+    const bad = cidrs.find((x) => !goParseCIDR(x))
+    if (bad !== undefined) return `invalid CIDR ${goQuote(bad)}: invalid CIDR address: ${bad}`
+  }
+  const n = largestMagnitude(c.value)
+  if (n !== null && n > MAX_EXACT_INTEGER) {
+    if (isComparison(pc.operator)) {
+      return "Numbers above 9007199254740992 lose precision when stored, and a comparison reads a string as a number too, so use a smaller number."
+    }
+    return "Numbers above 9007199254740992 lose precision when stored. Store it as a string instead."
+  }
+  return ""
+}
+
+/** windowOrderIssue: an end at or before the start is refused; an absent bound is no bound. */
+function windowOrderIssue(nb, na) {
+  return nb !== null && na !== null && !(na > nb) ? WINDOW_END_NOT_AFTER : ""
+}
+
+function windowIssue(notBefore, notAfter) {
+  let nb = null
+  let na = null
+  if (notBefore !== "") {
+    nb = parseGoTime(notBefore)
+    if (nb === null) return WINDOW_START_NOT_A_TIME
+  }
+  if (notAfter !== "") {
+    na = parseGoTime(notAfter)
+    if (na === null) return WINDOW_END_NOT_A_TIME
+  }
+  return windowOrderIssue(nb, na)
+}
+
+const ALL_PARTS = { name: true, effect: true, window: true, subjects: true, actions: true, resources: true, conditions: true, obligations: true }
+
+/**
+ * collectPolicyIssues: every reason a draft cannot be saved. An update
+ * validates only the parts it changes, so a policy stored with a bad condition
+ * before this validation existed can still have its description edited.
+ */
+function collectPolicyIssues(d, parts) {
+  const issues = { fields: {}, conditions: [] }
+  if (parts.name && goTrimSpace(d.name) === "") issues.fields.name = "A policy needs a name."
+  if (parts.effect && d.effect !== "allow" && d.effect !== "deny") issues.fields.effect = 'Effect must be "allow" or "deny".'
+  if (parts.window) {
+    const msg = windowIssue(d.notBefore, d.notAfter)
+    if (msg) issues.fields.window = msg
+  }
+  if (parts.subjects) {
+    for (const raw of d.subjects) {
+      const s = storedSubject(raw)
+      if (s.kind === "" && s.id === "" && s.role === "") {
+        issues.fields.subjects = "An empty subject matcher matches everyone. To mean everyone, remove every subject instead."
+        break
+      }
+      if (s.kind !== "" && !POLICY_SUBJECT_KINDS.has(s.kind)) {
+        issues.fields.subjects = `Subject kind ${goQuote(s.kind)} is not one warden checks. Use user, api_key, service or service_acct.`
+        break
+      }
+    }
+  }
+  if (parts.actions && hasEmptyEntry(d.actions)) issues.fields.actions = "An entry is empty."
+  if (parts.resources && hasEmptyEntry(d.resources)) issues.fields.resources = "An entry is empty."
+  if (parts.obligations && hasEmptyEntry(d.obligations)) issues.fields.obligations = "An entry is empty."
+  if (parts.conditions) {
+    d.conditions.forEach((c, index) => {
+      const message = conditionIssue(c)
+      if (message) issues.conditions.push({ index, message })
+    })
+  }
+  return issues
+}
+
+/** issuesError: the BAD_REQUEST a page renders row by row. */
+function issuesError(issues) {
+  const fields = Object.keys(issues.fields).length
+  if (fields === 0 && issues.conditions.length === 0) return null
+  return new WardenFixtureError(
+    400,
+    "BAD_REQUEST",
+    `This policy cannot be saved: ${issues.conditions.length} condition(s) and ${fields} field(s) need fixing.`,
+    { fields: issues.fields, conditions: issues.conditions }
+  )
+}
+
+/**
+ * toPolicyConditions: every condition gets a fresh id, except that a sent id
+ * is kept when it belongs to one of the policy's currently stored conditions
+ * and this is its first appearance in the new set. A create passes none.
+ */
+function toPolicyConditions(input, stored) {
+  const owned = new Set(stored.map((c) => c.id))
+  const used = new Set()
+  return input.map((c) => {
+    let id = newId("cond")
+    if (typeof c.id === "string" && owned.has(c.id) && !used.has(c.id)) {
+      id = c.id
+      used.add(c.id)
+    }
+    return { id, ...storedCondition(c), value: structuredClone(c.value) }
+  })
+}
+
+// ---- decoding a request the way encoding/json would ------------------------
+
+function jsonKind(v) {
+  if (v === null) return "null"
+  if (Array.isArray(v)) return "array"
+  if (typeof v === "boolean") return "bool"
+  return typeof v
+}
+
+function decodeFail(struct, field, v, goType) {
+  const what = typeof v === "number" && goType === "int" ? `number ${v}` : jsonKind(v)
+  return badRequest(`json: cannot unmarshal ${what} into Go struct field ${struct}.${field} of type ${goType}`)
+}
+
+/** null and absent both decode to the zero value. */
+function decodeString(v, struct, field) {
+  if (v === undefined || v === null) return ""
+  if (typeof v !== "string") throw decodeFail(struct, field, v, "string")
+  return v
+}
+
+function decodeInt(v, struct, field) {
+  if (v === undefined || v === null) return 0
+  if (typeof v !== "number" || !Number.isInteger(v)) throw decodeFail(struct, field, v, "int")
+  return v
+}
+
+function decodeStrings(v, struct, field) {
+  if (v === undefined || v === null) return []
+  if (!Array.isArray(v)) throw decodeFail(struct, field, v, "[]string")
+  return v.map((x) => decodeString(x, struct, field))
+}
+
+function decodeSubjects(v, struct, field) {
+  if (v === undefined || v === null) return []
+  if (!Array.isArray(v)) throw decodeFail(struct, field, v, "[]contract.PolicySubject")
+  return v.map((s) => {
+    if (s === null || s === undefined) return { kind: "", id: "", role: "" }
+    if (typeof s !== "object" || Array.isArray(s)) throw decodeFail(struct, field, s, "contract.PolicySubject")
+    return {
+      kind: decodeString(s.kind, struct, field + ".kind"),
+      id: decodeString(s.id, struct, field + ".id"),
+      role: decodeString(s.role, struct, field + ".role"),
+    }
+  })
+}
+
+function decodeConditions(v, struct, field) {
+  if (v === undefined || v === null) return []
+  if (!Array.isArray(v)) throw decodeFail(struct, field, v, "[]contract.PolicyCondition")
+  return v.map((c) => {
+    if (c === null || c === undefined) return { id: "", field: "", operator: "", value: undefined }
+    if (typeof c !== "object" || Array.isArray(c)) throw decodeFail(struct, field, c, "contract.PolicyCondition")
+    return {
+      id: decodeString(c.id, struct, field + ".id"),
+      field: decodeString(c.field, struct, field + ".field"),
+      operator: decodeString(c.operator, struct, field + ".operator"),
+      value: c.value === null ? undefined : c.value,
+    }
+  })
+}
+
+/** PolicyDraft, as policies.validate and policies.create decode it. */
+function decodeDraft(p, struct) {
+  return {
+    name: decodeString(p?.name, struct, "name"),
+    description: decodeString(p?.description, struct, "description"),
+    effect: decodeString(p?.effect, struct, "effect"),
+    priority: decodeInt(p?.priority, struct, "priority"),
+    notBefore: decodeString(p?.notBefore, struct, "notBefore"),
+    notAfter: decodeString(p?.notAfter, struct, "notAfter"),
+    subjects: decodeSubjects(p?.subjects, struct, "subjects"),
+    actions: decodeStrings(p?.actions, struct, "actions"),
+    resources: decodeStrings(p?.resources, struct, "resources"),
+    conditions: decodeConditions(p?.conditions, struct, "conditions"),
+    obligations: decodeStrings(p?.obligations, struct, "obligations"),
+  }
+}
+
+/** PolicyUpdateInput: pointers, so null and absent are both "leave alone". */
+function decodePatch(p) {
+  const present = (v) => v !== undefined && v !== null
+  const S = "PolicyUpdateInput"
+  return {
+    id: decodeString(p?.id, S, "id"),
+    name: present(p?.name) ? decodeString(p.name, S, "name") : undefined,
+    description: present(p?.description) ? decodeString(p.description, S, "description") : undefined,
+    effect: present(p?.effect) ? decodeString(p.effect, S, "effect") : undefined,
+    priority: present(p?.priority) ? decodeInt(p.priority, S, "priority") : undefined,
+    notBefore: present(p?.notBefore) ? decodeString(p.notBefore, S, "notBefore") : undefined,
+    notAfter: present(p?.notAfter) ? decodeString(p.notAfter, S, "notAfter") : undefined,
+    subjects: present(p?.subjects) ? decodeSubjects(p.subjects, S, "subjects") : undefined,
+    actions: present(p?.actions) ? decodeStrings(p.actions, S, "actions") : undefined,
+    resources: present(p?.resources) ? decodeStrings(p.resources, S, "resources") : undefined,
+    conditions: present(p?.conditions) ? decodeConditions(p.conditions, S, "conditions") : undefined,
+    obligations: present(p?.obligations) ? decodeStrings(p.obligations, S, "obligations") : undefined,
+  }
+}
+
+// ---- policy rows -----------------------------------------------------------
+
+// The tenant the Go contract resolves from the principal. Only the store's
+// duplicate-name message names it.
+const WARDEN_TENANT = "tenant_fixture"
+
+// The order warden's stores list policies in, which is also evaluation order:
+// priority, then age, then id.
+const compareByPriority = (a, b) =>
+  a.priority - b.priority || Date.parse(a.createdAt) - Date.parse(b.createdAt) || (a.id < b.id ? -1 : a.id > b.id ? 1 : 0)
+
+function policyNotFound(rawId) {
+  return new WardenFixtureError(404, "NOT_FOUND", `policy ${rawId}: warden: policy not found: warden: not found`)
+}
+
+function policyDuplicate(name, namespacePath) {
+  return new WardenFixtureError(
+    409,
+    "CONFLICT",
+    `policy ${goQuote(name)} in tenant ${goQuote(WARDEN_TENANT)} ns ${goQuote(namespacePath)}: warden: policy already exists in this scope: warden: already exists`
+  )
+}
+
+function renameDuplicate(name, namespacePath) {
+  return new WardenFixtureError(
+    409,
+    "CONFLICT",
+    `policy ${goQuote(name)} in ns ${goQuote(namespacePath)}: warden: policy already exists in this scope: warden: already exists`
+  )
+}
+
+/** projectPolicySummary: the list row, analysed as of now. Omitempty fields are absent. */
+function policySummaryOf(p, a) {
+  const out = { id: p.id, namespacePath: p.namespacePath, name: p.name }
+  if (p.description) out.description = p.description
+  out.effect = p.effect
+  out.priority = p.priority
+  out.isActive = p.isActive
+  out.state = a.state
+  out.failsClosed = a.failsClosed
+  out.neverApplies = a.neverApplies
+  out.matchesEverything = a.matchesEverything
+  out.version = p.version
+  out.updatedAt = rfc3339(p.updatedAt)
+  return out
+}
+
+/** projectPolicyDetail: every slice is an array, never null, so a page never guards against it. */
+function projectPolicyDetail(p, nowNs) {
+  const a = analysePolicy(p, nowNs)
+  const out = {
+    ...policySummaryOf(p, a),
+    subjects: p.subjects.map((s) => {
+      const subject = {}
+      if (s.kind) subject.kind = s.kind
+      if (s.id) subject.id = s.id
+      if (s.role) subject.role = s.role
+      return subject
+    }),
+    actions: [...p.actions],
+    resources: [...p.resources],
+    conditions: p.conditions.map((c, i) => {
+      const view = { id: c.id, field: c.field, operator: c.operator }
+      if (c.value !== undefined && c.value !== null) view.value = structuredClone(c.value)
+      if (a.problems[i]) view.problem = a.problems[i]
+      if (a.reasons[i]) view.reason = a.reasons[i]
+      return view
+    }),
+    obligations: [...p.obligations],
+  }
+  if (p.notBefore !== null) out.notBefore = formatGoTime(p.notBefore)
+  if (p.notAfter !== null) out.notAfter = formatGoTime(p.notAfter)
+  out.subjectsUnrestricted = a.subjectsUnrestricted
+  out.actionsUnrestricted = a.actionsUnrestricted
+  out.resourcesUnrestricted = a.resourcesUnrestricted
+  out.hasRoleMatcher = a.hasRoleMatcher
+  if (a.decidingCondition >= 0) out.decidingCondition = a.decidingCondition
+  if (p.createdBy) out.createdBy = p.createdBy
+  if (p.updatedBy) out.updatedBy = p.updatedBy
+  out.createdAt = rfc3339(p.createdAt)
+  return out
+}
+
+const nowNs = () => BigInt(Date.now()) * 1_000_000n
+
+// Go stamps a create with nanoseconds, so two policies made back to back never
+// share a creation time and the list keeps them in the order they were made.
+// Milliseconds would tie, and the id tie-break is random, so each create here
+// is stamped at least a millisecond after the last.
+let lastPolicyCreateMs = 0
+function nextPolicyCreatedAt() {
+  lastPolicyCreateMs = Math.max(Date.now(), lastPolicyCreateMs + 1)
+  return new Date(lastPolicyCreateMs).toISOString()
+}
+
+/**
+ * mergedWindow: the window after the patch, as exact instants. A bound the
+ * patch does not name is the stored one itself, never a formatted copy. An
+ * empty string clears a bound. msg is why the pair cannot be saved, or "".
+ */
+function mergedWindow(before, patch) {
+  let nb = before.notBefore
+  let na = before.notAfter
+  const bound = (raw, current, notATime) => {
+    if (raw === undefined) return { value: current, msg: "" }
+    if (raw === "") return { value: null, msg: "" }
+    const t = parseGoTime(raw)
+    return t === null ? { value: current, msg: notATime } : { value: t, msg: "" }
+  }
+  let r = bound(patch.notBefore, nb, WINDOW_START_NOT_A_TIME)
+  nb = r.value
+  if (r.msg) return { nb, na, msg: r.msg }
+  r = bound(patch.notAfter, na, WINDOW_END_NOT_A_TIME)
+  na = r.value
+  if (r.msg) return { nb, na, msg: r.msg }
+  return { nb, na, msg: windowOrderIssue(nb, na) }
+}
+
+/** draftAndParts: a patch as the draft collectPolicyIssues judges. The window is judged by mergedWindow. */
+function draftAndParts(patch) {
+  const d = { name: "", effect: "", notBefore: "", notAfter: "", subjects: [], actions: [], resources: [], conditions: [], obligations: [] }
+  const parts = { name: false, effect: false, window: false, subjects: false, actions: false, resources: false, conditions: false, obligations: false }
+  for (const key of ["name", "effect", "subjects", "actions", "resources", "conditions", "obligations"]) {
+    if (patch[key] !== undefined) {
+      d[key] = patch[key]
+      parts[key] = true
+    }
+  }
+  return { d, parts }
+}
+
 
 export const wardenHandlers = {
   "config.detail": {
@@ -1598,6 +3230,191 @@ export const wardenHandlers = {
         )
       }
       warden.resourceTypes.splice(i, 1)
+      return {}
+    },
+  },
+
+  // -------------------------------------------------------------------------
+  // Policies
+  //
+  // Reads carry what analysePolicy says a policy will DO (state, failsClosed,
+  // neverApplies, matchesEverything, and per condition a problem and reason),
+  // computed at read time and never stored. Writes are validated by
+  // collectPolicyIssues, and a create is always stored INACTIVE: a new policy
+  // with no matchers matches every check in its namespace and below.
+  // Activation is an explicit policies.setActive.
+  //
+  // Refusals here carry `details` ({ fields, conditions } for a rejected
+  // draft) on the thrown error, but that does not reach the browser until
+  // server.mjs registers warden through a FixtureError factory: see the note
+  // on WardenFixtureError.
+  // -------------------------------------------------------------------------
+
+  "policies.list": {
+    kind: "query",
+    handler: (params) => {
+      const S = "PoliciesListInput"
+      if (params?.effect !== undefined && params.effect !== null) decodeString(params.effect, S, "effect")
+      if (params?.search !== undefined && params.search !== null) decodeString(params.search, S, "search")
+      if (params?.isActive !== undefined && params.isActive !== null && typeof params.isActive !== "boolean") {
+        throw decodeFail(S, "isActive", params.isActive, "bool")
+      }
+      if (params?.namespacePath !== undefined && params.namespacePath !== null) decodeString(params.namespacePath, S, "namespacePath")
+      let rows = byNamespace(warden.policies, params)
+      if (params?.effect) rows = rows.filter((p) => p.effect === params.effect)
+      if (typeof params?.isActive === "boolean") rows = rows.filter((p) => p.isActive === params.isActive)
+      if (params?.search) {
+        // strings.ToLower on both sides, over the name only.
+        const needle = String(params.search).toLowerCase()
+        rows = rows.filter((p) => p.name.toLowerCase().includes(needle))
+      }
+      const now = nowNs()
+      const page = pageOf([...rows].sort(compareByPriority), params)
+      return { ...page, items: page.items.map((p) => policySummaryOf(p, analysePolicy(p, now))) }
+    },
+  },
+  "policies.detail": {
+    kind: "query",
+    handler: (params) => {
+      const raw = decodeString(params?.id, "PolicyDetailInput", "id")
+      requireId("wpol", "policy", raw)
+      const p = warden.policies.find((x) => x.id === raw)
+      if (!p) throw policyNotFound(raw)
+      return projectPolicyDetail(p, nowNs())
+    },
+  },
+  // A query because it writes nothing: it reports what a create would refuse,
+  // so a form can show every problem before anything is sent.
+  "policies.validate": {
+    kind: "query",
+    handler: (params) => {
+      const issues = collectPolicyIssues(decodeDraft(params, "PolicyDraft"), ALL_PARTS)
+      return { valid: issuesError(issues) === null, fields: issues.fields, conditions: issues.conditions }
+    },
+  },
+  "policies.create": {
+    kind: "command",
+    invalidates: ["policies.list", "overview.stats", "namespaces.list"],
+    handler: (payload) => {
+      const draft = decodeDraft(payload, "PolicyCreateInput")
+      const namespacePath = decodeString(payload?.namespacePath, "PolicyCreateInput", "namespacePath")
+      validateNamespace(namespacePath)
+      const refused = issuesError(collectPolicyIssues(draft, ALL_PARTS))
+      if (refused) throw refused
+      const name = goTrimSpace(draft.name)
+      if (warden.policies.some((x) => x.namespacePath === namespacePath && x.name === name)) {
+        throw policyDuplicate(name, namespacePath)
+      }
+      const now = nextPolicyCreatedAt()
+      const row = {
+        id: newId("wpol"),
+        namespacePath,
+        name,
+        description: draft.description,
+        effect: draft.effect,
+        priority: draft.priority,
+        // Always inactive, whatever the input says. There is no isActive on the input.
+        isActive: false,
+        notBefore: draft.notBefore === "" ? null : parseGoTime(draft.notBefore),
+        notAfter: draft.notAfter === "" ? null : parseGoTime(draft.notAfter),
+        version: 1,
+        subjects: draft.subjects.map(storedSubject),
+        actions: trimmedList(draft.actions),
+        resources: trimmedList(draft.resources),
+        conditions: toPolicyConditions(draft.conditions, []),
+        obligations: trimmedList(draft.obligations),
+        createdBy: WARDEN_ACTOR,
+        updatedBy: WARDEN_ACTOR,
+        createdAt: now,
+        updatedAt: now,
+      }
+      warden.policies.push(row)
+      return { id: row.id }
+    },
+  },
+  "policies.update": {
+    kind: "command",
+    invalidates: ["policies.list", "policies.detail"],
+    handler: (payload) => {
+      const patch = decodePatch(payload)
+      requireId("wpol", "policy", patch.id)
+      const i = warden.policies.findIndex((x) => x.id === patch.id)
+      if (i === -1) throw policyNotFound(patch.id)
+      const before = warden.policies[i]
+      // Only what the patch changes is validated, so a policy stored with a bad
+      // condition before this validation existed can still have its
+      // description edited. The window is judged as the merged pair, so a new
+      // start after the stored end is refused.
+      const { d, parts } = draftAndParts(patch)
+      const issues = collectPolicyIssues(d, parts)
+      const windowPatched = patch.notBefore !== undefined || patch.notAfter !== undefined
+      const merged = mergedWindow(before, patch)
+      if (windowPatched && merged.msg) issues.fields.window = merged.msg
+      const refused = issuesError(issues)
+      if (refused) throw refused
+
+      // Read, patch the present fields on a copy, write. Every patched list is
+      // replaced rather than edited.
+      const next = { ...before }
+      if (patch.name !== undefined) next.name = goTrimSpace(patch.name)
+      if (patch.description !== undefined) next.description = patch.description
+      if (patch.effect !== undefined) next.effect = patch.effect
+      if (patch.priority !== undefined) next.priority = patch.priority
+      if (windowPatched) {
+        next.notBefore = merged.nb
+        next.notAfter = merged.na
+      }
+      if (patch.subjects !== undefined) next.subjects = patch.subjects.map(storedSubject)
+      if (patch.actions !== undefined) next.actions = trimmedList(patch.actions)
+      if (patch.resources !== undefined) next.resources = trimmedList(patch.resources)
+      if (patch.conditions !== undefined) next.conditions = toPolicyConditions(patch.conditions, before.conditions)
+      if (patch.obligations !== undefined) next.obligations = trimmedList(patch.obligations)
+
+      // A rename onto a name already in this namespace. Renaming a policy to
+      // its own name is not a conflict.
+      if (patch.name !== undefined && next.name !== before.name) {
+        if (warden.policies.some((x) => x.namespacePath === before.namespacePath && x.name === next.name)) {
+          throw renameDuplicate(next.name, before.namespacePath)
+        }
+      }
+      next.updatedBy = WARDEN_ACTOR
+      next.version = before.version + 1
+      next.updatedAt = new Date().toISOString()
+      warden.policies[i] = next
+      return {}
+    },
+  },
+  "policies.setActive": {
+    kind: "command",
+    invalidates: ["policies.list", "policies.detail"],
+    handler: (payload) => {
+      const S = "PolicySetActiveInput"
+      const raw = decodeString(payload?.id, S, "id")
+      const active = payload?.active === undefined || payload.active === null ? false : payload.active
+      if (typeof active !== "boolean") throw decodeFail(S, "active", active, "bool")
+      requireId("wpol", "policy", raw)
+      const i = warden.policies.findIndex((x) => x.id === raw)
+      if (i === -1) throw policyNotFound(raw)
+      const before = warden.policies[i]
+      warden.policies[i] = {
+        ...before,
+        isActive: active,
+        updatedBy: WARDEN_ACTOR,
+        version: before.version + 1,
+        updatedAt: new Date().toISOString(),
+      }
+      return {}
+    },
+  },
+  "policies.delete": {
+    kind: "command",
+    invalidates: ["policies.list", "policies.detail", "overview.stats", "namespaces.list"],
+    handler: (payload) => {
+      const raw = decodeString(payload?.id, "PolicyDeleteInput", "id")
+      requireId("wpol", "policy", raw)
+      const i = warden.policies.findIndex((x) => x.id === raw)
+      if (i === -1) throw policyNotFound(raw)
+      warden.policies.splice(i, 1)
       return {}
     },
   },
