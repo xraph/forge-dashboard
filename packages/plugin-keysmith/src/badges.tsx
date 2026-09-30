@@ -1,0 +1,48 @@
+import { Badge } from "@forge-go/dashboard-kit/components/badge"
+import { STATE_LABEL } from "./format"
+import type { KeySummary } from "./types"
+
+/*
+ * Badge mapping for key state. Whatever holds most rows is the quietest:
+ * active is `outline`. Suspended is `default` because it is temporarily off
+ * and worth a second look. Expired and revoked are `secondary`: they are
+ * finished history and recede. An active key that expires within 7 days is
+ * `destructive` ("Expires soon"), the one thing someone scans a key list to
+ * find.
+ */
+
+const PENDING_NOTE =
+  "not yet marked; Keysmith marks expiry when the key is next used"
+
+export function KeyStateBadge({ summary }: { summary: KeySummary }) {
+  const state = summary.effectiveState
+
+  if (state === "active") {
+    return summary.expiresSoon ? (
+      <Badge variant="destructive">Expires soon</Badge>
+    ) : (
+      <Badge variant="outline">{STATE_LABEL.active}</Badge>
+    )
+  }
+
+  if (state === "suspended") {
+    return <Badge variant="default">{STATE_LABEL.suspended}</Badge>
+  }
+
+  if (state === "expired" && summary.expiryPending) {
+    // The badge reads "Expired", but the stored state is still active until
+    // the key is next used. Sighted users get the reason on hover, and a
+    // screen reader gets it as text inside the badge.
+    return (
+      <Badge variant="secondary" title={`Expired, ${PENDING_NOTE}`}>
+        {STATE_LABEL.expired}
+        <span className="sr-only">, {PENDING_NOTE}</span>
+      </Badge>
+    )
+  }
+
+  // Revoked, marked-expired, and any state this page does not know by name.
+  return (
+    <Badge variant="secondary">{STATE_LABEL[state] ?? String(state)}</Badge>
+  )
+}
