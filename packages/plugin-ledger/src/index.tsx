@@ -1,6 +1,9 @@
 import { definePlugin } from "@forge-go/dashboard-plugin"
 import type { PluginNavItem, PluginRoute } from "@forge-go/dashboard-plugin"
-import { WalletIcon } from "@forge-go/dashboard-kit/icons"
+import { CreditCardIcon, HouseIcon, SettingsIcon, WalletIcon } from "@forge-go/dashboard-kit/icons"
+import { LedgerOverviewPage } from "./pages/overview"
+import { LedgerPaymentMethodsPage } from "./pages/payment-methods"
+import { LedgerSettingsPage } from "./pages/settings"
 
 export type * from "./types"
 export {
@@ -33,8 +36,16 @@ function inGroupOrder(items: PluginNavItem[]): PluginNavItem[] {
  * /usage, /plans/:id and /invoices/:id are lazy(): their modules are imported
  * nowhere else, so recharts and the table code stay out of the entry chunk.
  */
-const navItems: PluginNavItem[] = []
-const routes: PluginRoute[] = []
+const navItems: PluginNavItem[] = [
+  { label: "Overview", to: "/", priority: 0, icon: <HouseIcon />, group: "Overview" },
+  { label: "Payment methods", to: "/payment-methods", priority: 40, icon: <CreditCardIcon />, group: "Billing" },
+  { label: "Settings", to: "/settings", priority: 0, icon: <SettingsIcon />, group: "Configuration" },
+]
+const routes: PluginRoute[] = [
+  { path: "/", element: LedgerOverviewPage },
+  { path: "/payment-methods", element: LedgerPaymentMethodsPage },
+  { path: "/settings", element: LedgerSettingsPage },
+]
 
 /**
  * The first-party UI for the `ledger` extension.
