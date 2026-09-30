@@ -1,3 +1,4 @@
+import { lazy } from "react"
 import { definePlugin } from "@forge-go/dashboard-plugin"
 import { MilestoneIcon, ScrollTextIcon, SettingsIcon, ShieldCheckIcon } from "@forge-go/dashboard-kit/icons"
 import { ChainPage } from "./pages/chain"
@@ -6,6 +7,9 @@ import { CheckpointsPage } from "./pages/checkpoints"
 import { EventsPage } from "./pages/events"
 import { SettingsPage } from "./pages/settings"
 import { UserEventsPage } from "./pages/user-events"
+
+// CodeMirror is this page's weight, so it loads when an event is opened.
+const EventDetailPage = lazy(() => import("./pages/event-detail"))
 
 export type * from "./types"
 
@@ -36,6 +40,7 @@ export const chroniclePlugin = definePlugin({
     { path: "/checkpoints/in/:streamId", element: CheckpointsPage },
     { path: "/checkpoint/:id", element: CheckpointDetailPage },
     { path: "/events", element: EventsPage },
+    { path: "/events/:id", element: EventDetailPage },
     { path: "/users/:userId", element: UserEventsPage },
     { path: "/settings", element: SettingsPage },
   ],
