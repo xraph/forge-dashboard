@@ -3493,11 +3493,11 @@ function playgroundBatchCheck(params) {
 //     viewer holds every grant, so the check never refuses and is not
 //     modelled. The order of the refusals that remain is the Go order: input
 //     decoding, then source diagnostics, then the digest.
-//   - Condition operators. Go's parser refuses an operator it does not know,
-//     so the export of a store that holds one (the seeded fuzzy-network-allow
-//     uses "approximately") is source the real server cannot plan. The fixture
-//     reads any bare word as an operator so that exporting the seed and
-//     planning it back gives an empty diff.
+//   - Condition operators are Go's: one the language does not know is refused
+//     (`expected condition operator, got IDENT "..."`). So the export of a
+//     store that holds one (the seeded fuzzy-network-allow in the root
+//     namespace, which uses "approximately") is source the real server cannot
+//     plan either, and a plan of the whole export reports that parse error.
 //   - Failing part way. Go answers INTERNAL "the apply stopped part way: ..."
 //     when a write fails after the dry run. Nothing in memory fails, so a
 //     source that contains SCHEMA_FAIL_MARKER (for example in a comment) makes
@@ -3508,8 +3508,11 @@ function playgroundBatchCheck(params) {
 //     two steps in a single-threaded fixture, so it is false unless the source
 //     repeats a relation line: the dry run lists both, the write finds the
 //     second already there.
-//   - Deeper traversal checks in the resolver (a step that hops through
-//     another type) are not ported; every other Resolve check is.
+//   - Integers of 2^53 or more are refused with a diagnostic, where Go's Atoi
+//     takes them up to 2^63-1. A JS number cannot hold them, and a BigInt
+//     would have to run through every projection of priority, maxMembers and
+//     condition values (JSON.stringify refuses one), so the refusal stays
+//     local to the parser.
 //
 // CONFLICT, INTERNAL and the other codes below are set on the thrown object,
 // but server.mjs maps any error that is not its own FixtureError class to
@@ -3522,6 +3525,8 @@ const SCHEMA_FAIL_MARKER = "fixture:fail-apply"
 
 /** The id the applier stamps on rows it writes (declarativeActor.ID). */
 const DECLARATIVE_ACTOR = "system"
+
+const INT64_MAX = 2n ** 63n - 1n
 
 const SCHEMA_KEYWORDS = new Set([...DSL_KEYWORDS, "true", "false"])
 
@@ -4003,7 +4008,11 @@ function parseSchemaSource(src) {
     const raw = (neg ? "-" : "") + tok.value
     const v = Number(raw)
     if (!Number.isSafeInteger(v)) {
-      errf(tok, `invalid integer ${goQuote(raw)} for ${what}: strconv.Atoi: parsing ${goQuote(raw)}: value out of range`)
+      // Go refuses only beyond int64; a JS number is exact only to 2^53 (see the header note).
+      const beyondInt64 = BigInt(raw) > INT64_MAX || BigInt(raw) < -INT64_MAX - 1n
+      errf(tok, beyondInt64
+        ? `invalid integer ${goQuote(raw)} for ${what}: strconv.Atoi: parsing ${goQuote(raw)}: value out of range`
+        : `invalid integer ${goQuote(raw)} for ${what}: the fixture holds integers only below 2^53`)
       return null
     }
     return v
@@ -4013,7 +4022,17 @@ function parseSchemaSource(src) {
     const tok = cur
     if (tok.kind === "INT" || tok.kind === "FLOAT") {
       advance()
-      return (neg ? -1 : 1) * Number(tok.value)
+      const n = (neg ? -1 : 1) * Number(tok.value)
+      // Go keeps an integer that fits int64 exact and reads a larger one as a float64. A JS number is
+      // exact only to 2^53, so the band between would be silently rounded: refuse it (header note).
+      if (tok.kind === "INT" && !Number.isSafeInteger(n)) {
+        const big = BigInt((neg ? "-" : "") + tok.value)
+        if (big <= INT64_MAX && big >= -INT64_MAX - 1n) {
+          // The diagnostic is recorded; the rounded number keeps the parse going without cascading noise.
+          errf(tok, `invalid integer literal ${goQuote((neg ? "-" : "") + tok.value)}: the fixture holds integers only below 2^53`)
+        }
+      }
+      return n
     }
     errf(tok, `expected a number after \`-\`, got ${tok.kind} ${goQuote(tok.value)}`)
     return undefined
@@ -4427,7 +4446,7 @@ function parseSchemaSource(src) {
     ">": "gt", "<": "lt", ">=": "gte", "<=": "lte", exists: "exists", ip_in_cidr: "ip_in_cidr",
     time_after: "time_after", time_before: "time_before", "=~": "regex",
   }
-  /** The canonical operator, or null after a diagnostic. A bare word the language does not know is taken as is (see the header note). */
+  /** The canonical operator, or null after a diagnostic. */
   function parseOperator() {
     const at = cur
     if (cur.kind === "not") {
@@ -4447,7 +4466,6 @@ function parseSchemaSource(src) {
       advance()
       return OPERATORS[at.kind]
     }
-    if (cur.kind === "IDENT") return advance().value
     errf(at, `expected condition operator, got ${at.kind} ${goQuote(at.value)}`)
     return null
   }
@@ -4866,7 +4884,22 @@ function resolveSchema(prog) {
           errf(e, `traversal starts with undeclared relation ${goQuote(e.steps[0])} on resource ${goQuote(rt.name)}`)
           return
         }
-        // Later hops belong to whatever type the first one lands on. Not ported: see the header note.
+        // Later hops must resolve on the chain's current target type.
+        let target = targets.get(e.steps[0])
+        for (let i = 1; i < e.steps.length; i++) {
+          const next = prog.resourceTypes.find((x) => x.name === target)
+          if (!next) {
+            errf(e, `traversal hops into undeclared resource type ${goQuote(target)}`)
+            return
+          }
+          const step = e.steps[i]
+          const rel = next.relations.find((r) => r.name === step)
+          if (!rel && !next.permissions.some((p) => p.name === step)) {
+            errf(e, `traversal step ${goQuote(step)} is not a relation or permission on resource ${goQuote(next.name)}`)
+            return
+          }
+          target = rel ? (rel.allowedSubjects[0]?.type ?? "") : ""
+        }
         break
       }
       case "or":
