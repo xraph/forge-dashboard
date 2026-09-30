@@ -251,8 +251,8 @@ function seedLedgerState() {
   const globex = sub("sub_globex", "globex", starter, "trialing", 5, { trial_start: ago(5), trial_end: iso(now + 9 * DAY) })
   const initech = sub("sub_initech", "initech", pro, "past_due", 90)
   const hooli = sub("sub_hooli", "hooli", starter, "paused", 60)
-  const umbrella = sub("sub_umbrella", "umbrella", starter, "canceled", 200, { canceled_at: ago(40), cancel_at: ago(40), ended_at: ago(40) })
-  sub("sub_wayne", "wayne", starter, "active", 30, { cancel_at: iso(periodEnd), canceled_at: ago(2) })
+  const umbrella = sub("sub_umbrella", "umbrella", starter, "canceled", 200, { canceled_at: ago(40), cancel_at: ago(40) })
+  sub("sub_wayne", "wayne", starter, "active", 30, { cancel_at: iso(periodEnd) })
 
   for (const k of [3, 2, 1]) {
     const startMs = now - (10 + 30 * (k + 1)) * DAY
@@ -849,14 +849,15 @@ function billingHandlers(h) {
   const { badRequest, notFound, conflict, providerConfigured, requireApp, text, requireText, page, owned, optionalTime, syncRow } = h
   const SUB_STATUSES = ["active", "trialing", "past_due", "canceled", "expired", "paused"]
   const INVOICE_STATUSES = ["draft", "pending", "paid", "past_due", "voided"]
-  const LIVE = new Set(["active", "trialing", "past_due", "paused"])
   const ENDED = new Set(["canceled", "expired"])
 
   function subscribablePlan(rawId, app) {
     const id = requireText(rawId, "plan_id")
     const p = ledger.plans.find((x) => x.id === id)
-    if (!p || p.app_id !== app) throw notFound("plan")
-    if (p.status !== "active") throw conflict(`plan ${p.slug} is ${p.status}, so nothing can subscribe to it`)
+    if (!p) throw notFound("plan")
+    // Go wraps ErrInvalidInput for both, which the contract maps to BAD_REQUEST.
+    if (p.app_id !== app) throw badRequest("the plan belongs to another app")
+    if (p.status !== "active") throw badRequest(`plan "${p.slug}" is ${p.status}, not active`)
     return p
   }
 
@@ -925,7 +926,7 @@ function billingHandlers(h) {
     const f = p.features.find((x) => x.key === key)
     if (!f) return refused("feature not in plan")
     if (f.type === "boolean") {
-      return { allowed: f.limit > 0, feature: key, used: 0, limit: f.limit, remaining: 0, soft_limit: false, ...(f.limit > 0 ? {} : { reason: "feature not enabled" }) }
+      return { allowed: f.limit > 0, feature: key, used: 0, limit: f.limit, remaining: 0, soft_limit: false }
     }
     const used = f.type === "seat" ? sub.quantity?.[key] ?? 0 : usedFor(tenant, app, key, f.period)
     if (f.limit === -1) return { allowed: true, feature: key, used, limit: -1, remaining: -1, soft_limit: f.soft_limit }
@@ -936,7 +937,7 @@ function billingHandlers(h) {
       limit: f.limit,
       remaining: Math.max(0, f.limit - used),
       soft_limit: f.soft_limit,
-      ...(used >= f.limit ? { reason: "quota exceeded" } : {}),
+      ...(used >= f.limit ? { reason: f.soft_limit ? "over soft limit" : "quota exceeded" } : {}),
     }
   }
 
@@ -1000,9 +1001,6 @@ function billingHandlers(h) {
         const tenant = requireText(input?.tenant_id, "tenant_id")
         const p = subscribablePlan(input?.plan_id, app)
         const quantity = checkQuantity(input?.quantity, p)
-        if (ledger.subscriptions.some((s) => s.tenant_id === tenant && s.app_id === app && LIVE.has(s.status))) {
-          throw conflict(`${tenant} already has a subscription in this app`)
-        }
         const nowMs = Date.now()
         const stamp = iso(nowMs)
         const row = { id: ledger.nextId("sub"), tenant_id: tenant, plan_id: p.id, status: p.trial_days > 0 ? "trialing" : "active", current_period_start: stamp, current_period_end: iso(nowMs + 30 * DAY), app_id: app, created_at: stamp, updated_at: stamp }
@@ -1023,13 +1021,14 @@ function billingHandlers(h) {
         const sub = loadSub(input?.id)
         if (ENDED.has(sub.status)) throw conflict(`subscription is ${sub.status}`)
         const p = subscribablePlan(input?.plan_id, sub.app_id)
-        // An absent or null quantity keeps the current seat counts.
-        const quantity = input?.quantity === undefined || input?.quantity === null ? undefined : checkQuantity(input.quantity, p)
+        // An absent or null quantity keeps the current seat counts, and the kept
+        // counts are checked against the new plan as Go's ChangePlan does.
+        const given = checkQuantity(input?.quantity, p)
+        const quantity = given ?? sub.quantity ?? {}
+        if (given === undefined) checkQuantity(quantity, p)
         sub.plan_id = p.id
-        if (quantity !== undefined) {
-          if (Object.keys(quantity).length > 0) sub.quantity = quantity
-          else delete sub.quantity
-        }
+        if (Object.keys(quantity).length > 0) sub.quantity = { ...quantity }
+        else delete sub.quantity
         sub.updated_at = iso(Date.now())
         return clone(sub)
       },
@@ -1065,16 +1064,16 @@ function billingHandlers(h) {
       handler: (input) => {
         const sub = loadSub(input?.id)
         if (ENDED.has(sub.status)) throw conflict(`subscription is already ${sub.status}`)
-        const stamp = iso(Date.now())
-        sub.canceled_at = stamp
-        if (input?.immediately === true) {
+        // As the stores' CancelSubscription: cancel_at is always set, and only a
+        // cancel_at that is not in the future ends the subscription. ended_at is
+        // never written.
+        const nowMs = Date.now()
+        const cancelMs = input?.immediately === true ? nowMs : Date.parse(sub.current_period_end)
+        sub.cancel_at = iso(cancelMs)
+        if (cancelMs <= nowMs) {
           sub.status = "canceled"
-          sub.cancel_at = stamp
-          sub.ended_at = stamp
-        } else {
-          sub.cancel_at = sub.current_period_end
+          sub.canceled_at = iso(nowMs)
         }
-        sub.updated_at = stamp
         return clone(sub)
       },
     },
@@ -1178,7 +1177,7 @@ function billingHandlers(h) {
         if (inv.status !== "draft") throw conflict("invoice is already finalized")
         const nowMs = Date.now()
         inv.status = "pending"
-        inv.due_date = iso(nowMs + 14 * DAY)
+        inv.due_date = iso(nowMs + 30 * DAY)
         inv.updated_at = iso(nowMs)
         return withLines(inv)
       },

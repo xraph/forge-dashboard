@@ -1461,46 +1461,101 @@ async function main() {
   }
 
   // ledger billing: lifecycles, refusals and writes visible in the next read.
+  // (fix round 1: agrees with the Go engine, see ledger.go and subscription_write.go)
   {
     const lc = (intent, kind, input) => dispatch("ledger", intent, kind, input, csrf)
     const check = (name, ok, detail) => {
       console.log(`  ledger ${name}: ${ok}`)
+      if (!ok && detail) console.log(`    ${detail}`)
       if (!ok) failures.push({ key: `spot-check::ledger ${name}`, reason: detail })
     }
     const body = (r) => r.body?.data
     const code = (r) => r.body?.error?.code
+    const detailOf = async (subId) => body(await lc("subscriptions.detail", "query", { id: subId }))
 
     const sub = await lc("subscriptions.create", "command", { tenant_id: "spot-tenant", plan_id: "plan_starter" })
     check("a plan with a trial starts trialing", body(sub)?.status === "trialing" && typeof body(sub)?.trial_end === "string", JSON.stringify(sub.body))
     check("subscriptions.create declares the manifest's invalidates", (sub.body?.meta?.invalidates ?? []).join(",") === "subscriptions.list,overview.stats,entitlements.check,paymentMethods.list", JSON.stringify(sub.body?.meta))
-    check("a second live subscription for the tenant is CONFLICT", code(await lc("subscriptions.create", "command", { tenant_id: "spot-tenant", plan_id: "plan_pro" })) === "CONFLICT", "")
     check("an unknown plan cannot be subscribed to", code(await lc("subscriptions.create", "command", { tenant_id: "spot-other", plan_id: "plan_missing" })) === "NOT_FOUND", "")
     const draftPlan = body(await lc("plans.create", "command", { name: "Draft only", slug: "draft-only", currency: "usd" }))
-    check("a draft plan cannot be subscribed to", code(await lc("subscriptions.create", "command", { tenant_id: "spot-other", plan_id: draftPlan?.id })) === "CONFLICT", "")
-    await lc("plans.delete", "command", { id: draftPlan?.id })
+    check("a draft plan cannot be subscribed to, and that is BAD_REQUEST", code(await lc("subscriptions.create", "command", { tenant_id: "spot-other", plan_id: draftPlan?.id })) === "BAD_REQUEST", "")
+    const oldPlan = body(await lc("plans.create", "command", { name: "Old", slug: "old-plan", currency: "usd" }))
+    await lc("plans.activate", "command", { id: oldPlan?.id })
+    await lc("plans.archive", "command", { id: oldPlan?.id })
+    const archived = await lc("subscriptions.create", "command", { tenant_id: "spot-other", plan_id: oldPlan?.id })
+    check("an archived plan cannot be subscribed to either", code(archived) === "BAD_REQUEST", JSON.stringify(archived.body))
     const listed = body(await lc("subscriptions.list", "query", { tenant_id: "spot-tenant" }))
     check("the new subscription is in subscriptions.list", listed?.items?.length === 1, JSON.stringify(listed))
     const id = body(sub)?.id
+    const twiceA = await lc("subscriptions.create", "command", { tenant_id: "spot-twice", plan_id: "plan_pro" })
+    const twiceB = await lc("subscriptions.create", "command", { tenant_id: "spot-twice", plan_id: "plan_pro" })
+    check("the ledger has no one-subscription-per-tenant rule", body(twiceA)?.status === "active" && body(twiceB)?.status === "active" && body(twiceA)?.id !== body(twiceB)?.id, JSON.stringify([twiceA.body, twiceB.body]))
     check("pause from trialing", body(await lc("subscriptions.pause", "command", { id }))?.status === "paused", "")
     check("resume from paused", body(await lc("subscriptions.resume", "command", { id }))?.status === "active", "")
     check("pausing an active subscription twice is BAD_REQUEST the second time", (await lc("subscriptions.pause", "command", { id }), code(await lc("subscriptions.pause", "command", { id }))) === "BAD_REQUEST", "")
-    check("an immediate cancel ends it now", body(await lc("subscriptions.cancel", "command", { id, immediately: true }))?.status === "canceled", "")
+
+    await lc("subscriptions.resume", "command", { id })
+
+    // changePlan
+    check("changePlan to a draft plan is BAD_REQUEST", code(await lc("subscriptions.changePlan", "command", { id, plan_id: draftPlan?.id })) === "BAD_REQUEST", "")
+    check("changePlan on an ended subscription is CONFLICT", code(await lc("subscriptions.changePlan", "command", { id: "sub_umbrella", plan_id: "plan_pro" })) === "CONFLICT", "")
+    const kept = await lc("subscriptions.changePlan", "command", { id: "sub_acme", plan_id: "plan_pro", quantity: null })
+    check("changePlan with quantity null keeps the seats, read back", body(kept)?.quantity?.seats === 6 && (await detailOf("sub_acme"))?.subscription?.quantity?.seats === 6, JSON.stringify(kept.body))
+    const noSeats = body(await lc("plans.create", "command", { name: "No seats", slug: "no-seats", currency: "usd", features: [{ key: "api_calls", type: "metered", limit: 10, period: "monthly" }] }))
+    await lc("plans.activate", "command", { id: noSeats?.id })
+    const softPlan = body(await lc("plans.create", "command", { name: "Soft seats", slug: "soft-seats", currency: "usd", features: [{ key: "seats", type: "seat", limit: 2, period: "none", soft_limit: true }] }))
+    await lc("plans.activate", "command", { id: softPlan?.id })
+    const onSoft = await lc("subscriptions.changePlan", "command", { id, plan_id: softPlan?.id, quantity: { seats: 5 } })
+    check("changePlan takes a new seat count", body(onSoft)?.plan_id === softPlan?.id && body(onSoft)?.quantity?.seats === 5, JSON.stringify(onSoft.body))
+    const soft = body(await lc("entitlements.check", "query", { tenant_id: "spot-tenant", feature_key: "seats" }))
+    check("over a soft limit is allowed with reason over soft limit", soft?.allowed === true && soft.reason === "over soft limit", JSON.stringify(soft))
+    const stranded = await lc("subscriptions.changePlan", "command", { id, plan_id: noSeats?.id })
+    check("kept seats that are not a seat feature of the new plan are BAD_REQUEST", code(stranded) === "BAD_REQUEST", JSON.stringify(stranded.body))
+    const afterRefusal = await detailOf(id)
+    check("a refused changePlan writes nothing", afterRefusal?.subscription?.plan_id === softPlan?.id && afterRefusal.subscription.quantity?.seats === 5, JSON.stringify(afterRefusal?.subscription))
+    const onStarter = await lc("subscriptions.changePlan", "command", { id, plan_id: "plan_starter" })
+    check("a kept quantity that fits the new plan stays", body(onStarter)?.plan_id === "plan_starter" && body(onStarter)?.quantity?.seats === 5, JSON.stringify(onStarter.body))
+    const hard = body(await lc("entitlements.check", "query", { tenant_id: "spot-tenant", feature_key: "seats" }))
+    check("over a hard limit is refused with reason quota exceeded", hard?.allowed === false && hard.reason === "quota exceeded", JSON.stringify(hard))
+    const sso = body(await lc("entitlements.check", "query", { tenant_id: "spot-tenant", feature_key: "sso" }))
+    check("a disabled boolean feature is refused with no reason field", sso?.allowed === false && !("reason" in (sso ?? {})), JSON.stringify(sso))
+    const absent = body(await lc("entitlements.check", "query", { tenant_id: "spot-tenant", feature_key: "nope" }))
+    check("a feature not in the plan says so", absent?.allowed === false && absent.reason === "feature not in plan", JSON.stringify(absent))
+    for (const p of [draftPlan, noSeats, softPlan, oldPlan]) await lc("plans.delete", "command", { id: p?.id })
+
+    // generate, void, generate again
+    const first = await lc("invoices.generate", "command", { subscription_id: id })
+    check("a fresh subscription generates an invoice", body(first)?.status === "draft", JSON.stringify(first.body))
+    check("voiding a draft invoice with a reason works", body(await lc("invoices.void", "command", { id: body(first)?.id, reason: "regenerate" }))?.status === "voided", "")
+    const again = await lc("invoices.generate", "command", { subscription_id: id })
+    check("generate after a void makes a new invoice", body(again)?.status === "draft" && typeof body(again)?.id === "string" && body(again).id !== body(first)?.id, JSON.stringify(again.body))
+
+    // cancel, as the stores write it
+    const later = await lc("subscriptions.cancel", "command", { id: "sub_hooli" })
+    check("a cancel at period end sets cancel_at and leaves it running", body(later)?.status !== "canceled" && body(later)?.cancel_at === body(later)?.current_period_end && body(later)?.canceled_at === undefined && body(later)?.ended_at === undefined, JSON.stringify(later.body))
+    const now = await lc("subscriptions.cancel", "command", { id, immediately: true })
+    check("an immediate cancel ends it now, with cancel_at and canceled_at and no ended_at", body(now)?.status === "canceled" && typeof body(now)?.cancel_at === "string" && typeof body(now)?.canceled_at === "string" && body(now)?.ended_at === undefined, JSON.stringify(now.body))
     check("cancelling an ended subscription is CONFLICT", code(await lc("subscriptions.cancel", "command", { id, immediately: true })) === "CONFLICT", "")
+    const umbrella = (await detailOf("sub_umbrella"))?.subscription
+    check("the seed's canceled subscription has no ended_at", umbrella?.status === "canceled" && typeof umbrella.canceled_at === "string" && typeof umbrella.cancel_at === "string" && umbrella.ended_at === undefined, JSON.stringify(umbrella))
 
     const usage = body(await lc("subscriptions.usage", "query", { id: "sub_acme" }))
     const seats = usage?.features?.find((f) => f.key === "seats")
     check("subscriptions.usage reads seats from the quantity", seats?.used === 6, JSON.stringify(usage))
-    const unlimited = body(await lc("subscriptions.usage", "query", { id: "sub_acme" }))?.features?.find((f) => f.key === "sso")
+    const unlimited = usage?.features?.find((f) => f.key === "sso")
     check("a boolean feature reports enabled and remaining -1", unlimited?.enabled === true && unlimited.remaining === -1, JSON.stringify(unlimited))
 
     const gen = await lc("invoices.generate", "command", { subscription_id: "sub_initech" })
     check("invoices.generate answers a draft", body(gen)?.status === "draft" && Array.isArray(body(gen)?.line_items), JSON.stringify(gen.body))
     check("a second invoice for the same period is CONFLICT", code(await lc("invoices.generate", "command", { subscription_id: "sub_initech" })) === "CONFLICT", "")
     const invId = body(gen)?.id
-    await lc("invoices.finalize", "command", { id: invId })
+    const finalized = body(await lc("invoices.finalize", "command", { id: invId }))
     check("finalize is visible in invoices.detail", body(await lc("invoices.detail", "query", { id: invId }))?.invoice?.status === "pending", "")
+    const termDays = (Date.parse(finalized?.due_date) - Date.now()) / 86_400_000
+    check("finalize sets a due date 30 days out", termDays > 29.9 && termDays < 30.1, JSON.stringify(finalized?.due_date))
     check("finalizing twice is CONFLICT", code(await lc("invoices.finalize", "command", { id: invId })) === "CONFLICT", "")
     check("void without a reason is BAD_REQUEST", code(await lc("invoices.void", "command", { id: invId })) === "BAD_REQUEST", "")
+    check("void without a reason is checked before the invoice is loaded", code(await lc("invoices.void", "command", { id: "inv_missing" })) === "BAD_REQUEST", "")
     await lc("invoices.markPaid", "command", { id: invId, payment_ref: "  ch_spot  " })
     const paid = body(await lc("invoices.detail", "query", { id: invId }))?.invoice
     check("markPaid trims the reference and stamps paid_at", paid?.status === "paid" && paid.payment_ref === "ch_spot" && typeof paid.paid_at === "string", JSON.stringify(paid))
@@ -1509,8 +1564,21 @@ async function main() {
     check("invoices.export answers base64 csv", Buffer.from(exported?.content ?? "", "base64").toString("utf8").startsWith("description,"), JSON.stringify(exported))
     check("an unregistered export format is BAD_REQUEST", code(await lc("invoices.export", "query", { id: invId, format: "pdf" })) === "BAD_REQUEST", "")
 
-    const events = body(await lc("usage.events", "query", { tenant_id: "acme", limit: 200 }))
-    check("usage.events keeps every event of a single-instant batch", ["evt_batch_1", "evt_batch_2", "evt_batch_3"].every((e) => events?.items?.some((i) => i.id === e)), JSON.stringify(events?.items?.slice(0, 5)))
+    // usage.events: the id tie-break across pages, and the half-open window.
+    const walked = []
+    for (let offset = 0; offset < 400; offset += 2) {
+      const pageOf = body(await lc("usage.events", "query", { tenant_id: "acme", limit: 2, offset }))
+      walked.push(...(pageOf?.items ?? []).map((i) => i.id))
+      if (!pageOf?.has_more) break
+    }
+    const inBatch = walked.filter((e) => e.startsWith("evt_batch_"))
+    check("paging by 2 shows each event of a single-instant batch exactly once, id descending", inBatch.join(",") === "evt_batch_3,evt_batch_2,evt_batch_1" && new Set(walked).size === walked.length, JSON.stringify(inBatch))
+    const all = body(await lc("usage.events", "query", { tenant_id: "acme", limit: 200 }))
+    const at = all?.items?.find((i) => i.id === "evt_batch_1")?.timestamp
+    const inclusive = body(await lc("usage.events", "query", { tenant_id: "acme", limit: 200, start: at }))
+    check("a window starting at the batch instant includes it", ["evt_batch_1", "evt_batch_2", "evt_batch_3"].every((e) => inclusive?.items?.some((i) => i.id === e)), at)
+    const exclusive = body(await lc("usage.events", "query", { tenant_id: "acme", limit: 200, end: at }))
+    check("a window ending at the batch instant excludes it", exclusive?.items?.length > 0 && !exclusive.items.some((i) => i.id.startsWith("evt_batch_")), at)
     const nobody = body(await lc("entitlements.check", "query", { tenant_id: "nobody", feature_key: "api_calls" }))
     check("no subscription is not allowed", nobody?.allowed === false && nobody.reason === "no active subscription", JSON.stringify(nobody))
     check("payment methods for a tenant with no subscription here are NOT_FOUND", code(await lc("paymentMethods.list", "query", { tenant_id: "nobody" })) === "NOT_FOUND", "")
