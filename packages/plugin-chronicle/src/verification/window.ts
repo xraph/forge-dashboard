@@ -1,0 +1,45 @@
+import { LIMITS } from "../types"
+
+export interface SeqRange {
+  fromSeq: number
+  toSeq: number
+}
+
+/**
+ * The window a verification runs over unless the operator asks for more.
+ *
+ * Verification holds every event in its range in memory, and the server
+ * refuses a span over 100,000. A recent bounded window is the default, and it
+ * sets `partial`, which the verdict says out loud. Bounded verification with
+ * intact signed checkpoints is a stronger claim than an unbounded walk over an
+ * unkeyed chain.
+ */
+export const DEFAULT_WINDOW = 10_000
+
+export function defaultWindow(headSeq: number): SeqRange | null {
+  if (headSeq <= 0) return null
+  return { fromSeq: Math.max(1, headSeq - DEFAULT_WINDOW + 1), toSeq: headSeq }
+}
+
+export function wholeChain(headSeq: number): SeqRange | null {
+  if (headSeq <= 0) return null
+  return { fromSeq: 1, toSeq: headSeq }
+}
+
+export function exceedsCap(r: SeqRange): boolean {
+  return r.toSeq - r.fromSeq + 1 > LIMITS.verifySpan
+}
+
+/** A window around one event, for the "check the chain around this event" link. */
+export function aroundSeq(seq: number, headSeq: number, radius = 50): SeqRange {
+  return { fromSeq: Math.max(1, seq - radius), toSeq: Math.min(headSeq, seq + radius) }
+}
+
+/** Route params are strings; a range the page cannot trust is no range. */
+export function parseRangeParams(from?: string, to?: string): SeqRange | null {
+  if (from === undefined || to === undefined) return null
+  if (!/^\d+$/.test(from) || !/^\d+$/.test(to)) return null
+  const r = { fromSeq: Number(from), toSeq: Number(to) }
+  if (r.fromSeq < 1 || r.toSeq < r.fromSeq) return null
+  return r
+}
