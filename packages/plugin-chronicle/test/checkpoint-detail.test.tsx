@@ -48,6 +48,27 @@ describe("CheckpointDetailPage", () => {
     expect(screen.queryByRole("link", { name: /Verify sequences/ })).toBeNull()
   })
 
+  it("does not infer the owner from a truncated chain list", async () => {
+    const c = scriptedClient({ "checkpoints.detail": { checkpoint }, "streams.list": { streams: [acme], total: 250, hasMore: true } })
+    renderPage(CheckpointDetailPage, c.client, { id: "ckpt_acme_6" })
+    expect(await screen.findByRole("link", { name: "Back to checkpoints" })).toBeTruthy()
+    expect(screen.queryByRole("link", { name: /Verify sequences/ })).toBeNull()
+  })
+
+  it("keeps an exact latest-checkpoint match even on a truncated list", async () => {
+    const owner: StreamSummary = { ...acme, latestCheckpoint: checkpoint }
+    const c = scriptedClient({ "checkpoints.detail": { checkpoint }, "streams.list": { streams: [owner], total: 250, hasMore: true } })
+    renderPage(CheckpointDetailPage, c.client, { id: "ckpt_acme_6" })
+    expect((await screen.findByRole("link", { name: /Verify sequences/ })).getAttribute("href")).toBe("/chain/stream_acme/50001/60000")
+  })
+
+  it("does not count a chain that takes no checkpoints as the owner", async () => {
+    const plain: StreamSummary = { ...acme, id: "stream_globex", tenantId: "globex", checkpointingConfigured: false }
+    const c = scriptedClient({ "checkpoints.detail": { checkpoint }, "streams.list": list(plain, acme) })
+    renderPage(CheckpointDetailPage, c.client, { id: "ckpt_acme_6" })
+    expect((await screen.findByRole("link", { name: /Verify sequences/ })).getAttribute("href")).toBe("/chain/stream_acme/50001/60000")
+  })
+
   it("still shows the checkpoint when the chains cannot be listed", async () => {
     const c = scriptedClient({ "checkpoints.detail": { checkpoint }, "streams.list": new ContractError("TRANSPORT", "down") })
     renderPage(CheckpointDetailPage, c.client, { id: "ckpt_acme_6" })

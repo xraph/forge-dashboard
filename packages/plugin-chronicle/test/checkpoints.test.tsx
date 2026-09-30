@@ -117,4 +117,27 @@ describe("CheckpointsPage", () => {
       expect(c.queried.filter((q) => q.intent === "checkpoints.list").pop()?.params).toEqual({ streamId: "stream_globex", limit: 50, offset: 0 }),
     )
   })
+
+  it("offers the tenant chains, and no take, when the app has no chain of its own", async () => {
+    renderPage(CheckpointsPage, client({ "streams.mine": {} }).client)
+    expect(await screen.findByText(/This app has no app-level chain: its events are recorded under its tenants\. Choose a tenant's chain to see its checkpoints\./)).toBeTruthy()
+    expect(screen.getByRole("combobox", { name: "Chain" })).toBeTruthy()
+    expect(screen.queryByRole("button", { name: "Take a checkpoint" })).toBeNull()
+    expect(screen.queryByText(/has no checkpoints yet/)).toBeNull()
+  })
+
+  it("says there are no checkpoints when the scope has recorded nothing at all", async () => {
+    renderPage(CheckpointsPage, client({ "streams.mine": {}, "streams.list": { streams: [], total: 0, hasMore: false } }).client)
+    expect(await screen.findByText(/This scope has not recorded any events yet, so there are no checkpoints\./)).toBeTruthy()
+    expect(screen.queryByRole("button", { name: "Take a checkpoint" })).toBeNull()
+    expect(screen.queryByText(/has no checkpoints yet/)).toBeNull()
+  })
+
+  it("does not say a chain has no checkpoints before it knows whether there is a chain", async () => {
+    const c = client({ "streams.mine": {} })
+    renderPage(CheckpointsPage, c.client)
+    expect(screen.queryByText(/has no checkpoints yet/)).toBeNull()
+    await screen.findByText(/This app has no app-level chain/)
+    expect(c.queried.some((q) => q.intent === "checkpoints.list")).toBe(false)
+  })
 })

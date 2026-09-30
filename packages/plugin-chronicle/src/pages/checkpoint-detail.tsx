@@ -15,10 +15,15 @@ import { formatSeq } from "../format"
  * cover, and if that leaves more than one, guessing would send the operator to
  * verify the wrong chain: better to say nothing.
  */
-function owningChain(cp: CheckpointSummary, streams: StreamSummary[]): StreamSummary | undefined {
+function owningChain(cp: CheckpointSummary, list: StreamListResponse | undefined): StreamSummary | undefined {
+  const streams = list?.streams ?? []
   const exact = streams.find((s) => s.latestCheckpoint?.id === cp.id)
   if (exact) return exact
-  const reaching = streams.filter((s) => s.headSeq >= cp.toSeq)
+  // "Exactly one chain reaches it" is only a fact about the whole list. On a
+  // truncated one the real owner may be past the page, so a lone candidate
+  // proves nothing. A chain that takes no checkpoints cannot own one.
+  if (!list || list.hasMore || list.total > streams.length) return undefined
+  const reaching = streams.filter((s) => s.checkpointingConfigured && s.headSeq >= cp.toSeq)
   return reaching.length === 1 ? reaching[0] : undefined
 }
 
@@ -35,7 +40,7 @@ export const CheckpointDetailPage: ComponentType<PluginPageProps> = ({ params })
       <PageHeader title={id} description="A signed statement of how far the chain had reached when it was taken." />
       <QueryBoundary title="checkpoint" query={settled} skeletonRows={4}>
         {({ checkpoint: cp }) => {
-          const owner = owningChain(cp, list.data?.streams ?? [])
+          const owner = owningChain(cp, list.data)
           return (
             <div className="flex flex-col gap-6">
               <DescriptionList
