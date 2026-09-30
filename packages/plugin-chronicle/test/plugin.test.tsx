@@ -55,6 +55,16 @@ describe("chroniclePlugin", () => {
     }
   })
 
+  it("serves retention's four pages, with policies and archives under their own section", () => {
+    const paths = chroniclePlugin.routes.map((r) => r.path)
+    expect(paths).toEqual(expect.arrayContaining(["/retention", "/new-policy", "/retention/:id", "/archives"]))
+    const retention = (chroniclePlugin.nav ?? []).filter((n) => n.group === "Retention")
+    expect(retention.map((n) => [n.label, n.to, n.priority])).toEqual([
+      ["Policies", "/retention", 60],
+      ["Archives", "/archives", 70],
+    ])
+  })
+
   it("groups every nav entry under one of the five sections", () => {
     const allowed = ["Integrity", "Log", "Compliance", "Retention", "Settings"]
     for (const item of chroniclePlugin.nav ?? []) {

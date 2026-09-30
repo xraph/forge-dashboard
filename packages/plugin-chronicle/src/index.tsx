@@ -1,13 +1,17 @@
 import { lazy } from "react"
 import { definePlugin } from "@forge-go/dashboard-plugin"
-import { ChartColumnIcon, EraserIcon, MilestoneIcon, ScrollTextIcon, SettingsIcon, ShieldCheckIcon } from "@forge-go/dashboard-kit/icons"
+import { ArchiveIcon, ChartColumnIcon, EraserIcon, MilestoneIcon, ScrollTextIcon, SettingsIcon, ShieldCheckIcon, TimerResetIcon } from "@forge-go/dashboard-kit/icons"
 import { ActivityPage } from "./pages/activity"
+import { ArchivesPage } from "./pages/archives"
 import { ChainPage } from "./pages/chain"
 import { CheckpointDetailPage } from "./pages/checkpoint-detail"
 import { CheckpointsPage } from "./pages/checkpoints"
 import { ErasureDetailPage } from "./pages/erasure-detail"
 import { ErasuresPage } from "./pages/erasures"
 import { EventsPage } from "./pages/events"
+import { PolicyCreatePage } from "./pages/policy-create"
+import { PolicyDetailPage } from "./pages/policy-detail"
+import { RetentionPage } from "./pages/retention"
 import { SettingsPage } from "./pages/settings"
 import { UserEventsPage } from "./pages/user-events"
 
@@ -34,6 +38,8 @@ export const chroniclePlugin = definePlugin({
     { label: "Events", to: "/events", priority: 20, icon: <ScrollTextIcon />, group: "Log" },
     { label: "Activity", to: "/activity", priority: 30, icon: <ChartColumnIcon />, group: "Log" },
     { label: "Erasures", to: "/erasures", priority: 50, icon: <EraserIcon />, group: "Compliance" },
+    { label: "Policies", to: "/retention", priority: 60, icon: <TimerResetIcon />, group: "Retention" },
+    { label: "Archives", to: "/archives", priority: 70, icon: <ArchiveIcon />, group: "Retention" },
     { label: "Settings", to: "/settings", priority: 90, icon: <SettingsIcon />, group: "Settings" },
   ],
   routes: [
@@ -50,6 +56,10 @@ export const chroniclePlugin = definePlugin({
     { path: "/users/:userId", element: UserEventsPage },
     { path: "/erasures", element: ErasuresPage },
     { path: "/erasures/:id", element: ErasureDetailPage },
+    { path: "/retention", element: RetentionPage },
+    { path: "/new-policy", element: PolicyCreatePage },
+    { path: "/retention/:id", element: PolicyDetailPage },
+    { path: "/archives", element: ArchivesPage },
     { path: "/settings", element: SettingsPage },
   ],
 })
