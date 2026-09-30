@@ -1071,9 +1071,7 @@ function lexExpression(src, { floats = false } = {}) {
       pending = null
       return t
     }
-    // start is the token's byte offset, so the schema parser can cut an
-    // expression's text back out of the source.
-    const at = { line, col, start: pos }
+    const at = { line, col }
     if (pos >= buf.length) return { kind: "EOF", value: "", ...at }
     const ch = buf[pos]
 
