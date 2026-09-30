@@ -598,6 +598,18 @@ Prune is a separate control with its own confirm naming the count of entities
 about to be deleted. It is never a checkbox beside Apply. `dsl.Apply` already
 refuses to prune the global scope; the UI refuses earlier and says why.
 
+Correction (plan 5a): the server enforces plan-before-apply too. `schema.plan`
+returns a digest of its diff and prune flag, and `schema.apply` reruns the dry
+run and refuses with `CONFLICT` when the diff no longer matches, so nobody
+applies a diff they did not see. The dashboard never prunes the global scope
+because the tenant always comes from the principal, so that refusal never
+arises here. Source with `import` or `${NAME}` is refused with a diagnostic,
+since the dashboard cannot read server files or environment, and a source
+`tenant` other than the operator's is refused rather than silently overridden.
+Apply is not transactional in `dsl`, so a failed apply says writes before the
+error are kept. The applier audits each mutation as the system, so the contract
+adds one operator-attributed `schema.applied` event.
+
 ### The relations graph
 
 There are two graphs here and they have very different safety profiles.
