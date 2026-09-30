@@ -403,7 +403,7 @@ The heart of the plan. One analysis classifies every condition whose outcome is 
 
 **Interfaces:**
 - Consumes: `policy.Condition`, `policy.Operator` and its 17 constants, `policy.ValidateCondition`, `policy.Effect*`; `warden.NewConditionEvaluator`, `warden.CheckRequest` (tests only); `validateNamespace`, `badRequest`, `requireEngine`, `tenantFrom`.
-- Produces, for Tasks 3 and 4: `ConditionProblem` (`""`, `"throws"`, `"alwaysFalse"`, `"alwaysTrue"`), `ConditionReason` (`""`, `"unknownOperator"`, `"invalidRegex"`, `"unresolvableField"`, `"notAList"`, `"emptyList"`, `"notANumber"`, `"noValidCIDR"`, `"notATime"`, `"alwaysPresent"`), `classifyCondition(c policy.Condition) (ConditionProblem, ConditionReason)`, `policyAnalysis`, `analysePolicy(p *policy.Policy, now time.Time) policyAnalysis`, the wire types `PolicySubject`, `PolicyCondition`, `PolicyDraft`, `PolicyIssues`, `ConditionIssue`, and `collectPolicyIssues(d PolicyDraft, parts draftParts) PolicyIssues`, `issuesError(PolicyIssues) error`, `toPolicyConditions([]PolicyCondition) []policy.Condition`.
+- Produces, for Tasks 3 and 4: `ConditionProblem` (`""`, `"throws"`, `"alwaysFalse"`, `"alwaysTrue"`), `ConditionReason` (`""`, `"unknownOperator"`, `"invalidRegex"`, `"unresolvableField"`, `"notAList"`, `"emptyList"`, `"notANumber"`, `"noValidCIDR"`, `"notATime"`, `"alwaysPresent"`, `"matchesAnything"`), `classifyCondition(c policy.Condition) (ConditionProblem, ConditionReason)`, `policyAnalysis`, `analysePolicy(p *policy.Policy, now time.Time) policyAnalysis`, the wire types `PolicySubject`, `PolicyCondition`, `PolicyDraft`, `PolicyIssues`, `ConditionIssue`, and `collectPolicyIssues(d PolicyDraft, parts draftParts) PolicyIssues`, `issuesError(PolicyIssues) error`, `toPolicyConditions([]PolicyCondition) []policy.Condition`.
 
 - [ ] **Step 1: Write the analysis**
 
@@ -1568,7 +1568,7 @@ git commit -m "feat(warden): list policies with what each will actually do" -- p
   - `throws`, `invalidRegex`: "This pattern does not compile, so it cannot be evaluated."
   - `alwaysTrue`: "This is always true, so it restricts nothing." followed by the reason.
   - `alwaysFalse`: "This is always false." followed by the reason.
-  - Reasons: `alwaysPresent` "Warden always gives {field} a value, even an empty one.", `unresolvableField` "Warden never gives {field} a value.", `notAList` "It needs a list of values, not one.", `emptyList` "The list is empty.", `notANumber` "It compares numbers, and the value is not one.", `noValidCIDR` "None of these parse as a network.", `notATime` "The value is not an RFC3339 time."
+  - Reasons: `matchesAnything` "This value matches every string.", `alwaysPresent` "Warden always gives {field} a value, even an empty one.", `unresolvableField` "Warden never gives {field} a value.", `notAList` "It needs a list of values, not one.", `emptyList` "The list is empty.", `notANumber` "It compares numbers, and the value is not one.", `noValidCIDR` "None of these parse as a network.", `notATime` "The value is not an RFC3339 time."
 - **in effect:** "from X until Y", "from X", or "until Y". Omitted when there is no window.
 - **emits:** obligation chips. Omitted when there are none.
 
