@@ -64,7 +64,7 @@ function RailSlot({
           <div
             data-slot="rail-slot"
             className={cn(
-              expanded ? "flex w-full items-center" : "flex w-10 items-center justify-center",
+              expanded ? "flex w-full items-center" : "flex w-8 items-center justify-center",
               className,
             )}
           />

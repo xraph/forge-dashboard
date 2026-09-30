@@ -42,7 +42,7 @@ export function RailGlyph({
       data-slot="rail-glyph"
       aria-hidden="true"
       className={cn(
-        "grid size-8 shrink-0 place-items-center rounded-md text-sm font-semibold [&>svg]:size-4",
+        "grid size-4 shrink-0 place-items-center text-xs font-medium [&>svg]:size-4",
         className,
       )}
     >
@@ -66,11 +66,13 @@ function nodeFor(item: RailItem): NavNode {
 }
 
 const RAIL_LINK =
-  "flex h-10 items-center overflow-hidden rounded-md text-sm text-sidebar-foreground outline-hidden transition-colors hover:bg-sidebar-accent hover:text-sidebar-accent-foreground focus-visible:ring-2 focus-visible:ring-sidebar-ring data-active:bg-sidebar-accent data-active:text-sidebar-accent-foreground"
+  "flex h-8 items-center overflow-hidden rounded-md text-sm text-sidebar-foreground outline-hidden transition-colors hover:bg-sidebar-accent hover:text-sidebar-accent-foreground focus-visible:ring-2 focus-visible:ring-sidebar-ring data-active:bg-sidebar-accent data-active:text-sidebar-accent-foreground"
 // `>span:last-child` is the label span the host's renderLink renders after the
 // glyph. Collapsed it is read but not seen; expanded it is a normal label.
-const RAIL_LINK_ICON = "w-10 justify-center [&>span:last-child]:sr-only"
-const RAIL_LINK_LABELLED = "w-full justify-start gap-2 px-1 [&>span:last-child]:truncate"
+// Sized like a SidebarMenuButton (h-8, p-2, a 16px icon) so the rail and the
+// secondary sidebar read at the same density.
+const RAIL_LINK_ICON = "w-8 justify-center [&>span:last-child]:sr-only"
+const RAIL_LINK_LABELLED = "w-full justify-start gap-2 px-2 [&>span:last-child]:truncate"
 
 function RailEntry({
   item,

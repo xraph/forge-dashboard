@@ -76,3 +76,16 @@ describe("RailEntries", () => {
     expect(link.className).not.toContain("sr-only")
   })
 })
+
+describe("RailEntries sizing", () => {
+  it("matches a SidebarMenuButton: 32px rows and a bare 16px icon", () => {
+    renderEntries()
+    const link = screen.getByRole("link", { name: "Billing" })
+    expect(link.className).toContain("h-8")
+    expect(link.className).toContain("w-8")
+    expect(link.className).not.toContain("h-10")
+    const glyph = link.querySelector('[data-slot="rail-glyph"]') as HTMLElement
+    expect(glyph.className).toContain("size-4")
+    expect(glyph.className).not.toContain("size-8")
+  })
+})
