@@ -225,27 +225,6 @@ function routedAuthPlugin() {
   })
 }
 
-function sectionedRoutedAuthPlugin() {
-  return definePlugin({
-    extension: "auth",
-    namespace: "auth",
-    label: "Auth",
-    sections: [
-      { group: "Identity", icon: "I" },
-      { group: "Other", icon: "O" },
-    ],
-    nav: [
-      { label: "Users", to: "/users", group: "Identity" },
-      { label: "Overview", to: "/overview", group: "Other" },
-    ],
-    routes: [
-      { path: "/users", element: () => <p>users page</p> },
-      { path: "/overview", element: () => <p>overview page</p> },
-    ],
-    context: [appDimension, envDimension],
-  })
-}
-
 function plainPlugin() {
   return definePlugin({
     extension: "streaming-contract",
@@ -333,29 +312,31 @@ describe("a plugin with a path-routed dimension", () => {
     expect(screen.getByText("Pick an app to see its pages.")).toBeTruthy()
   })
 
-  it("renders no Sections rail for a sectioned scope when the URL names no app", async () => {
+  it("shows a rail with no entries when the URL names no app", async () => {
     queryStore.clear()
     const server = fixtureServer()
 
-    renderAt(sectionedRoutedAuthPlugin(), server.fetchImpl, "/@auth")
+    renderAt(routedAuthPlugin(), server.fetchImpl, "/@auth")
 
     await waitFor(() => expect(screen.getByText("choose an app")).toBeTruthy())
-    expect(screen.queryByRole("navigation", { name: "Sections" })).toBeNull()
+    const rail = screen.getByRole("navigation", { name: "Scope navigation" })
+    expect(within(rail).queryAllByRole("link")).toHaveLength(0)
     expect(screen.getByText("Pick an app to see its pages.")).toBeTruthy()
   })
 
-  it("mounts the Sections rail under the URL's segment and marks the active section", async () => {
+  it("mounts the scope entry under the URL's segment, marks it, and shows the context control", async () => {
     queryStore.clear()
     const server = fixtureServer()
     server.setCurrentApp("app_platform")
 
-    renderAt(sectionedRoutedAuthPlugin(), server.fetchImpl, "/@auth/platform/users")
+    renderAt(routedAuthPlugin(), server.fetchImpl, "/@auth/platform/users")
 
     await waitFor(() => expect(screen.getByText("users page")).toBeTruthy())
-    const rail = screen.getByRole("navigation", { name: "Sections" })
-    const identity = within(rail).getByRole("link", { name: "Identity" })
-    expect(identity.getAttribute("href")?.startsWith("/@auth/platform/")).toBe(true)
-    expect(identity.getAttribute("aria-current")).toBe("page")
+    const rail = screen.getByRole("navigation", { name: "Scope navigation" })
+    const auth = within(rail).getByRole("link", { name: "Auth" })
+    expect(auth.getAttribute("href")?.startsWith("/@auth/platform/")).toBe(true)
+    expect(auth.getAttribute("aria-current")).toBe("page")
+    expect(await within(rail).findByRole("button", { name: /^Platform \/ / })).toBeTruthy()
   })
 
   it("redirects a bare namespace root to the server's known current app", async () => {

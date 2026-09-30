@@ -50,7 +50,7 @@ import type {
 } from "@forge-go/dashboard-plugin"
 import { DashboardShell } from "@forge-go/dashboard-kit/components/dashboard-shell"
 import { NavigationSearch } from "./NavigationSearch"
-import { ContextSwitchers } from "./ContextSwitchers"
+import { ContextControl } from "./ContextControl"
 import { RoutedPage, RoutedPicker, routeSegmentPattern } from "./RoutedScope"
 import { AuthRoutes, SignedInRedirect } from "../auth/AuthRoutes"
 import { isAuthPath } from "../auth/routes"
@@ -60,7 +60,6 @@ import type {
   NavArea,
   NavGroup,
   NavNode,
-  NavSection,
 } from "@forge-go/dashboard-kit/components/nav-tree"
 import type { ScopeOption } from "@forge-go/dashboard-kit/components/scope-switcher"
 import { useSidebar } from "@forge-go/dashboard-kit/components/sidebar"
@@ -70,7 +69,7 @@ import {
   AlertTitle,
 } from "@forge-go/dashboard-kit/components/alert"
 import { Spinner } from "@forge-go/dashboard-kit/components/spinner"
-import { MoreHorizontalIcon, TriangleAlertIcon } from "@forge-go/dashboard-kit/icons"
+import { TriangleAlertIcon } from "@forge-go/dashboard-kit/icons"
 
 // packages/host has no Node types and the Vite dev build has no `process`
 // global. A production build still replaces `process.env.NODE_ENV`
@@ -275,127 +274,13 @@ export function navGroups(
   }))
 }
 
-/** The id of the trailing section that collects items no declared section names. */
-export const MORE_SECTION = "__more"
-
 /**
- * A headed group already names its items, so a cluster that every item shares
- * would only repeat the heading one level down. Drop it and let the items sit
- * as plain rows. Mixed or partial clusters are left for foldClusters.
- */
-function withoutRepeatedCluster(items: PluginNavItem[]): PluginNavItem[] {
-  const label = items[0]?.cluster?.label
-  if (label === undefined || !items.every((item) => item.cluster?.label === label)) return items
-  return items.map((item) => {
-    const plain = { ...item }
-    delete plain.cluster
-    return plain
-  })
-}
-
-/**
- * A scope's sections, for the rail beside its pane. Empty for a plugin that
- * declares none, which is what keeps every other scope rendering the single
- * pane it always has.
- *
- * Inside a section the host's own items come first. A sub-plugin with one
- * item there joins that list; one with two or more gets its own group,
- * headed with the sub-plugin's label, so Billing reads "Plans" over its
- * pages. Both lists go through foldClusters and toNodes, so clusters fold
- * exactly as they do in navGroups.
- *
- * Items whose group names no section, and items with no group, go to a
- * trailing "More" section, so a sub-plugin with a group nobody declared is
- * still reachable. A section with no items is dropped.
- */
-export function navSections(
-  plugin: ForgePlugin,
-  subPlugins: ForgeSubPlugin[],
-  segment?: string,
-): NavSection[] {
-  const declared = plugin.sections ?? []
-  if (declared.length === 0) return []
-
-  const known = new Set(declared.map((section) => section.group))
-  const sectionOf = (item: PluginNavItem) =>
-    item.group !== undefined && known.has(item.group) ? item.group : MORE_SECTION
-
-  const specs = [
-    ...declared.map((section) => ({
-      id: section.group,
-      label: section.label ?? section.group,
-      icon: section.icon,
-    })),
-    { id: MORE_SECTION, label: "More", icon: <MoreHorizontalIcon /> },
-  ]
-
-  return specs.flatMap((spec) => {
-    const own = plugin.nav.filter((item) => sectionOf(item) === spec.id)
-    let joined = false
-    const headed: NavGroup[] = []
-    for (const sub of subPlugins) {
-      const items = sub.nav.filter((item) => sectionOf(item) === spec.id)
-      if (items.length === 1) {
-        own.push(items[0])
-        joined = true
-      } else if (items.length > 1) {
-        headed.push({
-          label: sub.label ?? sub.extension,
-          contributed: true,
-          items: toNodes(plugin, foldClusters(withoutRepeatedCluster(items)), segment),
-        })
-      }
-    }
-
-    const groups: NavGroup[] = []
-    if (own.length > 0) {
-      groups.push({
-        contributed: joined || undefined,
-        items: toNodes(plugin, foldClusters(own), segment),
-      })
-    }
-    groups.push(...headed)
-
-    const first = groups[0]?.items[0]
-    if (!first) return []
-    return [{
-      id: spec.id,
-      label: spec.label,
-      icon: spec.icon,
-      href: first.children?.[0]?.href ?? first.href,
-      groups,
-    }]
-  })
-}
-
-/**
- * The section holding the current page: the node whose href is the pathname
- * or its longest prefix, the rule `pageTitle` uses. A route no nav item names
- * lands on the first section, never on none, so the pane is never blank.
- */
-export function activeSectionId(sections: NavSection[], pathname: string): string | undefined {
-  let best: { id: string; length: number } | undefined
-  for (const section of sections) {
-    for (const group of section.groups) {
-      for (const node of group.items) {
-        for (const candidate of [node, ...(node.children ?? [])]) {
-          const matches =
-            candidate.href === pathname ||
-            (candidate.href !== "/" && pathname.startsWith(`${candidate.href}/`))
-          if (matches && (!best || candidate.href.length > best.length)) {
-            best = { id: section.id, length: candidate.href.length }
-          }
-        }
-      }
-    }
-  }
-  return best?.id ?? sections[0]?.id
-}
-
-/**
- * A list of nav items bucketed by `group`, ungrouped first, then groups in
- * first-appearance order after a priority sort: the rule `navGroups` applies
- * to a scope, applied to one sub-plugin's items.
+ * One sub-plugin's nav items bucketed by `group`, ungrouped first. Unlike
+ * `navGroups`, which keeps declaration order, this sorts by priority BEFORE
+ * bucketing, so each group lands where its highest-priority item puts it.
+ * A plugin's entry in the rail links to its first page, and that first page
+ * should be its highest-priority one, not whichever it happened to declare
+ * first.
  */
 function groupItems(plugin: ForgePlugin, items: PluginNavItem[], segment?: string): NavGroup[] {
   const buckets = new Map<string | typeof UNGROUPED, PluginNavItem[]>()
@@ -999,10 +884,9 @@ export function PluginHost({
   // the switcher everywhere else. One nav, in the body, belonging to the
   // place you are.
   //
-  // No group label: the switcher above already names the active scope by
-  // label and by "@namespace", so a section heading repeating either is text
-  // a screen reader (and a test) would find twice. That changes the day
-  // sub-plugin groups arrive and there is more than one group to tell apart.
+  // No group label for a scope with one group: the rail already names the
+  // active scope, by label and by "@namespace", so a heading repeating either
+  // is text a screen reader (and a test) would find twice.
   const navOwner = activeScope ?? root
 
   // The real value, read off the current URL -- never the ":app" pattern the
@@ -1025,19 +909,19 @@ export function PluginHost({
         : navGroups(navOwner.plugin, readySubPluginsFor(navOwner.plugin), ownerSegment)
       : []
 
-  // A scope that declares sections gets them; every other scope gets []. Same
-  // readiness and no-segment rules as `groups`, so a scope with no app picked
-  // has no sections and no rail, only the pick-an-app notice.
-  const sections: NavSection[] =
+  // The rail's entries: the scope, then its sub-plugins. Same readiness and
+  // no-segment rules as `groups`, so a scope with no app picked has no
+  // entries, only the pick-an-app notice.
+  const areas: NavArea[] =
     navOwner && navOwner.state.kind === "ready" && !(ownerDimension && !ownerSegment)
-      ? navSections(navOwner.plugin, readySubPluginsFor(navOwner.plugin), ownerSegment)
+      ? navAreas(navOwner.plugin, readySubPluginsFor(navOwner.plugin), ownerSegment)
       : []
-  const currentSectionId = sections.length > 0 ? activeSectionId(sections, pathname) : undefined
+  const currentAreaId = areas.length > 0 ? activeAreaId(areas, pathname) : undefined
 
-  // Every page the scope offers, whichever section it sits in. Search and the
-  // page title look across all of them, not just the section on screen.
+  // Every page the scope offers, whichever entry it sits in. Search and the
+  // page title look across all of them.
   const allGroups: NavGroup[] =
-    sections.length > 0 ? sections.flatMap((section) => section.groups) : groups
+    areas.length > 0 ? areas.flatMap((area) => area.groups) : groups
 
   // The two cases that used to leave the pane silently blank. A ready scope
   // with a segment and no nav is a plugin with no nav, which is legal and
@@ -1130,13 +1014,13 @@ export function PluginHost({
     scopes: scopeOptions,
     activeScopeId: activeScope?.id,
     onScopeSelect: selectScope,
-    sections,
-    activeSectionId: currentSectionId,
+    areas,
+    activeAreaId: currentAreaId,
     empty,
     groups,
     currentPath: pathname,
     search,
-    // aria-current only when true. The section rail merges its own aria-current onto
+    // aria-current only when true. The rail merges its own aria-current onto
     // this element through base-ui's render prop, and an explicit undefined
     // here would win over it and strip the active section's marker.
     renderLink: (node: NavNode, href: string) => (
@@ -1145,21 +1029,20 @@ export function PluginHost({
         <span>{node.label}</span>
       </Link>
     ),
-    header: <>
-      {panelSource && panelSource.state.kind === "ready" && (
-        <div className="group-data-[collapsible=icon]:hidden">
-          <PluginErrorBoundary key={panelSource.id} plugin={panelSource.id}>
-            <PluginProvider client={clients.get(panelSource.plugin.extension)!}>
-              <ContextSwitchers dimensions={panelSource.plugin.context} plugin={panelSource.plugin} />
-            </PluginProvider>
-          </PluginErrorBoundary>
-        </div>
-      )}
+    context:
+      panelSource && panelSource.state.kind === "ready" && panelSource.plugin.context.length > 0 ? (
+        <PluginErrorBoundary key={panelSource.id} plugin={panelSource.id}>
+          <PluginProvider client={clients.get(panelSource.plugin.extension)!}>
+            <ContextControl dimensions={panelSource.plugin.context} plugin={panelSource.plugin} />
+          </PluginProvider>
+        </PluginErrorBoundary>
+      ) : undefined,
+    searchControl: (
       <NavigationSearch groups={allGroups} search={search} scopes={[
         ...(root ? [{ label: root.label, href: homePathFor(root.plugin) }] : []),
         ...scopes.map(scope => ({ label: scope.label, href: homePathFor(scope.plugin) })),
       ]} />
-    </>,
+    ),
     user:
       session.state.status === "signedIn"
         ? {

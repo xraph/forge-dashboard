@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from "vitest"
 import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react"
 import { MemoryRouter, useParams } from "react-router"
 import { ForgeDashboardProvider, SessionProvider, useSession } from "@forge-go/dashboard-runtime"
-import { definePlugin, queryStore, useQuery, usePluginClient } from "@forge-go/dashboard-plugin"
+import { definePlugin, defineSubPlugin, queryStore, useQuery, usePluginClient } from "@forge-go/dashboard-plugin"
 import type {
   Capabilities,
   ContributorCapability,
@@ -488,7 +488,7 @@ describe("PluginHost", () => {
     expect(await screen.findByText("overview page body")).toBeTruthy()
 
     fireEvent.click(
-      await screen.findByRole("button", { name: /core-contract/ })
+      await waitFor(() => within(rail()).getByRole("button", { name: /core-contract/ }))
     )
     fireEvent.click(
       screen.getByRole("menuitem", { name: /gateway-contract/ })
@@ -938,7 +938,7 @@ describe("scoped routing", () => {
     )
 
     expect(await screen.findByText("rooms page")).toBeTruthy()
-    expect(screen.getByRole("button", { name: "Streaming @streaming" })).toBeTruthy()
+    expect(within(rail()).getByRole("button", { name: "Streaming @streaming" })).toBeTruthy()
     expect(screen.getByText("@streaming")).toBeTruthy()
     expect(
       screen.getByRole("link", { name: "Rooms" }).closest("[data-active]"),
@@ -1153,9 +1153,10 @@ const header = (c: HTMLElement) =>
   c.querySelector('[data-slot="sidebar-header"]') as HTMLElement
 const content = (c: HTMLElement) =>
   c.querySelector('[data-slot="sidebar-content"]') as HTMLElement
+const rail = () => screen.getByRole("navigation", { name: "Scope navigation" })
 
 describe("PluginHost root destination", () => {
-  it("keeps root navigation in the scope switcher inside a scope", async () => {
+  it("puts the scope switcher in the rail, not the secondary sidebar", async () => {
     const { container } = renderHost(
       [rootPlugin(), authScopePlugin()],
       bothReady(),
@@ -1163,19 +1164,18 @@ describe("PluginHost root destination", () => {
     )
     await screen.findByText("auth users body")
 
-    const h = header(container)
-    expect(within(h).queryByRole("link", { name: "Overview" })).toBeNull()
-    expect(within(h).getByRole("button", { name: "Auth @auth" })).toBeTruthy()
-    expect(h.querySelector('[data-slot="sidebar-group"]')).toBeNull()
-    expect(screen.queryByRole("navigation", { name: "Sections" })).toBeNull()
+    expect(within(rail()).getByRole("button", { name: "Auth @auth" })).toBeTruthy()
+    expect(within(header(container)).queryByRole("button", { name: "Auth @auth" })).toBeNull()
+    expect(within(rail()).getByRole("link", { name: "Auth" }).getAttribute("aria-current")).toBe("page")
+    fireEvent.click(within(rail()).getByRole("button", { name: "Expand navigation" }))
+    expect(within(rail()).queryByText("Plugins")).toBeNull()
+    fireEvent.click(within(rail()).getByRole("button", { name: "Collapse navigation" }))
   })
 
-  it("returns to the root from the scope switcher", async () => {
-    const { container } = renderHost(
-      [rootPlugin(), authScopePlugin()], bothReady(), "/@auth/users",
-    )
+  it("returns to the root from the switcher in the rail", async () => {
+    renderHost([rootPlugin(), authScopePlugin()], bothReady(), "/@auth/users")
     await screen.findByText("auth users body")
-    fireEvent.click(within(header(container)).getByRole("button", { name: "Auth @auth" }))
+    fireEvent.click(within(rail()).getByRole("button", { name: "Auth @auth" }))
     fireEvent.click(await screen.findByRole("menuitem", { name: "System" }))
     expect(await screen.findByText("root overview body")).toBeTruthy()
   })
@@ -1237,62 +1237,80 @@ describe("PluginHost root destination", () => {
     )
   })
 
-  it("gives a scope with sections a Sections rail and shows only the active section", async () => {
-    const sectioned = definePlugin({
+  function renderWithSubPlugins(route: string) {
+    const auth = definePlugin({
       extension: "auth",
       namespace: "auth",
       label: "Auth",
-      sections: [
-        { group: "Identity", icon: "I" },
-        { group: "Billing", icon: "B" },
-      ],
+      nav: [{ label: "Users", to: "/users", group: "Identity" }],
+      routes: [{ path: "/users", element: () => <p>auth users body</p> }],
+    })
+    const billing = defineSubPlugin({
+      extension: "subscription",
+      host: "auth",
+      label: "Billing",
       nav: [
-        { label: "Users", to: "/users", group: "Identity" },
-        { label: "Plans", to: "/plans", group: "Billing" },
+        { label: "Plans", to: "/plans", group: "Catalog", priority: 1 },
+        { label: "Invoices", to: "/invoices", group: "Revenue", priority: 2 },
       ],
       routes: [
-        { path: "/users", element: () => <p>auth users body</p> },
-        { path: "/plans", element: () => <p>auth plans body</p> },
+        { path: "/plans", element: () => <p>billing plans body</p> },
+        { path: "/invoices", element: () => <p>billing invoices body</p> },
       ],
     })
-    const { container } = renderHost([rootPlugin(), sectioned], bothReady(), "/@auth/plans")
-    await screen.findByText("auth plans body")
+    const fetchImpl = capabilitiesFetch([
+      { name: "core-contract", envelopes: ["v1"], configured: true },
+      { name: "auth", envelopes: ["v1"], configured: true },
+      { name: "subscription", envelopes: ["v1"], configured: true },
+    ])
+    return render(
+      <MemoryRouter initialEntries={[route]}>
+        <ForgeDashboardProvider config={config}>
+          <SessionProvider fetchImpl={fetchImpl}>
+            <PluginHost plugins={[rootPlugin(), auth]} subPlugins={[billing]} fetchImpl={fetchImpl} />
+          </SessionProvider>
+        </ForgeDashboardProvider>
+      </MemoryRouter>,
+    )
+  }
 
-    const rail = screen.getByRole("navigation", { name: "Sections" })
-    expect(within(rail).getByRole("link", { name: "Billing" }).getAttribute("aria-current")).toBe("page")
-    expect(within(rail).getByRole("link", { name: "Identity" }).getAttribute("href")).toBe("/@auth/users")
+  it("lists a sub-plugin in the rail and shows only its pages when you are in it", async () => {
+    const { container } = renderWithSubPlugins("/@auth/plans")
+    await screen.findByText("billing plans body")
+
+    // The "Plugins" heading only shows on a wide rail, and the rail starts
+    // narrow. Widen it for the check, then put it back: the choice lives in
+    // localStorage, which outlives this test.
+    fireEvent.click(within(rail()).getByRole("button", { name: "Expand navigation" }))
+    expect(within(rail()).getByText("Plugins")).toBeTruthy()
+    fireEvent.click(within(rail()).getByRole("button", { name: "Collapse navigation" }))
+    const billing = within(rail()).getByRole("link", { name: "Billing" })
+    expect(billing.getAttribute("aria-current")).toBe("page")
+    expect(within(rail()).getByRole("link", { name: "Auth" }).getAttribute("href")).toBe("/@auth/users")
+
+    expect(within(header(container)).getByText("Billing")).toBeTruthy()
     const c = content(container)
-    expect(within(c).getByRole("link", { name: "Plans" })).toBeTruthy()
+    expect(within(c).getByRole("button", { name: "Collapse Catalog" })).toBeTruthy()
+    expect(within(c).getByRole("link", { name: "Invoices" })).toBeTruthy()
     expect(within(c).queryByRole("link", { name: "Users" })).toBeNull()
 
-    fireEvent.click(within(rail).getByRole("link", { name: "Identity" }))
+    fireEvent.click(within(rail()).getByRole("link", { name: "Auth" }))
     expect(await screen.findByText("auth users body")).toBeTruthy()
     expect(within(content(container)).getByRole("link", { name: "Users" })).toBeTruthy()
   })
 
-  it("lets search find a page in a section that is not showing", async () => {
-    const sectioned = definePlugin({
-      extension: "auth",
-      namespace: "auth",
-      label: "Auth",
-      sections: [
-        { group: "Identity", icon: "I" },
-        { group: "Billing", icon: "B" },
-      ],
-      nav: [
-        { label: "Users", to: "/users", group: "Identity" },
-        { label: "Plans", to: "/plans", group: "Billing" },
-      ],
-      routes: [
-        { path: "/users", element: () => <p>auth users body</p> },
-        { path: "/plans", element: () => <p>auth plans body</p> },
-      ],
-    })
-    renderHost([rootPlugin(), sectioned], bothReady(), "/@auth/users")
+  it("lets search find a plugin page from the scope's own entry", async () => {
+    renderWithSubPlugins("/@auth/users")
     await screen.findByText("auth users body")
-    fireEvent.click(screen.getByRole("button", { name: "Search pages" }))
+    fireEvent.click(within(rail()).getByRole("button", { name: "Search pages" }))
     const dialog = await screen.findByRole("dialog")
-    expect(within(dialog).getByRole("link", { name: /Plans/ })).toBeTruthy()
+    expect(within(dialog).getByRole("link", { name: /Invoices/ })).toBeTruthy()
+  })
+
+  it("keeps the query string on rail entries", async () => {
+    renderWithSubPlugins("/@auth/users?env=staging")
+    await screen.findByText("auth users body")
+    expect(within(rail()).getByRole("link", { name: "Billing" }).getAttribute("href")).toBe("/@auth/plans?env=staging")
   })
 })
 
