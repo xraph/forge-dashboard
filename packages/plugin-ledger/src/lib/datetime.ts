@@ -46,3 +46,16 @@ export function formatLocalDay(iso: string): string {
 export function formatPeriod(start: string, end: string): string {
   return `${formatDay(start)} – ${formatDay(end)}`
 }
+
+/**
+ * An instant with its time, read in UTC. The usage page cuts its chart into UTC
+ * days, the days billing periods are cut on, so its event log shows the same
+ * clock: an event at 23:30 UTC then sits visibly under the column it was
+ * counted in, whatever zone the operator's machine is in. Unparseable text
+ * prints as it arrived.
+ */
+export function formatUTCInstant(iso: string): string {
+  const at = new Date(iso)
+  if (Number.isNaN(at.getTime())) return iso
+  return at.toLocaleString(undefined, { dateStyle: "medium", timeStyle: "medium", timeZone: "UTC" })
+}

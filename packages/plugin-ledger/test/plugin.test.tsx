@@ -46,7 +46,15 @@ describe("ledgerPlugin", () => {
     const expected = ["/invoices/:id", "/plans/:id", "/usage"].filter((p) => ledgerPlugin.routes.some((r) => r.path === p))
     expect(lazyPaths).toContain("/plans/:id")
     expect(lazyPaths).toContain("/invoices/:id")
+    expect(lazyPaths).toContain("/usage")
     expect(lazyPaths).toEqual(expected.sort())
+  })
+
+  it("lists Usage in Billing, between Invoices and Payment methods", () => {
+    const billing = ledgerPlugin.nav.filter((n) => n.group === "Billing")
+    const order = [...billing].sort((a, b) => (a.priority ?? 0) - (b.priority ?? 0)).map((n) => n.label)
+    expect(order).toEqual(["Subscriptions", "Invoices", "Usage", "Payment methods"])
+    expect(ledgerPlugin.nav.find((n) => n.label === "Usage")?.to).toBe("/usage")
   })
 
   it("orders sidebar groups Overview, Catalog, Billing, Configuration", () => {
