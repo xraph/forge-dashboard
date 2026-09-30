@@ -154,6 +154,8 @@ function ChainBody({ stream, deepLink }: { stream: StreamSummary; deepLink: SeqR
 
 function Posture({ stream }: { stream: StreamSummary }) {
   const cp = stream.latestCheckpoint
+  // Negative when a signed checkpoint reaches beyond the head, which means the
+  // chain was cut back after it was signed. Calling that "at the head" hides it.
   const behind = cp ? stream.headSeq - cp.toSeq : 0
   return (
     <DescriptionList
@@ -182,7 +184,11 @@ function Posture({ stream }: { stream: StreamSummary }) {
           ) : cp ? (
             <span>
               <span className="font-mono text-xs">{formatSeq(cp.toSeq)}</span>
-              {behind > 0 ? `, ${formatSeq(behind)} events behind the head` : ", at the head"}
+              {behind > 0
+                ? `, ${formatSeq(behind)} events behind the head`
+                : behind < 0
+                  ? `, ${formatSeq(-behind)} sequences past the head`
+                  : ", at the head"}
             </span>
           ) : (
             <span className="text-muted-foreground">None yet</span>

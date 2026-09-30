@@ -120,6 +120,20 @@ describe("ChainPage", () => {
     await waitFor(() => expect(screen.getByText(/1,004 events behind the head/)).toBeTruthy())
   })
 
+  it("never calls a checkpoint that reaches past the head at the head", async () => {
+    // initech's shape: the chain was cut back after its last checkpoint was signed.
+    const initech: StreamSummary = {
+      ...acme,
+      id: "stream_initech",
+      tenantId: "initech",
+      headSeq: 3000,
+      latestCheckpoint: { id: "ckpt_initech_2", fromSeq: 1501, toSeq: 3400, eventCount: 1900, createdAt: "2026-09-29T10:00:00Z", signKeyId: "sk_2026_09" },
+    }
+    renderPage(ChainPage, client({ "streams.mine": { stream: initech } }).client)
+    await waitFor(() => expect(screen.getByText(/400 sequences past the head/)).toBeTruthy())
+    expect(screen.queryByText(/at the head/)).toBeNull()
+  })
+
   it("says checkpointing is off rather than that the chain has no checkpoints", async () => {
     renderPage(ChainPage, client().client)
     await waitFor(() => expect(screen.getByText(/This deployment takes no checkpoints/)).toBeTruthy())
