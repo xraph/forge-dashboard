@@ -201,8 +201,21 @@ function PolicySection({ policy }: { policy: KeyDetail["policy"] }) {
         <DescriptionList
           items={[
             { term: "Name", value: policy.name },
-            { term: "Max lifetime", value: formatDuration(policy.maxKeyLifetimeSeconds) },
-            { term: "Grace period", value: formatDuration(policy.graceSeconds) },
+            {
+              term: "Max lifetime",
+              value:
+                policy.maxKeyLifetimeSeconds === null
+                  ? "No maximum"
+                  : formatDuration(policy.maxKeyLifetimeSeconds),
+            },
+            {
+              term: "Grace period",
+              // The engine rotates with a 24 hour grace when the policy sets none.
+              value:
+                policy.graceSeconds === null
+                  ? "Not set (24 hours by default)"
+                  : formatDuration(policy.graceSeconds),
+            },
           ]}
         />
       )}

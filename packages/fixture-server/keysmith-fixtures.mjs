@@ -53,6 +53,8 @@ export const KEYSMITH_IDS = {
   partnerKey: "akey_01j9k4m2eah1f6q8v9y3z4b5cd",
   mobileKey: "akey_01j9k4m2ebj2g7r9w0z4a5c6de",
   standardPolicy: "kpol_01j9k4m1zza0b1c2d3e4f5g6h7",
+  // sets neither a grace period nor a max lifetime
+  openPolicy: "kpol_01j9k4m1zxc2d3e4f5g6h7j8k9",
   // globex: must never reach acme
   globexKey: "akey_01j9k4m2eck3h8s0x1a5b6d7ef",
   globexPolicy: "kpol_01j9k4m1zyb1c2d3e4f5g6h7j8",
@@ -73,6 +75,15 @@ function seedKeysmithState() {
     name: "Standard",
     maxKeyLifetime: 90 * day,
     gracePeriod: day,
+  })
+  // 0 is "not set" to the engine: no maximum lifetime, and rotation falls back
+  // to a 24 hour grace. The contract sends both as null.
+  policies.set(KEYSMITH_IDS.openPolicy, {
+    id: KEYSMITH_IDS.openPolicy,
+    tenantId: "acme",
+    name: "Open",
+    maxKeyLifetime: 0,
+    gracePeriod: 0,
   })
   policies.set(KEYSMITH_IDS.globexPolicy, {
     id: KEYSMITH_IDS.globexPolicy,
@@ -114,9 +125,10 @@ function seedKeysmithState() {
       hint: "3d0b",
       environment: "test",
       state: "active",
-      policyId: null,
+      policyId: KEYSMITH_IDS.openPolicy,
       scopes: ["reports:read"],
       createdBy: "usr_2",
+      // A policy with no max lifetime leaves an explicit expiry alone.
       expiresAt: now + 3 * day,
       lastUsedAt: null,
       rotatedAt: null,
@@ -279,12 +291,18 @@ function projectKey(k, now) {
   return out
 }
 
+/** secondsOrNil: a zero duration is unset to the engine, so it goes out as null, never 0. */
+function secondsOrNull(ms) {
+  return ms === 0 ? null : Math.trunc(ms / 1000)
+}
+
+/** projectPolicyRef: both durations are always present, null when unset. */
 function projectPolicyRef(p) {
   return {
     id: p.id,
     name: p.name,
-    maxKeyLifetimeSeconds: Math.trunc(p.maxKeyLifetime / 1000),
-    graceSeconds: Math.trunc(p.gracePeriod / 1000),
+    maxKeyLifetimeSeconds: secondsOrNull(p.maxKeyLifetime),
+    graceSeconds: secondsOrNull(p.gracePeriod),
   }
 }
 

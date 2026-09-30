@@ -38,8 +38,10 @@ export interface KeySummary {
 export interface PolicyRef {
   id: string
   name: string
-  maxKeyLifetimeSeconds: number
-  graceSeconds: number
+  /** null when the policy sets no maximum. Never 0: the engine reads 0 as unset. */
+  maxKeyLifetimeSeconds: number | null
+  /** null when the policy sets no grace, and rotation then uses 24 hours. */
+  graceSeconds: number | null
 }
 
 /** An open rotation window: the old key still validates until `graceEnds`. */

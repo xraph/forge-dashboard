@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest"
 import { screen, within } from "@testing-library/react"
 import { ContractError } from "@forge-go/dashboard-plugin"
 import { KeyDetailPage } from "../src/pages/key-detail"
-import type { KeyDetail, KeySummary } from "../src/types"
+import type { KeyDetail, KeySummary, PolicyRef } from "../src/types"
 import {
   failingClient,
   recordingQueryClient,
@@ -33,14 +33,16 @@ function key(over: Partial<KeySummary> = {}): KeySummary {
   }
 }
 
+const POLICY: PolicyRef = {
+  id: "kpol_standard",
+  name: "Standard",
+  maxKeyLifetimeSeconds: 90 * 86400,
+  graceSeconds: 36 * 3600,
+}
+
 const DETAIL: KeyDetail = {
   key: key(),
-  policy: {
-    id: "kpol_standard",
-    name: "Standard",
-    maxKeyLifetimeSeconds: 90 * 86400,
-    graceSeconds: 36 * 3600,
-  },
+  policy: POLICY,
   metadata: { team: "billing" },
   previousKeys: [
     {
@@ -187,6 +189,22 @@ describe("KeyDetailPage policy", () => {
     expect(within(s).getByText("Standard")).toBeTruthy()
     expect(within(s).getByText("90 days")).toBeTruthy()
     expect(within(s).getByText("36 hours")).toBeTruthy()
+  })
+
+  it("reads a null max lifetime as no maximum", async () => {
+    await render(
+      detail({ policy: { ...POLICY, maxKeyLifetimeSeconds: null } }),
+    )
+    const s = section("Policy")
+    expect(within(s).getByText("No maximum")).toBeTruthy()
+    expect(within(s).queryByText(/0 seconds/)).toBeNull()
+  })
+
+  it("reads a null grace as not set, with the engine's 24 hour default", async () => {
+    await render(detail({ policy: { ...POLICY, graceSeconds: null } }))
+    const s = section("Policy")
+    expect(within(s).getByText("Not set (24 hours by default)")).toBeTruthy()
+    expect(within(s).queryByText(/0 seconds/)).toBeNull()
   })
 
   it("says there is no policy when policy is null", async () => {
