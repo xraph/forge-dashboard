@@ -252,7 +252,8 @@ function seedKeysmithState() {
     {
       id: KEYSMITH_IDS.closedRotation,
       keyId: KEYSMITH_IDS.billingKey,
-      reason: "scheduled",
+      // No scheduler exists, so production never records "scheduled".
+      reason: "policy",
       oldHint: "19d4",
       createdAt: now - 30 * day,
       graceEnds: now - 30 * day + day,
@@ -284,7 +285,10 @@ function effectiveState(k, now) {
   return { state: k.state, pending: false }
 }
 
-/** projectKey: omitempty fields are left out when unset; scopes is never absent. */
+/**
+ * projectKey: omitempty fields are left out when unset; scopes is never absent,
+ * and comes sorted without duplicates like scopeNames in handlers_keys.go.
+ */
 function projectKey(k, now) {
   const { state, pending } = effectiveState(k, now)
   const out = {
@@ -299,7 +303,7 @@ function projectKey(k, now) {
     expiryPending: pending,
     expiresSoon: false,
     ...(k.policyId ? { policyId: k.policyId } : {}),
-    scopes: [...k.scopes],
+    scopes: [...new Set(k.scopes)].sort(),
     ...(k.createdBy ? { createdBy: k.createdBy } : {}),
     ...(k.expiresAt !== null ? { expiresAt: iso(k.expiresAt) } : {}),
     ...(k.lastUsedAt !== null ? { lastUsedAt: iso(k.lastUsedAt) } : {}),

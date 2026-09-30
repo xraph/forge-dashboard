@@ -84,7 +84,9 @@ export const KeysPage: ComponentType<PluginPageProps> = () => {
   // The data can shrink under the page being viewed (keys deleted elsewhere),
   // leaving a page past the end: rows empty, total still positive. Step back
   // to the last page that exists. Done during render, React's supported way to
-  // adjust state from data, so no frame shows the empty page.
+  // adjust state from data, so no frame shows the empty page. Only when that
+  // page is a different one: an empty last page would otherwise set the page
+  // it is already on and render forever.
   const total = list.data?.total
   const rowCount = list.data?.keys?.length
   if (
@@ -93,7 +95,8 @@ export const KeysPage: ComponentType<PluginPageProps> = () => {
     total > 0 &&
     rowCount === 0
   ) {
-    setPage(Math.max(1, Math.ceil(total / PAGE_SIZE)))
+    const last = Math.max(1, Math.ceil(total / PAGE_SIZE))
+    if (last !== page) setPage(last)
   }
 
   const filtered = environment !== "" || state !== ""

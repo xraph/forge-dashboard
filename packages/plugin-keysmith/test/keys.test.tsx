@@ -335,6 +335,24 @@ describe("KeysPage", () => {
     expect(screen.getByText("Reporting export")).toBeTruthy()
   })
 
+  it("stays put on the last page when it comes back empty, and shows the empty message", async () => {
+    const sent: Record<string, unknown>[] = []
+    const client = stubClientByParams((params) => {
+      sent.push(params)
+      // Page 2 is the last page by the total, yet its rows are gone. Stepping
+      // back to the last page would set the page it is already on, forever.
+      if (params.offset === 25) return { keys: [], total: 30 }
+      return { keys: LIST.keys, total: 30 }
+    })
+    renderPage(KeysPage, client)
+    await screen.findByText("Reporting export")
+    fireEvent.click(screen.getByRole("button", { name: "Next page" }))
+
+    expect(await screen.findByText("No API keys yet.")).toBeTruthy()
+    expect(screen.getByText("30 keys")).toBeTruthy()
+    expect(sent.filter((p) => p.offset === 25)).toHaveLength(1)
+  })
+
   it("shows the error state with the message when the list fails", async () => {
     renderPage(
       KeysPage,

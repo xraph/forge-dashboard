@@ -198,9 +198,26 @@ describe("KeyDetailPage details", () => {
     expect(within(term("Prefix")).getByText("sk").className).toContain("font-mono")
     expect(term("Environment").textContent).toBe("live")
     expect(term("Created by").textContent).toBe("usr_rex")
+    const creator = within(term("Created by")).getByText("usr_rex")
+    expect(creator.className).toContain("font-mono")
+    expect(creator.className).toContain("text-xs")
     for (const t of ["Created", "Updated", "Last used", "Expires", "Rotated"]) {
       expect(term(t).textContent).toMatch(/2026|2027/)
     }
+  })
+
+  it("shows when a revoked key was revoked", async () => {
+    await render(
+      detail({
+        key: key({
+          state: "revoked",
+          effectiveState: "revoked",
+          revokedAt: "2026-09-20T10:00:00Z",
+        }),
+        previousKeys: [],
+      }),
+    )
+    expect(term("Revoked").textContent).toMatch(/2026/)
   })
 
   it("labels each absent value", async () => {
@@ -211,12 +228,13 @@ describe("KeyDetailPage details", () => {
           lastUsedAt: undefined,
           expiresAt: undefined,
           rotatedAt: undefined,
+          revokedAt: undefined,
         }),
         previousKeys: [],
       }),
     )
     const d = section("Details")
-    for (const label of ["no creator", "no recorded use", "no expiry", "no rotation"]) {
+    for (const label of ["no creator", "no recorded use", "no expiry", "no rotation", "no revocation"]) {
       expect(within(d).getByLabelText(label)).toBeTruthy()
     }
   })
@@ -268,13 +286,18 @@ describe("KeyDetailPage policy", () => {
     expect(within(s).queryByLabelText("no policy")).toBeNull()
   })
 
-  it("names the warden subject for the key in mono", async () => {
+  it("names the warden subject for the key in mono, with nothing after it", async () => {
     await render()
     const subject = screen.getByText("api_key:akey_billing")
     expect(subject.className).toContain("font-mono")
+    const warden = within(section("Warden"))
     expect(
-      screen.getByText(/Warden grants this key's permissions as subject/),
+      warden.getByText(
+        "If the Warden hook is installed, it grants this key's permissions to this subject:",
+      ),
     ).toBeTruthy()
+    // The subject gets copied with the id, so no period rides along with it.
+    expect(section("Warden").textContent?.trim().endsWith("api_key:akey_billing")).toBe(true)
   })
 })
 
@@ -294,10 +317,11 @@ describe("KeyDetailPage scopes and metadata", () => {
   it("lists metadata, stringifying values that are not strings", async () => {
     await render(detail({ metadata: { team: "billing", tier: 2, tags: ["a", "b"] } }))
     const s = section("Metadata")
-    expect(within(s).getByText("team")).toBeTruthy()
-    expect(within(s).getByText("billing")).toBeTruthy()
-    expect(within(s).getByText("2")).toBeTruthy()
-    expect(within(s).getByText('["a","b"]')).toBeTruthy()
+    for (const text of ["team", "billing", "tier", "2", "tags", '["a","b"]']) {
+      const el = within(s).getByText(text)
+      expect(el.className, text).toContain("font-mono")
+      expect(el.className, text).toContain("text-xs")
+    }
   })
 
   it("says there is no metadata", async () => {
@@ -329,6 +353,30 @@ describe("KeyDetailPage failure", () => {
     // No raw code and no retry: neither helps someone whose key is gone.
     expect(screen.queryByText(/NOT_FOUND/)).toBeNull()
     expect(screen.queryByRole("button", { name: /retry/i })).toBeNull()
+  })
+
+  it.each(["id is not a key id", "id is required"])(
+    "treats a BAD_REQUEST saying %s like a missing key",
+    async (message) => {
+      renderPage(
+        KeyDetailPage,
+        failingClient(new ContractError("BAD_REQUEST", message)),
+        { id: "not-a-key" },
+      )
+      expect(await screen.findByText("No key with this id.")).toBeTruthy()
+      expect(screen.getByRole("link", { name: "Back to keys" })).toBeTruthy()
+      expect(screen.queryByRole("button", { name: /retry/i })).toBeNull()
+    },
+  )
+
+  it("keeps the error card for a BAD_REQUEST about something else", async () => {
+    renderPage(
+      KeyDetailPage,
+      failingClient(new ContractError("BAD_REQUEST", "malformed request body")),
+      { id: "akey_billing" },
+    )
+    expect(await screen.findByText(/malformed request body/)).toBeTruthy()
+    expect(screen.queryByText("No key with this id.")).toBeNull()
   })
 
   it("keeps the error card for a NOT_FOUND that is not about the key", async () => {

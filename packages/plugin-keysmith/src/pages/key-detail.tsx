@@ -41,13 +41,11 @@ function KeyDetailBody({ id }: { id: string }) {
 
   // Matched on the message as well as the code: a wrong intent name is also
   // NOT_FOUND, and telling an operator "no key with this id" about a typo in
-  // the page would send them looking for a key that is there. Once there is
-  // data the page stays up, so this only runs for a read that failed.
-  if (
-    detail.data === undefined &&
-    detail.error?.code === "NOT_FOUND" &&
-    /key not found/i.test(detail.error.message)
-  ) {
+  // the page would send them looking for a key that is there. An id that is
+  // not a key id at all (a mangled address) answers BAD_REQUEST, and no key
+  // has that id either. Once there is data the page stays up, so this only
+  // runs for a read that failed.
+  if (detail.data === undefined && isNoSuchKey(detail.error)) {
     return (
       <EmptyState
         title="No key with this id."
@@ -69,6 +67,15 @@ function KeyDetailBody({ id }: { id: string }) {
       {(data) => <KeyDetailView data={data} />}
     </QueryBoundary>
   )
+}
+
+function isNoSuchKey(error: { code: string; message: string } | undefined | null): boolean {
+  if (!error) return false
+  if (error.code === "NOT_FOUND") return /key not found/i.test(error.message)
+  if (error.code === "BAD_REQUEST") {
+    return /^id (is not a key id|is required)$/i.test(error.message)
+  }
+  return false
 }
 
 function Section({ title, children }: { title: string; children: ReactNode }) {
@@ -116,12 +123,11 @@ function KeyDetailView({ data }: { data: KeyDetail }) {
             <PolicySection policyId={key.policyId} policy={data.policy} />
             <Section title="Warden">
               <p className="text-sm text-muted-foreground">
-                Warden grants this key&apos;s permissions as subject{" "}
-                <span className="font-mono text-xs text-foreground">
-                  api_key:{key.id}
-                </span>
-                .
+                If the Warden hook is installed, it grants this key&apos;s
+                permissions to this subject:
               </p>
+              {/* On its own, with nothing after it: it gets copied with the id. */}
+              <span className="font-mono text-xs">api_key:{key.id}</span>
             </Section>
           </>
         }
@@ -194,13 +200,18 @@ function DetailsSection({ data }: { data: KeyDetail }) {
           { term: "Environment", value: key.environment },
           {
             term: "Created by",
-            value: key.createdBy ? key.createdBy : <NoneCell label="creator" />,
+            value: key.createdBy ? (
+              <span className="font-mono text-xs">{key.createdBy}</span>
+            ) : (
+              <NoneCell label="creator" />
+            ),
           },
           { term: "Created", value: <Timestamp value={key.createdAt} label="creation time" /> },
           { term: "Updated", value: <Timestamp value={key.updatedAt} label="update time" /> },
           { term: "Last used", value: <Timestamp value={key.lastUsedAt} label="recorded use" /> },
           { term: "Expires", value: <Timestamp value={key.expiresAt} label="expiry" /> },
           { term: "Rotated", value: <Timestamp value={key.rotatedAt} label="rotation" /> },
+          { term: "Revoked", value: <Timestamp value={key.revokedAt} label="revocation" /> },
         ]}
       />
     </Section>
@@ -266,13 +277,19 @@ function MetadataSection({ metadata }: { metadata: KeyDetail["metadata"] }) {
       {entries.length === 0 ? (
         <NoneCell label="metadata" />
       ) : (
-        <DescriptionList
-          items={entries.map(([k, v]) => ({
-            term: k,
-            // JSON.stringify gives undefined for a value JSON cannot hold.
-            value: typeof v === "string" ? v : (JSON.stringify(v) ?? String(v)),
-          }))}
-        />
+        // DescriptionList's term is a plain string, and metadata keys are
+        // identifiers, so this is the same <dl> with keys and values in mono.
+        <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1 text-sm">
+          {entries.map(([k, v]) => (
+            <div key={k} className="contents">
+              <dt className="font-mono text-xs text-muted-foreground">{k}</dt>
+              <dd className="font-mono text-xs">
+                {/* JSON.stringify gives undefined for a value JSON cannot hold. */}
+                {typeof v === "string" ? v : (JSON.stringify(v) ?? String(v))}
+              </dd>
+            </div>
+          ))}
+        </dl>
       )}
     </Section>
   )
