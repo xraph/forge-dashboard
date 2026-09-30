@@ -161,7 +161,8 @@ function flagsOf(p: PolicySummary): Flag[] {
     out.push({
       label: "fails closed",
       variant: "destructive",
-      title: "A condition cannot be evaluated, so the check is refused",
+      title:
+        "A condition cannot be evaluated, so warden treats it, and every condition after it, as met",
     })
   }
   if (p.neverApplies) {
@@ -175,7 +176,8 @@ function flagsOf(p: PolicySummary): Flag[] {
     out.push({
       label: "matches every check",
       variant: "secondary",
-      title: "It has no matcher narrowing it, so it applies to every check in its namespace and below",
+      title:
+        "No matcher or condition narrows it, so while it is in effect it matches every check in its namespace and below",
     })
   }
   return out

@@ -226,6 +226,20 @@ describe("WardenPoliciesPage", () => {
       }
     })
 
+    it("titles fails closed and matches every check with what is true of every such policy", async () => {
+      // "the check is refused" is false for a deny whose earlier conditions
+      // depend on the check, and "no matcher narrowing it" left out the
+      // conditions the flag now also depends on.
+      renderPolicies(client())
+      const titleOf = async (name: string) => badgesIn(await rowOf(name))[0]!.getAttribute("title")
+      expect(await titleOf("throws-on-check")).toBe(
+        "A condition cannot be evaluated, so warden treats it, and every condition after it, as met"
+      )
+      expect(await titleOf("no-matchers")).toBe(
+        "No matcher or condition narrows it, so while it is in effect it matches every check in its namespace and below"
+      )
+    })
+
     it("shows every badge that applies when several do", async () => {
       renderPolicies(client())
       const badges = badgesIn(await rowOf("everything-wrong"))

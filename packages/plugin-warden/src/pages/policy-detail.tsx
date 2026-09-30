@@ -40,19 +40,25 @@ const LINK_CLASS = "text-sm underline underline-offset-4"
  * `state` is the server's, computed at read time. `inactive` wins over the
  * window states there, so an inactive policy with a closed window reads as
  * inactive, which is the thing to change first.
+ *
+ * With policy evaluation off, no policy takes effect whatever its state or
+ * window, so these lines then describe only the switch and the window, and
+ * promise nothing about activation or a start date.
  */
-export function stateLine(p: PolicyDetail): string | null {
+export function stateLine(p: PolicyDetail, evaluationOff = false): string | null {
   switch (p.state) {
     case "inactive":
-      return "Inactive. It takes no effect until you activate it."
+      return evaluationOff ? "Inactive." : "Inactive. It takes no effect until you activate it."
     case "scheduled":
-      return p.notBefore
-        ? `Not yet in effect. It starts on ${windowTime(p.notBefore)}.`
-        : "Not yet in effect."
+      if (!p.notBefore) return evaluationOff ? null : "Not yet in effect."
+      return evaluationOff
+        ? `Its window opens on ${windowTime(p.notBefore)}.`
+        : `Not yet in effect. It starts on ${windowTime(p.notBefore)}.`
     case "expired":
-      return p.notAfter
-        ? `No longer in effect. It ended on ${windowTime(p.notAfter)}.`
-        : "No longer in effect."
+      if (!p.notAfter) return evaluationOff ? null : "No longer in effect."
+      return evaluationOff
+        ? `Its window ended on ${windowTime(p.notAfter)}.`
+        : `No longer in effect. It ended on ${windowTime(p.notAfter)}.`
     case "never":
       return "Never in effect. Its end is before its start."
   }
@@ -60,43 +66,124 @@ export function stateLine(p: PolicyDetail): string | null {
 }
 
 /**
+ * Whether the policy's window would stop it taking effect even once active:
+ * "inverted" when it ends before it starts, "ended" when its end is past,
+ * null otherwise. The same tests `policyState` makes, applied to an inactive
+ * policy, whose server state says only "inactive".
+ */
+export function closedWindow(p: PolicyDetail, now: number): "inverted" | "ended" | null {
+  const start = p.notBefore ? Date.parse(p.notBefore) : Number.NaN
+  const end = p.notAfter ? Date.parse(p.notAfter) : Number.NaN
+  if (!Number.isNaN(start) && !Number.isNaN(end) && end < start) return "inverted"
+  if (!Number.isNaN(end) && end < now) return "ended"
+  return null
+}
+
+/**
+ * How a sentence about what the policy does must be worded.
+ *
+ * `present` for an active policy. `once` for a policy that will take effect
+ * without editing: scheduled, or inactive with a window that is open or has
+ * not started. `would` for one that will not: expired, never in effect, or
+ * inactive with a window that has ended or ends before it starts.
+ */
+export type Mood = "present" | "once" | "would"
+
+export function moodOf(p: PolicyDetail, now: number): Mood {
+  switch (p.state) {
+    case "active":
+      return "present"
+    case "scheduled":
+      return "once"
+    case "expired":
+    case "never":
+      return "would"
+  }
+  return closedWindow(p, now) ? "would" : "once"
+}
+
+/** One sentence in the right mood. `who` is "this deny" or "it". */
+function tensed(mood: Mood, who: string, does: string, would: string, rest: string): string {
+  if (mood === "present") return `${who[0].toUpperCase()}${who.slice(1)} ${does} ${rest}`
+  if (mood === "once") return `Once it is in effect, ${who} ${does} ${rest}`
+  return `If it were in effect, ${who} would ${would} ${rest}`
+}
+
+/**
  * What the policy does when it is evaluated, as the callout says it. Empty
  * when it behaves as written.
  *
- * Each sentence was checked against the evaluator (`evaluateConditions` stops
- * at the first false and the first error; a deny that errors applies anyway,
- * an allow that errors is skipped) for every policy that can carry the flag.
- * Every flag is the server's, never derived here.
+ * Each sentence was checked against the evaluator and the engine for every
+ * policy that can carry the flag. `evaluateConditions` stops at the first
+ * false and the first error; a deny that errors applies anyway, an allow
+ * that errors is skipped. `evaluateABAC` loads only the policies of the
+ * check's own namespace and its ancestors, so a policy reaches checks in its
+ * namespace and below, and every scope sentence says so. Every flag is the
+ * server's, never derived here.
  *
- * The fail-closed and matches-every-check sentences say what the policy does
- * when it takes effect. For a policy that is not in effect now (inactive, not
- * yet in effect, expired, never in effect) the present tense would be false,
- * so they read "Once it is in effect, ...". The never-applies sentences are
- * true whatever the state, so they keep one form.
+ * When `matchesEverything` is set it is always said, whatever else is set:
+ * a deny that fails closed with nothing narrowing it denies every check in
+ * its namespace and below, and that is the consequence to state. The server
+ * never sets it together with `neverApplies`.
  */
-export function effectSentences(p: PolicyDetail): string[] {
+export function effectSentences(p: PolicyDetail, now: number): string[] {
   const d = p.decidingCondition
   const conditions = p.conditions ?? []
-  // `rest` starts lower case: "this deny applies ...".
-  const when = (rest: string) =>
-    p.state === "active" ? rest[0].toUpperCase() + rest.slice(1) : `Once it is in effect, ${rest}`
+  const mood = moodOf(p, now)
+  const out: string[] = []
   if (p.failsClosed && d !== undefined) {
-    return [
-      `Condition ${d + 1} cannot be evaluated, so warden treats it, and every condition after it, as met.`,
-      d === 0
-        ? when("this deny applies to every check its subjects, actions and resources select.")
-        : when("this deny applies whenever the conditions before it hold."),
-    ]
-  }
-  if (p.neverApplies && d !== undefined) {
+    out.push(
+      `Condition ${d + 1} cannot be evaluated, so warden treats it, and every condition after it, as met.`
+    )
+    if (!p.matchesEverything) {
+      out.push(
+        d === 0
+          ? tensed(
+              mood,
+              "this deny",
+              "applies",
+              "apply",
+              "to every check in its namespace and below that its subjects, actions and resources select."
+            )
+          : tensed(
+              mood,
+              "this deny",
+              "applies",
+              "apply",
+              "to the checks it selects in its namespace and below whenever the conditions before it hold."
+            )
+      )
+    }
+  } else if (p.neverApplies && d !== undefined) {
     return conditions[d]?.problem === "throws"
       ? [`Condition ${d + 1} cannot be evaluated, so this allow never grants anything.`]
       : [`Condition ${d + 1} is always false, so this policy never applies.`]
   }
   if (p.matchesEverything) {
-    return [when("it matches every check in its namespace and below.")]
+    out.push(tensed(mood, "it", "matches", "match", "every check in its namespace and below."))
   }
-  return []
+  return out
+}
+
+/**
+ * What the activate dialog says, for an inactive policy.
+ *
+ * Evaluation off: nothing it does takes effect, activated or not. A window
+ * that has ended or is inverted: activating will not put it into effect, so
+ * no "once it is in effect" sentence may show. Otherwise the callout's own
+ * sentences, which are the "once" forms, and the window they apply inside.
+ */
+export function activateSentences(p: PolicyDetail, now: number, evaluationOff: boolean): string[] {
+  if (evaluationOff) return [ABAC_OFF]
+  const closed = closedWindow(p, now)
+  if (closed === "inverted") {
+    return ["Its window ends before it starts, so activating it will not put it into effect."]
+  }
+  if (closed === "ended") {
+    return ["Its window has ended, so activating it will not put it into effect."]
+  }
+  const inEffect = windowPhrase(p.notBefore, p.notAfter)
+  return [...effectSentences(p, now), ...(inEffect ? [`In effect ${inEffect}.`] : [])]
 }
 
 /**
@@ -115,6 +202,10 @@ export function WardenPolicyDetailPage({ params }: PolicyPageProps) {
   const remove = useCommand<AckResponse>("policies.delete")
   const navigate = useNavigateTo()
 
+  // The clock the mood of each sentence is judged against. Read once on
+  // mount, and again when the activate dialog opens, so the dialog judges a
+  // window against the moment the operator is deciding.
+  const [now, setNow] = useState(() => Date.now())
   // The value the open dialog would set, or null when it is closed.
   const [target, setTarget] = useState<boolean | null>(null)
   const [deleting, setDeleting] = useState(false)
@@ -135,6 +226,7 @@ export function WardenPolicyDetailPage({ params }: PolicyPageProps) {
     // Reset at open, not at close, so a refusal from an earlier attempt is
     // not shown against this one.
     setActive.reset()
+    setNow(Date.now())
     setTarget(active)
   }
 
@@ -169,22 +261,13 @@ export function WardenPolicyDetailPage({ params }: PolicyPageProps) {
   return (
     <QueryBoundary title="Policy" query={detail} skeletonRows={4}>
       {(policy) => {
-        const state = stateLine(policy)
+        const state = stateLine(policy, abacOff)
         // Above the block: the state when the policy is not in effect, and
-        // what it does when evaluated, worded for whether it is in effect
-        // now. With evaluation off nothing it would do happens at all, and
-        // the ABAC alert says so instead.
-        const effect = abacOff ? [] : effectSentences(policy)
-        const inEffect = windowPhrase(policy.notBefore, policy.notAfter)
-        // What activating will do, in the callout's own words. Only an
-        // inactive policy is offered Activate, so these are the conditional
-        // forms, and the window says when "in effect" is.
-        const onActivate = abacOff
-          ? [ABAC_OFF]
-          : [
-              ...effectSentences(policy),
-              ...(inEffect ? [`In effect ${inEffect}.`] : []),
-            ]
+        // what it does when evaluated, in the mood its state allows. With
+        // evaluation off nothing it would do happens at all, and the ABAC
+        // alert says so instead.
+        const effect = abacOff ? [] : effectSentences(policy, now)
+        const onActivate = activateSentences(policy, now, abacOff)
 
         return (
           <section className="flex flex-col gap-6">
@@ -283,7 +366,7 @@ export function WardenPolicyDetailPage({ params }: PolicyPageProps) {
                       </AlertDescription>
                     </Alert>
                   )}
-                  <PolicyRule policy={policy} />
+                  <PolicyRule policy={policy} evaluationOff={abacOff} />
                 </div>
               }
             />
@@ -304,7 +387,9 @@ export function WardenPolicyDetailPage({ params }: PolicyPageProps) {
                   {target ? (
                     onActivate.map((s) => <span key={s}>{s}</span>)
                   ) : (
-                    <span>It takes no effect until you activate it again.</span>
+                    <span>
+                      {abacOff ? ABAC_OFF : "It takes no effect until you activate it again."}
+                    </span>
                   )}
                   <CommandAlert
                     error={setActive.error}

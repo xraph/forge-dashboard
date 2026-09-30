@@ -460,6 +460,13 @@ describe("PolicyRule", () => {
       expect(block(container).className).not.toContain("opacity")
     })
 
+    it("dims even an active fail-closed deny while policy evaluation is off", () => {
+      const { container } = render(
+        <PolicyRule policy={ruleOf({ failsClosed: true, decidingCondition: 0 })} evaluationOff />
+      )
+      expect(block(container).className).toContain("opacity-60")
+    })
+
     it("never dims an active deny that fails closed", () => {
       const { container } = show({ failsClosed: true, decidingCondition: 0 })
       expect(block(container).className).not.toContain("opacity")

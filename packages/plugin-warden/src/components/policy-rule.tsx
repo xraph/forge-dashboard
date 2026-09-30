@@ -284,12 +284,14 @@ function wildcardNote(list: string[], noun: string): ReactNode {
 
 /**
  * Whether the block reads dimmed. Visual weight tracks real effect now: a
- * policy that is off, out of its window or can never hold does nothing, so it
- * is dimmed. An active deny that fails closed is never dimmed, because it is
- * the most consequential thing a policy can do, and it is doing it.
+ * policy that is off, out of its window or can never hold does nothing, and
+ * neither does any policy while the deployment has policy evaluation turned
+ * off. An active deny that fails closed, with evaluation on, is never dimmed,
+ * because it is the most consequential thing a policy can do, and it is
+ * doing it.
  */
-export function isDimmed(policy: PolicyDetail): boolean {
-  return policy.state !== "active" || policy.neverApplies
+export function isDimmed(policy: PolicyDetail, evaluationOff = false): boolean {
+  return evaluationOff || policy.state !== "active" || policy.neverApplies
 }
 
 const LABEL = "text-muted-foreground"
@@ -301,7 +303,15 @@ const LABEL = "text-muted-foreground"
  * explicit deny beats every other model; an allow does not, and stays in the
  * foreground colour.
  */
-export function PolicyRule({ policy }: { policy: PolicyDetail }) {
+export function PolicyRule({
+  policy,
+  evaluationOff = false,
+}: {
+  policy: PolicyDetail
+  /** The deployment reports policy evaluation turned off. Only an explicit false from config.detail, never an unreadable config. */
+  evaluationOff?: boolean
+}) {
+  const dimmed = isDimmed(policy, evaluationOff)
   const isAllow = policy.effect === "allow"
   const subjects = policy.subjects ?? []
   const actions = policy.actions ?? []
@@ -314,8 +324,8 @@ export function PolicyRule({ policy }: { policy: PolicyDetail }) {
   return (
     <section
       aria-label="Rule"
-      data-dimmed={isDimmed(policy) ? "true" : "false"}
-      className={cn("flex flex-col gap-3 rounded-md border p-4", isDimmed(policy) && "opacity-60")}
+      data-dimmed={dimmed ? "true" : "false"}
+      className={cn("flex flex-col gap-3 rounded-md border p-4", dimmed && "opacity-60")}
     >
       {/* Anything but exactly "allow" is a deny to the evaluator, so it reads
           as one here too. */}
