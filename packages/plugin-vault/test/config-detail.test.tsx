@@ -1165,6 +1165,39 @@ describe("ConfigDetailPage recent activity", () => {
     expect(screen.getByText("config.override.set")).toBeTruthy()
   })
 
+  it("labels the tenant on an override row and shows a failure's error", async () => {
+    const h = harness({
+      "config.detail": detail({
+        recentAudit: [
+          {
+            id: "a1",
+            action: "config.override.set",
+            outcome: "success",
+            tenantId: "t-acme",
+            createdAt: "2026-09-23T10:00:00Z",
+          },
+          {
+            id: "a2",
+            action: "config.update",
+            outcome: "failure",
+            userId: "u-rex",
+            error: "value is not a duration",
+            createdAt: "2026-09-22T10:00:00Z",
+          },
+        ],
+      }),
+    })
+    renderDetail(h.client)
+    await ready()
+    const override = screen.getByText("config.override.set").closest("li") as HTMLElement
+    expect(override.textContent).toContain("tenant t-acme")
+    // An app write has no user, so nothing stands where the user goes.
+    expect(override.textContent).not.toMatch(/\bby\b/)
+    const failed = screen.getByText("config.update").closest("li") as HTMLElement
+    expect(failed.textContent).toContain("by u-rex")
+    expect(within(failed).getByText("value is not a duration")).toBeTruthy()
+  })
+
   it("says so when nothing has been recorded", async () => {
     renderDetail(harness().client)
     await ready()

@@ -8,8 +8,10 @@ import type { AuditEntry } from "../flag-types"
  * uses it for the whole vault, where `showKey` names what each row was about.
  *
  * A failure row shows its error under the line, so a failed rotation says why
- * here rather than only that it failed. A row with no user shows none: an app
- * write has no user, and the list never invents one.
+ * here rather than only that it failed. The user and the tenant carry
+ * their own words ("by", "tenant") because an app write has a tenant and no
+ * user, and a bare id in the user's place would read as the actor. A row with
+ * no user shows none: the list never invents one.
  */
 export function RecentActivity({
   entries,
@@ -35,10 +37,14 @@ export function RecentActivity({
                   ) : null}
                   <span className="text-muted-foreground">{e.outcome}</span>
                   {e.userId ? (
-                    <span className="font-mono text-xs text-muted-foreground">{e.userId}</span>
+                    <span className="text-xs text-muted-foreground">
+                      by <span className="font-mono">{e.userId}</span>
+                    </span>
                   ) : null}
                   {e.tenantId ? (
-                    <span className="font-mono text-xs text-muted-foreground">{e.tenantId}</span>
+                    <span className="text-xs text-muted-foreground">
+                      tenant <span className="font-mono">{e.tenantId}</span>
+                    </span>
                   ) : null}
                 </span>
                 <Timestamp value={e.createdAt} label="time" className="text-muted-foreground" />
