@@ -241,8 +241,9 @@ it decided and the page cannot tell.
 The first is handled in the playground section below. The second and third are
 cheap: `config.detail` already reports `EnableCheckLog`, so the check log
 renders a banner when logging is off instead of an ordinary empty state, and
-surfaces the dropped counter beside the row count when the metrics backend can
-answer for it. An empty table that says "check logging is disabled, nothing is
+surfaces a lost-row count beside the row count. (Plan 3b has the check-log
+writer count queue-full drops and failed writes itself, so the page can always
+answer, rather than reading a metrics backend that `NoopMetrics` cannot.) An empty table that says "check logging is disabled, nothing is
 being recorded" costs one query that is already being made.
 
 ### Beware the name collision
@@ -371,7 +372,7 @@ place where things live.
 
 ## The intent surface
 
-48 intents in 14 groups. Names follow authsome's `noun.verb` convention.
+47 intents in 14 groups. Names follow authsome's `noun.verb` convention.
 
 | group | intents |
 |---|---|
@@ -381,7 +382,7 @@ place where things live.
 | resourceTypes | `list` `detail` `create` `update` `delete` |
 | assignments | `list` `create` `delete` `expiring` |
 | relations | `list` `create` `delete` |
-| checkLogs | `list` `detail` `purge` |
+| checkLogs | `list` `detail` |
 | playground | `check` `explain` `batchCheck` |
 | subjects | `detail` |
 | overview | `stats` `recentChecks` |
@@ -709,7 +710,15 @@ backends plus the conformance suite, which is larger than `WithCallDryRun` and
 larger than anything else proposed here.
 
 Recommendation: do the first two, which are plain column predicates in every
-backend. Defer `MatchedRuleID`, which needs a JSON containment query and reads
+backend.
+
+Correction (plan 3b): only `Cached` is needed. Evaluation failures are already
+queryable. `buildCheckLogEntry` writes `decision "error"` on exactly the rows
+that carry an error, and `failCheck` is the only caller that passes one, so the
+existing decision filter answers the first query, and `HasError` would add
+nothing. `checkLogs.purge` is also dropped from the intent surface:
+`PurgeCheckLogs` takes no tenant id, so a dashboard purge would let one tenant
+delete every tenant's audit trail. Retention runs through `maintenance.run`. Defer `MatchedRuleID`, which needs a JSON containment query and reads
 differently on postgres `jsonb`, sqlite JSON strings and mongo arrays, so it is
 its own piece of work. Until then the check log renders both fields as columns
 and says in the filter bar that they cannot be filtered, which is better than
