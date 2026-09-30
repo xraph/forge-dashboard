@@ -217,9 +217,11 @@ function SubjectAccess({ kind, id }: { kind: string; id: string }) {
           return (
             <>
               {/* Inside the boundary: while a new namespace loads, or when the
-                  read is refused, nothing is being shown at any namespace. */}
+                  read is refused, nothing is being shown at any namespace. Says
+                  what depends on the namespace rather than what is shown, so
+                  it stays true when roles or policies are withheld. */}
               <p className={NOTE}>
-                {`Roles and policies are shown at ${at}. Assignments, relations and recent checks cover every namespace.`}
+                {`Namespace ${at}: roles and policies depend on it. Assignments, relations and recent checks cover every namespace.`}
               </p>
               <RolesSection
                 roles={data.roles ?? []}
@@ -582,9 +584,13 @@ function PoliciesSection({
         caption={rows.length > 0 ? count(rows.length, "policy", "policies") : undefined}
         emptyMessage={`No policy in effect at ${at} selects this subject through its kind, its id or a role it holds for every resource.`}
       />
-      <p className={NOTE}>
-        {"Selecting is not applying. Each policy's actions, resources, window and conditions decide whether it applies to a given check."}
-      </p>
+      {/* With policy evaluation off no policy applies, so saying their
+          conditions decide would contradict the note above. */}
+      {!abacOff && (
+        <p className={NOTE}>
+          {"Selecting is not applying. Each policy's actions, resources, window and conditions decide whether it applies to a given check."}
+        </p>
+      )}
     </section>
   )
 }

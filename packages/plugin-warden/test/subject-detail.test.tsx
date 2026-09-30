@@ -171,7 +171,7 @@ describe("WardenSubjectDetailPage header", () => {
     const { sent } = setup()
     const title = await screen.findByRole("heading", { level: 1, name: "user:alice" })
     expect(title.className).toContain("font-mono")
-    expect(await screen.findByText("Roles and policies are shown at /. Assignments, relations and recent checks cover every namespace.")).toBeTruthy()
+    expect(await screen.findByText("Namespace /: roles and policies depend on it. Assignments, relations and recent checks cover every namespace.")).toBeTruthy()
     const detail = sent.filter((s) => s.intent === "subjects.detail")
     expect(detail[0]?.params).toEqual({
       subjectKind: "user",
@@ -182,7 +182,7 @@ describe("WardenSubjectDetailPage header", () => {
 
   it("sends the route params exactly as given", async () => {
     const { sent } = setup(EMPTY, { kind: "api key", id: "a/b c" })
-    await screen.findByText("Roles and policies are shown at /. Assignments, relations and recent checks cover every namespace.")
+    await screen.findByText("Namespace /: roles and policies depend on it. Assignments, relations and recent checks cover every namespace.")
     expect(sent.find((s) => s.intent === "subjects.detail")?.params).toEqual({
       subjectKind: "api key",
       subjectId: "a/b c",
@@ -192,7 +192,7 @@ describe("WardenSubjectDetailPage header", () => {
 
   it("offers the namespaces as suggestions, the root as /", async () => {
     setup()
-    await screen.findByText("Roles and policies are shown at /. Assignments, relations and recent checks cover every namespace.")
+    await screen.findByText("Namespace /: roles and policies depend on it. Assignments, relations and recent checks cover every namespace.")
     const input = screen.getByLabelText("Namespace") as HTMLInputElement
     const list = document.getElementById(input.getAttribute("list") ?? "")
     await waitFor(() => {
@@ -207,12 +207,12 @@ describe("WardenSubjectDetailPage header", () => {
 
   it("sends a new subjects.detail when a suggested namespace is chosen", async () => {
     const { sent } = setup()
-    await screen.findByText("Roles and policies are shown at /. Assignments, relations and recent checks cover every namespace.")
+    await screen.findByText("Namespace /: roles and policies depend on it. Assignments, relations and recent checks cover every namespace.")
     await waitFor(() =>
       expect(sent.some((s) => s.intent === "namespaces.list")).toBe(true),
     )
     fireEvent.change(screen.getByLabelText("Namespace"), { target: { value: "acme/eng" } })
-    expect(await screen.findByText("Roles and policies are shown at acme/eng. Assignments, relations and recent checks cover every namespace.")).toBeTruthy()
+    expect(await screen.findByText("Namespace acme/eng: roles and policies depend on it. Assignments, relations and recent checks cover every namespace.")).toBeTruthy()
     const detail = sent.filter((s) => s.intent === "subjects.detail")
     expect(detail.at(-1)?.params).toEqual({
       subjectKind: "user",
@@ -224,13 +224,13 @@ describe("WardenSubjectDetailPage header", () => {
 
   it("does not ask while a namespace is half typed, and asks on blur", async () => {
     const { sent } = setup()
-    await screen.findByText("Roles and policies are shown at /. Assignments, relations and recent checks cover every namespace.")
+    await screen.findByText("Namespace /: roles and policies depend on it. Assignments, relations and recent checks cover every namespace.")
     const before = sent.filter((s) => s.intent === "subjects.detail").length
     const input = screen.getByLabelText("Namespace")
     fireEvent.change(input, { target: { value: "acme/en" } })
     expect(sent.filter((s) => s.intent === "subjects.detail").length).toBe(before)
     fireEvent.blur(input)
-    expect(await screen.findByText("Roles and policies are shown at acme/en. Assignments, relations and recent checks cover every namespace.")).toBeTruthy()
+    expect(await screen.findByText("Namespace acme/en: roles and policies depend on it. Assignments, relations and recent checks cover every namespace.")).toBeTruthy()
     expect(sent.filter((s) => s.intent === "subjects.detail").at(-1)?.params).toMatchObject({
       namespacePath: "acme/en",
     })
@@ -238,12 +238,12 @@ describe("WardenSubjectDetailPage header", () => {
 
   it("sends the root as an empty path when / is typed back", async () => {
     const { sent } = setup()
-    await screen.findByText("Roles and policies are shown at /. Assignments, relations and recent checks cover every namespace.")
+    await screen.findByText("Namespace /: roles and policies depend on it. Assignments, relations and recent checks cover every namespace.")
     const input = screen.getByLabelText("Namespace")
     fireEvent.change(input, { target: { value: "acme" } })
-    await screen.findByText("Roles and policies are shown at acme. Assignments, relations and recent checks cover every namespace.")
+    await screen.findByText("Namespace acme: roles and policies depend on it. Assignments, relations and recent checks cover every namespace.")
     fireEvent.change(input, { target: { value: "/" } })
-    await screen.findByText("Roles and policies are shown at /. Assignments, relations and recent checks cover every namespace.")
+    await screen.findByText("Namespace /: roles and policies depend on it. Assignments, relations and recent checks cover every namespace.")
     expect(sent.filter((s) => s.intent === "subjects.detail").at(-1)?.params).toMatchObject({
       namespacePath: "",
     })
@@ -703,6 +703,8 @@ describe("models turned off", () => {
     const note = await within(heading.closest("section") as HTMLElement).findByText(ABAC_OFF)
     expect(note.className).toContain("text-muted-foreground")
     expect(screen.queryByText(REBAC_OFF)).toBeNull()
+    // The conditions sentence would contradict "no policy applies".
+    expect(screen.queryByText(/decide whether it applies/)).toBeNull()
   })
 
   it("replaces the relations note when relation checks are off", async () => {
@@ -740,7 +742,7 @@ describe("a refused query", () => {
       PARAMS,
     )
     expect(await screen.findByText("Subject access unavailable")).toBeTruthy()
-    expect(screen.queryByText(/Roles and policies are shown at/)).toBeNull()
+    expect(screen.queryByText(/roles and policies depend on it/)).toBeNull()
     expect(screen.getByLabelText("Namespace")).toBeTruthy()
   })
 })
