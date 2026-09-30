@@ -11,9 +11,10 @@ import { FeatureStatusBadge, SharedBadge } from "../badges"
 import { ConfirmAction } from "../components/confirm-action"
 import { isNotFound, NotFoundState } from "../components/not-found"
 import { SyncPanel } from "../components/sync-panel"
+import { useSharedWrites } from "../lib/app-scope"
+import { limitText, periodLabel, TYPE_LABEL } from "../lib/features"
 import { featureEditPath } from "../lib/paths"
 import type { Ack, CatalogFeature } from "../types"
-import { defaultLimitText, PERIOD, TYPE } from "./feature-form"
 
 export function LedgerFeatureDetailPage({ params }: PluginPageProps) {
   const id = params.id
@@ -43,40 +44,46 @@ function FeatureDetailView({ feature }: { feature: CatalogFeature }) {
   const remove = useCommand<Ack>("features.delete")
   const navigate = useNavigateTo()
   const [pending, setPending] = useState<"archive" | "delete" | null>(null)
+  const shared = feature.app_id === ""
+  // The note below says why: a shared feature is changed only with no app selected.
+  const writes = useSharedWrites(shared)
+  const readOnly = writes !== "show"
 
   return (
     <section className="flex flex-col gap-6">
       <PageHeader
         title={feature.name}
         actions={
-          <>
-            <PluginLink to={featureEditPath(feature.id)} className={buttonVariants({ variant: "outline" })}>
-              Edit
-            </PluginLink>
-            {feature.status !== "archived" && (
+          !readOnly && (
+            <>
+              <PluginLink to={featureEditPath(feature.id)} className={buttonVariants({ variant: "outline" })}>
+                Edit
+              </PluginLink>
+              {feature.status !== "archived" && (
+                <Button
+                  variant="outline"
+                  onClick={() => {
+                    archive.reset()
+                    setPending("archive")
+                  }}
+                >
+                  Archive
+                </Button>
+              )}
               <Button
-                variant="outline"
+                variant="destructive"
                 onClick={() => {
-                  archive.reset()
-                  setPending("archive")
+                  remove.reset()
+                  setPending("delete")
                 }}
               >
-                Archive
+                Delete
               </Button>
-            )}
-            <Button
-              variant="destructive"
-              onClick={() => {
-                remove.reset()
-                setPending("delete")
-              }}
-            >
-              Delete
-            </Button>
-          </>
+            </>
+          )
         }
       />
-      {feature.app_id === "" && (
+      {shared && (
         <p className="flex items-center gap-2 text-sm text-muted-foreground">
           <SharedBadge /> Shared by every app on this server. It can be changed only with no app selected.
         </p>
@@ -86,10 +93,10 @@ function FeatureDetailView({ feature }: { feature: CatalogFeature }) {
           <DescriptionList
             items={[
               { term: "Key", value: <span className="font-mono text-xs">{feature.key}</span> },
-              { term: "Type", value: TYPE[feature.type] ?? feature.type },
-              { term: "Default limit", value: <span className="tabular-nums">{defaultLimitText(feature)}</span> },
-              { term: "Resets", value: PERIOD[feature.period] ?? feature.period },
-              { term: "Over the limit", value: feature.soft_limit ? "Soft: billed as overage" : "Hard: refused" },
+              { term: "Type", value: TYPE_LABEL[feature.type] ?? feature.type },
+              { term: "Default limit", value: <span className="tabular-nums">{limitText(feature.type, feature.default_limit)}</span> },
+              { term: "Resets", value: periodLabel(feature.period) ?? <NoneCell label="reset period" /> },
+              { term: "Over the limit", value: feature.soft_limit ? "Soft: use past the limit is not blocked" : "Hard: use past the limit is refused" },
               { term: "Status", value: <FeatureStatusBadge status={feature.status} /> },
               { term: "Description", value: feature.description || <NoneCell label="description" /> },
               { term: "Created", value: <Timestamp value={feature.created_at} label="creation" /> },
@@ -97,7 +104,7 @@ function FeatureDetailView({ feature }: { feature: CatalogFeature }) {
             ]}
           />
         }
-        aside={<SyncPanel intent="features.syncToProvider" id={feature.id} providerName={feature.provider_name} providerId={feature.provider_id} />}
+        aside={<SyncPanel intent="features.syncToProvider" id={feature.id} providerName={feature.provider_name} providerId={feature.provider_id} canSync={!readOnly} />}
       />
       <ConfirmAction
         open={pending === "archive"}

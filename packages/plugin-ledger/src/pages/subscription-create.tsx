@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react"
+import { useState } from "react"
 import type { FormEvent } from "react"
 import { PluginLink, useCommand, useNavigateTo, useQuery } from "@forge-go/dashboard-plugin"
 import { Button, buttonVariants } from "@forge-go/dashboard-kit/components/button"
@@ -8,6 +8,8 @@ import { Label } from "@forge-go/dashboard-kit/components/label"
 import { NativeSelect, NativeSelectOption } from "@forge-go/dashboard-kit/components/native-select"
 import { PageHeader } from "@forge-go/dashboard-kit/components/page-header"
 import { CommandAlert, QueryBoundary } from "@forge-go/dashboard-kit/components/query-boundary"
+import { ProblemsAlert } from "../components/problems-alert"
+import { useInFlight } from "../lib/in-flight"
 import { formatMoney } from "../lib/money"
 import { subscriptionPath } from "../lib/paths"
 import type { Page, Plan, Subscription } from "../types"
@@ -60,19 +62,14 @@ function priceText(plan: Plan): string {
 function SubscriptionForm({ plans }: { plans: Plan[] }) {
   const create = useCommand<Subscription>("subscriptions.create")
   const navigate = useNavigateTo()
+  const once = useInFlight()
   const [tenant, setTenant] = useState("")
   const [planId, setPlanId] = useState("")
   const [seats, setSeats] = useState<Record<string, string>>({})
   const [problems, setProblems] = useState<string[]>([])
-  const problemsRef = useRef<HTMLDivElement>(null)
   const plan = plans.find((p) => p.id === planId)
   const seatFeatures = (plan?.features ?? []).filter((f) => f.type === "seat")
   const canSubmit = !create.loading && tenant.trim() !== "" && plan !== undefined
-
-  // A failed parse moves focus to the alert, so a keyboard or screen-reader user hears it.
-  useEffect(() => {
-    if (problems.length > 0) problemsRef.current?.focus()
-  }, [problems])
 
   async function submit(event: FormEvent) {
     event.preventDefault()
@@ -90,7 +87,8 @@ function SubscriptionForm({ plans }: { plans: Plan[] }) {
     if (errors.length > 0) return
     const payload: Record<string, unknown> = { tenant_id: tenant.trim(), plan_id: plan.id }
     if (Object.keys(quantity).length > 0) payload.quantity = quantity
-    const result = await create.execute(payload)
+    // One subscription per submit: the engine has no duplicate rule, so a second send is a second billed subscription.
+    const result = await once(() => create.execute(payload))
     if (result === undefined) return
     navigate(subscriptionPath(result.id))
   }
@@ -98,13 +96,7 @@ function SubscriptionForm({ plans }: { plans: Plan[] }) {
   return (
     <form onSubmit={(e) => void submit(e)} className="flex max-w-lg flex-col gap-4">
       <CommandAlert error={create.error} title="Could not create the subscription" />
-      {problems.length > 0 && (
-        <div ref={problemsRef} tabIndex={-1} role="alert" className="flex flex-col gap-0.5 rounded-md border border-destructive/50 px-3 py-2 text-sm text-destructive">
-          {problems.map((p) => (
-            <span key={p}>{p}</span>
-          ))}
-        </div>
-      )}
+      <ProblemsAlert problems={problems} />
       <div className="flex flex-col gap-1.5">
         <Label htmlFor="sub-tenant">Tenant ID</Label>
         <Input id="sub-tenant" className="font-mono" autoComplete="off" spellCheck={false} value={tenant} onChange={(e) => setTenant(e.target.value)} />

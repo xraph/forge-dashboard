@@ -1,18 +1,18 @@
 import { useState } from "react"
 import { PluginLink, useQuery } from "@forge-go/dashboard-plugin"
-import { Button, buttonVariants } from "@forge-go/dashboard-kit/components/button"
+import { buttonVariants } from "@forge-go/dashboard-kit/components/button"
 import { FilterBar } from "@forge-go/dashboard-kit/components/filter-bar"
 import { PageHeader } from "@forge-go/dashboard-kit/components/page-header"
 import { QueryBoundary } from "@forge-go/dashboard-kit/components/query-boundary"
 import { ResourceTable, type Column } from "@forge-go/dashboard-kit/components/resource-table"
 import { Timestamp } from "@forge-go/dashboard-kit/components/timestamp"
-import { SubscriptionStatusBadge } from "../badges"
+import { SUBSCRIPTION_STATUS_OPTIONS, SubscriptionStatusBadge } from "../badges"
 import { ImportFromProviderAction } from "../components/import-from-provider"
-import { OffsetPager } from "../components/offset-pager"
+import { BackToFirstPage, OffsetPager } from "../components/offset-pager"
 import { formatPeriod } from "../lib/datetime"
 import { listEmptyMessage, pageCaption, pageParams } from "../lib/paging"
 import { subscriptionPath } from "../lib/paths"
-import type { Page, Plan, Subscription, SubscriptionDetail, SubscriptionStatus } from "../types"
+import type { Page, Plan, Subscription, SubscriptionDetail } from "../types"
 
 /**
  * Plan names by id, from one wide read of the plan list. A subscription
@@ -20,20 +20,11 @@ import type { Page, Plan, Subscription, SubscriptionDetail, SubscriptionStatus }
  * contain (a plan deleted since, or past the first 200), or that has no name,
  * falls back to the id, never to a blank.
  */
-export function usePlanNames(): Map<string, string> {
+function usePlanNames(): Map<string, string> {
   const plans = useQuery<Page<Plan>>("plans.list", { limit: 200, offset: 0 })
   const named = (plans.data?.items ?? []).filter((p) => p.name.trim() !== "")
   return new Map(named.map((p) => [p.id, p.name]))
 }
-
-const STATUSES: { value: SubscriptionStatus; label: string }[] = [
-  { value: "active", label: "Active" },
-  { value: "trialing", label: "Trialing" },
-  { value: "past_due", label: "Past due" },
-  { value: "paused", label: "Paused" },
-  { value: "canceled", label: "Canceled" },
-  { value: "expired", label: "Expired" },
-]
 
 function NewSubscriptionLink() {
   return (
@@ -79,7 +70,7 @@ export function LedgerSubscriptionsPage() {
     { id: "created", header: "Started", cell: (s) => <Timestamp value={s.created_at} label="start" /> },
   ]
 
-  const statusLabel = STATUSES.find((s) => s.value === status)?.label.toLowerCase()
+  const statusLabel = SUBSCRIPTION_STATUS_OPTIONS.find((s) => s.value === status)?.label.toLowerCase()
   const emptyMessage =
     page === 1 && tenantId
       ? `No ${statusLabel ? `${statusLabel} ` : ""}subscriptions for ${tenantId}.`
@@ -95,7 +86,7 @@ export function LedgerSubscriptionsPage() {
             <ImportFromProviderAction<SubscriptionDetail>
               intent="subscriptions.importFromProvider"
               noun="subscription"
-              description="Copies one subscription from the payment provider into this app. Its plan must already be an active plan here. Import the plan first if this app lacks it, or activate it if it is archived."
+              description="Copies one subscription from the payment provider into this app. Its plan must already be an active plan here. Import the plan first if this app lacks it, or activate it if it is not active yet."
               pathOf={(d) => subscriptionPath(d.subscription.id)}
             />
             <NewSubscriptionLink />
@@ -117,7 +108,7 @@ export function LedgerSubscriptionsPage() {
             id: "status",
             label: "Status",
             value: status,
-            options: [{ label: "All", value: "" }, ...STATUSES],
+            options: [{ label: "All", value: "" }, ...SUBSCRIPTION_STATUS_OPTIONS],
             onChange: (next) => {
               setStatus(next)
               setPage(1)
@@ -136,7 +127,7 @@ export function LedgerSubscriptionsPage() {
                 rowKey={(s) => s.id}
                 caption={pageCaption({ page, shown: rows.length, hasMore: data.has_more, singular: "subscription", plural: "subscriptions" })}
                 emptyMessage={emptyMessage}
-                emptyAction={page > 1 ? <Button variant="outline" onClick={() => setPage(1)}>Back to the first page</Button> : undefined}
+                emptyAction={page > 1 ? <BackToFirstPage onClick={() => setPage(1)} /> : !status && !tenantId ? <NewSubscriptionLink /> : undefined}
               />
               <OffsetPager page={page} hasMore={data.has_more} onPageChange={setPage} />
             </div>

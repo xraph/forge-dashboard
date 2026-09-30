@@ -13,8 +13,8 @@ const PERIOD: Record<string, string> = { monthly: " this month", yearly: " this 
  * One feature's usage against its limit.
  *
  * The meter's fill carries the state: the plain primary fill under the
- * limit, the warning fill at or past a soft limit (use continues and is
- * billed), the destructive fill at or past a hard one (use is refused). The
+ * limit, the warning fill at or past a soft limit (use is not blocked; it is
+ * billed as overage only if the plan's usage pricing prices it), the destructive fill at or past a hard one (use is refused). The
  * over-limit states also say so in words beside an icon, because the warning
  * fill is under 3:1 against a white card and colour alone would fail anybody
  * who cannot see it. A limit of -1 is unlimited and draws no bar; a boolean

@@ -56,6 +56,20 @@ export const LINE_GROUPS: { type: LineItemType; label: string; noun: string }[] 
   { type: "tax", label: "Tax", noun: "tax" },
 ]
 
+/**
+ * The groups to render: the six known types in order, then one "Other" group
+ * for any line whose type is not among them. The engine writes only the six,
+ * but a row stored by an SDK caller or an older import can carry another type
+ * or none, and such a line counts toward the subtotal. Dropping it would leave
+ * a total no visible line explains.
+ */
+export function lineGroups(lines: LineItem[]): { key: string; label: string; noun: string; rows: LineItem[] }[] {
+  const known = new Set<string>(LINE_GROUPS.map((g) => g.type))
+  const groups = LINE_GROUPS.map((g) => ({ key: g.type as string, label: g.label, noun: g.noun, rows: lines.filter((l) => l.type === g.type) }))
+  groups.push({ key: "other", label: "Other", noun: "other", rows: lines.filter((l) => !known.has(l.type)) })
+  return groups.filter((g) => g.rows.length > 0)
+}
+
 const number = new Intl.NumberFormat()
 
 /**
@@ -250,22 +264,18 @@ function InvoiceDetailView({ detail }: { detail: InvoiceDetail }) {
         main={
           <>
             <Receipt invoice={invoice} />
-            {LINE_GROUPS.map((g) => {
-              const rows = lines.filter((l) => l.type === g.type)
-              if (rows.length === 0) return null
-              return (
-                <section key={g.type} className="flex flex-col gap-2">
-                  <h2 className="text-sm font-medium">{g.label}</h2>
-                  <LedgerTable<LineItem>
-                    columns={lineColumns}
-                    rows={rows}
-                    rowKey={(l) => l.id}
-                    caption={`${rows.length} ${g.noun} ${rows.length === 1 ? "line" : "lines"}`}
-                    emptyMessage="No lines."
-                  />
-                </section>
-              )
-            })}
+            {lineGroups(lines).map((g) => (
+              <section key={g.key} className="flex flex-col gap-2">
+                <h2 className="text-sm font-medium">{g.label}</h2>
+                <LedgerTable<LineItem>
+                  columns={lineColumns}
+                  rows={g.rows}
+                  rowKey={(l) => l.id}
+                  caption={`${g.rows.length} ${g.noun} ${g.rows.length === 1 ? "line" : "lines"}`}
+                  emptyMessage="No lines."
+                />
+              </section>
+            ))}
             {lines.length === 0 && <p className="text-sm text-muted-foreground">This invoice has no line items.</p>}
           </>
         }

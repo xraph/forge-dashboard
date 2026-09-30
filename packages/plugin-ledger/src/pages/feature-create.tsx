@@ -1,5 +1,6 @@
 import { useCommand, useNavigateTo } from "@forge-go/dashboard-plugin"
 import { PageHeader } from "@forge-go/dashboard-kit/components/page-header"
+import { useInFlight } from "../lib/in-flight"
 import { featurePath } from "../lib/paths"
 import type { CatalogFeature } from "../types"
 import { emptyFeatureForm, FeatureForm, type ParsedFeature } from "./feature-form"
@@ -7,8 +8,9 @@ import { emptyFeatureForm, FeatureForm, type ParsedFeature } from "./feature-for
 export function LedgerFeatureCreatePage() {
   const create = useCommand<CatalogFeature>("features.create")
   const navigate = useNavigateTo()
+  const once = useInFlight()
   async function submit(f: ParsedFeature) {
-    const result = await create.execute(f)
+    const result = await once(() => create.execute(f))
     if (result === undefined) return
     navigate(featurePath(result.id))
   }

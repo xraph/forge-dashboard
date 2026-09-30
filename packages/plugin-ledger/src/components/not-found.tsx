@@ -13,11 +13,16 @@ import { EmptyState } from "@forge-go/dashboard-kit/components/empty-state"
  * through as err.Error(): "ledger: coupon not found", possibly wrapped
  * ("...: ledger: coupon not found"), or the generic "ledger: not found". Both
  * read the same to an operator. Another noun's message ("provider not found")
- * never matches.
+ * never matches. A malformed id also reads as no such record: see below.
  */
 export function isNotFound(error: { code: string; message: string } | undefined, noun: string): boolean {
-  if (error?.code !== "NOT_FOUND") return false
+  if (error === undefined) return false
   const m = error.message
+  // A truncated id, or one with another entity's prefix ("/plans/sub_..."), never
+  // reaches a lookup: the contract's parseID refuses it as BAD_REQUEST, "id is not
+  // a valid id: <id>". No record can have that id, and Retry would only repeat it.
+  if (error.code === "BAD_REQUEST") return m.startsWith("id is not a valid id")
+  if (error.code !== "NOT_FOUND") return false
   return m === `${noun} not found` || m.endsWith(`: ${noun} not found`) || m === "ledger: not found"
 }
 

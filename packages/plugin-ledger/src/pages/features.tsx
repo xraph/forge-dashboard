@@ -1,17 +1,18 @@
 import { useState } from "react"
 import { PluginLink, useQuery } from "@forge-go/dashboard-plugin"
-import { Button, buttonVariants } from "@forge-go/dashboard-kit/components/button"
+import { buttonVariants } from "@forge-go/dashboard-kit/components/button"
+import { NoneCell } from "@forge-go/dashboard-kit/components/none-cell"
 import { FilterBar } from "@forge-go/dashboard-kit/components/filter-bar"
 import { PageHeader } from "@forge-go/dashboard-kit/components/page-header"
 import { QueryBoundary } from "@forge-go/dashboard-kit/components/query-boundary"
 import { ResourceTable, type Column } from "@forge-go/dashboard-kit/components/resource-table"
-import { FeatureStatusBadge, SharedBadge } from "../badges"
+import { FEATURE_STATUS_OPTIONS, FeatureStatusBadge, SharedBadge } from "../badges"
 import { ImportFromProviderAction } from "../components/import-from-provider"
-import { OffsetPager } from "../components/offset-pager"
+import { BackToFirstPage, OffsetPager } from "../components/offset-pager"
+import { limitText, periodLabel, TYPE_LABEL } from "../lib/features"
 import { listEmptyMessage, pageCaption, pageParams } from "../lib/paging"
 import { featurePath } from "../lib/paths"
 import type { CatalogFeature, Page } from "../types"
-import { defaultLimitText, PERIOD, TYPE } from "./feature-form"
 
 const columns: Column<CatalogFeature>[] = [
   {
@@ -26,9 +27,9 @@ const columns: Column<CatalogFeature>[] = [
     ),
   },
   { id: "key", header: "Key", className: "font-mono text-xs", cell: (f) => f.key },
-  { id: "type", header: "Type", cell: (f) => TYPE[f.type] ?? f.type },
-  { id: "limit", header: "Default limit", align: "end", className: "tabular-nums", cell: (f) => defaultLimitText(f) },
-  { id: "period", header: "Resets", cell: (f) => PERIOD[f.period] ?? f.period },
+  { id: "type", header: "Type", cell: (f) => TYPE_LABEL[f.type] ?? f.type },
+  { id: "limit", header: "Default limit", align: "end", className: "tabular-nums", cell: (f) => limitText(f.type, f.default_limit) },
+  { id: "period", header: "Resets", cell: (f) => periodLabel(f.period) ?? <NoneCell label="reset period" /> },
   { id: "status", header: "Status", cell: (f) => <FeatureStatusBadge status={f.status} /> },
 ]
 
@@ -92,12 +93,7 @@ export function LedgerFeaturesPage() {
             id: "status",
             label: "Status",
             value: status,
-            options: [
-              { label: "All", value: "" },
-              { label: "Active", value: "active" },
-              { label: "Draft", value: "draft" },
-              { label: "Archived", value: "archived" },
-            ],
+            options: [{ label: "All", value: "" }, ...FEATURE_STATUS_OPTIONS],
             onChange: (next) => {
               setStatus(next)
               setPage(1)
@@ -116,7 +112,7 @@ export function LedgerFeaturesPage() {
                 rowKey={(f) => f.id}
                 caption={pageCaption({ page, shown: rows.length, hasMore: data.has_more, singular: "feature", plural: "features" })}
                 emptyMessage={listEmptyMessage("features", page, filtered)}
-                emptyAction={page > 1 ? <Button variant="outline" onClick={() => setPage(1)}>Back to the first page</Button> : undefined}
+                emptyAction={page > 1 ? <BackToFirstPage onClick={() => setPage(1)} /> : filtered === undefined ? <NewFeatureLink /> : undefined}
               />
               <OffsetPager page={page} hasMore={data.has_more} onPageChange={setPage} />
             </div>

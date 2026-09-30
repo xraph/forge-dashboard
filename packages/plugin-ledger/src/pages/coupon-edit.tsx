@@ -3,6 +3,7 @@ import type { PluginPageProps } from "@forge-go/dashboard-plugin"
 import { PageHeader } from "@forge-go/dashboard-kit/components/page-header"
 import { QueryBoundary } from "@forge-go/dashboard-kit/components/query-boundary"
 import { isNotFound, NotFoundState } from "../components/not-found"
+import { useInFlight } from "../lib/in-flight"
 import { couponPath } from "../lib/paths"
 import type { Coupon } from "../types"
 import { CouponForm, couponToForm } from "./coupon-form"
@@ -23,9 +24,10 @@ function CouponEditBody({ id }: { id: string }) {
   const detail = useQuery<Coupon>("coupons.detail", { id })
   const update = useCommand<Coupon>("coupons.update")
   const navigate = useNavigateTo()
+  const once = useInFlight()
 
   async function submit(payload: Record<string, unknown>) {
-    const result = await update.execute(payload)
+    const result = await once(() => update.execute(payload))
     if (result === undefined) return
     navigate(couponPath(id))
   }

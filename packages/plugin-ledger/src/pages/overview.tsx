@@ -38,7 +38,7 @@ export function LedgerOverviewPage() {
                   { label: "Plans", value: n(s.plans), hint: `${n(s.active_plans)} active` },
                   { label: "Live subscriptions", value: n(live), hint: `${n(by.trialing ?? 0)} trialing` },
                   { label: "Subscriptions past due", value: n(by.past_due ?? 0) },
-                  { label: "Invoices awaiting payment", value: n(s.pending_invoices) },
+                  { label: "Pending invoices", value: n(s.pending_invoices) },
                   { label: "Coupons", value: n(s.coupons) },
                 ]}
               />
@@ -53,15 +53,15 @@ export function LedgerOverviewPage() {
       </QueryBoundary>
 
       <section className="flex flex-col gap-2">
-        <h2 className="text-base font-medium">Awaiting payment</h2>
-        <QueryBoundary title="Invoices awaiting payment" query={pending} skeletonRows={3}>
+        <h2 className="text-base font-medium">Pending invoices</h2>
+        <QueryBoundary title="Pending invoices" query={pending} skeletonRows={3}>
           {(rows) => (
             <ResourceTable<Invoice>
               columns={invoiceColumns({ withStatus: false })}
               rows={rows ?? []}
               rowKey={(i) => i.id}
-              caption={`${invoices((rows ?? []).length)} awaiting payment`}
-              emptyMessage="Nothing is awaiting payment."
+              caption={`${invoices((rows ?? []).length)} pending`}
+              emptyMessage="No invoices are pending."
             />
           )}
         </QueryBoundary>

@@ -1,5 +1,6 @@
 import { useCommand, useNavigateTo } from "@forge-go/dashboard-plugin"
 import { PageHeader } from "@forge-go/dashboard-kit/components/page-header"
+import { useInFlight } from "../lib/in-flight"
 import { couponPath } from "../lib/paths"
 import type { Coupon } from "../types"
 import { CouponForm, emptyCouponForm } from "./coupon-form"
@@ -7,8 +8,9 @@ import { CouponForm, emptyCouponForm } from "./coupon-form"
 export function LedgerCouponCreatePage() {
   const create = useCommand<Coupon>("coupons.create")
   const navigate = useNavigateTo()
+  const once = useInFlight()
   async function submit(payload: Record<string, unknown>) {
-    const result = await create.execute(payload)
+    const result = await once(() => create.execute(payload))
     if (result === undefined) return
     navigate(couponPath(result.id))
   }

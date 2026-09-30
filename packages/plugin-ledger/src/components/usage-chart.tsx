@@ -100,7 +100,7 @@ export function UsageChart({ totals, truncated, refreshing }: { totals: DayTotal
       <details className="text-sm">
         <summary className="cursor-pointer text-muted-foreground">Show the same numbers as a table</summary>
         <table className="mt-2 w-full max-w-sm text-sm">
-          <caption className="sr-only">Units per day</caption>
+          <caption className="sr-only">{`Units per day, ${totals.length} ${totals.length === 1 ? "day" : "days"}`}</caption>
           <thead>
             <tr>
               <th className="text-left font-medium">Day (UTC)</th>

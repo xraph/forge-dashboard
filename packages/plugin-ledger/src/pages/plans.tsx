@@ -1,16 +1,16 @@
 import { useState } from "react"
 import { PluginLink, useQuery } from "@forge-go/dashboard-plugin"
-import { Button, buttonVariants } from "@forge-go/dashboard-kit/components/button"
+import { buttonVariants } from "@forge-go/dashboard-kit/components/button"
 import { FilterBar } from "@forge-go/dashboard-kit/components/filter-bar"
 import { NoneCell } from "@forge-go/dashboard-kit/components/none-cell"
 import { PageHeader } from "@forge-go/dashboard-kit/components/page-header"
 import { QueryBoundary } from "@forge-go/dashboard-kit/components/query-boundary"
 import { ResourceTable, type Column } from "@forge-go/dashboard-kit/components/resource-table"
 import { Timestamp } from "@forge-go/dashboard-kit/components/timestamp"
-import { PlanStatusBadge } from "../badges"
+import { PLAN_STATUS_OPTIONS, PlanStatusBadge } from "../badges"
 import { MoneyText } from "../components/money"
 import { ImportFromProviderAction } from "../components/import-from-provider"
-import { OffsetPager } from "../components/offset-pager"
+import { BackToFirstPage, OffsetPager } from "../components/offset-pager"
 import { listEmptyMessage, pageCaption, pageParams } from "../lib/paging"
 import { planPath } from "../lib/paths"
 import type { Page, Plan, PlanStatus } from "../types"
@@ -46,12 +46,7 @@ const columns: Column<Plan>[] = [
   { id: "updated", header: "Updated", cell: (p) => <Timestamp value={p.updated_at} label="update" /> },
 ]
 
-const STATUS_OPTIONS = [
-  { label: "All", value: "" },
-  { label: "Active", value: "active" },
-  { label: "Draft", value: "draft" },
-  { label: "Archived", value: "archived" },
-]
+const STATUS_OPTIONS = [{ label: "All", value: "" }, ...PLAN_STATUS_OPTIONS]
 
 function NewPlanLink() {
   return (
@@ -110,9 +105,7 @@ export function LedgerPlansPage() {
                 emptyMessage={listEmptyMessage("plans", page, status || undefined)}
                 emptyAction={
                   page > 1 ? (
-                    <Button variant="outline" onClick={() => setPage(1)}>
-                      Back to the first page
-                    </Button>
+                    <BackToFirstPage onClick={() => setPage(1)} />
                   ) : status ? undefined : (
                     <NewPlanLink />
                   )

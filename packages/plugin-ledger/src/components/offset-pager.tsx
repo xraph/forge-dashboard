@@ -32,3 +32,12 @@ export function OffsetPager({
     </nav>
   )
 }
+
+/** The way out of a page past the end of a list: one button, worded the same on every list. */
+export function BackToFirstPage({ onClick }: { onClick: () => void }) {
+  return (
+    <Button variant="outline" onClick={onClick}>
+      Back to the first page
+    </Button>
+  )
+}

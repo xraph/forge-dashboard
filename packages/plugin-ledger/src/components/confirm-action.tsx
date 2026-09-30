@@ -46,7 +46,8 @@ export function ConfirmAction<T>({
   return (
     <ConfirmDialog
       open={open}
-      onOpenChange={onOpenChange}
+      // Escape and an outside click would close the dialog on a pending command, and a refusal that then arrives has nowhere to show.
+      onOpenChange={(next) => (next || !command.loading) && onOpenChange(next)}
       title={title}
       description={
         <span className="flex flex-col gap-2">

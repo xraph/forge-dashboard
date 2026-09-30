@@ -32,10 +32,10 @@ import type { CatalogFeatureStatus, InvoiceStatus, PlanStatus, SubscriptionStatu
  */
 
 const INVOICE: Record<InvoiceStatus, { label: string; variant: "outline" | "secondary" | "destructive" }> = {
-  paid: { label: "Paid", variant: "outline" },
-  pending: { label: "Pending", variant: "secondary" },
   draft: { label: "Draft", variant: "secondary" },
+  pending: { label: "Pending", variant: "secondary" },
   past_due: { label: "Past due", variant: "destructive" },
+  paid: { label: "Paid", variant: "outline" },
   voided: { label: "Voided", variant: "outline" },
 }
 
@@ -67,6 +67,20 @@ const COUPON: Record<CouponState, { label: string; variant: "secondary" | "outli
   expired: { label: "Expired", variant: "outline" },
 }
 
+/**
+ * A status filter's options, in the order each map above lists its states and
+ * worded exactly as the badge is, so a list's filter and its badges cannot
+ * drift apart.
+ */
+function optionsOf<S extends string>(map: Record<S, { label: string }>): { value: S; label: string }[] {
+  return (Object.keys(map) as S[]).map((value) => ({ value, label: map[value].label }))
+}
+
+export const INVOICE_STATUS_OPTIONS = optionsOf(INVOICE)
+export const SUBSCRIPTION_STATUS_OPTIONS = optionsOf(SUBSCRIPTION)
+export const PLAN_STATUS_OPTIONS = optionsOf(PLAN)
+export const FEATURE_STATUS_OPTIONS = optionsOf(FEATURE)
+
 export function InvoiceStatusBadge({ status }: { status: InvoiceStatus }) {
   const m = INVOICE[status] ?? { label: status, variant: "outline" as const }
   return <Badge variant={m.variant}>{m.label}</Badge>
@@ -90,6 +104,16 @@ export function FeatureStatusBadge({ status }: { status: CatalogFeatureStatus })
 export function CouponStateBadge({ state }: { state: CouponState }) {
   const m = COUPON[state]
   return <Badge variant={m.variant}>{m.label}</Badge>
+}
+
+/**
+ * The default payment method. Most tenants hold one method, the default, so
+ * default is the majority and could recede. It is kept secondary because it is
+ * the one a person looks for, and "not default" is left as a none rather than
+ * a second badge.
+ */
+export function DefaultMethodBadge() {
+  return <Badge variant="secondary">Default</Badge>
 }
 
 /** A catalog feature with an empty app_id: shared by every app on the server. */

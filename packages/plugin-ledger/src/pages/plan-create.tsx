@@ -1,5 +1,6 @@
 import { useCommand, useNavigateTo } from "@forge-go/dashboard-plugin"
 import { PageHeader } from "@forge-go/dashboard-kit/components/page-header"
+import { useInFlight } from "../lib/in-flight"
 import { planPath } from "../lib/paths"
 import type { Plan } from "../types"
 import { emptyPlanForm, PlanForm, type ParsedPlan } from "./plan-form"
@@ -8,9 +9,10 @@ import { emptyPlanForm, PlanForm, type ParsedPlan } from "./plan-form"
 export function LedgerPlanCreatePage() {
   const create = useCommand<Plan>("plans.create")
   const navigate = useNavigateTo()
+  const once = useInFlight()
 
   async function submit(plan: ParsedPlan) {
-    const result = await create.execute(plan)
+    const result = await once(() => create.execute(plan))
     if (result === undefined) return
     navigate(planPath(result.id))
   }

@@ -89,7 +89,8 @@ describe("UsageChart", () => {
 
   it("offers the same numbers as a table", () => {
     render(<UsageChart totals={totals} truncated={false} refreshing={false} />)
-    const table = screen.getByRole("table", { name: "Units per day" })
+    // The caption carries a live count, like every table caption on these pages.
+    const table = screen.getByRole("table", { name: "Units per day, 3 days" })
     expect(within(table).getByRole("columnheader", { name: "Day (UTC)" })).toBeTruthy()
     const rows = within(table).getAllByRole("row").slice(1)
     expect(rows).toHaveLength(3)

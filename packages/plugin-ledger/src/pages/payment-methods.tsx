@@ -1,7 +1,6 @@
 import { useState } from "react"
 import type { FormEvent } from "react"
 import { useQuery } from "@forge-go/dashboard-plugin"
-import { Badge } from "@forge-go/dashboard-kit/components/badge"
 import { Button } from "@forge-go/dashboard-kit/components/button"
 import { EmptyState } from "@forge-go/dashboard-kit/components/empty-state"
 import { Input } from "@forge-go/dashboard-kit/components/input"
@@ -10,6 +9,7 @@ import { NoneCell } from "@forge-go/dashboard-kit/components/none-cell"
 import { PageHeader } from "@forge-go/dashboard-kit/components/page-header"
 import { QueryBoundary } from "@forge-go/dashboard-kit/components/query-boundary"
 import { ResourceTable, type Column } from "@forge-go/dashboard-kit/components/resource-table"
+import { DefaultMethodBadge } from "../badges"
 import type { PaymentMethod, PaymentMethods } from "../types"
 
 const columns: Column<PaymentMethod>[] = [
@@ -26,10 +26,7 @@ const columns: Column<PaymentMethod>[] = [
     className: "tabular-nums",
     cell: (m) => (m.expiry_year > 0 ? `${String(m.expiry_month).padStart(2, "0")}/${m.expiry_year}` : <NoneCell label="expiry" />),
   },
-  // Most tenants hold one method, the default, so default is the majority and
-  // could recede; it is kept secondary because it is the one a person looks
-  // for, and "not default" is left as a none rather than a second badge.
-  { id: "default", header: "Default", cell: (m) => (m.is_default ? <Badge variant="secondary">Default</Badge> : <NoneCell label="default" />) },
+  { id: "default", header: "Default", cell: (m) => (m.is_default ? <DefaultMethodBadge /> : <NoneCell label="default" />) },
   { id: "provider", header: "Provider ID", className: "font-mono text-xs", cell: (m) => m.provider_id },
 ]
 

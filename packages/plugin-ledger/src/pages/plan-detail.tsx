@@ -13,26 +13,18 @@ import { LedgerTable, type LedgerColumn } from "../components/ledger-table"
 import { MoneyText } from "../components/money"
 import { isNotFound, NotFoundState } from "../components/not-found"
 import { SyncPanel } from "../components/sync-panel"
+import { limitText, periodLabel, TYPE_LABEL } from "../lib/features"
 import { planEditPath } from "../lib/paths"
 import type { Ack, Plan, PlanFeature, PriceTier } from "../types"
 
 const number = new Intl.NumberFormat()
-const PERIOD: Record<string, string> = { monthly: "Monthly", yearly: "Yearly", none: "Never" }
-const TYPE: Record<string, string> = { metered: "Metered", seat: "Seats", boolean: "On or off" }
-
-/** A feature's limit as a person reads it. -1 is unlimited; a boolean is on or off. */
-function limitText(f: PlanFeature): string {
-  if (f.type === "boolean") return f.limit > 0 ? "Included" : "Not included"
-  if (f.limit === -1) return "Unlimited"
-  return number.format(f.limit)
-}
 
 const featureColumns: LedgerColumn<PlanFeature>[] = [
   { id: "name", header: "Feature", className: "font-medium", cell: (f) => f.name },
   { id: "key", header: "Key", className: "font-mono text-xs", cell: (f) => f.key },
-  { id: "type", header: "Type", cell: (f) => TYPE[f.type] ?? f.type },
-  { id: "limit", header: "Limit", align: "end", className: "tabular-nums", cell: (f) => limitText(f) },
-  { id: "resets", header: "Resets", cell: (f) => PERIOD[f.period] ?? f.period },
+  { id: "type", header: "Type", cell: (f) => TYPE_LABEL[f.type] ?? f.type },
+  { id: "limit", header: "Limit", align: "end", className: "tabular-nums", cell: (f) => limitText(f.type, f.limit) },
+  { id: "resets", header: "Resets", cell: (f) => periodLabel(f.period) ?? <NoneCell label="reset period" /> },
   { id: "soft", header: "Over the limit", cell: (f) => (f.soft_limit ? "Soft" : <NoneCell label="soft limit" />) },
 ]
 

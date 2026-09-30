@@ -1,13 +1,13 @@
 import { useState } from "react"
 import { PluginLink, useQuery } from "@forge-go/dashboard-plugin"
-import { Button, buttonVariants } from "@forge-go/dashboard-kit/components/button"
+import { buttonVariants } from "@forge-go/dashboard-kit/components/button"
 import { FilterBar } from "@forge-go/dashboard-kit/components/filter-bar"
 import { NoneCell } from "@forge-go/dashboard-kit/components/none-cell"
 import { PageHeader } from "@forge-go/dashboard-kit/components/page-header"
 import { QueryBoundary } from "@forge-go/dashboard-kit/components/query-boundary"
 import { ResourceTable, type Column } from "@forge-go/dashboard-kit/components/resource-table"
 import { CouponStateBadge } from "../badges"
-import { OffsetPager } from "../components/offset-pager"
+import { BackToFirstPage, OffsetPager } from "../components/offset-pager"
 import { couponState, describeDiscount, redemptionsText, validityText } from "../lib/coupons"
 import { listEmptyMessage, pageCaption, pageParams } from "../lib/paging"
 import { couponPath } from "../lib/paths"
@@ -66,7 +66,7 @@ export function LedgerCouponsPage() {
                 rowKey={(c) => c.id}
                 caption={pageCaption({ page, shown: rows.length, hasMore: data.has_more, singular: "coupon", plural: "coupons" })}
                 emptyMessage={page === 1 && show === "active" ? "No coupons are within their validity window." : listEmptyMessage("coupons", page, undefined)}
-                emptyAction={page > 1 ? <Button variant="outline" onClick={() => setPage(1)}>Back to the first page</Button> : show === "all" ? <NewCouponLink /> : undefined}
+                emptyAction={page > 1 ? <BackToFirstPage onClick={() => setPage(1)} /> : show === "all" ? <NewCouponLink /> : undefined}
               />
               <OffsetPager page={page} hasMore={data.has_more} onPageChange={setPage} />
             </div>

@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react"
+import { useRef, useState } from "react"
 import type { FormEvent } from "react"
 import { PluginLink } from "@forge-go/dashboard-plugin"
 import { Button } from "@forge-go/dashboard-kit/components/button"
@@ -6,6 +6,7 @@ import { Input } from "@forge-go/dashboard-kit/components/input"
 import { Label } from "@forge-go/dashboard-kit/components/label"
 import { NativeSelect, NativeSelectOption } from "@forge-go/dashboard-kit/components/native-select"
 import { CommandAlert } from "@forge-go/dashboard-kit/components/query-boundary"
+import { ProblemsAlert } from "../components/problems-alert"
 import { describeDiscount } from "../lib/coupons"
 import { toLocalInput, toRFC3339 } from "../lib/datetime"
 import { currencyDigits, parseMajor, toMajorInput } from "../lib/money"
@@ -165,13 +166,8 @@ export function CouponForm({
   const [v, setV] = useState(initial)
   const [problems, setProblems] = useState<string[]>([])
   const set = <K extends keyof CouponFormValue>(key: K, value: CouponFormValue[K]) => setV((prev) => ({ ...prev, [key]: value }))
-  const problemsRef = useRef<HTMLDivElement>(null)
   // Whether the operator typed a currency themselves, so a currency this form filled in is not left restricting a percentage coupon.
   const currencyTyped = useRef(initial.currency !== "")
-  // A failed parse moves focus to the alert, so a keyboard or screen-reader user hears it.
-  useEffect(() => {
-    if (problems.length > 0) problemsRef.current?.focus()
-  }, [problems])
 
   function changeType(type: CouponType) {
     setV((prev) => {
@@ -195,13 +191,7 @@ export function CouponForm({
   return (
     <form onSubmit={submit} className="flex max-w-2xl flex-col gap-4">
       <CommandAlert error={error} title={errorTitle} />
-      {problems.length > 0 && (
-        <div ref={problemsRef} tabIndex={-1} role="alert" className="flex flex-col gap-0.5 rounded-md border border-destructive/50 px-3 py-2 text-sm text-destructive">
-          {problems.map((p) => (
-            <span key={p}>{p}</span>
-          ))}
-        </div>
-      )}
+      <ProblemsAlert problems={problems} />
       {mode === "create" ? (
         <>
           <div className="flex flex-col gap-1.5">

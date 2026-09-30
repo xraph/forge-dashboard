@@ -136,7 +136,7 @@ function SubscriptionDetailView({ detail }: { detail: SubscriptionDetail }) {
     value: (
       <span className="flex flex-wrap items-baseline gap-x-2">
         <Timestamp value={isCanceled ? (sub.canceled_at ?? sub.cancel_at) : sub.cancel_at} label="scheduled cancellation" />
-        {datePassed && <span className="text-xs text-muted-foreground">Date passed, still active</span>}
+        {datePassed && <span className="text-xs text-muted-foreground">Date passed, not yet ended</span>}
       </span>
     ),
   }

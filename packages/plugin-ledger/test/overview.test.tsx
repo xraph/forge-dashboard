@@ -64,22 +64,22 @@ describe("LedgerOverviewPage", () => {
     expect(screen.getByText(/at least these/)).toBeTruthy()
   })
 
-  it("lists invoices awaiting payment and recent ones, with live counts", async () => {
+  it("lists pending invoices and recent ones, with live counts", async () => {
     renderPage(LedgerOverviewPage, stubClient(answers()))
     await screen.findByText("inv_r1")
-    expect(screen.getByText("1 invoice awaiting payment")).toBeTruthy()
+    expect(screen.getByText("1 invoice pending")).toBeTruthy()
     expect(screen.getByText("2 recent invoices")).toBeTruthy()
     // Only the recent table has a Status column: the pending table is all one status.
     expect(screen.getAllByRole("columnheader", { name: "Status" })).toHaveLength(1)
-    expect(screen.getByText("Invoices awaiting payment", { selector: "*:not(h2)" })).toBeTruthy()
+    expect(screen.getByText("Pending invoices", { selector: "*:not(h2)" })).toBeTruthy()
     expect(screen.getByRole("link", { name: "inv_p1" }).getAttribute("href")).toBe("/invoices/inv_p1")
     expect(variantOf("Past due")).toMatch(/destructive/)
   })
 
-  it("says so when nothing is awaiting payment", async () => {
+  it("says so when no invoice is pending", async () => {
     renderPage(LedgerOverviewPage, stubClient(answers({ "invoices.pending": [] })))
-    expect(await screen.findByText("Nothing is awaiting payment.")).toBeTruthy()
-    expect(screen.getByText("0 invoices awaiting payment")).toBeTruthy()
+    expect(await screen.findByText("No invoices are pending.")).toBeTruthy()
+    expect(screen.getByText("0 invoices pending")).toBeTruthy()
   })
 
   it("shows the no-app refusal, not an empty dashboard", async () => {
@@ -91,7 +91,7 @@ describe("LedgerOverviewPage", () => {
     expect(alerts.length).toBeGreaterThan(0)
     // ResourceTable renders an EmptyState, not a table, so a table query proves
     // nothing. These are what an empty dashboard would have said instead.
-    expect(screen.queryByText("Nothing is awaiting payment.")).toBeNull()
+    expect(screen.queryByText("No invoices are pending.")).toBeNull()
     expect(screen.queryByText("No invoices have been issued yet.")).toBeNull()
     expect(screen.queryByText("Live subscriptions")).toBeNull()
     expect(screen.queryByRole("table")).toBeNull()

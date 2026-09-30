@@ -7,6 +7,8 @@ import { Label } from "@forge-go/dashboard-kit/components/label"
 import { NativeSelect, NativeSelectOption } from "@forge-go/dashboard-kit/components/native-select"
 import { CommandAlert } from "@forge-go/dashboard-kit/components/query-boundary"
 import { Textarea } from "@forge-go/dashboard-kit/components/textarea"
+import { ProblemsAlert } from "../components/problems-alert"
+import { PERIOD_LABEL, TYPE_LABEL } from "../lib/features"
 import { currencyDigits, parseMajor, toMajorInput } from "../lib/money"
 import type { FeatureType, Period, Plan, TierType } from "../types"
 
@@ -115,8 +117,9 @@ export function planToForm(p: Plan): PlanFormValue {
     tiers: (p.pricing?.tiers ?? []).map((t) => ({
       feature_key: t.feature_key,
       type: t.type,
-      up_to: t.up_to === -1 ? "" : String(t.up_to),
-      unbounded: t.up_to === -1,
+      // The engine reads any up_to of 0 or below as no ceiling (isUnbounded), and an import or the SDK can store 0.
+      up_to: t.up_to <= 0 ? "" : String(t.up_to),
+      unbounded: t.up_to <= 0,
       unit: toMajorInput(t.unit_amount.amount, p.currency),
       flat: toMajorInput(t.flat_amount.amount, p.currency),
     })),
@@ -220,16 +223,8 @@ export function parsePlanForm(v: PlanFormValue, mode: "create" | "edit"): { ok: 
   }
 }
 
-const FEATURE_TYPES: { value: FeatureType; label: string }[] = [
-  { value: "metered", label: "Metered" },
-  { value: "seat", label: "Seats" },
-  { value: "boolean", label: "On or off" },
-]
-const PERIODS: { value: Period; label: string }[] = [
-  { value: "monthly", label: "Monthly" },
-  { value: "yearly", label: "Yearly" },
-  { value: "none", label: "No reset" },
-]
+const FEATURE_TYPES: { value: FeatureType; label: string }[] = (["metered", "seat", "boolean"] as const).map((value) => ({ value, label: TYPE_LABEL[value] }))
+const PERIODS: { value: Period; label: string }[] = (["monthly", "yearly", "none"] as const).map((value) => ({ value, label: PERIOD_LABEL[value] }))
 const TIER_TYPES: { value: TierType; label: string }[] = [
   { value: "graduated", label: "Graduated" },
   { value: "volume", label: "Volume" },
@@ -280,16 +275,7 @@ export function PlanForm({ mode, initial, submitLabel, pendingLabel, pending, er
   return (
     <form onSubmit={submit} className="flex max-w-4xl flex-col gap-6">
       <CommandAlert error={error} title={errorTitle} />
-      {problems.length > 0 && (
-        <div role="alert" className="flex flex-col gap-0.5 rounded-md border border-destructive/50 px-3 py-2 text-sm text-destructive">
-          <span className="font-medium">Fix these before saving</span>
-          <ul className="list-disc pl-5">
-            {problems.map((p) => (
-              <li key={p}>{p}</li>
-            ))}
-          </ul>
-        </div>
-      )}
+      <ProblemsAlert heading="Fix these before saving" problems={problems} />
 
       <fieldset className="grid gap-4 sm:grid-cols-2">
         <legend className="mb-2 text-base font-medium">Plan</legend>

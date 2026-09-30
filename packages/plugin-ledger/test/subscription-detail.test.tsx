@@ -114,7 +114,7 @@ describe("LedgerSubscriptionDetailPage", () => {
     expect(within(aside).getByLabelText("no trial")).toBeTruthy()
     expect(within(aside).queryByLabelText("no scheduled cancellation")).toBeNull()
     expect(within(aside).getByText("Scheduled to cancel", { selector: "dt" })).toBeTruthy()
-    expect(within(aside).queryByText("Date passed, still active")).toBeNull()
+    expect(within(aside).queryByText("Date passed, not yet ended")).toBeNull()
   })
 
   it("reads a canceled subscription's end from canceled_at, which is what the engine writes", async () => {
@@ -160,18 +160,18 @@ describe("LedgerSubscriptionDetailPage", () => {
     expect(screen.queryByRole("button", { name: "Apply coupon" })).toBeNull()
   })
 
-  it("says a scheduled cancellation whose date has passed is still active", async () => {
+  it("says a scheduled cancellation whose date has passed has not ended it", async () => {
     open(aSubscription({ cancel_at: "2026-09-01T00:00:00Z" }))
     await screen.findByText("inv_1")
     const aside = screen.getByRole("complementary")
     expect(within(aside).getByText("Scheduled to cancel", { selector: "dt" })).toBeTruthy()
-    expect(within(aside).getByText("Date passed, still active")).toBeTruthy()
+    expect(within(aside).getByText("Date passed, not yet ended")).toBeTruthy()
   })
 
   it("does not say the date passed for a canceled or expired subscription", async () => {
     open(aSubscription({ status: "canceled", canceled_at: "2026-09-01T00:00:00Z" }))
     await screen.findByText("inv_1")
-    expect(screen.queryByText("Date passed, still active")).toBeNull()
+    expect(screen.queryByText("Date passed, not yet ended")).toBeNull()
   })
 
   it("shows the cancel_at date for a canceled subscription that has no canceled_at", async () => {

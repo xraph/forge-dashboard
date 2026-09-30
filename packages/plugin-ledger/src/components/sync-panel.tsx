@@ -14,7 +14,20 @@ import type { SyncResult } from "../types"
  * no provider is registered at all, and is a fact about the deployment rather
  * than a failure. And any other error.
  */
-export function SyncPanel({ intent, id, providerName, providerId }: { intent: string; id: string; providerName?: string; providerId?: string }) {
+export function SyncPanel({
+  intent,
+  id,
+  providerName,
+  providerId,
+  canSync = true,
+}: {
+  intent: string
+  id: string
+  providerName?: string
+  providerId?: string
+  /** False shows where the record stands and leaves the button out, for a record this scope may read but not change. */
+  canSync?: boolean
+}) {
   const sync = useCommand<SyncResult>(intent)
   const result = sync.data
   const noProvider = sync.error?.code === "UNAVAILABLE"
@@ -45,11 +58,13 @@ export function SyncPanel({ intent, id, providerName, providerId }: { intent: st
         </p>
       )}
       {!noProvider && <CommandAlert error={sync.error} title="Could not sync" />}
-      <div>
-        <Button variant="outline" size="sm" disabled={sync.loading} onClick={() => void sync.execute({ id })}>
-          {sync.loading ? "Syncing…" : "Sync to provider"}
-        </Button>
-      </div>
+      {canSync && (
+        <div>
+          <Button variant="outline" size="sm" disabled={sync.loading} onClick={() => void sync.execute({ id })}>
+            {sync.loading ? "Syncing…" : "Sync to provider"}
+          </Button>
+        </div>
+      )}
     </section>
   )
 }

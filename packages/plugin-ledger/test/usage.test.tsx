@@ -123,8 +123,8 @@ describe("LedgerUsagePage", () => {
     await screen.findByText("evt_a")
     type("Window", "7")
     // Seven columns and the header row, once the 7-day read has landed.
-    await waitFor(() => expect(within(screen.getByRole("table", { name: "Units per day" })).getAllByRole("row")).toHaveLength(8))
-    const table = screen.getByRole("table", { name: "Units per day" })
+    await waitFor(() => expect(within(screen.getByRole("table", { name: "Units per day, 7 days" })).getAllByRole("row")).toHaveLength(8))
+    const table = screen.getByRole("table", { name: "Units per day, 7 days" })
     const row = (label: string) => within(table).getByText(label).closest("tr")!
     expect(within(row("Sep 28")).getByText("3")).toBeTruthy()
     expect(within(row("Sep 29")).getByText("4")).toBeTruthy()

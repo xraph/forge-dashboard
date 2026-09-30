@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react"
+import { useState } from "react"
 import type { FormEvent } from "react"
 import { PluginLink } from "@forge-go/dashboard-plugin"
 import { Button } from "@forge-go/dashboard-kit/components/button"
@@ -7,23 +7,8 @@ import { Label } from "@forge-go/dashboard-kit/components/label"
 import { NativeSelect, NativeSelectOption } from "@forge-go/dashboard-kit/components/native-select"
 import { CommandAlert } from "@forge-go/dashboard-kit/components/query-boundary"
 import { Textarea } from "@forge-go/dashboard-kit/components/textarea"
+import { ProblemsAlert } from "../components/problems-alert"
 import type { CatalogFeature, FeatureType, Period } from "../types"
-
-const number = new Intl.NumberFormat()
-
-export const PERIOD: Record<string, string> = { monthly: "Monthly", yearly: "Yearly", none: "Never" }
-export const TYPE: Record<string, string> = { metered: "Metered", seat: "Seats", boolean: "On or off" }
-
-/**
- * A catalog feature's default limit as a person reads it. An on-or-off
- * feature is included only above zero: the engine reads -1 there as off, not
- * as unlimited, so it never reads "Unlimited".
- */
-export function defaultLimitText(f: Pick<CatalogFeature, "type" | "default_limit">): string {
-  if (f.type === "boolean") return f.default_limit > 0 ? "Included" : "Not included"
-  if (f.default_limit === -1) return "Unlimited"
-  return number.format(f.default_limit)
-}
 
 export interface FeatureFormValue {
   key: string
@@ -113,11 +98,6 @@ export function FeatureForm({
   const [problems, setProblems] = useState<string[]>([])
   const set = <K extends keyof FeatureFormValue>(key: K, value: FeatureFormValue[K]) => setV((prev) => ({ ...prev, [key]: value }))
   const isBoolean = v.type === "boolean"
-  const problemsRef = useRef<HTMLDivElement>(null)
-  // A failed parse moves focus to the alert, so a keyboard or screen-reader user hears it.
-  useEffect(() => {
-    if (problems.length > 0) problemsRef.current?.focus()
-  }, [problems])
 
   function changeType(type: FeatureType) {
     setV((prev) => {
@@ -143,13 +123,7 @@ export function FeatureForm({
   return (
     <form onSubmit={submit} className="flex max-w-2xl flex-col gap-4">
       <CommandAlert error={error} title={errorTitle} />
-      {problems.length > 0 && (
-        <div ref={problemsRef} tabIndex={-1} role="alert" className="flex flex-col gap-0.5 rounded-md border border-destructive/50 px-3 py-2 text-sm text-destructive">
-          {problems.map((p) => (
-            <span key={p}>{p}</span>
-          ))}
-        </div>
-      )}
+      <ProblemsAlert problems={problems} />
       {mode === "create" ? (
         <div className="flex flex-col gap-1.5">
           <Label htmlFor="feature-key">Key</Label>
@@ -210,7 +184,7 @@ export function FeatureForm({
       </div>
       <label className="flex items-center gap-1.5 text-sm">
         <input type="checkbox" checked={v.soft_limit} onChange={(e) => set("soft_limit", e.target.checked)} />
-        Soft limit: allow use past the limit and bill it as overage
+        Soft limit: allow use past the limit. Overage is billed only if the plan's usage pricing prices it.
       </label>
       <div className="flex gap-2">
         <Button type="submit" disabled={pending}>
