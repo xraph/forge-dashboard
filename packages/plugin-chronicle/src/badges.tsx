@@ -25,6 +25,12 @@ import type { VerifyLevel } from "./types"
  * Erased
  *   `secondary`. An erasure is a lawful GDPR action, not a fault.
  *
+ * Key
+ *   A destroyed key is `outline`: it is what nearly every erasure does, so
+ *   that state recedes. A kept key is `secondary`: the erasure still marked
+ *   the events erased and unreadable, but it is not yet cryptographic, which
+ *   is notable and not wrong. Never `destructive`: nothing failed.
+ *
  * Checkpoint check
  *   A check that held is `outline`, one that failed is `destructive`. A
  *   check that did not run gets no badge at all, only plain muted text. A
@@ -53,6 +59,10 @@ export function CoverageBadge({ level }: { level: VerifyLevel }) {
 
 export function ErasedBadge() {
   return <Badge variant="secondary">Erased</Badge>
+}
+
+export function KeyBadge({ destroyed }: { destroyed: boolean }) {
+  return destroyed ? <Badge variant="outline">Key destroyed</Badge> : <Badge variant="secondary">Key kept</Badge>
 }
 
 export function CheckHeldBadge({ children }: { children: string }) {
