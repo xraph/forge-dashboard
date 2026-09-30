@@ -49,6 +49,11 @@ function seedWardenState() {
       // three rows, two members, and a third binding for dana is still
       // accepted.
       { id: "role_01hu", namespacePath: "", name: "Release approver", slug: "release-approver", isSystem: false, isDefault: false, parentSlug: "", maxMembers: 2, createdAt: hourAgo, updatedAt: hourAgo },
+      // The role contractor-lockout's subject matcher names, and one that
+      // grants document:delete. That is what lets the policy playground show
+      // an explicit deny overriding an RBAC allow: dave's role allows the
+      // delete and the lockout policy refuses it.
+      { id: "role_01hv", namespacePath: "", name: "Contractor", slug: "contractor", isSystem: false, isDefault: false, parentSlug: "", maxMembers: 0, createdAt: hourAgo, updatedAt: hourAgo },
     ],
     permissions: [
       { id: "perm_01a", namespacePath: "", name: "document:read", resource: "document", action: "read", isSystem: false, createdAt: hourAgo, updatedAt: hourAgo },
@@ -60,12 +65,14 @@ function seedWardenState() {
       // guard; perm_01a stays available, granted and non-system, to reach
       // that conflict refusal on its own.
       { id: "perm_01c", namespacePath: "eng/platform", name: "cluster:admin", resource: "cluster", action: "admin", isSystem: true, createdAt: hourAgo, updatedAt: hourAgo },
+      { id: "perm_01d", namespacePath: "", name: "document:delete", resource: "document", action: "delete", isSystem: false, createdAt: hourAgo, updatedAt: hourAgo },
     ],
     // The role-permission junction, keyed by natural key exactly as the
     // store keys it: (roleId, namespacePath, name).
     grants: [
       { roleId: "role_01hq", namespacePath: "", name: "document:read" },
       { roleId: "role_01hr", namespacePath: "eng/platform", name: "cluster:admin" },
+      { roleId: "role_01hv", namespacePath: "", name: "document:delete" },
     ],
     // A spread of expiry states, because every one of them reads differently
     // on the page: none, inside a day, days out, months out, and already
@@ -89,6 +96,8 @@ function seedWardenState() {
       { id: "asgn_01e", namespacePath: "", roleId: "role_01hu", subjectKind: "user", subjectId: "dana", expiresAt: inHours(90 * 24), createdAt: hourAgo, grantedBy: WARDEN_ACTOR },
       { id: "asgn_01f", namespacePath: "eng/platform", roleId: "role_01hu", subjectKind: "user", subjectId: "dana", resourceType: "document", resourceId: "runbook", expiresAt: null, createdAt: hourAgo, grantedBy: WARDEN_ACTOR },
       { id: "asgn_01g", namespacePath: "", roleId: "role_01hu", subjectKind: "user", subjectId: "erin", expiresAt: null, createdAt: hourAgo, grantedBy: WARDEN_ACTOR },
+      // Dave is the contractor the contractor-lockout policy is about.
+      { id: "asgn_01h", namespacePath: "", roleId: "role_01hv", subjectKind: "user", subjectId: "dave", expiresAt: null, createdAt: hourAgo, grantedBy: WARDEN_ACTOR },
     ],
     // Tuples in two namespaces, and a two-hop chain a person can trace:
     // folder:root#parent@document:readme, then document:readme#viewer@user:bob.
@@ -104,6 +113,12 @@ function seedWardenState() {
       { id: "rel_01c", namespacePath: "", objectType: "document", objectId: "readme", relation: "editor", subjectType: "group", subjectId: "eng", subjectRelation: "member", createdAt: hourAgo },
       { id: "rel_01d", namespacePath: "eng/platform", objectType: "document", objectId: "runbook", relation: "viewer", subjectType: "user", subjectId: "alice", subjectRelation: "", createdBy: WARDEN_ACTOR, createdAt: hourAgo },
       { id: "rel_01e", namespacePath: "eng/platform", objectType: "cluster", objectId: "prod", relation: "admin", subjectType: "service", subjectId: "deployer", subjectRelation: "", createdAt: hourAgo },
+      // The last hop of a walk the graph walker really follows: document
+      // readme's editors include the userset group:eng#member (rel_01c), and
+      // erin is a member of group:eng. The walker only descends through a
+      // userset subject, so this is the tuple that makes a transitive allow
+      // reachable at all.
+      { id: "rel_01f", namespacePath: "", objectType: "group", objectId: "eng", relation: "member", subjectType: "user", subjectId: "erin", subjectRelation: "", createdBy: WARDEN_ACTOR, createdAt: hourAgo },
     ],
     policies: seedPolicies(hourAgo, now),
     resourceTypes: [
@@ -2739,6 +2754,309 @@ function parseInstant(field, raw) {
 /** A check log id is prefix chklog and a 26 character base32 suffix whose first digit is 0 to 7. */
 const CHECK_LOG_ID = /^chklog_[0-7][0-9a-hjkmnp-tv-z]{25}$/
 
+// ---------------------------------------------------------------------------
+// playground.explain
+//
+// handlers_playground.go: a dry run of one check, lane by lane. The Go handler
+// asks the engine; the fixture has no engine, so it answers from a scenario
+// table and builds each answer the way the engine would, from lanes. A lane is
+// what one model did, and the merged verdict is computed from the lanes with
+// mergeDecisions' own rules (explicit deny, then any allow, then the first
+// reason, then the default), so a row cannot claim a verdict its lanes do not
+// support.
+//
+// A scenario is keyed on subjectKind, subjectId, action, resourceType and
+// namespacePath, all five exactly. Some rows also read one more field of the
+// request, named in the row, because the seed policy or tuple that decides them
+// depends on it. Every rule id below exists in this file's own roles and
+// policies, and every relation chain is one the seed relations form.
+//
+// Tenant is org_1, the name the engine's reasons carry (as in the check log
+// seed). Send the request in the right-hand column to reach each row.
+//
+//   row                         request
+//   --------------------------  ------------------------------------------------
+//   RBAC allow                  user alice, read, document, ""
+//   RBAC allow, no lockout      user dave, delete, document, ""
+//   explicit deny over an       user dave, delete, document, "", with
+//   RBAC allow, obligation      subjectAttributes {"employment": "contractor"}
+//                               and context {"network": "guest"}
+//   ReBAC transitive allow      user erin, editor, document, "", resourceId
+//                               "readme"
+//   truncated walk              user alice, read, folder, ""
+//   expression failed           user alice, write, document, ""
+//   ABAC allow only             user frank, read, report, "", with context
+//                               {"ip": "10.4.2.17"}
+//   a failed model              service deployer, admin, cluster, "eng/platform"
+//   no roles (the fallback)     anything else: user mallory, read, document, ""
+//
+// A request that matches no row gets the no roles shape for its own subject,
+// action and resource, at whatever namespace it named.
+// ---------------------------------------------------------------------------
+
+/** The tenant the engine's reasons name. */
+const EXPLAIN_TENANT = "org_1"
+
+/** truncatedWalkNote in engine.go, byte for byte, including the trailing "; ". */
+const TRUNCATED_WALK_NOTE =
+  "graph traversal budget exceeded (relation walk truncated, a relation may exist beyond the limit); "
+
+// The engine's reason sentences, from the request. Go's %q is goQuote.
+const reasonNoRoles = (r) => `subject ${r.subjectKind}:${r.subjectId} has no assigned roles in tenant ${goQuote(EXPLAIN_TENANT)}`
+const reasonNoPerms = (r) =>
+  `no role grants permission ${goQuote(r.resourceType + ":" + r.action)} for subject ${r.subjectKind}:${r.subjectId}`
+const reasonNoRelation = (r) =>
+  `no relation grants ${r.subjectKind}:${r.subjectId} ${r.action} access to ${r.resourceType}:${r.resourceId}`
+
+// A model's own result, as CheckResult carries it.
+const laneResult = (decision, fields = {}) => ({
+  decision,
+  allowed: decision === "allow",
+  reason: fields.reason ?? "",
+  matchedBy: fields.matchedBy ?? [],
+  obligations: fields.obligations ?? [],
+})
+
+const rbacMatch = (roleId, permission) => [{ source: "rbac", ruleId: roleId, detail: "role grants " + permission }]
+const abacMatch = (policyId, name, effect) => [{ source: "abac", ruleId: policyId, detail: `policy ${goQuote(name)} (${effect})` }]
+const rebacMatch = (detail) => [{ source: "rebac", detail }]
+
+// The lane states, one helper each so a scenario reads as the story it tells.
+const RBAC_NO_ROLES = (r) => ({ state: "noMatch", result: laneResult("deny_no_roles", { reason: reasonNoRoles(r) }) })
+const RBAC_NO_PERMS = (r) => ({ state: "noMatch", result: laneResult("deny_no_perms", { reason: reasonNoPerms(r) }) })
+const REBAC_NO_RELATION = (r, extra = {}) => ({
+  state: "noMatch",
+  result: laneResult("deny_relation", { reason: reasonNoRelation(r) }),
+  ...extra,
+})
+// ABAC with no matching policy has no result at all, so its lane has no
+// decision and no reason.
+const ABAC_NO_MATCH = { state: "noMatch" }
+const SKIPPED = { state: "skipped" }
+
+/** The obligations of every lane, first occurrence first, as mergeObligations does. */
+function mergedObligations(results) {
+  const seen = new Set()
+  const out = []
+  for (const r of results) {
+    for (const o of r?.obligations ?? []) {
+      if (!seen.has(o)) {
+        seen.add(o)
+        out.push(o)
+      }
+    }
+  }
+  return out
+}
+
+/**
+ * mergeDecisions plus the truncation note in Check: an explicit deny from
+ * ABAC wins, then the first allow in pipeline order, then the first reason
+ * anyone gave, then the engine's own sentence. The note is prefixed to a
+ * denial that followed a truncated walk, joined to the reason with joinReason.
+ */
+function mergeLanes(req, rbac, rebac, abac, walkTruncated) {
+  const all = [rbac, rebac, abac]
+  const obligations = mergedObligations(all)
+  let out
+  if (abac && abac.decision === "deny_explicit") {
+    out = abac
+  } else if (all.some((r) => r?.allowed)) {
+    out = all.find((r) => r?.allowed)
+  } else if (all.some((r) => r?.reason)) {
+    out = all.find((r) => r?.reason)
+  } else {
+    out = laneResult("deny_default", {
+      reason: `no rule allows ${req.subjectKind}:${req.subjectId} to ${req.action} on ${req.resourceType}:${req.resourceId}`,
+    })
+  }
+  const merged = { ...out, matchedBy: [...out.matchedBy], obligations }
+  if (!merged.allowed && walkTruncated) {
+    merged.reason = TRUNCATED_WALK_NOTE + (merged.reason === "" ? "no rule allows the request" : merged.reason)
+  }
+  return merged
+}
+
+const projectMatch = (m) => {
+  const out = { source: m.source }
+  if (m.ruleId) out.ruleId = m.ruleId
+  if (m.detail) out.detail = m.detail
+  return out
+}
+
+/** projectLane: keys in the Go struct's order, the omitempty ones only when set. */
+function projectLane(model, l) {
+  const out = { model, state: l.state }
+  if (l.result) {
+    out.decision = l.result.decision
+    if (l.result.reason) out.reason = l.result.reason
+  }
+  out.matchedBy = (l.result?.matchedBy ?? []).map(projectMatch)
+  if (l.walkTruncated) out.walkTruncated = true
+  if (l.expressionError) out.expressionError = l.expressionError
+  if (l.error) out.error = l.error
+  return out
+}
+
+/**
+ * projectExplanation: three lanes in pipeline order and every array present.
+ * A failed model has no merged verdict: decision "error", allowed false and
+ * the wrapped message, as Check would have returned it.
+ */
+function projectExplanation(req, spec, evalTimeNs) {
+  const lanes = [
+    projectLane("rbac", spec.rbac),
+    projectLane("rebac", spec.rebac),
+    projectLane("abac", spec.abac),
+  ]
+  if (spec.failed) {
+    return { decision: "error", allowed: false, error: spec.failed, matchedBy: [], obligations: [], evalTimeNs, lanes }
+  }
+  const merged = mergeLanes(req, spec.rbac.result, spec.rebac.result, spec.abac.result, spec.rebac.walkTruncated === true)
+  const out = { decision: merged.decision, allowed: merged.allowed }
+  if (merged.reason) out.reason = merged.reason
+  return { ...out, matchedBy: merged.matchedBy.map(projectMatch), obligations: merged.obligations, evalTimeNs, lanes }
+}
+
+const EXPLAIN_SCENARIOS = [
+  // RBAC ALLOW: Reader (role_01hq) grants document:read. ReBAC is skipped
+  // because RBAC already allowed, and no policy matches.
+  {
+    key: ["user", "alice", "read", "document", ""],
+    evalTimeNs: 412_000,
+    lanes: () => ({
+      rbac: { state: "allow", result: laneResult("allow", { matchedBy: rbacMatch("role_01hq", "document:read") }) },
+      rebac: SKIPPED,
+      abac: ABAC_NO_MATCH,
+    }),
+  },
+  // EXPLICIT DENY OVER AN RBAC ALLOW, with an obligation. Dave holds
+  // Contractor (role_01hv), which grants document:delete, and
+  // contractor-lockout denies a contractor's delete unless they are on the
+  // office network. Its two conditions read subject.employment and
+  // context.network, so the request has to carry them for the deny to apply.
+  // Its "audit" obligation rides on the merged answer.
+  {
+    key: ["user", "dave", "delete", "document", ""],
+    when: (r) =>
+      r.subjectAttributes.employment === "contractor" &&
+      typeof r.context.network === "string" &&
+      r.context.network !== "office",
+    evalTimeNs: 902_000,
+    lanes: () => ({
+      rbac: { state: "allow", result: laneResult("allow", { matchedBy: rbacMatch("role_01hv", "document:delete") }) },
+      rebac: SKIPPED,
+      abac: {
+        state: "deny",
+        result: laneResult("deny_explicit", {
+          reason: `denied by policy ${goQuote("contractor-lockout")}`,
+          matchedBy: abacMatch("wpol_contractor-lockout", "contractor-lockout", "deny"),
+          obligations: ["audit"],
+        }),
+      },
+    }),
+  },
+  // The same delete with the lockout's conditions unmet: Contractor allows it
+  // and nothing objects. It follows the row above, which takes the request
+  // first when it carries the contractor attributes.
+  {
+    key: ["user", "dave", "delete", "document", ""],
+    evalTimeNs: 391_000,
+    lanes: () => ({
+      rbac: { state: "allow", result: laneResult("allow", { matchedBy: rbacMatch("role_01hv", "document:delete") }) },
+      rebac: SKIPPED,
+      abac: ABAC_NO_MATCH,
+    }),
+  },
+  // REBAC TRANSITIVE ALLOW. Erin's only role, Release approver, grants
+  // nothing, so RBAC has no permission for her. ReBAC walks
+  // document:readme#editor to the userset group:eng#member (rel_01c) and finds
+  // erin in it (rel_01f). Only readme has that chain, so the row needs the id.
+  {
+    key: ["user", "erin", "editor", "document", ""],
+    when: (r) => r.resourceId === "readme",
+    evalTimeNs: 1_120_000,
+    lanes: (r) => ({
+      rbac: RBAC_NO_PERMS(r),
+      rebac: {
+        state: "allow",
+        result: laneResult("allow", {
+          matchedBy: rebacMatch(`transitive: ${r.resourceType}:${r.resourceId}#${r.action} -> group:eng#member -> user:erin`),
+        }),
+      },
+      abac: ABAC_NO_MATCH,
+    }),
+  },
+  // TRUNCATED WALK. Alice holds Reader, which grants no folder permission.
+  // The walk down a deep folder tree stops at its budget before it can say
+  // whether a relation exists, so ReBAC's no match is not "no relation". The
+  // merged reason is RBAC's, with the truncation note in front.
+  {
+    key: ["user", "alice", "read", "folder", ""],
+    evalTimeNs: 3_400_000,
+    lanes: (r) => ({
+      rbac: RBAC_NO_PERMS(r),
+      rebac: REBAC_NO_RELATION(r, { walkTruncated: true }),
+      abac: ABAC_NO_MATCH,
+    }),
+  },
+  // EXPRESSION FAILED. Document defines write as an expression over editor,
+  // and the relation lookups behind it failed. The engine logs that, treats it
+  // as no match and walks on, so the verdict is RBAC's no permission.
+  {
+    key: ["user", "alice", "write", "document", ""],
+    evalTimeNs: 1_650_000,
+    lanes: (r) => ({
+      rbac: RBAC_NO_PERMS(r),
+      rebac: REBAC_NO_RELATION(r, { expressionError: "relation store: context deadline exceeded" }),
+      abac: ABAC_NO_MATCH,
+    }),
+  },
+  // ABAC ALLOW ONLY. Frank holds no role and no tuple, and office-network-allow
+  // (no matchers, one condition on context.ip in 10.0.0.0/8) lets a request in
+  // from the office network through. The row tests the "10." prefix, which is
+  // the only part of the CIDR this fixture reads.
+  {
+    key: ["user", "frank", "read", "report", ""],
+    when: (r) => typeof r.context.ip === "string" && r.context.ip.startsWith("10."),
+    evalTimeNs: 655_000,
+    lanes: (r) => ({
+      rbac: RBAC_NO_ROLES(r),
+      rebac: REBAC_NO_RELATION(r),
+      abac: {
+        state: "allow",
+        result: laneResult("allow", { matchedBy: abacMatch("wpol_office-network-allow", "office-network-allow", "allow") }),
+      },
+    }),
+  },
+  // A FAILED MODEL. The deployer's check in eng/platform fails on RBAC's store
+  // read, as the check log's error rows do. Nothing after it ran, and there
+  // is no merged verdict: Check would have returned this error.
+  {
+    key: ["service", "deployer", "admin", "cluster", "eng/platform"],
+    evalTimeNs: 0,
+    lanes: () => ({
+      rbac: { state: "error", error: "store unavailable" },
+      rebac: { state: "notEvaluated" },
+      abac: { state: "notEvaluated" },
+      failed: "warden rbac: store unavailable",
+    }),
+  },
+]
+
+/** The scenario a request reaches, or null. The first row whose key and condition both hold wins. */
+function findExplainScenario(req) {
+  const key = [req.subjectKind, req.subjectId, req.action, req.resourceType, req.namespacePath]
+  return EXPLAIN_SCENARIOS.find((s) => s.key.every((k, i) => k === key[i]) && (!s.when || s.when(req))) ?? null
+}
+
+/** A context or attribute bag: null and absent decode to none, as a nil map does. */
+function decodeBag(v, field) {
+  if (v === undefined || v === null) return {}
+  if (typeof v !== "object" || Array.isArray(v)) throw decodeFail("PlaygroundExplainInput", field, v, "map[string]interface {}")
+  return v
+}
+
 export const wardenHandlers = {
   "config.detail": {
     kind: "query",
@@ -3736,6 +4054,41 @@ export const wardenHandlers = {
       if (i === -1) throw policyNotFound(raw)
       warden.policies.splice(i, 1)
       return {}
+    },
+  },
+  "playground.explain": {
+    kind: "query",
+    handler: (params) => {
+      // The request decodes whole before any check, as it does in Go. There is
+      // no tenant field: the tenant is the caller's.
+      const S = "PlaygroundExplainInput"
+      const req = {
+        subjectKind: decodeString(params?.subjectKind, S, "subjectKind"),
+        subjectId: decodeString(params?.subjectId, S, "subjectId"),
+        action: decodeString(params?.action, S, "action"),
+        resourceType: decodeString(params?.resourceType, S, "resourceType"),
+        resourceId: decodeString(params?.resourceId, S, "resourceId"),
+        namespacePath: decodeString(params?.namespacePath, S, "namespacePath"),
+        context: decodeBag(params?.context, "context"),
+        subjectAttributes: decodeBag(params?.subjectAttributes, "subjectAttributes"),
+        resourceAttributes: decodeBag(params?.resourceAttributes, "resourceAttributes"),
+      }
+      if (!SUBJECT_KINDS.has(req.subjectKind)) {
+        throw badRequest("subjectKind must be one of user, api_key, service, service_acct")
+      }
+      if (req.subjectId === "") throw badRequest("subjectId is required")
+      if (req.action === "") throw badRequest("action is required")
+      if (req.resourceType === "") throw badRequest("resourceType is required")
+      validateNamespace(req.namespacePath)
+
+      // Nothing here writes: no check log row, no cache, no state change.
+      const scenario = findExplainScenario(req)
+      if (scenario) return projectExplanation(req, scenario.lanes(req), scenario.evalTimeNs)
+      return projectExplanation(
+        req,
+        { rbac: RBAC_NO_ROLES(req), rebac: REBAC_NO_RELATION(req), abac: ABAC_NO_MATCH },
+        96_000
+      )
     },
   },
 }
