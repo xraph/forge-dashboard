@@ -272,10 +272,12 @@ function ConfigDetailView({
             <ReadOnlyValue entry={entry} />
           </>
         ) : (
-          // Keyed by version: a rollback changes the value from outside, and an
-          // editor that owns its text would go on showing the old one.
+          // Keyed by what is stored, not by the version. A rollback changes the
+          // value from outside, and an editor that owns its text would go on
+          // showing the old one. But a description write also mints a version,
+          // and it must not throw away a value you have typed and not saved.
           <ValueEditor
-            key={entry.version}
+            key={`${entry.valueType}:${JSON.stringify(entry.value ?? null)}`}
             entry={entry}
             type={type}
             onEdit={() => setNotice(null)}
@@ -376,8 +378,8 @@ function ReadOnlyValue({ entry }: { entry: ConfigEntrySummary }) {
 
 /**
  * The editor for a value of a type the vault knows: CodeMirror for json, the
- * typed input for the rest. It owns the draft, so it is mounted fresh for each
- * version of the entry.
+ * typed input for the rest. It owns the draft, so it is mounted fresh (keyed)
+ * whenever the stored value or type changes.
  *
  * Save waits for a draft that is a value of the type, and that is not the value
  * already stored. A save that changes nothing would mint a version for
@@ -456,7 +458,11 @@ function ValueEditor({
           id="config-value"
           aria-labelledby="config-value-heading"
           type={type}
-          value={entry.value}
+          // The draft, not the stored value: a bool toggle shows what it is
+          // handed, so handing it the stored value would keep showing that
+          // while Save sent what you pressed. A stored value that is not a
+          // value of the type has no draft, and stays unselected.
+          value={draft?.value}
           reportEmptyOnMount={false}
           onChange={(v) => changed(v === undefined ? undefined : { value: v })}
         />
@@ -522,8 +528,18 @@ function VersionsTable({
   const current = versions.find((v) => v.current)
   const chosen = versions.find((v) => v.version === compared)
 
+  // The server refuses a rollback on an entry whose type it does not validate,
+  // whatever the version holds. One sentence says so, and every Roll back
+  // button points at it.
+  const unsupportedId = "config-rollback-unsupported"
+
   return (
     <div className="flex flex-col gap-3">
+      {entry.knownType ? null : (
+        <p id={unsupportedId} className="text-sm text-muted-foreground">
+          {`This entry's type, ${entry.valueType}, is not one the vault validates, so it cannot be rolled back.`}
+        </p>
+      )}
       <ResourceTable
         columns={columns}
         rows={versions}
@@ -548,8 +564,14 @@ function VersionsTable({
                 variant="outline"
                 size="xs"
                 aria-label={`Roll back to version ${v.version}`}
-                disabled={!v.valueMatchesType}
-                aria-describedby={v.valueMatchesType ? undefined : `config-version-${v.version}-reason`}
+                disabled={!entry.knownType || !v.valueMatchesType}
+                aria-describedby={
+                  !entry.knownType
+                    ? unsupportedId
+                    : v.valueMatchesType
+                      ? undefined
+                      : `config-version-${v.version}-reason`
+                }
                 onClick={() => onRollback(v.version)}
               >
                 Roll back

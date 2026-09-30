@@ -10,6 +10,7 @@ import {
   ContractError,
   NavigationProvider,
   PluginProvider,
+  queryStore,
 } from "@forge-go/dashboard-plugin"
 import type { ScopedClient } from "@forge-go/dashboard-plugin"
 import ConfigDetailPage from "../src/pages/config-detail"
@@ -422,6 +423,101 @@ describe("ConfigDetailPage unknown type", () => {
     renderDetail(harness(UNKNOWN).client)
     await ready()
     expect((screen.getByRole("button", { name: "Edit description" }) as HTMLButtonElement).disabled).toBe(false)
+  })
+
+  it("refuses to roll back, with the reason on the page, because the server refuses it", async () => {
+    // The versions say they match: it is the entry's type that rules it out.
+    const versions = {
+      versions: [version(3, "a: 3", { current: true }), version(2, "a: 2")],
+    }
+    renderDetail(harness({ ...UNKNOWN, "config.versions": versions }).client)
+    await ready()
+    await screen.findByText("v2")
+    const roll = within(rowOf(2)).getByRole("button", { name: /Roll back/ }) as HTMLButtonElement
+    expect(roll.disabled).toBe(true)
+    const reasonId = roll.getAttribute("aria-describedby") as string
+    expect(document.getElementById(reasonId)?.textContent).toMatch(
+      /type, yaml, is not one the vault validates.*cannot be rolled back/i,
+    )
+    fireEvent.click(roll)
+    expect(screen.queryByRole("alertdialog")).toBeNull()
+  })
+})
+
+describe("ConfigDetailPage bool editing", () => {
+  const BOOL = entry({ valueType: "bool", value: true })
+
+  it("moves the toggle to what you pressed, and saves that", async () => {
+    if (typeof window.PointerEvent === "undefined") {
+      class PointerEventShim extends MouseEvent {}
+      Object.defineProperty(window, "PointerEvent", { value: PointerEventShim })
+    }
+    const h = harness(
+      { "config.detail": detail({ entry: BOOL }) },
+      { "config.update": { entry: { ...BOOL, value: false, version: 4 } } },
+    )
+    renderDetail(h.client)
+    await ready()
+    const pressed = (name: string) =>
+      screen.getByRole("button", { name }).getAttribute("aria-pressed")
+    expect(pressed("true")).toBe("true")
+    expect(saveButton().disabled).toBe(true)
+    fireEvent.click(screen.getByRole("button", { name: "false" }))
+    expect(pressed("false")).toBe("true")
+    expect(pressed("true")).toBe("false")
+    expect(saveButton().disabled).toBe(false)
+    fireEvent.click(saveButton())
+    await screen.findByText("Saved as version 4.")
+    expect(h.commands).toEqual([{ intent: "config.update", payload: { key: KEY, value: false } }])
+  })
+})
+
+describe("ConfigDetailPage draft and description", () => {
+  it("keeps an unsaved value draft when the description is saved", async () => {
+    // A description write mints a version, and the refreshed entry arrives with
+    // the same value under a new version number.
+    let current = detail()
+    const h = harness()
+    const client = {
+      ...h.client,
+      query: (intent: string, params?: Record<string, unknown>) =>
+        intent === "config.detail" ? Promise.resolve(current) : h.client.query(intent, params),
+      command: async (intent: string, payload?: unknown) => {
+        h.commands.push({ intent, payload })
+        current = detail({ entry: entry({ description: "New words", version: 4 }) })
+        queryStore.invalidate("vault", ["config.detail"])
+        return { entry: current.entry }
+      },
+    } as ScopedClient
+    renderDetail(client)
+    await ready()
+    fireEvent.change(screen.getByLabelText("Value"), { target: { value: "45s" } })
+    click("Edit description")
+    const dialog = await screen.findByRole("dialog")
+    fireEvent.change(within(dialog).getByLabelText("Description"), { target: { value: "New words" } })
+    fireEvent.click(within(dialog).getByRole("button", { name: "Save description" }))
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull())
+    await screen.findByText("New words")
+    expect((screen.getByLabelText("Value") as HTMLInputElement).value).toBe("45s")
+    expect(saveButton().disabled).toBe(false)
+  })
+
+  it("still starts the editor over when the value changes from outside", async () => {
+    let current = detail()
+    const h = harness()
+    const client = {
+      ...h.client,
+      query: (intent: string, params?: Record<string, unknown>) =>
+        intent === "config.detail" ? Promise.resolve(current) : h.client.query(intent, params),
+    } as ScopedClient
+    renderDetail(client)
+    await ready()
+    fireEvent.change(screen.getByLabelText("Value"), { target: { value: "45s" } })
+    current = detail({ entry: entry({ value: "20s", version: 4 }) })
+    queryStore.invalidate("vault", ["config.detail"])
+    await waitFor(() =>
+      expect((screen.getByLabelText("Value") as HTMLInputElement).value).toBe("20s"),
+    )
   })
 })
 
