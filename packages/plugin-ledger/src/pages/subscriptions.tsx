@@ -73,7 +73,7 @@ export function LedgerSubscriptionsPage() {
       header: "Cancels",
       // The engine never writes ended_at: a canceled subscription carries
       // canceled_at, a scheduled one only cancel_at.
-      cell: (s) => <Timestamp value={s.status === "canceled" ? s.canceled_at : s.cancel_at} label="scheduled cancellation" />,
+      cell: (s) => <Timestamp value={s.status === "canceled" ? s.canceled_at : s.cancel_at} label="cancellation" />,
     },
     { id: "created", header: "Started", cell: (s) => <Timestamp value={s.created_at} label="start" /> },
   ]

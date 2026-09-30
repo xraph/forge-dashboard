@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest"
 import { fireEvent, screen, waitFor } from "@testing-library/react"
 import { ContractError } from "@forge-go/dashboard-plugin"
 import { LedgerSubscriptionCreatePage } from "../src/pages/subscription-create"
-import { recordingQueryClient, renderWithNavigation, scriptedClient } from "./harness"
+import { failingClient, recordingQueryClient, renderWithNavigation, scriptedClient } from "./harness"
 import { aPage, aPlan, aSubscription } from "./fixtures"
 
 const ACTIVE = aPage([aPlan(), aPlan({ id: "plan_starter", name: "Starter", slug: "starter", features: [] })])
@@ -111,5 +111,23 @@ describe("LedgerSubscriptionCreatePage", () => {
     renderWithNavigation(LedgerSubscriptionCreatePage, client)
     expect(await screen.findByText("There is no active plan to subscribe to.")).toBeTruthy()
     expect(screen.getByRole("link", { name: "Go to plans" }).getAttribute("href")).toBe("/plans")
+  })
+
+  it("shows the no-app refusal as an error, not as no active plans", async () => {
+    renderWithNavigation(LedgerSubscriptionCreatePage, failingClient(new ContractError("PERMISSION_DENIED", "no app selected: set the extension's app_id or send an app_id claim")))
+    expect(await screen.findByText(/PERMISSION_DENIED: no app selected/)).toBeTruthy()
+    expect(screen.queryByText("There is no active plan to subscribe to.")).toBeNull()
+  })
+
+  it("prints no price period for a plan whose billing period is none", async () => {
+    const free = aPlan({ id: "plan_free", name: "Free", slug: "free", pricing: { ...aPlan().pricing!, billing_period: "none" } })
+    const { client } = scriptedClient({ "plans.list": aPage([aPlan(), free]) })
+    renderWithNavigation(LedgerSubscriptionCreatePage, client)
+    await screen.findByRole("option", { name: "Free" })
+    fireEvent.change(screen.getByLabelText("Plan"), { target: { value: "plan_free" } })
+    const help = await screen.findByText(/Starts active, with no trial\./)
+    expect(help.textContent).not.toMatch(/a month|a year/)
+    fireEvent.change(screen.getByLabelText("Plan"), { target: { value: "plan_pro" } })
+    expect((await screen.findByText(/Starts active, with no trial\./)).textContent).toMatch(/\$49\.00 a month/)
   })
 })

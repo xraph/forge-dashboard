@@ -856,8 +856,8 @@ function billingHandlers(h) {
     const id = requireText(rawId, "plan_id")
     const p = ledger.plans.find((x) => x.id === id)
     if (!p) throw notFound("plan")
-    // Go wraps ErrInvalidInput for both, which the contract maps to BAD_REQUEST.
-    if (p.app_id !== app) throw badRequest("the plan belongs to another app")
+    // The contract's loadPlan refuses another app's plan as not found before the engine's active check runs.
+    if (p.app_id !== app) throw notFound("plan")
     if (p.status !== "active") throw badRequest(`plan "${p.slug}" is ${p.status}, not active`)
     return p
   }

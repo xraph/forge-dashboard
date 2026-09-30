@@ -1,7 +1,8 @@
 import { describe, expect, it } from "vitest"
 import { fireEvent, screen, waitFor, within } from "@testing-library/react"
 import { LedgerSubscriptionsPage } from "../src/pages/subscriptions"
-import { recordingQueryClient, renderPage, stubClient } from "./harness"
+import { ContractError } from "@forge-go/dashboard-plugin"
+import { failingClient, recordingQueryClient, renderPage, stubClient } from "./harness"
 import { aPage, aPlan, aSubscription } from "./fixtures"
 
 const SUBS = aPage([
@@ -18,8 +19,8 @@ describe("LedgerSubscriptionsPage", () => {
     const row = (tenant: string) => screen.getAllByRole("row").find((r) => within(r).queryByText(tenant))!
     expect(within(row("globex")).getByText("Starter")).toBeTruthy()
     expect(within(row("globex")).getByText("Trialing", { selector: '[data-slot="badge"]' }).className).toMatch(/secondary/)
-    expect(within(row("acme")).getByLabelText("no scheduled cancellation")).toBeTruthy()
-    expect(within(row("wayne")).queryByLabelText("no scheduled cancellation")).toBeNull()
+    expect(within(row("acme")).getByLabelText("no cancellation")).toBeTruthy()
+    expect(within(row("wayne")).queryByLabelText("no cancellation")).toBeNull()
     expect(screen.getByRole("link", { name: "acme" }).getAttribute("href")).toBe("/subscriptions/sub_acme")
     expect(screen.getByText("3 subscriptions")).toBeTruthy()
   })
@@ -57,5 +58,21 @@ describe("LedgerSubscriptionsPage", () => {
     expect(await screen.findByText("No subscriptions yet.")).toBeTruthy()
     fireEvent.change(screen.getByLabelText("Tenant ID"), { target: { value: "initech" } })
     expect(await screen.findByText("No subscriptions for initech.")).toBeTruthy()
+  })
+
+  it("shows the canceled date for a canceled row that only has canceled_at", async () => {
+    const canceledAt = "2026-10-05T12:00:00Z"
+    const subs = aPage([aSubscription({ id: "sub_umbrella", tenant_id: "umbrella", status: "canceled", canceled_at: canceledAt })])
+    renderPage(LedgerSubscriptionsPage, stubClient({ "subscriptions.list": subs, "plans.list": PLANS }))
+    await screen.findByText("umbrella")
+    const row = screen.getAllByRole("row").find((r) => within(r).queryByText("umbrella"))!
+    expect(within(row).getByText(new Date(canceledAt).toLocaleString())).toBeTruthy()
+    expect(within(row).queryByLabelText("no cancellation")).toBeNull()
+  })
+
+  it("shows the no-app refusal as an error, not as no subscriptions", async () => {
+    renderPage(LedgerSubscriptionsPage, failingClient(new ContractError("PERMISSION_DENIED", "no app selected: set the extension's app_id or send an app_id claim")))
+    expect(await screen.findByText(/PERMISSION_DENIED: no app selected/)).toBeTruthy()
+    expect(screen.queryByText("No subscriptions yet.")).toBeNull()
   })
 })

@@ -43,6 +43,20 @@ export function LedgerSubscriptionCreatePage() {
   )
 }
 
+/** The plan's price with its period, or nothing when it has none: a "none" billing period is not a month. */
+function priceText(plan: Plan): string {
+  if (!plan.pricing) return ""
+  const price = formatMoney(plan.pricing.base_amount)
+  switch (plan.pricing.billing_period) {
+    case "yearly":
+      return `${price} a year. `
+    case "monthly":
+      return `${price} a month. `
+    default:
+      return ""
+  }
+}
+
 function SubscriptionForm({ plans }: { plans: Plan[] }) {
   const create = useCommand<Subscription>("subscriptions.create")
   const navigate = useNavigateTo()
@@ -107,7 +121,7 @@ function SubscriptionForm({ plans }: { plans: Plan[] }) {
         </NativeSelect>
         {plan && (
           <p id="sub-plan-help" className="text-xs text-muted-foreground">
-            {plan.pricing ? `${formatMoney(plan.pricing.base_amount)} ${plan.pricing.billing_period === "yearly" ? "a year" : "a month"}. ` : ""}
+            {priceText(plan)}
             {plan.trial_days > 0 ? `Starts with a ${plan.trial_days}-day trial.` : "Starts active, with no trial."}
           </p>
         )}
