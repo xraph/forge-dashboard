@@ -943,9 +943,9 @@ of colliding with the other sessions working there.
 Plan B built the pages and then ran them against the fixture. These are the
 places where the page now does something the text above doesn't say.
 
-The events table doesn't virtualise. Every list is paged on the server, 50 rows
-by default and 200 at most, so a virtualiser would add a dependency and a second
-scroll model for no gain. The rule that matters is that the browser never
+The events table doesn't virtualise. It asks the server for 50 rows a page, and
+the server caps a page at 1,000, so a virtualiser would add a dependency and a
+second scroll model for no gain. The rule that matters is that the browser never
 filters or pages, and it holds without one.
 
 The chain page has a picker, for an app-wide operator only. The final review
@@ -973,9 +973,9 @@ is longer than 100,000 events. Tests cover that path instead.
 Erasures show chronicle's status and what happened to the key, following
 chronicle main's `e81e2a2`. Status is Pending or Completed. The key is Key
 destroyed, Legacy key retained, Key intact or Not confirmed. A pending erasure
-is shown in the failure colour, and its page tells you to run it again. The page headers
-no longer say every erasure destroyed a key, because the rows beside them can
-say otherwise.
+is shown in the failure colour, and its page tells you to run it again. The
+page headers no longer say every erasure destroyed a key, because the rows
+beside them can say otherwise.
 
 ## Testing
 
