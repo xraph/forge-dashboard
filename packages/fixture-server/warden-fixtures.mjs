@@ -54,6 +54,12 @@ function seedWardenState() {
       // an explicit deny overriding an RBAC allow: dave's role allows the
       // delete and the lockout policy refuses it.
       { id: "role_01hv", namespacePath: "", name: "Contractor", slug: "contractor", isSystem: false, isDefault: false, parentSlug: "", maxMembers: 0, createdAt: hourAgo, updatedAt: hourAgo },
+      // The roles staff-read-documents and after-hours-approval name as their
+      // subject matchers. Neither grants a permission: they exist so the two
+      // policies can apply to someone, and an ABAC allow in the check log
+      // belongs to a subject who holds the role the policy asks for.
+      { id: "role_01hw", namespacePath: "", name: "Staff", slug: "staff", isSystem: false, isDefault: false, parentSlug: "", maxMembers: 0, createdAt: hourAgo, updatedAt: hourAgo },
+      { id: "role_01hy", namespacePath: "", name: "On-call", slug: "oncall", isSystem: false, isDefault: false, parentSlug: "", maxMembers: 0, createdAt: hourAgo, updatedAt: hourAgo },
     ],
     permissions: [
       { id: "perm_01a", namespacePath: "", name: "document:read", resource: "document", action: "read", isSystem: false, createdAt: hourAgo, updatedAt: hourAgo },
@@ -98,9 +104,17 @@ function seedWardenState() {
       { id: "asgn_01g", namespacePath: "", roleId: "role_01hu", subjectKind: "user", subjectId: "erin", expiresAt: null, createdAt: hourAgo, grantedBy: WARDEN_ACTOR },
       // Dave is the contractor the contractor-lockout policy is about.
       { id: "asgn_01h", namespacePath: "", roleId: "role_01hv", subjectKind: "user", subjectId: "dave", expiresAt: null, createdAt: hourAgo, grantedBy: WARDEN_ACTOR },
+      // Erin is staff and frank is on call, the roles the policies that allow
+      // them in the check log ask for.
+      { id: "asgn_01i", namespacePath: "", roleId: "role_01hw", subjectKind: "user", subjectId: "erin", expiresAt: null, createdAt: hourAgo, grantedBy: WARDEN_ACTOR },
+      { id: "asgn_01j", namespacePath: "", roleId: "role_01hy", subjectKind: "user", subjectId: "frank", expiresAt: null, createdAt: hourAgo, grantedBy: WARDEN_ACTOR },
     ],
-    // Tuples in two namespaces, and a two-hop chain a person can trace:
-    // folder:root#parent@document:readme, then document:readme#viewer@user:bob.
+    // Tuples in two namespaces. Two chains a person can trace, one the engine
+    // walks and one it does not. Walked: document:readme#editor names the
+    // userset group:eng#member (rel_01c), and erin is a member of it (rel_01f),
+    // so erin edits readme transitively. Not walked: rel_01b makes readme the
+    // parent of folder:root, but a tuple with no subject relation names one
+    // concrete subject, so the walker stops there; read that pair by eye.
     // A namespace-filtered list is an exact match, so the eng/platform ones
     // are absent from a root-filtered list and the other way round. That is
     // the listing only: at check time the root tuples also apply in
@@ -253,16 +267,23 @@ function seedCheckLogs() {
   // change not take effect", and the page's scan signal. No trace id, so a
   // detail with the block half empty is reachable.
   row(5, { matchedBy: rbac("role_01hq", "document:read"), evalTimeNs: 1_800, cached: true, requestIp: "203.0.113.10", requestId: "req_7f3a92" })
-  // ABAC DENY_EXPLICIT with an obligation, naming a policy that exists.
+  // ABAC DENY_EXPLICIT with an obligation, naming a policy that exists. Dave
+  // holds Contractor, which grants document:delete, so RBAC allows and the
+  // lockout overrides it. The log stores no attributes: the request carried
+  // employment "contractor" and a network that is not "office".
   row(10, { subjectId: "dave", action: "delete", decision: "deny_explicit", reason: 'denied by policy "contractor-lockout"', matchedBy: abac("wpol_contractor-lockout", "contractor-lockout", "deny"), obligations: ["audit"], evalTimeNs: 902_000, requestIp: "198.51.100.23", requestId: "req_7f3a93", traceId: "0af7651916cd43dd8448eb211c80319c" })
   // ERROR, in eng/platform. No matched rules and no correlation ids: the
   // engine failed before it had either.
   row(15, { namespacePath: "eng/platform", subjectKind: "service", subjectId: "deployer", action: "admin", resourceType: "cluster", resourceId: "prod", decision: "error", evalTimeNs: 0, error: "store unavailable" })
   // RBAC ALLOW in eng/platform, naming Platform admin.
   row(20, { namespacePath: "eng/platform", subjectId: "bob", action: "admin", resourceType: "cluster", resourceId: "prod", matchedBy: rbac("role_01hr", "cluster:admin"), evalTimeNs: 388_000, requestIp: "10.4.2.21", requestId: "req_7f3a95" })
-  // ABAC ALLOW with no obligations.
+  // ABAC ALLOW with no obligations. Erin holds Staff, which grants nothing, so
+  // RBAC has no permission and staff-read-documents allows a request from a
+  // 192.168.x address (the request's context.ip, which the log does not store).
   row(25, { subjectId: "erin", resourceId: "handbook", matchedBy: abac("wpol_staff-read-documents", "staff-read-documents", "allow"), evalTimeNs: 655_000, requestIp: "10.4.2.17", requestId: "req_7f3a96" })
-  // ABAC ALLOW with obligations, naming the policy that carries them.
+  // ABAC ALLOW with obligations, naming the policy that carries them. Frank
+  // holds On-call, which grants nothing, and asked after 18:00 (context.hour,
+  // not stored), so after-hours-approval allows it.
   row(30, { subjectId: "frank", resourceType: "cluster", resourceId: "staging", matchedBy: abac("wpol_after-hours-approval", "after-hours-approval", "allow"), obligations: ["log", "notify:security"], evalTimeNs: 721_000, requestIp: "192.0.2.44", requestId: "req_7f3a97", traceId: "5b8aa5a2d2c872e8321cf37308d69df2" })
   // REBAC ALLOW with no ruleId: a tuple has no rule id to name. "direct
   // relation" is what the engine writes when the action is itself a relation
@@ -276,9 +297,9 @@ function seedCheckLogs() {
   row(45, { subjectId: "mallory", decision: "deny_no_roles", reason: noRoles("mallory"), evalTimeNs: 96_000, requestIp: "203.0.113.99", requestId: "req_7f3a9a" })
   // DENY_NO_ROLES for carol, whose only assignment has expired.
   row(50, { subjectId: "carol", decision: "deny_no_roles", reason: noRoles("carol"), evalTimeNs: 101_000, requestIp: "10.4.2.25", requestId: "req_7f3a9b" })
-  // DENY_DEFAULT: no evaluator gave a more specific reason, so the engine
-  // falls back to its own sentence.
-  row(55, { subjectId: "dave", resourceId: "q3", resourceType: "report", decision: "deny_default", reason: "no rule allows user:dave to read on report:q3", evalTimeNs: 310_000, requestIp: "198.51.100.23", requestId: "req_7f3a9c" })
+  // DENY_NO_PERMS: dave holds Contractor, which grants document:delete and
+  // nothing on a report.
+  row(55, { subjectId: "dave", resourceId: "q3", resourceType: "report", decision: "deny_no_perms", reason: 'no role grants permission "report:read" for subject user:dave', evalTimeNs: 310_000, requestIp: "198.51.100.23", requestId: "req_7f3a9c" })
   // DENY_NO_PERMS: alice holds Reader, and Reader grants no delete.
   row(60, { action: "delete", decision: "deny_no_perms", reason: 'no role grants permission "document:delete" for subject user:alice', evalTimeNs: 298_000, requestIp: "203.0.113.10", requestId: "req_7f3a9d" })
   // A DELETED RULE: an allow that names a role id that exists nowhere in
@@ -289,8 +310,11 @@ function seedCheckLogs() {
   // DENY_NO_PERMS in eng/platform: bob holds Platform admin there, which
   // grants cluster:admin and nothing about delete.
   row(75, { namespacePath: "eng/platform", subjectId: "bob", action: "delete", resourceType: "cluster", resourceId: "prod", decision: "deny_no_perms", reason: 'no role grants permission "cluster:delete" for subject user:bob', evalTimeNs: 540_000, requestIp: "10.4.2.21", requestId: "req_7f3aa0" })
-  // DENY_RELATION, in eng/platform.
-  row(80, { namespacePath: "eng/platform", subjectId: "mallory", resourceId: "runbook", decision: "deny_relation", reason: "no relation grants user:mallory read access to document:runbook", evalTimeNs: 205_000, requestIp: "203.0.113.99", requestId: "req_7f3aa1" })
+  // DENY_NO_ROLES, in eng/platform. Neither deny_relation nor deny_default can
+  // be a merged decision while RBAC is on: the merge takes the first reason
+  // any model gave, RBAC always gives one, and it comes first. ReBAC's
+  // deny_relation shows on the playground's lanes instead.
+  row(80, { namespacePath: "eng/platform", subjectId: "mallory", resourceId: "runbook", decision: "deny_no_roles", reason: noRoles("mallory"), evalTimeNs: 205_000, requestIp: "203.0.113.99", requestId: "req_7f3aa1" })
   row(85, { matchedBy: rbac("role_01hq", "document:read"), evalTimeNs: 2_100, cached: true, requestIp: "203.0.113.10", requestId: "req_7f3aa2" })
   row(90, { matchedBy: rbac("role_01hq", "document:read"), evalTimeNs: 1_900, cached: true, requestIp: "203.0.113.10", requestId: "req_7f3aa3" })
   // REBAC ALLOW through the namespace cascade: rel_01a lives at the tenant
@@ -314,7 +338,7 @@ function seedCheckLogs() {
   row(165, { namespacePath: "eng/platform", subjectKind: "service", subjectId: "deployer", action: "admin", resourceType: "cluster", resourceId: "prod", matchedBy: rbac("role_01hr", "cluster:admin"), evalTimeNs: 402_000, requestIp: "10.4.2.21", requestId: "req_7f3aab" })
   row(180, { action: "write", matchedBy: rbac("role_01hx", "document:write"), evalTimeNs: 371_000, requestIp: "203.0.113.10", requestId: "req_7f3aac" })
   row(200, { subjectId: "frank", resourceType: "cluster", resourceId: "staging", matchedBy: abac("wpol_after-hours-approval", "after-hours-approval", "allow"), obligations: ["log", "notify:security"], evalTimeNs: 2_600, cached: true, requestIp: "192.0.2.44", requestId: "req_7f3aad" })
-  row(220, { subjectId: "mallory", action: "delete", decision: "deny_default", reason: "no rule allows user:mallory to delete on document:readme", evalTimeNs: 289_000, requestIp: "203.0.113.99", requestId: "req_7f3aae" })
+  row(220, { subjectId: "mallory", action: "delete", decision: "deny_no_roles", reason: noRoles("mallory"), evalTimeNs: 289_000, requestIp: "203.0.113.99", requestId: "req_7f3aae" })
   return rows
 }
 
@@ -343,6 +367,11 @@ function seedPolicies(hourAgo, now) {
     if (value !== undefined) c.value = value
     return c
   }
+  // The namespace the analysis specimens live in. Policies cascade down, so a
+  // check at the tenant root or at eng/platform never sees them, and none of
+  // them can decide a playground scenario or a check log row it was not
+  // written for. They stay active, so the pages still analyse them.
+  const SANDBOX = "sandbox"
   const policy = (id, fields) => {
     const at = born()
     return {
@@ -467,6 +496,7 @@ function seedPolicies(hourAgo, now) {
     // compile. The engine errors, and a deny that errors applies. A working
     // condition after it changes nothing.
     policy("legacy-id-pattern-deny", {
+      namespacePath: SANDBOX,
       description: "Saved with a pattern that never compiled.",
       effect: "deny",
       priority: 30,
@@ -503,6 +533,7 @@ function seedPolicies(hourAgo, now) {
     // MATCHES EVERYTHING: all three matcher lists empty and no condition to
     // restrict it.
     policy("catch-all-allow", {
+      namespacePath: SANDBOX,
       description: "No subjects, actions or resources: it applies to every check.",
       priority: 900,
     }),
@@ -518,6 +549,7 @@ function seedPolicies(hourAgo, now) {
     // actions and resources still restrict, so the policy as a whole does not
     // match everything.
     policy("legacy-empty-subject", {
+      namespacePath: SANDBOX,
       description: "One of its subjects is the empty matcher.",
       effect: "deny",
       priority: 40,
@@ -528,6 +560,7 @@ function seedPolicies(hourAgo, now) {
     // A not_in GIVEN A STRING: not_in against something that is not a list is
     // always true, so this deny denies everyone the other matchers select.
     policy("office-ip-lockout", {
+      namespacePath: SANDBOX,
       description: "not_in was given a string, not a list.",
       effect: "deny",
       priority: 25,
@@ -538,6 +571,7 @@ function seedPolicies(hourAgo, now) {
     }),
     // ACTIONS *:* matches every action.
     policy("wildcard-actions-deny", {
+      namespacePath: SANDBOX,
       description: "Every action, for services only.",
       effect: "deny",
       priority: 35,
@@ -2783,15 +2817,32 @@ const CHECK_LOG_ID = /^chklog_[0-7][0-9a-hjkmnp-tv-z]{25}$/
 //                               and context {"network": "guest"}
 //   ReBAC transitive allow      user erin, editor, document, "", resourceId
 //                               "readme"
+//   RBAC no permission, no      user erin, editor, document, "" with any other
+//   relation (falls through)    resourceId
 //   truncated walk              user alice, read, folder, ""
 //   expression failed           user alice, write, document, ""
 //   ABAC allow only             user frank, read, report, "", with context
 //                               {"ip": "10.4.2.17"}
+//   RBAC no permission, no      user frank, read, report, "" with no office
+//   relation (falls through)    address
 //   a failed model              service deployer, admin, cluster, "eng/platform"
 //   no roles (the fallback)     anything else: user mallory, read, document, ""
 //
 // A request that matches no row gets the no roles shape for its own subject,
-// action and resource, at whatever namespace it named.
+// action and resource, at whatever namespace it named. That is right for a
+// subject who holds no role at that namespace (mallory, and anyone not in the
+// seed). It is only a stand-in for one who does, so every subject the rows
+// above name has a row for the requests that fall through their conditions.
+// In the "sandbox" namespace (and under it) the fallback also applies the
+// specimens seeded there: an explicit deny for a delete of a report, a service
+// on a report, a user's delete of a document or a user's export of a document,
+// and catch-all-allow for everything else.
+//
+// The rows were derived, not written by hand: each was checked against the
+// policies in force at its namespace (ancestors included), with RBAC, ReBAC and
+// ABAC applied as the engine applies them. The seeded specimens that would
+// decide a row they were not written for live in the "sandbox" namespace, out
+// of reach of checks at the tenant root and at eng/platform.
 // ---------------------------------------------------------------------------
 
 /** The tenant the engine's reasons name. */
@@ -2987,6 +3038,18 @@ const EXPLAIN_SCENARIOS = [
       abac: ABAC_NO_MATCH,
     }),
   },
+  // Erin on any other document: the same RBAC no permission (her roles grant
+  // nothing) and no relation, so the verdict is RBAC's. The row above takes
+  // readme first.
+  {
+    key: ["user", "erin", "editor", "document", ""],
+    evalTimeNs: 588_000,
+    lanes: (r) => ({
+      rbac: RBAC_NO_PERMS(r),
+      rebac: REBAC_NO_RELATION(r),
+      abac: ABAC_NO_MATCH,
+    }),
+  },
   // TRUNCATED WALK. Alice holds Reader, which grants no folder permission.
   // The walk down a deep folder tree stops at its budget before it can say
   // whether a relation exists, so ReBAC's no match is not "no relation". The
@@ -3012,16 +3075,16 @@ const EXPLAIN_SCENARIOS = [
       abac: ABAC_NO_MATCH,
     }),
   },
-  // ABAC ALLOW ONLY. Frank holds no role and no tuple, and office-network-allow
-  // (no matchers, one condition on context.ip in 10.0.0.0/8) lets a request in
-  // from the office network through. The row tests the "10." prefix, which is
-  // the only part of the CIDR this fixture reads.
+  // ABAC ALLOW ONLY. Frank holds On-call, which grants nothing on a report,
+  // and has no tuple. office-network-allow (no matchers, one condition:
+  // context.ip in 10.0.0.0/8) lets a request from the office network through,
+  // and it is the only policy in force at the tenant root that applies.
   {
     key: ["user", "frank", "read", "report", ""],
-    when: (r) => typeof r.context.ip === "string" && r.context.ip.startsWith("10."),
+    when: (r) => inTenNet(r.context.ip),
     evalTimeNs: 655_000,
     lanes: (r) => ({
-      rbac: RBAC_NO_ROLES(r),
+      rbac: RBAC_NO_PERMS(r),
       rebac: REBAC_NO_RELATION(r),
       abac: {
         state: "allow",
@@ -3029,12 +3092,24 @@ const EXPLAIN_SCENARIOS = [
       },
     }),
   },
+  // Frank without an office address: On-call grants nothing on a report and
+  // office-network-allow needs context.ip, so nothing applies. The row above
+  // takes a request that carries a 10.x address first.
+  {
+    key: ["user", "frank", "read", "report", ""],
+    evalTimeNs: 421_000,
+    lanes: (r) => ({
+      rbac: RBAC_NO_PERMS(r),
+      rebac: REBAC_NO_RELATION(r),
+      abac: ABAC_NO_MATCH,
+    }),
+  },
   // A FAILED MODEL. The deployer's check in eng/platform fails on RBAC's store
   // read, as the check log's error rows do. Nothing after it ran, and there
   // is no merged verdict: Check would have returned this error.
   {
     key: ["service", "deployer", "admin", "cluster", "eng/platform"],
-    evalTimeNs: 0,
+    evalTimeNs: 184_000,
     lanes: () => ({
       rbac: { state: "error", error: "store unavailable" },
       rebac: { state: "notEvaluated" },
@@ -3043,6 +3118,50 @@ const EXPLAIN_SCENARIOS = [
     }),
   },
 ]
+
+// The analysis specimens seeded in the "sandbox" namespace, as ABAC sees them
+// for a subject who holds no role (the fallback's subject). Highest priority
+// first, as the evaluator sorts them: every deny outranks an allow, so the
+// first deny that applies is the verdict, and catch-all-allow (which applies to
+// everything) is the allow that wins otherwise.
+const SANDBOX_DENIES = [
+  // legacy-empty-subject, priority 40: an empty subject matcher matches everyone.
+  ["legacy-empty-subject", (r) => r.action === "delete" && r.resourceType === "report"],
+  // wildcard-actions-deny, priority 35: every action, services only.
+  ["wildcard-actions-deny", (r) => r.subjectKind === "service" && r.resourceType === "report"],
+  // legacy-id-pattern-deny, priority 30: its regex never compiles, and a deny that errors applies.
+  ["legacy-id-pattern-deny", (r) => r.subjectKind === "user" && r.action === "delete" && r.resourceType === "document"],
+  // office-ip-lockout, priority 25: not_in given a string is always true.
+  ["office-ip-lockout", (r) => r.subjectKind === "user" && r.action === "export" && r.resourceType === "document"],
+]
+
+/** Whether a check runs in the sandbox namespace or under it. */
+const inSandbox = (ns) => ns === "sandbox" || ns.startsWith("sandbox/")
+
+/** ABAC's lane for a roleless subject in the sandbox namespace. */
+function sandboxAbac(r) {
+  const denied = SANDBOX_DENIES.find(([, applies]) => applies(r))
+  if (denied) {
+    const [name] = denied
+    return {
+      state: "deny",
+      result: laneResult("deny_explicit", {
+        reason: `denied by policy ${goQuote(name)}`,
+        matchedBy: abacMatch("wpol_" + name, name, "deny"),
+      }),
+    }
+  }
+  return {
+    state: "allow",
+    result: laneResult("allow", { matchedBy: abacMatch("wpol_catch-all-allow", "catch-all-allow", "allow") }),
+  }
+}
+
+/** A dotted-quad IPv4 address inside 10.0.0.0/8, the one CIDR a row here reads. */
+function inTenNet(ip) {
+  const m = typeof ip === "string" ? /^10\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/.exec(ip) : null
+  return m !== null && m.slice(1).every((o) => Number(o) <= 255)
+}
 
 /** The scenario a request reaches, or null. The first row whose key and condition both hold wins. */
 function findExplainScenario(req) {
@@ -4084,11 +4203,8 @@ export const wardenHandlers = {
       // Nothing here writes: no check log row, no cache, no state change.
       const scenario = findExplainScenario(req)
       if (scenario) return projectExplanation(req, scenario.lanes(req), scenario.evalTimeNs)
-      return projectExplanation(
-        req,
-        { rbac: RBAC_NO_ROLES(req), rebac: REBAC_NO_RELATION(req), abac: ABAC_NO_MATCH },
-        96_000
-      )
+      const abac = inSandbox(req.namespacePath) ? sandboxAbac(req) : ABAC_NO_MATCH
+      return projectExplanation(req, { rbac: RBAC_NO_ROLES(req), rebac: REBAC_NO_RELATION(req), abac }, 96_000)
     },
   },
 }
