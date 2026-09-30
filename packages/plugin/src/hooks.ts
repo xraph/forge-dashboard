@@ -36,6 +36,10 @@ const noUnsubscribe = () => {}
  * `refetch` is still here, and still goes to the server. A "reload" button is
  * a real thing a page wants. What went away is having to call it to stay
  * correct after a write: `meta.invalidates` does that now.
+ *
+ * With `{ enabled: false }` it asks nothing and watches nothing until it is
+ * turned on, which suits a costly read that should run only when the operator
+ * asks.
  */
 export function useQuery<T = unknown>(
   intent: string,
@@ -203,36 +207,51 @@ export function useCommand<T = unknown>(intent: string): CommandState<T> {
  * Same signature and same store as `useQuery`, so a settings panel written
  * against one works against the other. The only difference is which client
  * answers, and that the intent has to be on the sub-plugin's `hostIntents`
- * allowlist.
+ * allowlist. It takes the same `enabled` option, with the same meaning: `false`
+ * sends nothing and watches nothing until it is turned on.
  */
 export function useHostQuery<T = unknown>(
   intent: string,
   params?: Record<string, unknown>,
+  options?: QueryOptions,
 ): QueryState<T> {
   const client = useHostAccess(intent)
+  const enabled = options?.enabled ?? true
   const key = queryStore.keyOf(client.extension, intent, params)
 
+  // Disabled means not a reader, for the reasons `useQuery` gives.
   const entry = useSyncExternalStore(
-    useCallback((listener) => queryStore.subscribe(key, listener), [key]),
-    useCallback(() => queryStore.snapshot<T>(key), [key]),
-    useCallback(() => queryStore.snapshot<T>(key), [key]),
+    useCallback(
+      (listener) => (enabled ? queryStore.subscribe(key, listener) : noUnsubscribe),
+      [key, enabled],
+    ),
+    useCallback(
+      () => (enabled ? queryStore.snapshot<T>(key) : (DISABLED as Entry<T>)),
+      [key, enabled],
+    ),
+    useCallback(
+      () => (enabled ? queryStore.snapshot<T>(key) : (DISABLED as Entry<T>)),
+      [key, enabled],
+    ),
   )
 
   const staleMs = queryStore.staleTimeFor(client.extension, intent)
 
   useEffect(() => {
+    if (!enabled) return
     queryStore.read<T>(key, () => client.query<T>(intent, params), staleMs)
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [client, intent, key, staleMs])
+  }, [client, intent, key, staleMs, enabled])
 
   const refetch = useCallback(() => {
+    if (!enabled) return
     // Forced for the same reason useQuery's is: staleMs 0 defeats the
     // freshness check, but only `force` skips the "already pending, join it"
     // return. Without it a reload pressed during an in-flight request does
     // nothing at all.
     queryStore.read<T>(key, () => client.query<T>(intent, params), 0, { force: true })
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [client, intent, key])
+  }, [client, intent, key, enabled])
 
   return { ...entry, refetch }
 }
