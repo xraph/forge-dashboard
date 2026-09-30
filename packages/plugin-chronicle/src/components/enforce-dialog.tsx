@@ -1,9 +1,9 @@
 import { ConfirmDialog } from "@forge-go/dashboard-kit/components/confirm-dialog"
 import { useCommand, useQuery } from "@forge-go/dashboard-plugin"
-import type { EnforceResponse, RetentionPreviewResponse } from "../types"
+import type { EnforceResponse, PolicyListResponse, PolicySummary, RetentionPreviewResponse } from "../types"
 import { LIMITS } from "../types"
 import { formatSeq } from "../format"
-import { categoryLabel } from "../policy"
+import { categoryLabel, policyScopeLabel } from "../policy"
 import { DialogError } from "./dialog-error"
 
 const events = (n: number) => (n === 1 ? "event" : "events")
@@ -23,13 +23,19 @@ export function EnforceDialog({ open, onOpenChange }: { open: boolean; onOpenCha
 
 function EnforceForm({ onOpenChange }: { onOpenChange: (open: boolean) => void }) {
   const preview = useQuery<RetentionPreviewResponse>("retention.preview", {})
+  // The preview names each policy but not whose events it removes. The list
+  // does, and an app-wide operator's app-level policy reaches every tenant,
+  // which the run must say before it is offered.
+  const policies = useQuery<PolicyListResponse>("retention.policies")
   const enforce = useCommand<EnforceResponse>("retention.enforce")
 
   const done = enforce.data !== undefined
   // The cache can still hold the last opening's answer while this one is in
   // flight, so a count is only current once nothing is loading.
   const counted = !preview.loading && preview.data !== undefined ? preview.data : undefined
-  const ready = counted !== undefined && !counted.noPolicies && !done
+  // A policy's scope never changes, so a list the cache still holds names it correctly.
+  const scopes = policies.data?.policies
+  const ready = counted !== undefined && scopes !== undefined && !counted.noPolicies && !done
 
   return (
     <ConfirmDialog
@@ -49,8 +55,9 @@ function EnforceForm({ onOpenChange }: { onOpenChange: (open: boolean) => void }
         <span className="flex flex-col gap-3">
           {/* After a run the server invalidates the count, and a refreshed "eligible" figure beside the result would read as a contradiction. */}
           {!done && preview.loading && <span role="status">Counting...</span>}
-          {!done && counted && <PreviewSummary preview={counted} />}
+          {!done && counted && <PreviewSummary preview={counted} policies={scopes} />}
           {!done && <DialogError what="count the eligible events" error={preview.error} />}
+          {!done && !policies.loading && <DialogError what="read whose events each policy removes" error={policies.error} />}
           {enforce.data && <RunOutcome r={enforce.data} />}
           <DialogError what="run retention" error={enforce.error} />
         </span>
@@ -70,7 +77,9 @@ function GoverningSentence({ n }: { n: number }) {
   )
 }
 
-function PreviewSummary({ preview }: { preview: RetentionPreviewResponse }) {
+function PreviewSummary({ preview, policies }: { preview: RetentionPreviewResponse; policies?: PolicySummary[] }) {
+  const byId = new Map((policies ?? []).map((p) => [p.id, p]))
+  const scopeOf = (id: string) => byId.get(id)
   if (preview.noPolicies) {
     return (
       <>
@@ -79,6 +88,10 @@ function PreviewSummary({ preview }: { preview: RetentionPreviewResponse }) {
       </>
     )
   }
+  const reachesEveryTenant = preview.byPolicy.some((p) => {
+    const found = scopeOf(p.policyId)
+    return found !== undefined && !found.tenantId
+  })
   return (
     <>
       <span>
@@ -86,15 +99,20 @@ function PreviewSummary({ preview }: { preview: RetentionPreviewResponse }) {
       </span>
       <span className="flex flex-col gap-1">
         {/* The id goes beside the category because the category alone repeats: an app-wide operator has a debug policy per tenant, and the preview names no scope. */}
-        {preview.byPolicy.map((p) => (
-          <span key={p.policyId}>
-            <span className="font-medium">{categoryLabel(p.category)}</span>
-            {" "}
-            <span className="font-mono text-xs text-muted-foreground">{p.policyId}</span>
-            {`: ${p.capped ? "at least " : ""}${formatSeq(p.eventCount)} ${events(p.eventCount)}`}
-          </span>
-        ))}
+        {preview.byPolicy.map((p) => {
+          const found = scopeOf(p.policyId)
+          return (
+            <span key={p.policyId}>
+              <span className="font-medium">{categoryLabel(p.category)}</span>
+              {" "}
+              <span className="font-mono text-xs text-muted-foreground">{p.policyId}</span>
+              {policies !== undefined && ` (${found ? policyScopeLabel(found) : "scope not known"})`}
+              {`: ${p.capped ? "at least " : ""}${formatSeq(p.eventCount)} ${events(p.eventCount)}`}
+            </span>
+          )
+        })}
       </span>
+      {reachesEveryTenant && <span className="font-medium">Policies set at the app level remove events from every tenant in the app.</span>}
       <span>
         {`One run removes at most ${formatSeq(LIMITS.enforcePerPolicy)} events per policy, so eligible is not the same as removed.`}
       </span>
@@ -119,7 +137,8 @@ function RunOutcome({ r }: { r: EnforceResponse }) {
   return (
     <span role="status">
       {`${formatSeq(r.purged)} ${events(r.purged)} removed${r.archived > 0 ? `, ${formatSeq(r.archived)} archived` : ""}.`}
-      {r.moreRemain ? " More remain: run it again." : ""}
+      {/* Run is off once a result is shown, so the way to run again is to close and reopen. */}
+      {r.moreRemain ? " More may remain: close this and run it again." : ""}
     </span>
   )
 }
