@@ -48,6 +48,20 @@ export interface NavSection {
   groups: NavGroup[]
 }
 
+/**
+ * One entry in the rail and the pages it opens in the secondary sidebar: the
+ * scope itself, or one of its sub-plugins. The host builds these; the kit only
+ * draws them. `href` is the entry's first page.
+ */
+export interface NavArea {
+  id: string
+  label: string
+  icon?: ReactNode
+  href: string
+  kind: "scope" | "plugin"
+  groups: NavGroup[]
+}
+
 export interface NavTreeProps {
   groups: NavGroup[]
   /** Pathname only, without the search string. */
