@@ -28,6 +28,7 @@
 //   - relay               (packages/plugin-relay)            14 queries, 12 commands
 //                          mirrors relay/extension/contract; endpoints here,
 //                          the rest in relay-fixtures.mjs
+//   - bastion             (packages/plugin-bastion)          9 queries
 
 import { createServer } from "node:http"
 import { randomBytes } from "node:crypto"
@@ -35,6 +36,7 @@ import { createRelayFixtures } from "./relay-fixtures.mjs"
 import { createVaultHandlers, resetVault } from "./vault-fixtures.mjs"
 import { createLedgerHandlers, resetLedger } from "./ledger-fixtures.mjs"
 import { createChronicleHandlers, resetChronicle } from "./chronicle-fixtures.mjs"
+import { createBastionHandlers, resetBastion } from "./bastion-fixtures.mjs"
 
 // ---------------------------------------------------------------------------
 // Config
@@ -2836,6 +2838,7 @@ const CONTRIBUTORS = [
   { name: "vault", envPrefix: "VAULT", handlers: createVaultHandlers(FixtureError) },
   { name: "ledger", envPrefix: "LEDGER", handlers: createLedgerHandlers(FixtureError) },
   { name: "chronicle", envPrefix: "CHRONICLE", handlers: createChronicleHandlers(FixtureError) },
+  { name: "bastion", envPrefix: "BASTION", handlers: createBastionHandlers(FixtureError) },
   ...SETTINGS_ONLY_EXTENSIONS.map((extension) => ({
     name: extension,
     envPrefix: extension.toUpperCase(),
@@ -3104,6 +3107,7 @@ function handleReset(res) {
   resetVault()
   resetLedger()
   resetChronicle()
+  resetBastion()
   csrfTokens.clear()
   idempotencyStore.clear()
   return sendJSON(res, 200, { ok: true })

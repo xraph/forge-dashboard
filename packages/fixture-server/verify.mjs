@@ -210,6 +210,7 @@ const INPUT = {
   // and delete removes it. overrides.set runs before overrides.delete, on a
   // seeded key the tenant has no override for.
   "vault::config.detail": { key: "limits.api-rate" },
+  "bastion::routes.detail": { id: "manual-/users" },
   "vault::config.versions": { key: "limits.api-rate" },
   "vault::config.resolve": { key: "limits.api-rate", tenantId: "acme" },
   "vault::overrides.list": { tenantId: "acme" },
@@ -1837,6 +1838,25 @@ async function main() {
       )
     }
     }
+  }
+
+  // bastion: the rules the Go handlers enforce, not just "answered".
+  {
+    const call = (intent, input) => dispatch("bastion", intent, "query", input, csrf)
+    const check = (name, ok, detail) => {
+      console.log(`  bastion ${name}: ${ok}`)
+      if (!ok) failures.push({ key: `spot-check::bastion ${name}`, reason: detail })
+    }
+    const missing = await call("routes.detail", { id: "nope" })
+    check("unknown route is NOT_FOUND", missing.body?.error?.code === "NOT_FOUND", JSON.stringify(missing.body))
+    const blank = await call("routes.detail", {})
+    check("missing id is BAD_REQUEST", blank.body?.error?.code === "BAD_REQUEST", JSON.stringify(blank.body))
+    const orders = await call("routes.detail", { id: "9b2f6c1e-4d3a-4f7b-8c21-5e0a7d9f1b36" })
+    const leaked = JSON.stringify(orders.body).includes("k-")
+    check("transform api key is redacted", orders.body?.data?.transform?.requestHeaders?.set?.["X-Api-Key"] === "[redacted]" && !leaked, JSON.stringify(orders.body?.data?.transform))
+    const first = (await call("overview.stats", {})).body?.data?.totalRequests
+    const second = (await call("overview.stats", {})).body?.data?.totalRequests
+    check("overview counters advance between reads", second > first, `${first} then ${second}`)
   }
 
   // ledger catalog: writes visible in the next read, the manifest's
