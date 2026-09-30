@@ -1,10 +1,11 @@
 import { describe, expect, it, vi } from "vitest"
-import { render, screen, waitFor, within } from "@testing-library/react"
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react"
 import { MemoryRouter } from "react-router"
 import { ForgeDashboardProvider, SessionProvider } from "@forge-go/dashboard-runtime"
-import { definePlugin, queryStore } from "@forge-go/dashboard-plugin"
+import { PluginProvider, createScopedClient, definePlugin, queryStore } from "@forge-go/dashboard-plugin"
 import type { ContextDimension } from "@forge-go/dashboard-plugin"
 import { PluginHost } from "../src/host/PluginHost"
+import { ContextControl } from "../src/host/ContextControl"
 
 window.matchMedia ??= ((query: string) => ({
   matches: false,
@@ -559,5 +560,46 @@ describe("a server that accepts a switch and ignores it", () => {
 
     await waitFor(() => expect(screen.getByText("users page")).toBeTruthy())
     expect(screen.queryByText(/did not take/i)).toBeNull()
+  })
+})
+
+describe("ContextControl", () => {
+  function renderControl(fetchImpl: typeof fetch, dimensions = [appDimension, envDimension]) {
+    // The fixture answers the contract POST at any base and matches only the
+    // "/csrf" suffix, so the base PluginHost would derive from this file's
+    // config is used as is.
+    const client = createScopedClient("/dashboard/api/dashboard/v1", "auth", fetchImpl)
+    return render(
+      <MemoryRouter initialEntries={["/@auth/platform/users"]}>
+        <PluginProvider client={client}>
+          <ContextControl dimensions={dimensions} plugin={routedAuthPlugin()} />
+        </PluginProvider>
+      </MemoryRouter>,
+    )
+  }
+
+  it("names itself with every dimension's current value, joined", async () => {
+    queryStore.clear()
+    const server = fixtureServer()
+    server.setCurrentApp("app_platform")
+    renderControl(server.fetchImpl)
+    expect(await screen.findByRole("button", { name: /^Platform \/ / })).toBeTruthy()
+  })
+
+  it("opens a popover holding the App and Environment selects", async () => {
+    queryStore.clear()
+    const server = fixtureServer()
+    server.setCurrentApp("app_platform")
+    renderControl(server.fetchImpl)
+    fireEvent.click(await screen.findByRole("button", { name: /^Platform \/ / }))
+    expect(await screen.findByLabelText("App")).toBeTruthy()
+    expect(screen.getByLabelText("Environment")).toBeTruthy()
+  })
+
+  it("renders nothing for a scope with no dimensions", () => {
+    queryStore.clear()
+    const server = fixtureServer()
+    const { container } = renderControl(server.fetchImpl, [])
+    expect(container.textContent).toBe("")
   })
 })
