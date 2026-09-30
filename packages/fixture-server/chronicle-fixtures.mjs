@@ -557,11 +557,19 @@ function seedErasures() {
   return [
     {
       id: "erasure_1", seq: 1, tenantId: "", subjectId: "subject_9", reason: "GDPR Article 17 request 4471",
-      requestedBy: "user_admin", eventsAffected: 1, keyDestroyed: true, createdAt: NOW - 20 * DAY,
+      requestedBy: "user_admin", eventsAffected: 1, keyDestroyed: true, legacyKeyRetained: false, status: "completed",
+      createdAt: NOW - 20 * DAY,
     },
     {
       id: "erasure_2", seq: 2, tenantId: "acme", subjectId: "legacy-user", reason: "Account closure",
-      requestedBy: "user_admin", eventsAffected: 3, keyDestroyed: false, createdAt: NOW - 5 * DAY,
+      requestedBy: "user_admin", eventsAffected: 3, keyDestroyed: false, legacyKeyRetained: true, status: "completed",
+      createdAt: NOW - 5 * DAY,
+    },
+    // An erasure that did not finish: some keys may be gone, none confirmed destroyed.
+    {
+      id: "erasure_3", seq: 3, tenantId: "", subjectId: "subject_3", reason: "GDPR Article 17 request 4502",
+      requestedBy: "user_admin", eventsAffected: 2, keyDestroyed: false, legacyKeyRetained: false, status: "pending",
+      createdAt: NOW - 1 * DAY,
     },
   ]
 }
@@ -569,7 +577,8 @@ function seedErasures() {
 function projectErasure(r) {
   return {
     id: r.id, subjectId: r.subjectId, reason: r.reason, requestedBy: r.requestedBy,
-    eventsAffected: r.eventsAffected, keyDestroyed: r.keyDestroyed, createdAt: iso(r.createdAt),
+    eventsAffected: r.eventsAffected, keyDestroyed: r.keyDestroyed, legacyKeyRetained: r.legacyKeyRetained,
+    status: r.status, createdAt: iso(r.createdAt),
   }
 }
 
@@ -882,7 +891,7 @@ const EXPORT_FORMATS = {
 // ---------------------------------------------------------------------------
 
 export function resetChronicle() {
-  counters = { erasure: 3, report: 1, archive: 2 }
+  counters = { erasure: 4, report: 1, archive: 2 }
   chains = seedChains()
   events = seedEvents()
   erasures = seedErasures()
@@ -1138,7 +1147,7 @@ export function createChronicleHandlers(FixtureError) {
         const legacyKeyRetained = subjectId === "legacy-user"
         erasures.push({
           id, seq, tenantId: viewer().tenantId, subjectId, reason, requestedBy: "user_admin",
-          eventsAffected: hit.length, keyDestroyed: !legacyKeyRetained, createdAt: NOW,
+          eventsAffected: hit.length, keyDestroyed: !legacyKeyRetained, legacyKeyRetained, status: "completed", createdAt: NOW,
         })
         return { id, subjectId, eventsAffected: hit.length, keyDestroyed: !legacyKeyRetained, legacyKeyRetained }
       },

@@ -1,14 +1,14 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react"
 import { describe, expect, it } from "vitest"
 import { PluginProvider } from "@forge-go/dashboard-plugin"
-import { KeyBadge } from "../src/badges"
+import { ErasureStatusBadge, KeyBadge } from "../src/badges"
 import { ErasuresPage } from "../src/pages/erasures"
 import { paramsRecordingClient, renderPage, scriptedClient } from "./harness"
 import type { ErasureSummary } from "../src/types"
 
 const erasure = (n: number, over: Partial<ErasureSummary> = {}): ErasureSummary => ({
   id: `erasure_${n}`, subjectId: `subject_${n}`, reason: "GDPR Article 17", requestedBy: "user_admin",
-  eventsAffected: 12431, keyDestroyed: true, createdAt: "2026-09-29T10:00:00Z", ...over,
+  eventsAffected: 12431, keyDestroyed: true, legacyKeyRetained: false, status: "completed", createdAt: "2026-09-29T10:00:00Z", ...over,
 })
 
 describe("ErasuresPage", () => {
@@ -32,10 +32,37 @@ describe("ErasuresPage", () => {
     expect(screen.getByLabelText("no request time")).toBeTruthy()
   })
 
-  it("keeps a destroyed key quiet and marks a kept one", async () => {
-    render(<><KeyBadge destroyed /><KeyBadge destroyed={false} /></>)
+  it("marks a pending erasure as the failure it is and keeps a completed one quiet", async () => {
+    const c = scriptedClient({
+      "erasures.list": { erasures: [erasure(2, { status: "pending", keyDestroyed: false }), erasure(1)], total: 2, hasMore: false },
+    })
+    renderPage(ErasuresPage, c.client)
+    await screen.findByText("erasure_1")
+    expect(screen.getByText("Pending").getAttribute("data-variant")).toBe("destructive")
+    expect(screen.getByText("Completed").getAttribute("data-variant")).toBe("outline")
+  })
+
+  it("answers the key four ways, and only a destroyed key stays quiet", () => {
+    render(
+      <>
+        <KeyBadge erasure={erasure(1)} />
+        <KeyBadge erasure={erasure(2, { keyDestroyed: false, legacyKeyRetained: true })} />
+        <KeyBadge erasure={erasure(3, { keyDestroyed: false })} />
+        <KeyBadge erasure={erasure(4, { status: "pending", keyDestroyed: false })} />
+      </>,
+    )
     expect(screen.getByText("Key destroyed").getAttribute("data-variant")).toBe("outline")
-    expect(screen.getByText("Key kept").getAttribute("data-variant")).toBe("secondary")
+    expect(screen.getByText("Legacy key retained").getAttribute("data-variant")).toBe("secondary")
+    expect(screen.getByText("Key intact").getAttribute("data-variant")).toBe("secondary")
+    expect(screen.getByText("Not confirmed").getAttribute("data-variant")).toBe("secondary")
+  })
+
+  it("reads a record with no status, or an unknown one, as completed", () => {
+    const old = { ...erasure(1) } as Partial<ErasureSummary>
+    delete old.status
+    render(<><ErasureStatusBadge erasure={old as ErasureSummary} /><ErasureStatusBadge erasure={erasure(2, { status: "archived" as "pending" })} /></>)
+    expect(screen.getAllByText("Completed")).toHaveLength(2)
+    expect(screen.queryByText("Pending")).toBeNull()
   })
 
   it("says so when nothing has been erased, with a zero count", async () => {

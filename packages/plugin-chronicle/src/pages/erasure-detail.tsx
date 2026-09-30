@@ -7,7 +7,7 @@ import { Timestamp } from "@forge-go/dashboard-kit/components/timestamp"
 import { PluginLink, useQuery } from "@forge-go/dashboard-plugin"
 import type { PluginPageProps } from "@forge-go/dashboard-plugin"
 import type { ErasureSummary } from "../types"
-import { KeyBadge } from "../badges"
+import { ErasureStatusBadge, KeyBadge, isPending } from "../badges"
 import { formatSeq } from "../format"
 
 export const ErasureDetailPage: ComponentType<PluginPageProps> = ({ params }) => {
@@ -26,14 +26,22 @@ export const ErasureDetailPage: ComponentType<PluginPageProps> = ({ params }) =>
                 { term: "Reason", value: <span className="whitespace-pre-line">{e.reason}</span> },
                 { term: "Requested by", value: e.requestedBy ? <span className="font-mono text-xs">{e.requestedBy}</span> : <NoneCell label="requester" /> },
                 { term: "Events erased", value: formatSeq(e.eventsAffected) },
-                { term: "Key", value: <KeyBadge destroyed={e.keyDestroyed} /> },
+                { term: "Status", value: <ErasureStatusBadge erasure={e} /> },
+                { term: "Key", value: <KeyBadge erasure={e} /> },
                 { term: "Requested", value: <Timestamp value={e.createdAt} label="request time" /> },
               ]}
             />
-            {!e.keyDestroyed && (
+            {isPending(e) ? (
               <p className="max-w-prose text-sm">
-                The key was kept because events in another scope still use it. This erasure's events are marked erased and unreadable; the key is destroyed the first time an erasure finds no other scope using it.
+                This erasure did not finish. Its events may be marked and some of its keys may already be gone, but not every key is confirmed destroyed. Run the erasure again for this subject; the retry gets its own record.
               </p>
+            ) : (
+              !e.keyDestroyed &&
+              e.legacyKeyRetained && (
+                <p className="max-w-prose text-sm">
+                  The key was kept because events in another scope still use it. This erasure's events are marked erased and unreadable; the key is destroyed the first time an erasure finds no other scope using it.
+                </p>
+              )
             )}
             <PluginLink to="/erasures" className="text-sm underline underline-offset-4">
               Back to erasures

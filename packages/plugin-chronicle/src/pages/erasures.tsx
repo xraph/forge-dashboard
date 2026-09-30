@@ -8,7 +8,7 @@ import { Timestamp } from "@forge-go/dashboard-kit/components/timestamp"
 import { PluginLink, useQuery } from "@forge-go/dashboard-plugin"
 import type { PluginPageProps } from "@forge-go/dashboard-plugin"
 import type { ErasureListResponse, ErasureSummary } from "../types"
-import { KeyBadge } from "../badges"
+import { ErasureStatusBadge, KeyBadge } from "../badges"
 import { ErasureRequestDialog } from "../components/erasure-request-dialog"
 import { formatSeq } from "../format"
 
@@ -32,7 +32,8 @@ const columns: Column<ErasureSummary>[] = [
     cell: (e) => (e.requestedBy ? <span className="font-mono text-xs">{e.requestedBy}</span> : <NoneCell label="requester" />),
   },
   { id: "events", header: "Events", align: "end", cell: (e) => formatSeq(e.eventsAffected) },
-  { id: "key", header: "Key", cell: (e) => <KeyBadge destroyed={e.keyDestroyed} /> },
+  { id: "status", header: "Status", cell: (e) => <ErasureStatusBadge erasure={e} /> },
+  { id: "key", header: "Key", cell: (e) => <KeyBadge erasure={e} /> },
   { id: "created", header: "Requested", cell: (e) => <Timestamp value={e.createdAt} label="request time" /> },
 ]
 

@@ -149,6 +149,14 @@ export interface ErasureSummary {
   requestedBy: string
   eventsAffected: number
   keyDestroyed: boolean
+  /** True when the key predates per-scope keys and events in another scope still use it. */
+  legacyKeyRetained: boolean
+  /**
+   * "pending" is an erasure that did not finish: some keys may be gone, but
+   * not every one is confirmed destroyed. Records from before erasures had a
+   * status are completed, and so is anything this type does not recognise.
+   */
+  status: "pending" | "completed"
   createdAt: string
 }
 export interface ErasureListResponse { erasures: ErasureSummary[]; total: number; hasMore: boolean }
