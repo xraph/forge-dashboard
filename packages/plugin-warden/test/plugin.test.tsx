@@ -67,6 +67,19 @@ describe("wardenPlugin", () => {
     expect(at("Permissions")?.priority).toBeLessThan(30)
   })
 
+  it("puts Policies in the Authorization group after Assignments", () => {
+    const nav = wardenPlugin.nav ?? []
+    const at = (label: string) => nav.find((n) => n.label === label)
+    expect(at("Policies")).toMatchObject({
+      to: "/policies",
+      priority: 40,
+      group: "Authorization",
+    })
+    expect(at("Policies")?.icon).toBeTruthy()
+    expect(at("Policies")?.priority).toBeGreaterThan(at("Assignments")?.priority ?? 0)
+    expect(wardenPlugin.routes.map((r) => r.path)).toContain("/policies")
+  })
+
   it("puts Relations in a Relationships group of its own", () => {
     // Its own group, not Authorization: tuples are a different model from
     // roles and assignments. Resource types join it at priority 10.

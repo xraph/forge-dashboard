@@ -4,6 +4,7 @@ import {
   KeyIcon,
   LayersIcon,
   LinkIcon,
+  ScrollTextIcon,
   SettingsIcon,
   UserCogIcon,
   UsersIcon,
@@ -13,6 +14,7 @@ import { WardenConfigPage } from "./pages/config"
 import { WardenOverviewPage } from "./pages/overview"
 import { WardenPermissionDetailPage } from "./pages/permission-detail"
 import { WardenPermissionsPage } from "./pages/permissions"
+import { WardenPoliciesPage } from "./pages/policies"
 import { WardenRelationsPage } from "./pages/relations"
 import { WardenResourceTypeDetailPage } from "./pages/resource-type-detail"
 import { WardenResourceTypesPage } from "./pages/resource-types"
@@ -26,6 +28,13 @@ export type { RoleSummary, RolesList, AckResponse } from "./pages/roles"
 export type { RoleDetail, PermissionSummary } from "./pages/role-detail"
 export type { PermissionsList } from "./pages/permissions"
 export type { PermissionDetail } from "./pages/permission-detail"
+export type {
+  PoliciesList,
+  PoliciesListParams,
+  PolicyCreatePayload,
+  PolicyState,
+  PolicySummary,
+} from "./pages/policies"
 export type { RelationSummary, RelationsList } from "./pages/relations"
 export type { ResourceTypeSummary, ResourceTypesList } from "./pages/resource-types"
 export type {
@@ -40,6 +49,7 @@ export {
   WardenOverviewPage,
   WardenPermissionDetailPage,
   WardenPermissionsPage,
+  WardenPoliciesPage,
   WardenRelationsPage,
   WardenResourceTypeDetailPage,
   WardenResourceTypesPage,
@@ -101,6 +111,13 @@ export const wardenPlugin = definePlugin({
       group: "Authorization",
     },
     {
+      label: "Policies",
+      to: "/policies",
+      priority: 40,
+      icon: <ScrollTextIcon />,
+      group: "Authorization",
+    },
+    {
       label: "Resource types",
       to: "/resource-types",
       priority: 10,
@@ -134,6 +151,10 @@ export const wardenPlugin = definePlugin({
     // permissions row and on each grant of a role.
     { path: "/permissions/:id", element: WardenPermissionDetailPage },
     { path: "/assignments", element: WardenAssignmentsPage },
+    // The routes for one policy (/policies/:id and /policies/:id/edit) are
+    // registered with its own page, and get no nav entry: a sidebar link to
+    // "a policy" with none chosen points nowhere.
+    { path: "/policies", element: WardenPoliciesPage },
     { path: "/relations", element: WardenRelationsPage },
     { path: "/resource-types", element: WardenResourceTypesPage },
     // No nav entry: a sidebar link to "a resource type" with none chosen
