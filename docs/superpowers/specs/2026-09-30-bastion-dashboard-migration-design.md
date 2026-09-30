@@ -176,18 +176,22 @@ In `proxy`, `resilience` and the root package:
   bucket histogram per route, bounded in memory; the choice goes in the plan
   with its error bound written down, because a p99 that is really a p90 is a
   number an operator will act on.
-- Call `RecordCacheHit`, `RecordCacheMiss` and
-  `RecordRetryAttempt` where the cache and retry executor decide. If the retry
-  executor is genuinely unused (it is injected and never called), record that
-  finding and report retries as not measured; do not wire a retry feature in
-  under a stats ticket.
-- Call `RecordSuccess` on a successful proxied response. Assign
-  `Target.CircuitState` from the breaker on every transition, so the load
-  balancer filter starts working. Add `Gateway.Circuits()` returning copied
-  snapshots (target id, state, failure count, last failure, last change) and
+- Cache counters come from the response cache's own hit and miss counts.
+  `ResponseCache.Set` has no caller, so the cache never stores a response
+  and every lookup misses; the counters will say so. `ShouldRetry` has no
+  caller either, so nothing is retried. Neither is wired in under this
+  migration. Both go in `MIGRATION.md`, and the contract reports retries as
+  not measured.
+- Call `RecordSuccess` on a proxied answer below 500. Target selection asks
+  each target's breaker and skips open ones; `Target.CircuitState` is filled
+  only on copies, because assigning it on live targets from the breaker's
+  async callback races the load balancer and can apply transitions out of
+  order. Add `Gateway.Circuits()` returning copied snapshots (target id,
+  state, failure count, last failure, last change) and
   `Gateway.ResetCircuit(targetID)`.
-- Count uptime from Start and upstreams by unique target id, and remove a
-  route's `RouteStats` when the route is removed.
+- Count uptime from Start and upstreams by distinct URL (a URL is healthy
+  only if every target entry for it is), and drop a route's `RouteStats`
+  once the route is gone.
 - Add a read path that copies a target's
   counters into a value without mutating the shared target, used by every new
   handler. `Target.Snapshot()` stays for existing callers.
@@ -413,6 +417,9 @@ decision. Its doc comments get corrected to say what it actually gates.
 
 Not fixed by this migration, each worth its own follow-up:
 
+- The response cache never stores anything: `ResponseCache.Set` has no caller.
+- Retries never happen: `RetryPolicy.ShouldRetry` has no caller.
+- `Target.Healthy` is a plain bool read without a lock by the load balancer.
 - The admin REST API has no auth. `AdminAuthMiddleware` exists and is never
   wired.
 - FARP push registration has no auth.
