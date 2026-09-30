@@ -594,6 +594,13 @@ Recorded here so they are not lost between now and step 1.
 - A tag filter on the flag list. Tags are a JSON array in three different
   column types across the backends, so a filter that keeps paging exact
   needs three dialects of array query.
+- Keys or tenant ids the templ pages stored with leading or trailing spaces.
+  The new pages list them, but every write path trims its input, so such a
+  row can't be opened, changed or reverted from the dashboard. Fix those rows
+  in the store first.
+- Editing a config value whose type is not one of the six the vault checks
+  (the templ page's `yaml`). It is shown read-only with the reason, and the
+  only way out is a retype that comes with a valid value.
 
 **Bugs found, not migrated**
 
@@ -623,6 +630,21 @@ Recorded here so they are not lost between now and step 1.
   row, so a disabled flag kept answering from cache for up to 30 seconds.
 - The flag list and detail pages swallowed store errors into their empty
   states, and the list counted at most 100 flags.
+- Config create stored every value as the raw string from the form, whatever
+  its type, set no ID (so the second create failed on sqlite and postgres),
+  and overwrote an existing key. Edit turned invalid JSON into a string and
+  silently retyped any label outside six known ones to "string".
+- Deleting a config key left its overrides behind. They kept answering for
+  their tenants and came back when the key was recreated. Delete now removes
+  them first, create clears any left over, and an orphan that survives
+  anyway (from `config.Service.Delete`, which the dashboard doesn't use) can
+  be removed from the overrides page.
+- A rollback through `config.Service.Set` relabelled the type and wiped the
+  description and metadata, and `GetConfigVersion` reported the old value
+  under the current type. Versions only ever stored the value.
+- The overrides page showed only the overrides of the first 100 keys, took
+  the app id from the request, and could not change anything. Nothing
+  audited config or override writes.
 
 ## Testing
 
@@ -857,3 +879,50 @@ the last save wins, because no store has a version column. Mongo's
 halfway leaves a partial rule list live. Cache invalidation reaches only the
 replica that served the write; other replicas catch up within the TTL, and
 the evaluate panel says so.
+
+## What slice 4 found that slice 5 must know
+
+Slice 4 shipped config and tenant overrides: eleven intents, a list with a
+key-prefix filter, a create page, the entry page with a lazy CodeMirror
+editor, a version diff and rollback, per-tenant overrides with an explicit
+revert, a resolve panel, and a cross-key overrides page. On vault's `main`
+it starts at `c2db8dd`, not pushed.
+
+### Things that changed underneath you
+
+Config and override writes go through `Vault.ConfigManager()`, in its own
+package `configmgr` because `override` imports `config`. It checks every
+value against the entry's type (overrides included), refuses an existing
+key, never erases a field a request didn't name, clears overrides before a
+delete and orphans before a create, skips a write that changes nothing, and
+writes an audit row for each real change. A type change is refused while any
+override would no longer fit it.
+
+`useQuery` takes `{ enabled }` now, so a query can wait for a button. Flag
+evaluation and config resolve both use it; the workaround hook from slice 3
+is gone.
+
+Audit rows for config carry resource `config`, and override rows carry
+resource `override` with the overridden tenant as the row's tenant.
+`config.detail` merges both for its recent activity. The audit page in
+slice 5 should filter on those two resources and show the tenant column,
+because for an override row it says which tenant the change was about.
+
+### Patterns to reuse
+
+`BASELINE.md` has the measured chunks: the config routes add under 10 KB to
+the entry, and CodeMirror lives only in the lazy editor and diff chunks.
+`test/lazy-editor.test.ts` fails the test run for any change that pulls
+CodeMirror into an eager module, so a new lazy route can copy that test.
+
+Value display and input (`ConfigValue`, `FlagValue`, `ValueInput`) cover all
+six types now, duration included. Pass the draft, never the stored value, to
+`ValueInput`: its bool toggle is fully controlled.
+
+### Still open
+
+Postgres and mongo ran only in throwaway containers during implementation;
+there is no mongo harness in the repo. `overrides.list` reads every override
+for a tenant or key before paging, because the store can't page or count
+them. The CodeMirror editor exists twice, in relay and in vault; one shared
+editor in kit is the follow-up.
