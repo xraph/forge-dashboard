@@ -45,6 +45,7 @@ describe("ledgerPlugin", () => {
       .sort()
     const expected = ["/invoices/:id", "/plans/:id", "/usage"].filter((p) => ledgerPlugin.routes.some((r) => r.path === p))
     expect(lazyPaths).toContain("/plans/:id")
+    expect(lazyPaths).toContain("/invoices/:id")
     expect(lazyPaths).toEqual(expected.sort())
   })
 
