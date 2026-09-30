@@ -6,6 +6,7 @@ import {
   DescriptionList,
   DetailLayout,
 } from "@forge-go/dashboard-kit/components/detail-layout"
+import { EmptyState } from "@forge-go/dashboard-kit/components/empty-state"
 import { NoneCell } from "@forge-go/dashboard-kit/components/none-cell"
 import { PageHeader } from "@forge-go/dashboard-kit/components/page-header"
 import { QueryBoundary } from "@forge-go/dashboard-kit/components/query-boundary"
@@ -38,22 +39,35 @@ export const KeyDetailPage: ComponentType<PluginPageProps> = ({ params }) => {
 function KeyDetailBody({ id }: { id: string }) {
   const detail = useQuery<KeyDetail>("keys.detail", { id })
 
-  return (
-    <div className="flex flex-col gap-4">
-      <QueryBoundary title="Key" query={detail} skeletonRows={4}>
-        {(data) => <KeyDetailView data={data} />}
-      </QueryBoundary>
-      {detail.error?.code === "NOT_FOUND" && (
-        <div>
+  // Matched on the message as well as the code: a wrong intent name is also
+  // NOT_FOUND, and telling an operator "no key with this id" about a typo in
+  // the page would send them looking for a key that is there. Once there is
+  // data the page stays up, so this only runs for a read that failed.
+  if (
+    detail.data === undefined &&
+    detail.error?.code === "NOT_FOUND" &&
+    /key not found/i.test(detail.error.message)
+  ) {
+    return (
+      <EmptyState
+        title="No key with this id."
+        description="It may have been deleted, or the address may be mistyped."
+        action={
           <PluginLink
             to="/keys"
             className={buttonVariants({ variant: "outline" })}
           >
             Back to keys
           </PluginLink>
-        </div>
-      )}
-    </div>
+        }
+      />
+    )
+  }
+
+  return (
+    <QueryBoundary title="Key" query={detail} skeletonRows={4}>
+      {(data) => <KeyDetailView data={data} />}
+    </QueryBoundary>
   )
 }
 
@@ -208,7 +222,8 @@ function MetadataSection({ metadata }: { metadata: KeyDetail["metadata"] }) {
         <DescriptionList
           items={entries.map(([k, v]) => ({
             term: k,
-            value: typeof v === "string" ? v : JSON.stringify(v),
+            // JSON.stringify gives undefined for a value JSON cannot hold.
+            value: typeof v === "string" ? v : (JSON.stringify(v) ?? String(v)),
           }))}
         />
       )}

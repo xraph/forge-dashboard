@@ -238,15 +238,35 @@ describe("KeyDetailPage scopes and metadata", () => {
 })
 
 describe("KeyDetailPage failure", () => {
-  it("renders the not-found error with a link back to the keys", async () => {
+  it("says plainly when the key does not exist, with a link back", async () => {
     renderPage(
       KeyDetailPage,
       failingClient(new ContractError("NOT_FOUND", "key not found")),
       { id: "akey_missing" },
     )
-    expect(await screen.findByText(/key not found/i)).toBeTruthy()
+    expect(await screen.findByText("No key with this id.")).toBeTruthy()
+    expect(
+      screen.getByText(
+        "It may have been deleted, or the address may be mistyped.",
+      ),
+    ).toBeTruthy()
     const back = screen.getByRole("link", { name: "Back to keys" })
     expect(back.getAttribute("href")).toBe("/keys")
+    // No raw code and no retry: neither helps someone whose key is gone.
+    expect(screen.queryByText(/NOT_FOUND/)).toBeNull()
+    expect(screen.queryByRole("button", { name: /retry/i })).toBeNull()
+  })
+
+  it("keeps the error card for a NOT_FOUND that is not about the key", async () => {
+    renderPage(
+      KeyDetailPage,
+      failingClient(new ContractError("NOT_FOUND", 'no handler for intent "keys.detail"')),
+      { id: "akey_billing" },
+    )
+    expect(await screen.findByText(/no handler for intent/)).toBeTruthy()
+    expect(screen.getByRole("button", { name: /retry/i })).toBeTruthy()
+    expect(screen.queryByText("No key with this id.")).toBeNull()
+    expect(screen.queryByRole("link", { name: "Back to keys" })).toBeNull()
   })
 
   it("offers no back link for other failures", async () => {
@@ -256,6 +276,7 @@ describe("KeyDetailPage failure", () => {
       { id: "akey_billing" },
     )
     expect(await screen.findByText(/network down/)).toBeTruthy()
+    expect(screen.getByRole("button", { name: /retry/i })).toBeTruthy()
     expect(screen.queryByRole("link", { name: "Back to keys" })).toBeNull()
   })
 
