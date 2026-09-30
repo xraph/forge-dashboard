@@ -15,14 +15,14 @@ export function subjectProblem(s: string): string | null {
   if (s !== s.trim()) return "A subject ID cannot have a leading or trailing space."
   if ([...s].length > LIMITS.erasureSubjectId) return `A subject ID is at most ${LIMITS.erasureSubjectId} characters.`
   // eslint-disable-next-line no-control-regex
-  if (/[\u0000-\u001f\u007f]/.test(s)) return "A subject ID cannot contain control characters."
+  if (/[\u0000-\u001f\u007f-\u009f]/.test(s)) return "A subject ID cannot contain control characters."
   return null
 }
 
 export function reasonProblem(r: string): string | null {
   if ([...r].length > LIMITS.erasureReason) return `A reason is at most ${LIMITS.erasureReason} characters.`
   // eslint-disable-next-line no-control-regex
-  if (/[\u0000-\u0009\u000b-\u001f\u007f]/.test(r)) return "A reason cannot contain control characters other than a line break."
+  if (/[\u0000-\u0009\u000b-\u001f\u007f-\u009f]/.test(r)) return "A reason cannot contain control characters other than a line break."
   return null
 }
 
@@ -54,12 +54,16 @@ function ErasureRequestForm({ onOpenChange }: { onOpenChange: (open: boolean) =>
   const rProblem = reasonProblem(reason)
   const current = counted !== null && counted === subject
   const done = request.data !== undefined
-  const ready = current && preview.data !== undefined && !sProblem && !rProblem && reason.trim() !== ""
+  const ready = current && !preview.loading && preview.data !== undefined && !sProblem && !rProblem && reason.trim() !== ""
 
   return (
     <ConfirmDialog
       open
-      onOpenChange={onOpenChange}
+      // Escape and an outside click would unmount the form and drop the result of a request still in flight.
+      onOpenChange={(next) => {
+        if (!next && request.loading) return
+        onOpenChange(next)
+      }}
       title="Request an erasure"
       confirmLabel="Erase"
       cancelLabel={done ? "Close" : "Cancel"}
@@ -99,7 +103,7 @@ function ErasureRequestForm({ onOpenChange }: { onOpenChange: (open: boolean) =>
           {current && !done && preview.data && (
             <span>{`${formatSeq(preview.data.eventsAffected)} ${plural(preview.data.eventsAffected)} in your scope will have their sealed fields erased.`}</span>
           )}
-          {current && <DialogError what="count the events" error={preview.error} />}
+          {current && !done && <DialogError what="count the events" error={preview.error} />}
           {request.data && <ErasureOutcome r={request.data} />}
           <DialogError what="request the erasure" error={request.error} />
         </span>

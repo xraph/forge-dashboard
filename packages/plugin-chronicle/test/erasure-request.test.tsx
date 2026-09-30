@@ -1,6 +1,6 @@
 import { fireEvent, render, screen, waitFor, within } from "@testing-library/react"
 import { describe, expect, it } from "vitest"
-import { ContractError, PluginProvider } from "@forge-go/dashboard-plugin"
+import { ContractError, PluginProvider, queryStore } from "@forge-go/dashboard-plugin"
 import type { ScopedClient } from "@forge-go/dashboard-plugin"
 import { ErasureRequestDialog } from "../src/components/erasure-request-dialog"
 import { scriptedClient } from "./harness"
@@ -151,6 +151,81 @@ describe("ErasureRequestDialog", () => {
     expect(screen.getByText(/at most 256 characters/)).toBeTruthy()
     fill("s", "y".repeat(2001))
     expect(screen.getByText(/A reason is at most 2000 characters/)).toBeTruthy()
+  })
+
+  it("refuses C1 control characters in the subject and the reason, as the server does", () => {
+    renderDialog(scriptedClient({}).client)
+    fill("sub\u0085ject", "r")
+    expect(screen.getByText(/subject ID cannot contain control characters/i)).toBeTruthy()
+    expect(screen.getByRole("button", { name: "Count affected events" }).hasAttribute("disabled")).toBe(true)
+    expect(screen.getByRole("button", { name: "Erase" }).hasAttribute("disabled")).toBe(true)
+    fill("s", "re\u009fason")
+    expect(screen.getByText(/reason cannot contain control characters/i)).toBeTruthy()
+    fill("s", "two\nlines")
+    expect(screen.queryByText(/reason cannot contain control characters/i)).toBeNull()
+  })
+
+  it("keeps Erase disabled while a recount of the same subject is in flight", async () => {
+    let calls = 0
+    const c = scriptedClient({
+      "erasures.preview": () => (++calls === 1 ? { subjectId: "s", eventsAffected: 1 } : new Promise(() => {})),
+    })
+    renderDialog(c.client)
+    fill("s", "r")
+    fireEvent.click(screen.getByRole("button", { name: "Count affected events" }))
+    await screen.findByText(/1 event in your scope/)
+    expect(screen.getByRole("button", { name: "Erase" }).hasAttribute("disabled")).toBe(false)
+    fireEvent.click(screen.getByRole("button", { name: "Count affected events" }))
+    await waitFor(() => expect(calls).toBe(2))
+    expect(screen.getByRole("button", { name: "Erase" }).hasAttribute("disabled")).toBe(true)
+  })
+
+  it("does not show a failed recount beside a finished erasure", async () => {
+    let calls = 0
+    const c = scriptedClient(
+      { "erasures.preview": () => (++calls === 1 ? { subjectId: "s", eventsAffected: 1 } : new ContractError("INTERNAL", "count broke")) },
+      {
+        "erasures.request": () => {
+          // The server names erasures.preview in the request's invalidates, so the mounted count refetches.
+          queryStore.invalidate("chronicle", ["erasures.preview"])
+          return { id: "erasure_9", subjectId: "s", eventsAffected: 1, keyDestroyed: true, legacyKeyRetained: false }
+        },
+      },
+    )
+    renderDialog(c.client)
+    fill("s", "r")
+    fireEvent.click(screen.getByRole("button", { name: "Count affected events" }))
+    await screen.findByText(/1 event in your scope/)
+    fireEvent.click(screen.getByRole("button", { name: "Erase" }))
+    await screen.findByText(/1 event erased. The key is destroyed./)
+    await waitFor(() => expect(calls).toBe(2))
+    await new Promise((r) => setTimeout(r, 20))
+    expect(screen.queryByRole("alert")).toBeNull()
+    expect(screen.queryByText(/count broke/)).toBeNull()
+  })
+
+  it("cannot be dismissed while the request is in flight, so the result is not lost", async () => {
+    const closes: boolean[] = []
+    const inner = scriptedClient({ "erasures.preview": { subjectId: "s", eventsAffected: 1 } })
+    const client = { ...inner.client, command: () => new Promise<never>(() => {}) } as ScopedClient
+    render(
+      <PluginProvider client={client}>
+        <ErasureRequestDialog open onOpenChange={(o) => closes.push(o)} />
+      </PluginProvider>,
+    )
+    fill("s", "r")
+    fireEvent.click(screen.getByRole("button", { name: "Count affected events" }))
+    await screen.findByText(/1 event in your scope/)
+    // Before the request, Escape does dismiss: this is what the guard below must be holding back.
+    fireEvent.keyDown(screen.getByRole("alertdialog"), { key: "Escape" })
+    await waitFor(() => expect(closes).toEqual([false]))
+    closes.length = 0
+    fireEvent.click(screen.getByRole("button", { name: "Erase" }))
+    await screen.findByRole("button", { name: "Working…" })
+    fireEvent.keyDown(screen.getByRole("alertdialog"), { key: "Escape" })
+    await new Promise((r) => setTimeout(r, 20))
+    expect(closes).toEqual([])
+    expect(screen.getByRole("alertdialog")).toBeTruthy()
   })
 
   it("does not let a blank reason through", async () => {
