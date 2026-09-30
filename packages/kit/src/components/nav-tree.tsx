@@ -36,19 +36,6 @@ export interface NavGroup {
 }
 
 /**
- * One entry in a scope's section rail and the pane it opens. The host builds
- * these; the kit only draws them. `href` is the section's first page, which
- * is where clicking the rail entry goes.
- */
-export interface NavSection {
-  id: string
-  label: string
-  icon: ReactNode
-  href: string
-  groups: NavGroup[]
-}
-
-/**
  * One entry in the rail and the pages it opens in the secondary sidebar: the
  * scope itself, or one of its sub-plugins. The host builds these; the kit only
  * draws them. `href` is the entry's first page.

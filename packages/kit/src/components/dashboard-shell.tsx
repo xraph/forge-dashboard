@@ -2,15 +2,32 @@ import type { CSSProperties, ReactNode } from "react"
 
 import { AppSidebar } from "@forge-go/dashboard-kit/components/app-sidebar"
 import type { AppSidebarProps } from "@forge-go/dashboard-kit/components/app-sidebar"
-import { SectionRail } from "@forge-go/dashboard-kit/components/section-rail"
+import { NavRail } from "@forge-go/dashboard-kit/components/nav-rail"
+import { NavUser } from "@forge-go/dashboard-kit/components/nav-user"
+import { ScopeSwitcher } from "@forge-go/dashboard-kit/components/scope-switcher"
+import type {
+  ScopeOption,
+  ScopeSwitcherProps,
+} from "@forge-go/dashboard-kit/components/scope-switcher"
 import { SidebarInset, SidebarProvider } from "@forge-go/dashboard-kit/components/sidebar"
 import { SiteHeader } from "@forge-go/dashboard-kit/components/site-header"
 import { useRailExpanded } from "@forge-go/dashboard-kit/hooks/use-rail-expanded"
 
-export interface DashboardShellProps extends Omit<
-  AppSidebarProps,
-  "children" | "variant" | "collapsible" | "navigationLayout"
-> {
+export interface DashboardShellProps
+  extends Omit<
+    AppSidebarProps,
+    "children" | "variant" | "collapsible" | "navigationLayout" | "mobileHeader" | "mobileFooter"
+  > {
+  scopes: ScopeOption[]
+  activeScopeId?: string
+  onScopeSelect: (id: string) => void
+  scopeHome?: ScopeSwitcherProps["home"]
+  /** The scope's App / Environment control. */
+  context?: ReactNode
+  /** The search trigger. */
+  searchControl?: ReactNode
+  user: { name: string; email: string; avatar?: string }
+  onSignOut?: () => void
   title?: string
   scope?: string
   actions?: ReactNode
@@ -18,48 +35,76 @@ export interface DashboardShellProps extends Omit<
 }
 
 /**
- * The dashboard's chrome: the active scope's section rail when it declares
- * sections, the pane, and the content with its header. The only thing the
- * pane needs to know about the rail is how wide it is, and it learns that
- * through `--sidebar-offset` on the provider: 0 when there is no rail.
+ * The dashboard's chrome, after TwinOS Studio: a rail with the scope switcher,
+ * the context control, search, the scope's entry and its plugins, and the
+ * account menu; the secondary sidebar with the active entry's pages; then the
+ * page. On mobile the rail's contents move into the sheet, so each piece of
+ * chrome renders once whatever the viewport.
  */
 export function DashboardShell({
   title,
   scope,
   actions,
   children,
-  sections,
-  activeSectionId,
+  scopes,
+  activeScopeId,
+  onScopeSelect,
+  scopeHome,
+  context,
+  searchControl,
+  user,
+  onSignOut,
   ...pane
 }: DashboardShellProps) {
   const { expanded, toggle } = useRailExpanded()
-  const hasRail = !!sections && sections.length > 0
-  const offset = !hasRail
-    ? "0px"
-    : expanded
-      ? "var(--sidebar-width)"
-      : "var(--sidebar-width-icon)"
+  const switcher =
+    scopes.length > 0 || scopeHome ? (
+      <ScopeSwitcher
+        scopes={scopes}
+        activeId={activeScopeId}
+        onSelect={onScopeSelect}
+        home={scopeHome}
+        menuSide="right"
+      />
+    ) : null
+  const account = <NavUser user={user} onSignOut={onSignOut} />
+  const items = (pane.areas ?? []).map((area) => ({
+    id: area.id,
+    label: area.label,
+    href: area.href,
+    icon: area.icon,
+  }))
+
   return (
-    <SidebarProvider style={{ "--sidebar-offset": offset } as CSSProperties}>
-      {hasRail ? (
-        <SectionRail
-          items={sections.map((section) => ({
-            id: section.id,
-            label: section.label,
-            href: section.href,
-            icon: section.icon,
-          }))}
-          activeId={activeSectionId ?? sections[0].id}
-          renderLink={pane.renderLink}
-          search={pane.search}
-          expanded={expanded}
-          onToggle={toggle}
-        />
-      ) : null}
+    <SidebarProvider
+      style={
+        {
+          "--sidebar-offset": expanded ? "var(--sidebar-width)" : "var(--sidebar-width-icon)",
+        } as CSSProperties
+      }
+    >
+      <NavRail
+        switcher={switcher}
+        context={context}
+        searchControl={searchControl}
+        account={account}
+        items={items}
+        activeId={pane.activeAreaId ?? items[0]?.id}
+        renderLink={pane.renderLink}
+        search={pane.search}
+        expanded={expanded}
+        onToggle={toggle}
+      />
       <AppSidebar
         {...pane}
-        sections={sections}
-        activeSectionId={activeSectionId}
+        mobileHeader={
+          <>
+            {switcher}
+            {context}
+            {searchControl}
+          </>
+        }
+        mobileFooter={account}
         variant="sidebar"
         collapsible="icon"
         navigationLayout="collapsible"
