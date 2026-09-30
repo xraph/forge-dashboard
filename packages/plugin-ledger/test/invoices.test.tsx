@@ -19,6 +19,14 @@ describe("LedgerInvoicesPage", () => {
     await waitFor(() => expect(sent.at(-1)?.params).toEqual({ limit: 50, offset: 0, tenant_id: "acme", status: "pending" }))
   })
 
+  it("pages with has_more and sends the next offset", async () => {
+    const { client, sent } = recordingQueryClient({ "invoices.list": aPage([anInvoice()], { has_more: true }) })
+    renderPage(LedgerInvoicesPage, client)
+    await screen.findByText("inv_1")
+    fireEvent.click(screen.getByRole("button", { name: "Next page" }))
+    await waitFor(() => expect(sent.at(-1)?.params).toEqual({ limit: 50, offset: 50 }))
+  })
+
   it("says which kind of empty it is", async () => {
     renderPage(LedgerInvoicesPage, stubClient({ "invoices.list": aPage([]) }))
     expect(await screen.findByText("No invoices yet.")).toBeTruthy()

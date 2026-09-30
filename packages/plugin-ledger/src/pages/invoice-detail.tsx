@@ -1,5 +1,5 @@
 import { useState, type ReactNode } from "react"
-import { PluginLink, useCommand, usePluginClient, useQuery } from "@forge-go/dashboard-plugin"
+import { ContractError, PluginLink, useCommand, usePluginClient, useQuery } from "@forge-go/dashboard-plugin"
 import type { PluginPageProps } from "@forge-go/dashboard-plugin"
 import { Button } from "@forge-go/dashboard-kit/components/button"
 import { DescriptionList, DetailLayout } from "@forge-go/dashboard-kit/components/detail-layout"
@@ -165,6 +165,7 @@ function InvoiceProgress({ status }: { status: InvoiceStatus }) {
           <li key={step.key} aria-current={step.key === current ? "step" : undefined} className={cn("flex items-center gap-2", !reached && "text-muted-foreground")}>
             <span aria-hidden="true" className={cn("size-2 rounded-full", reached ? "bg-primary" : "bg-muted")} />
             {label}
+            <span className="sr-only">{reached ? " (done)" : " (not yet)"}</span>
           </li>
         )
       })}
@@ -229,7 +230,8 @@ function InvoiceDetailView({ detail }: { detail: InvoiceDetail }) {
     try {
       download(await client.query<InvoiceExport>("invoices.export", { id: invoice.id, format }))
     } catch (err) {
-      setExportError(err as { code: string; message: string })
+      // Not every failure is a ContractError: atob throws a plain Error on bad base64.
+      setExportError(err instanceof ContractError ? err : { code: "CLIENT", message: String(err) })
     } finally {
       setExporting(null)
     }
@@ -253,7 +255,7 @@ function InvoiceDetailView({ detail }: { detail: InvoiceDetail }) {
               if (rows.length === 0) return null
               return (
                 <section key={g.type} className="flex flex-col gap-2">
-                  <h3 className="text-sm font-medium">{g.label}</h3>
+                  <h2 className="text-sm font-medium">{g.label}</h2>
                   <LedgerTable<LineItem>
                     columns={lineColumns}
                     rows={rows}

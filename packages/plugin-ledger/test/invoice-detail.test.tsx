@@ -21,8 +21,12 @@ function expectPhrasingOnly(dialog: HTMLElement) {
   expect(description?.querySelector("div, p, ul, ol, table, section, h1, h2, h3")).toBeNull()
 }
 
+const realCreate = URL.createObjectURL
+const realRevoke = URL.revokeObjectURL
+
 afterEach(() => {
   vi.restoreAllMocks()
+  Object.assign(URL, { createObjectURL: realCreate, revokeObjectURL: realRevoke })
 })
 
 describe("invoiceTransitions", () => {
@@ -121,6 +125,13 @@ describe("LedgerInvoiceDetailPage", () => {
     expect(screen.getByRole("button", { name: "Mark paid" })).toBeTruthy()
     expect(screen.getByRole("button", { name: "Void" })).toBeTruthy()
     expect(screen.queryByRole("button", { name: "Finalize" })).toBeNull()
+  })
+
+  it("tells the steps apart in words as well as colour", async () => {
+    open()
+    const steps = await screen.findByRole("list", { name: "Invoice progress" })
+    const items = within(steps).getAllByRole("listitem").map((li) => li.textContent)
+    expect(items).toEqual(["Draft (done)", "Pending (done)", "Paid (not yet)"])
   })
 
   it("marks a past-due invoice as past due on the progress list and still offers payment", async () => {
@@ -244,6 +255,7 @@ describe("LedgerInvoiceDetailPage", () => {
     expect(created).toHaveBeenCalled()
     expect(created.mock.calls[0][0].type).toBe("text/csv")
     expect(created.mock.calls[0][0].size).toBe("description,quantity\n".length)
+    await waitFor(() => expect(revoked).toHaveBeenCalledWith("blob:ledger"))
   })
 
   it.each([
@@ -251,7 +263,8 @@ describe("LedgerInvoiceDetailPage", () => {
     ["xyz", "application/octet-stream"],
   ])("types a %s export as %s", async (format, type) => {
     const created = vi.fn<(blob: Blob) => string>(() => "blob:ledger")
-    Object.assign(URL, { createObjectURL: created, revokeObjectURL: vi.fn() })
+    const revoked = vi.fn()
+    Object.assign(URL, { createObjectURL: created, revokeObjectURL: revoked })
     const click = vi.spyOn(HTMLAnchorElement.prototype, "click").mockImplementation(() => {})
     const { client } = scriptedClient({
       "invoices.detail": { ...detail(), export_formats: [format] },
@@ -261,6 +274,23 @@ describe("LedgerInvoiceDetailPage", () => {
     fireEvent.click(await screen.findByRole("button", { name: `Download ${format.toUpperCase()}` }))
     await waitFor(() => expect(click).toHaveBeenCalledTimes(1))
     expect(created.mock.calls[0][0].type).toBe(type)
+    await waitFor(() => expect(revoked).toHaveBeenCalledWith("blob:ledger"))
+  })
+
+  it("shows an export whose content is not base64 with a code and a message", async () => {
+    const created = vi.fn<(blob: Blob) => string>(() => "blob:ledger")
+    Object.assign(URL, { createObjectURL: created, revokeObjectURL: vi.fn() })
+    const { client } = scriptedClient({
+      "invoices.detail": detail(),
+      "invoices.export": { format: "csv", filename: "invoice-inv_1.csv", content: "***not base64***" },
+    })
+    renderWithNavigation(LedgerInvoiceDetailPage, client, { id: "inv_1" })
+    fireEvent.click(await screen.findByRole("button", { name: "Download CSV" }))
+    const alert = await screen.findByRole("alert")
+    expect(within(alert).getByText("Could not export")).toBeTruthy()
+    expect(within(alert).getByText("CLIENT")).toBeTruthy()
+    expect(within(alert).getByText(/InvalidCharacterError|not correctly encoded|invalid/i)).toBeTruthy()
+    expect(created).not.toHaveBeenCalled()
   })
 
   it("shows an export that failed, and says when no formatter is registered", async () => {
