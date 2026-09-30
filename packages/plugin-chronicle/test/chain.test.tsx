@@ -89,6 +89,16 @@ describe("ChainPage", () => {
     expect(screen.queryByText(/has not recorded any events/)).toBeNull()
   })
 
+  it("offers one chain picker, not two, when the app has no chain of its own", async () => {
+    const globex: StreamSummary = { ...acme, id: "stream_globex", tenantId: "globex", headSeq: 5000 }
+    renderPage(
+      ChainPage,
+      client({ "streams.mine": {}, "streams.list": { streams: [acme, globex], total: 2, hasMore: false } }).client,
+    )
+    await waitFor(() => expect(screen.getByText(/This app has no app-level chain/)).toBeTruthy())
+    expect(screen.getAllByRole("combobox", { name: "Chain" })).toHaveLength(1)
+  })
+
   it("says the scope has recorded nothing when there are no chains at all", async () => {
     renderPage(ChainPage, client({ "streams.mine": {}, "streams.list": { streams: [], total: 0, hasMore: false } }).client)
     await waitFor(() => expect(screen.getByText(/has not recorded any events yet/)).toBeTruthy())

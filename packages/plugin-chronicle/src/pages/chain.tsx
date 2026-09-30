@@ -24,7 +24,8 @@ export const ChainPage: ComponentType<PluginPageProps> = ({ params }) => {
       <PageHeader
         title="Chain"
         description="The hash chain your audit events are recorded in, and whether it has been altered."
-        actions={streams.length > 1 ? <ChainPicker streams={streams} selectedId={mine.data?.stream?.id} basePath="/chain" /> : undefined}
+        // With no chain of its own the page body offers the picker, so the header does not offer a second one.
+        actions={mine.data?.stream && streams.length > 1 ? <ChainPicker streams={streams} selectedId={mine.data.stream.id} basePath="/chain" /> : undefined}
       />
       <QueryBoundary title="chain" query={mine} skeletonRows={4}>
         {(m) =>
