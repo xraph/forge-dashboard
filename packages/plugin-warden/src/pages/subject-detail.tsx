@@ -11,8 +11,9 @@ import {
   type Column,
 } from "@forge-go/dashboard-kit/components/resource-table"
 import { Timestamp } from "@forge-go/dashboard-kit/components/timestamp"
-import { checkColumns, type CheckSummary } from "../components/check-log"
+import { checkColumns, type CheckLogList, type CheckSummary } from "../components/check-log"
 import { NamespaceCell, type NamespacesResponse } from "../components/namespace-filter"
+import type { ConfigDetail } from "./config"
 
 /** Mirrors the Go `SubjectPermission`: one grant of a role. */
 export interface SubjectPermission {
@@ -52,13 +53,17 @@ export interface SubjectAssignment {
   expiringSoon: boolean
 }
 
-/** Mirrors the Go `SubjectRelation`. */
+/**
+ * Mirrors the Go `SubjectRelation`. `subjectRelation` is absent unless the
+ * tuple grants a userset (group:eng#member) rather than the subject itself.
+ */
 export interface SubjectRelation {
   id: string
   namespacePath: string
   objectType: string
   objectId: string
   relation: string
+  subjectRelation?: string
 }
 
 /**
@@ -74,7 +79,16 @@ export interface SubjectPolicy {
   selectedBy: string
 }
 
-/** Mirrors the Go `SubjectDetailResponse`. */
+/** A section the server leaves empty when the viewer lacks its read grant. */
+export type WithheldSection = "roles" | "relations" | "policies"
+
+/**
+ * Mirrors the Go `SubjectDetailResponse`. The server checks read on roles,
+ * relations and policies separately from the assignment grant the intent
+ * needs, and names each section it left empty in `withheld`. Recent checks
+ * are not here: they need read_audit, so the page reads them through
+ * checkLogs.list.
+ */
 export interface SubjectDetail {
   roles: SubjectRole[]
   assignments: SubjectAssignment[]
@@ -82,7 +96,7 @@ export interface SubjectDetail {
   relations: SubjectRelation[]
   relationsTruncated: boolean
   policies: SubjectPolicy[]
-  recentChecks: CheckSummary[]
+  withheld: WithheldSection[]
 }
 
 /**
@@ -92,7 +106,7 @@ export interface SubjectDetail {
  */
 const SUBJECT_LIST_CAP = 200
 
-/** How many recent checks the server returns, and the page shows at most. */
+/** How many recent checks the page asks checkLogs.list for, and shows at most. */
 const RECENT_CHECKS = 10
 
 const NOTE = "text-sm text-muted-foreground"
@@ -106,6 +120,11 @@ function shown(path: string): string {
 
 function count(n: number, one: string, many: string): string {
   return `${n} ${n === 1 ? one : many}`
+}
+
+/** What a withheld section shows in place of its content. */
+function withheldSentence(section: WithheldSection): string {
+  return `You need read access to ${section} to see this section.`
 }
 
 /**
@@ -137,6 +156,12 @@ function SubjectAccess({ kind, id }: { kind: string; id: string }) {
     subjectId: id,
     namespacePath: namespace,
   })
+  // Only an explicit false turns a model off. A config that failed to load
+  // says nothing, and the page must not claim a model is off on the strength
+  // of an error.
+  const config = useQuery<ConfigDetail>("config.detail")
+  const abacOff = config.data?.abacEnabled === false
+  const rebacOff = config.data?.rebacEnabled === false
 
   function apply(value: string) {
     const path = value.trim()
@@ -187,31 +212,55 @@ function SubjectAccess({ kind, id }: { kind: string; id: string }) {
       </div>
 
       <QueryBoundary title="Subject access" query={detail} skeletonRows={4}>
-        {(data) => (
-          <>
-            {/* Inside the boundary: while a new namespace loads, or when the
-                read is refused, nothing is being shown at any namespace. */}
-            <p className={NOTE}>
-              {`Roles and policies are shown at ${at}. Assignments, relations and recent checks cover every namespace.`}
-            </p>
-            <RolesSection
-              roles={data.roles ?? []}
-              at={at}
-              assignmentsTruncated={data.assignmentsTruncated}
-            />
-            <AssignmentsSection
-              rows={data.assignments ?? []}
-              truncated={data.assignmentsTruncated}
-            />
-            <RelationsSection
-              rows={data.relations ?? []}
-              truncated={data.relationsTruncated}
-            />
-            <PoliciesSection rows={data.policies ?? []} at={at} />
-            <RecentChecksSection rows={data.recentChecks ?? []} />
-          </>
-        )}
+        {(data) => {
+          const withheld = new Set(data.withheld ?? [])
+          return (
+            <>
+              {/* Inside the boundary: while a new namespace loads, or when the
+                  read is refused, nothing is being shown at any namespace. */}
+              <p className={NOTE}>
+                {`Roles and policies are shown at ${at}. Assignments, relations and recent checks cover every namespace.`}
+              </p>
+              <RolesSection
+                roles={data.roles ?? []}
+                at={at}
+                assignmentsTruncated={data.assignmentsTruncated}
+                withheld={withheld.has("roles")}
+              />
+              <AssignmentsSection
+                rows={data.assignments ?? []}
+                truncated={data.assignmentsTruncated}
+              />
+              <RelationsSection
+                rows={data.relations ?? []}
+                truncated={data.relationsTruncated}
+                subject={`${kind}:${id}`}
+                rebacOff={rebacOff}
+                withheld={withheld.has("relations")}
+              />
+              <PoliciesSection
+                rows={data.policies ?? []}
+                at={at}
+                abacOff={abacOff}
+                withheld={withheld.has("policies")}
+              />
+            </>
+          )
+        }}
       </QueryBoundary>
+      {/* Its own read, outside the subject boundary: the check log needs
+          read_audit, and a viewer without it still sees everything above. */}
+      <RecentChecksSection kind={kind} id={id} />
+    </section>
+  )
+}
+
+/** A section heading with the withheld sentence in place of its content. */
+function WithheldNotice({ heading, section }: { heading: string; section: WithheldSection }) {
+  return (
+    <section className="flex flex-col gap-3">
+      <Heading>{heading}</Heading>
+      <p className={NOTE}>{withheldSentence(section)}</p>
     </section>
   )
 }
@@ -252,11 +301,14 @@ function RolesSection({
   roles,
   at,
   assignmentsTruncated,
+  withheld,
 }: {
   roles: SubjectRole[]
   at: string
   assignmentsTruncated: boolean
+  withheld: boolean
 }) {
+  if (withheld) return <WithheldNotice heading={`Roles at ${at}`} section="roles" />
   const columns: Column<SubjectRole>[] = [
     {
       id: "role",
@@ -395,10 +447,17 @@ function AssignmentsSection({
 function RelationsSection({
   rows,
   truncated,
+  subject,
+  rebacOff,
+  withheld,
 }: {
   rows: SubjectRelation[]
   truncated: boolean
+  subject: string
+  rebacOff: boolean
+  withheld: boolean
 }) {
+  if (withheld) return <WithheldNotice heading="Relations" section="relations" />
   const columns: Column<SubjectRelation>[] = [
     {
       id: "object",
@@ -408,6 +467,18 @@ function RelationsSection({
       ),
     },
     { id: "relation", header: "Relation", cell: (t) => t.relation, className: SLUG },
+    {
+      id: "subject",
+      header: "Subject",
+      // A userset tuple (group:eng#member) grants the members of the subject,
+      // not the subject itself, so its subject relation follows the subject.
+      cell: (t) => (
+        <span className="font-mono text-xs">
+          {subject}
+          {t.subjectRelation && <span className="font-mono text-xs">{`#${t.subjectRelation}`}</span>}
+        </span>
+      ),
+    },
     {
       id: "namespace",
       header: "Namespace",
@@ -424,11 +495,15 @@ function RelationsSection({
         caption={rows.length > 0 ? count(rows.length, "relation", "relations") : undefined}
         emptyMessage="No relation tuple has this subject as its subject."
       />
-      <p className={NOTE}>
-        Direct relation tuples only. A relation reached through a group, a parent object or
-        a resource type's permission expression is found by the check itself; try it in the
-        playground.
-      </p>
+      {rebacOff ? (
+        <p className={NOTE}>Relation checks are off, so no relation grants anything.</p>
+      ) : (
+        <p className={NOTE}>
+          Direct relation tuples only. A relation reached through a group, a parent object or
+          a resource type's permission expression is found by the check itself; try it in the
+          playground.
+        </p>
+      )}
       {truncated && (
         <p className={NOTE}>{`Showing the first ${SUBJECT_LIST_CAP} relations.`}</p>
       )}
@@ -445,7 +520,19 @@ function selectedBy(how: string): string {
   return how
 }
 
-function PoliciesSection({ rows, at }: { rows: SubjectPolicy[]; at: string }) {
+function PoliciesSection({
+  rows,
+  at,
+  abacOff,
+  withheld,
+}: {
+  rows: SubjectPolicy[]
+  at: string
+  abacOff: boolean
+  withheld: boolean
+}) {
+  const heading = `Policies that select this subject at ${at}`
+  if (withheld) return <WithheldNotice heading={heading} section="policies" />
   const columns: Column<SubjectPolicy>[] = [
     {
       id: "name",
@@ -480,10 +567,13 @@ function PoliciesSection({ rows, at }: { rows: SubjectPolicy[]; at: string }) {
   ]
   return (
     <section className="flex flex-col gap-3">
-      <Heading>{`Policies that select this subject at ${at}`}</Heading>
+      <Heading>{heading}</Heading>
+      {abacOff && (
+        <p className={NOTE}>Policy evaluation is off, so no policy applies to any check.</p>
+      )}
       <p className={NOTE}>
-        A policy that selects by a role held for one resource only selects this subject on
-        checks for that resource, and is not listed here.
+        A policy that selects this subject only through a role it holds for one resource
+        selects it only on checks for that resource, and is not listed here.
       </p>
       <ResourceTable<SubjectPolicy>
         columns={columns}
@@ -499,8 +589,12 @@ function PoliciesSection({ rows, at }: { rows: SubjectPolicy[]; at: string }) {
   )
 }
 
-function RecentChecksSection({ rows }: { rows: CheckSummary[] }) {
-  const shownRows = rows.slice(0, RECENT_CHECKS)
+function RecentChecksSection({ kind, id }: { kind: string; id: string }) {
+  const checks = useQuery<CheckLogList>("checkLogs.list", {
+    subjectKind: kind,
+    subjectId: id,
+    limit: RECENT_CHECKS,
+  })
   return (
     <section className="flex flex-col gap-3">
       <div className="flex flex-wrap items-baseline justify-between gap-2">
@@ -509,15 +603,24 @@ function RecentChecksSection({ rows }: { rows: CheckSummary[] }) {
           Open the check log
         </PluginLink>
       </div>
-      <ResourceTable<CheckSummary>
-        columns={checkColumns()}
-        rows={shownRows}
-        rowKey={(c) => c.id}
-        caption={
-          shownRows.length > 0 ? count(shownRows.length, "check", "checks") : undefined
-        }
-        emptyMessage="No logged check names this subject."
-      />
+      <QueryBoundary title="Recent checks" query={checks} skeletonRows={3}>
+        {(data) => {
+          // The check log filter reads an empty kind as any kind, so keep only
+          // rows naming exactly this subject.
+          const rows = (data.items ?? [])
+            .filter((c) => c.subjectKind === kind && c.subjectId === id)
+            .slice(0, RECENT_CHECKS)
+          return (
+            <ResourceTable<CheckSummary>
+              columns={checkColumns()}
+              rows={rows}
+              rowKey={(c) => c.id}
+              caption={rows.length > 0 ? count(rows.length, "check", "checks") : undefined}
+              emptyMessage="No logged check names this subject."
+            />
+          )
+        }}
+      </QueryBoundary>
     </section>
   )
 }

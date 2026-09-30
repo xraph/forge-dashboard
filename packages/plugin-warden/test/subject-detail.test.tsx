@@ -1,8 +1,11 @@
 import { describe, expect, it } from "vitest"
 import { fireEvent, screen, waitFor, within } from "@testing-library/react"
 import { ContractError } from "@forge-go/dashboard-plugin"
+import type { ScopedClient } from "@forge-go/dashboard-plugin"
 import { WardenSubjectDetailPage } from "../src/pages/subject-detail"
-import type { SubjectDetail } from "../src/pages/subject-detail"
+import type { SubjectDetail, WithheldSection } from "../src/pages/subject-detail"
+import type { CheckSummary } from "../src/components/check-log"
+import type { ConfigDetail } from "../src/pages/config"
 import { failingClient, recordingQueryClient, renderPage } from "./harness"
 
 const EMPTY: SubjectDetail = {
@@ -12,12 +15,12 @@ const EMPTY: SubjectDetail = {
   relations: [],
   relationsTruncated: false,
   policies: [],
-  recentChecks: [],
+  withheld: [],
 }
 
 const NAMESPACES = { namespaces: ["", "acme", "acme/eng"] }
 
-const CHECK = {
+const CHECK: CheckSummary = {
   id: "chk_1",
   namespacePath: "",
   subjectKind: "user",
@@ -111,16 +114,47 @@ const FULL: SubjectDetail = {
     { id: "pol_c", name: "block-alice", effect: "deny", priority: 30, namespacePath: "acme", selectedBy: "id" },
     { id: "pol_d", name: "editors-only", effect: "allow", priority: 40, namespacePath: "acme", selectedBy: "role:editor" },
   ],
-  recentChecks: [CHECK],
+  withheld: [],
 }
 
 const PARAMS = { kind: "user", id: "alice" }
 
-function setup(detail: SubjectDetail = FULL, params = PARAMS) {
-  const rec = recordingQueryClient({
+const CONFIG: ConfigDetail = {
+  maxGraphDepth: 10,
+  maxGraphVisited: 1000,
+  maxGraphFanout: 100,
+  maxBatchChecks: 50,
+  cacheTtlSeconds: 60,
+  cacheMaxSize: 1000,
+  rbacEnabled: true,
+  abacEnabled: true,
+  rebacEnabled: true,
+  checkLogEnabled: true,
+  requireTenant: false,
+  evaluateAllModels: false,
+  checkLogQueueSize: 1000,
+  checkLogRetentionHours: 720,
+  maintenanceIntervalMinutes: 60,
+}
+
+function checkList(items: CheckSummary[]) {
+  return { items, total: items.length, limit: 10, offset: 0 }
+}
+
+interface SetupOptions {
+  checks?: CheckSummary[]
+  /** null leaves config.detail out, so the stub refuses it. */
+  config?: ConfigDetail | null
+}
+
+function setup(detail: SubjectDetail = FULL, params = PARAMS, opts: SetupOptions = {}) {
+  const answers: Record<string, unknown> = {
     "subjects.detail": detail,
     "namespaces.list": NAMESPACES,
-  })
+    "checkLogs.list": checkList(opts.checks ?? [CHECK]),
+  }
+  if (opts.config !== null) answers["config.detail"] = opts.config ?? CONFIG
+  const rec = recordingQueryClient(answers)
   const view = renderPage(WardenSubjectDetailPage, rec.client, params)
   return { ...rec, view }
 }
@@ -369,6 +403,29 @@ describe("relations section", () => {
     ).toBeTruthy()
   })
 
+  it("shows a userset's subject relation after the subject, in mono", async () => {
+    setup(
+      {
+        ...EMPTY,
+        relations: [
+          { id: "rel_u", namespacePath: "", objectType: "document", objectId: "readme", relation: "editor", subjectRelation: "member" },
+          { id: "rel_d", namespacePath: "", objectType: "document", objectId: "spec", relation: "viewer" },
+        ],
+      },
+      { kind: "group", id: "eng" },
+    )
+    await screen.findByRole("heading", { name: "Relations" })
+    const table = within(section("Relations"))
+    expect(table.getByRole("columnheader", { name: "Subject" })).toBeTruthy()
+    const userset = table.getByText("document:readme").closest("tr") as HTMLElement
+    const subject = userset.querySelectorAll("td")[2] as HTMLElement
+    expect(subject.textContent).toBe("group:eng#member")
+    const rel = within(subject).getByText("#member")
+    expect(rel.className).toContain("font-mono")
+    const direct = table.getByText("document:spec").closest("tr") as HTMLElement
+    expect((direct.querySelectorAll("td")[2] as HTMLElement).textContent).toBe("group:eng")
+  })
+
   it("says when the list was cut, and only then", async () => {
     const { view } = setup({ ...FULL, relationsTruncated: true })
     expect(await screen.findByText("Showing the first 200 relations.")).toBeTruthy()
@@ -446,7 +503,7 @@ describe("policies section", () => {
 
   it("always says what a single-resource role does to selection", async () => {
     const note =
-      "A policy that selects by a role held for one resource only selects this subject on checks for that resource, and is not listed here."
+      "A policy that selects this subject only through a role it holds for one resource selects it only on checks for that resource, and is not listed here."
     const { view } = setup()
     const shown = await screen.findByText(note)
     expect(shown.className).toContain("text-muted-foreground")
@@ -456,13 +513,59 @@ describe("policies section", () => {
     setup(EMPTY)
     expect(await screen.findByText(note)).toBeTruthy()
   })
+
+  it("lists a policy matching [{role: editor}, {kind: user}] by kind when editor is held for one resource, and the note still holds", async () => {
+    // Editor is held for document:doc9 only, so the role matcher does not
+    // select alice for every resource. The kind matcher does, so the policy
+    // is listed, and it is listed by kind: the note speaks only of a policy
+    // that selects through the single-resource role alone.
+    const scopedEditor = {
+      id: "asg_scoped",
+      namespacePath: "",
+      roleId: "role_editor",
+      roleSlug: "editor",
+      resourceType: "document",
+      resourceId: "doc9",
+      expired: false,
+      expiringSoon: false,
+    }
+    setup({
+      ...EMPTY,
+      assignments: [scopedEditor],
+      policies: [
+        { id: "pol_mixed", name: "editors-or-users", effect: "allow", priority: 5, namespacePath: "", selectedBy: "kind" },
+      ],
+    })
+    const heading = await screen.findByRole("heading", { name: "Policies that select this subject at /" })
+    const policies = within(heading.closest("section") as HTMLElement)
+    const row = within(policies.getByText("editors-or-users").closest("tr") as HTMLElement)
+    expect(row.getByText("subjects of this kind")).toBeTruthy()
+    expect(row.queryByText("holders of editor")).toBeNull()
+    expect(
+      policies.getByText(
+        "A policy that selects this subject only through a role it holds for one resource selects it only on checks for that resource, and is not listed here.",
+      ),
+    ).toBeTruthy()
+  })
 })
 
 describe("recent checks section", () => {
+  it("reads them through checkLogs.list, for this subject, ten at most", async () => {
+    const { sent } = setup()
+    await screen.findByRole("heading", { name: "Recent checks" })
+    await waitFor(() => expect(sent.some((q) => q.intent === "checkLogs.list")).toBe(true))
+    expect(sent.find((q) => q.intent === "checkLogs.list")?.params).toEqual({
+      subjectKind: "user",
+      subjectId: "alice",
+      limit: 10,
+    })
+  })
+
   it("uses the check log's columns and links each row to its detail", async () => {
     setup()
     await screen.findByRole("heading", { name: "Recent checks" })
     const table = within(section("Recent checks"))
+    await table.findByText("document:doc1")
     for (const header of [
       "When",
       "Subject",
@@ -486,9 +589,17 @@ describe("recent checks section", () => {
       id: `chk_${i}`,
       resourceId: `doc${i}`,
     }))
-    setup({ ...FULL, recentChecks: many })
+    setup(FULL, PARAMS, { checks: many })
     await screen.findByRole("heading", { name: "Recent checks" })
+    await within(section("Recent checks")).findByText("document:doc0")
     expect(section("Recent checks").querySelectorAll("tbody tr").length).toBe(10)
+  })
+
+  it("leaves out a row naming another subject kind", async () => {
+    // The check log filter reads an empty kind as any kind.
+    setup(FULL, PARAMS, { checks: [{ ...CHECK, id: "chk_other", subjectKind: "api_key", resourceId: "other" }, CHECK] })
+    await within(await screen.findByRole("region", { name: "1 check" })).findByText("document:doc1")
+    expect(screen.queryByText("document:other")).toBeNull()
   })
 
   it("links to the check log", async () => {
@@ -498,8 +609,126 @@ describe("recent checks section", () => {
   })
 
   it("names the empty case", async () => {
-    setup(EMPTY)
+    setup(EMPTY, PARAMS, { checks: [] })
     expect(await screen.findByText("No logged check names this subject.")).toBeTruthy()
+  })
+
+  it("a refusal (no read_audit) takes only this section with it", async () => {
+    const rec = recordingQueryClient({
+      "subjects.detail": FULL,
+      "namespaces.list": NAMESPACES,
+      "config.detail": CONFIG,
+    })
+    const client = {
+      ...rec.client,
+      query: (intent: string, params?: Record<string, unknown>) =>
+        intent === "checkLogs.list"
+          ? Promise.reject(new ContractError("PERMISSION_DENIED", "missing permission read_audit on warden:check_log"))
+          : rec.client.query(intent, params),
+    } as ScopedClient
+    renderPage(WardenSubjectDetailPage, client, PARAMS)
+    expect(await screen.findByText("Recent checks unavailable")).toBeTruthy()
+    expect(within(section("Recent checks")).getByText("Recent checks unavailable")).toBeTruthy()
+    expect(screen.getByRole("link", { name: "Open the check log" })).toBeTruthy()
+    expect(await screen.findByRole("region", { name: "3 roles" })).toBeTruthy()
+    expect(screen.getByRole("heading", { name: "Assignments" })).toBeTruthy()
+    expect(screen.getByRole("heading", { name: "Relations" })).toBeTruthy()
+    expect(screen.getByRole("heading", { name: "Policies that select this subject at /" })).toBeTruthy()
+    expect(screen.queryByText("Subject access unavailable")).toBeNull()
+  })
+})
+
+describe("withheld sections", () => {
+  const cases: { name: WithheldSection; heading: string; empty: string }[] = [
+    {
+      name: "roles",
+      heading: "Roles at /",
+      empty:
+        "No role reaches this subject at /. Assignments for a single resource, in another namespace, or already expired are listed below.",
+    },
+    {
+      name: "relations",
+      heading: "Relations",
+      empty: "No relation tuple has this subject as its subject.",
+    },
+    {
+      name: "policies",
+      heading: "Policies that select this subject at /",
+      empty:
+        "No policy in effect at / selects this subject through its kind, its id or a role it holds for every resource.",
+    },
+  ]
+
+  for (const c of cases) {
+    it(`shows the ${c.name} heading and says what access it needs, never the empty state`, async () => {
+      // A withheld section arrives empty, as the server sends it.
+      setup({ ...EMPTY, withheld: [c.name] })
+      const heading = await screen.findByRole("heading", { name: c.heading })
+      const own = heading.closest("section") as HTMLElement
+      expect(
+        within(own).getByText(`You need read access to ${c.name} to see this section.`),
+      ).toBeTruthy()
+      expect(screen.queryByText(c.empty)).toBeNull()
+      expect(own.querySelector("table")).toBeNull()
+      // The other two sections still answer, with their own empty states.
+      for (const other of cases.filter((o) => o.name !== c.name)) {
+        expect(screen.getByText(other.empty)).toBeTruthy()
+        expect(screen.queryByText(`You need read access to ${other.name} to see this section.`)).toBeNull()
+      }
+    })
+  }
+
+  it("withholds all three and still shows the assignments", async () => {
+    setup({ ...FULL, roles: [], relations: [], policies: [], withheld: ["roles", "relations", "policies"] })
+    expect(await screen.findByText("You need read access to roles to see this section.")).toBeTruthy()
+    expect(screen.getByText("You need read access to relations to see this section.")).toBeTruthy()
+    expect(screen.getByText("You need read access to policies to see this section.")).toBeTruthy()
+    expect(screen.getByRole("region", { name: "3 assignments" })).toBeTruthy()
+    expect(screen.queryByText(/Roles assigned for one resource only/)).toBeNull()
+    expect(screen.queryByText(/Direct relation tuples only/)).toBeNull()
+    expect(screen.queryByText(/Selecting is not applying/)).toBeNull()
+    for (const c of cases) expect(screen.queryByText(c.empty)).toBeNull()
+  })
+})
+
+describe("models turned off", () => {
+  const ABAC_OFF = "Policy evaluation is off, so no policy applies to any check."
+  const REBAC_OFF = "Relation checks are off, so no relation grants anything."
+  const DIRECT_ONLY =
+    "Direct relation tuples only. A relation reached through a group, a parent object or a resource type's permission expression is found by the check itself; try it in the playground."
+
+  it("says policy evaluation is off in the policies section", async () => {
+    setup(FULL, PARAMS, { config: { ...CONFIG, abacEnabled: false } })
+    const heading = await screen.findByRole("heading", { name: "Policies that select this subject at /" })
+    const note = await within(heading.closest("section") as HTMLElement).findByText(ABAC_OFF)
+    expect(note.className).toContain("text-muted-foreground")
+    expect(screen.queryByText(REBAC_OFF)).toBeNull()
+  })
+
+  it("replaces the relations note when relation checks are off", async () => {
+    setup(FULL, PARAMS, { config: { ...CONFIG, rebacEnabled: false } })
+    const heading = await screen.findByRole("heading", { name: "Relations" })
+    const note = await within(heading.closest("section") as HTMLElement).findByText(REBAC_OFF)
+    expect(note.className).toContain("text-muted-foreground")
+    expect(screen.queryByText(DIRECT_ONLY)).toBeNull()
+    expect(screen.queryByText(ABAC_OFF)).toBeNull()
+  })
+
+  it("says nothing about models when both are on", async () => {
+    setup()
+    expect(await screen.findByText(DIRECT_ONLY)).toBeTruthy()
+    await screen.findByRole("region", { name: "3 roles" })
+    expect(screen.queryByText(ABAC_OFF)).toBeNull()
+    expect(screen.queryByText(REBAC_OFF)).toBeNull()
+  })
+
+  it("changes nothing when the config cannot be read", async () => {
+    const { sent } = setup(FULL, PARAMS, { config: null })
+    expect(await screen.findByText(DIRECT_ONLY)).toBeTruthy()
+    await waitFor(() => expect(sent.some((q) => q.intent === "config.detail")).toBe(true))
+    expect(screen.queryByText(ABAC_OFF)).toBeNull()
+    expect(screen.queryByText(REBAC_OFF)).toBeNull()
+    expect(screen.queryByText("config.detail")).toBeNull()
   })
 })
 

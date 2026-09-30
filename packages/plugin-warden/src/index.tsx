@@ -42,6 +42,7 @@ export type {
   SubjectPolicy,
   SubjectRelation,
   SubjectRole,
+  WithheldSection,
 } from "./pages/subject-detail"
 export type {
   LaneState,
