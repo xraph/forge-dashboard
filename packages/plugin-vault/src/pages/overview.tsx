@@ -89,7 +89,8 @@ function problems(s: OverviewStats): Problem[] {
 /**
  * The encryption line. It says what happens to NEW secrets, and it never says
  * the vault is encrypted while an existing secret is stored in the clear:
- * adding a key later does not encrypt what was stored before it.
+ * adding a key later does not encrypt what was stored before it, and neither
+ * does replacing a value: the earlier versions keep their plaintext.
  */
 function EncryptionLine({ stats }: { stats: OverviewStats }) {
   if (!stats.encryptionEnabled) {
@@ -103,7 +104,7 @@ function EncryptionLine({ stats }: { stats: OverviewStats }) {
   if (stats.unencryptedSecrets > 0) {
     return (
       <p className="text-sm text-muted-foreground">
-        {`New secrets are encrypted${how}, but secrets stored without encryption stay that way until their values are replaced.`}
+        {`New secrets are encrypted${how}. Secrets stored without encryption stay that way. Replacing a value encrypts the new version, but earlier versions keep the plaintext until the secret is deleted.`}
       </p>
     )
   }

@@ -140,7 +140,7 @@ describe("OverviewPage", () => {
     expect(screen.queryByText("New secrets are encrypted with AES-256-GCM.")).toBeNull()
     expect(
       screen.getByText(
-        "New secrets are encrypted with AES-256-GCM, but secrets stored without encryption stay that way until their values are replaced."
+        "New secrets are encrypted with AES-256-GCM. Secrets stored without encryption stay that way. Replacing a value encrypts the new version, but earlier versions keep the plaintext until the secret is deleted."
       )
     ).toBeTruthy()
   })
