@@ -222,6 +222,10 @@ function seedCheckLogs() {
     })
   }
 
+  // The engine's own reason sentences (engine.go), Go %q quoting for the
+  // tenant. The fixture's tenant is org_1. An allow carries no reason.
+  const noRoles = (subject) => `subject user:${subject} has no assigned roles in tenant "org_1"`
+
   // The three matched-by shapes, one per evaluator.
   const rbac = (roleId, perm) => [{ source: "rbac", ruleId: roleId, detail: "role grants " + perm }]
   const abac = (policyId, name, effect) => [{ source: "abac", ruleId: policyId, detail: `policy "${name}" (${effect})` }]
@@ -245,40 +249,49 @@ function seedCheckLogs() {
   row(25, { subjectId: "erin", resourceId: "handbook", matchedBy: abac("wpol_staff-read-documents", "staff-read-documents", "allow"), evalTimeNs: 655_000, requestIp: "10.4.2.17", requestId: "req_7f3a96" })
   // ABAC ALLOW with obligations, naming the policy that carries them.
   row(30, { subjectId: "frank", resourceType: "cluster", resourceId: "staging", matchedBy: abac("wpol_after-hours-approval", "after-hours-approval", "allow"), obligations: ["log", "notify:security"], evalTimeNs: 721_000, requestIp: "192.0.2.44", requestId: "req_7f3a97", traceId: "5b8aa5a2d2c872e8321cf37308d69df2" })
-  // REBAC ALLOW with no ruleId: a tuple has no rule id to name.
-  row(35, { subjectId: "bob", matchedBy: rebac("direct relation"), evalTimeNs: 240_000, requestIp: "10.4.2.21", requestId: "req_7f3a98" })
-  // REBAC ALLOW through a userset (group:eng#member is an editor).
-  row(40, { subjectId: "gina", matchedBy: rebac("expression: read"), evalTimeNs: 1_120_000, requestIp: "10.4.2.30", requestId: "req_7f3a99" })
+  // REBAC ALLOW with no ruleId: a tuple has no rule id to name. "direct
+  // relation" is what the engine writes when the action is itself a relation
+  // the subject holds (rel_01a: bob is a viewer of document:readme).
+  row(35, { subjectId: "bob", action: "viewer", matchedBy: rebac("direct relation"), evalTimeNs: 240_000, requestIp: "10.4.2.21", requestId: "req_7f3a98" })
+  // REBAC ALLOW through the resource type's expression: document defines
+  // read as "viewer or editor", and bob is a viewer, so "read" is granted
+  // although no tuple names "read".
+  row(40, { subjectId: "bob", matchedBy: rebac("expression: read"), evalTimeNs: 1_120_000, requestIp: "10.4.2.21", requestId: "req_7f3a99" })
   // DENY_NO_ROLES: empty matchedBy, the "nothing matched" shape.
-  row(45, { subjectId: "mallory", decision: "deny_no_roles", reason: "subject holds no roles", evalTimeNs: 96_000, requestIp: "203.0.113.99", requestId: "req_7f3a9a" })
+  row(45, { subjectId: "mallory", decision: "deny_no_roles", reason: noRoles("mallory"), evalTimeNs: 96_000, requestIp: "203.0.113.99", requestId: "req_7f3a9a" })
   // DENY_NO_ROLES for carol, whose only assignment has expired.
-  row(50, { subjectId: "carol", decision: "deny_no_roles", reason: "subject holds no roles", evalTimeNs: 101_000, requestIp: "10.4.2.25", requestId: "req_7f3a9b" })
-  // DENY_DEFAULT: roles, but nothing allowed the request.
-  row(55, { subjectId: "dave", resourceId: "q3", resourceType: "report", decision: "deny_default", reason: "no rule allowed the request", evalTimeNs: 310_000, requestIp: "198.51.100.23", requestId: "req_7f3a9c" })
-  row(60, { action: "delete", decision: "deny_default", reason: "no rule allowed the request", evalTimeNs: 298_000, requestIp: "203.0.113.10", requestId: "req_7f3a9d" })
+  row(50, { subjectId: "carol", decision: "deny_no_roles", reason: noRoles("carol"), evalTimeNs: 101_000, requestIp: "10.4.2.25", requestId: "req_7f3a9b" })
+  // DENY_DEFAULT: no evaluator gave a more specific reason, so the engine
+  // falls back to its own sentence.
+  row(55, { subjectId: "dave", resourceId: "q3", resourceType: "report", decision: "deny_default", reason: "no rule allows user:dave to read on report:q3", evalTimeNs: 310_000, requestIp: "198.51.100.23", requestId: "req_7f3a9c" })
+  // DENY_NO_PERMS: alice holds Reader, and Reader grants no delete.
+  row(60, { action: "delete", decision: "deny_no_perms", reason: 'no role grants permission "document:delete" for subject user:alice', evalTimeNs: 298_000, requestIp: "203.0.113.10", requestId: "req_7f3a9d" })
   // A DELETED RULE: an allow that names a role id that exists nowhere in
   // this fixture (role_01hx), the row the detail page's rule link has to
   // read honestly about. Its permission text still says what it granted.
   row(65, { action: "write", matchedBy: rbac("role_01hx", "document:write"), evalTimeNs: 377_000, requestIp: "203.0.113.10", requestId: "req_7f3a9e" })
-  row(70, { subjectId: "erin", action: "export", resourceType: "report", resourceId: "q3", decision: "deny_no_perms", reason: "roles held grant no matching permission", evalTimeNs: 187_000, requestIp: "10.4.2.17", requestId: "req_7f3a9f" })
-  // DENY_CONDITION: a policy matched and its condition did not hold.
-  row(75, { namespacePath: "eng/platform", subjectId: "dave", action: "deploy", resourceType: "cluster", resourceId: "prod", decision: "deny_condition", reason: "condition context.hour gte 18 was not met", matchedBy: abac("wpol_after-hours-approval", "after-hours-approval", "allow"), evalTimeNs: 540_000, requestIp: "198.51.100.23", requestId: "req_7f3aa0" })
+  row(70, { subjectId: "erin", action: "export", resourceType: "report", resourceId: "q3", decision: "deny_no_perms", reason: 'no role grants permission "report:export" for subject user:erin', evalTimeNs: 187_000, requestIp: "10.4.2.17", requestId: "req_7f3a9f" })
+  // DENY_NO_PERMS in eng/platform: bob holds Platform admin there, which
+  // grants cluster:admin and nothing about delete.
+  row(75, { namespacePath: "eng/platform", subjectId: "bob", action: "delete", resourceType: "cluster", resourceId: "prod", decision: "deny_no_perms", reason: 'no role grants permission "cluster:delete" for subject user:bob', evalTimeNs: 540_000, requestIp: "10.4.2.21", requestId: "req_7f3aa0" })
   // DENY_RELATION, in eng/platform.
-  row(80, { namespacePath: "eng/platform", subjectId: "mallory", resourceId: "runbook", decision: "deny_relation", reason: "no relation grants read", evalTimeNs: 205_000, requestIp: "203.0.113.99", requestId: "req_7f3aa1" })
+  row(80, { namespacePath: "eng/platform", subjectId: "mallory", resourceId: "runbook", decision: "deny_relation", reason: "no relation grants user:mallory read access to document:runbook", evalTimeNs: 205_000, requestIp: "203.0.113.99", requestId: "req_7f3aa1" })
   row(85, { matchedBy: rbac("role_01hq", "document:read"), evalTimeNs: 2_100, cached: true, requestIp: "203.0.113.10", requestId: "req_7f3aa2" })
   row(90, { matchedBy: rbac("role_01hq", "document:read"), evalTimeNs: 1_900, cached: true, requestIp: "203.0.113.10", requestId: "req_7f3aa3" })
-  row(95, { namespacePath: "eng/platform", subjectKind: "service", subjectId: "deployer", action: "deploy", resourceType: "cluster", resourceId: "prod", matchedBy: rebac("direct relation"), evalTimeNs: 233_000, requestId: "req_7f3aa4" })
+  row(95, { namespacePath: "eng/platform", subjectKind: "service", subjectId: "deployer", action: "admin", resourceType: "cluster", resourceId: "prod", matchedBy: rebac("direct relation"), evalTimeNs: 233_000, requestId: "req_7f3aa4" })
   row(100, { subjectId: "erin", resourceId: "handbook", matchedBy: abac("wpol_staff-read-documents", "staff-read-documents", "allow"), evalTimeNs: 2_400, cached: true, requestIp: "10.4.2.17", requestId: "req_7f3aa5" })
-  row(110, { subjectId: "carol", decision: "deny_no_roles", reason: "subject holds no roles", evalTimeNs: 99_000, requestIp: "10.4.2.25", requestId: "req_7f3aa6" })
-  row(120, { namespacePath: "eng/platform", resourceId: "runbook", matchedBy: rebac("direct relation"), evalTimeNs: 251_000, requestIp: "203.0.113.10", requestId: "req_7f3aa7" })
+  row(110, { subjectId: "carol", decision: "deny_no_roles", reason: noRoles("carol"), evalTimeNs: 99_000, requestIp: "10.4.2.25", requestId: "req_7f3aa6" })
+  row(120, { namespacePath: "eng/platform", resourceId: "runbook", matchedBy: rebac("expression: read"), evalTimeNs: 251_000, requestIp: "203.0.113.10", requestId: "req_7f3aa7" })
   row(130, { subjectId: "dave", action: "delete", decision: "deny_explicit", reason: 'denied by policy "contractor-lockout"', matchedBy: abac("wpol_contractor-lockout", "contractor-lockout", "deny"), obligations: ["audit"], evalTimeNs: 887_000, requestIp: "198.51.100.23", requestId: "req_7f3aa8", traceId: "9e107d9d372bb6826bd81d3542a419d6" })
   row(140, { namespacePath: "eng/platform", subjectKind: "service", subjectId: "deployer", action: "admin", resourceType: "cluster", resourceId: "prod", decision: "error", evalTimeNs: 0, error: "store unavailable" })
   row(150, { matchedBy: rbac("role_01hq", "document:read"), evalTimeNs: 405_000, requestIp: "203.0.113.10", requestId: "req_7f3aaa" })
-  // On-call inherits Platform admin's grants, so this names the child role.
-  row(165, { namespacePath: "eng/platform", subjectId: "bob", action: "admin", resourceType: "cluster", resourceId: "prod", matchedBy: rbac("role_01ht", "cluster:admin"), evalTimeNs: 402_000, requestIp: "10.4.2.21", requestId: "req_7f3aab" })
+  // Deployer holds Platform oncall (asgn_01d), which has no grants of its
+  // own and inherits Platform admin. ruleId is the role whose own permission
+  // matched, so it names the parent.
+  row(165, { namespacePath: "eng/platform", subjectKind: "service", subjectId: "deployer", action: "admin", resourceType: "cluster", resourceId: "prod", matchedBy: rbac("role_01hr", "cluster:admin"), evalTimeNs: 402_000, requestIp: "10.4.2.21", requestId: "req_7f3aab" })
   row(180, { action: "write", matchedBy: rbac("role_01hx", "document:write"), evalTimeNs: 371_000, requestIp: "203.0.113.10", requestId: "req_7f3aac" })
   row(200, { subjectId: "frank", resourceType: "cluster", resourceId: "staging", matchedBy: abac("wpol_after-hours-approval", "after-hours-approval", "allow"), obligations: ["log", "notify:security"], evalTimeNs: 2_600, cached: true, requestIp: "192.0.2.44", requestId: "req_7f3aad" })
-  row(220, { subjectId: "mallory", action: "delete", decision: "deny_default", reason: "no rule allowed the request", evalTimeNs: 289_000, requestIp: "203.0.113.99", requestId: "req_7f3aae" })
+  row(220, { subjectId: "mallory", action: "delete", decision: "deny_default", reason: "no rule allows user:mallory to delete on document:readme", evalTimeNs: 289_000, requestIp: "203.0.113.99", requestId: "req_7f3aae" })
   return rows
 }
 
