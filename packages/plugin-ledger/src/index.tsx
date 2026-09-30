@@ -1,8 +1,11 @@
 import { definePlugin } from "@forge-go/dashboard-plugin"
 import type { PluginNavItem, PluginRoute } from "@forge-go/dashboard-plugin"
-import { CreditCardIcon, HouseIcon, SettingsIcon, WalletIcon } from "@forge-go/dashboard-kit/icons"
+import { CreditCardIcon, HouseIcon, PackageIcon, SettingsIcon, WalletIcon } from "@forge-go/dashboard-kit/icons"
 import { LedgerOverviewPage } from "./pages/overview"
 import { LedgerPaymentMethodsPage } from "./pages/payment-methods"
+import { LedgerPlanCreatePage } from "./pages/plan-create"
+import { LedgerPlanEditPage } from "./pages/plan-edit"
+import { LedgerPlansPage } from "./pages/plans"
 import { LedgerSettingsPage } from "./pages/settings"
 
 export type * from "./types"
@@ -38,11 +41,15 @@ export function inGroupOrder(items: PluginNavItem[]): PluginNavItem[] {
  */
 const navItems: PluginNavItem[] = [
   { label: "Overview", to: "/", priority: 0, icon: <HouseIcon />, group: "Overview" },
+  { label: "Plans", to: "/plans", priority: 0, icon: <PackageIcon />, group: "Catalog" },
   { label: "Payment methods", to: "/payment-methods", priority: 40, icon: <CreditCardIcon />, group: "Billing" },
   { label: "Settings", to: "/settings", priority: 0, icon: <SettingsIcon />, group: "Configuration" },
 ]
 const routes: PluginRoute[] = [
   { path: "/", element: LedgerOverviewPage },
+  { path: "/plans", element: LedgerPlansPage },
+  { path: "/plans/new", element: LedgerPlanCreatePage },
+  { path: "/plans/:id/edit", element: LedgerPlanEditPage },
   { path: "/payment-methods", element: LedgerPaymentMethodsPage },
   { path: "/settings", element: LedgerSettingsPage },
 ]

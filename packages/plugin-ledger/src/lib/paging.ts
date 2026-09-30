@@ -32,3 +32,14 @@ export function pageCaption({
   const label = plural.charAt(0).toUpperCase() + plural.slice(1)
   return `${label} ${first}–${last}${hasMore ? ", more on the next page" : ""}`
 }
+
+/**
+ * Which kind of empty a list is: nothing exists, a filter matched nothing, or
+ * the page is past the end of what does exist. A constant "none yet" under a
+ * filter tells an operator nothing exists when something does.
+ */
+export function listEmptyMessage(noun: string, page: number, filtered: string | undefined): string {
+  if (page > 1) return `Nothing on page ${page}.`
+  if (filtered) return `No ${filtered} ${noun}.`
+  return `No ${noun} yet.`
+}
