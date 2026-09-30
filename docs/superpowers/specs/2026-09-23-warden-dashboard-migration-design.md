@@ -84,7 +84,10 @@ From `evaluator.go`:
 
 - `Subjects`, `Actions` and `Resources` are OR-ed. `Conditions` are AND-ed.
 - An empty matcher list means every subject, every action, every resource. A
-  policy with all three empty matches every check in scope.
+  policy with all three empty matches every check in scope, but only when no
+  condition narrows it. That means it has no conditions, or every condition
+  always holds, or, for a deny, every condition before the first one that
+  cannot be evaluated always holds.
 - `Priority` sorts the scan, but only the first match of each effect is kept
   (`if bestDeny == nil`). Priority decides which policy gets cited, not the
   outcome.
@@ -458,8 +461,10 @@ States the templ page cannot show, each visually distinct:
 - fails closed, meaning a deny whose condition cannot evaluate, which is
   stronger than it looks and not weaker
 - never applies, meaning an allow whose condition cannot evaluate, or any
-  policy whose first certain-outcome condition is always false. It looks
-  exactly like a working policy on a table and grants or denies nothing.
+  policy whose first condition with a fixed false or error outcome is always
+  false. A condition that always holds does not count, because evaluation
+  moves past it. It looks exactly like a working policy on a table and grants
+  or denies nothing.
 
 Plan 3a added the last state and split the window after reading the
 evaluator. The rule that decides which applies is order-aware, because

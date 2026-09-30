@@ -469,8 +469,13 @@ export function WardenPoliciesPage() {
         onConfirm={() => void confirmCreate()}
         description={
           <span className="flex flex-col gap-3">
+            {/* With evaluation off, activating takes no effect either, so
+                the dialog promises nothing about it. Only an explicit false
+                from config.detail says so, never an unreadable config. */}
             <span>
-              It starts inactive, so it takes no effect until you activate it.
+              {abacOff
+                ? "It starts inactive."
+                : "It starts inactive, so it takes no effect until you activate it."}
             </span>
             <span className="flex flex-col gap-1.5">
               <Label htmlFor="policy-name">Name</Label>

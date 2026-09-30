@@ -7,6 +7,7 @@ import {
 } from "@forge-go/dashboard-plugin"
 import type { ScopedClient } from "@forge-go/dashboard-plugin"
 import {
+  CHANGED_MID_CHECK,
   EMPTY_SUBJECT,
   PolicyEditor,
   boundTime,
@@ -118,6 +119,7 @@ function editorClient(opts: Options = {}) {
       if (intent !== "policies.update") {
         return Promise.reject(new ContractError("NOT_FOUND", `no handler for "${intent}"`))
       }
+      if (typeof opts.update === "function") return opts.update(payload)
       if (opts.update === "never") return new Promise<never>(() => {})
       if (opts.update instanceof ContractError) return Promise.reject(opts.update)
       return Promise.resolve(opts.update ?? {})
@@ -1015,6 +1017,123 @@ describe("PolicyEditor", () => {
       fireEvent.click(dialog().getByRole("button", { name: "Save changes" }))
       const alert = await dialog().findByRole("alert")
       expect(alert.textContent).toContain("not allowed to change policies")
+    })
+  })
+
+  describe("a confirmation belongs to one save", () => {
+    const marked = (message: string) =>
+      new ContractError("BAD_REQUEST", "This policy cannot be saved.", {
+        fields: { name: message },
+        conditions: [],
+      })
+
+    /** Answers each update in turn: a ContractError rejects, "never" never settles. */
+    function inTurn(results: unknown[]) {
+      let call = 0
+      return () => {
+        const r = results[call++]
+        if (r === "never") return new Promise<never>(() => {})
+        return r instanceof ContractError ? Promise.reject(r) : Promise.resolve(r ?? {})
+      }
+    }
+
+    it("does not bring back a refused confirmation over a later save, nor send its patch", async () => {
+      // The reviewer's probe: a confirmed save refused with marks, the fix,
+      // then a save that needs no confirmation and is refused again.
+      const { updates } = renderEditor(
+        {},
+        {
+          validate: (d) => ({ ...VALID, matchesEverything: d.name === "bad" }),
+          update: inTurn([marked("That name is taken."), marked("Still refused.")]),
+        }
+      )
+      change(labelled("Name"), "bad")
+      await settle()
+      await save()
+      await screen.findByRole("alertdialog")
+      expect(dialog().getByText(DENY_NOW)).toBeTruthy()
+      fireEvent.click(dialog().getByRole("button", { name: "Save changes" }))
+      await waitFor(() => expect(screen.queryByRole("alertdialog")).toBeNull())
+      expect(issues("name")).toEqual(["That name is taken."])
+
+      change(labelled("Name"), "good")
+      await settle()
+      await save()
+      await act(async () => {})
+      expect(screen.queryByRole("alertdialog")).toBeNull()
+      expect(issues("name")).toEqual(["Still refused."])
+      expect(updates()).toEqual([
+        { id: "pol_01", name: "bad" },
+        { id: "pol_01", name: "good" },
+      ])
+    })
+
+    it("does not bring back a refused confirmation over a later save of the same draft", async () => {
+      // The window ends between the two saves, so the second needs no
+      // confirmation, and the draft is the same one the first was for.
+      const { updates } = renderEditor(
+        { notAfter: "2026-09-30T12:01:00Z" },
+        { validate: () => EVERYTHING, update: inTurn([marked("Refused once."), "never"]) }
+      )
+      change(labelled("Description"), "x")
+      await settle()
+      await save()
+      await screen.findByRole("alertdialog")
+      fireEvent.click(dialog().getByRole("button", { name: "Save changes" }))
+      await waitFor(() => expect(screen.queryByRole("alertdialog")).toBeNull())
+
+      vi.setSystemTime(new Date("2026-09-30T12:02:00Z"))
+      await save()
+      await act(async () => {})
+      expect(screen.queryByRole("alertdialog")).toBeNull()
+      expect(screen.getByRole("button", { name: "Saving…" })).toBeTruthy()
+      expect(updates()).toEqual([
+        { id: "pol_01", description: "x" },
+        { id: "pol_01", description: "x" },
+      ])
+    })
+
+    it("takes the dialog down, and sends nothing, when the draft changes under it", async () => {
+      const { updates } = renderEditor({}, { validate: () => EVERYTHING })
+      change(labelled("Description"), "x")
+      await settle()
+      await save()
+      await screen.findByRole("alertdialog")
+      // The form is inert behind the dialog; this stands for any change
+      // that still reaches the draft.
+      change(labelled("Description"), "y")
+      await waitFor(() => expect(screen.queryByRole("alertdialog")).toBeNull())
+      expect(updates()).toEqual([])
+      await settle()
+      await save()
+      await screen.findByRole("alertdialog")
+      fireEvent.click(dialog().getByRole("button", { name: "Save changes" }))
+      await act(async () => {})
+      expect(updates()).toEqual([{ id: "pol_01", description: "y" }])
+    })
+
+    it("sends nothing when the draft changes while Save is checking it", async () => {
+      vi.useRealTimers()
+      vi.useFakeTimers()
+      vi.setSystemTime(NOW)
+      let resolve!: (v: PolicyValidateResponse) => void
+      const pending = new Promise<PolicyValidateResponse>((r) => {
+        resolve = r
+      })
+      const { updates } = renderEditor({}, { validate: () => pending })
+      change(labelled("Description"), "x")
+      await save()
+      change(labelled("Description"), "y")
+      await act(async () => {
+        resolve(EVERYTHING)
+      })
+      await act(async () => {})
+      expect(screen.queryByRole("alertdialog")).toBeNull()
+      expect(updates()).toEqual([])
+      expect(screen.getByRole("status").textContent).toBe(CHANGED_MID_CHECK)
+      expect(CHANGED_MID_CHECK).toBe(
+        "The draft changed while it was being checked, so nothing was saved. Save again to save it."
+      )
     })
   })
 

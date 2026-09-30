@@ -415,6 +415,26 @@ describe("WardenPoliciesPage", () => {
       ).toBeTruthy()
     })
 
+    it("promises nothing about activating while policy evaluation is off", async () => {
+      renderPolicies(client({ "config.detail": { abacEnabled: false } }))
+      await screen.findByText(ABAC_OFF)
+      const dialog = await openCreate()
+      expect(dialog.getByText("It starts inactive.")).toBeTruthy()
+      expect(dialog.queryByText(/until you activate it/)).toBeNull()
+    })
+
+    it("does not assume evaluation is off when the config could not be read", async () => {
+      const answered = answers()
+      delete (answered as Record<string, unknown>)["config.detail"]
+      renderPolicies(stubClient(answered))
+      await screen.findByText(HEALTHY)
+      await new Promise((r) => setTimeout(r, 20))
+      const dialog = await openCreate()
+      expect(
+        dialog.getByText("It starts inactive, so it takes no effect until you activate it.")
+      ).toBeTruthy()
+    })
+
     it("waits for a name and an effect before it can be confirmed", async () => {
       renderPolicies(client())
       const dialog = await openCreate()

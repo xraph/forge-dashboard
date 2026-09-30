@@ -97,6 +97,9 @@ export const EMPTY_SUBJECT =
 
 export const PRIORITY_NOT_WHOLE = "Priority must be a whole number."
 
+export const CHANGED_MID_CHECK =
+  "The draft changed while it was being checked, so nothing was saved. Save again to save it."
+
 // ---------------------------------------------------------------------------
 // Condition values
 // ---------------------------------------------------------------------------
@@ -702,9 +705,17 @@ export function PolicyEditor({
       alive.current = false
     }
   }, [])
+  // Set when the draft changed while Save was checking it, so what the
+  // operator asked to save is no longer what is on screen.
+  const [changedMidCheck, setChangedMidCheck] = useState(false)
 
   const draft = draftOf(state, loaded)
   const draftKey = JSON.stringify(draft)
+  // The draft on screen, for a check that settles after it was taken.
+  const latestKey = useRef(draftKey)
+  useEffect(() => {
+    latestKey.current = draftKey
+  }, [draftKey])
 
   // The draft validate is asked about, 400 ms after the last change. Kept as
   // its serialised key so the effect depends on the draft's content only.
@@ -794,6 +805,12 @@ export function PolicyEditor({
 
   async function save() {
     if (priorityBad || !changed) return
+    // A confirmation belongs to the one save it was computed for. Whatever
+    // an earlier save left behind is dropped before this one is judged, so
+    // no dialog can come back over this save with its sentence or its
+    // patch.
+    setConfirming(null)
+    setChangedMidCheck(false)
     setCheckError(undefined)
     // Cleared by nothing: once Cancel has been pressed, nothing this
     // editor started may still save.
@@ -824,6 +841,13 @@ export function PolicyEditor({
       // for no longer stands, so nothing is sent.
       if (!alive.current || cancelled.current) return
       setChecking(false)
+      // The draft was edited while it was being checked. The answer, the
+      // patch and any sentence are about a draft no longer on screen, so
+      // nothing is sent and nothing is confirmed.
+      if (latestKey.current !== key) {
+        setChangedMidCheck(true)
+        return
+      }
     }
     const judged = {
       loaded,
@@ -845,6 +869,11 @@ export function PolicyEditor({
 
   async function confirmSave() {
     if (!confirming) return
+    // Never send a patch for a draft that is no longer the one on screen.
+    if (confirming.key !== draftKey) {
+      setConfirming(null)
+      return
+    }
     // Judged again at the moment of confirming: a window can open or close
     // while the dialog is up. A sentence that no longer holds is replaced
     // and must be confirmed again; a save that no longer needs confirming
@@ -858,15 +887,24 @@ export function PolicyEditor({
   }
 
   // A refusal that names parts or rows takes the dialog down, so the marks
-  // it put on the form are not left behind an inert dialog. Any other
-  // failure stays in the dialog that failed. Derived, not stored: the next
-  // Save resets the command when it opens the dialog again.
+  // it put on the form are not left behind an inert dialog, and the
+  // confirmation is dropped with it: it was for a save that is over. Any
+  // other failure stays in the dialog that failed. Set while rendering,
+  // which React supports for state derived from what just changed.
   const refusal = issuesOf(update.error)
   const refusalNamesRows =
     Object.keys(refusal.fields).length > 0 || refusal.conditions.length > 0
-  const dialogOpen =
+  if (
     confirming !== null &&
-    !(update.error !== undefined && refusalNamesRows && refusedKey === confirming.key)
+    update.error !== undefined &&
+    refusalNamesRows &&
+    refusedKey === confirming.key
+  ) {
+    setConfirming(null)
+  }
+  // Open only for the draft on screen, so the dialog can never show a
+  // sentence computed for another draft or send another draft's patch.
+  const dialogOpen = confirming !== null && confirming.key === draftKey
 
   const saving = update.loading && !dialogOpen
   const isAllow = state.effect === "allow"
@@ -1228,6 +1266,11 @@ export function PolicyEditor({
         <CommandAlert error={update.error} title="Could not save the policy" />
       )}
       <CommandAlert error={checkError} title="Could not check the draft" />
+      {changedMidCheck && (
+        <p role="status" className="text-sm text-muted-foreground">
+          {CHANGED_MID_CHECK}
+        </p>
+      )}
 
       <div className="flex items-center gap-2">
         <Button
