@@ -156,7 +156,7 @@ export function NavRail({
           {searchControl}
         </RailSlot>
       ) : null}
-      <div className={cn("no-scrollbar mt-2 flex min-h-0 flex-1 flex-col gap-1 overflow-y-auto", column)}>
+      <div className={cn("no-scrollbar relative mt-2 flex min-h-0 flex-1 flex-col gap-1 overflow-y-auto", column)}>
         {groups.map((group, index) => (
           <Fragment key={`${group.label ?? ""}:${index}`}>
             {expanded && group.label ? (

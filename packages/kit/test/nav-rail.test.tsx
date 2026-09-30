@@ -127,6 +127,14 @@ describe("NavRail", () => {
     expect(rail().className).toMatch(/(^|\s)w-\(--sidebar-width\)(\s|$)/)
   })
 
+  it("makes the entry list its own containing block so sr-only labels cannot stretch the page", () => {
+    renderRail()
+    // jsdom cannot measure layout, so the class is the only thing a unit test can pin.
+    const scroller = Array.from(rail().querySelectorAll("div")).find((el) => el.className.includes("overflow-y-auto"))
+    expect(scroller).toBeTruthy()
+    expect(scroller!.classList.contains("relative")).toBe(true)
+  })
+
   it("has an edge toggle named for the way it moves", () => {
     const { onToggle } = renderRail()
     const toggle = within(rail()).getByRole("button", { name: "Expand navigation" })

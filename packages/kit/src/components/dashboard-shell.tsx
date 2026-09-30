@@ -136,9 +136,9 @@ export function DashboardShell({
   }))
   const activeId = railActiveId(groups, pluginAreas, activeArea, pane.currentPath)
   const secondary = activeArea?.kind === "plugin" && pageCount(activeArea) > 1 ? activeArea : undefined
-  const crumbs = [secondary?.label ?? (activeArea?.kind === "plugin" ? activeArea.label : scope), title].filter(
-    (crumb): crumb is string => Boolean(crumb),
-  )
+  const crumbs = [secondary?.label ?? (activeArea?.kind === "plugin" ? activeArea.label : scope), title]
+    .filter((crumb): crumb is string => Boolean(crumb))
+    .filter((crumb, i, all) => i === 0 || crumb.trim() !== all[i - 1].trim())
 
   return (
     <SidebarProvider

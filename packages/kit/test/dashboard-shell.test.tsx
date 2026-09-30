@@ -144,7 +144,14 @@ describe("DashboardShell", () => {
     const { container } = renderShell({ title: "API Keys", activeAreaId: "apikey", currentPath: "/@auth/apikeys" })
     expect(railLink("API Keys").getAttribute("aria-current")).toBe("page")
     expect(container.querySelector('[data-slot="sidebar"]')).toBeNull()
-    expect(breadcrumb()).toEqual(["API Keys", "API Keys"])
+    expect(breadcrumb()).toEqual(["API Keys"])
+  })
+
+  it("shows one crumb when the plugin and its page share a name", () => {
+    renderShell({ title: "API Keys", activeAreaId: "apikey", currentPath: "/@auth/apikeys" })
+    const crumbs = within(screen.getByRole("navigation", { name: "Breadcrumb" })).getAllByText("API Keys")
+    expect(crumbs).toHaveLength(1)
+    expect(crumbs[0].getAttribute("aria-current")).toBe("page")
   })
 
   it("puts the switcher, context, search and account in the rail, once", () => {
