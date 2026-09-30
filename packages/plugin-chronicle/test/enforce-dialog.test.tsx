@@ -27,6 +27,23 @@ describe("EnforceDialog", () => {
     expect(screen.getByText(/recorded in the chain as removed by retention/)).toBeTruthy()
   })
 
+  it("tells apart two policies with the same category, which an app-wide operator has one of per tenant", async () => {
+    const c = scriptedClient({
+      "retention.preview": {
+        eventCount: 12, capped: false, noPolicies: false, governingAppPolicies: 0,
+        byPolicy: [
+          { policyId: "retpol_acme_debug", category: "debug", eventCount: 6, capped: false },
+          { policyId: "retpol_globex_debug", category: "debug", eventCount: 6, capped: false },
+        ],
+      },
+    })
+    renderDialog(c.client)
+    await screen.findByText(/12 events are eligible/)
+    const dialog = screen.getByRole("alertdialog")
+    expect(within(dialog).getByText("retpol_acme_debug").className).toContain("font-mono")
+    expect(within(dialog).getByText("retpol_globex_debug").className).toContain("font-mono")
+  })
+
   it("asks nothing while it is closed, and asks once it opens", async () => {
     const c = scriptedClient({ "retention.preview": preview })
     const ui = (open: boolean) => (
@@ -56,8 +73,8 @@ describe("EnforceDialog", () => {
     renderDialog(c.client)
     await screen.findByText(/At least 10,012 events are eligible/)
     const dialog = screen.getByRole("alertdialog")
-    expect(within(dialog).getByText("debug").parentElement!.textContent).toBe("debug: at least 10,000 events")
-    expect(within(dialog).getByText("Every category (*)").parentElement!.textContent).toBe("Every category (*): 12 events")
+    expect(within(dialog).getByText("debug").parentElement!.textContent).toBe("debug retpol_acme_debug: at least 10,000 events")
+    expect(within(dialog).getByText("Every category (*)").parentElement!.textContent).toBe("Every category (*) retpol_acme_all: 12 events")
   })
 
   it("keeps the confirm button off until the preview has loaded", async () => {

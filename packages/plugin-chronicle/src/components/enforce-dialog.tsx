@@ -85,9 +85,12 @@ function PreviewSummary({ preview }: { preview: RetentionPreviewResponse }) {
         {`${preview.capped ? "At least " : ""}${formatSeq(preview.eventCount)} ${preview.eventCount === 1 ? "event is" : "events are"} eligible under your policies.`}
       </span>
       <span className="flex flex-col gap-1">
+        {/* The id goes beside the category because the category alone repeats: an app-wide operator has a debug policy per tenant, and the preview names no scope. */}
         {preview.byPolicy.map((p) => (
           <span key={p.policyId}>
             <span className="font-medium">{categoryLabel(p.category)}</span>
+            {" "}
+            <span className="font-mono text-xs text-muted-foreground">{p.policyId}</span>
             {`: ${p.capped ? "at least " : ""}${formatSeq(p.eventCount)} ${events(p.eventCount)}`}
           </span>
         ))}
