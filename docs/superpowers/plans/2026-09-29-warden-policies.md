@@ -1517,7 +1517,7 @@ Filters in the kit's `FilterBar`: namespace, effect, active, search. Each resets
 
 When `config.detail` reports `abacEnabled: false`, the page leads with an `Alert`: "Policy evaluation is turned off in this deployment, so none of these policies take effect." It is true regardless of any row.
 
-"New policy" opens a dialog collecting name, effect and namespace. Its description says: "It starts inactive, so it takes no effect until you activate it." On success it navigates to the new policy's detail page with the editor open. Before building this, read `packages/plugin/src` and an existing page that navigates after a command (for example `permission-detail.tsx`, which navigates after delete) to learn how a plugin page navigates and whether it can carry a query string. Use `?edit=1` if it can; if it cannot, carry the flag in navigation state and say which you used in your report. Tasks 7 and 8 read the same mechanism.
+"New policy" opens a dialog collecting name, effect and namespace. Its description says: "It starts inactive, so it takes no effect until you activate it." On success it navigates, with `useNavigateTo` from `@forge-go/dashboard-plugin`, to `/policies/<new id>/edit`, the dedicated edit route Task 7 registers. A plugin cannot read a query string (it has no router dependency, and `useNavigateTo` takes only a path), so the edit flag is a route, read through the same `params` every detail page already receives.
 
 Route `/policies`; nav in "Authorization" at priority 40 with lucide's `ScrollTextIcon`. Pin it in `plugin.test.tsx`, additively.
 
@@ -1530,7 +1530,7 @@ Route `/policies`; nav in "Authorization" at priority 40 with lucide's `ScrollTe
 - Caption counts `total` at zero rows; empty state says which kind of empty.
 - The create payload is exact (`toEqual` and `Object.keys`): `{ name, effect, namespacePath }` and nothing else.
 - The create dialog's refusal renders inside it; its `pending` is tested; `reset()` on open.
-- On success the page navigates to the new policy's detail page with the edit flag set, by whichever mechanism Step 1 settled on.
+- On success the page navigates to exactly `/policies/<id>/edit` (assert the path passed to the navigate function).
 
 - [ ] **Step 3: Verify and commit**
 
@@ -1594,7 +1594,7 @@ When `config.detail` reports `abacEnabled: false`, an alert says: "Policy evalua
 
 **Activate / Deactivate** through `policies.setActive`, in a `ConfirmDialog` with `pending`. Activating a policy that `failsClosed` or `matchesEverything` states in the dialog what activating will do, using the callout's own sentence. **Delete** through `policies.delete`, confirm dialog with `pending`, then navigate to `/policies`.
 
-Route `/policies/:id`, no nav entry. When the URL carries `?edit=1`, open the editor (Task 8) on load; until Task 8 lands, ignore the parameter.
+Routes `/policies/:id` and `/policies/:id/edit`, no nav entry for either. Both render the detail page from `params.id`; the edit route passes an `editing` flag (for example a thin `WardenPolicyEditPage` wrapper, or one component reading which route rendered it). Until Task 8 lands, the edit route renders the read view, so the link from Task 6's create never lands on a missing route.
 
 - [ ] **Step 3: Tests**
 
@@ -1661,9 +1661,9 @@ As the draft changes, debounced by 400 ms, the editor queries `policies.validate
 - Removing every action chip shows `any action`.
 - Mutate before committing: send the whole policy on save; send a number as a string; drop the row marking; name the test that catches each.
 
-- [ ] **Step 3: Wire `?edit=1`, verify and commit**
+- [ ] **Step 3: Wire the edit route, verify and commit**
 
-Replace Task 7's placeholder so `?edit=1` opens the editor on load, and test it.
+Replace Task 7's placeholder so `/policies/:id/edit` opens the editor on load, and test it by rendering that route. The detail page's Edit button navigates to `/policies/<id>/edit`, and Cancel and a successful Save navigate back to `/policies/<id>`, so the URL always says which mode you are in.
 
 ```bash
 cd /Users/rexraphael/Work/xraph/forge-dashboard && pnpm --filter @forge-go/dashboard-plugin-warden test && pnpm --filter @forge-go/dashboard-plugin-warden typecheck && pnpm --filter @forge-go/dashboard-plugin-warden lint
