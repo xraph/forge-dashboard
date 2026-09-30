@@ -215,6 +215,29 @@ const INPUT = {
   "vault::config.delete": { key: "verify/new.config" },
   "vault::overrides.set": { key: "features.maintenance-mode", tenantId: "acme", value: true },
   "vault::overrides.delete": { key: "features.maintenance-mode", tenantId: "acme" },
+  // chronicle: ids from chronicle-fixtures.mjs's seed, for the default
+  // app-wide viewer. main() swaps a few of them when the server is running as a
+  // tenant viewer or without an own chain. A created policy's id is derived from
+  // its scope and category, so savePolicy and deletePolicy agree without
+  // threading anything. checkpoints.take targets initech, whose last checkpoint
+  // is already past its head, so it changes nothing the spot checks read.
+  "chronicle::verify.run": { streamId: "stream_globex" },
+  "chronicle::verify.event": { eventId: "audit_own_12431" },
+  "chronicle::events.detail": { id: "audit_own_12431" },
+  "chronicle::events.aggregate": { groupBy: ["hour"] },
+  "chronicle::events.byUser": { userId: "user_1" },
+  "chronicle::checkpoints.detail": { id: "ckpt_acme_1" },
+  "chronicle::checkpoints.take": { streamId: "stream_initech" },
+  "chronicle::erasures.detail": { id: "erasure_1" },
+  "chronicle::erasures.preview": { subjectId: "subject_1" },
+  "chronicle::erasures.request": { subjectId: "subject_2", reason: "fixture" },
+  "chronicle::retention.policyDetail": { id: "retpol_app_all" },
+  "chronicle::retention.savePolicy": { category: "fixture", duration: "48h" },
+  "chronicle::retention.deletePolicy": { id: "retpol_app_fixture" },
+  "chronicle::reports.detail": { id: "report_soc2" },
+  "chronicle::reports.generate": { type: "soc2" },
+  "chronicle::reports.generateCustom": { title: "fixture", sections: [{ title: "logins", actions: ["user.login"] }] },
+  "chronicle::reports.export": { id: "report_soc2", format: "csv" },
   "streaming-contract::rooms.detail": { id: "room_1" },
   "streaming-contract::rooms.create": { name: "Verify room", description: "d", owner: "usr_1", private: false },
   "streaming-contract::rooms.delete": { id: "room_2" },
@@ -281,6 +304,44 @@ async function callIntent(contributor, intent, input, csrf) {
   return { kind: "query", ...first }
 }
 
+/**
+ * Chronicle's env switches change which ids exist and which intents can
+ * succeed. Read the mode back from the server instead of from this process's
+ * env, so `verify.mjs` needs no flags to match how the server was started.
+ */
+async function detectChronicleMode(csrf) {
+  const call = (intent) => dispatch("chronicle", intent, "query", {}, csrf)
+  const settings = await call("settings.detail")
+  if (settings.body?.ok !== true) return undefined
+  const mine = (await call("streams.mine")).body?.data?.stream
+  return {
+    checkpoints: settings.body.data.checkpointingConfigured === true,
+    erasure: settings.body.data.enableCryptoErasure === true,
+    tenant: mine?.tenantId === "acme",
+    // An app-wide viewer's own chain is the untenanted one.
+    ownChain: mine !== undefined && !mine.tenantId,
+  }
+}
+
+function applyChronicleMode(mode) {
+  if (!mode) return
+  if (mode.tenant) {
+    INPUT["chronicle::verify.run"] = { streamId: "stream_acme" }
+    INPUT["chronicle::checkpoints.take"] = { streamId: "stream_acme" }
+    INPUT["chronicle::erasures.detail"] = { id: "erasure_2" }
+    INPUT["chronicle::retention.deletePolicy"] = { id: "retpol_acme_fixture" }
+  }
+  if (!mode.ownChain) {
+    INPUT["chronicle::verify.event"] = { eventId: "audit_acme_61004" }
+    INPUT["chronicle::events.detail"] = { id: "audit_acme_61004" }
+  }
+  if (!mode.checkpoints) {
+    EXPECT_FAILURE.add("chronicle::checkpoints.take")
+    EXPECT_FAILURE.add("chronicle::checkpoints.detail")
+  }
+  if (!mode.erasure) EXPECT_FAILURE.add("chronicle::erasures.request")
+}
+
 async function main() {
   const capsRes = await fetch(`${base}/capabilities`)
   if (!capsRes.ok) {
@@ -289,6 +350,8 @@ async function main() {
   }
   const caps = await capsRes.json()
   const csrf = await getCSRF()
+  const chronicleMode = await detectChronicleMode(csrf)
+  applyChronicleMode(chronicleMode)
 
   let total = 0
   let passed = 0
@@ -1583,6 +1646,191 @@ async function main() {
     check("no subscription is not allowed", nobody?.allowed === false && nobody.reason === "no active subscription", JSON.stringify(nobody))
     check("payment methods for a tenant with no subscription here are NOT_FOUND", code(await lc("paymentMethods.list", "query", { tenant_id: "nobody" })) === "NOT_FOUND", "")
     check("payment methods for acme are listed", body(await lc("paymentMethods.list", "query", { tenant_id: "acme" }))?.methods?.length === 2, "")
+  }
+
+  // chronicle: the four chains verify differently, and the switches change
+  // what is reachable. Checks that assume the app-wide viewer say so and are
+  // skipped when the server runs as a tenant viewer.
+  if (chronicleMode) {
+    const cc = (intent, kind, input) => dispatch("chronicle", intent, kind, input, csrf)
+    const check = (name, ok, detail) => {
+      console.log(`  chronicle ${name}: ${ok}`)
+      if (!ok) failures.push({ key: `spot-check::chronicle ${name}`, reason: detail })
+    }
+    const skip = (name, why) => console.log(`  chronicle ${name}: skipped (${why})`)
+    const data = (r) => r.body?.data
+    const code = (r) => r.body?.error?.code
+    const mode = chronicleMode
+    console.log(
+      `  chronicle mode: ${mode.tenant ? "tenant viewer" : "app-wide viewer"}, ${mode.checkpoints ? "checkpoints" : "no checkpoints"}, ${mode.tenant ? "acme chain" : mode.ownChain ? "own chain" : "no own chain"}, ${mode.erasure ? "erasure" : "no erasure"}`,
+    )
+
+    if (mode.tenant) {
+      skip("the four-chain verify checks", "tenant viewer: only acme's chain is reachable")
+      const streams = data(await cc("streams.list", "query", {}))
+      check("a tenant viewer owns one chain, acme's", streams?.total === 1 && streams.streams[0].tenantId === "acme", JSON.stringify(streams))
+      const other = await cc("verify.run", "query", { streamId: "stream_globex" })
+      check("a tenant viewer cannot verify another tenant's chain", other.status === 404 && code(other) === "NOT_FOUND", JSON.stringify(other.body))
+      const policies = data(await cc("retention.policies", "query", {}))
+      const app = policies?.policies?.find((p) => p.id === "retpol_app_all")
+      const own = policies?.policies?.find((p) => p.id === "retpol_acme_debug")
+      check("a governing app-level policy is listed after the tenant's own, not editable", app?.editable === false && own?.editable === true && policies.policies.indexOf(own) < policies.policies.indexOf(app), JSON.stringify(policies))
+      const edit = await cc("retention.savePolicy", "command", { id: "retpol_app_all", archive: true })
+      check("saving an app-level policy as a tenant is NOT_FOUND", edit.status === 404 && code(edit) === "NOT_FOUND", JSON.stringify(edit.body))
+      const del = await cc("retention.deletePolicy", "command", { id: "retpol_app_all" })
+      check("deleting an app-level policy as a tenant is NOT_FOUND", del.status === 404 && code(del) === "NOT_FOUND", JSON.stringify(del.body))
+      const preview = data(await cc("retention.preview", "query", {}))
+      check("a tenant preview counts the governing app-level policies", preview?.governingAppPolicies === 1, JSON.stringify(preview))
+      const all = data(await cc("events.list", "query", { limit: 1000 }))
+      check("a tenant viewer sees only acme's events", all?.events?.length > 0 && all.events.every((e) => e.id.startsWith("audit_acme_")), `${all?.events?.length} events`)
+    } else if (!mode.ownChain) {
+      const mine = data(await cc("streams.mine", "query", {}))
+      check("with no own chain streams.mine answers {}", JSON.stringify(mine) === "{}", JSON.stringify(mine))
+      const verify = data(await cc("verify.run", "query", {}))
+      check("with no own chain verify.run answers noChain", verify?.noChain === true && verify.report === undefined, JSON.stringify(verify))
+      const streams = data(await cc("streams.list", "query", {}))
+      check("the tenants' chains are still listed", streams?.total === 3 && streams.streams.every((s) => s.tenantId), JSON.stringify(streams?.streams?.map((s) => s.id)))
+      const take = mode.checkpoints ? await cc("checkpoints.take", "command", {}) : undefined
+      if (take) check("with no own chain checkpoints.take is NOT_FOUND", take.status === 404 && code(take) === "NOT_FOUND", JSON.stringify(take.body))
+    } else {
+      const plain = data(await cc("verify.run", "query", { streamId: "stream_app" }))?.report
+      check(
+        "the plain chain verifies, at the unkeyed level only",
+        plain?.valid === true && plain.verified > 0 && plain.coverage?.length > 0 && plain.coverage.every((c) => c.level === "unkeyed"),
+        JSON.stringify(plain),
+      )
+
+      const split = data(await cc("verify.run", "query", { streamId: "stream_acme", fromSeq: 48000, toSeq: 48400 }))?.report
+      check(
+        "the mixed chain's coverage splits at the pin, 48201",
+        split?.coverage?.[0]?.level === "unkeyed" && split.coverage[0].toSeq === 48200 && split.coverage[1]?.fromSeq === 48201 && split.coverage[1].level !== "unkeyed",
+        JSON.stringify(split?.coverage),
+      )
+
+      const broken = data(await cc("verify.run", "query", { streamId: "stream_globex" }))?.report
+      check(
+        "the broken chain fails, naming its gaps, tampering, downgrade and retained range",
+        broken?.valid === false &&
+          JSON.stringify(broken.gaps) === "[2311,2312]" &&
+          JSON.stringify(broken.tampered) === "[2780]" &&
+          JSON.stringify(broken.downgrades) === "[2901]" &&
+          broken.retained?.length === 1 && broken.retained[0].fromSeq === 101 && broken.retained[0].toSeq === 400 && broken.retained[0].recordSeq === 401,
+        JSON.stringify(broken),
+      )
+
+      const truncated = data(await cc("verify.run", "query", { streamId: "stream_initech" }))?.report
+      if (mode.checkpoints) {
+        check(
+          "the truncated chain fails on its head and on its last checkpoint",
+          truncated?.valid === false && truncated.headMatch === false && truncated.checkpointHeadOk === false && truncated.checkpointHeadChecked === true,
+          JSON.stringify(truncated),
+        )
+      } else {
+        // Without checkpoints the past-head checkpoint does not exist, so only the head check can fail.
+        check(
+          "the truncated chain fails on its head (no checkpoints to check)",
+          truncated?.valid === false && truncated.headMatch === false && truncated.checkpointHeadChecked === false && truncated.checkpointsChecked === false,
+          JSON.stringify(truncated),
+        )
+      }
+
+      const gapHour = "2026-09-28T03:00:00Z"
+      const hours = data(await cc("events.aggregate", "query", { groupBy: ["hour"] }))
+      const buckets = (hours?.groups ?? []).map((g) => g.bucket)
+      check(
+        "the hourly volume has no group for the empty hour, with events either side of it",
+        buckets.includes("2026-09-28T02:00:00Z") && buckets.includes("2026-09-28T04:00:00Z") && !buckets.includes(gapHour),
+        JSON.stringify(buckets.filter((b) => b.startsWith("2026-09-28"))),
+      )
+
+      const tooLong = await cc("verify.run", "query", { streamId: "stream_acme", fromSeq: 1, toSeq: 200000 })
+      check(
+        "a verify range over the cap is BAD_REQUEST with the server's message",
+        tooLong.status === 400 && code(tooLong) === "BAD_REQUEST" && tooLong.body.error.message.includes("exceeds the 100000-event limit") && tooLong.body.error.message.includes("head is at sequence 61004"),
+        JSON.stringify(tooLong.body),
+      )
+
+      const own = data(await cc("events.detail", "query", { id: "audit_own_12400" }))
+      const victim = data(await cc("events.detail", "query", { id: "audit_own_12401" }))
+      check(
+        "the erased marker is evidence only beside an erasure id",
+        own?.erased === true && own.erasureId === "erasure_1" && victim?.reason === "[ERASED]" && victim.erased === false && victim.erasureId === undefined,
+        JSON.stringify({ own, victim }),
+      )
+    }
+
+    if (mode.checkpoints) {
+      const take = await cc("checkpoints.take", "command", { streamId: mode.tenant ? "stream_acme" : "stream_initech" })
+      check("checkpoints.take declares the manifest's invalidates", (take.body?.meta?.invalidates ?? []).join(",") === "checkpoints.list,streams.mine,streams.list,verify.run", JSON.stringify(take.body?.meta))
+      const cps = data(await cc("checkpoints.list", "query", { streamId: "stream_acme" }))
+      check("checkpoints.list is supported and lists newest first", cps?.supported === true && Array.isArray(cps.checkpoints) && cps.checkpoints.length > 1 && cps.checkpoints[0].toSeq > cps.checkpoints[1].toSeq, JSON.stringify(cps))
+    } else {
+      const cps = data(await cc("checkpoints.list", "query", {}))
+      check("without checkpoints, checkpoints.list is unsupported with a null list", cps?.supported === false && cps.checkpoints === null, JSON.stringify(cps))
+      const take = await cc("checkpoints.take", "command", {})
+      check("without checkpoints, checkpoints.take is UNAVAILABLE", code(take) === "UNAVAILABLE", JSON.stringify(take.body))
+      const streams = data(await cc("streams.list", "query", {}))
+      check("without checkpoints, no stream reaches the signed ceiling", streams?.streams?.every((s) => s.coverageCeiling !== "signed" && s.checkpointingConfigured === false && s.latestCheckpoint === undefined), JSON.stringify(streams?.streams?.map((s) => s.coverageCeiling)))
+      const settings = data(await cc("settings.detail", "query", {}))
+      check("without checkpoints, settings say checkpointing is not configured", settings?.checkpointingConfigured === false, JSON.stringify(settings))
+      const rep = data(await cc("verify.run", "query", {}))?.report
+      check("without checkpoints, a verify run checks no checkpoints and never reaches signed", rep === undefined || (rep.checkpointsChecked === false && rep.checkpointHeadChecked === false && (rep.coverage ?? []).every((c) => c.level !== "signed")), JSON.stringify(rep))
+    }
+
+    const noErasure = await cc("erasures.request", "command", { subjectId: "subject_3", reason: "spot check" })
+    if (mode.erasure) {
+      check("erasures.request answers the result, key destroyed", data(noErasure)?.keyDestroyed === true && data(noErasure)?.legacyKeyRetained === false, JSON.stringify(noErasure.body))
+      const empty = await cc("erasures.request", "command", { subjectId: "", reason: "x" })
+      check("an empty subjectId is BAD_REQUEST with the Go message", code(empty) === "BAD_REQUEST" && empty.body.error.message === "subjectId is required", JSON.stringify(empty.body))
+      const blank = await cc("erasures.request", "command", { subjectId: "subject_3", reason: "   " })
+      check("a blank reason is BAD_REQUEST", code(blank) === "BAD_REQUEST" && blank.body.error.message === "reason is required", JSON.stringify(blank.body))
+      const legacy = await cc("erasures.request", "command", { subjectId: "legacy-user", reason: "spot check" })
+      check("a subject whose key is shared answers legacyKeyRetained", data(legacy)?.keyDestroyed === false && data(legacy)?.legacyKeyRetained === true, JSON.stringify(legacy.body))
+    } else {
+      check("without erasure, erasures.request is UNAVAILABLE before it reads the input", noErasure.status === 503 && code(noErasure) === "UNAVAILABLE", JSON.stringify(noErasure.body))
+      const settings = data(await cc("settings.detail", "query", {}))
+      check("without erasure, settings say crypto erasure is off", settings?.enableCryptoErasure === false, JSON.stringify(settings))
+    }
+
+    const badDuration = await cc("retention.savePolicy", "command", { category: "spot", duration: "soon" })
+    check("an unparseable duration is BAD_REQUEST", code(badDuration) === "BAD_REQUEST" && badDuration.body.error.message === "duration is not a valid duration, such as 720h", JSON.stringify(badDuration.body))
+    const zero = await cc("retention.savePolicy", "command", { category: "spot", duration: "0s" })
+    check("a zero duration is BAD_REQUEST", code(zero) === "BAD_REQUEST" && zero.body.error.message.startsWith("duration must be greater than zero"), JSON.stringify(zero.body))
+    const made = await cc("retention.savePolicy", "command", { category: "spot", duration: "90m" })
+    check("a policy's duration round-trips as a Go duration string", data(made)?.duration === "1h30m0s" && data(made)?.editable === true, JSON.stringify(made.body))
+    const twice = await cc("retention.savePolicy", "command", { category: "spot", duration: "1h" })
+    check("a second policy for a category in the same scope is 409 CONFLICT", twice.status === 409 && code(twice) === "CONFLICT", JSON.stringify(twice.body))
+    const recat = await cc("retention.savePolicy", "command", { id: data(made)?.id, category: "other" })
+    check("a policy's category cannot change", code(recat) === "BAD_REQUEST" && recat.body.error.message.startsWith("a policy's category cannot be changed"), JSON.stringify(recat.body))
+    await cc("retention.deletePolicy", "command", { id: data(made)?.id })
+
+    const enforce = await cc("retention.enforce", "command", {})
+    check(
+      "retention.enforce declares the manifest's invalidates",
+      (enforce.body?.meta?.invalidates ?? []).join(",") === "retention.policies,retention.archives,retention.preview,events.list,events.detail,events.aggregate,events.byUser,overview.stats,verify.run,verify.event,erasures.preview",
+      JSON.stringify(enforce.body?.meta),
+    )
+    const after = data(await cc("retention.preview", "query", {}))
+    check("after an enforce pass nothing eligible remains", after?.eventCount === 0 && enforce.body?.data?.moreRemain === false, JSON.stringify({ enforce: enforce.body?.data, after }))
+
+    const html = data(await cc("reports.export", "query", { id: "report_soc2", format: "html" }))
+    check("an html export is a document with a script tag in it", html?.filename === "report-report_soc2.html" && html.contentType === "text/html; charset=utf-8" && html.content.includes("<script>"), JSON.stringify(html?.filename))
+    const md = data(await cc("reports.export", "query", { id: "report_soc2", format: "markdown" }))
+    check("a markdown export carries an action with a pipe in it", md?.content?.includes("role.grant|revoke") === true, "no pipe action")
+    const badFormat = await cc("reports.export", "query", { id: "nope", format: "pdf" })
+    check("an unknown export format is BAD_REQUEST before the lookup", code(badFormat) === "BAD_REQUEST" && badFormat.body.error.message === 'format must be one of "json", "csv", "markdown" or "html"', JSON.stringify(badFormat.body))
+    const legacyReport = data(await cc("reports.detail", "query", { id: "report_soc2" }))
+    check("a verified report says it was capped, and stored no policy count", legacyReport?.verificationScope?.capped === true && legacyReport.verification?.retentionPolicies === -1, JSON.stringify(legacyReport?.verificationScope))
+    if (!mode.tenant) {
+      const hipaa = data(await cc("reports.detail", "query", { id: "report_hipaa" }))
+      check("the legacy report has no verification and no scope", hipaa && !("verification" in hipaa) && !("verificationScope" in hipaa), JSON.stringify(Object.keys(hipaa ?? {})))
+    }
+    const badGroup = await cc("events.aggregate", "query", { groupBy: ["day", "hour"] })
+    check("two time buckets are BAD_REQUEST with ResolveGroupBy's message", code(badGroup) === "BAD_REQUEST" && badGroup.body.error.message === 'group_by names more than one time bucket field: "day" and "hour"', JSON.stringify(badGroup.body))
+    const capped = data(await cc("events.list", "query", { limit: 5000 }))
+    check("an events.list limit over 1000 is capped, not refused", capped !== undefined && capped.events.length <= 1000, `${capped?.events?.length}`)
+    const negative = await cc("events.list", "query", { limit: -1 })
+    check("a negative limit is BAD_REQUEST", code(negative) === "BAD_REQUEST" && negative.body.error.message === "limit and offset cannot be negative", JSON.stringify(negative.body))
   }
 
   console.log(`\nFinal: ${passed + (failures.length === 0 ? 0 : 0)} handler calls verified, ${failures.length} total failures (including spot checks).`)

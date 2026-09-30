@@ -201,6 +201,49 @@ restores all of it.
 of the same name declared in another module fails the dispatch's `instanceof`
 check, which would turn every `NOT_FOUND` and `CONFLICT` into a 400.
 
+**`chronicle`**: the audit trail, mirroring `chronicle/extension/contract` in the
+chronicle repo, with its own module (`chronicle-fixtures.mjs`). All 29 intents,
+with the Go handlers' messages and the manifest's `invalidates` lists. The
+viewer is an app-wide operator of `app_chronicle`, which holds four chains that
+verify differently, so a page is always looked at against a real failure:
+
+| stream | tenant | scheme, pinned since | head | verifies as |
+|---|---|---|---|---|
+| `stream_app` | none | `chronicle/v4`, 1 | 12,431 | intact and plain: every span `unkeyed`, so a pass must not read as a pass |
+| `stream_acme` | `acme` | `chronicle/v5`, 48,201 | 61,004 | intact, mixed level: unkeyed below the pin, keyed above it, signed where a checkpoint covers it |
+| `stream_globex` | `globex` | `chronicle/v5`, 1 | 5,000 | broken: gaps 2311 and 2312, tampered 2780, downgrade 2901, and a retained range 101 to 400 vouched for by the record at 401 |
+| `stream_initech` | `initech` | `chronicle/v5`, 1 | 3,000 | truncated: the last checkpoint reaches 3,400, past the head, so `headMatch` and `checkpointHeadOk` are false |
+
+Env switches, read at start-up and again on `_fixture/reset`:
+
+- `FIXTURE_CHRONICLE_NO_CHECKPOINTS=1`: the deployment takes no checkpoints.
+  `checkpoints.list` answers `supported: false` with `checkpoints: null` (the
+  shape older servers send, on purpose), `checkpoints.take` is `UNAVAILABLE`,
+  no verify run checks a checkpoint, and coverage never reaches `signed`.
+- `FIXTURE_CHRONICLE_NO_OWN_CHAIN=1`: the app-level scope has no chain.
+  `streams.mine` answers `{}` and `verify.run` without a `streamId` answers
+  `noChain`, while `streams.list` still holds the tenants' chains.
+- `FIXTURE_CHRONICLE_VIEWER=tenant`: the viewer is a tenant operator of `acme`.
+  It sees only acme's chain, events, archives and reports, and the app-level
+  retention policies are listed after its own with `editable: false`. Saving or
+  deleting one is `NOT_FOUND`.
+- `FIXTURE_CHRONICLE_NO_ERASURE=1`: `erasures.request` is `UNAVAILABLE`, and
+  settings say crypto erasure is off.
+
+Two deliberate differences from production. Events are a sample, not 81,000
+objects: the last 40 of each chain, the events around each break, and the
+retention record, plus a stretch from a day back (so the hourly volume chart has
+an empty hour to show) and a few old `debug` events (so a retention preview has
+something to select). `total` counts the sample. And `retention.enforce` removes
+eligible sample events and reports counts without writing retained ranges into
+the chain.
+
+A policy created here gets an id built from its scope and category, such as
+`retpol_app_fixture`, so a script can delete what it made. `verify.mjs` reads
+the mode back from the server (through `settings.detail` and `streams.mine`),
+swaps the ids that mode cannot reach, and skips the four-chain checks for a
+tenant viewer, saying so in its output.
+
 `auth.login` is not real authentication: any password validates, and an
 unknown email still succeeds (falling back to `usr_1`'s id as the subject).
 That's an intentional fixture shortcut, not an oversight — modelling
