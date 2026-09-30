@@ -186,7 +186,7 @@ export function DashboardShell({
           navigationLayout="collapsible"
         />
       ) : null}
-      <SidebarInset className="md:my-2 md:mr-2 md:ml-2 md:overflow-hidden md:rounded-xl">
+      <SidebarInset>
         <ContentHeader crumbs={crumbs} showTrigger={Boolean(isMobile || secondary)} actions={actions} />
         {/*
           `@container/main` is load-bearing, not decoration. dashboard-01's
