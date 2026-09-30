@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from "vitest"
+import { afterEach, describe, expect, it, vi } from "vitest"
 import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react"
 import { MemoryRouter, useParams } from "react-router"
 import { ForgeDashboardProvider, SessionProvider, useSession } from "@forge-go/dashboard-runtime"
@@ -32,6 +32,16 @@ window.matchMedia ??= ((query: string) => ({
 })) as unknown as typeof window.matchMedia
 
 const config = { basePath: "/dashboard" }
+
+// The rail's width is saved in localStorage, which outlives a test. Tests that
+// widen the rail would otherwise leave every later test in this file wide.
+afterEach(() => {
+  try {
+    window.localStorage.removeItem("forge-dashboard.rail")
+  } catch {
+    // Storage that throws cannot have kept anything either.
+  }
+})
 
 function jsonOk(body: unknown): Response {
   return { ok: true, status: 200, json: async () => body } as Response
@@ -1169,7 +1179,6 @@ describe("PluginHost root destination", () => {
     expect(within(rail()).getByRole("link", { name: "Auth" }).getAttribute("aria-current")).toBe("page")
     fireEvent.click(within(rail()).getByRole("button", { name: "Expand navigation" }))
     expect(within(rail()).queryByText("Plugins")).toBeNull()
-    fireEvent.click(within(rail()).getByRole("button", { name: "Collapse navigation" }))
   })
 
   it("returns to the root from the switcher in the rail", async () => {
@@ -1279,16 +1288,15 @@ describe("PluginHost root destination", () => {
     await screen.findByText("billing plans body")
 
     // The "Plugins" heading only shows on a wide rail, and the rail starts
-    // narrow. Widen it for the check, then put it back: the choice lives in
-    // localStorage, which outlives this test.
+    // narrow. The afterEach puts the saved width back.
     fireEvent.click(within(rail()).getByRole("button", { name: "Expand navigation" }))
     expect(within(rail()).getByText("Plugins")).toBeTruthy()
-    fireEvent.click(within(rail()).getByRole("button", { name: "Collapse navigation" }))
     const billing = within(rail()).getByRole("link", { name: "Billing" })
     expect(billing.getAttribute("aria-current")).toBe("page")
     expect(within(rail()).getByRole("link", { name: "Auth" }).getAttribute("href")).toBe("/@auth/users")
 
     expect(within(header(container)).getByText("Billing")).toBeTruthy()
+    expect(within(screen.getByRole("navigation", { name: "Breadcrumb" })).getByText("Plans")).toBeTruthy()
     const c = content(container)
     expect(within(c).getByRole("button", { name: "Collapse Catalog" })).toBeTruthy()
     expect(within(c).getByRole("link", { name: "Invoices" })).toBeTruthy()
