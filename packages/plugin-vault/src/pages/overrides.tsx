@@ -196,18 +196,28 @@ export const OverridesPage: ComponentType<PluginPageProps> = () => {
                   <Button
                     variant="outline"
                     size="xs"
-                    aria-label={`Revert to app default for tenant ${o.tenantId} of ${o.key}`}
+                    aria-label={
+                      o.keyExists
+                        ? `Revert to app default for tenant ${o.tenantId} of ${o.key}`
+                        : `Remove leftover override for tenant ${o.tenantId} of ${o.key}`
+                    }
                     onClick={() =>
-                      revert.request(
-                        o.key,
-                        o.tenantId,
-                        o.keyExists
-                          ? `Tenant ${o.tenantId} goes back to the app default for ${o.key}.`
-                          : `Tenant ${o.tenantId} goes back to the app default for ${o.key}. That key no longer exists, so this only removes the leftover override.`,
-                      )
+                      o.keyExists
+                        ? revert.request(
+                            o.key,
+                            o.tenantId,
+                            `Tenant ${o.tenantId} goes back to the app default for ${o.key}.`,
+                          )
+                        : // The key is gone, so there is no app default to go back to.
+                          revert.request(
+                            o.key,
+                            o.tenantId,
+                            `Tenant ${o.tenantId}'s override of ${o.key} is removed. That key no longer exists, so apps reading it fall back to their own default.`,
+                            true,
+                          )
                     }
                   >
-                    Revert to app default
+                    {o.keyExists ? "Revert to app default" : "Remove leftover override"}
                   </Button>
                 )}
                 pagination={{ page, pageSize: PAGE_SIZE, total: data.total }}

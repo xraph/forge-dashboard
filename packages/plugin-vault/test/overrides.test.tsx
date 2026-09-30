@@ -257,7 +257,15 @@ describe("OverridesPage rows", () => {
     expect(within(row).queryByText("Wrong type")).toBeNull()
     const buttons = within(row).getAllByRole("button")
     expect(buttons).toHaveLength(1)
-    expect(buttons[0]?.textContent).toBe("Revert to app default")
+    // There is no app default to go back to, so the button does not say so.
+    expect(buttons[0]?.textContent).toBe("Remove leftover override")
+    expect(buttons[0]?.getAttribute("aria-label")).toBe(
+      "Remove leftover override for tenant wayne of gone/key",
+    )
+    // A live row keeps the words it always had.
+    expect(within(rowOf("app/greeting")).getByRole("button").textContent).toBe(
+      "Revert to app default",
+    )
   })
 
   it("shows a refusal from the list", async () => {
@@ -304,7 +312,36 @@ describe("OverridesPage revert", () => {
     await screen.findByText("gone/key")
     fireEvent.click(within(rowOf("gone/key")).getByRole("button"))
     const dialog = await screen.findByRole("alertdialog")
-    expect(dialog.textContent).toMatch(/no longer exists/)
+    // No app default exists for a deleted key, so the dialog does not promise one.
+    expect(dialog.textContent).not.toMatch(/app default/)
+    expect(within(dialog).getByText("Remove wayne's leftover override?")).toBeTruthy()
+    expect(dialog.textContent).toContain(
+      "Tenant wayne's override of gone/key is removed. That key no longer exists, so apps reading it fall back to their own default.",
+    )
+    fireEvent.click(within(dialog).getByRole("button", { name: "Remove leftover override" }))
+    await waitFor(() =>
+      expect(h.commands).toEqual([
+        { intent: "overrides.delete", payload: { key: "gone/key", tenantId: "wayne" } },
+      ]),
+    )
+    await waitFor(() => expect(screen.queryByRole("alertdialog")).toBeNull())
+  })
+
+  it("shows an orphan's refusal under the orphan's own words", async () => {
+    const h = harness(
+      { overrides: [ORPHAN], total: 1 },
+      {},
+      new ContractError("NOT_FOUND", "tenant override not found"),
+    )
+    renderOverrides(h.client)
+    fireEvent.change(tenantBox(), { target: { value: "wayne" } })
+    showTenant()
+    await screen.findByText("gone/key")
+    fireEvent.click(within(rowOf("gone/key")).getByRole("button"))
+    const dialog = await screen.findByRole("alertdialog")
+    fireEvent.click(within(dialog).getByRole("button", { name: "Remove leftover override" }))
+    expect(await within(dialog).findByText(/tenant override not found/)).toBeTruthy()
+    expect(within(dialog).getByText("Could not remove the override")).toBeTruthy()
   })
 
   it("shows a refusal inside the dialog and keeps it open", async () => {

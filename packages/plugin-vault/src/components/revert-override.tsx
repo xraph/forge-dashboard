@@ -15,6 +15,8 @@ interface Target {
   key: string
   tenantId: string
   sentence: ReactNode
+  /** The key is gone: there is no app default, so this only removes a leftover. */
+  leftover: boolean
   open: boolean
 }
 
@@ -35,17 +37,21 @@ interface Target {
  *
  * `sentence` is what happens to the tenant, said by the page: the entry page
  * knows the app default and names it, the overrides page does not.
+ *
+ * A leftover override (its key was deleted) has no app default to go back to,
+ * so it is not asked in those words: the request says `leftover`, and the
+ * dialog and its button say the override is removed instead.
  */
 export function useRevertOverride(): {
-  request: (key: string, tenantId: string, sentence: ReactNode) => void
+  request: (key: string, tenantId: string, sentence: ReactNode, leftover?: boolean) => void
   dialog: ReactNode
 } {
   const remove = useCommand<DeleteOverrideResponse>("overrides.delete")
   const [target, setTarget] = useState<Target | null>(null)
 
-  function request(key: string, tenantId: string, sentence: ReactNode) {
+  function request(key: string, tenantId: string, sentence: ReactNode, leftover = false) {
     remove.reset()
-    setTarget({ key, tenantId, sentence, open: true })
+    setTarget({ key, tenantId, sentence, leftover, open: true })
   }
 
   function close() {
@@ -64,14 +70,25 @@ export function useRevertOverride(): {
     <ConfirmDialog
       open={target?.open === true}
       onOpenChange={(next) => !next && !remove.loading && close()}
-      title={`Revert ${target?.tenantId ?? ""} to the app default?`}
+      title={
+        target?.leftover === true
+          ? `Remove ${target.tenantId}'s leftover override?`
+          : `Revert ${target?.tenantId ?? ""} to the app default?`
+      }
       description={
         <span className="flex flex-col gap-2">
           <span>{target?.sentence}</span>
-          <CommandAlert error={remove.error} title="Could not revert the override" />
+          <CommandAlert
+            error={remove.error}
+            title={
+              target?.leftover === true
+                ? "Could not remove the override"
+                : "Could not revert the override"
+            }
+          />
         </span>
       }
-      confirmLabel="Revert to app default"
+      confirmLabel={target?.leftover === true ? "Remove leftover override" : "Revert to app default"}
       pending={remove.loading}
       onConfirm={() => void confirm()}
     />
