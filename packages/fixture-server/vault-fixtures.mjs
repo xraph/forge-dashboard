@@ -99,8 +99,11 @@ function iso(date) {
 //   - Expiries: future, soon, already passed, and one on the rotatable
 //     db/primary.password so a rotation that drops the expiry shows.
 //   - Metadata on two secrets.
-//   - Three policies: enabled with a rotator, enabled WITHOUT a rotator (it
-//     will never rotate), and disabled (no next rotation to show).
+//   - Policies for every case the overview counts: enabled with a rotator,
+//     enabled with a rotator and overdue (its rotator always fails), enabled
+//     WITHOUT a rotator (it will never rotate; one of them with a due time
+//     already past, which is not overdue), disabled with a rotator, and
+//     disabled without one (counted in no line).
 //   - Rotation records on the rotatable, enabled one, with a version history
 //     that matches them.
 //   - 30 flags, described where they are seeded (seedFlags).
@@ -145,6 +148,9 @@ const SEED_KEYS = [
 // Keys an application has registered a rotator for. Rotators live in
 // application code, so this set never changes at runtime.
 const ROTATOR_KEYS = new Set(["db/primary.password", "smtp/relay.password", "cache/redis.auth"])
+// Rotators that always fail, with the cause their error wraps. rotation.rotateNow
+// on one of these reads the secret, fails in the rotator, and changes nothing.
+const FAILING_ROTATOR_KEYS = new Map([["cache/redis.auth", "dial tcp 10.0.3.7:6379: connect: connection refused"]])
 
 // Rows stored in the clear: written before the vault had a key. Two, so the
 // overview's "unencrypted" line has a count and the list is a mix.
@@ -249,7 +255,9 @@ function seedVaultState() {
   })
   // Enabled, with a rotator, and overdue: its next rotation fell due three
   // days ago and the rotator keeps failing (the audit rows below), so the
-  // overview has an overdue count and failed rotations to show.
+  // overview has an overdue count and failed rotations to show. Its rotator
+  // fails for real too: rotation.rotateNow on this key always errors and
+  // leaves a failure row (see FAILING_ROTATOR_KEYS).
   state.policies.set("cache/redis.auth", {
     id: nextId("rot"),
     secretKey: "cache/redis.auth",
@@ -274,6 +282,28 @@ function seedVaultState() {
     updatedAt: iso(nowMs - 25 * day),
   })
 
+  // Enabled, no rotator, and its due time is already past. It is counted as
+  // without a rotator and not as overdue: a policy nothing can run cannot be
+  // late.
+  state.policies.set("api/sendgrid.key", {
+    id: nextId("rot"),
+    secretKey: "api/sendgrid.key",
+    intervalSeconds: 14 * 86400,
+    enabled: true,
+    nextRotationAt: iso(nowMs - 2 * day),
+    createdAt: iso(nowMs - 16 * day),
+    updatedAt: iso(nowMs - 16 * day),
+  })
+  // Disabled and no rotator: counted in neither line.
+  state.policies.set("api/slack.webhook", {
+    id: nextId("rot"),
+    secretKey: "api/slack.webhook",
+    intervalSeconds: 30 * 86400,
+    enabled: false,
+    createdAt: iso(nowMs - 12 * day),
+    updatedAt: iso(nowMs - 12 * day),
+  })
+
   // Newest first, the order rotation.detail returns them in. Old and new
   // versions line up with db/primary.password's version history above.
   state.records.set("db/primary.password", [
@@ -294,7 +324,7 @@ function seedVaultState() {
   smtp.updatedAt = iso(nowMs - 30 * day)
 
   pushAudit("db/primary.password", "secret.set", nowMs - 2 * hour, "")
-  pushAudit("db/primary.password", "secret.get", nowMs - 2 * hour - 1000, "usr_1")
+  pushAudit("db/primary.password", "secret.get", nowMs - 2 * hour - 1000, "")
   pushAudit("api/stripe.key", "secret.get", nowMs - 30 * 60_000, "usr_1")
   pushAudit("legacy/ftp.password", "secret.set", nowMs - 5 * 60_000, "usr_1")
   seedFlags(state, nowMs, pushAudit)
@@ -320,7 +350,11 @@ function seedVaultState() {
 //     to leave out.
 //   - secret.rotated failures. Three fall inside the last 24 hours (two on
 //     cache/redis.auth, one on db/primary.password, one of them manual) and
-//     three fall outside it, so the overview's count is 3 and not 6.
+//     three fall outside it, so the overview's count is 3 and not 6. One more
+//     failure, a secret.set, sits inside the window and is not a rotation, so
+//     the count is 3 and not 4.
+//   - db/primary.password's last rotation (set, read and rotated rows) names
+//     no user: the rotation loop ran it, and its three rows agree.
 //   - rows with a user (the dashboard operator usr_1, and usr_2) and rows
 //     without (an application or the rotation loop wrote them), and rows with
 //     and without a tenant.
@@ -382,6 +416,9 @@ function seedAuditExtras(state, nowMs, pushAudit) {
   pushAudit("smtp/relay.password", "secret.rotated", nowMs - 3 * day, "", "secret", "", 'rotation: rotator failed for "smtp/relay.password": 535 authentication credentials invalid')
   // A failure with no message recorded: the projection leaves error out.
   pushAudit("db/primary.password", "secret.rotated", nowMs - 8 * day, "", "secret", "", "")
+  // A failure that is not a rotation, inside the window: the overview counts
+  // failed rotations, so this one must not move that number.
+  pushAudit("legacy/ftp.password", "secret.set", nowMs - 5 * hour, "usr_1", "secret", "", "secret: store write failed: connection reset by peer")
 }
 
 // ---------------------------------------------------------------------------
@@ -782,16 +819,11 @@ function projectRecord(r) {
   return out
 }
 
-function projectAudit(e) {
-  const out = { id: e.id, action: e.action, outcome: e.outcome }
-  if (e.userId) out.userId = e.userId
-  out.createdAt = e.createdAt
-  return out
-}
-
 /**
- * projectAuditSummary: the audit list's row. tenantId, userId and error are
- * omitempty, and error is only ever read from a failure row.
+ * projectAuditSummary: Go's shared projectAuditSummary, the one row shape the
+ * audit list, the overview's recent activity and the detail intents' recent
+ * audit all use. tenantId, userId and error are omitempty, and error is only
+ * ever read from a failure row.
  */
 function projectAuditSummary(e) {
   const out = { id: e.id, action: e.action, resource: e.resource, key: e.key, outcome: e.outcome }
@@ -801,6 +833,9 @@ function projectAuditSummary(e) {
   out.createdAt = e.createdAt
   return out
 }
+
+/** The detail intents' recentAudit rows: the same projection as the list. */
+const projectAudit = projectAuditSummary
 
 // ---------------------------------------------------------------------------
 // Flag values (flag/validate.go)
@@ -1195,16 +1230,17 @@ export function createVaultHandlers(FixtureError) {
   }
 
   // tenantId is set on override rows only: the tenant that was overridden.
-  function recordAudit(key, action, resource = "secret", tenantId = "") {
+  function recordAudit(key, action, resource = "secret", tenantId = "", failure = undefined) {
     vault.audit.unshift({
       id: vault.nextId("aud"),
       resource,
       key,
       action,
-      outcome: "success",
+      outcome: failure === undefined ? "success" : "failure",
       userId: "usr_1",
       createdAt: iso(Date.now()),
       ...(tenantId === "" ? {} : { tenantId }),
+      ...(failure === undefined ? {} : { error: failure }),
     })
   }
 
@@ -1519,14 +1555,16 @@ export function createVaultHandlers(FixtureError) {
         if (!vault.secrets.has(key)) {
           // A retry path: an orphan policy left by an earlier failed cleanup
           // still gets removed before the secret's own NOT_FOUND is answered.
-          vault.policies.delete(key)
+          // A policy it removes is recorded like any other, and none removed
+          // writes no row.
+          if (vault.policies.delete(key)) recordAudit(key, "rotation.policy_deleted", "rotation")
           throw secretNotFound()
         }
         vault.secrets.delete(key)
-        vault.policies.delete(key)
         // Rotation records stay: the store deletes the secret's versions and,
         // through this handler, its policy, and nothing else.
         recordAudit(key, "secret.delete")
+        if (vault.policies.delete(key)) recordAudit(key, "rotation.policy_deleted", "rotation")
         return { ok: true, key }
       },
     },
@@ -2160,6 +2198,20 @@ export function createVaultHandlers(FixtureError) {
           throw badRequest("no rotator is registered for this secret; rotators are registered in application code")
         }
         const row = findSecret(key)
+
+        // Go's Manager.RotateNow reads the current value first (an access row),
+        // and a rotator that fails stops it there: no new version, no record,
+        // no policy stamp. The manager's onRotate hook still writes its one
+        // row per attempt, this one a failure naming the operator with the
+        // wrapped error. The client is told what mapError tells it for an
+        // error that is not a domain sentinel: INTERNAL, and nothing of the
+        // cause.
+        const cause = FAILING_ROTATOR_KEYS.get(key)
+        if (cause !== undefined) {
+          recordAudit(key, "secret.get")
+          recordAudit(key, "secret.rotated", "secret", "", `rotation: rotator failed for "${key}": ${cause}`)
+          throw new FixtureError(500, "INTERNAL", "an internal error occurred")
+        }
 
         // Expiry and metadata are carried forward, untouched. The rewrite goes
         // through Secrets().Set, so it is stamped with the keyed algorithm, as

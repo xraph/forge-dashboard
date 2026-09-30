@@ -1545,10 +1545,14 @@ async function main() {
       const succeeded = await aud({ outcome: "success", limit: 100 })
       vaultCheck(
         "the outcome filter splits the default view exactly",
-        failed?.total > 0 && failed.entries.every((e) => e.outcome === "failure" && e.action === "secret.rotated") && succeeded.entries.every((e) => e.outcome === "success") && failed.total + succeeded.total === hidden.total,
+        failed?.total > 0 && failed.entries.every((e) => e.outcome === "failure") && succeeded.entries.every((e) => e.outcome === "success") && failed.total + succeeded.total === hidden.total,
         JSON.stringify([failed?.total, succeeded?.total, hidden?.total]),
       )
       vaultCheck("a failure row carries its error, and a failure with none recorded omits it", failed.entries.filter((e) => e.error).length === failed.total - 1 && failed.entries.filter((e) => !("error" in e)).length === 1, JSON.stringify(failed.entries.map((e) => e.error)))
+      // The seed has one failure that is not a rotation. Without it the
+      // 24-hour count could not tell "failed rotations" from "failures".
+      const failedOther = failed.entries.filter((e) => e.action !== "secret.rotated")
+      vaultCheck("the seed has a failure that is not a rotation, inside the last day", failedOther.length === 1 && failedOther[0].action === "secret.set" && Date.parse(failedOther[0].createdAt) > Date.now() - 86_400_000, JSON.stringify(failedOther))
       vaultCheck("no success row carries an error", succeeded.entries.every((e) => !("error" in e)), "a success row has an error")
 
       // Since: created at or after it, and the total follows.
@@ -1561,6 +1565,16 @@ async function main() {
       )
       const future = await aud({ since: new Date(Date.now() + 86_400_000).toISOString() })
       vaultCheck("a since in the future matches nothing, with an empty list rather than null", future?.total === 0 && Array.isArray(future.entries) && future.entries.length === 0, JSON.stringify(future))
+      // The boundary itself: a row's exact createdAt as since keeps that row,
+      // and one second later drops it.
+      const boundaryRow = failedOther[0]
+      const atBoundary = await aud({ since: boundaryRow.createdAt, key: boundaryRow.key, action: boundaryRow.action, limit: 100 })
+      const afterBoundary = await aud({ since: new Date(Date.parse(boundaryRow.createdAt) + 1000).toISOString(), key: boundaryRow.key, action: boundaryRow.action, limit: 100 })
+      vaultCheck(
+        "a row's exact createdAt as since returns that row, and a second later does not",
+        atBoundary.entries.some((e) => e.id === boundaryRow.id) && !afterBoundary.entries.some((e) => e.id === boundaryRow.id),
+        JSON.stringify([boundaryRow.createdAt, atBoundary.total, afterBoundary.total]),
+      )
       const offsetSince = await aud({ since: "2099-01-01T00:00:00+02:00", includeReads: true })
       vaultCheck("since accepts an RFC3339 offset", offsetSince?.total === 0, JSON.stringify(offsetSince))
       const days = (n) => new Date(Date.now() - n * 86_400_000).toISOString()
@@ -1608,7 +1622,7 @@ async function main() {
       vaultCheck("every audit row carries id, action, resource, key, outcome and createdAt", rows.every(isRow), "a row is missing a field")
       vaultCheck("the seed has rows with and without a user, and with and without a tenant", rows.some((e) => e.userId) && rows.some((e) => !("userId" in e)) && rows.some((e) => e.tenantId) && rows.some((e) => !("tenantId" in e)), "no mix")
       vaultCheck("no row carries an empty userId, tenantId or error", rows.every((e) => e.userId !== "" && e.tenantId !== "" && e.error !== ""), "an empty string reached the wire")
-      vaultCheck("every failure in the seed is a secret.rotated on the secret resource", rows.filter((e) => e.outcome === "failure").every((e) => e.action === "secret.rotated" && e.resource === "secret"), "a failure has another action")
+      vaultCheck("every failure in the seed is on the secret resource", rows.filter((e) => e.outcome === "failure").every((e) => (e.action === "secret.rotated" || e.action === "secret.set") && e.resource === "secret"), "a failure has another action")
       const overrideRow = (await aud({ resource: "override", limit: 100 })).entries.find((e) => e.action === "override.set")
       vaultCheck("an override row is attributed to the tenant it targets", typeof overrideRow?.tenantId === "string" && overrideRow.tenantId !== "", JSON.stringify(overrideRow))
 
@@ -1632,13 +1646,39 @@ async function main() {
         JSON.stringify(stats),
       )
       vaultCheck("the seed has an overdue policy, a policy without a rotator and a disabled one", stats.rotationOverdue >= 1 && stats.rotationWithoutRotator >= 1 && stats.rotationEnabled < stats.rotationPolicies, JSON.stringify(stats))
+      const pastDueNoRotator = policyList.policies.filter((p) => p.enabled && !p.rotatable && p.nextRotationAt && Date.parse(p.nextRotationAt) < Date.now())
+      const disabledNoRotator = policyList.policies.filter((p) => !p.enabled && !p.rotatable)
+      vaultCheck(
+        "an enabled policy with no rotator and a past due time is counted without a rotator, not overdue; a disabled one with no rotator is counted in neither",
+        pastDueNoRotator.length >= 1 && disabledNoRotator.length >= 1 && stats.rotationOverdue === enabledPolicies.filter((p) => p.rotatable && p.nextRotationAt && Date.parse(p.nextRotationAt) < Date.now()).length && stats.rotationWithoutRotator === enabledPolicies.filter((p) => !p.rotatable).length,
+        JSON.stringify([pastDueNoRotator.map((p) => p.secretKey), disabledNoRotator.map((p) => p.secretKey), stats.rotationOverdue, stats.rotationWithoutRotator]),
+      )
       vaultCheck("a disabled policy is neither overdue nor without a rotator", policyList.policies.filter((p) => !p.enabled).length >= 1 && stats.rotationOverdue + stats.rotationWithoutRotator <= stats.rotationEnabled, JSON.stringify(stats))
-      vaultCheck("failures in the last 24 hours count only the three inside the window", stats.rotationFailures24h === 3 && stats.rotationFailures24h === combined.total, `${stats.rotationFailures24h}`)
+      const failedDay = await aud({ outcome: "failure", since: days(1), limit: 100 })
+      vaultCheck(
+        "failures in the last 24 hours count only the three rotations inside the window, and not the failed secret.set beside them",
+        stats.rotationFailures24h === 3 && stats.rotationFailures24h === combined.total && failedDay.total === 4,
+        JSON.stringify([stats.rotationFailures24h, combined.total, failedDay.total]),
+      )
       vaultCheck("overview.stats reports the keyed algorithm", stats.encryptionEnabled === true && stats.encryptionAlgorithm === "AES-256-GCM", JSON.stringify([stats.encryptionEnabled, stats.encryptionAlgorithm]))
       vaultCheck(
         "recent activity is the ten newest rows of the default view, no reads",
         Array.isArray(stats.recentActivity) && stats.recentActivity.length === 10 && eq(stats.recentActivity, hidden.entries.slice(0, 10)) && stats.recentActivity.every((e) => e.action !== "secret.get"),
         JSON.stringify(stats.recentActivity.map((e) => e.action)),
+      )
+      // The check above is vacuous when no read is near the top of the log: a
+      // leak of secret.get could not show. A rotation reads the secret first,
+      // so after one a read sits among the newest rows of the raw log, and the
+      // overview must still leave it out.
+      await vaultCall("rotation.rotateNow", "command", { key: "smtp/relay.password" })
+      const rawTop = await aud({ includeReads: true, limit: 10 })
+      const hiddenTop = await aud({ limit: 10 })
+      const statsRead = await ov()
+      vaultCheck("a read is among the ten newest rows of the raw log, so recent activity has one to leave out", rawTop.entries.some((e) => e.action === "secret.get"), JSON.stringify(rawTop.entries.map((e) => e.action)))
+      vaultCheck(
+        "recent activity has no secret.get even then, and is the default view's first ten",
+        statsRead.recentActivity.length === 10 && statsRead.recentActivity.every((e) => e.action !== "secret.get") && eq(statsRead.recentActivity, hiddenTop.entries),
+        JSON.stringify(statsRead.recentActivity.map((e) => e.action)),
       )
       const overviewKeys = ["secrets", "unencryptedSecrets", "flags", "configEntries", "configOverrides", "rotationPolicies", "rotationEnabled", "rotationOverdue", "rotationWithoutRotator", "rotationFailures24h", "encryptionEnabled", "encryptionAlgorithm", "recentActivity"]
       vaultCheck("overview.stats carries every field and nothing else", eq(Object.keys(stats).sort(), overviewKeys.slice().sort()), JSON.stringify(Object.keys(stats)))
@@ -1678,6 +1718,16 @@ async function main() {
       const deletedPolicyRow = (await aud({ key: madeKey, resource: "rotation" })).entries[0]
       vaultCheck("rotation.deletePolicy writes rotation.policy_deleted", deletedPolicyRow?.action === "rotation.policy_deleted" && deletedPolicyRow.userId === "usr_1" && deletedPolicyRow.resource === "rotation", JSON.stringify(deletedPolicyRow))
 
+      // A refused delete of a policy that is not there writes no row.
+      const beforeRefused = (await aud({ includeReads: true })).total
+      const refusedDelete = await vaultCall("rotation.deletePolicy", "command", { key: madeKey })
+      const afterRefused = await aud({ includeReads: true })
+      vaultCheck(
+        "a refused rotation.deletePolicy is NOT_FOUND and writes no audit row",
+        refusedDelete.status === 404 && refusedDelete.body?.error?.code === "NOT_FOUND" && afterRefused.total === beforeRefused,
+        `${refusedDelete.status} ${refusedDelete.body?.error?.code} ${beforeRefused} vs ${afterRefused.total}`,
+      )
+
       await vaultCall("rotation.rotateNow", "command", { key: "smtp/relay.password" })
       const rotationRows = (await aud({ key: "smtp/relay.password", includeReads: true, limit: 3 })).entries
       vaultCheck(
@@ -1687,8 +1737,72 @@ async function main() {
       )
 
       await vaultCall("secrets.delete", "command", { key: madeKey })
-      const removedRow = (await aud({ key: madeKey })).entries[0]
-      vaultCheck("secrets.delete writes secret.delete naming the operator", removedRow?.action === "secret.delete" && removedRow.userId === "usr_1", JSON.stringify(removedRow))
+      const removedRows = (await aud({ key: madeKey })).entries
+      vaultCheck("secrets.delete writes secret.delete naming the operator", removedRows[0]?.action === "secret.delete" && removedRows[0].userId === "usr_1", JSON.stringify(removedRows[0]))
+      vaultCheck("a delete that found no policy writes no rotation.policy_deleted row of its own", removedRows.filter((e) => e.action === "rotation.policy_deleted").length === 1, JSON.stringify(removedRows.map((e) => e.action)))
+
+      // A delete that removes a policy records it, after the secret.delete row.
+      const policied = "spot/audit.policied"
+      await vaultCall("secrets.create", "command", { key: policied, value: canary })
+      await vaultCall("rotation.savePolicy", "command", { key: policied, intervalSeconds: 3600, enabled: true })
+      await vaultCall("secrets.delete", "command", { key: policied })
+      const poliedRows = (await aud({ key: policied, limit: 10 })).entries
+      vaultCheck(
+        "secrets.delete writes rotation.policy_deleted, naming the operator, when it removes a policy",
+        eq(poliedRows.slice(0, 2).map((e) => [e.action, e.resource]), [["rotation.policy_deleted", "rotation"], ["secret.delete", "secret"]]) && poliedRows[0].userId === "usr_1" && poliedRows[0].outcome === "success",
+        JSON.stringify(poliedRows.slice(0, 3)),
+      )
+
+      // A manual rotation whose rotator fails. cache/redis.auth's always does.
+      // Go answers what mapError gives an error that is not a domain sentinel,
+      // and the manager's hook still writes the attempt as a failure row that
+      // names the operator and carries the wrapped error.
+      const redisBefore = await vaultCall("secrets.detail", "query", { key: "cache/redis.auth" })
+      const redisRecordsBefore = await vaultCall("rotation.detail", "query", { key: "cache/redis.auth" })
+      const failuresBefore = (await ov()).rotationFailures24h
+      const failedRotation = await vaultCall("rotation.rotateNow", "command", { key: "cache/redis.auth" })
+      vaultCheck(
+        "a failed manual rotation is INTERNAL with the generic message, and says nothing of the cause",
+        failedRotation.status === 500 && failedRotation.body?.error?.code === "INTERNAL" && failedRotation.body.error.message === "an internal error occurred" && !JSON.stringify(failedRotation.body).includes("connection refused"),
+        JSON.stringify(failedRotation.body),
+      )
+      const redisRows = (await aud({ key: "cache/redis.auth", includeReads: true, limit: 2 })).entries
+      vaultCheck(
+        "it leaves the read, then a secret.rotated failure row naming the operator with its error",
+        eq(redisRows.map((e) => e.action), ["secret.rotated", "secret.get"]) && redisRows[0].outcome === "failure" && redisRows[0].userId === "usr_1" && redisRows[0].resource === "secret" && /^rotation: rotator failed for "cache\/redis\.auth": /.test(redisRows[0].error ?? "") && redisRows[1].outcome === "success",
+        JSON.stringify(redisRows),
+      )
+      const redisFailures = await aud({ key: "cache/redis.auth", outcome: "failure", action: "secret.rotated", limit: 1 })
+      vaultCheck("the failure is what filtering outcome failure finds first", redisFailures.entries[0]?.id === redisRows[0]?.id, JSON.stringify(redisFailures.entries[0]))
+      const redisAfter = await vaultCall("secrets.detail", "query", { key: "cache/redis.auth" })
+      const redisRecordsAfter = await vaultCall("rotation.detail", "query", { key: "cache/redis.auth" })
+      vaultCheck(
+        "a failed rotation changes nothing else: same version, same records, same due time",
+        redisAfter.body?.data?.secret?.version === redisBefore.body?.data?.secret?.version &&
+          eq(redisRecordsAfter.body?.data?.records, redisRecordsBefore.body?.data?.records) &&
+          redisAfter.body?.data?.rotation?.nextRotationAt === redisBefore.body?.data?.rotation?.nextRotationAt,
+        JSON.stringify([redisBefore.body?.data?.secret?.version, redisAfter.body?.data?.secret?.version]),
+      )
+      vaultCheck("the overview counts it as one more failed rotation", (await ov()).rotationFailures24h === failuresBefore + 1, `${failuresBefore}`)
+
+      // The detail intents' recent audit is the list's row, field for field.
+      const detailRows = [
+        ["secrets.detail", "cache/redis.auth", ["secret"]],
+        ["flags.detail", "checkout.new-flow", ["flag"]],
+        // A config entry's history is its own writes and its overrides'.
+        ["config.detail", "limits.api-rate", ["config", "override"]],
+      ]
+      for (const [intent, key, resources] of detailRows) {
+        const detail = (await vaultCall(intent, "query", { key })).body?.data?.recentAudit ?? []
+        const listed = (await aud({ key, includeReads: true, limit: 100 })).entries.filter((e) => resources.includes(e.resource))
+        vaultCheck(
+          `${intent} recentAudit carries resource, key, tenant, user and error like audit.list`,
+          detail.length > 0 && eq(detail, listed.slice(0, detail.length)) && detail.every((e) => resources.includes(e.resource) && e.key === key && e.userId !== "" && e.tenantId !== "" && e.error !== ""),
+          JSON.stringify(detail.slice(0, 2)),
+        )
+      }
+      const redisDetail = (await vaultCall("secrets.detail", "query", { key: "cache/redis.auth" })).body?.data?.recentAudit
+      vaultCheck("secrets.detail shows the failure row's error", redisDetail?.[0]?.outcome === "failure" && redisDetail[0].userId === "usr_1" && typeof redisDetail[0].error === "string", JSON.stringify(redisDetail?.[0]))
 
       await vaultCall("flags.setTenantOverride", "command", { key: "search.typeahead", tenantId: "globex", value: false })
       const flagOverrideRow = (await aud({ key: "search.typeahead", action: "flag.override_set" })).entries[0]
