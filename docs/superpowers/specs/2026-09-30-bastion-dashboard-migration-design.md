@@ -217,8 +217,11 @@ removed:
 - Update, delete and set-enabled check the source, and set-enabled writes a
   copy through `UpdateRoute`, never the live pointer.
 
-`api/handlers.go` is rewired onto it. The REST responses keep their shapes,
-except that priority and path stop drifting, which is a fix.
+`api/handlers.go` is rewired onto it. The REST responses keep their shapes. REST GET still returns effective
+priority and path while PUT takes entered ones, so a REST client that
+writes back what it read still drifts; the contract carries both values
+(`priority` and `input.priority`) and the dashboard never drifts. The REST
+drift goes in `MIGRATION.md`.
 
 `bastion/extension/contract` follows vault's layout: `manifest.yaml`,
 `contract.go` with `Register(d, reg, wreg, Deps{Gateway, Logger})`,
@@ -237,8 +240,8 @@ Field names come from the Go JSON tags. Every list returns `{items, total}`.
 | `upstreams.list` | | unique targets, each with the routes using it, health, circuit state and counters |
 | `traffic.stats` | | gateway counters plus per-route stats, most requests first |
 | `services.list` | | discovered services, copied, plus `discoveryEnabled` so an empty list says whether discovery is off |
-| `circuits.list` | | per-target breaker snapshots plus the global `enabled` flag and thresholds |
-| `openapi.summary` | | per-service spec status, path counts, errors, last refresh and spec URLs; `null` when OpenAPI is disabled |
+| `circuits.list` | | every live target, with `tracked: false` for targets that have no breaker yet |
+| `openapi.summary` | | per-service spec status, path counts, errors, last refresh and spec URLs; `enabled` and `running` flags, with empty lists when either is false |
 | `config.detail` | | the gateway config as booleans and tunables, with sensitive values reduced to "set" or a count |
 
 | Command | Request | Invalidates |
@@ -253,7 +256,7 @@ Field names come from the Go JSON tags. Every list returns `{items, total}`.
 
 Refusals:
 
-- Writing a non-manual route answers `FAILED_PRECONDITION`, naming the source.
+- Writing a non-manual route answers `CONFLICT`, naming the source.
 - `routes.setEnabled` on a discovered route is refused with a message saying
   the next discovery update would undo it. On a config route it succeeds, and
   the response carries `durable: false` so the page can say the change will
@@ -261,7 +264,10 @@ Refusals:
 - A duplicate path and method set answers `CONFLICT`.
 - `openapi.refresh` runs on a context detached from the request, fixing the
   cancelled refresh. `discovery.refresh` with discovery disabled answers
-  `FAILED_PRECONDITION`, not a silent success.
+  `CONFLICT`, not a silent success.
+- forge has no FAILED_PRECONDITION code. Source refusals answer CONFLICT
+  with `details.reason: "source"` and the route's source; duplicates answer
+  CONFLICT with `details.reason: "duplicate"` and the other route's id.
 
 Redaction, in `routes.detail` and `config.detail`:
 
