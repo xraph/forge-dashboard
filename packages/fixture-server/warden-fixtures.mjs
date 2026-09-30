@@ -367,10 +367,18 @@ function seedPolicies(hourAgo, now) {
         condition("vpn2", "context.ip", "ip_in_cidr", ["10.0.0.0/99", "not-a-network"]),
       ],
     }),
-    // MATCHES EVERYTHING: all three matcher lists empty.
+    // MATCHES EVERYTHING: all three matcher lists empty and no condition to
+    // restrict it.
     policy("catch-all-allow", {
       description: "No subjects, actions or resources: it applies to every check.",
       priority: 900,
+    }),
+    // NO MATCHERS BUT A CONDITION: the lists are empty, yet the condition
+    // depends on the check, so this does NOT apply to every check.
+    policy("office-network-allow", {
+      description: "No subjects, actions or resources, but only from the office network.",
+      priority: 900,
+      conditions: [condition("net1", "context.ip", "ip_in_cidr", ["10.0.0.0/8"])],
     }),
     // A SUBJECT MATCHER THAT IS EMPTY inside a list: it matches everyone, so
     // the subject list restricts nothing although it has two entries. The
@@ -2102,8 +2110,27 @@ function analysePolicy(p, nowNs) {
   }
   a.actionsUnrestricted = p.actions.length === 0 || p.actions.some(matchesEveryValue)
   a.resourcesUnrestricted = p.resources.length === 0 || p.resources.some(matchesEveryValue)
-  a.matchesEverything = a.subjectsUnrestricted && a.actionsUnrestricted && a.resourcesUnrestricted
+  a.matchesEverything =
+    a.subjectsUnrestricted && a.actionsUnrestricted && a.resourcesUnrestricted && conditionsAlwaysHold(p.effect, a.problems)
   return a
+}
+
+/**
+ * conditionsAlwaysHold: for a policy that passes its matchers, whether its
+ * conditions are met on every check. Walked in evaluation order: an always-true
+ * condition changes nothing and the first other one decides. A throw on a deny
+ * counts as met (the engine fails closed), a throw on an allow skips the policy,
+ * an always-false condition fails, and one that depends on the check holds for
+ * some checks and not others. Reaching the end, with no conditions at all,
+ * means they always hold.
+ */
+function conditionsAlwaysHold(effect, problems) {
+  for (const problem of problems) {
+    if (problem === "alwaysTrue") continue
+    if (problem === "throws") return effect !== "allow"
+    return false
+  }
+  return true
 }
 
 // ---- write-time validation -------------------------------------------------
@@ -3288,8 +3315,27 @@ export const wardenHandlers = {
   "policies.validate": {
     kind: "query",
     handler: (params) => {
-      const issues = collectPolicyIssues(decodeDraft(params, "PolicyDraft"), ALL_PARTS)
-      return { valid: issuesError(issues) === null, fields: issues.fields, conditions: issues.conditions }
+      const draft = decodeDraft(params, "PolicyDraft")
+      const issues = collectPolicyIssues(draft, ALL_PARTS)
+      // Analysed as a create would store it, so the answer is the stored
+      // policy's, not the raw draft's. The effect goes in unchecked: anything
+      // but exactly "allow" is treated as a deny, as in Go.
+      const shape = {
+        effect: draft.effect,
+        isActive: true,
+        notBefore: null,
+        notAfter: null,
+        subjects: draft.subjects.map(storedSubject),
+        actions: trimmedList(draft.actions),
+        resources: trimmedList(draft.resources),
+        conditions: toPolicyConditions(draft.conditions, []),
+      }
+      return {
+        valid: issuesError(issues) === null,
+        matchesEverything: analysePolicy(shape, nowNs()).matchesEverything,
+        fields: issues.fields,
+        conditions: issues.conditions,
+      }
     },
   },
   "policies.create": {
