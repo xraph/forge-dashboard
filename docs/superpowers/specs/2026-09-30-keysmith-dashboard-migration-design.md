@@ -169,7 +169,8 @@ until its own `grace_ends`, and the key detail lists both.
 
 `SuspendKey` accepts only an `active` key. `RevokeKey` on a revoked key
 returns `ErrInvalidStateTransition` so hooks do not fire twice. The contract
-maps that error to `FAILED_PRECONDITION`. A regression test runs the exact
+maps that error to `CONFLICT`: the dashboard's wire codes have no
+`FAILED_PRECONDITION`. A regression test runs the exact
 revoke, suspend, reactivate sequence above and asserts the key stays dead.
 
 ### Scopes are checked before the key row is written
@@ -226,29 +227,29 @@ group reads "not enforced here", whatever the policy's numbers are.
 `Deps`: `Engine *keysmith.Engine`, `DefaultTenantID`, `DefaultAppID`,
 `Plugins []string` (registered hook plugin names, for settings), `Logger`.
 
-JSON field names follow the Go structs' tags, snake_case, as vault's do.
+Wire types are the contract's own projections, never the domain structs. Their JSON names are camelCase and timestamps are RFC3339 strings, as vault's and warden's are (`encryptionAlg`, `createdAt`). The domain structs' snake_case tags stay on the REST API. Durations are whole seconds (`graceSeconds`).
 
 ### Queries
 
 | Intent | Request | Answers |
 |---|---|---|
 | `overview` | none | counts by state, open grace windows, keys expiring within 7 days, requests in the last 24h (`null` when no rows exist), 5 recent keys, 5 recent rotations |
-| `keys.list` | `environment`, `state`, `policy_id`, `limit`, `offset` | `items`, `total` |
-| `keys.detail` | `id` | key, effective state, policy summary, scopes, open windows (`hint`, `grace_ends`) |
-| `rotations.list` | `key_id?`, `reason?`, `limit`, `offset` | `items` with `old_hint`, `new_hint`, window open or closed, `has_more` |
+| `keys.list` | `environment`, `state`, `policyId`, `limit`, `offset` | `items`, `total` |
+| `keys.detail` | `id` | key, effective state, policy summary, scopes, open windows (`hint`, `graceEnds`) |
+| `rotations.list` | `keyId?`, `reason?`, `limit`, `offset` | `items` with `oldHint`, `newHint`, window open or closed, `hasMore` |
 | `policies.list` | `limit`, `offset` | `items`, `total` |
-| `policies.detail` | `id` | policy, `keys_using` (count and first page) |
-| `scopes.list` | `limit`, `offset` | `items`, `has_more` |
-| `usage.series` | `key_id?`, `period`, `after`, `before` | buckets, every bucket present including empty ones |
-| `usage.records` | `key_id?`, `after`, `before`, `limit`, `offset` | `items`, `total` |
+| `policies.detail` | `id` | policy, `keysUsing` (count and first page) |
+| `scopes.list` | `limit`, `offset` | `items`, `hasMore` |
+| `usage.series` | `keyId?`, `period`, `after`, `before` | buckets, every bucket present including empty ones |
+| `usage.records` | `keyId?`, `after`, `before`, `limit`, `offset` | `items`, `total` |
 | `settings` | none | plugins, store health, rate limiter configured, tenant source, enforcement table, default grace |
 
 Paging is `limit` and `offset` everywhere, because that is what the stores
 take. `total` is exact where a store has `Count` (keys, policies, usage).
-Rotations and scopes fetch one extra row and answer `has_more`.
+Rotations and scopes fetch one extra row and answer `hasMore`.
 
 "Effective state" is computed in the handler: an `active` key past
-`expires_at` answers `expired` with `expiry_pending: true`, because the engine
+`expiresAt` answers `expired` with `expiryPending: true`, because the engine
 only marks expiry when the key is next used. The stored state is still in the
 response.
 
@@ -261,8 +262,8 @@ contract and it is safe for that reason.
 
 | Intent | Request | Invalidates |
 |---|---|---|
-| `keys.create` | `name`, `description`, `environment`, `prefix`, `policy_id?`, `scopes`, `expires_at?` | `keys.list`, `overview`, `policies.detail` |
-| `keys.rotate` | `id`, `reason`, `grace_seconds?` | `keys.detail`, `rotations.list`, `overview` |
+| `keys.create` | `name`, `description`, `environment`, `prefix`, `policyId?`, `scopes`, `expiresAt?` | `keys.list`, `overview`, `policies.detail` |
+| `keys.rotate` | `id`, `reason`, `graceSeconds?` | `keys.detail`, `rotations.list`, `overview` |
 | `keys.endGrace` | `id` | `keys.detail`, `rotations.list`, `overview` |
 | `keys.revoke` | `id`, `reason` | `keys.list`, `keys.detail`, `rotations.list`, `overview` |
 | `keys.suspend` | `id` | `keys.list`, `keys.detail`, `overview` |
@@ -275,20 +276,20 @@ contract and it is safe for that reason.
 | `scopes.create` | `name`, `parent?`, `description` | `scopes.list`, `overview` |
 | `scopes.delete` | `id` | `scopes.list`, `keys.detail`, `overview` |
 
-`created_by` and `rotated_by` come from the principal's subject, never from
+`createdBy` and `rotatedBy` come from the principal's subject, never from
 the request.
 
-Durations cross the wire as whole seconds (`rate_limit_window_seconds`,
-`grace_seconds` and so on). The REST API's `"30d"` strings stay on the REST
+Durations cross the wire as whole seconds (`rateLimitWindowSeconds`,
+`graceSeconds` and so on). The REST API's `"30d"` strings stay on the REST
 API.
 
-`keys.create` and `keys.rotate` answer `{ key, raw_key }` and are the only
-responses in the contract that carry a secret. No query type has a `raw_key`
-field. A Go test marshals every query response type and asserts the string
-`raw_key` and the `key_hash` column name never appear.
+`keys.create` and `keys.rotate` answer `{ key, rawKey }` and are the only
+responses in the contract that carry a secret. No query type has a `rawKey`
+field. A Go test marshals every query response type and asserts none of `rawKey`,
+`raw_key`, `keyHash` or `key_hash` appears.
 
-`policies.delete` on a policy in use answers `FAILED_PRECONDITION` with the
-number of keys using it.
+`policies.delete` on a policy in use answers `CONFLICT` with the number of
+keys using it.
 
 ## The React plugin
 
@@ -303,7 +304,7 @@ One component, `OneTimeKeyDialog`, serves create and rotate.
 1. The form opens in a dialog. Create collects name, description, environment,
    prefix (mono, with a live preview like `sk_live_…`), policy, optional
    expiry and scopes. The scope choice narrows to the policy's
-   `allowed_scopes` when it has any. Rotate collects reason and grace.
+   `allowedScopes` when it has any. Rotate collects reason and grace.
 2. On success the same dialog swaps to the reveal. The raw key goes into the
    component's own state, never read off `create.data`, and the hook's
    `reset()` runs straight away so the hook holds no copy either.
