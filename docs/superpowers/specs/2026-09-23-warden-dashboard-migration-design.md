@@ -92,7 +92,11 @@ From `evaluator.go`:
   whatever `IsActive` says.
 - A deny policy whose condition throws still applies, failing closed
   (evaluator.go:92). An allow policy in the same state is skipped. A broken
-  condition makes a deny stronger.
+  condition makes a deny stronger. Only two things throw, though: an unknown
+  operator and a `regex` whose pattern does not compile. A bad CIDR or an
+  unparseable time does not throw. It makes the condition silently false,
+  which makes the policy never apply, the opposite direction. (Corrected by
+  plan 3a against `evaluator.go`; this line first said any broken condition.)
 - Anything whose `Effect` is not exactly `"allow"` is treated as deny.
 
 The empty-list rule is the dangerous one for a UI. Rendering an empty
@@ -436,7 +440,7 @@ priority does, which is decide which policy gets cited and not which one wins.
 
 The editor is the same block with each clause editable in place. Chips you add
 and remove for the OR rows. Stacked condition rows with a field input, an
-operator select carrying the 18 real operators, and a value input whose type
+operator select carrying the 17 real operators, and a value input whose type
 follows the operator: CIDR for `ip_in_cidr`, RFC3339 for `time_after` and
 `time_before`, a pattern for `regex`, a list for `in` and `not_in`, a number
 for the comparisons, and nothing at all for `exists` and `not_exists`.
@@ -445,12 +449,21 @@ for the comparisons, and nothing at all for `exists` and `not_exists`.
 server-side and returns errors keyed by condition index, so an invalid CIDR
 marks its own row and does not fail the whole save.
 
-Three states the templ page cannot show, each visually distinct:
+States the templ page cannot show, each visually distinct:
 
 - inactive, meaning `isActive` is false
-- outside its window, which is a different fact with a different fix
+- outside its window, which is really three facts with three fixes: not yet
+  in effect, expired, and a window whose end precedes its start, which is
+  never in effect
 - fails closed, meaning a deny whose condition cannot evaluate, which is
   stronger than it looks and not weaker
+- never applies, meaning an allow whose condition cannot evaluate, or any
+  policy whose first certain-outcome condition is always false. It looks
+  exactly like a working policy on a table and grants or denies nothing.
+
+Plan 3a added the last state and split the window after reading the
+evaluator. The rule that decides which applies is order-aware, because
+`evaluateConditions` stops at the first false and the first error.
 
 There is no code editor here. A stored policy has no text form, and inventing
 one would mean highlighting something the server never parses.
