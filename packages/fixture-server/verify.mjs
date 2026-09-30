@@ -1870,7 +1870,7 @@ async function main() {
     check("a shared catalog feature is readable from the app", shared?.app_id === "", JSON.stringify(shared))
     const sharedWrite = await lc("features.update", "command", { id: "feat_support_hours", name: "x" })
     const sharedAfter = body(await lc("features.detail", "query", { id: "feat_support_hours" }))
-    check("a shared catalog feature is not writable from the app", sharedWrite.status === 404 && sharedWrite.body?.error?.code === "NOT_FOUND" && sharedWrite.body?.error?.message === "feature not found" && sharedAfter?.name === "Support hours", JSON.stringify({ write: sharedWrite.body, after: sharedAfter?.name }))
+    check("a shared catalog feature is not writable from the app", sharedWrite.status === 403 && sharedWrite.body?.error?.code === "PERMISSION_DENIED" && sharedWrite.body?.error?.message === "shared features can be changed only with no app selected" && sharedAfter?.name === "Support hours", JSON.stringify({ write: sharedWrite.body, after: sharedAfter?.name }))
     const applyTwice = await lc("coupons.apply", "command", { subscription_id: "sub_acme", code: "LAUNCH20" })
     check("applying a coupon twice is 409 CONFLICT", applyTwice.body?.error?.code === "CONFLICT", JSON.stringify(applyTwice.body))
     const expired = await lc("coupons.apply", "command", { subscription_id: "sub_acme", code: "SPRING15" })
@@ -2072,6 +2072,101 @@ async function main() {
     check("an invoice for a subscription this app lacks is 400 BAD_REQUEST", code(await lc("invoices.importFromProvider", { provider_id: "in_1Orphan" })) === "BAD_REQUEST", "")
     const badTotals = await lc("invoices.importFromProvider", { provider_id: "in_1BadTotals" })
     check("an invoice whose total does not add up is 400 BAD_REQUEST", code(badTotals) === "BAD_REQUEST" && message(badTotals).includes("has a total of"), JSON.stringify(badTotals.body))
+  }
+
+  // ledger final review: the refusals and seed rows the whole-branch review asked
+  // for. Another app's rows, malformed ids, shared features written from an app,
+  // the import checks the engine gained, and the coupon window filter.
+  {
+    const lc = (intent, kind, input) => dispatch("ledger", intent, kind, input, csrf)
+    const check = (name, ok, detail) => {
+      console.log(`  ledger ${name}: ${ok}`)
+      if (!ok) failures.push({ key: `spot-check::ledger ${name}`, reason: detail })
+    }
+    const body = (r) => r.body?.data
+    const code = (r) => r.body?.error?.code
+    const message = (r) => r.body?.error?.message ?? ""
+
+    // I2: every app-scoped write to a shared feature is PERMISSION_DENIED, and another app's feature stays NOT_FOUND.
+    const SHARED = "shared features can be changed only with no app selected"
+    for (const [intent, input] of [
+      ["features.update", { id: "feat_support_hours", name: "x" }],
+      ["features.archive", { id: "feat_support_hours" }],
+      ["features.delete", { id: "feat_support_hours" }],
+      ["features.syncToProvider", { id: "feat_support_hours" }],
+    ]) {
+      const r = await lc(intent, "command", input)
+      check(`${intent} on a shared feature from an app is 403 PERMISSION_DENIED`, r.status === 403 && code(r) === "PERMISSION_DENIED" && message(r) === SHARED, JSON.stringify(r.body))
+    }
+    const stillShared = body(await lc("features.detail", "query", { id: "feat_support_hours" }))
+    check("the refused writes left the shared feature as it was", stillShared?.name === "Support hours" && stillShared?.status === "active", JSON.stringify(stillShared))
+    const otherFeatureWrite = await lc("features.update", "command", { id: "feat_other_exports", name: "x" })
+    check("another app's feature is still 404 NOT_FOUND to a write", otherFeatureWrite.status === 404 && code(otherFeatureWrite) === "NOT_FOUND" && message(otherFeatureWrite) === "feature not found", JSON.stringify(otherFeatureWrite.body))
+    const otherFeatureRead = await lc("features.detail", "query", { id: "feat_other_exports" })
+    check("another app's feature is 404 NOT_FOUND to a read", otherFeatureRead.status === 404 && code(otherFeatureRead) === "NOT_FOUND", JSON.stringify(otherFeatureRead.body))
+
+    // M18: rows another app owns read as not found, and never list.
+    for (const [intent, input, what] of [
+      ["plans.detail", { id: "plan_other" }, "plan"],
+      ["subscriptions.detail", { id: "sub_outsider" }, "subscription"],
+      ["invoices.detail", { id: "inv_outsider_1" }, "invoice"],
+    ]) {
+      const r = await lc(intent, "query", input)
+      check(`${intent} for another app's ${what} is 404 NOT_FOUND`, r.status === 404 && code(r) === "NOT_FOUND" && message(r) === `${what} not found`, JSON.stringify(r.body))
+    }
+    const foreignWrite = await lc("plans.update", "command", { id: "plan_other", name: "x" })
+    check("plans.update on another app's plan is 404 NOT_FOUND", foreignWrite.status === 404 && code(foreignWrite) === "NOT_FOUND", JSON.stringify(foreignWrite.body))
+    const foreignSub = await lc("subscriptions.create", "command", { tenant_id: "verify-foreign", plan_id: "plan_other" })
+    check("subscriptions.create on another app's plan is 404 NOT_FOUND 'plan not found'", foreignSub.status === 404 && code(foreignSub) === "NOT_FOUND" && message(foreignSub) === "plan not found", JSON.stringify(foreignSub.body))
+    const foreignChange = await lc("subscriptions.changePlan", "command", { id: "sub_acme", plan_id: "plan_other" })
+    check("subscriptions.changePlan onto another app's plan is 404 NOT_FOUND", foreignChange.status === 404 && code(foreignChange) === "NOT_FOUND", JSON.stringify(foreignChange.body))
+    const foreignGenerate = await lc("invoices.generate", "command", { subscription_id: "sub_outsider" })
+    check("invoices.generate for another app's subscription is 404 NOT_FOUND", foreignGenerate.status === 404 && code(foreignGenerate) === "NOT_FOUND", JSON.stringify(foreignGenerate.body))
+    const allPlans = body(await lc("plans.list", "query", { limit: 200 }))
+    const allSubs = body(await lc("subscriptions.list", "query", { limit: 200 }))
+    const allInvoices = body(await lc("invoices.list", "query", { limit: 200 }))
+    const allFeatures = body(await lc("features.list", "query", { limit: 200 }))
+    check("another app's plan, subscription, invoice and feature never list", !allPlans?.items?.some((p) => p.app_id !== "app_ledger") && !allSubs?.items?.some((x) => x.app_id !== "app_ledger") && !allInvoices?.items?.some((x) => x.app_id !== "app_ledger") && !allFeatures?.items?.some((f) => f.id === "feat_other_exports"), JSON.stringify({ plans: allPlans?.items?.length, subs: allSubs?.items?.length, invoices: allInvoices?.items?.length, features: allFeatures?.items?.length }))
+
+    // M17: a malformed id, or one with another entity's prefix, is BAD_REQUEST naming the field.
+    for (const [intent, input, want] of [
+      ["plans.detail", { id: "sub_acme" }, "id is not a valid id: sub_acme"],
+      ["plans.detail", { id: "plan_" }, "id is not a valid id: plan_"],
+      ["subscriptions.detail", { id: "plan_pro" }, "id is not a valid id: plan_pro"],
+      ["invoices.detail", { id: "nonsense" }, "id is not a valid id: nonsense"],
+      ["coupons.detail", { id: "inv_acme_4" }, "id is not a valid id: inv_acme_4"],
+      ["features.detail", { id: "plan_pro" }, "id is not a valid id: plan_pro"],
+    ]) {
+      const r = await lc(intent, "query", input)
+      check(`${intent} with id ${JSON.stringify(input.id)} is 400 BAD_REQUEST '${want}'`, r.status === 400 && code(r) === "BAD_REQUEST" && message(r) === want, JSON.stringify(r.body))
+    }
+    const badPlanField = await lc("subscriptions.create", "command", { tenant_id: "verify-bad-id", plan_id: "sub_acme" })
+    check("subscriptions.create names plan_id when it is not a plan id", badPlanField.status === 400 && message(badPlanField) === "plan_id is not a valid id: sub_acme", JSON.stringify(badPlanField.body))
+    const missingStillNotFound = await lc("plans.detail", "query", { id: "plan_missing" })
+    check("a well-formed id nothing holds is still 404 NOT_FOUND", missingStillNotFound.status === 404 && code(missingStillNotFound) === "NOT_FOUND", JSON.stringify(missingStillNotFound.body))
+
+    // M16: coupons.list {active: true} filters on the validity window only, so an exhausted coupon inside its window still lists.
+    const window = body(await lc("coupons.list", "query", { active: true, limit: 200 }))?.items?.map((c) => c.code) ?? []
+    check("coupons.list active keeps an exhausted coupon inside its window", window.includes("BETA100") && window.includes("WELCOME10"), JSON.stringify(window))
+    check("coupons.list active drops a coupon that has not started", !window.includes("SPRING15"), JSON.stringify(window))
+    const past = await lc("coupons.create", "command", { code: "VERIFYGONE", name: "Gone", type: "percentage", percentage: 5, valid_until: new Date(Date.now() - 86_400_000).toISOString() })
+    const windowAfter = body(await lc("coupons.list", "query", { active: true, limit: 200 }))?.items?.map((c) => c.code) ?? []
+    check("coupons.list active drops a coupon whose window has closed", body(past) !== undefined && !windowAfter.includes("VERIFYGONE"), JSON.stringify({ created: past.body, listed: windowAfter }))
+    if (body(past)?.id) await lc("coupons.delete", "command", { id: body(past).id })
+
+    // I1, M4, M5: the engine's import refusals, in its words.
+    const odd = await lc("invoices.importFromProvider", "command", { provider_id: "in_1OddLine" })
+    check("an imported invoice line of unknown type is 400 BAD_REQUEST", odd.status === 400 && code(odd) === "BAD_REQUEST" && message(odd) === "ledger: invalid input: the provider's invoice has line item 2 of unknown type \"subscription\"", JSON.stringify(odd.body))
+    const blankType = await lc("invoices.importFromProvider", "command", { provider_id: "in_1BlankLine" })
+    check("an imported invoice line with no type is refused the same way", blankType.status === 400 && message(blankType) === "ledger: invalid input: the provider's invoice has line item 1 of unknown type \"\"", JSON.stringify(blankType.body))
+    const storedOdd = body(await lc("invoices.list", "query", { limit: 200 }))?.items?.some((i) => i.provider_id === "in_1OddLine" || i.provider_id === "in_1BlankLine")
+    check("a refused invoice import stores nothing", storedOdd === false, String(storedOdd))
+    const noEnd = await lc("subscriptions.importFromProvider", "command", { provider_id: "sub_1NoEnd" })
+    check("an imported subscription with a start and no end is 400 BAD_REQUEST", noEnd.status === 400 && message(noEnd) === "ledger: invalid input: the provider's subscription \"sub_1NoEnd\" needs both a period start and a period end", JSON.stringify(noEnd.body))
+    const backwards = await lc("subscriptions.importFromProvider", "command", { provider_id: "sub_1Backwards" })
+    check("an imported subscription whose period ends before it starts is 400 BAD_REQUEST", backwards.status === 400 && message(backwards) === "ledger: invalid input: the provider's subscription \"sub_1Backwards\" ends its period before it starts", JSON.stringify(backwards.body))
+    const draft = await lc("features.importFromProvider", "command", { provider_id: "mtr_draft" })
+    check("an imported feature that is a draft says it imports as active or archived", draft.status === 400 && message(draft) === "ledger: invalid input: a feature imports as active or archived, not \"draft\"", JSON.stringify(draft.body))
   }
 
   // chronicle: the four chains verify differently, and the switches change
