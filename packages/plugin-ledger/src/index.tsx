@@ -1,7 +1,11 @@
 import { lazy } from "react"
 import { definePlugin } from "@forge-go/dashboard-plugin"
 import type { PluginNavItem, PluginRoute } from "@forge-go/dashboard-plugin"
-import { CreditCardIcon, HouseIcon, ListChecksIcon, PackageIcon, SettingsIcon, WalletIcon } from "@forge-go/dashboard-kit/icons"
+import { CreditCardIcon, HouseIcon, ListChecksIcon, PackageIcon, SettingsIcon, TicketPercentIcon, WalletIcon } from "@forge-go/dashboard-kit/icons"
+import { LedgerCouponCreatePage } from "./pages/coupon-create"
+import { LedgerCouponDetailPage } from "./pages/coupon-detail"
+import { LedgerCouponEditPage } from "./pages/coupon-edit"
+import { LedgerCouponsPage } from "./pages/coupons"
 import { LedgerFeatureCreatePage } from "./pages/feature-create"
 import { LedgerFeatureDetailPage } from "./pages/feature-detail"
 import { LedgerFeatureEditPage } from "./pages/feature-edit"
@@ -51,6 +55,7 @@ const navItems: PluginNavItem[] = [
   { label: "Overview", to: "/", priority: 0, icon: <HouseIcon />, group: "Overview" },
   { label: "Plans", to: "/plans", priority: 0, icon: <PackageIcon />, group: "Catalog" },
   { label: "Features", to: "/features", priority: 10, icon: <ListChecksIcon />, group: "Catalog" },
+  { label: "Coupons", to: "/coupons", priority: 20, icon: <TicketPercentIcon />, group: "Catalog" },
   { label: "Payment methods", to: "/payment-methods", priority: 40, icon: <CreditCardIcon />, group: "Billing" },
   { label: "Settings", to: "/settings", priority: 0, icon: <SettingsIcon />, group: "Configuration" },
 ]
@@ -64,6 +69,10 @@ const routes: PluginRoute[] = [
   { path: "/features/new", element: LedgerFeatureCreatePage },
   { path: "/features/:id/edit", element: LedgerFeatureEditPage },
   { path: "/features/:id", element: LedgerFeatureDetailPage },
+  { path: "/coupons", element: LedgerCouponsPage },
+  { path: "/coupons/new", element: LedgerCouponCreatePage },
+  { path: "/coupons/:id/edit", element: LedgerCouponEditPage },
+  { path: "/coupons/:id", element: LedgerCouponDetailPage },
   { path: "/payment-methods", element: LedgerPaymentMethodsPage },
   { path: "/settings", element: LedgerSettingsPage },
 ]
