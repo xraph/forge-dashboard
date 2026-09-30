@@ -127,4 +127,12 @@ describe("wardenPlugin", () => {
     expect(at("Config")?.group).toBe("Operations")
     expect(wardenPlugin.routes.map((r) => r.path)).toContain("/check-log")
   })
+
+  it("routes one check's own page, with no nav entry for it", () => {
+    // A sidebar link to "a check" with none chosen would point nowhere.
+    const nav = wardenPlugin.nav ?? []
+    expect(wardenPlugin.routes.map((r) => r.path)).toContain("/check-log/:id")
+    expect(nav.map((n) => n.to)).not.toContain("/check-log/:id")
+    expect(nav.find((n) => n.label === "Check log")?.to).toBe("/check-log")
+  })
 })

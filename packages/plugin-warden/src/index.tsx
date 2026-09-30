@@ -12,6 +12,7 @@ import {
 } from "@forge-go/dashboard-kit/icons"
 import { WardenAssignmentsPage } from "./pages/assignments"
 import { WardenCheckLogPage } from "./pages/check-log"
+import { WardenCheckLogDetailPage } from "./pages/check-log-detail"
 import { WardenConfigPage } from "./pages/config"
 import { WardenOverviewPage } from "./pages/overview"
 import { WardenPermissionDetailPage } from "./pages/permission-detail"
@@ -59,6 +60,7 @@ export type {
 } from "./pages/resource-type-detail"
 export {
   WardenAssignmentsPage,
+  WardenCheckLogDetailPage,
   WardenCheckLogPage,
   WardenConfigPage,
   WardenOverviewPage,
@@ -189,6 +191,9 @@ export const wardenPlugin = definePlugin({
     // points nowhere. This route is reached only from a row's Details link.
     { path: "/resource-types/:id", element: WardenResourceTypeDetailPage },
     { path: "/check-log", element: WardenCheckLogPage },
+    // No nav entry: a sidebar link to "a check" with none chosen points
+    // nowhere. This route is reached only from a row's timestamp.
+    { path: "/check-log/:id", element: WardenCheckLogDetailPage },
     { path: "/config", element: WardenConfigPage },
   ],
 })
