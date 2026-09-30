@@ -1,7 +1,11 @@
 import { lazy } from "react"
 import { definePlugin } from "@forge-go/dashboard-plugin"
 import type { PluginNavItem, PluginRoute } from "@forge-go/dashboard-plugin"
-import { CreditCardIcon, HouseIcon, PackageIcon, SettingsIcon, WalletIcon } from "@forge-go/dashboard-kit/icons"
+import { CreditCardIcon, HouseIcon, ListChecksIcon, PackageIcon, SettingsIcon, WalletIcon } from "@forge-go/dashboard-kit/icons"
+import { LedgerFeatureCreatePage } from "./pages/feature-create"
+import { LedgerFeatureDetailPage } from "./pages/feature-detail"
+import { LedgerFeatureEditPage } from "./pages/feature-edit"
+import { LedgerFeaturesPage } from "./pages/features"
 import { LedgerOverviewPage } from "./pages/overview"
 import { LedgerPaymentMethodsPage } from "./pages/payment-methods"
 import { LedgerPlanCreatePage } from "./pages/plan-create"
@@ -46,6 +50,7 @@ export function inGroupOrder(items: PluginNavItem[]): PluginNavItem[] {
 const navItems: PluginNavItem[] = [
   { label: "Overview", to: "/", priority: 0, icon: <HouseIcon />, group: "Overview" },
   { label: "Plans", to: "/plans", priority: 0, icon: <PackageIcon />, group: "Catalog" },
+  { label: "Features", to: "/features", priority: 10, icon: <ListChecksIcon />, group: "Catalog" },
   { label: "Payment methods", to: "/payment-methods", priority: 40, icon: <CreditCardIcon />, group: "Billing" },
   { label: "Settings", to: "/settings", priority: 0, icon: <SettingsIcon />, group: "Configuration" },
 ]
@@ -55,6 +60,10 @@ const routes: PluginRoute[] = [
   { path: "/plans/new", element: LedgerPlanCreatePage },
   { path: "/plans/:id/edit", element: LedgerPlanEditPage },
   { path: "/plans/:id", element: LedgerPlanDetailPage },
+  { path: "/features", element: LedgerFeaturesPage },
+  { path: "/features/new", element: LedgerFeatureCreatePage },
+  { path: "/features/:id/edit", element: LedgerFeatureEditPage },
+  { path: "/features/:id", element: LedgerFeatureDetailPage },
   { path: "/payment-methods", element: LedgerPaymentMethodsPage },
   { path: "/settings", element: LedgerSettingsPage },
 ]
