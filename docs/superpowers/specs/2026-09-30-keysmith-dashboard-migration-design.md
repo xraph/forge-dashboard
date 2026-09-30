@@ -102,7 +102,7 @@ disagree on purpose.
 
 `tenantFrom(principal, deps)`:
 
-1. No user on the principal refuses with `PERMISSION_DENIED`. A default tenant
+1. No user on the principal refuses with `UNAUTHENTICATED`. A default tenant
    exists for single-tenant deployments, not for anonymous requests.
 2. A `tenant_id` claim that is present and a non-empty string wins.
 3. A `tenant_id` claim that is present but empty, or not a string, refuses.
@@ -234,7 +234,7 @@ Wire types are the contract's own projections, never the domain structs. Their J
 | Intent | Request | Answers |
 |---|---|---|
 | `overview` | none | counts by state, open grace windows, keys expiring within 7 days, requests in the last 24h (`null` when no rows exist), 5 recent keys, 5 recent rotations |
-| `keys.list` | `environment`, `state`, `policyId`, `limit`, `offset` | `items`, `total` |
+| `keys.list` | `environment`, `state`, `policyId`, `limit`, `offset` | `keys`, `total` |
 | `keys.detail` | `id` | key, effective state, policy summary, scopes, open windows (`hint`, `graceEnds`) |
 | `rotations.list` | `keyId?`, `reason?`, `limit`, `offset` | `items` with `oldHint`, `newHint`, window open or closed, `hasMore` |
 | `policies.list` | `limit`, `offset` | `items`, `total` |
