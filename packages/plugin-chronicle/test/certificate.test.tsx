@@ -99,4 +99,14 @@ describe("Certificate", () => {
     expect(screen.getByText(/has not recorded any events/)).toBeTruthy()
     expect(screen.queryByRole("region", { name: "What was examined" })).toBeNull()
   })
+
+  it("has no Coverage section when the report grades no coverage", () => {
+    for (const coverage of [undefined, []]) {
+      const { unmount } = render(<Certificate response={{ noChain: false, report: report({ coverage }) }} />)
+      expect(screen.queryByRole("heading", { name: "Coverage" })).toBeNull()
+      expect(screen.getByRole("heading", { name: "What was examined" })).toBeTruthy()
+      unmount()
+    }
+  })
 })
+

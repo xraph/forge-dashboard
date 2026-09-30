@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest"
-import { aroundSeq, clampToHead, defaultWindow, exceedsCap, parseRangeParams, wholeChain } from "../../src/verification/window"
+import { aroundSeq, clampToHead, defaultWindow, exceedsCap, parseRangeParams, verifyInput, wholeChain } from "../../src/verification/window"
 
 describe("window", () => {
   it("defaults to the most recent 10,000 sequences", () => {
@@ -10,7 +10,11 @@ describe("window", () => {
   })
   it("has no window for an empty chain", () => {
     expect(defaultWindow(0)).toBeNull()
-    expect(wholeChain(0)).toBeNull()
+  })
+  it("still checks a chain at head zero, from genesis to head with no range named", () => {
+    expect(wholeChain(0)).toEqual({ fromSeq: 0, toSeq: 0 })
+    expect(verifyInput("stream_acme", wholeChain(0))).toEqual({ streamId: "stream_acme" })
+    expect(verifyInput("stream_acme", wholeChain(3000))).toEqual({ streamId: "stream_acme", fromSeq: 1, toSeq: 3000 })
   })
   it("knows when a whole-chain check is over the server's cap", () => {
     expect(exceedsCap({ fromSeq: 1, toSeq: 100_000 })).toBe(false)

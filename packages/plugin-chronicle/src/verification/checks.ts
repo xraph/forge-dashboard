@@ -26,6 +26,16 @@ function checkpointOk(c: CheckpointResult): boolean {
   return c.signatureValid && (!c.hashChecked || c.hashMatch) && (!c.continuityChecked || c.continuityOk)
 }
 
+/**
+ * Nothing failed, but a signature alone is not the whole check: a hash or a
+ * continuity check that did not run must not be summed up as "all hold".
+ */
+function checkpointsHeld(cps: CheckpointResult[]): string {
+  if (cps.length === 0) return "None in this range"
+  if (cps.every((c) => c.hashChecked && c.continuityChecked)) return "All hold"
+  return "Signatures valid; some hash or continuity checks did not run"
+}
+
 /** What the verification examined, one row per question, each in three states. */
 export function checksOf(r: VerifyReport, ctx: ChecksContext = {}): CheckRow[] {
   const noStore = ctx.checkpointingConfigured === false
@@ -41,9 +51,10 @@ export function checksOf(r: VerifyReport, ctx: ChecksContext = {}): CheckRow[] {
     },
     {
       label: "Gaps",
-      // The gap check runs whether or not any event comes back, so a gap it
-      // found must never read as "not checked".
-      state: tri(true, (r.gaps ?? []).length === 0),
+      // A gap found, or a range retention accounts for, means the check ran
+      // even when no event came back. A run that examined nothing and found
+      // nothing proves nothing, so it is not checked, never "no gaps".
+      state: tri(r.verified > 0 || (r.gaps ?? []).length > 0 || (r.retained ?? []).length > 0, (r.gaps ?? []).length === 0),
       held: "No unexplained gaps",
       failed: "Sequences missing",
       notChecked: NO_EVENTS,
@@ -53,12 +64,15 @@ export function checksOf(r: VerifyReport, ctx: ChecksContext = {}): CheckRow[] {
       state: tri(r.headChecked, r.headMatch),
       held: "Matches the last event",
       failed: "Does not match the last event",
-      notChecked: r.partial ? "Not checked, the range stops before the head" : "Not checked",
+      // The verifier checks the head only on a range that is not partial. The
+      // default window ends at the head but starts after 1, so it is partial
+      // too, and "stops before the head" would be the wrong reason.
+      notChecked: r.partial ? "Not checked: a partial range does not check the head" : "Not checked",
     },
     {
       label: "Checkpoints",
       state: tri(r.checkpointsChecked, (r.checkpoints ?? []).every(checkpointOk)),
-      held: (r.checkpoints ?? []).length === 0 ? "None in this range" : "All hold",
+      held: checkpointsHeld(r.checkpoints ?? []),
       failed: "At least one fails",
       notChecked: noStore ? NO_STORE : r.verified === 0 ? NO_EVENTS : "Not checked",
     },

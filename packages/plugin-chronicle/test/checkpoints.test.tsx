@@ -140,4 +140,36 @@ describe("CheckpointsPage", () => {
     await screen.findByText(/This app has no app-level chain/)
     expect(c.queried.some((q) => q.intent === "checkpoints.list")).toBe(false)
   })
+
+  it("says nothing about the scope's chains while they are still loading", async () => {
+    const c = client({ "streams.mine": {}, "streams.list": () => new Promise(() => {}) })
+    renderPage(CheckpointsPage, c.client)
+    await waitFor(() => expect(c.queried.some((q) => q.intent === "streams.list")).toBe(true))
+    await screen.findByRole("status", { name: "Loading chains" })
+    expect(screen.queryByText(/has not recorded any events/)).toBeNull()
+    expect(screen.queryByText(/This app has no app-level chain/)).toBeNull()
+  })
+
+  it("shows the list's failure, not an empty scope, when the chains cannot be read", async () => {
+    renderPage(CheckpointsPage, client({ "streams.mine": {}, "streams.list": new ContractError("INTERNAL", "the stream store is down") }).client)
+    await waitFor(() => expect(screen.getByText(/the stream store is down/)).toBeTruthy())
+    expect(screen.queryByText(/has not recorded any events/)).toBeNull()
+    expect(screen.queryByText(/This app has no app-level chain/)).toBeNull()
+  })
+
+  it("says the picker holds only the first 200 chains when there are more", async () => {
+    const other: StreamSummary = { ...stream, id: "stream_globex", tenantId: "globex" }
+    const list = { streams: [stream, other], total: 250, hasMore: true }
+    const first = renderPage(CheckpointsPage, client({ "streams.list": list }).client, { streamId: "stream_acme" })
+    expect(await screen.findByText("Showing the first 200 chains.")).toBeTruthy()
+    first.unmount()
+    renderPage(CheckpointsPage, client({ "streams.mine": {}, "streams.list": list }).client)
+    expect(await screen.findByText("Showing the first 200 chains.")).toBeTruthy()
+  })
+
+  it("counts one checkpoint in the singular", async () => {
+    renderPage(CheckpointsPage, client({ "checkpoints.list": { checkpoints: [cp(6)], hasMore: false, supported: true } }).client)
+    expect(await screen.findByText("1 checkpoint shown")).toBeTruthy()
+  })
 })
+

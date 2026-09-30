@@ -24,11 +24,27 @@ describe("checksOf", () => {
   it("says why the head was not checked on a bounded range", () => {
     const rows = byLabel(checksOf(report({ partial: true, headChecked: false, lastEvent: 5000 })))
     expect(rows["Head"].state).toBe("not-checked")
-    expect(rows["Head"].notChecked).toMatch(/stops before the head/)
+    expect(rows["Head"].notChecked).toBe("Not checked: a partial range does not check the head")
+  })
+  it("blames the partial range, not where it stops, on the default window that ends at the head", () => {
+    // The verifier checks the head only on a range that is not partial, and a
+    // window starting after 1 is partial even when it ends at the head.
+    const rows = byLabel(checksOf(report({ partial: true, headChecked: false, firstEvent: 2432, lastEvent: 12431, headSeq: 12431 })))
+    expect(rows["Head"].notChecked).toBe("Not checked: a partial range does not check the head")
+    expect(rows["Head"].notChecked).not.toMatch(/stops before the head/)
   })
   it("says a chain with no checkpoint yet was not checked against one", () => {
     const rows = byLabel(checksOf(report({ checkpointHeadChecked: false, checkpointHeadOk: false })))
     expect(rows["Checkpoint against head"].notChecked).toMatch(/no checkpoint yet/)
+  })
+  it("says all checkpoints hold only when every hash and continuity check ran", () => {
+    expect(byLabel(checksOf(report({ checkpoints: [truncated.checkpoints![0]] })))["Checkpoints"].held).toBe("All hold")
+    // The truncated shape: the second checkpoint's hash could not be compared.
+    const rows = byLabel(checksOf(truncated))
+    expect(rows["Checkpoints"].state).toBe("held")
+    expect(rows["Checkpoints"].held).toBe("Signatures valid; some hash or continuity checks did not run")
+    const noContinuity = report({ checkpoints: [{ ...truncated.checkpoints![0], continuityChecked: false, continuityOk: false }] })
+    expect(byLabel(checksOf(noContinuity))["Checkpoints"].held).toBe("Signatures valid; some hash or continuity checks did not run")
   })
   it("fails the checkpoint row when any checkpoint failed a check that ran", () => {
     expect(byLabel(checksOf(truncated))["Checkpoints"].state).toBe("held")
@@ -65,6 +81,15 @@ describe("checksOf, deployment context", () => {
     const rows = byLabel(checksOf(report({ checkpointsChecked: false, checkpointHeadChecked: false, checkpointHeadOk: false })))
     expect(rows["Checkpoints"].notChecked).toBe("Not checked")
     expect(rows["Checkpoint against head"].notChecked).toBe("Not checked")
+  })
+  it("does not call a run that examined nothing free of gaps", () => {
+    const rows = byLabel(checksOf(report({ verified: 0, firstEvent: 0, lastEvent: 0, headSeq: 0, coverage: undefined })))
+    expect(rows["Gaps"].state).toBe("not-checked")
+    expect(rows["Gaps"].notChecked).toBe("Not checked, the range holds no events")
+  })
+  it("counts a range retention emptied as checked for gaps", () => {
+    const rows = byLabel(checksOf(report({ verified: 0, retained: [{ fromSeq: 1, toSeq: 400, recordSeq: 401 }] })))
+    expect(rows["Gaps"].state).toBe("held")
   })
   it("shows gaps the check found as failed even when no event came back", () => {
     const rows = byLabel(checksOf(report({ verified: 0, gaps: [5, 6] })))

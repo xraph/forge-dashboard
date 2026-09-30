@@ -138,4 +138,52 @@ describe("EventDetailPage", () => {
     fireEvent.click(screen.getByRole("button", { name: "Check this event's digest" }))
     await waitFor(() => expect(c.queried.filter((q) => q.intent === "verify.event")).toHaveLength(2))
   })
+
+  it("shows the digest check running, not the last answer, when it is asked again", async () => {
+    let calls = 0
+    const answered = scriptedClient({
+      "events.detail": detail(),
+      "streams.mine": { stream: { id: "stream_globex", appId: "app_chronicle", tenantId: "globex", headHash: "cc", headSeq: 5000, scheme: "chronicle/v5", schemeSince: 1, coverageCeiling: "signed", checkpointingConfigured: true } },
+      "verify.event": () => (++calls === 1 ? { valid: true, hashScheme: "chronicle/v5", keyed: true } : new Promise(() => {})),
+    })
+    renderPage(EventDetailPage, answered.client, { id: "audit_globex_2780" })
+    fireEvent.click(await screen.findByRole("button", { name: "Check this event's digest" }))
+    await waitFor(() => expect(screen.getByText(/recomputes under a keyed scheme/)).toBeTruthy())
+    fireEvent.click(screen.getByRole("button", { name: "Check this event's digest" }))
+    await waitFor(() => expect(calls).toBe(2))
+    expect(screen.getByText("Checking the digest...")).toBeTruthy()
+    expect(screen.queryByText(/recomputes under a keyed scheme/)).toBeNull()
+  })
+
+  it("offers the chain check around an event only when the event sits within the chain", async () => {
+    for (const sequence of [0, 5001]) {
+      const c = client(detail({ sequence }))
+      const view = renderPage(EventDetailPage, c.client, { id: "audit_globex_2780" })
+      await waitFor(() => expect(screen.getByText("stream_globex")).toBeTruthy())
+      await waitFor(() => expect(c.queried.some((q) => q.intent === "streams.mine")).toBe(true))
+      // One more turn, so the head has landed before the link is looked for.
+      await new Promise((r) => setTimeout(r, 0))
+      expect(screen.queryByRole("link", { name: "Check the chain around this event" })).toBeNull()
+      view.unmount()
+    }
+  })
+
+  it("says an erased event's metadata went with its other sealed fields", async () => {
+    renderPage(
+      EventDetailPage,
+      client(detail({ erased: true, erasureId: "erasure_1", erasedAt: "2026-09-29T09:00:00Z", reason: "[ERASED]", ip: "[ERASED]", userAgent: "[ERASED]", metadata: undefined })).client,
+      { id: "audit_globex_2780" },
+    )
+    await waitFor(() => expect(screen.getByText("Erased with the rest of this event's sealed fields.")).toBeTruthy())
+    expect(screen.queryByLabelText("no metadata")).toBeNull()
+    // The sealed strings read as the marker, never as an unexplained one.
+    expect(screen.getAllByText("[ERASED]")).toHaveLength(3)
+    expect(screen.queryByText(/no erasure in this scope is recorded for it/)).toBeNull()
+  })
+
+  it("still says an event that was not erased has no metadata", async () => {
+    renderPage(EventDetailPage, client(detail({ metadata: undefined })).client, { id: "audit_globex_2780" })
+    await waitFor(() => expect(screen.getByLabelText("no metadata")).toBeTruthy())
+    expect(screen.queryByText(/Erased with the rest/)).toBeNull()
+  })
 })

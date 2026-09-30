@@ -41,9 +41,24 @@ describe("ReportVerification", () => {
         }}
       />,
     )
-    expect(screen.getByText(/Sequences 1 to 11,004 were not checked/)).toBeTruthy()
+    // The engine's note already states the unchecked range, so the page does not say it twice.
+    expect(screen.queryByText(/Sequences 1 to 11,004 were not checked/)).toBeNull()
+    expect(screen.getAllByText(/Sequences 1 to 11,?004 were not (checked|verified)/)).toHaveLength(1)
     expect(screen.getByText("Sequences 1 to 11004 were not verified: the report verifies at most 50,000 sequences.")).toBeTruthy()
     expect(screen.getByText(/This check does not speak for the rest of the chain/)).toBeTruthy()
+  })
+
+  it("keeps its own capped sentence when the notes speak only of the tenants", () => {
+    render(
+      <ReportVerification
+        report={{
+          ...base,
+          verification: { ...mixed, firstEvent: 11005, partial: true, retentionPolicies: -1 },
+          verificationScope: scope({ fromSeq: 11005, capped: true, notes: ["Verification covered only the app's untenanted stream; each tenant's own stream was not verified."] }),
+        }}
+      />,
+    )
+    expect(screen.getByText(/Sequences 1 to 11,004 were not checked/)).toBeTruthy()
   })
 
   it("puts the capped limit before the verdict, so a reader meets it first", () => {

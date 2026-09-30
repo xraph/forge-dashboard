@@ -25,6 +25,10 @@ export function ReportVerification({ report }: { report: ReportDetail }) {
   }
 
   const contradicted = v !== undefined && (scope?.status === "no_chain" || scope?.status === "not_configured")
+  // The engine's own note names the unchecked range when it writes one
+  // ("Sequences below 11005 were not verified"), and saying it twice reads as
+  // two separate gaps. A note about the tenants' chains is not that note.
+  const notesStateCap = (scope?.notes ?? []).some((n) => /\bsequences\b.*\bwere not\b/i.test(n))
 
   return (
     <section aria-labelledby="report-integrity" className="flex flex-col gap-3">
@@ -41,7 +45,7 @@ export function ReportVerification({ report }: { report: ReportDetail }) {
               This report was generated before chronicle recorded what its verification covered, so the range and limits of this check are not known beyond what the result itself says.
             </p>
           )}
-          {scope?.capped && scope.fromSeq > 1 && (
+          {scope?.capped && scope.fromSeq > 1 && !notesStateCap && (
             <p className="font-medium">
               {`Sequences 1 to ${formatSeq(scope.fromSeq - 1)} were not checked: a report verifies at most the newest ${formatSeq(scope.window)} sequences, ending at the head.`}
             </p>

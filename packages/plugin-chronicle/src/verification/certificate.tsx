@@ -142,19 +142,22 @@ export function Certificate({
           </div>
         ))}
       </Section>
-      <Section title="Coverage">
-        <ul className="flex flex-col gap-1 text-sm">
-          {(r.coverage ?? []).map((s) => (
-            <li key={`${s.fromSeq}-${s.level}`} className="flex items-center gap-2">
-              <CoverageBadge level={s.level} />
-              <span className="font-mono text-xs">{formatSeq(s.fromSeq)}</span>
-              <span>to</span>
-              <span className="font-mono text-xs">{formatSeq(s.toSeq)}</span>
-              {s.note ? <span className="text-muted-foreground">{s.note}</span> : null}
-            </li>
-          ))}
-        </ul>
-      </Section>
+      {/* A heading over nothing reads as a section that graded the range and found nothing to say. */}
+      {(r.coverage ?? []).length > 0 && (
+        <Section title="Coverage">
+          <ul className="flex flex-col gap-1 text-sm">
+            {(r.coverage ?? []).map((s) => (
+              <li key={`${s.fromSeq}-${s.level}`} className="flex items-center gap-2">
+                <CoverageBadge level={s.level} />
+                <span className="font-mono text-xs">{formatSeq(s.fromSeq)}</span>
+                <span>to</span>
+                <span className="font-mono text-xs">{formatSeq(s.toSeq)}</span>
+                {s.note ? <span className="text-muted-foreground">{s.note}</span> : null}
+              </li>
+            ))}
+          </ul>
+        </Section>
+      )}
     </article>
   )
 }

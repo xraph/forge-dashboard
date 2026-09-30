@@ -56,7 +56,8 @@ function Body({ ev }: { ev: EventDetail }) {
   const verify = useQuery<VerifyEventResponse>("verify.event", { eventId: ev.id }, { enabled: checking })
   const chain = useQuery<MineResponse>("streams.mine", { streamId: ev.streamId })
   const head = chain.data?.stream?.headSeq
-  const around = head !== undefined ? aroundSeq(ev.sequence, head) : null
+  // An event outside 1 to the head has no window in this chain to check.
+  const around = head !== undefined && ev.sequence > 0 && ev.sequence <= head ? aroundSeq(ev.sequence, head) : null
 
   return (
     <DetailLayout
@@ -91,7 +92,12 @@ function Body({ ev }: { ev: EventDetail }) {
           />
           <div>
             <h2 className="mb-2 text-sm font-medium text-muted-foreground">Metadata</h2>
-            <JsonView value={ev.metadata} label="metadata" />
+            {ev.erased && ev.metadata === undefined ? (
+              // Erasure drops sealed metadata altogether, so "None" would say the event never had any.
+              <p className="text-sm text-muted-foreground">Erased with the rest of this event's sealed fields.</p>
+            ) : (
+              <JsonView value={ev.metadata} label="metadata" />
+            )}
           </div>
         </div>
       }
@@ -122,8 +128,10 @@ function Body({ ev }: { ev: EventDetail }) {
           <Button variant="outline" className="self-start" onClick={() => (checking ? verify.refetch() : setChecking(true))} disabled={checking && verify.loading}>
             Check this event's digest
           </Button>
-          {verify.error && <CommandAlert title="The digest could not be checked" error={verify.error} />}
-          {verify.data && <DigestResult r={verify.data} />}
+          {/* The store keeps the last answer while it reloads, and an answer is only this check's once it settles. */}
+          {checking && verify.loading && <p className="text-muted-foreground">Checking the digest...</p>}
+          {!verify.loading && verify.error && <CommandAlert title="The digest could not be checked" error={verify.error} />}
+          {!verify.loading && verify.data && <DigestResult r={verify.data} />}
           {around && (
             <PluginLink
               to={`/chain/${encodeURIComponent(ev.streamId)}/${around.fromSeq}/${around.toSeq}`}

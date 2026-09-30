@@ -21,9 +21,23 @@ export function defaultWindow(headSeq: number): SeqRange | null {
   return { fromSeq: Math.max(1, headSeq - DEFAULT_WINDOW + 1), toSeq: headSeq }
 }
 
-export function wholeChain(headSeq: number): SeqRange | null {
-  if (headSeq <= 0) return null
+/**
+ * 0 to 0 is how the server is asked for genesis to head without naming either
+ * end. It is the only way to check a chain whose head is zero, and that chain
+ * still has to be checked: a wipe to zero is exactly the case where a surviving
+ * signed checkpoint that contradicts the head is the evidence.
+ */
+export const GENESIS_TO_HEAD: SeqRange = { fromSeq: 0, toSeq: 0 }
+
+export function wholeChain(headSeq: number): SeqRange {
+  if (headSeq <= 0) return GENESIS_TO_HEAD
   return { fromSeq: 1, toSeq: headSeq }
+}
+
+/** A verify.run input. Genesis to head goes as the chain alone, with no range. */
+export function verifyInput(streamId: string, r: SeqRange): Record<string, unknown> {
+  if (r.fromSeq === GENESIS_TO_HEAD.fromSeq && r.toSeq === GENESIS_TO_HEAD.toSeq) return { streamId }
+  return { streamId, fromSeq: r.fromSeq, toSeq: r.toSeq }
 }
 
 export function exceedsCap(r: SeqRange): boolean {

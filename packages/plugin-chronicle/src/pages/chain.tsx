@@ -5,18 +5,19 @@ import { PageHeader } from "@forge-go/dashboard-kit/components/page-header"
 import { CommandAlert, QueryBoundary } from "@forge-go/dashboard-kit/components/query-boundary"
 import { DescriptionList } from "@forge-go/dashboard-kit/components/detail-layout"
 import { useQuery } from "@forge-go/dashboard-plugin"
-import type { PluginPageProps } from "@forge-go/dashboard-plugin"
+import type { PluginPageProps, QueryState } from "@forge-go/dashboard-plugin"
 import type { MineResponse, StreamListResponse, StreamSummary, VerifyResponse } from "../types"
+import { LIMITS } from "../types"
 import { CoverageBadge } from "../badges"
 import { formatSeq, shortHash } from "../format"
-import { ChainPicker, chainLabel } from "../components/chain-picker"
+import { ChainPicker, chainLabel, listTruncated } from "../components/chain-picker"
 import { Certificate } from "../verification/certificate"
-import { clampToHead, defaultWindow, exceedsCap, parseRangeParams, wholeChain, DEFAULT_WINDOW, type SeqRange } from "../verification/window"
+import { clampToHead, defaultWindow, exceedsCap, parseRangeParams, verifyInput, wholeChain, DEFAULT_WINDOW, type SeqRange } from "../verification/window"
 
 export const ChainPage: ComponentType<PluginPageProps> = ({ params }) => {
   const streamId = params.streamId
   const mine = useQuery<MineResponse>("streams.mine", streamId ? { streamId } : {})
-  const list = useQuery<StreamListResponse>("streams.list", { limit: 200 })
+  const list = useQuery<StreamListResponse>("streams.list", { limit: LIMITS.pageMaxStreamsCheckpoints })
   const streams = list.data?.streams ?? []
 
   return (
@@ -25,7 +26,11 @@ export const ChainPage: ComponentType<PluginPageProps> = ({ params }) => {
         title="Chain"
         description="The hash chain your audit events are recorded in, and whether it has been altered."
         // With no chain of its own the page body offers the picker, so the header does not offer a second one.
-        actions={mine.data?.stream && streams.length > 1 ? <ChainPicker streams={streams} selectedId={mine.data.stream.id} basePath="/chain" /> : undefined}
+        actions={
+          mine.data?.stream && list.data && streams.length > 1 ? (
+            <ChainPicker streams={streams} selectedId={mine.data.stream.id} basePath="/chain" truncated={listTruncated(list.data)} />
+          ) : undefined
+        }
       />
       <QueryBoundary title="chain" query={mine} skeletonRows={4}>
         {(m) =>
@@ -36,7 +41,7 @@ export const ChainPage: ComponentType<PluginPageProps> = ({ params }) => {
               deepLink={parseRangeParams(params.fromSeq, params.toSeq)}
             />
           ) : (
-            <NoOwnChain streams={streams} />
+            <NoOwnChain list={list} />
           )
         }
       </QueryBoundary>
@@ -44,15 +49,21 @@ export const ChainPage: ComponentType<PluginPageProps> = ({ params }) => {
   )
 }
 
-function NoOwnChain({ streams }: { streams: StreamSummary[] }) {
-  if (streams.length === 0) {
-    return <p className="text-sm">This scope has not recorded any events yet, so there is no chain to show.</p>
-  }
+/** Whether this scope has chains at all is the list's answer, so nothing is said about them until the list has one. */
+function NoOwnChain({ list }: { list: QueryState<StreamListResponse> }) {
   return (
-    <div className="flex flex-col gap-3 text-sm">
-      <p>This app has no app-level chain: its events are recorded under its tenants. Choose a tenant's chain to verify.</p>
-      <ChainPicker streams={streams} basePath="/chain" />
-    </div>
+    <QueryBoundary title="chains" query={list} skeletonRows={2}>
+      {(l) =>
+        l.streams.length === 0 ? (
+          <p className="text-sm">This scope has not recorded any events yet, so there is no chain to show.</p>
+        ) : (
+          <div className="flex flex-col gap-3 text-sm">
+            <p>This app has no app-level chain: its events are recorded under its tenants. Choose a tenant's chain to verify.</p>
+            <ChainPicker streams={l.streams} basePath="/chain" truncated={listTruncated(l)} />
+          </div>
+        )
+      }
+    </QueryBoundary>
   )
 }
 
@@ -70,12 +81,12 @@ function ChainBody({ stream, deepLink }: { stream: StreamSummary; deepLink: SeqR
 
   const verify = useQuery<VerifyResponse>(
     "verify.run",
-    requested ? { streamId: stream.id, fromSeq: requested.fromSeq, toSeq: requested.toSeq } : {},
+    requested ? verifyInput(stream.id, requested) : {},
     { enabled: requested !== null },
   )
 
   const whole = wholeChain(head)
-  const wholeTooBig = whole !== null && exceedsCap(whole)
+  const wholeTooBig = exceedsCap(whole)
   const recent = defaultWindow(head)
 
   const typed = parseRangeParams(from, to)
@@ -123,7 +134,7 @@ function ChainBody({ stream, deepLink }: { stream: StreamSummary; deepLink: SeqR
         <Button type="submit" disabled={!runnable}>
           Check this range
         </Button>
-        <Button type="button" variant="outline" disabled={whole === null || wholeTooBig} onClick={() => whole && request(whole)}>
+        <Button type="button" variant="outline" disabled={wholeTooBig} onClick={() => request(whole)}>
           Check the whole chain
         </Button>
         {pastHead && (
@@ -137,8 +148,13 @@ function ChainBody({ stream, deepLink }: { stream: StreamSummary; deepLink: SeqR
           </p>
         )}
       </form>
-      {requested && verify.loading && !verify.data && <p className="text-sm text-muted-foreground">Checking the chain...</p>}
-      {requested && verify.error && (
+      {/*
+        The store keeps an entry's last answer while it reloads, so a range
+        checked before would paint its old result as if it were this one. A
+        verification is only ever shown once the read that produced it settled.
+      */}
+      {requested && verify.loading && <p className="text-sm text-muted-foreground">Checking the chain...</p>}
+      {requested && !verify.loading && verify.error && (
         <div className="flex flex-col gap-2">
           <CommandAlert title="The chain could not be checked" error={verify.error} />
           {verify.error.code === "BAD_REQUEST" && recent && (
@@ -148,7 +164,7 @@ function ChainBody({ stream, deepLink }: { stream: StreamSummary; deepLink: SeqR
           )}
         </div>
       )}
-      {requested && verify.data && <Certificate response={verify.data} checkpointingConfigured={stream.checkpointingConfigured} />}
+      {requested && !verify.loading && verify.data && <Certificate response={verify.data} checkpointingConfigured={stream.checkpointingConfigured} />}
     </div>
   )
 }

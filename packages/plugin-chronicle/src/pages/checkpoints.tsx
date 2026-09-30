@@ -5,10 +5,11 @@ import { QueryBoundary } from "@forge-go/dashboard-kit/components/query-boundary
 import { ResourceTable, type Column } from "@forge-go/dashboard-kit/components/resource-table"
 import { Timestamp } from "@forge-go/dashboard-kit/components/timestamp"
 import { PluginLink, useCommand, useQuery } from "@forge-go/dashboard-plugin"
-import type { PluginPageProps } from "@forge-go/dashboard-plugin"
-import type { CheckpointListResponse, CheckpointSummary, MineResponse, StreamListResponse, StreamSummary, TakeCheckpointResponse } from "../types"
+import type { PluginPageProps, QueryState } from "@forge-go/dashboard-plugin"
+import type { CheckpointListResponse, CheckpointSummary, MineResponse, StreamListResponse, TakeCheckpointResponse } from "../types"
+import { LIMITS } from "../types"
 import { formatSeq } from "../format"
-import { ChainPicker } from "../components/chain-picker"
+import { ChainPicker, listTruncated } from "../components/chain-picker"
 import { DialogError } from "../components/dialog-error"
 
 const PAGE = 50
@@ -44,7 +45,7 @@ export const CheckpointsPage: ComponentType<PluginPageProps> = (props) => (
 function CheckpointsView({ streamId }: { streamId?: string }) {
   const [offset, setOffset] = useState(0)
   const mine = useQuery<MineResponse>("streams.mine", streamId ? { streamId } : {})
-  const list = useQuery<StreamListResponse>("streams.list", { limit: 200 })
+  const list = useQuery<StreamListResponse>("streams.list", { limit: LIMITS.pageMaxStreamsCheckpoints })
   // Without a chain in the route the list is only asked for once the scope is
   // known to have a chain of its own: an app-wide operator whose events sit
   // under tenants has nothing to list, and nothing a take could succeed on.
@@ -76,7 +77,7 @@ function CheckpointsView({ streamId }: { streamId?: string }) {
               columns={columns}
               rows={rows}
               rowKey={(c) => c.id}
-              caption={`${rows.length} checkpoints shown`}
+              caption={`${formatSeq(rows.length)} ${rows.length === 1 ? "checkpoint" : "checkpoints"} shown`}
               emptyMessage="This chain has no checkpoints yet."
             />
             {/* The store keeps no count, so there is no "page 2 of N": only whether another page exists. */}
@@ -101,7 +102,9 @@ function CheckpointsView({ streamId }: { streamId?: string }) {
         description="Signed statements of how far the chain reached. A checkpoint proves the range it covers has not been rewritten or truncated since it was signed."
         actions={
           <div className="flex items-center gap-2">
-            {ownsChain && streams.length > 1 && <ChainPicker streams={streams} selectedId={selected} basePath="/checkpoints/in" />}
+            {ownsChain && list.data && streams.length > 1 && (
+              <ChainPicker streams={streams} selectedId={selected} basePath="/checkpoints/in" truncated={listTruncated(list.data)} />
+            )}
             {ownsChain && q.data?.supported && (
               <Button
                 disabled={take.loading}
@@ -130,7 +133,7 @@ function CheckpointsView({ streamId }: { streamId?: string }) {
       <DialogError what="take a checkpoint" error={take.error} />
       {streamId === undefined ? (
         <QueryBoundary title="chain" query={mine} skeletonRows={3}>
-          {(m) => (m.stream ? listing : <NoOwnChain streams={streams} loading={list.loading} />)}
+          {(m) => (m.stream ? listing : <NoOwnChain list={list} />)}
         </QueryBoundary>
       ) : (
         listing
@@ -140,15 +143,19 @@ function CheckpointsView({ streamId }: { streamId?: string }) {
 }
 
 /** Mirrors the Chain page: this app's events sit under its tenants, so one of their chains has to be chosen. */
-function NoOwnChain({ streams, loading }: { streams: StreamSummary[]; loading: boolean }) {
-  if (loading) return <p role="status" className="text-sm text-muted-foreground">Loading chains...</p>
-  if (streams.length === 0) {
-    return <p className="text-sm">This scope has not recorded any events yet, so there are no checkpoints.</p>
-  }
+function NoOwnChain({ list }: { list: QueryState<StreamListResponse> }) {
   return (
-    <div className="flex flex-col gap-3 text-sm">
-      <p>This app has no app-level chain: its events are recorded under its tenants. Choose a tenant's chain to see its checkpoints.</p>
-      <ChainPicker streams={streams} basePath="/checkpoints/in" />
-    </div>
+    <QueryBoundary title="chains" query={list} skeletonRows={2}>
+      {(l) =>
+        l.streams.length === 0 ? (
+          <p className="text-sm">This scope has not recorded any events yet, so there are no checkpoints.</p>
+        ) : (
+          <div className="flex flex-col gap-3 text-sm">
+            <p>This app has no app-level chain: its events are recorded under its tenants. Choose a tenant's chain to see its checkpoints.</p>
+            <ChainPicker streams={l.streams} basePath="/checkpoints/in" truncated={listTruncated(l)} />
+          </div>
+        )
+      }
+    </QueryBoundary>
   )
 }
