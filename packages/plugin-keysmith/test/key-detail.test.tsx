@@ -247,9 +247,25 @@ describe("KeyDetailPage policy", () => {
     expect(within(s).queryByText(/0 seconds/)).toBeNull()
   })
 
-  it("says there is no policy when policy is null", async () => {
-    await render(detail({ policy: null }))
+  it("says there is no policy when the key has none", async () => {
+    await render(detail({ key: key({ policyId: undefined }), policy: null }))
     expect(within(section("Policy")).getByLabelText("no policy")).toBeTruthy()
+  })
+
+  it("says the policy could not be found when the key points at one the server did not return", async () => {
+    await render(
+      detail({ key: key({ policyId: "kpol_01j9k4m1zyb1c2d3e4f5g6h7j8" }), policy: null }),
+    )
+    const s = section("Policy")
+    expect(
+      within(s).getByText(
+        /^The policy this key points at could not be found, so the key validates without one\.$/,
+      ),
+    ).toBeTruthy()
+    expect(
+      within(s).getByText("kpol_01j9k4m1zyb1c2d3e4f5g6h7j8").className,
+    ).toContain("font-mono")
+    expect(within(s).queryByLabelText("no policy")).toBeNull()
   })
 
   it("names the warden subject for the key in mono", async () => {

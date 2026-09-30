@@ -52,6 +52,8 @@ export const KEYSMITH_IDS = {
   webhookKey: "akey_01j9k4m2e9g0e5p7t8x2y3a4bc",
   partnerKey: "akey_01j9k4m2eah1f6q8v9y3z4b5cd",
   mobileKey: "akey_01j9k4m2ebj2g7r9w0z4a5c6de",
+  // points at globexPolicy, so its detail answers policy: null
+  globexLinkedKey: "akey_01j9k4m2edm4j9t1y2b6c7e8fg",
   standardPolicy: "kpol_01j9k4m1zza0b1c2d3e4f5g6h7",
   // sets neither a grace period nor a max lifetime
   openPolicy: "kpol_01j9k4m1zxc2d3e4f5g6h7j8k9",
@@ -193,6 +195,27 @@ function seedKeysmithState() {
       revokedAt: now - 10 * day,
       createdAt: now - 200 * day,
       updatedAt: now - 10 * day,
+    },
+    {
+      // An acme key whose row points at globex's policy. CreateKey refuses
+      // that, so in Go only a direct store write gets here. The tenant guard
+      // in keys.detail answers policy: null and the key keeps its policyId.
+      id: KEYSMITH_IDS.globexLinkedKey,
+      tenantId: "acme",
+      name: "Globex-linked import",
+      prefix: "imp",
+      hint: "5f3a",
+      environment: "live",
+      state: "active",
+      policyId: KEYSMITH_IDS.globexPolicy,
+      scopes: ["imports:write"],
+      createdBy: "usr_1",
+      expiresAt: null,
+      lastUsedAt: now - 5 * hour,
+      rotatedAt: null,
+      revokedAt: null,
+      createdAt: now - 6 * day,
+      updatedAt: now - 6 * day,
     },
     {
       id: KEYSMITH_IDS.globexKey,

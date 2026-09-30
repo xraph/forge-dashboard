@@ -113,7 +113,7 @@ function KeyDetailView({ data }: { data: KeyDetail }) {
         }
         aside={
           <>
-            <PolicySection policy={data.policy} />
+            <PolicySection policyId={key.policyId} policy={data.policy} />
             <Section title="Warden">
               <p className="text-sm text-muted-foreground">
                 Warden grants this key&apos;s permissions as subject{" "}
@@ -207,10 +207,29 @@ function DetailsSection({ data }: { data: KeyDetail }) {
   )
 }
 
-function PolicySection({ policy }: { policy: KeyDetail["policy"] }) {
+/**
+ * A key can point at a policy the server does not return: one that was
+ * deleted, or one from another tenant, which is never shown. The engine then
+ * validates the key without a policy, so the page says that.
+ */
+function PolicySection({
+  policyId,
+  policy,
+}: {
+  policyId: string | undefined
+  policy: KeyDetail["policy"]
+}) {
   return (
     <Section title="Policy">
-      {policy === null ? (
+      {policy === null && policyId ? (
+        <div className="flex flex-col gap-1">
+          <p className="text-sm text-muted-foreground">
+            The policy this key points at could not be found, so the key
+            validates without one.
+          </p>
+          <span className="font-mono text-xs">{policyId}</span>
+        </div>
+      ) : policy === null ? (
         <NoneCell label="policy" />
       ) : (
         <DescriptionList
