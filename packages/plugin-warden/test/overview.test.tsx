@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest"
 import { screen } from "@testing-library/react"
+import { formatTimestamp } from "@forge-go/dashboard-kit/lib/format"
 import { ContractError } from "@forge-go/dashboard-plugin"
 import { WardenOverviewPage } from "../src/pages/overview"
 import { failingClient, renderPage, stubClient } from "./harness"
@@ -127,6 +128,26 @@ describe("WardenOverviewPage", () => {
     expect(await screen.findByText("cached")).toBeTruthy()
     // Uncached is the majority state, so more than one row carries it here.
     expect(screen.getAllByText("not cached").length).toBeGreaterThan(0)
+  })
+
+  it("links the recent checks panel to the check log", async () => {
+    renderPage(WardenOverviewPage, client())
+    const link = await screen.findByRole("link", { name: "View the check log" })
+    expect(link.getAttribute("href")).toBe("/check-log")
+  })
+
+  it("links the panel even when the recent checks cannot be read", async () => {
+    renderPage(WardenOverviewPage, stubClient({ "overview.stats": STATS }))
+    expect(await screen.findByRole("link", { name: "View the check log" })).toBeTruthy()
+  })
+
+  it("links each recent check's timestamp to that check's own page", async () => {
+    const { container } = renderPage(WardenOverviewPage, client())
+    await screen.findByText("store unavailable")
+    const link = container.querySelector('a[href="/check-log/chk_01b"]')!
+    expect(link).toBeTruthy()
+    expect(link.textContent).toBe(formatTimestamp("2026-09-23T10:01:00Z"))
+    expect(container.querySelectorAll('a[href^="/check-log/"]')).toHaveLength(4)
   })
 
   it("says which kind of empty an empty check list is", async () => {

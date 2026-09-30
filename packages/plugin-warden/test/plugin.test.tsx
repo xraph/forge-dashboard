@@ -113,4 +113,18 @@ describe("wardenPlugin", () => {
     expect(nav.map((n) => n.to)).not.toContain("/permissions/:id")
     expect(nav.find((n) => n.label === "Permissions")?.to).toBe("/permissions")
   })
+
+  it("puts the Check log in Operations ahead of Config, and routes it", () => {
+    const nav = wardenPlugin.nav ?? []
+    const at = (label: string) => nav.find((n) => n.label === label)
+    expect(at("Check log")).toMatchObject({
+      to: "/check-log",
+      priority: 20,
+      group: "Operations",
+    })
+    expect(at("Check log")?.icon).toBeTruthy()
+    expect(at("Check log")?.priority).toBeLessThan(at("Config")?.priority ?? 0)
+    expect(at("Config")?.group).toBe("Operations")
+    expect(wardenPlugin.routes.map((r) => r.path)).toContain("/check-log")
+  })
 })
