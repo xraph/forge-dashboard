@@ -1,5 +1,7 @@
+import { lazy } from "react"
 import { definePlugin } from "@forge-go/dashboard-plugin"
 import {
+  FileCode2Icon,
   FlaskConicalIcon,
   HouseIcon,
   KeyIcon,
@@ -27,6 +29,10 @@ import { WardenResourceTypesPage } from "./pages/resource-types"
 import { WardenRoleDetailPage } from "./pages/role-detail"
 import { WardenRolesPage } from "./pages/roles"
 import { WardenSubjectDetailPage } from "./pages/subject-detail"
+
+// CodeMirror is this page's weight, so it loads when Schema is opened and not
+// with the shell.
+const WardenSchemaPage = lazy(() => import("./pages/schema"))
 
 export type { ConfigDetail } from "./pages/config"
 export type { OverviewStats, RecentChecks } from "./pages/overview"
@@ -185,6 +191,13 @@ export const wardenPlugin = definePlugin({
       group: "Operations",
     },
     {
+      label: "Schema",
+      to: "/schema",
+      priority: 30,
+      icon: <FileCode2Icon />,
+      group: "Operations",
+    },
+    {
       label: "Config",
       to: "/config",
       priority: 40,
@@ -232,6 +245,7 @@ export const wardenPlugin = definePlugin({
     // nowhere. This route is reached only from a check's own page, and it
     // reads params.checkId because a plugin cannot read a query string.
     { path: "/playground/check/:checkId", element: WardenPlaygroundPage },
+    { path: "/schema", element: WardenSchemaPage },
     { path: "/config", element: WardenConfigPage },
   ],
 })

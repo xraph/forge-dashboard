@@ -3,6 +3,7 @@ import { resolvePluginState } from "@forge-go/dashboard-plugin"
 import type { Capabilities } from "@forge-go/dashboard-plugin"
 import wardenPlugin, { wardenPlugin as named } from "../src/index"
 import { WardenSubjectDetailPage } from "../src/pages/subject-detail"
+import { WardenSchemaPage } from "../src/pages/schema"
 
 function capabilities(
   ...contributors: { name: string; configured?: boolean }[]
@@ -164,5 +165,24 @@ describe("wardenPlugin", () => {
     const route = wardenPlugin.routes.find((r) => r.path === "/subjects/:kind/:id")
     expect(route?.element).toBe(WardenSubjectDetailPage)
     expect(nav.map((n) => n.to)).not.toContain("/subjects/:kind/:id")
+  })
+
+  it("puts Schema in Operations between the Check log and Config, and routes it lazily", () => {
+    const nav = wardenPlugin.nav ?? []
+    const at = (label: string) => nav.find((n) => n.label === label)
+    expect(at("Schema")).toMatchObject({
+      to: "/schema",
+      priority: 30,
+      group: "Operations",
+    })
+    expect(at("Schema")?.icon).toBeTruthy()
+    expect(at("Schema")?.priority).toBeGreaterThan(at("Check log")?.priority ?? 0)
+    expect(at("Schema")?.priority).toBeLessThan(at("Config")?.priority ?? 0)
+    const route = wardenPlugin.routes.find((r) => r.path === "/schema")
+    expect(route).toBeDefined()
+    // A lazy component, not the page: the page's module is what holds
+    // CodeMirror, and a route holding it directly would put it in the entry.
+    expect(route?.element).not.toBe(WardenSchemaPage)
+    expect((route?.element as unknown as { $$typeof: symbol }).$$typeof).toBe(Symbol.for("react.lazy"))
   })
 })
