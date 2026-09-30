@@ -151,3 +151,49 @@ it. The entry names the chunk only in its `__vite__mapDeps` table; there is
 no static `from"./json-editor-*.js"` import in it, which was checked, because
 one stray static import anywhere would pull the whole editor back into the
 entry.
+
+## Vault's config editor, and where CodeMirror lands (2026-09-29)
+
+Measured with `vite build` in `apps/shell`, written to a scratch directory so
+the shared `dist` stayed as it was. There are two builds. One is the tree as
+it stands. The other is a scratch copy of the same tree with the vault
+plugin's four config routes (the list, create, entry page and the overrides
+page) and their imports taken out, which is what "without" means below. The
+nav entries stayed in the copy, since they cost next to nothing. Sizes are
+Vite's own kB.
+
+| chunk | raw | gzip | loaded |
+|---|---|---|---|
+| entry, without the vault config routes | 1,046.64 KB | 297.36 KB | eager |
+| entry, with them | 1,056.39 KB | 299.50 KB | eager |
+| `config-detail` (the entry page) | 20.67 KB | 6.13 KB | lazy, when you open an entry |
+| `json-editor` (vault's editor) | 1.72 KB | 0.91 KB | lazy, for a json entry's value |
+| `json-diff` | 20.38 KB | 7.68 KB | lazy, when you compare a json entry's versions |
+| CodeMirror, shared (two `dist-*` chunks) | 338.08 KB | 110.11 KB | lazy, with either of the above |
+
+The config routes cost 9.75 KB raw and 2.14 KB gzip in the entry: the list,
+create and overrides pages and what only they use. The entry page is not in
+that number. It is its own chunk, reached from the
+plugin through `lazy()`, and the json editor and the diff are two more
+`lazy()` imports inside it, so a text, number, bool or duration entry never
+loads either.
+
+CodeMirror is not in the entry. The built entry chunk was searched for
+`cm-editor`, `@codemirror`, `EditorView`, `cm-content`, `cm-scroller`,
+`cm-gutter`, `cm-line`, `cm-mergeView`, `codemirror` and `lezer`: no matches,
+in either build. It has no static `from"./..."` import either, so nothing
+pulls a chunk in ahead of the route. The only editor chunk the entry names is
+relay's read-only `json-editor`, in its `__vite__mapDeps` table.
+
+With vault's editor and diff in the build, CodeMirror is no longer a single
+chunk. Before, relay's viewer carried it alone as one 336.80 KB chunk (the
+"without" build still does). Now the viewer, vault's editor and the diff share
+two chunks of 294.97 KB and 43.11 KB, which together are 1.28 KB larger than
+the old single one, and each caller is a thin wrapper of a kilobyte or two.
+Opening a json entry pulls `config-detail`, `json-editor` and those two:
+about 360 KB raw, 117 KB gzip, on first open only.
+
+The entry is 1,056 KB here, against 748 KB in the relay section above. The
+difference is not vault's: this tree carries other workstreams' uncommitted
+work, and the "without" build (1,046.64 KB) already has it. Read the 9.75 KB
+as this task's share and the rest as theirs.
