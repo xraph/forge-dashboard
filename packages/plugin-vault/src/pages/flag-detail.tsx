@@ -50,17 +50,22 @@ import { isFlagType } from "../flag-types"
 import type {
   AuditEntry,
   FlagDetail,
+  FlagEvaluation,
   FlagOverrideSummary,
   FlagRuleSummary,
   FlagType,
   FlagVariantSummary,
 } from "../flag-types"
 import { parseTags } from "../tags"
-import { useEvaluation } from "../use-evaluate"
-import type { EvaluationRequest } from "../use-evaluate"
 import type { FlagSummary } from "./flags"
 
 /** Mirrors the Go `flagResponse`. */
+/** The pair an operator asked about. Empty ids are already dropped. */
+interface EvaluationRequest {
+  tenantId?: string
+  userId?: string
+}
+
 interface FlagResponse {
   flag: FlagSummary
 }
@@ -180,7 +185,17 @@ function FlagDetailView({ flagKey, data }: { flagKey: string; data: FlagDetail }
   const [draftTenant, setDraftTenant] = useState("")
   const [draftUser, setDraftUser] = useState("")
   const [request, setRequest] = useState<EvaluationRequest | null>(null)
-  const evaluated = useEvaluation(flagKey, request)
+  // Waits until Evaluate has been pressed. An id that was not given is absent
+  // from the request, not sent empty.
+  const evaluated = useQuery<FlagEvaluation>(
+    "flags.evaluate",
+    {
+      key: flagKey,
+      ...(request?.tenantId === undefined ? {} : { tenantId: request.tenantId }),
+      ...(request?.userId === undefined ? {} : { userId: request.userId }),
+    },
+    { enabled: request !== null },
+  )
 
   function open(which: Dialogs) {
     // Reset at open, not at close, so an error from an earlier attempt, on
@@ -204,12 +219,15 @@ function FlagDetailView({ flagKey, data }: { flagKey: string; data: FlagDetail }
     // The rules on the page may be older than the ones the engine is about to
     // walk. Reading them again is what lets "Press Evaluate again" work.
     queryStore.invalidate(client.extension, ["flags.detail"])
-    setRequest((previous) => ({
-      // An empty id is left out of the request, not sent as "".
-      tenantId: draftTenant.trim() || undefined,
-      userId: draftUser.trim() || undefined,
-      run: (previous?.run ?? 0) + 1,
-    }))
+    // An empty id is left out of the request, not sent as "".
+    const tenantId = draftTenant.trim() || undefined
+    const userId = draftUser.trim() || undefined
+    // The same pair is the same query, so the hook would serve what it holds.
+    // Each press asks the engine, so it is asked to reload.
+    if (request !== null && request.tenantId === tenantId && request.userId === userId) {
+      evaluated.refetch()
+    }
+    setRequest({ tenantId, userId })
   }
 
   function clearEvaluation() {
@@ -246,7 +264,7 @@ function FlagDetailView({ flagKey, data }: { flagKey: string; data: FlagDetail }
   }
 
   const off = !flag.enabled
-  const answer = evaluated?.data
+  const answer = evaluated.data
   // Marks read the SAVED rules by position. While a draft is open the rows on
   // screen are not those rules, so no mark may be drawn on them.
   const marks =
@@ -337,13 +355,13 @@ function FlagDetailView({ flagKey, data }: { flagKey: string; data: FlagDetail }
         onUserId={setDraftUser}
         onEvaluate={evaluate}
         onClear={clearEvaluation}
-        busy={evaluated?.loading === true}
+        busy={evaluated.loading}
         canClear={request !== null || draftTenant !== "" || draftUser !== ""}
         disabledReason={
           editingRules ? "Save or discard the rule changes to evaluate." : undefined
         }
       >
-        {evaluated?.error ? (
+        {evaluated.error ? (
           <CommandAlert error={evaluated.error} title="Could not evaluate" />
         ) : null}
         {answer !== undefined && marks !== undefined ? (
