@@ -6,6 +6,8 @@ export type VerifyLevel = "unkeyed" | "keyed" | "signed" | "anchored"
 
 export interface CheckpointSummary {
   id: string
+  /** The chain the checkpoint was taken over. Absent from servers older than the field. */
+  streamId?: string
   fromSeq: number
   toSeq: number
   eventCount: number

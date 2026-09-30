@@ -9,9 +9,9 @@ import type { CheckpointSummary, GetCheckpointResponse, StreamListResponse, Stre
 import { formatSeq } from "../format"
 
 /**
- * The detail read carries no stream id, so the owner is inferred from the
- * chains this scope can see. A chain whose latest checkpoint is this one owns
- * it outright. Otherwise a chain can only own a checkpoint it has grown to
+ * A server older than CheckpointSummary.streamId does not say which chain owns
+ * a checkpoint, so the owner is inferred from the chains this scope can see.
+ * A chain whose latest checkpoint is this one owns it outright. Otherwise a chain can only own a checkpoint it has grown to
  * cover, and if that leaves more than one, guessing would send the operator to
  * verify the wrong chain: better to say nothing.
  */
@@ -30,7 +30,10 @@ function owningChain(cp: CheckpointSummary, list: StreamListResponse | undefined
 export const CheckpointDetailPage: ComponentType<PluginPageProps> = ({ params }) => {
   const id = params.id ?? ""
   const q = useQuery<GetCheckpointResponse>("checkpoints.detail", { id })
-  const list = useQuery<StreamListResponse>("streams.list", { limit: 200 })
+  // The record names its own chain. Only a server that predates streamId
+  // leaves the page to infer one, so only then is the chain list worth a read.
+  const inferring = q.data !== undefined && !q.data.checkpoint.streamId
+  const list = useQuery<StreamListResponse>("streams.list", { limit: 200 }, { enabled: inferring })
   // A failed chain list costs the verify link and nothing else, so only its
   // loading state joins the checkpoint's.
   const settled = { ...q, loading: q.loading || (q.data !== undefined && list.loading) }
@@ -40,7 +43,7 @@ export const CheckpointDetailPage: ComponentType<PluginPageProps> = ({ params })
       <PageHeader title={id} description="A signed statement of how far the chain had reached when it was taken." />
       <QueryBoundary title="checkpoint" query={settled} skeletonRows={4}>
         {({ checkpoint: cp }) => {
-          const owner = owningChain(cp, list.data)
+          const ownerId = cp.streamId || owningChain(cp, list.data)?.id
           return (
             <div className="flex flex-col gap-6">
               <DescriptionList
@@ -51,8 +54,8 @@ export const CheckpointDetailPage: ComponentType<PluginPageProps> = ({ params })
                   { term: "Signed", value: <Timestamp value={cp.createdAt} label="signing time" /> },
                 ]}
               />
-              {owner ? (
-                <PluginLink to={`/chain/${encodeURIComponent(owner.id)}/${cp.fromSeq}/${cp.toSeq}`} className="text-sm underline underline-offset-4">
+              {ownerId ? (
+                <PluginLink to={`/chain/${encodeURIComponent(ownerId)}/${cp.fromSeq}/${cp.toSeq}`} className="text-sm underline underline-offset-4">
                   {`Verify sequences ${formatSeq(cp.fromSeq)} to ${formatSeq(cp.toSeq)}`}
                 </PluginLink>
               ) : (

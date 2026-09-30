@@ -126,7 +126,11 @@ function seedChains() {
       gaps: [], tampered: [], downgrades: [], retained: [], truncated: true,
     },
   }
-  for (const [key, c] of Object.entries(seeded)) c.key = key
+  // Every checkpoint names the chain it was taken over, like the Go projection.
+  for (const [key, c] of Object.entries(seeded)) {
+    c.key = key
+    for (const k of c.checkpoints) k.streamId = c.id
+  }
   return seeded
 }
 
@@ -1059,7 +1063,7 @@ export function createChronicleHandlers(FixtureError) {
         const latest = c.checkpoints[c.checkpoints.length - 1]
         const from = latest ? latest.toSeq + 1 : 1
         if (c.headSeq < from) return { upToDate: true }
-        const made = { ...cp(`ckpt_${c.key}_${c.checkpoints.length + 1}`, from, c.headSeq), createdAt: iso(NOW) }
+        const made = { ...cp(`ckpt_${c.key}_${c.checkpoints.length + 1}`, from, c.headSeq), streamId: c.id, createdAt: iso(NOW) }
         c.checkpoints.push(made)
         return { checkpoint: made, upToDate: false }
       },

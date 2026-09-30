@@ -22,6 +22,22 @@ describe("CheckpointDetailPage", () => {
     expect(c.queried.find((q) => q.intent === "checkpoints.detail")?.params).toEqual({ id: "ckpt_acme_6" })
   })
 
+  it("links straight to the chain the checkpoint names, without listing chains", async () => {
+    // The list would infer acme, the only chain reaching the checkpoint. The
+    // record's own streamId wins, and the list is never asked for.
+    const c = scriptedClient({
+      "checkpoints.detail": { checkpoint: { ...checkpoint, streamId: "stream_globex" } },
+      "streams.list": list(acme),
+    })
+    renderPage(CheckpointDetailPage, c.client, { id: "ckpt_acme_6" })
+    const link = await screen.findByRole("link", { name: /Verify sequences 50,001 to 60,000/ })
+    expect(link.getAttribute("href")).toBe("/chain/stream_globex/50001/60000")
+    expect(c.queried.some((q) => q.intent === "streams.list")).toBe(false)
+  })
+
+  // Everything below answers without a streamId, the way a server from before
+  // it existed does, so the owner still has to be inferred from the chains.
+
   it("links to the one chain that reaches the checkpoint, ignoring one that has not got that far", async () => {
     const short: StreamSummary = { ...acme, id: "stream_globex", tenantId: "globex", headSeq: 900 }
     const c = scriptedClient({ "checkpoints.detail": { checkpoint }, "streams.list": list(short, acme) })
