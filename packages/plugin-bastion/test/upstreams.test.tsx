@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest"
+import { describe, expect, it, vi } from "vitest"
 import { screen, within } from "@testing-library/react"
 import { BastionUpstreamsPage } from "../src/pages/upstreams"
 import type { Upstream } from "../src/types"
@@ -22,6 +22,22 @@ describe("BastionUpstreamsPage", () => {
     expect(within(row).getByRole("link", { name: "/gw/users" }).getAttribute("href")).toBe("/routes/manual-%2Fusers")
     expect(within(row).getByRole("link", { name: "/gw/orders" })).toBeTruthy()
     expect(screen.getByText("1 upstream")).toBeTruthy()
+  })
+
+  it("keys each route entry by route and target, so one target listed twice stays unique", async () => {
+    const dup: Upstream = {
+      ...ORDERS,
+      routes: [
+        { routeId: "a", path: "/gw/a", targetId: "shared" },
+        { routeId: "b", path: "/gw/b", targetId: "shared" },
+      ],
+    }
+    const errors = vi.spyOn(console, "error").mockImplementation(() => {})
+    renderPage(BastionUpstreamsPage, stubClient({ "upstreams.list": { upstreams: [dup], total: 1 } }))
+    await screen.findByText("http://orders:8080")
+    const keyWarnings = errors.mock.calls.filter((c) => String(c[0]).includes("same key"))
+    errors.mockRestore()
+    expect(keyWarnings).toHaveLength(0)
   })
 
   it("counts zero and says what to do", async () => {

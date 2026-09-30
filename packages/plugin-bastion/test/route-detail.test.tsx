@@ -39,8 +39,32 @@ describe("BastionRouteDetailPage", () => {
     renderPage(BastionRouteDetailPage, stubClient({ "routes.detail": detail() }), { id: "manual-/users" })
     const row = (await screen.findByText("X-Api-Key")).closest("tr") as HTMLElement
     expect(within(row).getByText("Redacted")).toBeTruthy()
-    expect(within(row).getByText("Request transform")).toBeTruthy()
+    expect(within(row).getByText("Request transform (set)")).toBeTruthy()
     expect(screen.getByText("2 headers")).toBeTruthy()
+  })
+
+  it("shows add and remove changes from headers and both transforms", async () => {
+    const d = detail({
+      headers: { set: { "X-Env": "prod" }, remove: ["X-Debug"] },
+      transform: {
+        requestHeaders: { add: { "X-Trace": "on" }, remove: ["Cookie"] },
+        responseHeaders: { set: { "X-Served-By": "gw" }, add: { Vary: "Accept" }, remove: ["Server"] },
+      },
+    })
+    renderPage(BastionRouteDetailPage, stubClient({ "routes.detail": d }), { id: "manual-/users" })
+    const rowOf = async (name: string) => (await screen.findByText(name)).closest("tr") as HTMLElement
+
+    expect(within(await rowOf("X-Env")).getByText("Set")).toBeTruthy()
+    const debug = await rowOf("X-Debug")
+    expect(within(debug).getByText("Remove")).toBeTruthy()
+    expect(within(debug).getByText("Removed")).toBeTruthy()
+    expect(within(await rowOf("X-Trace")).getByText("Request transform (add)")).toBeTruthy()
+    expect(within(await rowOf("Cookie")).getByText("Request transform (remove)")).toBeTruthy()
+    expect(within(await rowOf("X-Served-By")).getByText("Response transform (set)")).toBeTruthy()
+    expect(within(await rowOf("Vary")).getByText("Response transform (add)")).toBeTruthy()
+    expect(within(await rowOf("Server")).getByText("Response transform (remove)")).toBeTruthy()
+    expect(screen.getByText("7 headers")).toBeTruthy()
+    expect(screen.queryByText("No header changes.")).toBeNull()
   })
 
   it("says discovery owns a FARP route", async () => {

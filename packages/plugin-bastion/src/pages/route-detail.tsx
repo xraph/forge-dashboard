@@ -15,6 +15,8 @@ import type { HeaderPolicy, RouteDetail, TargetView } from "../types"
 import { Methods } from "./routes"
 
 const REDACTED = "[redacted]"
+// Marks a header the route strips. Not a value a header could carry in a row, so it cannot collide.
+const REMOVED = "\u0000removed"
 
 interface HeaderRow {
   where: string
@@ -24,12 +26,13 @@ interface HeaderRow {
 
 function headerRows(d: RouteDetail): HeaderRow[] {
   const rows: HeaderRow[] = []
-  const push = (where: string, m?: Record<string, string>) => {
-    for (const [name, value] of Object.entries(m ?? {})) rows.push({ where, name, value })
+  const policy = (prefix: string, p?: HeaderPolicy) => {
+    const label = (verb: string) => (prefix ? `${prefix} (${verb.toLowerCase()})` : verb)
+    for (const [name, value] of Object.entries(p?.set ?? {})) rows.push({ where: label("Set"), name, value })
+    for (const [name, value] of Object.entries(p?.add ?? {})) rows.push({ where: label("Add"), name, value })
+    for (const name of p?.remove ?? []) rows.push({ where: label("Remove"), name, value: REMOVED })
   }
-  const policy = (where: string, p?: HeaderPolicy) => push(where, p?.set)
-  policy("Set", d.headers)
-  push("Add", d.headers.add)
+  policy("", d.headers)
   policy("Request transform", d.transform?.requestHeaders)
   policy("Response transform", d.transform?.responseHeaders)
   return rows
@@ -42,7 +45,14 @@ const headerColumns: Column<HeaderRow>[] = [
     id: "value",
     header: "Value",
     className: "font-mono text-xs",
-    cell: (h) => (h.value === REDACTED ? <Badge variant="secondary">Redacted</Badge> : h.value),
+    cell: (h) =>
+      h.value === REDACTED ? (
+        <Badge variant="secondary">Redacted</Badge>
+      ) : h.value === REMOVED ? (
+        <Badge variant="secondary">Removed</Badge>
+      ) : (
+        h.value
+      ),
   },
 ]
 

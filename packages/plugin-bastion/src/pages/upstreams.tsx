@@ -21,7 +21,7 @@ const columns: Column<Upstream>[] = [
     className: "font-mono text-xs",
     cell: (u) =>
       u.routes.map((r, i) => (
-        <Fragment key={r.targetId}>
+        <Fragment key={`${r.routeId}:${r.targetId}`}>
           {i > 0 && ", "}
           <PluginLink to={routePath(r.routeId)}>{r.path}</PluginLink>
         </Fragment>

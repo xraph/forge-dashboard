@@ -185,7 +185,7 @@ export interface ServiceView {
   protocols: string[]
   healthy: boolean
   routeCount: number
-  discoveredAt: string
+  discoveredAt: string | null
   metadataKeys: string[]
 }
 
