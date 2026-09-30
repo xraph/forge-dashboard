@@ -135,4 +135,17 @@ describe("wardenPlugin", () => {
     expect(nav.map((n) => n.to)).not.toContain("/check-log/:id")
     expect(nav.find((n) => n.label === "Check log")?.to).toBe("/check-log")
   })
+
+  it("puts the Playground in Operations ahead of the Check log, and routes it", () => {
+    const nav = wardenPlugin.nav ?? []
+    const at = (label: string) => nav.find((n) => n.label === label)
+    expect(at("Playground")).toMatchObject({
+      to: "/playground",
+      priority: 10,
+      group: "Operations",
+    })
+    expect(at("Playground")?.icon).toBeTruthy()
+    expect(at("Playground")?.priority).toBeLessThan(at("Check log")?.priority ?? 0)
+    expect(wardenPlugin.routes.map((r) => r.path)).toContain("/playground")
+  })
 })

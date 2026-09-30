@@ -1,5 +1,6 @@
 import { definePlugin } from "@forge-go/dashboard-plugin"
 import {
+  FlaskConicalIcon,
   HouseIcon,
   KeyIcon,
   LayersIcon,
@@ -17,6 +18,7 @@ import { WardenConfigPage } from "./pages/config"
 import { WardenOverviewPage } from "./pages/overview"
 import { WardenPermissionDetailPage } from "./pages/permission-detail"
 import { WardenPermissionsPage } from "./pages/permissions"
+import { WardenPlaygroundPage } from "./pages/playground"
 import { WardenPoliciesPage } from "./pages/policies"
 import { WardenPolicyDetailPage, WardenPolicyEditPage } from "./pages/policy-detail"
 import { WardenRelationsPage } from "./pages/relations"
@@ -32,6 +34,12 @@ export type { AssignmentSummary, AssignmentsList } from "./pages/assignments"
 export type { RoleSummary, RolesList, AckResponse } from "./pages/roles"
 export type { RoleDetail, PermissionSummary } from "./pages/role-detail"
 export type { PermissionsList } from "./pages/permissions"
+export type {
+  LaneState,
+  PlaygroundInput,
+  PlaygroundLane,
+  PlaygroundResult,
+} from "./components/playground-lanes"
 export type { PermissionDetail } from "./pages/permission-detail"
 export type {
   PoliciesList,
@@ -66,6 +74,7 @@ export {
   WardenOverviewPage,
   WardenPermissionDetailPage,
   WardenPermissionsPage,
+  WardenPlaygroundPage,
   WardenPoliciesPage,
   WardenPolicyDetailPage,
   WardenPolicyEditPage,
@@ -151,6 +160,13 @@ export const wardenPlugin = definePlugin({
       group: "Relationships",
     },
     {
+      label: "Playground",
+      to: "/playground",
+      priority: 10,
+      icon: <FlaskConicalIcon />,
+      group: "Operations",
+    },
+    {
       label: "Check log",
       to: "/check-log",
       priority: 20,
@@ -194,6 +210,7 @@ export const wardenPlugin = definePlugin({
     // No nav entry: a sidebar link to "a check" with none chosen points
     // nowhere. This route is reached only from a row's timestamp.
     { path: "/check-log/:id", element: WardenCheckLogDetailPage },
+    { path: "/playground", element: WardenPlaygroundPage },
     { path: "/config", element: WardenConfigPage },
   ],
 })
