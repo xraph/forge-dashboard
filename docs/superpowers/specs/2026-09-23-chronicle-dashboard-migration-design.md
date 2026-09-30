@@ -885,12 +885,20 @@ answer that a careless page could still turn into a misleading one.
 - `retention.enforce` can come back with `failed: true` and non-zero purged
   counts. That's a run that stopped part-way, so render it that way, never as
   success. `moreRemain` means "run it again".
-- When `verify.run` reports `retentionPolicies` above zero, the verdict has to
-  say that gaps and tampered sequences may be authorised retention purges,
-  which chronicle can't currently tell apart from deletion. A value of -1 means
-  nobody knows, and the page says unknown. The enforce confirm dialog says the
-  same thing from the other side: once you enforce, verification will report
-  the purged events as gaps and the events after them as tampered.
+- A purge the enforcer recorded in the chain comes back from `verify.run` as a
+  `retained` range, with the sequence of the retention record that vouches for
+  it, and it doesn't make the chain invalid. The page shows those ranges as
+  removed by retention, never as breaks, and says what a range asserts: that
+  the chain links across it, not what the removed events said. A purge nobody
+  recorded still reads as a gap, and only a gap: the event after it is checked
+  against its own declared predecessor, so it isn't marked tampered. So when
+  `retentionPolicies` is above zero and there are gaps, the verdict says a gap
+  may be an unrecorded purge (from before retention records existed, or from an
+  enforcer built without a chain recorder), which chronicle can't tell apart
+  from deletion. A value of -1 means nobody knows, and the page says unknown.
+  The enforce confirm dialog says what verification will show afterwards: the
+  purged events as a range removed by retention, backed by a record in the
+  chain.
 - Preview counts are "eligible", not "will be deleted". One enforce pass purges
   at most 5,000 events per policy, while the preview counts up to 10,000.
 - A category of `*` means every category. It isn't a default, and a short
