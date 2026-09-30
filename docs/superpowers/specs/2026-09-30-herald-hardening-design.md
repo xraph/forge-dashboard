@@ -363,13 +363,17 @@ not-found sentinels.
 
 ## F. REST API (`api/`)
 
-- Herald can't know the host's auth scheme, so it doesn't pick one. It offers
-  two ways to protect the route group, both built on forge's own group options:
-  `api_auth_providers` in config (a list of the host's forge auth provider
-  names, applied with `forge.WithGroupAuth`) and
-  `extension.WithAPIMiddleware(mw ...forge.Middleware)` in code (applied with
-  `forge.WithGroupMiddleware`). When routes are mounted with neither, startup
-  logs a warning saying the Herald API is unauthenticated and naming both.
+- Herald can't know the host's auth scheme, so it doesn't pick one.
+  `extension.WithAPIMiddleware(mw ...forge.Middleware)` wraps the route group
+  with `forge.WithGroupMiddleware`, and that's the only way offered. We looked at
+  forge's `WithGroupAuth(providerNames...)` too, and it doesn't enforce anything:
+  at v1.10.0 and v1.11.2 it only writes `auth.providers` into route metadata,
+  which the OpenAPI generator and the client introspector read and no middleware
+  checks. A config setting built on it would make the API document auth while
+  serving every request unauthenticated, so there isn't one. When routes are
+  mounted with no middleware, startup logs a warning saying the Herald API is
+  unauthenticated and naming the option, and a test proves the middleware runs
+  on every route.
 - Provider responses never carry credential values. They carry
   `credentials: [{key, protection, key_id}]`. Create and update accept
   `credentials` (keys to set) and `remove_credentials`, and go through the engine
@@ -416,7 +420,7 @@ Lint runs with a fresh cache every time:
 
 ## Breaking changes
 
-Herald is at v0.1.0 and these ship as a minor bump with a changelog entry each:
+Herald's latest tag is v1.6.2 (the `ExtensionVersion` constant saying 0.1.0 is stale, and gets corrected). These ship as v1.7.0. The repo has no changelog file, so we add `CHANGELOG.md` with an entry for each. We checked the two downstream modules, `authsome` and `authsome-dash-identity`: they call `Send`, `Notify`, the renderer and the template store methods, none of which change signature, and they ignore `SendResult`, so neither stops compiling. Eleven drivers under `drivers/` are their own modules with a `replace` pointing at `../../`, so they build against these changes and their tests run from inside each module.
 
 - `message.Store`: `UpdateMessageStatus` is replaced by `RecordDelivery`, and
   `CountMessages` is added. Any out-of-tree store implementation stops compiling,
