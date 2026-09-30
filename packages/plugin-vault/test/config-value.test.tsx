@@ -47,6 +47,12 @@ describe("ConfigValue", () => {
     expect(container.textContent).toBe("5")
   })
 
+  it("draws an empty duration quoted, never as a blank cell", () => {
+    const { container } = render(<ConfigValue value="" valueType="duration" />)
+    expect(container.textContent).toBe('""')
+    expect(container.textContent).not.toBe("")
+  })
+
   it("never coerces by the type: a string in an int entry is drawn as a string", () => {
     const { container } = render(<ConfigValue value="x" valueType="int" />)
     expect(container.textContent).toBe('"x"')

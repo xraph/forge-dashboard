@@ -1,3 +1,5 @@
+import type { AuditEntry } from "./flag-types"
+
 /**
  * The six value types a config entry can have. Mirrors the Go `config.Type`.
  *
@@ -50,4 +52,39 @@ export interface ConfigEntrySummary {
 export interface ConfigList {
   entries: ConfigEntrySummary[]
   total: number
+}
+
+/** Mirrors the Go `OverrideSummary`: one tenant's value for one key. */
+export interface OverrideSummary {
+  key: string
+  tenantId: string
+  value: unknown
+  /** False when `value` is not a value of the entry's type. */
+  valueMatchesType: boolean
+  /** False when no entry holds this key any more. */
+  keyExists: boolean
+  updatedAt: string
+}
+
+/** Mirrors the Go `configDetailResponse`. Lists are never null. */
+export interface ConfigDetail {
+  entry: ConfigEntrySummary
+  overrides: OverrideSummary[]
+  recentAudit: AuditEntry[]
+}
+
+/** One row of `config.versions`. */
+export interface ConfigVersion {
+  version: number
+  /** What the entry held at that version. It may not match the entry's type now. */
+  value: unknown
+  /** Whether that value is a value of the entry's CURRENT type. */
+  valueMatchesType: boolean
+  createdAt: string
+  current: boolean
+}
+
+/** Mirrors the Go `configVersionsResponse`, newest first. */
+export interface ConfigVersions {
+  versions: ConfigVersion[]
 }

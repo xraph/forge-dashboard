@@ -7,6 +7,7 @@ import {
   RefreshCwIcon,
   SlidersHorizontalIcon,
 } from "@forge-go/dashboard-kit/icons"
+import { lazy } from "react"
 import type { ComponentType } from "react"
 import type { PluginPageProps } from "@forge-go/dashboard-plugin"
 import { ConfigCreatePage } from "./pages/config-create"
@@ -55,16 +56,16 @@ export type { FlagType } from "./flag-types"
 export { configPath, flagPath, rotationPath, secretPath } from "./keys"
 
 /**
- * Stand-ins until the config detail page and the overrides page land. They
- * keep the nav link and the row links from pointing at nothing.
+ * The config entry page carries a code editor and a diff view, so it is its
+ * own chunk: the shell's entry chunk must not hold CodeMirror. `PluginHost`
+ * wraps every page in `Suspense`, so a lazy route is legal.
  */
-const ConfigDetailPlaceholder: ComponentType<PluginPageProps> = ({ params }) => (
-  <PageHeader
-    title={params.key ?? "Config entry"}
-    description="The entry page is not available yet."
-  />
-)
+const ConfigDetailPage = lazy(() => import("./pages/config-detail"))
 
+/**
+ * A stand-in until the overrides page lands. It keeps the nav link from
+ * pointing at nothing.
+ */
 const OverridesPlaceholder: ComponentType<PluginPageProps> = () => (
   <PageHeader
     title="Overrides"
@@ -147,7 +148,7 @@ export const vaultPlugin = definePlugin({
     // Create lives at /new-config for the same reason /new-secret does: an
     // entry keyed "new" encodes to /config/new.
     { path: "/new-config", element: ConfigCreatePage },
-    { path: "/config/:key", element: ConfigDetailPlaceholder },
+    { path: "/config/:key", element: ConfigDetailPage },
     { path: "/overrides", element: OverridesPlaceholder },
   ],
 })
