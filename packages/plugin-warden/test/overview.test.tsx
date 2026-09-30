@@ -157,7 +157,8 @@ describe("WardenOverviewPage", () => {
     )
     // Zero rows still gets a count, per the table conventions.
     expect(await screen.findByText(/0 checks/)).toBeTruthy()
-    expect(await screen.findByText(/No checks have been recorded/i)).toBeTruthy()
+    expect(await screen.findByText("No checks are in the log.")).toBeTruthy()
+    expect(screen.queryByText(/recorded yet/)).toBeNull()
   })
 
   it("renders the tenant root namespace as a slash, never as the word root", async () => {

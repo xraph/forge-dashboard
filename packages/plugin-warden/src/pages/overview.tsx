@@ -60,7 +60,7 @@ export function WardenOverviewPage() {
               rows={checks}
               rowKey={(c) => c.id}
               caption={caption}
-              emptyMessage="No checks have been recorded yet."
+              emptyMessage="No checks are in the log."
             />
           )
         }}

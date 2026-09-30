@@ -80,8 +80,16 @@ function LossLine({ loss }: { loss: NonNullable<CheckLogList["notRecorded"]> }) 
   const total = loss.queueFull + loss.writeFailed
   if (total === 0) return null
   const causes: string[] = []
-  if (loss.queueFull > 0) causes.push(`${loss.queueFull} dropped before they reached the store`)
-  if (loss.writeFailed > 0) causes.push(`${loss.writeFailed} because writing them to the store failed`)
+  // "it" at one, "they" and "them" otherwise.
+  const pronoun = (n: number, one: string, many: string) => (n === 1 ? one : many)
+  if (loss.queueFull > 0) {
+    const n = loss.queueFull
+    causes.push(`${n} dropped before ${pronoun(n, "it", "they")} reached the store`)
+  }
+  if (loss.writeFailed > 0) {
+    const n = loss.writeFailed
+    causes.push(`${n} because writing ${pronoun(n, "it", "them")} to the store failed`)
+  }
   return (
     <p className="text-sm text-muted-foreground">
       This server failed to record {checks(total)} since it started (
@@ -164,11 +172,9 @@ export function WardenCheckLogPage() {
 
   function emptyMessage(): string {
     if (filtered) return "No checks match these filters."
-    // "Yet" promises that recording is on. Only a config read that says so
-    // can promise it. Logging off, an unreadable config and a config still
-    // loading say only what the log holds, and the alert above carries the
-    // logging-off sentence, once.
-    if (config.data?.checkLogEnabled === true) return "No checks have been recorded yet."
+    // Says what the log holds and nothing about why. "Recorded yet" would be
+    // false once maintenance has purged a log that was once full, and the
+    // alert above already carries the logging-off sentence, once.
     return "No checks are in the log."
   }
 

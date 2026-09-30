@@ -443,7 +443,7 @@ describe("WardenCheckLogPage empties", () => {
     // Said once: the alert carries it, the empty state must not repeat it.
     expect(screen.getAllByText(new RegExp(LOGGING_OFF))).toHaveLength(1)
     expect(screen.getByText("No checks are in the log.")).toBeTruthy()
-    expect(screen.queryByText("No checks have been recorded yet.")).toBeNull()
+    expect(screen.queryByText(/recorded yet/)).toBeNull()
   })
 
   it("does not say logging is off when it is on", async () => {
@@ -452,22 +452,26 @@ describe("WardenCheckLogPage empties", () => {
     expect(screen.queryByText(new RegExp(LOGGING_OFF))).toBeNull()
   })
 
-  it("says nothing has been recorded yet with logging on and no filters", async () => {
+  it("says what the log holds, not that nothing was recorded yet, with logging on and no filters", async () => {
+    // A purge can empty a log that was once full, so "recorded yet" is false.
     render_({ "checkLogs.list": EMPTY })
-    expect(await screen.findByText("No checks have been recorded yet.")).toBeTruthy()
+    expect(await screen.findByText("No checks are in the log.")).toBeTruthy()
+    await new Promise((r) => setTimeout(r, 30))
+    expect(screen.getByText("No checks are in the log.")).toBeTruthy()
+    expect(screen.queryByText(/recorded yet/)).toBeNull()
   })
 
   it("says no checks match with logging on and a filter set", async () => {
     render_({ "checkLogs.list": EMPTY })
-    await screen.findByText("No checks have been recorded yet.")
+    await screen.findByText("No checks are in the log.")
     fireEvent.change(screen.getByLabelText("Decision"), { target: { value: "deny_default" } })
     expect(await screen.findByText("No checks match these filters.")).toBeTruthy()
-    expect(screen.queryByText("No checks have been recorded yet.")).toBeNull()
+    expect(screen.queryByText("No checks are in the log.")).toBeNull()
   })
 
   it("says no checks match for an applied exact-match field", async () => {
     render_({ "checkLogs.list": EMPTY })
-    await screen.findByText("No checks have been recorded yet.")
+    await screen.findByText("No checks are in the log.")
     fireEvent.change(screen.getByLabelText("Action"), { target: { value: "read" } })
     fireEvent.click(screen.getByRole("button", { name: "Apply" }))
     expect(await screen.findByText("No checks match these filters.")).toBeTruthy()
@@ -490,13 +494,8 @@ describe("WardenCheckLogPage empties", () => {
     // Give the failed config read time to settle, then check it did not flip.
     await new Promise((r) => setTimeout(r, 30))
     expect(screen.getByText("No checks are in the log.")).toBeTruthy()
-    expect(screen.queryByText("No checks have been recorded yet.")).toBeNull()
+    expect(screen.queryByText(/recorded yet/)).toBeNull()
     expect(screen.queryByText(new RegExp(LOGGING_OFF))).toBeNull()
-  })
-
-  it("promises recording only when config.detail says logging is on", async () => {
-    render_({ "checkLogs.list": EMPTY })
-    expect(await screen.findByText("No checks have been recorded yet.")).toBeTruthy()
   })
 
   it("makes no claim about logging when config.detail fails", async () => {
@@ -525,7 +524,7 @@ describe("WardenCheckLogPage loss line", () => {
     await settled()
     const text = container.textContent ?? ""
     expect(text).toContain("This server failed to record 4 checks since it started")
-    expect(text).toContain("3 dropped before they reached the store, 1 because writing them to the store failed")
+    expect(text).toContain("3 dropped before they reached the store, 1 because writing it to the store failed")
     expect(text).toContain(TRAILER)
     expect(text).toContain(formatTimestamp(SINCE))
   })
@@ -557,8 +556,9 @@ describe("WardenCheckLogPage loss line", () => {
     const text = container.textContent ?? ""
     expect(text).toContain("failed to record 1 check since it started")
     expect(text).not.toContain("1 checks")
-    expect(text).toContain("1 because writing them to the store failed")
-    expect(text).not.toContain("dropped before they reached the store")
+    expect(text).toContain("1 because writing it to the store failed")
+    expect(text).not.toContain("writing them")
+    expect(text).not.toContain("dropped before")
   })
 
   it("shows no loss line when both counts are zero", async () => {
@@ -574,5 +574,24 @@ describe("WardenCheckLogPage loss line", () => {
     const { container } = render_()
     await settled()
     expect(container.textContent).not.toContain("failed to record")
+  })
+
+  it("agrees in number at one dropped check and at several", async () => {
+    const one = render_({
+      "checkLogs.list": list({ notRecorded: { queueFull: 1, writeFailed: 0, since: SINCE } }),
+    })
+    await settled()
+    expect(one.container.textContent).toContain("failed to record 1 check since it started")
+    expect(one.container.textContent).toContain("1 dropped before it reached the store")
+    expect(one.container.textContent).not.toContain("they reached")
+    one.unmount()
+
+    const many = render_({
+      "checkLogs.list": list({ notRecorded: { queueFull: 2, writeFailed: 5, since: SINCE } }),
+    })
+    await settled()
+    expect(many.container.textContent).toContain(
+      "2 dropped before they reached the store, 5 because writing them to the store failed"
+    )
   })
 })
