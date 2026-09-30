@@ -636,6 +636,16 @@ to expiry are marked, because `ExpiresAt` exists and nothing surfaces it.
 Reached from a check log row, from an assignment row, and from the playground's
 subject field.
 
+Correction (plan 4b): the view is at a namespace, defaulting to the root,
+because roles and policies both cascade by namespace; assignments and relations
+are listed across every namespace. Roles come from the engine's own resolution
+(`Engine.SubjectRoles`) and policies from its own subject matcher
+(`PolicySelectsSubject`), both exported for this. Policies are listed as ones
+that select the subject, not ones that apply to it, because actions, resources,
+window and conditions still decide each check. Relations are the subject's
+direct tuples only. `namespaces.list` also scans recent check logs, so the
+namespace filters can pick the leaf namespaces where checks run.
+
 ## The React plugin
 
 `packages/plugin-warden`, `extension: "warden"`, `namespace: "warden"`.
