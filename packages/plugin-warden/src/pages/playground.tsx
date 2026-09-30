@@ -1,5 +1,5 @@
 import { useId, useState, type FormEvent } from "react"
-import { useQuery } from "@forge-go/dashboard-plugin"
+import { queryStore, useQuery } from "@forge-go/dashboard-plugin"
 import { Badge } from "@forge-go/dashboard-kit/components/badge"
 import { Button } from "@forge-go/dashboard-kit/components/button"
 import { Input } from "@forge-go/dashboard-kit/components/input"
@@ -62,11 +62,12 @@ type Bag = { absent: true } | { absent?: false; value: Record<string, unknown> }
 
 /** A JSON field's text: absent when blank, else an object or the reason it is not one. */
 function parseBag(text: string): Bag {
-  const trimmed = text.trim()
-  if (trimmed === "") return { absent: true }
+  // Whitespace only is blank. Anything else is parsed as typed: JSON.parse
+  // already ignores the whitespace around a document.
+  if (text.trim() === "") return { absent: true }
   let value: unknown
   try {
-    value = JSON.parse(trimmed)
+    value = JSON.parse(text)
   } catch {
     return { error: NOT_JSON }
   }
@@ -80,11 +81,14 @@ function parseBag(text: string): Bag {
  * The request the draft describes, or the message for each JSON field that
  * cannot be sent.
  *
- * An optional field nobody filled in is ABSENT from the request, not empty:
- * the server reads "" as a value. `namespacePath` is the one field that is
- * always sent, because a playground check runs at a namespace and "" is the
- * tenant root. The namespace input shows the root as "/", so that is
- * accepted as the root too.
+ * Ids and names go exactly as typed: a check answers for the string it was
+ * given, so trimming one would answer a different question. An optional
+ * field nobody filled in is ABSENT from the request, not empty: the server
+ * reads "" as a value. `namespacePath` is the one field that is always sent,
+ * because a playground check runs at a namespace and "" is the tenant root.
+ * The namespace input shows the root as "/", so that is accepted as the root
+ * too. A JSON field holding only whitespace counts as blank, since a stray
+ * newline is not a document.
  */
 function buildInput(
   draft: Draft,
@@ -98,15 +102,14 @@ function buildInput(
   }
   if (Object.keys(errors).length > 0) return { errors }
 
-  const namespace = draft.namespacePath.trim()
-  const resourceId = draft.resourceId.trim()
+  const { namespacePath, resourceId } = draft
   const input: PlaygroundInput = {
     subjectKind: draft.subjectKind,
-    subjectId: draft.subjectId.trim(),
-    action: draft.action.trim(),
-    resourceType: draft.resourceType.trim(),
+    subjectId: draft.subjectId,
+    action: draft.action,
+    resourceType: draft.resourceType,
     ...(resourceId !== "" && { resourceId }),
-    namespacePath: namespace === "/" ? "" : namespace,
+    namespacePath: namespacePath === "/" ? "" : namespacePath,
     ...(bags.context && { context: bags.context }),
     ...(bags.subjectAttributes && { subjectAttributes: bags.subjectAttributes }),
     ...(bags.resourceAttributes && { resourceAttributes: bags.resourceAttributes }),
@@ -114,12 +117,17 @@ function buildInput(
   return { input }
 }
 
-function ResultView({ result }: { result: PlaygroundResult }) {
+function ResultView({ result, stale }: { result: PlaygroundResult; stale: boolean }) {
   const failed = result.decision === "error"
   const deciding = decidingLane(result)
   const obligations = result.obligations ?? []
   return (
     <div className="flex flex-col gap-4">
+      {stale && (
+        <p className="text-sm text-muted-foreground">
+          The form has changed since this run. Run it again to check the new input.
+        </p>
+      )}
       <div className="flex flex-col gap-1.5">
         <div className="flex flex-wrap items-center gap-2 text-sm">
           <Badge variant={decisionVariant(result.decision)}>{result.decision}</Badge>
@@ -171,6 +179,9 @@ export function WardenPlaygroundPage() {
   // for it: reading is free, but a check is a request the operator chose to
   // make, not something to fire because the page rendered.
   const [submitted, setSubmitted] = useState<PlaygroundInput | null>(null)
+  // The form as it was when that was sent, so the page can tell when what is
+  // on screen no longer answers what is in the form.
+  const [submittedDraft, setSubmittedDraft] = useState<Draft | null>(null)
 
   const namespaces = useQuery<NamespacesResponse>("namespaces.list")
   // The list is a convenience. When it fails the input still takes any path,
@@ -186,8 +197,13 @@ export function WardenPlaygroundPage() {
   // is not shown.
   const refusal = query.loading ? undefined : query.error
 
-  const canRun =
-    draft.subjectId.trim() !== "" && draft.action.trim() !== "" && draft.resourceType.trim() !== ""
+  // Only an empty string is unfilled. A space is an id.
+  const canRun = draft.subjectId !== "" && draft.action !== "" && draft.resourceType !== ""
+
+  // Draft's keys are always in the same order, so comparing them as text is
+  // a comparison of the fields. A run whose JSON did not validate was never
+  // submitted, so the form differs from it and the note shows then too.
+  const stale = submittedDraft !== null && JSON.stringify(draft) !== JSON.stringify(submittedDraft)
 
   function edit(patch: Partial<Draft>) {
     setDraft((d) => ({ ...d, ...patch }))
@@ -215,14 +231,17 @@ export function WardenPlaygroundPage() {
       return
     }
     setJsonErrors({})
-    // The same input again is a new question with the same answer's key, so
-    // it is refetched by hand: the store would otherwise treat it as the
-    // read it already made.
-    if (submitted !== null && JSON.stringify(submitted) === JSON.stringify(built.input)) {
-      query.refetch()
-    } else {
-      setSubmitted(built.input)
-    }
+    // Every press of Run reaches the server. A new key is read by the query
+    // once `submitted` changes. The same key is not: the store would treat it
+    // as the read it already made, so it is refetched by hand. The key is the
+    // store's own, which sorts object keys, so a JSON field with its keys
+    // reordered is the same key and is refetched rather than skipped.
+    const key = (input: PlaygroundInput | null) =>
+      queryStore.keyOf("warden", "playground.explain", input ? { ...input } : {})
+    const sameKey = submitted !== null && key(submitted) === key(built.input)
+    setSubmitted(built.input)
+    setSubmittedDraft(draft)
+    if (sameKey) query.refetch()
   }
 
   const listId = `${ids}-namespaces`
@@ -233,7 +252,7 @@ export function WardenPlaygroundPage() {
 
       <div className="grid gap-6 md:grid-cols-[minmax(0,24rem)_minmax(0,1fr)]">
         <form className="flex flex-col gap-3" onSubmit={run}>
-          <span className="flex flex-col gap-1.5">
+          <div className="flex flex-col gap-1.5">
             <Label htmlFor={`${ids}-subject-kind`}>Subject kind</Label>
             <NativeSelect
               id={`${ids}-subject-kind`}
@@ -246,35 +265,38 @@ export function WardenPlaygroundPage() {
                 </NativeSelectOption>
               ))}
             </NativeSelect>
-          </span>
-          <span className="flex flex-col gap-1.5">
+          </div>
+          <div className="flex flex-col gap-1.5">
             <Label htmlFor={`${ids}-subject-id`}>Subject id</Label>
             <Input
               id={`${ids}-subject-id`}
               className="font-mono text-xs"
+              aria-required
               value={draft.subjectId}
               onChange={(e) => edit({ subjectId: e.target.value })}
             />
-          </span>
-          <span className="flex flex-col gap-1.5">
+          </div>
+          <div className="flex flex-col gap-1.5">
             <Label htmlFor={`${ids}-action`}>Action</Label>
             <Input
               id={`${ids}-action`}
               className="font-mono text-xs"
+              aria-required
               value={draft.action}
               onChange={(e) => edit({ action: e.target.value })}
             />
-          </span>
-          <span className="flex flex-col gap-1.5">
+          </div>
+          <div className="flex flex-col gap-1.5">
             <Label htmlFor={`${ids}-resource-type`}>Resource type</Label>
             <Input
               id={`${ids}-resource-type`}
               className="font-mono text-xs"
+              aria-required
               value={draft.resourceType}
               onChange={(e) => edit({ resourceType: e.target.value })}
             />
-          </span>
-          <span className="flex flex-col gap-1.5">
+          </div>
+          <div className="flex flex-col gap-1.5">
             <Label htmlFor={`${ids}-resource-id`}>Resource id</Label>
             <Input
               id={`${ids}-resource-id`}
@@ -282,8 +304,8 @@ export function WardenPlaygroundPage() {
               value={draft.resourceId}
               onChange={(e) => edit({ resourceId: e.target.value })}
             />
-          </span>
-          <span className="flex flex-col gap-1.5">
+          </div>
+          <div className="flex flex-col gap-1.5">
             <Label htmlFor={`${ids}-namespace`}>Namespace</Label>
             <Input
               id={`${ids}-namespace`}
@@ -298,7 +320,7 @@ export function WardenPlaygroundPage() {
                 <option key={ns} value={ns === "" ? "/" : ns} />
               ))}
             </datalist>
-          </span>
+          </div>
 
           <details
             open={attributesOpen}
@@ -313,7 +335,7 @@ export function WardenPlaygroundPage() {
                 const message = jsonErrors[key]
                 const fieldId = `${ids}-${key}`
                 return (
-                  <span key={key} className="flex flex-col gap-1.5">
+                  <div key={key} className="flex flex-col gap-1.5">
                     <Label htmlFor={fieldId}>{label}</Label>
                     <Textarea
                       id={fieldId}
@@ -329,7 +351,7 @@ export function WardenPlaygroundPage() {
                         {message}
                       </p>
                     )}
-                  </span>
+                  </div>
                 )
               })}
             </div>
@@ -351,7 +373,7 @@ export function WardenPlaygroundPage() {
             </p>
           ) : (
             <QueryBoundary title="Result" query={query} skeletonRows={4}>
-              {(result) => <ResultView result={result} />}
+              {(result) => <ResultView result={result} stale={stale} />}
             </QueryBoundary>
           )}
         </div>

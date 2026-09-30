@@ -202,6 +202,25 @@ describe("verdictSentence", () => {
     )
   })
 
+  it("says the relation walk decided when the ReBAC lane allowed despite a failed expression", () => {
+    const allowed = lane("rebac", "allow", {
+      decision: "allow",
+      matchedBy: REBAC_MATCH,
+      expressionError: "boom",
+    })
+    expect(verdictSentence(result("allow", [NO_RBAC, allowed, NO_ABAC]))).toBe(
+      "ReBAC allowed this check, and no deny policy matched. The resource type's permission expression failed, so the relation walk decided instead.",
+    )
+  })
+
+  it("keeps the treated-as-no-match wording when the ReBAC lane did not allow", () => {
+    const broken = lane("rebac", "noMatch", { reason: "no relation", expressionError: "boom" })
+    // An allow from another model, with ReBAC's expression failed and no match.
+    expect(verdictSentence(result("allow", [RBAC_ALLOW, broken, NO_ABAC]))).toBe(
+      "RBAC allowed this check, and no deny policy matched. The resource type's permission expression failed, so it was treated as no match.",
+    )
+  })
+
   it("appends both notes, the walk first", () => {
     const both = lane("rebac", "noMatch", {
       reason: "no relation",

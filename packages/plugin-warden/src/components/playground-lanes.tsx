@@ -99,6 +99,8 @@ export function decidingLane(result: PlaygroundResult): Model | null {
 const WALK_NOTE = "The relation walk stopped at its limit, so a relation may exist beyond it."
 const EXPRESSION_NOTE =
   "The resource type's permission expression failed, so it was treated as no match."
+const EXPRESSION_ALLOW_NOTE =
+  "The resource type's permission expression failed, so the relation walk decided instead."
 
 /**
  * Why this beat that, in one or two sentences.
@@ -140,7 +142,11 @@ export function verdictSentence(result: PlaygroundResult): string {
 
   const rebac = lanes.find((l) => l.model === "rebac")
   if (rebac?.walkTruncated) sentence += ` ${WALK_NOTE}`
-  if (rebac?.expressionError) sentence += ` ${EXPRESSION_NOTE}`
+  if (rebac?.expressionError) {
+    // A failed expression is treated as no match, and the relation walk
+    // decides. When that walk allowed, "no match" would say the wrong thing.
+    sentence += ` ${rebac.state === "allow" ? EXPRESSION_ALLOW_NOTE : EXPRESSION_NOTE}`
+  }
   return sentence
 }
 

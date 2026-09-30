@@ -94,12 +94,24 @@ describe("WardenPlaygroundPage: validation", () => {
     expect((run() as HTMLButtonElement).disabled).toBe(false)
   })
 
-  it("does not count whitespace as filled", () => {
+  it("counts only an empty string as unfilled: a space is an id", () => {
     setup()
-    fill("Subject id", "   ")
+    fill("Subject id", " ")
     fill("Action", "delete")
     fill("Resource type", "document")
+    expect((run() as HTMLButtonElement).disabled).toBe(false)
+    fill("Subject id", "")
     expect((run() as HTMLButtonElement).disabled).toBe(true)
+  })
+
+  it("marks the three required inputs required, and no others", () => {
+    setup()
+    for (const label of ["Subject id", "Action", "Resource type"]) {
+      expect(screen.getByLabelText(label).getAttribute("aria-required"), label).toBe("true")
+    }
+    for (const label of ["Resource id", "Namespace", "Context"]) {
+      expect(screen.getByLabelText(label).getAttribute("aria-required"), label).toBeNull()
+    }
   })
 
   it("names invalid JSON under the field it is in, and sends nothing", () => {
@@ -210,7 +222,6 @@ describe("WardenPlaygroundPage: the request", () => {
   it("sends no key for a blank optional field, and always sends namespacePath", async () => {
     const t = setup()
     fillRequired()
-    fill("Resource id", "   ")
     fill("Context", "  ")
     fireEvent.click(run())
     await screen.findByText("deny_explicit")
@@ -222,19 +233,22 @@ describe("WardenPlaygroundPage: the request", () => {
     expect(sent.subjectKind).toBe("user")
   })
 
-  it("trims the text fields", async () => {
+  it("sends the text fields exactly as typed, with no trimming", async () => {
     const t = setup()
     fill("Subject id", "  dave ")
     fill("Action", " delete")
     fill("Resource type", "document  ")
+    fill("Resource id", " readme ")
     fill("Namespace", " eng/platform ")
     fireEvent.click(run())
     await screen.findByText("deny_explicit")
-    expect(t.explains()[0]).toMatchObject({
-      subjectId: "dave",
-      action: "delete",
-      resourceType: "document",
-      namespacePath: "eng/platform",
+    expect(t.explains()[0]).toEqual({
+      subjectKind: "user",
+      subjectId: "  dave ",
+      action: " delete",
+      resourceType: "document  ",
+      resourceId: " readme ",
+      namespacePath: " eng/platform ",
     })
   })
 
@@ -492,5 +506,82 @@ describe("WardenPlaygroundPage: running again", () => {
     fireEvent.click(run())
     await waitFor(() => expect(t.explains()).toHaveLength(2))
     expect(t.explains()[1].action).toBe("export")
+  })
+
+  it("sends a request when only the key order inside a JSON field changed", async () => {
+    // The store's key sorts object keys, so this is the same key. Run must
+    // still reach the server.
+    const t = setup()
+    fillRequired()
+    fill("Context", '{"a": 1, "b": 2}')
+    fireEvent.click(run())
+    await screen.findByText("deny_explicit")
+    await waitFor(() => expect((run() as HTMLButtonElement).disabled).toBe(false))
+    fill("Context", '{"b": 2, "a": 1}')
+    fireEvent.click(run())
+    await waitFor(() => expect(t.explains()).toHaveLength(2))
+    await screen.findByText("deny_explicit")
+    expect(t.explains()[1].context).toEqual({ a: 1, b: 2 })
+  })
+})
+
+describe("WardenPlaygroundPage: a result the form has moved on from", () => {
+  const CHANGED = "The form has changed since this run. Run it again to check the new input."
+
+  async function ran() {
+    const t = setup()
+    fillRequired()
+    fireEvent.click(run())
+    await screen.findByText("deny_explicit")
+    return t
+  }
+
+  it("says nothing before the form changes", async () => {
+    await ran()
+    expect(screen.queryByText(CHANGED)).toBeNull()
+  })
+
+  it("appears above the verdict after an edit, and keeps the result visible", async () => {
+    await ran()
+    fill("Action", "export")
+    const note = screen.getByText(CHANGED)
+    expect(note.className).toContain("text-muted-foreground")
+    expect(screen.getByText("deny_explicit")).toBeTruthy()
+    expect(screen.getByText("An explicit deny overrides the RBAC allow.")).toBeTruthy()
+    expect(
+      note.compareDocumentPosition(screen.getByText("deny_explicit")) &
+        Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy()
+    expect(
+      note.compareDocumentPosition(screen.getByText("An explicit deny overrides the RBAC allow.")) &
+        Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy()
+  })
+
+  it("appears after a JSON validation failure, since that input was never sent", async () => {
+    const t = await ran()
+    fill("Context", "{nope")
+    fireEvent.click(run())
+    expect(screen.getByText(NOT_JSON)).toBeTruthy()
+    expect(screen.getByText(CHANGED)).toBeTruthy()
+    expect(t.explains()).toHaveLength(1)
+  })
+
+  it("clears after the next run", async () => {
+    const t = await ran()
+    fill("Action", "export")
+    expect(screen.getByText(CHANGED)).toBeTruthy()
+    fireEvent.click(run())
+    await waitFor(() => expect(t.explains()).toHaveLength(2))
+    await screen.findByText("deny_explicit")
+    expect(screen.queryByText(CHANGED)).toBeNull()
+  })
+
+  it("clears when the edit is put back", async () => {
+    await ran()
+    fill("Action", "export")
+    expect(screen.getByText(CHANGED)).toBeTruthy()
+    fill("Action", "delete")
+    expect(screen.queryByText(CHANGED)).toBeNull()
   })
 })
