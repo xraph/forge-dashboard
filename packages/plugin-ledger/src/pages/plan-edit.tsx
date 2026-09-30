@@ -43,7 +43,7 @@ function PlanEditBody({ id }: { id: string }) {
         <section className="flex flex-col gap-4">
           <PageHeader title={`Edit ${p.name}`} description="Price and feature changes apply from the next invoice. Existing invoices are not recalculated." />
           <PlanForm
-            key={p.id}
+            key={`${p.id}:${p.updated_at}`}
             mode="edit"
             initial={planToForm(p)}
             submitLabel="Save changes"

@@ -13,6 +13,10 @@ import type { FeatureType, Period, Plan, TierType } from "../types"
 export interface FeatureRow {
   /** Kept from the stored plan, so a save does not give every feature a new id. */
   id?: string
+  /** Kept from the stored plan: dropping it on save would unlink the feature from its catalog entry. */
+  catalog_id?: string
+  /** Kept for the same reason: plans.update replaces features wholesale, so what is not sent is wiped. */
+  metadata?: Record<string, string>
   key: string
   name: string
   type: FeatureType
@@ -39,6 +43,8 @@ export interface PlanFormValue {
   trial_days: string
   base: string
   billing_period: "monthly" | "yearly"
+  /** The stored price's id, kept so an edit does not mint a new one. Absent for a plan with no price. */
+  pricing_id?: string
   features: FeatureRow[]
   tiers: TierRow[]
 }
@@ -54,8 +60,23 @@ export interface ParsedPlan {
   description: string
   currency: string
   trial_days: number
-  features: { id?: string; key: string; name: string; type: FeatureType; limit: number; period: Period; soft_limit: boolean }[]
-  pricing: {
+  features: {
+    id?: string
+    catalog_id?: string
+    metadata?: Record<string, string>
+    key: string
+    name: string
+    type: FeatureType
+    limit: number
+    period: Period
+    soft_limit: boolean
+  }[]
+  /**
+   * Absent when an edit leaves an unpriced plan unpriced: the operator never
+   * touched the price, so none is sent.
+   */
+  pricing?: {
+    id?: string
     base_amount: MoneyInput
     billing_period: "monthly" | "yearly"
     tiers: { feature_key: string; type: TierType; up_to: number; unit_amount: MoneyInput; flat_amount: MoneyInput; priority: number }[]
@@ -67,7 +88,7 @@ export function emptyPlanForm(): PlanFormValue {
 }
 
 export function planToForm(p: Plan): PlanFormValue {
-  return {
+  const form: PlanFormValue = {
     name: p.name,
     slug: p.slug,
     description: p.description ?? "",
@@ -75,16 +96,21 @@ export function planToForm(p: Plan): PlanFormValue {
     trial_days: String(p.trial_days),
     base: toMajorInput(p.pricing?.base_amount.amount ?? 0, p.currency),
     billing_period: p.pricing?.billing_period === "yearly" ? "yearly" : "monthly",
-    features: (p.features ?? []).map((f) => ({
-      id: f.id,
-      key: f.key,
-      name: f.name,
-      type: f.type,
-      limit: f.limit === -1 ? "" : String(f.limit),
-      unlimited: f.limit === -1,
-      period: f.period,
-      soft_limit: f.soft_limit,
-    })),
+    features: (p.features ?? []).map((f) => {
+      const row: FeatureRow = {
+        id: f.id,
+        key: f.key,
+        name: f.name,
+        type: f.type,
+        limit: f.limit === -1 ? "" : String(f.limit),
+        unlimited: f.limit === -1,
+        period: f.period,
+        soft_limit: f.soft_limit,
+      }
+      if (f.catalog_id) row.catalog_id = f.catalog_id
+      if (f.metadata) row.metadata = f.metadata
+      return row
+    }),
     tiers: (p.pricing?.tiers ?? []).map((t) => ({
       feature_key: t.feature_key,
       type: t.type,
@@ -94,9 +120,19 @@ export function planToForm(p: Plan): PlanFormValue {
       flat: toMajorInput(t.flat_amount.amount, p.currency),
     })),
   }
+  if (p.pricing?.id) form.pricing_id = p.pricing.id
+  return form
 }
 
 const WHOLE = /^\d+$/
+
+/** A whole number the wire can carry exactly: a 20-digit entry is refused, never rounded. */
+function wholeNumber(text: string, min = 0): number | undefined {
+  const t = text.trim()
+  if (!WHOLE.test(t)) return undefined
+  const n = Number(t)
+  return Number.isSafeInteger(n) && n >= min ? n : undefined
+}
 
 /**
  * Checks the form the way the contract will, so an operator hears every
@@ -118,7 +154,8 @@ export function parsePlanForm(v: PlanFormValue, mode: "create" | "edit"): { ok: 
   if (v.name.trim() === "") errors.push("Name is required.")
   if (v.slug.trim() === "") errors.push("Slug is required.")
   if (mode === "create" && !/^[a-z]{3}$/.test(currency)) errors.push("Currency must be a three-letter code such as usd.")
-  if (!WHOLE.test(v.trial_days.trim())) errors.push("Trial days must be a whole number, 0 or more.")
+  const trialDays = wholeNumber(v.trial_days)
+  if (trialDays === undefined) errors.push("Trial days must be a whole number, 0 or more.")
   const base = money(v.base)
   if (!base) errors.push(`The base price must be ${moneyRule}.`)
 
@@ -131,11 +168,14 @@ export function parsePlanForm(v: PlanFormValue, mode: "create" | "edit"): { ok: 
     seen.add(key)
     let limit = -1
     if (!f.unlimited) {
-      if (!WHOLE.test(f.limit.trim())) errors.push(`Feature ${n}: the limit must be a whole number, 0 or more, or unlimited.`)
-      else limit = Number(f.limit.trim())
+      const parsedLimit = wholeNumber(f.limit)
+      if (parsedLimit === undefined) errors.push(`Feature ${n}: the limit must be a whole number, 0 or more, or unlimited.`)
+      else limit = parsedLimit
     }
     const out: ParsedPlan["features"][number] = { key, name: f.name.trim() || key, type: f.type, limit, period: f.period, soft_limit: f.soft_limit }
     if (f.id) out.id = f.id
+    if (f.catalog_id) out.catalog_id = f.catalog_id
+    if (f.metadata) out.metadata = f.metadata
     return out
   })
 
@@ -145,8 +185,9 @@ export function parsePlanForm(v: PlanFormValue, mode: "create" | "edit"): { ok: 
     if (!seen.has(t.feature_key)) errors.push(`Tier ${n}: ${t.feature_key || "the feature"} is not one of this plan's features.`)
     let upTo = -1
     if (!t.unbounded) {
-      if (!/^[1-9]\d*$/.test(t.up_to.trim())) errors.push(`Tier ${n}: up to must be a whole number above 0, or no limit.`)
-      else upTo = Number(t.up_to.trim())
+      const parsedUpTo = wholeNumber(t.up_to, 1)
+      if (parsedUpTo === undefined) errors.push(`Tier ${n}: up to must be a whole number above 0, or no limit.`)
+      else upTo = parsedUpTo
     }
     const unit = money(t.unit)
     const flat = money(t.flat)
@@ -158,6 +199,12 @@ export function parsePlanForm(v: PlanFormValue, mode: "create" | "edit"): { ok: 
   })
 
   if (errors.length > 0) return { ok: false, errors }
+  // An edit of a plan that never had a price stays unpriced until the
+  // operator sets one: a zero base price with no tiers is "untouched".
+  const priced =
+    mode === "create" || v.pricing_id !== undefined || tiers.length > 0 || base!.amount > 0 || v.billing_period !== "monthly"
+  const pricing: ParsedPlan["pricing"] = { base_amount: base!, billing_period: v.billing_period, tiers }
+  if (v.pricing_id) pricing.id = v.pricing_id
   return {
     ok: true,
     value: {
@@ -165,9 +212,9 @@ export function parsePlanForm(v: PlanFormValue, mode: "create" | "edit"): { ok: 
       slug: v.slug.trim(),
       description: v.description.trim(),
       currency,
-      trial_days: Number(v.trial_days.trim()),
+      trial_days: trialDays!,
       features,
-      pricing: { base_amount: base!, billing_period: v.billing_period, tiers },
+      ...(priced ? { pricing } : {}),
     },
   }
 }
@@ -306,7 +353,11 @@ export function PlanForm({ mode, initial, submitLabel, pendingLabel, pending, er
               </div>
               <div className="flex flex-col gap-1.5">
                 <Label htmlFor={`feature-${n}-type`}>Feature {n} type</Label>
-                <NativeSelect id={`feature-${n}-type`} value={f.type} onChange={(e) => setFeature(i, { type: e.target.value as FeatureType })}>
+                <NativeSelect id={`feature-${n}-type`} value={f.type} onChange={(e) => {
+                    const type = e.target.value as FeatureType
+                    // A fresh row's limit is 0, which reads as "off" for a boolean feature.
+                    setFeature(i, type === "boolean" && !f.unlimited && f.limit.trim() === "0" ? { type, limit: "1" } : { type })
+                  }}>
                   {FEATURE_TYPES.map((t) => (
                     <NativeSelectOption key={t.value} value={t.value}>
                       {t.label}
@@ -324,8 +375,9 @@ export function PlanForm({ mode, initial, submitLabel, pendingLabel, pending, er
                   value={f.unlimited ? "" : f.limit}
                   onChange={(e) => setFeature(i, { limit: e.target.value })}
                 />
+                {f.type === "boolean" && <p className="text-xs text-muted-foreground">1 means on, 0 means off</p>}
                 <label className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                  <input type="checkbox" checked={f.unlimited} onChange={(e) => setFeature(i, { unlimited: e.target.checked })} />
+                  <input type="checkbox" aria-label={`Feature ${n}: unlimited`} checked={f.unlimited} onChange={(e) => setFeature(i, { unlimited: e.target.checked })} />
                   Unlimited
                 </label>
               </div>
@@ -339,7 +391,7 @@ export function PlanForm({ mode, initial, submitLabel, pendingLabel, pending, er
                   ))}
                 </NativeSelect>
                 <label className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                  <input type="checkbox" checked={f.soft_limit} onChange={(e) => setFeature(i, { soft_limit: e.target.checked })} />
+                  <input type="checkbox" aria-label={`Feature ${n}: soft limit`} checked={f.soft_limit} onChange={(e) => setFeature(i, { soft_limit: e.target.checked })} />
                   Soft limit
                 </label>
               </div>
@@ -401,7 +453,7 @@ export function PlanForm({ mode, initial, submitLabel, pendingLabel, pending, er
                   onChange={(e) => setTier(i, { up_to: e.target.value })}
                 />
                 <label className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                  <input type="checkbox" checked={t.unbounded} onChange={(e) => setTier(i, { unbounded: e.target.checked })} />
+                  <input type="checkbox" aria-label={`Tier ${n}: no limit`} checked={t.unbounded} onChange={(e) => setTier(i, { unbounded: e.target.checked })} />
                   No limit
                 </label>
               </div>
