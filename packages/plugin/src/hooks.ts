@@ -3,6 +3,7 @@ import { usePluginClient } from "./context"
 import { useHostAccess } from "./slots"
 import { queryStore } from "./store"
 import type { CommandOptions, ContractError } from "./client"
+import type { Entry } from "./store"
 
 export interface QueryState<T> {
   data?: T
@@ -10,6 +11,19 @@ export interface QueryState<T> {
   loading: boolean
   refetch: () => void
 }
+
+export interface QueryOptions {
+  /**
+   * `false` makes the query wait: no request, no store entry read, no
+   * subscription, so an invalidation issues nothing for it. Turning it `true`
+   * issues the read. Defaults to `true`.
+   */
+  enabled?: boolean
+}
+
+// What a disabled query holds. One object, so the snapshot is stable.
+const DISABLED: Entry<never> = { loading: false }
+const noUnsubscribe = () => {}
 
 /**
  * Reads one query intent from this plugin's own extension.
@@ -26,14 +40,28 @@ export interface QueryState<T> {
 export function useQuery<T = unknown>(
   intent: string,
   params?: Record<string, unknown>,
+  options?: QueryOptions,
 ): QueryState<T> {
   const client = usePluginClient()
+  const enabled = options?.enabled ?? true
   const key = queryStore.keyOf(client.extension, intent, params)
 
+  // A disabled query is not a reader. It does not subscribe, because
+  // invalidation reissues exactly the keys somebody listens to, and it does
+  // not read the entry, because that entry belongs to whoever did ask.
   const entry = useSyncExternalStore(
-    useCallback((listener) => queryStore.subscribe(key, listener), [key]),
-    useCallback(() => queryStore.snapshot<T>(key), [key]),
-    useCallback(() => queryStore.snapshot<T>(key), [key]),
+    useCallback(
+      (listener) => (enabled ? queryStore.subscribe(key, listener) : noUnsubscribe),
+      [key, enabled],
+    ),
+    useCallback(
+      () => (enabled ? queryStore.snapshot<T>(key) : (DISABLED as Entry<T>)),
+      [key, enabled],
+    ),
+    useCallback(
+      () => (enabled ? queryStore.snapshot<T>(key) : (DISABLED as Entry<T>)),
+      [key, enabled],
+    ),
   )
 
   // Reads what the server said about this intent last time. Unknown intents
@@ -41,17 +69,21 @@ export function useQuery<T = unknown>(
   const staleMs = queryStore.staleTimeFor(client.extension, intent)
 
   useEffect(() => {
+    if (!enabled) return
     queryStore.read<T>(key, () => client.query<T>(intent, params), staleMs)
     // params is compared by the key it produced, which is what `key` is.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [client, intent, key, staleMs])
+  }, [client, intent, key, staleMs, enabled])
 
   const refetch = useCallback(() => {
+    // A query that was told to wait has not been asked yet, so there is
+    // nothing to reload.
+    if (!enabled) return
     // staleMs 0 forces the request. A refetch that honoured the cache would
     // be a button that sometimes does nothing, which is worse than no button.
     queryStore.read<T>(key, () => client.query<T>(intent, params), 0, { force: true })
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [client, intent, key])
+  }, [client, intent, key, enabled])
 
   return { ...entry, refetch }
 }
