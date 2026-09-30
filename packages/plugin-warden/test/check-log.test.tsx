@@ -392,6 +392,13 @@ describe("WardenCheckLogPage paging", () => {
     expect(t.last().limit).toBe(25)
   })
 
+  it("pages by the size it asked for, not the size the reply echoes", async () => {
+    // The offset is (page - 1) * 25, so the page count must divide by 25 too.
+    render_({ "checkLogs.list": list({ total: 60, limit: 10 }) })
+    await settled()
+    expect(screen.getByText("Page 1 of 3, 60 total")).toBeTruthy()
+  })
+
   it("goes back to page 1 when the current page has run past the end of the set", async () => {
     // Retention can shrink the set while an operator is on a later page.
     const { client, sent } = recordingQueryClient(answers({ "checkLogs.list": list({ total: 60 }) }))
@@ -419,22 +426,24 @@ describe("WardenCheckLogPage paging", () => {
 
 describe("WardenCheckLogPage empties", () => {
   const EMPTY = list({ items: [], total: 0 })
-  const LOGGING_OFF = "Check logging is off, so warden is not recording checks."
-  const WERE_RECORDED = "These rows were recorded before it was turned off."
+  const LOGGING_OFF = "Check logging is off on this server, so it records no checks."
+  const WERE_RECORDED =
+    "These rows were written by a server with logging on, or before logging was turned off."
 
   it("says logging is off, and that the rows predate it, when rows exist", async () => {
     render_({ "config.detail": config(false) })
     await settled()
-    expect(await screen.findByText(new RegExp(LOGGING_OFF))).toBeTruthy()
-    expect(screen.getByText(new RegExp(WERE_RECORDED))).toBeTruthy()
+    expect(await screen.findByText(`${LOGGING_OFF} ${WERE_RECORDED}`)).toBeTruthy()
   })
 
   it("says logging is off, without the rows sentence, when there are none", async () => {
     render_({ "config.detail": config(false), "checkLogs.list": EMPTY })
-    expect(await screen.findByText(new RegExp(LOGGING_OFF))).toBeTruthy()
+    expect(await screen.findByText(LOGGING_OFF)).toBeTruthy()
     expect(screen.queryByText(new RegExp(WERE_RECORDED))).toBeNull()
     // Said once: the alert carries it, the empty state must not repeat it.
     expect(screen.getAllByText(new RegExp(LOGGING_OFF))).toHaveLength(1)
+    expect(screen.getByText("No checks are in the log.")).toBeTruthy()
+    expect(screen.queryByText("No checks have been recorded yet.")).toBeNull()
   })
 
   it("does not say logging is off when it is on", async () => {
@@ -466,9 +475,28 @@ describe("WardenCheckLogPage empties", () => {
 
   it("does not claim a filter with logging off and a filter set", async () => {
     render_({ "config.detail": config(false), "checkLogs.list": EMPTY })
-    await screen.findByText(new RegExp(LOGGING_OFF))
+    await screen.findByText(LOGGING_OFF)
     fireEvent.change(screen.getByLabelText("Cached"), { target: { value: "cached" } })
     expect(await screen.findByText("No checks match these filters.")).toBeTruthy()
+  })
+
+  it("says only what the log holds when config.detail fails and the list is empty", async () => {
+    const { client } = recordingQueryClient({
+      "checkLogs.list": EMPTY,
+      "namespaces.list": { namespaces: [""] },
+    })
+    renderPage(WardenCheckLogPage, client)
+    expect(await screen.findByText("No checks are in the log.")).toBeTruthy()
+    // Give the failed config read time to settle, then check it did not flip.
+    await new Promise((r) => setTimeout(r, 30))
+    expect(screen.getByText("No checks are in the log.")).toBeTruthy()
+    expect(screen.queryByText("No checks have been recorded yet.")).toBeNull()
+    expect(screen.queryByText(new RegExp(LOGGING_OFF))).toBeNull()
+  })
+
+  it("promises recording only when config.detail says logging is on", async () => {
+    render_({ "checkLogs.list": EMPTY })
+    expect(await screen.findByText("No checks have been recorded yet.")).toBeTruthy()
   })
 
   it("makes no claim about logging when config.detail fails", async () => {
@@ -481,6 +509,7 @@ describe("WardenCheckLogPage empties", () => {
     await settled()
     expect(screen.queryByText(/Check logging is off/)).toBeNull()
     expect(screen.queryByText(/turned off/)).toBeNull()
+    expect(screen.queryByText(/records no checks/)).toBeNull()
   })
 })
 
@@ -496,7 +525,7 @@ describe("WardenCheckLogPage loss line", () => {
     await settled()
     const text = container.textContent ?? ""
     expect(text).toContain("This server failed to record 4 checks since it started")
-    expect(text).toContain("3 because the log queue was full, 1 because the store refused the write")
+    expect(text).toContain("3 dropped before they reached the store, 1 because writing them to the store failed")
     expect(text).toContain(TRAILER)
     expect(text).toContain(formatTimestamp(SINCE))
   })
@@ -516,8 +545,8 @@ describe("WardenCheckLogPage loss line", () => {
     await settled()
     const text = container.textContent ?? ""
     expect(text).toContain("failed to record 3 checks")
-    expect(text).toContain("3 because the log queue was full")
-    expect(text).not.toContain("store refused")
+    expect(text).toContain("3 dropped before they reached the store")
+    expect(text).not.toContain("writing them to the store failed")
   })
 
   it("says only the write clause when nothing overflowed, singular at one", async () => {
@@ -528,8 +557,8 @@ describe("WardenCheckLogPage loss line", () => {
     const text = container.textContent ?? ""
     expect(text).toContain("failed to record 1 check since it started")
     expect(text).not.toContain("1 checks")
-    expect(text).toContain("1 because the store refused the write")
-    expect(text).not.toContain("log queue was full")
+    expect(text).toContain("1 because writing them to the store failed")
+    expect(text).not.toContain("dropped before they reached the store")
   })
 
   it("shows no loss line when both counts are zero", async () => {

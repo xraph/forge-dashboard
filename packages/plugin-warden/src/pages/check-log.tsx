@@ -80,8 +80,8 @@ function LossLine({ loss }: { loss: NonNullable<CheckLogList["notRecorded"]> }) 
   const total = loss.queueFull + loss.writeFailed
   if (total === 0) return null
   const causes: string[] = []
-  if (loss.queueFull > 0) causes.push(`${loss.queueFull} because the log queue was full`)
-  if (loss.writeFailed > 0) causes.push(`${loss.writeFailed} because the store refused the write`)
+  if (loss.queueFull > 0) causes.push(`${loss.queueFull} dropped before they reached the store`)
+  if (loss.writeFailed > 0) causes.push(`${loss.writeFailed} because writing them to the store failed`)
   return (
     <p className="text-sm text-muted-foreground">
       This server failed to record {checks(total)} since it started (
@@ -164,9 +164,12 @@ export function WardenCheckLogPage() {
 
   function emptyMessage(): string {
     if (filtered) return "No checks match these filters."
-    // The alert above carries the logging-off sentence, once.
-    if (loggingOff) return "No checks are in the log."
-    return "No checks have been recorded yet."
+    // "Yet" promises that recording is on. Only a config read that says so
+    // can promise it. Logging off, an unreadable config and a config still
+    // loading say only what the log holds, and the alert above carries the
+    // logging-off sentence, once.
+    if (config.data?.checkLogEnabled === true) return "No checks have been recorded yet."
+    return "No checks are in the log."
   }
 
   const columns = checkColumns()
@@ -297,8 +300,8 @@ export function WardenCheckLogPage() {
                 <Alert>
                   <AlertDescription>
                     {data.total > 0
-                      ? "Check logging is off, so warden is not recording checks. These rows were recorded before it was turned off."
-                      : "Check logging is off, so warden is not recording checks."}
+                      ? "Check logging is off on this server, so it records no checks. These rows were written by a server with logging on, or before logging was turned off."
+                      : "Check logging is off on this server, so it records no checks."}
                   </AlertDescription>
                 </Alert>
               )}
@@ -309,7 +312,7 @@ export function WardenCheckLogPage() {
                 rowKey={(c) => c.id}
                 caption={caption}
                 emptyMessage={emptyMessage()}
-                pagination={{ page, pageSize: data.limit, total: data.total }}
+                pagination={{ page, pageSize: PAGE_SIZE, total: data.total }}
                 onPageChange={setPage}
               />
             </div>

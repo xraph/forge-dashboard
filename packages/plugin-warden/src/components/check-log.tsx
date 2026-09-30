@@ -53,11 +53,10 @@ export interface CheckLogList {
 }
 
 /**
- * Every decision the engine records, in the order the filter lists them.
+ * Every decision warden accepts as a filter, in the order the filter lists them.
  *
- * Warden accepts all nine as a filter, though the engine as it stands never
- * writes `deny` or `deny_condition`: choosing one shows the filtered-empty
- * state, which is true.
+ * The engine as it stands never writes `deny` or `deny_condition`, so
+ * choosing one shows the filtered-empty state, which is true.
  */
 export const DECISIONS = [
   "allow",
