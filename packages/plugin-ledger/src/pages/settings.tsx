@@ -39,6 +39,7 @@ export function LedgerSettingsPage() {
                 { term: "Meter batch size", value: <span className="tabular-nums">{s.meter_batch_size}</span> },
                 { term: "Meter flush interval", value: <span className="font-mono text-xs">{s.meter_flush_interval}</span> },
                 { term: "Entitlement cache", value: <span className="font-mono text-xs">{s.entitlement_cache_ttl}</span> },
+                { term: "Lifecycle clock", value: <LifecycleClock interval={s.lifecycle_interval} /> },
                 { term: "Payment providers", value: <TagList values={s.providers ?? []} label="payment providers" /> },
                 { term: "Invoice formats", value: <TagList values={s.invoice_formats ?? []} label="invoice formats" /> },
               ]}
@@ -48,4 +49,11 @@ export function LedgerSettingsPage() {
       </QueryBoundary>
     </section>
   )
+}
+
+/** The lifecycle clock's interval, "Off", or a dash from a ledger that predates the clock. */
+function LifecycleClock({ interval }: { interval?: string }) {
+  if (interval === undefined) return <NoneCell label="lifecycle clock" />
+  if (interval === "off") return <>Off</>
+  return <span className="font-mono text-xs">Every {interval}</span>
 }

@@ -296,6 +296,8 @@ export interface OverviewStats {
   active_plans: number
   subscriptions_by_status: Partial<Record<SubscriptionStatus, number>>
   pending_invoices: number
+  /** Invoices the lifecycle clock marked past due; they no longer count as pending. */
+  past_due_invoices: number
   coupons: number
   capped: boolean
 }
@@ -305,6 +307,8 @@ export interface SettingsDetail {
   meter_batch_size: number
   meter_flush_interval: string
   entitlement_cache_ttl: string
+  /** How often the lifecycle clock runs, as a Go duration ("1m0s"), or "off". A ledger older than the clock does not send it. */
+  lifecycle_interval?: string
   app_id: string
   require_app_claim: boolean
   providers: string[]

@@ -7,6 +7,7 @@ const SETTINGS = {
   meter_batch_size: 100,
   meter_flush_interval: "5s",
   entitlement_cache_ttl: "1m0s",
+  lifecycle_interval: "1m0s",
   app_id: "app_ledger",
   require_app_claim: false,
   providers: ["stripe"],
@@ -31,5 +32,22 @@ describe("LedgerSettingsPage", () => {
     expect(await screen.findByLabelText("no configured app")).toBeTruthy()
     expect(screen.getByLabelText("no payment providers")).toBeTruthy()
     expect(screen.getByText(/Every billing page needs an app/)).toBeTruthy()
+  })
+
+  it("says how often the lifecycle clock runs", async () => {
+    renderPage(LedgerSettingsPage, stubClient({ "settings.detail": SETTINGS }))
+    expect(await screen.findByText("Every 1m0s")).toBeTruthy()
+  })
+
+  it("says when the lifecycle clock is off", async () => {
+    renderPage(LedgerSettingsPage, stubClient({ "settings.detail": { ...SETTINGS, lifecycle_interval: "off" } }))
+    expect(await screen.findByText("Off")).toBeTruthy()
+  })
+
+  it("marks the clock missing on a ledger that predates it", async () => {
+    const older: Record<string, unknown> = { ...SETTINGS }
+    delete older.lifecycle_interval
+    renderPage(LedgerSettingsPage, stubClient({ "settings.detail": older }))
+    expect(await screen.findByLabelText("no lifecycle clock")).toBeTruthy()
   })
 })

@@ -114,7 +114,7 @@ describe("LedgerSubscriptionDetailPage", () => {
     expect(within(aside).getByLabelText("no trial")).toBeTruthy()
     expect(within(aside).queryByLabelText("no scheduled cancellation")).toBeNull()
     expect(within(aside).getByText("Scheduled to cancel", { selector: "dt" })).toBeTruthy()
-    expect(within(aside).queryByText("Date passed, not yet ended")).toBeNull()
+    expect(within(aside).queryByText("Date passed, ends on the next lifecycle clock run")).toBeNull()
   })
 
   it("reads a canceled subscription's end from canceled_at, which is what the engine writes", async () => {
@@ -160,18 +160,18 @@ describe("LedgerSubscriptionDetailPage", () => {
     expect(screen.queryByRole("button", { name: "Apply coupon" })).toBeNull()
   })
 
-  it("says a scheduled cancellation whose date has passed has not ended it", async () => {
+  it("says a scheduled cancellation whose date has passed ends on the clock's next run", async () => {
     open(aSubscription({ cancel_at: "2026-09-01T00:00:00Z" }))
     await screen.findByText("inv_1")
     const aside = screen.getByRole("complementary")
     expect(within(aside).getByText("Scheduled to cancel", { selector: "dt" })).toBeTruthy()
-    expect(within(aside).getByText("Date passed, not yet ended")).toBeTruthy()
+    expect(within(aside).getByText("Date passed, ends on the next lifecycle clock run")).toBeTruthy()
   })
 
   it("does not say the date passed for a canceled or expired subscription", async () => {
     open(aSubscription({ status: "canceled", canceled_at: "2026-09-01T00:00:00Z" }))
     await screen.findByText("inv_1")
-    expect(screen.queryByText("Date passed, not yet ended")).toBeNull()
+    expect(screen.queryByText("Date passed, ends on the next lifecycle clock run")).toBeNull()
   })
 
   it("shows the cancel_at date for a canceled subscription that has no canceled_at", async () => {
@@ -190,11 +190,11 @@ describe("LedgerSubscriptionDetailPage", () => {
     await waitFor(() => expect(sent).toEqual([{ intent: "subscriptions.cancel", payload: { id: "sub_acme", immediately: false } }]))
   })
 
-  it("says a period-end cancellation only records the date", async () => {
+  it("says a period-end cancellation keeps it active until the date", async () => {
     open()
     fireEvent.click(await screen.findByRole("button", { name: "Cancel subscription" }))
     const dialog = await screen.findByRole("alertdialog")
-    expect(within(dialog).getByLabelText("Record the cancellation for Oct 20, 2026. The subscription stays active until something ends it.")).toBeTruthy()
+    expect(within(dialog).getByLabelText("Cancel at the end of the period, Oct 20, 2026. It stays active until then.")).toBeTruthy()
     expect(within(dialog).getByRole("radiogroup", { name: "When to cancel" })).toBeTruthy()
   })
 

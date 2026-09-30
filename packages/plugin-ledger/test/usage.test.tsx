@@ -79,12 +79,12 @@ describe("LedgerUsagePage", () => {
     expect(queries.find((q) => q.intent === "usage.aggregate")?.params).toEqual({ tenant_id: "acme", feature_keys: ["api_calls"], period: "monthly" })
   })
 
-  it("says the month total runs on the ledger server's calendar, not claiming UTC", async () => {
+  it("says the month total starts at the UTC month", async () => {
     open({ "usage.aggregate": { period: "monthly", totals: { api_calls: 450 } } })
     await screen.findByText("evt_1")
     type("Tenant ID", "acme")
     type("Feature key", "api_calls")
-    expect(await screen.findByText("Since the start of the month in the ledger server's time zone")).toBeTruthy()
+    expect(await screen.findByText("Since the start of the month, UTC")).toBeTruthy()
   })
 
   it("does not ask for a month total until a tenant and a feature are named", async () => {

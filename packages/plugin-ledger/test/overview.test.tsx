@@ -10,6 +10,7 @@ const STATS = {
   active_plans: 2,
   subscriptions_by_status: { active: 3, trialing: 1, past_due: 1, paused: 1, canceled: 1 },
   pending_invoices: 2,
+  past_due_invoices: 3,
   coupons: 5,
   capped: false,
 }
@@ -35,6 +36,13 @@ function variantOf(text: string) {
 }
 
 describe("LedgerOverviewPage", () => {
+  it("counts past-due invoices apart from pending ones", async () => {
+    renderPage(LedgerOverviewPage, stubClient(answers()))
+    await screen.findByText("inv_r1")
+    const card = screen.getByText("Past-due invoices").closest("[data-slot='card']") as HTMLElement
+    expect(within(card).getByText("3")).toBeTruthy()
+  })
+
   it("reads the three overview intents, recent invoices with a limit of 10", async () => {
     const { client, sent } = recordingQueryClient(answers())
     renderPage(LedgerOverviewPage, client)
