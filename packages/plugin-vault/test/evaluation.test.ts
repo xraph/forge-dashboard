@@ -93,6 +93,130 @@ describe("readEvaluation cross-check", () => {
   })
 })
 
+describe("readEvaluation by rule id", () => {
+  const r1: FlagRuleSummary = { ...rule(0, "when_tenant"), id: "r1" }
+  const r2: FlagRuleSummary = { ...rule(1, "rollout"), id: "r2" }
+  const idStep = (
+    ruleId: string,
+    type: string,
+    priority: number,
+    matched: boolean,
+    reached = true,
+  ) => ({ ruleId, type, priority, matched, reached, note: reached ? `note ${ruleId}` : "" })
+
+  it("marks the rule named by matchedRuleId when the trace is in another order", () => {
+    // The page holds [r1, r2]. The engine walked [r2, r1]: the rules were
+    // reordered between the two reads. Position 0 of the trace is r2's step.
+    const marks = readEvaluation(
+      evaluation({
+        reason: "rule",
+        matchedRuleId: "r2",
+        matchedRulePriority: 0,
+        trace: [idStep("r2", "rollout", 0, true), idStep("r1", "when_tenant", 1, false, false)],
+      }),
+      [r1, r2],
+      [],
+      undefined,
+    )
+    expect(marks.decidedIndex).toBe(1)
+    expect(marks.rules[1]?.decided).toBe(true)
+    expect(marks.rules[0]?.decided).toBe(false)
+    expect(marks.rules[0]?.notReached).toBe(true)
+  })
+
+  it("marks the matching rule and no mismatch when the ids line up", () => {
+    const marks = readEvaluation(
+      evaluation({
+        reason: "rule",
+        matchedRuleId: "r1",
+        matchedRulePriority: 0,
+        trace: [idStep("r1", "when_tenant", 0, true), idStep("r2", "rollout", 1, false, false)],
+      }),
+      [r1, r2],
+      [],
+      undefined,
+    )
+    expect(marks.decidedIndex).toBe(0)
+    expect(marks.mismatch).toBe(false)
+  })
+
+  it("is a mismatch, with no rule decided, when a step names a rule the page does not hold", () => {
+    const marks = readEvaluation(
+      evaluation({
+        reason: "rule",
+        matchedRuleId: "r9",
+        trace: [idStep("r9", "when_tenant", 0, true), idStep("r2", "rollout", 1, false, false)],
+      }),
+      [r1, r2],
+      [],
+      undefined,
+    )
+    expect(marks.mismatch).toBe(true)
+    expect(marks.decidedIndex).toBeUndefined()
+    expect(marks.rules.some((v) => v.decided)).toBe(false)
+  })
+
+  it("is a mismatch when the counts differ, even if every id is known", () => {
+    const marks = readEvaluation(
+      evaluation({
+        reason: "rule",
+        matchedRuleId: "r1",
+        trace: [idStep("r1", "when_tenant", 0, true)],
+      }),
+      [r1, r2],
+      [],
+      undefined,
+    )
+    expect(marks.mismatch).toBe(true)
+    expect(marks.decidedIndex).toBeUndefined()
+  })
+
+  it("is a mismatch when a matched step's type is not its rule's type", () => {
+    const marks = readEvaluation(
+      evaluation({
+        reason: "rule",
+        matchedRuleId: "r1",
+        trace: [idStep("r1", "when_user", 0, true), idStep("r2", "rollout", 1, false, false)],
+      }),
+      [r1, r2],
+      [],
+      undefined,
+    )
+    expect(marks.mismatch).toBe(true)
+    expect(marks.decidedIndex).toBeUndefined()
+    expect(marks.rules.some((v) => v.decided)).toBe(false)
+  })
+
+  it("is a mismatch when matchedRuleId is not the rule of a matched step", () => {
+    const marks = readEvaluation(
+      evaluation({
+        reason: "rule",
+        matchedRuleId: "r2",
+        trace: [idStep("r1", "when_tenant", 0, true), idStep("r2", "rollout", 1, false, true)],
+      }),
+      [r1, r2],
+      [],
+      undefined,
+    )
+    expect(marks.mismatch).toBe(true)
+    expect(marks.decidedIndex).toBeUndefined()
+  })
+
+  it("reads a default answer by id too", () => {
+    const marks = readEvaluation(
+      evaluation({
+        reason: "default",
+        trace: [idStep("r2", "rollout", 1, false), idStep("r1", "when_tenant", 0, false)],
+      }),
+      [r1, r2],
+      [],
+      undefined,
+    )
+    expect(marks.mismatch).toBe(false)
+    expect(marks.rules.map((v) => v.note)).toEqual(["note r1", "note r2"])
+  })
+})
+
 describe("readEvaluation tenant overrides", () => {
   const overrides: FlagOverrideSummary[] = [
     { tenantId: "t-acme", value: true, valueMatchesType: true, updatedAt: "2026-09-22T10:00:00Z" },

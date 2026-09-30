@@ -90,6 +90,11 @@ function trace(steps: Step[], rules: { priority: number; type: string }[] = RULE
   }))
 }
 
+/** The same trace, each step naming its rule the way a current server does. */
+function traceWithIds(steps: Step[], rules: { id: string; priority: number; type: string }[] = RULES) {
+  return trace(steps, rules).map((s, i) => ({ ruleId: rules[i]!.id, ...s }))
+}
+
 const miss = (note: string): Step => ({ matched: false, reached: true, note })
 const hit = (note: string): Step => ({ matched: true, reached: true, note })
 const skipped: Step = { matched: false, reached: false, note: "" }
@@ -529,6 +534,90 @@ describe("evaluation marks on the ladder", () => {
     )
     await evaluate("", "u-1")
     expect(result().textContent).toContain("Press Evaluate again.")
+  })
+
+  it("matches steps to rules by id: a reordered ladder marks the rule that matched", async () => {
+    // The page holds [when_tenant acme r1, rollout r2]. By the time Evaluate
+    // ran, the engine walked [rollout r2, when_tenant r1].
+    const page = [
+      rule({ id: "r1", priority: 0, type: "when_tenant", tenantIds: ["acme"] }),
+      rule({ id: "r2", priority: 1, type: "rollout", percentage: 50 }),
+    ]
+    setup(
+      () =>
+        evaluation({
+          reason: "rule",
+          matchedRuleId: "r2",
+          matchedRulePriority: 0,
+          trace: [
+            { ruleId: "r2", priority: 0, type: "rollout", matched: true, reached: true, note: "bucket 3 of 100, threshold 50" },
+            { ruleId: "r1", priority: 1, type: "when_tenant", matched: false, reached: false, note: "" },
+          ],
+        }),
+      detail({ rules: page }),
+    )
+    await evaluate("wayne", "")
+    const r = rows("rules")
+    expect(rowMarks(r[0]!)).toEqual(["Not reached"])
+    expect(rowMarks(r[1]!)).toEqual(["Decided here"])
+    expect(result().textContent).toContain("Rule 2 decided it.")
+  })
+
+  it("marks nothing when a step names a rule the page does not hold", async () => {
+    setup(() =>
+      evaluation({
+        reason: "rule",
+        matchedRuleId: "rul_gone",
+        matchedRulePriority: 1,
+        trace: traceWithIds([miss("a"), hit("b"), skipped, skipped]).map((s, i) =>
+          i === 1 ? { ...s, ruleId: "rul_gone" } : s,
+        ),
+      }),
+    )
+    await evaluate("", "u-1")
+    expect(screen.queryByText("Decided here")).toBeNull()
+    expect(result().textContent).toContain("Press Evaluate again.")
+  })
+
+  it("refetches the flag's rules whenever Evaluate is pressed", async () => {
+    const { queries } = setup(() => evaluation())
+    await evaluate("t-acme", "")
+    const detailReads = () => queries.filter((q) => q.intent === "flags.detail").length
+    await waitFor(() => expect(detailReads()).toBe(2))
+    fireEvent.click(screen.getByRole("button", { name: "Evaluate" }))
+    await waitFor(() => expect(detailReads()).toBe(3))
+  })
+
+  it("clears a mismatch by refetching the rules when Evaluate is pressed again", async () => {
+    // The first detail read is stale: it lacks the rule the engine walks.
+    const stale = detail({ rules: RULES.slice(0, 3) })
+    const fresh = detail()
+    let reads = 0
+    const queries: string[] = []
+    const client = {
+      extension: "vault",
+      query: async (intent: string) => {
+        queries.push(intent)
+        if (intent === "flags.detail") return reads++ === 0 ? stale : fresh
+        return evaluation({
+          reason: "default",
+          trace: traceWithIds([miss("a"), miss("b"), miss("c"), miss("d")]),
+        })
+      },
+      command: async () => undefined,
+    } as unknown as ScopedClient
+    render(
+      <PluginProvider client={client}>
+        <NavigationProvider value={{ Link: ({ children }) => <a>{children}</a>, navigate: vi.fn() }}>
+          <FlagDetailPage params={{ key: KEY }} />
+        </NavigationProvider>
+      </PluginProvider>,
+    )
+    await ready()
+    fireEvent.click(screen.getByRole("button", { name: "Evaluate" }))
+    await waitFor(() => expect(rows("rules")).toHaveLength(4))
+    await waitFor(() => expect(result().textContent).not.toContain("Press Evaluate again."))
+    expect(rung("default").getAttribute("data-decided")).toBe("true")
   })
 
   it("does not mark a rule whose priority disagrees with its step", async () => {

@@ -86,6 +86,11 @@ export type EvaluationReason = "disabled" | "tenantOverride" | "rule" | "default
  * which the engine lists but never checks (and gives no `note`).
  */
 export interface FlagTraceStep {
+  /**
+   * The id of the rule this step is about. Absent only from a server that
+   * predates it, in which case steps are matched to rules by position.
+   */
+  ruleId?: string
   priority: number
   type: string
   matched: boolean
@@ -104,6 +109,8 @@ export interface FlagEvaluation {
   reason: EvaluationReason
   /** Present only when `reason` is `rule`. */
   matchedRulePriority?: number
+  /** The id of the rule that decided it. Present exactly when `reason` is `rule`. */
+  matchedRuleId?: string
   trace: FlagTraceStep[]
   bucket?: number
   evaluatedAt: string

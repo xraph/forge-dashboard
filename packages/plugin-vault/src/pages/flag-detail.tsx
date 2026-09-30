@@ -2,8 +2,10 @@ import { useState } from "react"
 import type { ComponentType, FormEvent, ReactNode } from "react"
 import {
   PluginLink,
+  queryStore,
   useCommand,
   useNavigateTo,
+  usePluginClient,
   useQuery,
 } from "@forge-go/dashboard-plugin"
 import type { CommandState, PluginPageProps } from "@forge-go/dashboard-plugin"
@@ -151,6 +153,7 @@ function FlagDetailView({ flagKey, data }: { flagKey: string; data: FlagDetail }
   const removeOverride = useCommand<DeleteOverrideResponse>("flags.deleteTenantOverride")
   const remove = useCommand<DeleteResponse>("flags.delete")
   const navigateTo = useNavigateTo()
+  const client = usePluginClient()
 
   const [dialog, setDialog] = useState<Dialogs | null>(null)
   // The tenant stays after the dialog closes, with `open` false, so the
@@ -188,6 +191,9 @@ function FlagDetailView({ flagKey, data }: { flagKey: string; data: FlagDetail }
   }
 
   function evaluate() {
+    // The rules on the page may be older than the ones the engine is about to
+    // walk. Reading them again is what lets "Press Evaluate again" work.
+    queryStore.invalidate(client.extension, ["flags.detail"])
     setRequest((previous) => ({
       // An empty id is left out of the request, not sent as "".
       tenantId: draftTenant.trim() || undefined,
