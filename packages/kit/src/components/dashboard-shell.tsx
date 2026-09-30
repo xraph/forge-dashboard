@@ -7,7 +7,7 @@ import { NavRail } from "@forge-go/dashboard-kit/components/nav-rail"
 import type { RailGroup } from "@forge-go/dashboard-kit/components/nav-rail"
 import type { NavArea } from "@forge-go/dashboard-kit/components/nav-tree"
 import { NavUser } from "@forge-go/dashboard-kit/components/nav-user"
-import { ScopeSwitcher } from "@forge-go/dashboard-kit/components/scope-switcher"
+import { ScopeGridSwitcher } from "@forge-go/dashboard-kit/components/scope-grid-switcher"
 import type {
   ScopeOption,
   ScopeSwitcherProps,
@@ -115,7 +115,7 @@ export function DashboardShell({
   const { expanded, toggle } = useRailExpanded()
   const switcher =
     scopes.length > 0 || scopeHome ? (
-      <ScopeSwitcher
+      <ScopeGridSwitcher
         scopes={scopes}
         activeId={activeScopeId}
         onSelect={onScopeSelect}
