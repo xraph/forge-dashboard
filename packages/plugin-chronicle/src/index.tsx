@@ -1,6 +1,6 @@
 import { lazy } from "react"
 import { definePlugin } from "@forge-go/dashboard-plugin"
-import { ArchiveIcon, ChartColumnIcon, EraserIcon, MilestoneIcon, ScrollTextIcon, SettingsIcon, ShieldCheckIcon, TimerResetIcon } from "@forge-go/dashboard-kit/icons"
+import { ArchiveIcon, ChartColumnIcon, EraserIcon, FileCheckIcon, MilestoneIcon, ScrollTextIcon, SettingsIcon, ShieldCheckIcon, TimerResetIcon } from "@forge-go/dashboard-kit/icons"
 import { ActivityPage } from "./pages/activity"
 import { ArchivesPage } from "./pages/archives"
 import { ChainPage } from "./pages/chain"
@@ -8,9 +8,13 @@ import { CheckpointDetailPage } from "./pages/checkpoint-detail"
 import { CheckpointsPage } from "./pages/checkpoints"
 import { ErasureDetailPage } from "./pages/erasure-detail"
 import { ErasuresPage } from "./pages/erasures"
+import { CustomReportCreatePage } from "./pages/custom-report-create"
 import { EventsPage } from "./pages/events"
 import { PolicyCreatePage } from "./pages/policy-create"
 import { PolicyDetailPage } from "./pages/policy-detail"
+import { ReportCreatePage } from "./pages/report-create"
+import { ReportDetailPage } from "./pages/report-detail"
+import { ReportsPage } from "./pages/reports"
 import { RetentionPage } from "./pages/retention"
 import { SettingsPage } from "./pages/settings"
 import { UserEventsPage } from "./pages/user-events"
@@ -37,6 +41,7 @@ export const chroniclePlugin = definePlugin({
     { label: "Checkpoints", to: "/checkpoints", priority: 10, icon: <MilestoneIcon />, group: "Integrity" },
     { label: "Events", to: "/events", priority: 20, icon: <ScrollTextIcon />, group: "Log" },
     { label: "Activity", to: "/activity", priority: 30, icon: <ChartColumnIcon />, group: "Log" },
+    { label: "Reports", to: "/reports", priority: 40, icon: <FileCheckIcon />, group: "Compliance" },
     { label: "Erasures", to: "/erasures", priority: 50, icon: <EraserIcon />, group: "Compliance" },
     { label: "Policies", to: "/retention", priority: 60, icon: <TimerResetIcon />, group: "Retention" },
     { label: "Archives", to: "/archives", priority: 70, icon: <ArchiveIcon />, group: "Retention" },
@@ -56,6 +61,10 @@ export const chroniclePlugin = definePlugin({
     { path: "/users/:userId", element: UserEventsPage },
     { path: "/erasures", element: ErasuresPage },
     { path: "/erasures/:id", element: ErasureDetailPage },
+    { path: "/reports", element: ReportsPage },
+    { path: "/reports/:id", element: ReportDetailPage },
+    { path: "/new-report", element: ReportCreatePage },
+    { path: "/new-custom-report", element: CustomReportCreatePage },
     { path: "/retention", element: RetentionPage },
     { path: "/new-policy", element: PolicyCreatePage },
     { path: "/retention/:id", element: PolicyDetailPage },

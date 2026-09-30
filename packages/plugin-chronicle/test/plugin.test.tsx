@@ -65,6 +65,16 @@ describe("chroniclePlugin", () => {
     ])
   })
 
+  it("serves compliance reports: the list, a report, and both forms, under Compliance ahead of erasures", () => {
+    const paths = chroniclePlugin.routes.map((r) => r.path)
+    expect(paths).toEqual(expect.arrayContaining(["/reports", "/reports/:id", "/new-report", "/new-custom-report"]))
+    const compliance = (chroniclePlugin.nav ?? []).filter((n) => n.group === "Compliance")
+    expect(compliance.map((n) => [n.label, n.to, n.priority])).toEqual([
+      ["Reports", "/reports", 40],
+      ["Erasures", "/erasures", 50],
+    ])
+  })
+
   it("groups every nav entry under one of the five sections", () => {
     const allowed = ["Integrity", "Log", "Compliance", "Retention", "Settings"]
     for (const item of chroniclePlugin.nav ?? []) {

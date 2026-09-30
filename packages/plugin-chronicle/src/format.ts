@@ -25,3 +25,15 @@ export function durationLabel(goDuration: string): string {
   }
   return hours === 1 ? "1 hour" : `${hours} hours`
 }
+
+const REPORT_TYPES: Record<string, string> = {
+  soc2: "SOC 2",
+  hipaa: "HIPAA",
+  eu_ai_act: "EU AI Act",
+  custom: "Custom",
+}
+
+/** A stored report type as a person reads it. A type this list does not know is shown exactly as the server sent it. */
+export function reportTypeLabel(t: string): string {
+  return REPORT_TYPES[t] ?? t
+}
