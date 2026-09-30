@@ -23,6 +23,7 @@ import type { NamespacesResponse } from "../components/namespace-filter"
 import {
   LaneRow,
   decidingLane,
+  decidingLaneOnlyGaveReason,
   verdictSentence,
   type PlaygroundInput,
   type PlaygroundResult,
@@ -30,6 +31,8 @@ import {
 
 const NOT_JSON = "This is not valid JSON."
 const NOT_OBJECT = "This must be a JSON object."
+/** How the select shows a logged check whose subject kind is empty. */
+const NO_KIND = "(no kind)"
 
 /** The three JSON fields, in the order the disclosure lists them. */
 const JSON_FIELDS = [
@@ -157,7 +160,12 @@ function ResultView({ result, stale }: { result: PlaygroundResult; stale: boolea
 
       <ol aria-label="Models" className="flex flex-col gap-2">
         {(result.lanes ?? []).map((lane) => (
-          <LaneRow key={lane.model} lane={lane} deciding={lane.model === deciding} />
+          <LaneRow
+            key={lane.model}
+            lane={lane}
+            deciding={lane.model === deciding}
+            reasonOnly={decidingLaneOnlyGaveReason(result)}
+          />
         ))}
       </ol>
 
@@ -197,6 +205,10 @@ function Playground({ checkId }: { checkId: string | undefined }) {
   // check when any field took one.
   const [prefilled, setPrefilled] = useState(false)
   const [prefilledAt, setPrefilledAt] = useState<string | null>(null)
+  // A logged check can carry a subject kind outside the four the select
+  // offers (the REST API logs "", and Go callers pass anything). The
+  // engine evaluates any kind, so the select offers that one too.
+  const [extraKind, setExtraKind] = useState<string | null>(null)
   const [jsonErrors, setJsonErrors] = useState<Partial<Record<JsonKey, string>>>({})
   const [attributesOpen, setAttributesOpen] = useState(false)
   // What was last sent. `null` until the first Run, and the query below waits
@@ -232,6 +244,12 @@ function Playground({ checkId }: { checkId: string | undefined }) {
     }
     setPrefilled(true)
     setDraft((d) => ({ ...d, ...patch }))
+    if (
+      "subjectKind" in patch &&
+      !(CHECK_SUBJECT_KINDS as readonly string[]).includes(check.subjectKind)
+    ) {
+      setExtraKind(check.subjectKind)
+    }
     if (Object.keys(patch).length > 0) setPrefilledAt(check.createdAt)
   }
 
@@ -332,6 +350,11 @@ function Playground({ checkId }: { checkId: string | undefined }) {
                   {kind}
                 </NativeSelectOption>
               ))}
+              {extraKind !== null && (
+                <NativeSelectOption value={extraKind}>
+                  {extraKind === "" ? NO_KIND : extraKind}
+                </NativeSelectOption>
+              )}
             </NativeSelect>
           </div>
           <div className="flex flex-col gap-1.5">
@@ -448,8 +471,9 @@ function Playground({ checkId }: { checkId: string | undefined }) {
       </div>
 
       <p className="text-xs text-muted-foreground">
-        Runs as a dry run: writes nothing to the check log, fires no hooks, and neither reads nor
-        fills the result cache.
+        The check you build runs as a dry run: it writes nothing to the check log, fires no
+        hooks, and neither reads nor fills the result cache. Your own permission to run it is
+        checked, and warden logs that check like any other.
       </p>
     </section>
   )

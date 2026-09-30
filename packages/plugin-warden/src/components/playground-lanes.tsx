@@ -1,6 +1,7 @@
 import { PluginLink } from "@forge-go/dashboard-plugin"
 import { Badge } from "@forge-go/dashboard-kit/components/badge"
 import { NoneCell } from "@forge-go/dashboard-kit/components/none-cell"
+import { cn } from "@forge-go/dashboard-kit/lib/utils"
 import type { CheckMatch } from "./check-log"
 
 /**
@@ -77,6 +78,14 @@ function inOrder(result: PlaygroundResult): PlaygroundLane[] {
 }
 
 /**
+ * Whether the deciding lane decided the verdict (an allow or an explicit
+ * deny) or only supplied the reason for any other denial.
+ */
+export function decidingLaneOnlyGaveReason(result: PlaygroundResult): boolean {
+  return result.decision !== "allow" && result.decision !== "deny_explicit"
+}
+
+/**
  * The lane whose result the engine's merge chose, or null.
  *
  * This mirrors `mergeDecisions`, which is the only place the choice is made:
@@ -100,7 +109,7 @@ const WALK_NOTE = "The relation walk stopped at its limit, so a relation may exi
 const EXPRESSION_NOTE =
   "The resource type's permission expression failed, so it was treated as no match."
 const EXPRESSION_ALLOW_NOTE =
-  "The resource type's permission expression failed, so the relation walk decided instead."
+  "The resource type's permission expression failed, so ReBAC's allow came from the relation walk."
 
 /**
  * Why this beat that, in one or two sentences.
@@ -144,7 +153,8 @@ export function verdictSentence(result: PlaygroundResult): string {
   if (rebac?.walkTruncated) sentence += ` ${WALK_NOTE}`
   if (rebac?.expressionError) {
     // A failed expression is treated as no match, and the relation walk
-    // decides. When that walk allowed, "no match" would say the wrong thing.
+    // supplies any allow. When that walk allowed, "no match" would say the
+    // wrong thing.
     sentence += ` ${rebac.state === "allow" ? EXPRESSION_ALLOW_NOTE : EXPRESSION_NOTE}`
   }
   return sentence
@@ -209,10 +219,11 @@ function LaneDetail({ lane }: { lane: PlaygroundLane }) {
       )
     case "noMatch":
       if (lane.reason) return <span className="text-muted-foreground">{lane.reason}</span>
-      // ABAC with no matching policy has no result at all, so it has no
-      // reason. RBAC and ReBAC always give one.
+      // ABAC with no result has no reason. It is not always that no policy
+      // matched: an allow policy whose condition threw is skipped too. RBAC
+      // and ReBAC always give a reason.
       return lane.model === "abac" ? (
-        <span className="text-muted-foreground">No policy matched.</span>
+        <span className="text-muted-foreground">No policy applied.</span>
       ) : null
     case "skipped":
       return (
@@ -234,14 +245,29 @@ function LaneDetail({ lane }: { lane: PlaygroundLane }) {
 
 /**
  * One model's line in the playground: its name, what it did, and why.
- * `deciding` marks the lane the merge chose. Render inside a list.
+ * `deciding` marks the lane the merge chose, with a left rule in the
+ * foreground colour. On an allow or an explicit deny it "decided it". On any
+ * other denial it only supplied the reason, so `reasonOnly` says it "gave the
+ * reason". Render inside a list.
  */
-export function LaneRow({ lane, deciding }: { lane: PlaygroundLane; deciding: boolean }) {
+export function LaneRow({
+  lane,
+  deciding,
+  reasonOnly = false,
+}: {
+  lane: PlaygroundLane
+  deciding: boolean
+  reasonOnly?: boolean
+}) {
   const bad = lane.state === "deny" || lane.state === "error"
   return (
     <li
       data-lane={lane.model}
-      className="grid grid-cols-[3.5rem_minmax(0,1fr)] items-baseline gap-x-3 rounded-md border px-3 py-2 text-sm"
+      data-deciding={deciding ? "true" : undefined}
+      className={cn(
+        "grid grid-cols-[3.5rem_minmax(0,1fr)] items-baseline gap-x-3 rounded-md border px-3 py-2 text-sm",
+        deciding && "border-l-2 border-l-foreground",
+      )}
     >
       <span className="font-medium">{MODEL_NAME[lane.model]}</span>
       <div className="flex flex-col gap-1">
@@ -249,7 +275,9 @@ export function LaneRow({ lane, deciding }: { lane: PlaygroundLane; deciding: bo
           <span className={bad ? "font-medium text-destructive" : "font-medium"}>
             {STATE_WORD[lane.state]}
           </span>
-          {deciding && <Badge variant="outline">decided it</Badge>}
+          {deciding && (
+            <Badge variant="outline">{reasonOnly ? "gave the reason" : "decided it"}</Badge>
+          )}
         </span>
         <LaneDetail lane={lane} />
       </div>

@@ -9,7 +9,7 @@ import { WardenPlaygroundPage } from "../src/pages/playground"
 import { recordingQueryClient, renderPage, stubClient } from "./harness"
 
 const FOOTER =
-  "Runs as a dry run: writes nothing to the check log, fires no hooks, and neither reads nor fills the result cache."
+  "The check you build runs as a dry run: it writes nothing to the check log, fires no hooks, and neither reads nor fills the result cache. Your own permission to run it is checked, and warden logs that check like any other."
 const NOT_JSON = "This is not valid JSON."
 const NOT_OBJECT = "This must be a JSON object."
 
@@ -291,6 +291,9 @@ describe("WardenPlaygroundPage: the result", () => {
     expect(within(rows[1]).queryByText("decided it")).toBeNull()
     expect(within(rows[2]).getByText("decided it")).toBeTruthy()
     expect(screen.getAllByText("decided it")).toHaveLength(1)
+    // The deciding lane, and only it, carries the left rule.
+    expect(rows.map((r) => r.getAttribute("data-deciding"))).toEqual([null, null, "true"])
+    expect(rows[2].className).toContain("border-l-foreground")
 
     const sentence = screen.getByText("An explicit deny overrides the RBAC allow.")
     // The sentence follows the lanes.
@@ -334,6 +337,30 @@ describe("WardenPlaygroundPage: the result", () => {
     const badge = await screen.findByText("allow", { selector: "[data-slot=badge]" })
     expect(badge.getAttribute("data-variant")).toBe("outline")
     expect(screen.getByText("RBAC allowed this check, and no deny policy matched.")).toBeTruthy()
+  })
+
+  it("says the lane that supplied a denial's reason gave the reason, not that it decided", async () => {
+    const NO_ROLES: PlaygroundResult = {
+      decision: "deny_no_roles",
+      allowed: false,
+      reason: "subject user:dave has no assigned roles",
+      matchedBy: [],
+      obligations: [],
+      evalTimeNs: 100_000,
+      lanes: [
+        { model: "rbac", state: "noMatch", decision: "deny_no_roles", reason: "subject user:dave has no assigned roles", matchedBy: [] },
+        { model: "rebac", state: "noMatch", decision: "deny_relation", reason: "no relation", matchedBy: [] },
+        { model: "abac", state: "noMatch", matchedBy: [] },
+      ],
+    }
+    setup({ "playground.explain": NO_ROLES })
+    fillRequired()
+    fireEvent.click(run())
+    await screen.findByText("deny_no_roles")
+    const rows = within(screen.getByRole("list", { name: "Models" })).getAllByRole("listitem")
+    expect(within(rows[0]).getByText("gave the reason")).toBeTruthy()
+    expect(screen.queryByText("decided it")).toBeNull()
+    expect(within(rows[2]).getByText("No policy applied.")).toBeTruthy()
   })
 
   it("shows a failed check's error, no evaluation time and the failed model", async () => {
@@ -633,6 +660,33 @@ describe("WardenPlaygroundPage: opened from a check log row", () => {
     for (const label of ["Subject attributes", "Resource attributes", "Context"]) {
       expect((screen.getByLabelText(label) as HTMLTextAreaElement).value).toBe("")
     }
+  })
+
+  it.each([
+    { kind: "", shown: "(no kind)" },
+    { kind: "robot", shown: "robot" },
+  ])("keeps a logged subject kind shown as $shown outside the four, shows it, and runs with it", async ({ kind, shown }) => {
+    const t = opened({ ...LOGGED, subjectKind: kind })
+    await waitFor(() => expect(value("Subject id")).toBe("deployer"))
+    const select = screen.getByLabelText("Subject kind") as HTMLSelectElement
+    expect(select.value).toBe(kind)
+    expect(select.selectedOptions[0].textContent).toBe(shown)
+    expect(within(select).getAllByRole("option").map((o) => (o as HTMLOptionElement).value)).toEqual([
+      "user",
+      "api_key",
+      "service",
+      "service_acct",
+      kind,
+    ])
+    fireEvent.click(run())
+    await screen.findByText("deny_explicit")
+    expect(t.explains()[0].params).toMatchObject({ subjectKind: kind })
+  })
+
+  it("offers only the four kinds when the logged kind is one of them", async () => {
+    opened()
+    await waitFor(() => expect(value("Subject id")).toBe("deployer"))
+    expect(within(screen.getByLabelText("Subject kind")).getAllByRole("option")).toHaveLength(4)
   })
 
   it("shows the root as / and sends it as an empty path", async () => {

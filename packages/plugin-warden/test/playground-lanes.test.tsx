@@ -3,6 +3,7 @@ import { render, screen } from "@testing-library/react"
 import {
   LaneRow,
   decidingLane,
+  decidingLaneOnlyGaveReason,
   verdictSentence,
   type LaneState,
   type PlaygroundLane,
@@ -209,7 +210,7 @@ describe("verdictSentence", () => {
       expressionError: "boom",
     })
     expect(verdictSentence(result("allow", [NO_RBAC, allowed, NO_ABAC]))).toBe(
-      "ReBAC allowed this check, and no deny policy matched. The resource type's permission expression failed, so the relation walk decided instead.",
+      "ReBAC allowed this check, and no deny policy matched. The resource type's permission expression failed, so ReBAC's allow came from the relation walk.",
     )
   })
 
@@ -233,9 +234,19 @@ describe("verdictSentence", () => {
   })
 })
 
+describe("decidingLaneOnlyGaveReason", () => {
+  it("is false for an allow and an explicit deny, true for any other denial", () => {
+    expect(decidingLaneOnlyGaveReason(result("allow", [RBAC_ALLOW, NO_REBAC, NO_ABAC]))).toBe(false)
+    expect(decidingLaneOnlyGaveReason(result("deny_explicit", [RBAC_ALLOW, NO_REBAC, ABAC_DENY]))).toBe(false)
+    for (const d of ["deny_no_roles", "deny_no_perms", "deny_relation", "deny_default", "deny"]) {
+      expect(decidingLaneOnlyGaveReason(result(d, [NO_RBAC, NO_REBAC, NO_ABAC]))).toBe(true)
+    }
+  })
+})
+
 describe("LaneRow", () => {
-  function row(l: PlaygroundLane, deciding = false) {
-    return render(<LaneRow lane={l} deciding={deciding} />)
+  function row(l: PlaygroundLane, deciding = false, reasonOnly = false) {
+    return render(<LaneRow lane={l} deciding={deciding} reasonOnly={reasonOnly} />)
   }
 
   it("names the model in its own casing", () => {
@@ -283,15 +294,17 @@ describe("LaneRow", () => {
     expect(screen.getByText("no roles")).toBeTruthy()
   })
 
-  it("says No policy matched for an abac no match with no reason", () => {
+  it("says No policy applied for an abac no match with no reason", () => {
     row(NO_ABAC)
     expect(screen.getByText("no match")).toBeTruthy()
-    expect(screen.getByText("No policy matched.")).toBeTruthy()
+    expect(screen.getByText("No policy applied.")).toBeTruthy()
+    // An allow policy whose condition threw is skipped too, so "matched" would be wrong.
+    expect(screen.queryByText("No policy matched.")).toBeNull()
   })
 
-  it("does not say No policy matched for another model's no match", () => {
+  it("does not say No policy applied for another model's no match", () => {
     row(lane("rebac", "noMatch"))
-    expect(screen.queryByText("No policy matched.")).toBeNull()
+    expect(screen.queryByText("No policy applied.")).toBeNull()
   })
 
   it("says why a lane was skipped", () => {
@@ -323,6 +336,24 @@ describe("LaneRow", () => {
     expect(screen.getByText("decided it")).toBeTruthy()
     unmount()
     row(RBAC_ALLOW, false)
+    expect(screen.queryByText("decided it")).toBeNull()
+  })
+
+  it("gives the deciding lane a left rule in the foreground colour, and no other lane", () => {
+    const { container, unmount } = row(RBAC_ALLOW, true)
+    const li = container.querySelector("li")!
+    expect(li.getAttribute("data-deciding")).toBe("true")
+    expect(li.className).toContain("border-l-2")
+    expect(li.className).toContain("border-l-foreground")
+    unmount()
+    const other = row(RBAC_ALLOW, false).container.querySelector("li")!
+    expect(other.getAttribute("data-deciding")).toBeNull()
+    expect(other.className).not.toContain("border-l-foreground")
+  })
+
+  it("says the deciding lane gave the reason when the denial was not its decision", () => {
+    row(NO_RBAC, true, true)
+    expect(screen.getByText("gave the reason")).toBeTruthy()
     expect(screen.queryByText("decided it")).toBeNull()
   })
 })
