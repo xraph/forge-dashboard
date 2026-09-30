@@ -3479,7 +3479,8 @@ function playgroundBatchCheck(params) {
 // this section is a port of the parts of it the three intents touch: the
 // formatter (dsl/format.go, for export), the lexer and parser (dsl/lexer.go
 // and parser.go, reusing lexExpression above), the resolver (resolver.go) and
-// the applier's comparison and write order (applier.go). It works on fields,
+// the applier's comparison and write order (applier.go), with the system-entity
+// refusals the contract always turns on (ApplyOptions.ProtectSystem). It works on fields,
 // not on text: a submitted declaration is compared with the stored row the way
 // the applier compares them, so an edit that only reflows the source plans as
 // nothing, and a `~` line names the fields that changed, as in Go.
@@ -3498,6 +3499,8 @@ function playgroundBatchCheck(params) {
 //     store that holds one (the seeded fuzzy-network-allow in the root
 //     namespace, which uses "approximately") is source the real server cannot
 //     plan either, and a plan of the whole export reports that parse error.
+//     Moving the specimen to another namespace would not change that: an
+//     export with no prefix holds every namespace, sandbox included.
 //   - Failing part way. Go answers INTERNAL "the apply stopped part way: ..."
 //     when a write fails after the dry run. Nothing in memory fails, so a
 //     source that contains SCHEMA_FAIL_MARKER (for example in a comment) makes
@@ -3505,9 +3508,10 @@ function playgroundBatchCheck(params) {
 //     written, with the same answer. Writes before the stop stay.
 //   - diverged is computed as Go computes it (the digest of what was written
 //     against the digest that was approved). State cannot change between the
-//     two steps in a single-threaded fixture, so it is false unless the source
-//     repeats a relation line: the dry run lists both, the write finds the
-//     second already there.
+//     two steps in a single-threaded fixture, so it is always false: a
+//     repeated relation line is refused by the resolver, and a grant whose
+//     permission the same apply prunes is left out of the role's grants
+//     before they are compared.
 //   - Integers of 2^53 or more are refused with a diagnostic, where Go's Atoi
 //     takes them up to 2^63-1. A JS number cannot hold them, and a BigInt
 //     would have to run through every projection of priority, maxMembers and
@@ -3746,10 +3750,15 @@ function writePolicy(w, p) {
 
 const TUPLE_KEY = (t) => [t.objectType, t.objectId, t.relation, t.subjectType, t.subjectId, t.subjectRelation]
 
-function writeRelation(w, r) {
+/** A relation tuple as its source line writes it, after the `relation` keyword (dsl relationText). */
+function relationText(r) {
   let subject = schemaName(r.subjectType) + ":" + schemaName(r.subjectId)
   if (r.subjectRelation) subject += "#" + schemaName(r.subjectRelation)
-  w.line(`relation ${schemaName(r.objectType)}:${schemaName(r.objectId)} ${schemaName(r.relation)} = ${subject}`)
+  return `${schemaName(r.objectType)}:${schemaName(r.objectId)} ${schemaName(r.relation)} = ${subject}`
+}
+
+function writeRelation(w, r) {
+  w.line(`relation ${relationText(r)}`)
 }
 
 /** One namespace's declarations in section order, a blank line between sections. Reports whether it wrote anything. */
@@ -4724,7 +4733,7 @@ function parseSchemaSource(src) {
   }
 
   // ---- the program ----
-  const prog = { version: 0, tenant: "", app: "", imports: [], headerPos: pos(), ...newScope(), blocks: [] }
+  const prog = { version: 0, tenant: "", app: "", imports: [], headerPos: pos(), ...newScope(), blocks: [], blockAt: [] }
   if (cur.kind !== "warden") {
     errf(cur, "expected `warden config <version>` header")
   } else {
@@ -4755,6 +4764,7 @@ function parseSchemaSource(src) {
   const flatten = (nsDecl, parent) => {
     const abs = joinNs(parent, nsDecl.name)
     prog.blocks.push(abs)
+    prog.blockAt.push({ ns: abs, pos: nsDecl.pos })
     for (const key of ["resourceTypes", "permissions", "roles", "policies", "relations"]) {
       for (const d of nsDecl[key]) {
         d.ns = abs
@@ -4800,6 +4810,15 @@ function resolveSchema(prog) {
   index(prog.permissions, permsByKey, "permission", (d) => d.name)
   index(prog.policies, policyByKey, "policy", (d) => d.name)
   index(prog.resourceTypes, rtsByKey, "resource type", (d) => d.name)
+  // A tuple is its whole row. The store holds one of each, so a second line
+  // for the same tuple could only be a no-op, and a plan would count it as a
+  // second write the apply never makes.
+  const tuples = new Map()
+  for (const t of prog.relations) {
+    const k = [t.ns, ...TUPLE_KEY(t)].join("\u0000")
+    if (tuples.has(k)) errf(t.pos, `relation ${relationText(t)} already declared at ${posText(tuples.get(k).pos)}`)
+    else tuples.set(k, t)
+  }
 
   // checkConventions
   for (const r of prog.roles) {
@@ -5047,9 +5066,11 @@ function runSchemaApplier(prog, prune, write, source) {
 
   // A permission will exist once this apply has written its permissions: the
   // source declares it, or the store holds it and prune will not delete it.
+  // Whether this apply deletes the permission ns/name if the store holds it.
+  const prunes = (ns, name) => prune && covers(ns) && !declaredPerms.has(schemaKey(ns, name))
   const permExists = (ns, name) => {
     if (declaredPerms.has(schemaKey(ns, name))) return true
-    if (prune && covers(ns)) return false
+    if (prunes(ns, name)) return false
     return warden.permissions.some((p) => p.namespacePath === ns && p.name === name)
   }
   // A bare grant is looked up in the role's namespace, then at the root.
@@ -5080,8 +5101,80 @@ function runSchemaApplier(prog, prune, write, source) {
     return { refs, diags }
   }
 
+  // grantsDiffer. A stored grant whose permission this apply prunes is left
+  // out of what the role holds: deleting the permission removes the grant
+  // first, so counting it would plan a `~ (grants)` line the apply never
+  // writes.
+  const grantsDiffer = (r, stored) => {
+    if (!grantsManaged(r)) return false
+    const have = new Set(
+      warden.grants
+        .filter((g) => g.roleId === stored.id && !prunes(g.namespacePath, g.name))
+        .map((g) => schemaKey(g.namespacePath, g.name))
+    )
+    const want = new Set(desiredGrants(r).refs.map((ref) => schemaKey(ref.ns, ref.name)))
+    return have.size !== want.size || [...want].some((k) => !have.has(k))
+  }
+
   const grantDiags = prog.roles.flatMap((r) => desiredGrants(r).diags)
   if (grantDiags.length > 0) return { diags: grantDiags }
+
+  // checkSystem (ApplyOptions.ProtectSystem, which the contract always
+  // sets): every change to a system role or permission is refused before
+  // anything is written, in the words of extension/contract/immutable.go.
+  {
+    const diags = []
+    const refuse = (at, message) => diags.push({ line: at.line, col: at.col, message })
+    for (const p of prog.permissions) {
+      const existing = warden.permissions.find((x) => x.namespacePath === p.ns && x.name === p.name)
+      if (!existing) {
+        if (p.isSystem) refuse(p.pos, `${goQuote(p.name)} cannot be created as a system permission`)
+      } else if (existing.isSystem) {
+        const changed =
+          existing.resource !== p.resource || existing.action !== p.action ||
+          (existing.description ?? "") !== p.description || !p.isSystem
+        if (changed) refuse(p.pos, `${goQuote(p.name)} is a system permission and cannot be changed or deleted`)
+      } else if (p.isSystem) {
+        refuse(p.pos, `${goQuote(p.name)} is not a system permission, and source cannot make it one`)
+      }
+    }
+    for (const r of prog.roles) {
+      const existing = warden.roles.find((x) => x.namespacePath === r.ns && x.slug === r.slug)
+      if (!existing) {
+        if (r.isSystem) refuse(r.pos, `${goQuote(r.slug)} cannot be created as a system role`)
+      } else if (existing.isSystem) {
+        const changed =
+          existing.name !== (r.name || r.slug) || (existing.description ?? "") !== r.description || !r.isSystem ||
+          Boolean(existing.isDefault) !== r.isDefault || (existing.maxMembers ?? 0) !== r.maxMembers ||
+          (existing.parentSlug ?? "") !== parentSlugForStorage(r.parent) || grantsDiffer(r, existing)
+        if (changed) refuse(r.pos, `${goQuote(r.slug)} is a system role and cannot be changed or deleted`)
+      } else if (r.isSystem) {
+        refuse(r.pos, `${goQuote(r.slug)} is not a system role, and source cannot make it one`)
+      }
+    }
+    if (prune) {
+      // A refused prune has no declaration of its own, so it stands where the
+      // source first covers the namespace (dsl coverPositions).
+      const at = new Map()
+      const mark = (ns, p) => {
+        const cur = at.get(ns)
+        if (!cur || p.line < cur.line || (p.line === cur.line && p.col < cur.col)) at.set(ns, p)
+      }
+      for (const d of [...prog.resourceTypes, ...prog.permissions, ...prog.roles, ...prog.policies, ...prog.relations]) mark(d.ns, d.pos)
+      for (const b of prog.blockAt) mark(b.ns, b.pos)
+      for (const p of warden.permissions) {
+        if (p.isSystem && prunes(p.namespacePath, p.name)) {
+          refuse(at.get(p.namespacePath), `${goQuote(p.name)} is a system permission and cannot be changed or deleted, and prune would delete it`)
+        }
+      }
+      const declaredRoles = new Set(prog.roles.map((r) => schemaKey(r.ns, r.slug)))
+      for (const r of warden.roles) {
+        if (!r.isSystem || !covers(r.namespacePath) || declaredRoles.has(schemaKey(r.namespacePath, r.slug))) continue
+        refuse(at.get(r.namespacePath), `${goQuote(r.slug)} is a system role and cannot be changed or deleted, and prune would delete it`)
+      }
+    }
+    if (diags.length > 0) return { diags }
+  }
 
   // ---- resource types ----
   {
@@ -5206,12 +5299,8 @@ function runSchemaApplier(prog, prune, write, source) {
       if ((existing.maxMembers ?? 0) !== r.maxMembers) changed.push("max_members")
       if ((existing.parentSlug ?? "") !== parentSlug) changed.push("parent")
       const rowChanged = changed.length > 0
-      // grantsDiffer: a role with no grants clause leaves its grants alone.
-      if (grantsManaged(r)) {
-        const have = new Set(warden.grants.filter((g) => g.roleId === existing.id).map((g) => schemaKey(g.namespacePath, g.name)))
-        const want = new Set(desiredGrants(r).refs.map((ref) => schemaKey(ref.ns, ref.name)))
-        if (have.size !== want.size || [...want].some((k) => !have.has(k))) changed.push("grants")
-      }
+      // A role with no grants clause leaves its grants alone.
+      if (grantsDiffer(r, existing)) changed.push("grants")
       if (changed.length === 0) {
         res.noOps++
         continue
@@ -5225,7 +5314,9 @@ function runSchemaApplier(prog, prune, write, source) {
     if (prune) {
       for (const r of [...warden.roles]) {
         if (!covers(r.namespacePath) || declared.has(schemaKey(r.namespacePath, r.slug))) continue
-        if (r.isSystem) continue // system roles are protected from prune
+        // Unreachable here: checkSystem refused a pruned system role above.
+        // dsl keeps the skip for the CLI and the declarative loader.
+        if (r.isSystem) continue
         if (write) {
           warden.roles.splice(warden.roles.indexOf(r), 1)
           // The store cascades a role's assignments and grants.
