@@ -22,7 +22,7 @@ describe("ReportVerification", () => {
 
   it("says why none ran when the scope had no chain", () => {
     render(<ReportVerification report={{ ...base, verificationScope: scope({ status: "no_chain", headSeq: 0, fromSeq: 0, toSeq: 0 }) }} />)
-    expect(screen.getByText(/No verification ran: this scope had not recorded any events when the report was generated/)).toBeTruthy()
+    expect(screen.getByText(/No verification ran: this scope has no hash chain of its own, so there was nothing to check\. A report with no tenant checks only the app-level chain, not its tenants' chains\./)).toBeTruthy()
     expect(screen.queryByText(/No alteration detected|No corruption detected/)).toBeNull()
   })
 
@@ -94,7 +94,38 @@ describe("ReportVerification", () => {
   it("does not hide a verification that a no-chain scope contradicts", () => {
     render(<ReportVerification report={{ ...base, verification: report(), verificationScope: scope({ status: "no_chain" }) }} />)
     expect(screen.getByText(/No verification ran/)).toBeTruthy()
+    expect(screen.getByText("This report's scope says no verification ran, but it carries a stored result, shown here as it was recorded.")).toBeTruthy()
     expect(screen.getByRole("heading", { name: /No alteration detected/ })).toBeTruthy()
+  })
+
+  it("labels a stored result under a not-configured scope the same way", () => {
+    render(<ReportVerification report={{ ...base, verification: report(), verificationScope: scope({ status: "not_configured" }) }} />)
+    expect(screen.getByText("This report's scope says no verification ran, but it carries a stored result, shown here as it was recorded.")).toBeTruthy()
+  })
+
+  it("puts the contradiction notice before the verdict", () => {
+    render(<ReportVerification report={{ ...base, verification: report(), verificationScope: scope({ status: "no_chain" }) }} />)
+    const notice = screen.getByText(/carries a stored result/)
+    const verdict = screen.getByRole("heading", { name: /No alteration detected/ })
+    expect(notice.compareDocumentPosition(verdict) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+  })
+
+  it("does not print the contradiction notice for a verification that agrees with its scope", () => {
+    render(<ReportVerification report={{ ...base, verification: report(), verificationScope: scope() }} />)
+    expect(screen.queryByText(/carries a stored result/)).toBeNull()
+    expect(screen.queryByText(/generated before chronicle recorded/)).toBeNull()
+  })
+
+  it("says an old report's verification has no recorded coverage, before its verdict", () => {
+    render(<ReportVerification report={{ ...base, verification: report() }} />)
+    const notice = screen.getByText("This report was generated before chronicle recorded what its verification covered, so the range and limits of this check are not known beyond what the result itself says.")
+    const verdict = screen.getByRole("heading", { name: /No alteration detected/ })
+    expect(notice.compareDocumentPosition(verdict) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+  })
+
+  it("does not print the old-report notice when there is no verification at all", () => {
+    render(<ReportVerification report={base} />)
+    expect(screen.queryByText(/generated before chronicle recorded/)).toBeNull()
   })
 
   it("says so when a scope was recorded with no result to go with it", () => {

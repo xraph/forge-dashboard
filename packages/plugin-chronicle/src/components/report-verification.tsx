@@ -15,7 +15,7 @@ export function ReportVerification({ report }: { report: ReportDetail }) {
 
   let reason: string | null = null
   if (scope?.status === "no_chain") {
-    reason = "No verification ran: this scope had not recorded any events when the report was generated."
+    reason = "No verification ran: this scope has no hash chain of its own, so there was nothing to check. A report with no tenant checks only the app-level chain, not its tenants' chains."
   } else if (scope?.status === "not_configured") {
     reason = "No verification ran: this deployment gives the report engine no hash chain, so it could not check anything."
   } else if (!v) {
@@ -23,6 +23,8 @@ export function ReportVerification({ report }: { report: ReportDetail }) {
       ? "This report records a verification scope but no verification result."
       : "This report contains no integrity verification."
   }
+
+  const contradicted = v !== undefined && (scope?.status === "no_chain" || scope?.status === "not_configured")
 
   return (
     <section aria-labelledby="report-integrity" className="flex flex-col gap-3">
@@ -33,6 +35,12 @@ export function ReportVerification({ report }: { report: ReportDetail }) {
       {/* A verification that came with a contradicting scope is still shown: hiding a result is the one thing this section must not do. */}
       {v && (
         <div className="flex flex-col gap-4">
+          {contradicted && <p className="font-medium">This report&apos;s scope says no verification ran, but it carries a stored result, shown here as it was recorded.</p>}
+          {!scope && (
+            <p className="font-medium">
+              This report was generated before chronicle recorded what its verification covered, so the range and limits of this check are not known beyond what the result itself says.
+            </p>
+          )}
           {scope?.capped && scope.fromSeq > 1 && (
             <p className="font-medium">
               {`Sequences 1 to ${formatSeq(scope.fromSeq - 1)} were not checked: a report verifies at most the newest ${formatSeq(scope.window)} sequences, ending at the head.`}

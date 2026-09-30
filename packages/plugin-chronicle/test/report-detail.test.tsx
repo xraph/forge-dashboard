@@ -129,10 +129,11 @@ describe("ReportDetailPage", () => {
     expect(c.queried.filter((q) => q.intent === "reports.export")).toEqual([{ intent: "reports.export", params: { id: "report_soc2", format: "html" } }])
   })
 
-  it("can download the same format twice, and each click saves once", async () => {
+  it("can download the same format twice, asks the server each time, and saves what each answer held", async () => {
+    let n = 0
     const c = scriptedClient({
       "reports.detail": detail(),
-      "reports.export": (input) => exported(String(input.format), "the content"),
+      "reports.export": (input) => exported(String(input.format), `content ${++n}`),
     })
     renderPage(ReportDetailPage, c.client, { id: "report_soc2" })
     await screen.findByText("Access control")
@@ -141,6 +142,8 @@ describe("ReportDetailPage", () => {
     await waitFor(() => expect((screen.getByRole("button", { name: "Download JSON" }) as HTMLButtonElement).disabled).toBe(false))
     fireEvent.click(screen.getByRole("button", { name: "Download JSON" }))
     await waitFor(() => expect(saveFile).toHaveBeenCalledTimes(2))
+    expect(c.queried.filter((q) => q.intent === "reports.export")).toHaveLength(2)
+    expect(vi.mocked(saveFile).mock.calls.map((call) => call[2])).toEqual(["content 1", "content 2"])
   })
 
   it("never puts the HTML export in the page", async () => {
