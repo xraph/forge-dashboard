@@ -1644,6 +1644,8 @@ The same block, each clause editable in place. An Edit button on the detail page
 
 As the draft changes, debounced by 400 ms, the editor queries `policies.validate` with the whole draft and marks each field and each condition row from the response, using the server's messages. Rows keep their marks until the draft changes.
 
+**Saving an active policy into a match-everything shape confirms first.** Create stores inactive and activation confirms, but editing an ALREADY-ACTIVE policy so that it matches every check (every matcher list empty, or containing an unrestricted entry) would take effect the moment it is saved. When the loaded policy is active and the draft's validate response or local analysis says it now matches every check, Save opens a `ConfirmDialog` (with `pending`) stating, for a deny, "This deny will apply to every check in its namespace and below as soon as you save." and for an allow, "This allow will grant every check in its namespace and below as soon as you save." The server does not refuse this shape, because a deliberate lockdown deny or a namespace-wide grant is legitimate.
+
 **Save** sends `policies.update` with only the parts that differ from the loaded policy, as pointer fields: an untouched part is absent, a cleared list is `[]`, a cleared bound is `""`. On refusal, the form stays open, keeps what was typed, and marks the rows from `details.conditions` and `details.fields`. Cancel restores the read view.
 
 - [ ] **Step 2: Tests**
@@ -1654,6 +1656,7 @@ As the draft changes, debounced by 400 ms, the editor queries `policies.validate
 - A validate response marks the exact rows, by index, including two bad rows at once.
 - A refused save marks rows from `details`, keeps the form open, and keeps every typed value.
 - Save's `pending` is tested.
+- Saving an ACTIVE policy whose draft matches every check opens the confirm dialog with the exact sentence for its effect, and sends nothing until confirmed; saving an INACTIVE one into the same shape does not confirm; the confirm dialog's `pending` is tested.
 - The debounce: several quick edits send one validate request with the final draft (use fake timers).
 - Removing every action chip shows `any action`.
 - Mutate before committing: send the whole policy on save; send a number as a string; drop the row marking; name the test that catches each.
