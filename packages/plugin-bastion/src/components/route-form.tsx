@@ -64,7 +64,8 @@ export function valuesFromDetail(d: RouteDetail): RouteFormValues {
   const auth = d.auth
   return {
     path: d.input?.path ?? d.path,
-    methods: [...d.methods],
+    // Config files may spell methods in lower case; the boxes are upper case.
+    methods: [...new Set(d.methods.map((m) => m.toUpperCase()))],
     priority: String(d.input?.priority ?? d.priority),
     enabled: d.enabled,
     protocol: d.protocol,
@@ -100,7 +101,8 @@ export function fieldsFromValues(v: RouteFormValues): RouteFields {
         ? {
             enabled: v.rateLimit.on,
             requestsPerSec: num(v.rateLimit.requestsPerSec, 0),
-            burst: num(v.rateLimit.burst, 0),
+            // A blank burst would save a limit that never lets a request through.
+            burst: num(v.rateLimit.burst, Math.max(1, Math.ceil(num(v.rateLimit.requestsPerSec, 0)))),
             perClient: v.rateLimit.perClient,
             ...(v.rateLimit.keyHeader.trim() ? { keyHeader: v.rateLimit.keyHeader.trim() } : {}),
           }
@@ -152,6 +154,8 @@ function FieldError({ show, error }: { show: boolean; error?: ContractError }) {
 
 export function RouteForm({ initial, submitLabel, pendingLabel, pending, error, errorTitle, cancelTo, onSubmit }: RouteFormProps) {
   const [v, setV] = useState<RouteFormValues>(initial)
+  // A stored method the list does not offer (TRACE, CONNECT) still shows, so it can be removed.
+  const [extraMethods] = useState(() => initial.methods.filter((m) => !(METHODS as readonly string[]).includes(m)))
   const set = <K extends keyof RouteFormValues>(k: K, value: RouteFormValues[K]) => setV((prev) => ({ ...prev, [k]: value }))
   const named = error?.code === "BAD_REQUEST" ? (error.details?.field as string | undefined) : undefined
   // Only a field with an inline slot suppresses the alert; any other shows it.
@@ -194,7 +198,7 @@ export function RouteForm({ initial, submitLabel, pendingLabel, pending, error, 
         <div className="flex flex-col gap-1.5" role="group" aria-labelledby="route-methods-label">
           <span id="route-methods-label" className="text-sm font-medium">Methods</span>
           <div className="flex flex-wrap gap-3">
-            {METHODS.map((m) => (
+            {[...METHODS, ...extraMethods].map((m) => (
               <CheckField key={m} id={`method-${m}`} label={m} className="font-mono text-xs"
                 checked={v.methods.includes(m)}
                 onChange={(on) => set("methods", on ? [...v.methods, m] : v.methods.filter((x) => x !== m))} />

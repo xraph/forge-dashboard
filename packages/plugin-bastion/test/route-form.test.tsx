@@ -1,6 +1,16 @@
-import { describe, expect, it } from "vitest"
-import { EMPTY_ROUTE, fieldsFromValues, valuesFromDetail } from "../src/components/route-form"
+import { describe, expect, it, vi } from "vitest"
+import { fireEvent, render, screen } from "@testing-library/react"
+import { NavigationProvider } from "@forge-go/dashboard-plugin"
+import { EMPTY_ROUTE, RouteForm, fieldsFromValues, valuesFromDetail } from "../src/components/route-form"
 import type { RouteDetail } from "../src/types"
+
+// jsdom 25 has no PointerEvent, and Base UI's checkbox dispatches through it.
+if (typeof window.PointerEvent === "undefined") {
+  class PointerEventShim extends MouseEvent {}
+  Object.defineProperty(window, "PointerEvent", { value: PointerEventShim })
+}
+
+const onSubmit = vi.fn()
 
 const DETAIL: RouteDetail = {
   id: "manual-/users", path: "/gw/users", methods: ["GET"], protocol: "http", source: "manual", serviceName: "",
@@ -57,5 +67,32 @@ describe("route form values", () => {
     expect(f.targets).toEqual([{ url: "http://billing:9000", weight: 1, tags: ["a", "b"] }])
     expect(f.rateLimit).toBeNull()
     expect(f.auth).toBeNull()
+  })
+
+  it("defaults a blank burst to the rate rounded up, and at least 1", () => {
+    const on = { ...EMPTY_ROUTE.rateLimit, on: true }
+    expect(fieldsFromValues({ ...EMPTY_ROUTE, rateLimit: { ...on, requestsPerSec: "2.5", burst: "" } }).rateLimit?.burst).toBe(3)
+    expect(fieldsFromValues({ ...EMPTY_ROUTE, rateLimit: { ...on, requestsPerSec: "0.2", burst: "" } }).rateLimit?.burst).toBe(1)
+    expect(fieldsFromValues({ ...EMPTY_ROUTE, rateLimit: { ...on, requestsPerSec: "5", burst: "20" } }).rateLimit?.burst).toBe(20)
+  })
+
+  it("upper-cases stored methods so lowercase config methods show ticked", () => {
+    expect(valuesFromDetail({ ...DETAIL, methods: ["get", "Post"] }).methods).toEqual(["GET", "POST"])
+  })
+
+  it("shows a stored method outside the usual list as a ticked box that can be removed", () => {
+    const initial = valuesFromDetail({ ...DETAIL, methods: ["GET", "trace"] })
+    render(
+      <NavigationProvider value={{ Link: ({ to, children, className }) => <a href={to} className={className}>{children}</a>, navigate: vi.fn() }}>
+        <RouteForm initial={initial} submitLabel="Save" pendingLabel="Saving" pending={false} errorTitle="Failed" cancelTo="/routes" onSubmit={onSubmit} />
+      </NavigationProvider>,
+    )
+    expect(screen.getByLabelText("GET").getAttribute("aria-checked")).toBe("true")
+    const trace = screen.getByLabelText("TRACE")
+    expect(trace.getAttribute("aria-checked")).toBe("true")
+    fireEvent.click(trace)
+    fireEvent.click(screen.getByRole("button", { name: "Save" }))
+    expect(onSubmit).toHaveBeenCalledTimes(1)
+    expect(onSubmit.mock.calls[0][0].methods).toEqual(["GET"])
   })
 })
