@@ -1,6 +1,5 @@
-import { describe, expect, it } from "vitest"
+import { describe, expect, it, vi } from "vitest"
 import { fireEvent, render, screen, waitFor, within } from "@testing-library/react"
-import { vi } from "vitest"
 import { ContractError, NavigationProvider, PluginProvider } from "@forge-go/dashboard-plugin"
 import { BastionRouteDetailPage } from "../src/pages/route-detail"
 import type { RouteDetail } from "../src/types"
@@ -158,6 +157,45 @@ describe("BastionRouteDetailPage actions", () => {
     const dialog = await screen.findByRole("alertdialog")
     fireEvent.click(within(dialog).getByRole("button", { name: "Delete" }))
     await waitFor(() => expect(navigate).toHaveBeenCalledWith("/routes"))
+  })
+
+  it("does not call a cancelled, failed disable an enable failure", async () => {
+    const client = {
+      extension: "bastion",
+      query: async () => detail(),
+      command: async () => { throw new ContractError("INTERNAL", "store is down") },
+    } as never
+    renderPage(BastionRouteDetailPage, client, { id: "manual-/users" })
+    fireEvent.click(await screen.findByRole("button", { name: "Disable" }))
+    const dialog = await screen.findByRole("alertdialog")
+    fireEvent.click(within(dialog).getByRole("button", { name: "Disable" }))
+    await within(dialog).findByText(/store is down/)
+    fireEvent.click(within(dialog).getByRole("button", { name: "Cancel" }))
+    await waitFor(() => expect(screen.queryByRole("alertdialog")).toBeNull())
+    expect(screen.queryByText("Could not enable the route")).toBeNull()
+  })
+
+  it("enables a disabled route straight away", async () => {
+    const { client, sent } = recordingCommandClient(
+      { "routes.detail": detail({ enabled: false }) },
+      { "routes.setEnabled": { id: "manual-/users", enabled: true, durable: true } },
+    )
+    renderPage(BastionRouteDetailPage, client, { id: "manual-/users" })
+    fireEvent.click(await screen.findByRole("button", { name: "Enable" }))
+    await waitFor(() => expect(sent).toHaveLength(1))
+    expect(sent).toEqual([{ intent: "routes.setEnabled", payload: { id: "manual-/users", enabled: true } }])
+    expect(screen.queryByRole("alertdialog")).toBeNull()
+  })
+
+  it("shows a failed enable on the page", async () => {
+    const client = {
+      extension: "bastion",
+      query: async () => detail({ enabled: false }),
+      command: async () => { throw new ContractError("INTERNAL", "store is down") },
+    } as never
+    renderPage(BastionRouteDetailPage, client, { id: "manual-/users" })
+    fireEvent.click(await screen.findByRole("button", { name: "Enable" }))
+    expect(await screen.findByText("Could not enable the route")).toBeTruthy()
   })
 
   it("marks overrides the proxy does not apply", async () => {

@@ -160,7 +160,12 @@ function RouteDetailBody({ id }: { id: string }) {
               <CommandAlert title="Could not enable the route" error={confirming === null ? setEnabled.error : undefined} />
               <ConfirmDialog
                 open={confirming === "disable"}
-                onOpenChange={(o) => !o && !setEnabled.loading && setConfirming(null)}
+                onOpenChange={(o) => {
+                  if (o || setEnabled.loading) return
+                  // Closing without success: a failed disable must not resurface as an enable failure.
+                  setEnabled.reset()
+                  setConfirming(null)
+                }}
                 title={`Disable ${d.path}?`}
                 description={
                   <span className="flex flex-col gap-2">
