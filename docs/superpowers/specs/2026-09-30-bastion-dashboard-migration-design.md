@@ -438,6 +438,12 @@ Not fixed by this migration, each worth its own follow-up:
 - Timeout, retry, per-route circuit breaker and cache overrides are stored
   and shown but not applied by the proxy.
 - Two operators editing one route: the last save wins.
+- A stale editor page overwrites newer changes: the form sends every field it
+  holds, so an edit saved from a page opened before another operator disabled
+  the route re-enables it. A version precondition would close this.
+- Headers the form does not show (including a redacted Authorization) follow
+  a target repoint: an operator with write access can send them to a host they
+  choose.
 - The response cache never stores anything: `ResponseCache.Set` has no caller.
 - Retries never happen: `RetryPolicy.ShouldRetry` has no caller.
 - `Target.Healthy` is a plain bool read without a lock by the load balancer.
