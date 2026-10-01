@@ -1,7 +1,9 @@
 import { useState } from "react"
 import type { ComponentType } from "react"
-import { PluginLink, useQuery } from "@forge-go/dashboard-plugin"
+import { PluginLink, useCommand, useQuery } from "@forge-go/dashboard-plugin"
 import type { PluginPageProps } from "@forge-go/dashboard-plugin"
+import { Button, buttonVariants } from "@forge-go/dashboard-kit/components/button"
+import { CommandAlert } from "@forge-go/dashboard-kit/components/query-boundary"
 import { FilterBar } from "@forge-go/dashboard-kit/components/filter-bar"
 import { PageHeader } from "@forge-go/dashboard-kit/components/page-header"
 import { QueryBoundary } from "@forge-go/dashboard-kit/components/query-boundary"
@@ -22,6 +24,14 @@ const PROTOCOL_OPTIONS = [
   { label: "All", value: "" },
   ...["http", "websocket", "sse", "grpc", "graphql"].map((p) => ({ label: p, value: p })),
 ]
+
+function NewRouteLink() {
+  return (
+    <PluginLink to="/new-route" className={buttonVariants()}>
+      New route
+    </PluginLink>
+  )
+}
 
 /** Methods as tags, or "Any": an empty list means the route matches every method. */
 export function Methods({ methods }: { methods: string[] }) {
@@ -55,9 +65,36 @@ export const BastionRoutesPage: ComponentType<PluginPageProps> = () => {
     ...(protocol === "" ? {} : { protocol }),
   })
 
+  const refresh = useCommand<{ ok: boolean }>("discovery.refresh")
+  const [refreshed, setRefreshed] = useState(false)
+
+  async function refreshDiscovery() {
+    setRefreshed(false)
+    const r = await refresh.execute()
+    if (r !== undefined) setRefreshed(true)
+  }
+
+  const refreshError =
+    refresh.error?.code === "CONFLICT" && refresh.error.details?.reason === "discoveryOff"
+      ? { code: refresh.error.code, message: "Discovery is switched off in the gateway config, so there is nothing to refresh." }
+      : refresh.error
+
   return (
     <section className="flex flex-col gap-4">
-      <PageHeader title="Routes" description="Every route in match order: manual routes from config or this dashboard, and routes discovery found." />
+      <PageHeader
+        title="Routes"
+        description="Every route in match order: manual routes from config or this dashboard, and routes discovery found."
+        actions={
+          <div className="flex gap-2">
+            <Button variant="outline" disabled={refresh.loading} onClick={() => void refreshDiscovery()}>
+              {refresh.loading ? "Refreshing…" : "Refresh discovery"}
+            </Button>
+            <NewRouteLink />
+          </div>
+        }
+      />
+      <CommandAlert title="Could not refresh discovery" error={refreshError} />
+      {refreshed ? <p role="status" className="text-sm text-muted-foreground">Discovery refreshed.</p> : null}
       <FilterBar
         filters={[
           { id: "source", label: "Source", value: source, options: SOURCE_OPTIONS, onChange: setSource },
@@ -74,8 +111,9 @@ export const BastionRoutesPage: ComponentType<PluginPageProps> = () => {
             emptyMessage={
               filtered
                 ? "No routes match these filters."
-                : "No routes. Add one in config, or let discovery find your services."
+                : "No routes. Create one, or let discovery find your services."
             }
+            emptyAction={filtered ? undefined : <NewRouteLink />}
           />
         )}
       </QueryBoundary>
