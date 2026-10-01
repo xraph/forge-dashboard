@@ -26,6 +26,9 @@ function seed() {
   })
   return {
     tick: 0,
+    nextId: 1,
+    lastRefresh: "2026-09-30T09:00:00Z",
+    discoveredAt: { billing: "2026-09-30T08:01:00Z", search: "2026-09-30T08:01:05Z" },
     routes: [
       route({
         id: ORDERS, path: "/gw/orders", methods: ["GET", "POST"], source: "manual", priority: 105,
@@ -124,6 +127,57 @@ function upstreams() {
  * @param {new (status: number, code: string, message: string, details?: unknown) => Error} FixtureError
  */
 export function createBastionHandlers(FixtureError) {
+  const bad = (field, message) => new FixtureError(400, "BAD_REQUEST", message, { field })
+  const conflict = (message, details) => new FixtureError(409, "CONFLICT", message, details)
+  const notFound = (message) => new FixtureError(404, "NOT_FOUND", message)
+  const SCHEMES = new Set(["http:", "https:", "ws:", "wss:"])
+  const ROUTE_WRITE = ["routes.list", "routes.detail", "upstreams.list", "overview.stats", "traffic.stats", "circuits.list"]
+
+  function requireId(raw) {
+    const id = typeof raw === "string" ? raw.trim() : ""
+    if (!id) throw new FixtureError(400, "BAD_REQUEST", "id is required")
+    return id
+  }
+  function find(id) {
+    const r = bastion.routes.find((x) => x.id === id)
+    if (!r) throw notFound("route not found")
+    return r
+  }
+  function manual(id) {
+    const r = find(id)
+    if (r.source !== "manual") {
+      throw conflict(`route "${id}" comes from ${r.source}; its next update would undo any change made here`, { reason: "source", source: r.source })
+    }
+    return r
+  }
+  function validate(f) {
+    if (typeof f.path !== "string" || !f.path.startsWith("/")) throw bad("path", "must start with /")
+    if (!Array.isArray(f.targets) || f.targets.length === 0) throw bad("targets", "at least one upstream is required")
+    const seen = new Set()
+    f.targets.forEach((t, i) => {
+      let u
+      try { u = new URL(t.url) } catch { u = null }
+      if (!u || !u.host || !SCHEMES.has(u.protocol)) throw bad("targets", `upstream ${i + 1}: "${t.url}" is not an http, https, ws or wss URL`)
+      if (seen.has(t.url)) throw bad("targets", `upstream ${i + 1}: ${t.url} is listed twice`)
+      seen.add(t.url)
+      if (t.weight < 0) throw bad("targets", `upstream ${i + 1}: weight cannot be negative`)
+    })
+  }
+  const overlap = (a, b) => a.length === 0 || b.length === 0 || a.some((m) => b.some((x) => x.toUpperCase() === m.toUpperCase()))
+  function checkConflict(id, fullPath, methods) {
+    const other = bastion.routes.find((r) => r.id !== id && r.source === "manual" && r.path === fullPath && overlap(r.methods, methods))
+    if (other) throw conflict(`route "${other.id}" already serves ${fullPath} for an overlapping method`, { reason: "duplicate", routeId: other.id })
+  }
+  function targetsFor(id, inputs, prior = []) {
+    return inputs.map((t, i) => {
+      const kept = prior.find((p) => p.url === t.url)
+      return {
+        ...(kept ?? { id: `${id}/${i}`, healthy: true, circuitState: "closed", stats: { activeConns: 0, totalRequests: 0, totalErrors: 0, avgLatencyMs: 0 }, tls: false, metadataKeys: [] }),
+        url: t.url, weight: t.weight || 1, tags: t.tags ?? [],
+      }
+    })
+  }
+
   return {
     "overview.stats": {
       kind: "query",
@@ -224,8 +278,8 @@ export function createBastionHandlers(FixtureError) {
       kind: "query",
       handler: () => {
         const services = [
-          { name: "billing", version: "2.4.1", address: "10.0.4.12", port: 9000, protocols: ["http"], healthy: false, routeCount: 1, discoveredAt: "2026-09-30T08:01:00Z", metadataKeys: ["team"] },
-          { name: "search", version: "1.0.0", address: "10.0.4.20", port: 50051, protocols: ["grpc"], healthy: true, routeCount: 1, discoveredAt: "2026-09-30T08:01:05Z", metadataKeys: [] },
+          { name: "billing", version: "2.4.1", address: "10.0.4.12", port: 9000, protocols: ["http"], healthy: false, routeCount: 1, discoveredAt: bastion.discoveredAt.billing, metadataKeys: ["team"] },
+          { name: "search", version: "1.0.0", address: "10.0.4.20", port: 50051, protocols: ["grpc"], healthy: true, routeCount: 1, discoveredAt: bastion.discoveredAt.search, metadataKeys: [] },
         ]
         return { discoveryEnabled: true, services, total: services.length }
       },
@@ -237,7 +291,7 @@ export function createBastionHandlers(FixtureError) {
           { serviceName: "billing", version: "2.4.1", specUrl: "http://billing:9000/openapi.json", healthy: false, pathCount: 0, error: "GET http://billing:9000/openapi.json: connection refused", fetchedAt: "2026-09-30T09:00:00Z" },
           { serviceName: "orders", version: "3.1.0", specUrl: "http://orders-a:8080/openapi.json", healthy: true, pathCount: 14, fetchedAt: "2026-09-30T09:00:00Z" },
         ]
-        return { enabled: true, running: true, specPath: "/gateway/openapi.json", lastRefresh: "2026-09-30T09:00:00Z", totalPaths: 14, services, total: services.length }
+        return { enabled: true, running: true, specPath: "/gateway/openapi.json", lastRefresh: bastion.lastRefresh, totalPaths: 14, services, total: services.length }
       },
     },
     "config.detail": {
@@ -253,6 +307,119 @@ export function createBastionHandlers(FixtureError) {
           { id: "timeouts", title: "Timeouts", enabled: null, settings: [{ key: "Connect", value: "5s" }, { key: "Read", value: "30s" }] },
         ],
       }),
+    },
+    // Commands come after the queries, in this order: verify.mjs walks the
+    // table, and routes.delete removes what routes.create made.
+    "routes.create": {
+      kind: "command",
+      invalidates: ROUTE_WRITE,
+      handler: (f) => {
+        f = f ?? {}
+        validate(f)
+        const methods = (f.methods ?? []).map((m) => m.toUpperCase())
+        const fullPath = "/gw" + f.path
+        checkConflict("", fullPath, methods)
+        const id = `00000000-0000-4000-8000-${String(bastion.nextId++).padStart(12, "0")}`
+        const now = new Date().toISOString()
+        const priority = f.priority ?? 0
+        const route = {
+          id, path: fullPath, methods, protocol: f.protocol || "http", serviceName: "", source: "manual",
+          priority: priority + 100, enabled: Boolean(f.enabled), editable: true, config: false,
+          input: { path: f.path, priority },
+          stripPrefix: Boolean(f.stripPrefix), addPrefix: f.addPrefix ?? "", rewritePath: f.rewritePath ?? "",
+          headers: {}, metadataKeys: [], version: 1, createdAt: now, updatedAt: now,
+          targets: targetsFor(id, f.targets),
+        }
+        if (f.rateLimit != null) route.rateLimit = f.rateLimit
+        if (f.auth != null) route.auth = f.auth
+        bastion.routes.push(route)
+        return { id }
+      },
+    },
+    "routes.update": {
+      kind: "command",
+      invalidates: ROUTE_WRITE,
+      handler: (f) => {
+        f = f ?? {}
+        const id = requireId(f.id)
+        const r = manual(id)
+        const next = {
+          path: f.path ?? r.input?.path ?? r.path.replace(/^\/gw/, ""),
+          priority: f.priority ?? r.input?.priority ?? r.priority - 100,
+          methods: f.methods ? f.methods.map((m) => m.toUpperCase()) : r.methods,
+          targets: f.targets ?? r.targets,
+        }
+        validate(next)
+        checkConflict(id, "/gw" + next.path, next.methods)
+        r.path = "/gw" + next.path
+        r.priority = next.priority + 100
+        r.input = { path: next.path, priority: next.priority }
+        r.methods = next.methods
+        if (f.targets) r.targets = targetsFor(id, f.targets, r.targets)
+        for (const k of ["enabled", "protocol", "stripPrefix", "addPrefix", "rewritePath"]) {
+          if (f[k] !== undefined) r[k] = f[k]
+        }
+        for (const k of ["rateLimit", "auth"]) {
+          if (f[k] === undefined) continue
+          if (f[k] === null) delete r[k]
+          else r[k] = f[k]
+        }
+        r.version += 1
+        r.updatedAt = new Date().toISOString()
+        return { id }
+      },
+    },
+    "routes.setEnabled": {
+      kind: "command",
+      invalidates: ["routes.list", "routes.detail", "overview.stats"],
+      handler: (f) => {
+        const id = requireId(f?.id)
+        if (typeof f.enabled !== "boolean") throw bad("enabled", "enabled is required")
+        const r = manual(id)
+        r.enabled = f.enabled
+        r.updatedAt = new Date().toISOString()
+        // The fixture has no route store, so nothing outlives a restart.
+        return { id, enabled: f.enabled, durable: false }
+      },
+    },
+    "routes.delete": {
+      kind: "command",
+      invalidates: ROUTE_WRITE,
+      handler: (f) => {
+        const id = requireId(f?.id)
+        manual(id)
+        bastion.routes = bastion.routes.filter((r) => r.id !== id)
+        return { ok: true, id }
+      },
+    },
+    "discovery.refresh": {
+      kind: "command",
+      invalidates: ["services.list", "routes.list", "routes.detail", "upstreams.list", "overview.stats", "openapi.summary"],
+      handler: () => {
+        const now = new Date().toISOString()
+        for (const name of Object.keys(bastion.discoveredAt)) bastion.discoveredAt[name] = now
+        return { ok: true }
+      },
+    },
+    "openapi.refresh": {
+      kind: "command",
+      invalidates: ["openapi.summary"],
+      handler: () => {
+        bastion.lastRefresh = new Date().toISOString()
+        return { started: true }
+      },
+    },
+    "circuits.reset": {
+      kind: "command",
+      invalidates: ["circuits.list", "upstreams.list", "routes.detail", "overview.stats"],
+      handler: (f) => {
+        const targetId = typeof f?.targetId === "string" ? f.targetId.trim() : ""
+        if (!targetId) throw bad("targetId", "targetId is required")
+        const target = bastion.routes.flatMap((r) => r.targets).find((t) => t.id === targetId)
+        if (!target) throw notFound("this target has no circuit breaker yet; it gets one on its first proxied request")
+        target.circuitState = "closed"
+        return { targetId, state: "closed" }
+      },
     },
   }
 }

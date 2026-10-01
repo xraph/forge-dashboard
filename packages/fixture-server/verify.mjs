@@ -211,6 +211,11 @@ const INPUT = {
   // seeded key the tenant has no override for.
   "vault::config.detail": { key: "limits.api-rate" },
   "bastion::routes.detail": { id: "manual-/users" },
+  "bastion::routes.create": { path: "/verify", methods: ["GET"], priority: 1, enabled: true, protocol: "http", targets: [{ url: "http://verify:8080", weight: 1 }], rateLimit: null, auth: null },
+  "bastion::routes.update": { id: "00000000-0000-4000-8000-000000000001", priority: 2 },
+  "bastion::routes.setEnabled": { id: "00000000-0000-4000-8000-000000000001", enabled: false },
+  "bastion::routes.delete": { id: "00000000-0000-4000-8000-000000000001" },
+  "bastion::circuits.reset": { targetId: "9b2f6c1e-4d3a-4f7b-8c21-5e0a7d9f1b36/1" },
   "vault::config.versions": { key: "limits.api-rate" },
   "vault::config.resolve": { key: "limits.api-rate", tenantId: "acme" },
   "vault::overrides.list": { tenantId: "acme" },
@@ -1860,6 +1865,15 @@ async function main() {
     const first = (await call("overview.stats", {})).body?.data?.totalRequests
     const second = (await call("overview.stats", {})).body?.data?.totalRequests
     check("overview counters advance between reads", second > first, `${first} then ${second}`)
+    const cmd = (intent, input) => dispatch("bastion", intent, "command", input, csrf)
+    const farp = await cmd("routes.update", { id: "farp-billing-http", priority: 1 })
+    check("discovered route edit is CONFLICT source", farp.body?.error?.code === "CONFLICT" && farp.body?.error?.details?.reason === "source", JSON.stringify(farp.body))
+    const dup = await cmd("routes.create", { path: "/users", methods: [], targets: [{ url: "http://users:8080", weight: 1 }] })
+    check("duplicate path is CONFLICT duplicate", dup.body?.error?.details?.reason === "duplicate", JSON.stringify(dup.body))
+    const noTargets = await cmd("routes.create", { path: "/empty", methods: [], targets: [] })
+    check("no upstream is BAD_REQUEST on targets", noTargets.body?.error?.details?.field === "targets", JSON.stringify(noTargets.body))
+    const toggled = await cmd("routes.setEnabled", { id: "manual-/users", enabled: false })
+    check("setEnabled answers durable false", toggled.body?.data?.durable === false, JSON.stringify(toggled.body))
   }
 
   // ledger catalog: writes visible in the next read, the manifest's
