@@ -31,8 +31,9 @@ export interface RouteFormValues {
   addPrefix: string
   rewritePath: string
   targets: TargetRow[]
-  rateLimit: { on: boolean; requestsPerSec: string; burst: string; perClient: boolean; keyHeader: string }
-  auth: { on: boolean; providers: string; scopes: string; skipAuth: boolean; forwardAuth: boolean }
+  /** `present` means the route already carries an override, so unticking it sends it back disabled, not removed. */
+  rateLimit: { on: boolean; present: boolean; requestsPerSec: string; burst: string; perClient: boolean; keyHeader: string }
+  auth: { on: boolean; present: boolean; providers: string; scopes: string; skipAuth: boolean; forwardAuth: boolean }
 }
 
 export const EMPTY_ROUTE: RouteFormValues = {
@@ -45,8 +46,8 @@ export const EMPTY_ROUTE: RouteFormValues = {
   addPrefix: "",
   rewritePath: "",
   targets: [{ url: "", weight: "", tags: "" }],
-  rateLimit: { on: false, requestsPerSec: "", burst: "", perClient: false, keyHeader: "" },
-  auth: { on: false, providers: "", scopes: "", skipAuth: false, forwardAuth: false },
+  rateLimit: { on: false, present: false, requestsPerSec: "", burst: "", perClient: false, keyHeader: "" },
+  auth: { on: false, present: false, providers: "", scopes: "", skipAuth: false, forwardAuth: false },
 }
 
 const list = (s: string) => s.split(",").map((x) => x.trim()).filter((x) => x !== "")
@@ -73,10 +74,10 @@ export function valuesFromDetail(d: RouteDetail): RouteFormValues {
     // A masked URL goes back as shown. The server maps it to the stored one.
     targets: d.targets.map((t) => ({ url: t.url, weight: String(t.weight), tags: t.tags.join(", ") })),
     rateLimit: rl
-      ? { on: true, requestsPerSec: String(rl.requestsPerSec), burst: String(rl.burst), perClient: rl.perClient, keyHeader: rl.keyHeader ?? "" }
+      ? { on: !!rl.enabled, present: true, requestsPerSec: String(rl.requestsPerSec), burst: String(rl.burst), perClient: rl.perClient, keyHeader: rl.keyHeader ?? "" }
       : EMPTY_ROUTE.rateLimit,
     auth: auth
-      ? { on: true, providers: (auth.providers ?? []).join(", "), scopes: (auth.scopes ?? []).join(", "), skipAuth: !!auth.skipAuth, forwardAuth: !!auth.forwardAuth }
+      ? { on: !!auth.enabled, present: true, providers: (auth.providers ?? []).join(", "), scopes: (auth.scopes ?? []).join(", "), skipAuth: !!auth.skipAuth, forwardAuth: !!auth.forwardAuth }
       : EMPTY_ROUTE.auth,
   }
 }
@@ -94,20 +95,25 @@ export function fieldsFromValues(v: RouteFormValues): RouteFields {
     targets: v.targets
       .filter((t) => t.url.trim() !== "")
       .map((t) => ({ url: t.url.trim(), weight: num(t.weight, 1), tags: list(t.tags) })),
-    rateLimit: v.rateLimit.on
-      ? {
-          enabled: true,
-          requestsPerSec: num(v.rateLimit.requestsPerSec, 0),
-          burst: num(v.rateLimit.burst, 0),
-          perClient: v.rateLimit.perClient,
-          ...(v.rateLimit.keyHeader.trim() ? { keyHeader: v.rateLimit.keyHeader.trim() } : {}),
-        }
-      : null,
-    auth: v.auth.on
-      ? { enabled: true, providers: list(v.auth.providers), scopes: list(v.auth.scopes), skipAuth: v.auth.skipAuth, forwardAuth: v.auth.forwardAuth }
-      : null,
+    rateLimit:
+      v.rateLimit.on || v.rateLimit.present
+        ? {
+            enabled: v.rateLimit.on,
+            requestsPerSec: num(v.rateLimit.requestsPerSec, 0),
+            burst: num(v.rateLimit.burst, 0),
+            perClient: v.rateLimit.perClient,
+            ...(v.rateLimit.keyHeader.trim() ? { keyHeader: v.rateLimit.keyHeader.trim() } : {}),
+          }
+        : null,
+    auth:
+      v.auth.on || v.auth.present
+        ? { enabled: v.auth.on, providers: list(v.auth.providers), scopes: list(v.auth.scopes), skipAuth: v.auth.skipAuth, forwardAuth: v.auth.forwardAuth }
+        : null,
   }
 }
+
+/** Fields the form renders an error beside. */
+const INLINE_FIELDS = ["path", "methods", "protocol", "targets", "rateLimit", "auth"]
 
 export interface RouteFormProps {
   initial: RouteFormValues
@@ -129,8 +135,8 @@ export interface RouteFormProps {
 function CheckField({ id, label, checked, onChange, className }: { id: string; label: string; checked: boolean; onChange: (on: boolean) => void; className?: string }) {
   return (
     <div className={`flex items-center gap-2 ${className ?? ""}`}>
-      <Checkbox id={id} aria-label={label} checked={checked} onCheckedChange={(on) => onChange(on === true)} />
-      <span aria-hidden="true" className="cursor-default select-none text-sm" onClick={() => onChange(!checked)}>{label}</span>
+      <Checkbox id={id} aria-labelledby={`${id}-label`} checked={checked} onCheckedChange={(on) => onChange(on === true)} />
+      <span id={`${id}-label`} className="cursor-default select-none text-sm" onClick={() => onChange(!checked)}>{label}</span>
     </div>
   )
 }
@@ -147,7 +153,9 @@ function FieldError({ show, error }: { show: boolean; error?: ContractError }) {
 export function RouteForm({ initial, submitLabel, pendingLabel, pending, error, errorTitle, cancelTo, onSubmit }: RouteFormProps) {
   const [v, setV] = useState<RouteFormValues>(initial)
   const set = <K extends keyof RouteFormValues>(k: K, value: RouteFormValues[K]) => setV((prev) => ({ ...prev, [k]: value }))
-  const field = error?.code === "BAD_REQUEST" ? (error.details?.field as string | undefined) : undefined
+  const named = error?.code === "BAD_REQUEST" ? (error.details?.field as string | undefined) : undefined
+  // Only a field with an inline slot suppresses the alert; any other shows it.
+  const field = named !== undefined && INLINE_FIELDS.includes(named) ? named : undefined
   const reason = error?.code === "CONFLICT" ? (error.details?.reason as string | undefined) : undefined
   const clashId = reason === "duplicate" ? (error?.details?.routeId as string | undefined) : undefined
 

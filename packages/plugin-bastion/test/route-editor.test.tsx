@@ -63,6 +63,15 @@ describe("BastionRouteCreatePage", () => {
     expect(within(upstreams).getByRole("alert").textContent).toMatch(/not an http/)
   })
 
+  it("shows a validation error whose field has no inline slot", async () => {
+    renderWith(BastionRouteCreatePage, failingCommandClient(new ContractError("BAD_REQUEST", "priority must be below 1000", { field: "priority" })))
+    fireEvent.change(screen.getByLabelText("Path"), { target: { value: "/x" } })
+    fireEvent.change(screen.getByLabelText("Upstream 1 URL"), { target: { value: "http://u:1" } })
+    fireEvent.click(screen.getByRole("button", { name: "Create route" }))
+
+    await screen.findByText(/priority must be below 1000/)
+  })
+
   it("links to the route a duplicate clashes with", async () => {
     renderWith(BastionRouteCreatePage, failingCommandClient(new ContractError("CONFLICT", "route \"manual-/users\" already serves /gw/users", { reason: "duplicate", routeId: "manual-/users" })))
     fireEvent.change(screen.getByLabelText("Path"), { target: { value: "/users" } })

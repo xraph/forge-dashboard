@@ -31,6 +31,20 @@ describe("route form values", () => {
     })
   })
 
+  it("keeps a disabled rate limit off and sends it back disabled with its numbers", () => {
+    const d: RouteDetail = { ...DETAIL, rateLimit: { enabled: false, requestsPerSec: 5, burst: 10, perClient: true } }
+    const v = valuesFromDetail(d)
+    expect(v.rateLimit.on).toBe(false)
+    expect(fieldsFromValues(v).rateLimit).toEqual({ enabled: false, requestsPerSec: 5, burst: 10, perClient: true })
+  })
+
+  it("keeps a disabled auth override off and sends it back disabled with its lists", () => {
+    const d: RouteDetail = { ...DETAIL, auth: { enabled: false, providers: ["jwt"], scopes: ["read"], skipAuth: true, forwardAuth: false } }
+    const v = valuesFromDetail(d)
+    expect(v.auth.on).toBe(false)
+    expect(fieldsFromValues(v).auth).toEqual({ enabled: false, providers: ["jwt"], scopes: ["read"], skipAuth: true, forwardAuth: false })
+  })
+
   it("drops blank upstream rows, splits tags, and sends null for an unticked override", () => {
     const f = fieldsFromValues({
       ...EMPTY_ROUTE,
