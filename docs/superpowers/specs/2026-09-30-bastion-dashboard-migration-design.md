@@ -343,13 +343,23 @@ circuits" would read as good news.
 
 ### The route editor
 
-Manual routes only. A form over the route fields with the overrides (retry,
-timeout, rate limit, auth, circuit breaker, cache) in collapsed sections,
-targets as a repeating group with URL, weight and tags. Traffic policies and
-transforms are shown on detail but not edited in this migration; they are
-listed in `MIGRATION.md` as read-only in the new dashboard. Priority and path
-are shown and edited as the operator entered them, and the form says the
-manual offset exists.
+Manual routes only, at `/new-route` and `/routes/:id/edit`. A form over
+path, methods, protocol, priority, upstreams (URL, weight, tags),
+rewriting, rate limit, auth and enabled. Path and priority are shown and
+edited as the operator entered them, and the form says the manual offset
+exists.
+
+The editor offers only the overrides the proxy applies: rate limit and
+auth. Timeout is never read on the proxy path, retry never runs, the
+per-route breaker override is never used and the cache never stores, so
+those are kept as stored on every save and marked "Not applied" on the
+detail page. Headers, transforms, traffic policy and metadata are kept
+as stored too; an edit sends only the fields the form holds, and the
+contract merges them over the stored route with `Entry`. A rate limit or
+auth override stored as disabled stays disabled when the route is saved.
+
+A target URL the page shows has its password masked. An edit that sends
+a masked URL back keeps the stored one.
 
 No editor library is needed. Nothing here has a text form.
 
@@ -423,6 +433,11 @@ decision. Its doc comments get corrected to say what it actually gates.
 
 Not fixed by this migration, each worth its own follow-up:
 
+- Dashboard writes leave one Info log line each (intent, subject,
+  operator) and no audit record: bastion's audit sink is never written.
+- Timeout, retry, per-route circuit breaker and cache overrides are stored
+  and shown but not applied by the proxy.
+- Two operators editing one route: the last save wins.
 - The response cache never stores anything: `ResponseCache.Set` has no caller.
 - Retries never happen: `RetryPolicy.ShouldRetry` has no caller.
 - `Target.Healthy` is a plain bool read without a lock by the load balancer.
