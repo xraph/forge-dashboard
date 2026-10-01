@@ -1,17 +1,21 @@
+import { useState } from "react"
 import type { ComponentType, ReactNode } from "react"
-import { useQuery } from "@forge-go/dashboard-plugin"
+import { PluginLink, useCommand, useNavigateTo, useQuery } from "@forge-go/dashboard-plugin"
 import type { PluginPageProps } from "@forge-go/dashboard-plugin"
 import { Badge } from "@forge-go/dashboard-kit/components/badge"
+import { Button, buttonVariants } from "@forge-go/dashboard-kit/components/button"
+import { ConfirmDialog } from "@forge-go/dashboard-kit/components/confirm-dialog"
 import { DescriptionList } from "@forge-go/dashboard-kit/components/detail-layout"
 import { NoneCell } from "@forge-go/dashboard-kit/components/none-cell"
 import { PageHeader } from "@forge-go/dashboard-kit/components/page-header"
-import { QueryBoundary } from "@forge-go/dashboard-kit/components/query-boundary"
+import { CommandAlert, QueryBoundary } from "@forge-go/dashboard-kit/components/query-boundary"
 import { ResourceTable, type Column } from "@forge-go/dashboard-kit/components/resource-table"
 import { TagList } from "@forge-go/dashboard-kit/components/tag-list"
 import { Timestamp } from "@forge-go/dashboard-kit/components/timestamp"
 import { CircuitBadge, EnabledBadge, HealthBadge, ProtocolBadge, SourceBadge } from "../badges"
 import { formatCount, formatMs } from "../format"
-import type { HeaderPolicy, RouteDetail, TargetView } from "../types"
+import { routeEditPath } from "../keys"
+import type { HeaderPolicy, RouteDetail, SetEnabledResponse, TargetView } from "../types"
 import { Methods } from "./routes"
 
 const REDACTED = "[redacted]"
@@ -72,6 +76,8 @@ const targetColumns: Column<TargetView>[] = [
 ]
 
 const OVERRIDES = ["retry", "timeout", "rateLimit", "auth", "circuitBreaker", "cache", "trafficPolicy"] as const
+// Stored on the route, but the gateway's proxy never reads them.
+const NOT_APPLIED = new Set<string>(["retry", "timeout", "circuitBreaker", "cache"])
 
 function mono(v: string, none: string): ReactNode {
   return v ? <span className="font-mono text-xs">{v}</span> : <NoneCell label={none} />
@@ -91,6 +97,38 @@ export const BastionRouteDetailPage: ComponentType<PluginPageProps> = ({ params 
 
 function RouteDetailBody({ id }: { id: string }) {
   const query = useQuery<RouteDetail>("routes.detail", { id })
+  const setEnabled = useCommand<SetEnabledResponse>("routes.setEnabled")
+  const remove = useCommand<{ ok: boolean; id: string }>("routes.delete")
+  const navigateTo = useNavigateTo()
+  const [confirming, setConfirming] = useState<"disable" | "delete" | null>(null)
+  const [notice, setNotice] = useState<string | null>(null)
+
+  async function toggle(d: RouteDetail, enabled: boolean) {
+    setNotice(null)
+    const r = await setEnabled.execute({ id, enabled })
+    if (r === undefined) return
+    setConfirming(null)
+    if (!r.durable) {
+      setNotice(
+        d.config
+          ? "Saved. The route comes from the config file, so this change lasts until the gateway restarts."
+          : "Saved. The gateway has no route store, so this change lasts until it restarts.",
+      )
+    }
+  }
+
+  async function confirmDelete() {
+    const r = await remove.execute({ id })
+    if (r === undefined) return
+    navigateTo("/routes")
+  }
+
+  function open(which: "disable" | "delete") {
+    // Reset at open: an error from an earlier attempt must not greet the operator.
+    if (which === "disable") setEnabled.reset()
+    else remove.reset()
+    setConfirming(which)
+  }
 
   return (
     <section className="flex flex-col gap-6">
@@ -104,6 +142,51 @@ function RouteDetailBody({ id }: { id: string }) {
               <PageHeader
                 title={d.path}
                 description={`Served by ${d.targets.length} ${d.targets.length === 1 ? "upstream" : "upstreams"}.`}
+                actions={
+                  d.editable ? (
+                    <div className="flex gap-2">
+                      <PluginLink to={routeEditPath(d.id)} className={buttonVariants({ variant: "outline" })}>Edit</PluginLink>
+                      {d.enabled ? (
+                        <Button variant="outline" onClick={() => open("disable")}>Disable</Button>
+                      ) : (
+                        <Button variant="outline" disabled={setEnabled.loading} onClick={() => void toggle(d, true)}>Enable</Button>
+                      )}
+                      <Button variant="destructive" onClick={() => open("delete")}>Delete</Button>
+                    </div>
+                  ) : undefined
+                }
+              />
+              {notice && <p role="status" className="text-sm text-muted-foreground">{notice}</p>}
+              <CommandAlert title="Could not enable the route" error={confirming === null ? setEnabled.error : undefined} />
+              <ConfirmDialog
+                open={confirming === "disable"}
+                onOpenChange={(o) => !o && !setEnabled.loading && setConfirming(null)}
+                title={`Disable ${d.path}?`}
+                description={
+                  <span className="flex flex-col gap-2">
+                    <span>A disabled route stops matching. Requests fall through to the next matching route, or get a 404.</span>
+                    <CommandAlert error={setEnabled.error} title="Could not disable the route" />
+                  </span>
+                }
+                confirmLabel="Disable"
+                destructive={false}
+                pending={setEnabled.loading}
+                onConfirm={() => void toggle(d, false)}
+              />
+              <ConfirmDialog
+                open={confirming === "delete"}
+                onOpenChange={(o) => !o && !remove.loading && setConfirming(null)}
+                title={`Delete ${d.path}?`}
+                description={
+                  <span className="flex flex-col gap-2">
+                    <span>Requests to this path stop reaching its upstreams. This cannot be undone from the dashboard.</span>
+                    <CommandAlert error={remove.error} title="Could not delete the route" />
+                  </span>
+                }
+                confirmLabel="Delete"
+                destructive
+                pending={remove.loading}
+                onConfirm={() => void confirmDelete()}
               />
               {d.config && (
                 <p className="text-sm text-muted-foreground">
@@ -171,12 +254,24 @@ function RouteDetailBody({ id }: { id: string }) {
                 {overrides.length === 0 ? (
                   <NoneCell label="overrides" />
                 ) : (
-                  <DescriptionList
-                    items={overrides.map((k) => ({
-                      term: k,
-                      value: <span className="font-mono text-xs">{JSON.stringify(d[k])}</span>,
-                    }))}
-                  />
+                  <>
+                    <DescriptionList
+                      items={overrides.map((k) => ({
+                        term: k,
+                        value: (
+                          <span className="flex items-center gap-2">
+                            <span className="font-mono text-xs">{JSON.stringify(d[k])}</span>
+                            {NOT_APPLIED.has(k) ? <Badge variant="secondary">Not applied</Badge> : null}
+                          </span>
+                        ),
+                      }))}
+                    />
+                    {overrides.some((k) => NOT_APPLIED.has(k)) && (
+                      <p className="text-sm text-muted-foreground">
+                        Bastion stores these overrides but its proxy does not apply them today.
+                      </p>
+                    )}
+                  </>
                 )}
               </section>
             </>
