@@ -27,7 +27,7 @@ describe("bastionPlugin", () => {
 
   it("routes / to the overview and lists the slice 2 pages", () => {
     const paths = bastionPlugin.routes.map((r) => r.path)
-    expect(paths).toEqual(["/", "/routes", "/routes/:id", "/upstreams"])
+    expect(paths).toEqual(["/", "/routes", "/new-route", "/routes/:id", "/routes/:id/edit", "/upstreams"])
     expect(bastionPlugin.routes[0]?.element).toBe(BastionOverviewPage)
   })
 

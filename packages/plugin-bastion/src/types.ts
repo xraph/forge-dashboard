@@ -53,6 +53,53 @@ export interface HeaderPolicy {
   remove?: string[]
 }
 
+export interface TargetInput {
+  url: string
+  weight: number
+  tags?: string[]
+}
+
+export interface RateLimit {
+  enabled: boolean
+  requestsPerSec: number
+  burst: number
+  perClient: boolean
+  keyHeader?: string
+}
+
+export interface RouteAuth {
+  enabled: boolean
+  providers?: string[]
+  scopes?: string[]
+  skipAuth?: boolean
+  forwardAuth?: boolean
+}
+
+/** What the route editor sends, mirroring the Go RouteFields type. */
+export interface RouteFields {
+  path: string
+  methods: string[]
+  priority: number
+  enabled: boolean
+  protocol: RouteProtocol
+  stripPrefix: boolean
+  addPrefix: string
+  rewritePath: string
+  targets: TargetInput[]
+  rateLimit: RateLimit | null
+  auth: RouteAuth | null
+}
+
+export interface RouteIdResponse {
+  id: string
+}
+
+export interface SetEnabledResponse {
+  id: string
+  enabled: boolean
+  durable: boolean
+}
+
 export interface RouteDetail extends RouteSummary {
   /** Manual routes only: path and priority as the operator entered them. */
   input?: { path: string; priority: number }
@@ -62,8 +109,8 @@ export interface RouteDetail extends RouteSummary {
   headers: HeaderPolicy
   retry?: Record<string, unknown>
   timeout?: Record<string, unknown>
-  rateLimit?: Record<string, unknown>
-  auth?: Record<string, unknown>
+  rateLimit?: RateLimit
+  auth?: RouteAuth
   circuitBreaker?: Record<string, unknown>
   cache?: Record<string, unknown>
   trafficPolicy?: Record<string, unknown>

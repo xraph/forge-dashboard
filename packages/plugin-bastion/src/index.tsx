@@ -1,13 +1,22 @@
 import { definePlugin } from "@forge-go/dashboard-plugin"
 import { HouseIcon, RouteIcon, ServerIcon, ShieldIcon } from "@forge-go/dashboard-kit/icons"
 import { BastionOverviewPage } from "./pages/overview"
+import { BastionRouteCreatePage } from "./pages/route-create"
 import { BastionRouteDetailPage } from "./pages/route-detail"
+import { BastionRouteEditPage } from "./pages/route-edit"
 import { BastionRoutesPage } from "./pages/routes"
 import { BastionUpstreamsPage } from "./pages/upstreams"
 
-export { BastionOverviewPage, BastionRouteDetailPage, BastionRoutesPage, BastionUpstreamsPage }
+export {
+  BastionOverviewPage,
+  BastionRouteCreatePage,
+  BastionRouteDetailPage,
+  BastionRouteEditPage,
+  BastionRoutesPage,
+  BastionUpstreamsPage,
+}
 export { CircuitBadge, EnabledBadge, HealthBadge, ProtocolBadge, SourceBadge } from "./badges"
-export { routePath } from "./keys"
+export { routeEditPath, routePath } from "./keys"
 export type * from "./types"
 
 /**
@@ -31,8 +40,11 @@ export const bastionPlugin = definePlugin({
   routes: [
     { path: "/", element: BastionOverviewPage },
     { path: "/routes", element: BastionRoutesPage },
+    // /new-route, not /routes/new: no route id can shadow it.
+    { path: "/new-route", element: BastionRouteCreatePage },
     // No nav entry: a sidebar link to "a route" with none chosen points nowhere.
     { path: "/routes/:id", element: BastionRouteDetailPage },
+    { path: "/routes/:id/edit", element: BastionRouteEditPage },
     { path: "/upstreams", element: BastionUpstreamsPage },
   ],
 })

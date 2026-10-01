@@ -2,3 +2,7 @@
 export function routePath(id: string): string {
   return `/routes/${encodeURIComponent(id)}`
 }
+
+export function routeEditPath(id: string): string {
+  return `${routePath(id)}/edit`
+}
