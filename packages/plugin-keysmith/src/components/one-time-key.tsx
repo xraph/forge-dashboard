@@ -18,6 +18,9 @@ export interface OneTimeKeyProps {
 
 const COPIED_MS = 2000
 const UNDERLINED = 4
+// Read out by the live region. Neither may ever contain the key.
+const COPY_OK = "Copied to clipboard"
+const COPY_FAILED = "Couldn't copy. The key is selected: press Ctrl+C or Cmd+C."
 
 /**
  * The single place a raw API key is ever shown. The server will not show it
@@ -27,12 +30,21 @@ const UNDERLINED = 4
  * The key is cut by known lengths, never by "_": a custom generator may put
  * underscores anywhere, or nowhere.
  */
-export function OneTimeKey({ rawKey, summary, children, onDone }: OneTimeKeyProps) {
+export function OneTimeKey({
+  rawKey,
+  summary,
+  children,
+  onDone,
+}: OneTimeKeyProps) {
   const [hidden, setHidden] = useState(false)
   const [copied, setCopied] = useState(false)
   const [copyFailed, setCopyFailed] = useState(false)
   const [stored, setStored] = useState(false)
+  const [message, setMessage] = useState("")
+  const [selectRequest, setSelectRequest] = useState(0)
   const timer = useRef<number | undefined>(undefined)
+  const mounted = useRef(false)
+  const keyBox = useRef<HTMLDivElement>(null)
   const checkboxId = useId()
 
   useEffect(() => {
@@ -44,19 +56,46 @@ export function OneTimeKey({ rawKey, summary, children, onDone }: OneTimeKeyProp
     return () => window.removeEventListener("beforeunload", warn)
   }, [])
 
-  useEffect(() => () => window.clearTimeout(timer.current), [])
+  useEffect(() => {
+    mounted.current = true
+    return () => {
+      mounted.current = false
+      window.clearTimeout(timer.current)
+    }
+  }, [])
+
+  // Selecting has to wait for the render that shows the key, or a key that was
+  // hidden would be selected as bullets and the selection would collapse.
+  useEffect(() => {
+    if (selectRequest > 0 && keyBox.current) {
+      window.getSelection()?.selectAllChildren(keyBox.current)
+    }
+  }, [selectRequest])
+
+  function selectKey() {
+    setHidden(false)
+    setSelectRequest((n) => n + 1)
+  }
 
   async function copy() {
+    if (copyFailed) selectKey()
     try {
       await navigator.clipboard.writeText(rawKey)
     } catch {
-      // Clipboard access can be denied or missing. The key stays on screen and
-      // select-all, so the person can still take it by hand.
+      // Clipboard access can be denied or missing. Show the key, select it so
+      // Ctrl+C or Cmd+C works at once, and say so for screen readers.
+      if (!mounted.current) return
+      window.clearTimeout(timer.current)
+      setCopied(false)
       setCopyFailed(true)
+      setMessage(COPY_FAILED)
+      selectKey()
       return
     }
+    if (!mounted.current) return
     setCopyFailed(false)
     setCopied(true)
+    setMessage(COPY_OK)
     window.clearTimeout(timer.current)
     timer.current = window.setTimeout(() => setCopied(false), COPIED_MS)
   }
@@ -77,11 +116,13 @@ export function OneTimeKey({ rawKey, summary, children, onDone }: OneTimeKeyProp
       </div>
 
       <div
+        ref={keyBox}
         data-part="key"
-        className="select-all rounded-md border bg-muted/40 p-3 font-mono text-lg break-all"
+        translate="no"
+        className="rounded-md border bg-muted/40 p-3 font-mono text-lg break-all select-all"
       >
         {hidden ? (
-          "••••"
+          <span aria-hidden="true">••••</span>
         ) : (
           <>
             {head && (
@@ -96,6 +137,7 @@ export function OneTimeKey({ rawKey, summary, children, onDone }: OneTimeKeyProp
           </>
         )}
       </div>
+      {hidden && <span className="sr-only">Key hidden</span>}
 
       <p className="text-sm text-muted-foreground">
         You&apos;ll recognise it later as{" "}
@@ -106,10 +148,19 @@ export function OneTimeKey({ rawKey, summary, children, onDone }: OneTimeKeyProp
         <Button variant="outline" size="sm" onClick={() => void copy()}>
           {copied ? "Copied" : copyFailed ? "Select and copy" : "Copy"}
         </Button>
-        <Button variant="outline" size="sm" onClick={() => setHidden((h) => !h)}>
+        <Button
+          variant="outline"
+          size="sm"
+          aria-pressed={hidden}
+          onClick={() => setHidden((h) => !h)}
+        >
           {hidden ? "Show" : "Hide"}
         </Button>
       </div>
+
+      <span role="status" aria-live="polite" className="sr-only">
+        {message}
+      </span>
 
       {children}
 
@@ -119,7 +170,9 @@ export function OneTimeKey({ rawKey, summary, children, onDone }: OneTimeKeyProp
           checked={stored}
           onCheckedChange={(checked) => setStored(checked === true)}
         />
-        <Label htmlFor={checkboxId}>I&apos;ve stored this key somewhere safe</Label>
+        <Label htmlFor={checkboxId}>
+          I&apos;ve stored this key somewhere safe
+        </Label>
       </div>
 
       <div className="flex justify-end">

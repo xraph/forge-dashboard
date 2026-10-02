@@ -33,12 +33,12 @@ function renderKey(
   rawKey = STANDARD,
   over: Partial<KeySummary> = {},
   onDone = vi.fn(),
-  children?: React.ReactNode,
+  children?: React.ReactNode
 ) {
   const view = render(
     <OneTimeKey rawKey={rawKey} summary={summary(over)} onDone={onDone}>
       {children}
-    </OneTimeKey>,
+    </OneTimeKey>
   )
   return { ...view, onDone }
 }
@@ -72,7 +72,7 @@ describe("OneTimeKey anatomy", () => {
     renderKey()
     expect(screen.getByText("Save your new key")).toBeTruthy()
     expect(
-      screen.getByText("This is the only time Keysmith will show it."),
+      screen.getByText("This is the only time Keysmith will show it.")
     ).toBeTruthy()
   })
 
@@ -166,6 +166,11 @@ describe("OneTimeKey copy", () => {
     errors.mockRestore()
   })
 
+  it("tells browser translation to leave the key alone", () => {
+    const { container } = renderKey()
+    expect(part(container, "key")?.getAttribute("translate")).toBe("no")
+  })
+
   it("keeps the text selectable and offers Select and copy when the clipboard fails", async () => {
     writeText.mockRejectedValue(new Error("denied"))
     const { container } = renderKey()
@@ -191,11 +196,120 @@ describe("OneTimeKey copy", () => {
   })
 })
 
+describe("OneTimeKey copy fallback", () => {
+  const FAILED = "Couldn't copy. The key is selected: press Ctrl+C or Cmd+C."
+
+  function status(): HTMLElement {
+    return screen.getByRole("status")
+  }
+
+  async function clickCopy(name = "Copy") {
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name }))
+    })
+  }
+
+  it("announces success in a polite, visually hidden live region", async () => {
+    renderKey()
+    expect(status().getAttribute("aria-live")).toBe("polite")
+    expect(status().className).toContain("sr-only")
+    expect(status().textContent).toBe("")
+    await clickCopy()
+    expect(status().textContent).toBe("Copied to clipboard")
+    expect(status().textContent).not.toContain(STANDARD)
+  })
+
+  it("announces failure without ever containing the key", async () => {
+    writeText.mockRejectedValue(new Error("denied"))
+    renderKey()
+    await clickCopy()
+    expect(status().textContent).toBe(FAILED)
+    expect(status().textContent).not.toContain(STANDARD)
+    expect(status().textContent).not.toContain("0123456789abcdef")
+  })
+
+  it("selects the key after a failed copy", async () => {
+    writeText.mockRejectedValue(new Error("denied"))
+    renderKey()
+    await clickCopy()
+    expect(window.getSelection()?.toString()).toBe(STANDARD)
+  })
+
+  it("shows a hidden key again and selects it when the copy fails", async () => {
+    writeText.mockRejectedValue(new Error("denied"))
+    const { container } = renderKey()
+    fireEvent.click(screen.getByRole("button", { name: "Hide" }))
+    expect(part(container, "key")?.textContent).toBe("••••")
+    await clickCopy()
+    expect(part(container, "key")?.textContent).toBe(STANDARD)
+    expect(screen.getByRole("button", { name: "Hide" })).toBeTruthy()
+    expect(window.getSelection()?.toString()).toBe(STANDARD)
+  })
+
+  it("selects again when Select and copy is clicked in the failed state", async () => {
+    writeText.mockRejectedValue(new Error("denied"))
+    const { container } = renderKey()
+    await clickCopy()
+    fireEvent.click(screen.getByRole("button", { name: "Hide" }))
+    window.getSelection()?.removeAllRanges()
+    await clickCopy("Select and copy")
+    expect(part(container, "key")?.textContent).toBe(STANDARD)
+    expect(window.getSelection()?.toString()).toBe(STANDARD)
+  })
+
+  it("does not let Copied mask a later failure", async () => {
+    vi.useFakeTimers()
+    renderKey()
+    await clickCopy()
+    expect(screen.getByRole("button", { name: "Copied" })).toBeTruthy()
+    writeText.mockRejectedValue(new Error("denied"))
+    act(() => {
+      vi.advanceTimersByTime(500)
+    })
+    await clickCopy("Copied")
+    expect(screen.getByRole("button", { name: "Select and copy" })).toBeTruthy()
+    expect(screen.queryByRole("button", { name: "Copied" })).toBeNull()
+    expect(status().textContent).toBe(FAILED)
+    // The success timer must not fire later and undo the failure label.
+    act(() => {
+      vi.advanceTimersByTime(2000)
+    })
+    expect(screen.getByRole("button", { name: "Select and copy" })).toBeTruthy()
+  })
+
+  it("starts no timer when a copy resolves after unmount", async () => {
+    vi.useFakeTimers()
+    const errors = vi.spyOn(console, "error").mockImplementation(() => {})
+    let resolve!: () => void
+    writeText.mockReturnValue(
+      new Promise<void>((r) => {
+        resolve = r
+      })
+    )
+    const { unmount } = renderKey()
+    fireEvent.click(screen.getByRole("button", { name: "Copy" }))
+    unmount()
+    await act(async () => {
+      resolve()
+    })
+    expect(vi.getTimerCount()).toBe(0)
+    expect(errors).not.toHaveBeenCalled()
+    errors.mockRestore()
+  })
+})
+
 describe("OneTimeKey hide", () => {
   it("masks the key and keeps the recognisable form visible", () => {
     const { container } = renderKey()
-    fireEvent.click(screen.getByRole("button", { name: "Hide" }))
+    const toggle = screen.getByRole("button", { name: "Hide" })
+    expect(toggle.getAttribute("aria-pressed")).toBe("false")
+    fireEvent.click(toggle)
+    expect(toggle.getAttribute("aria-pressed")).toBe("true")
     expect(container.textContent).not.toContain("0123456789abcdef")
+    expect(screen.getByText("Key hidden").className).toContain("sr-only")
+    expect(
+      part(container, "key")?.querySelector("[aria-hidden='true']")?.textContent
+    ).toBe("••••")
     expect(part(container, "key")?.textContent).toBe("••••")
     expect(screen.getByText("sk_live_…a3f8")).toBeTruthy()
     fireEvent.click(screen.getByRole("button", { name: "Show" }))
@@ -215,13 +329,17 @@ describe("OneTimeKey hide", () => {
 describe("OneTimeKey done", () => {
   it("stays disabled until the acknowledgement is ticked", () => {
     const { onDone } = renderKey()
-    const done = screen.getByRole("button", { name: "Done" }) as HTMLButtonElement
+    const done = screen.getByRole("button", {
+      name: "Done",
+    }) as HTMLButtonElement
     expect(done.disabled).toBe(true)
     fireEvent.click(done)
     expect(onDone).not.toHaveBeenCalled()
 
     fireEvent.click(
-      screen.getByRole("checkbox", { name: "I've stored this key somewhere safe" }),
+      screen.getByRole("checkbox", {
+        name: "I've stored this key somewhere safe",
+      })
     )
     expect(done.disabled).toBe(false)
     fireEvent.click(done)
@@ -236,7 +354,8 @@ describe("OneTimeKey done", () => {
     fireEvent.click(box)
     fireEvent.click(box)
     expect(
-      (screen.getByRole("button", { name: "Done" }) as HTMLButtonElement).disabled,
+      (screen.getByRole("button", { name: "Done" }) as HTMLButtonElement)
+        .disabled
     ).toBe(true)
   })
 })
