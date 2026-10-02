@@ -286,7 +286,7 @@ function seedLedgerState() {
   const acme = sub("sub_acme", "acme", pro, "active", 100, { quantity: { seats: 6 } })
   const globex = sub("sub_globex", "globex", starter, "trialing", 5, { trial_start: ago(5), trial_end: iso(now + 9 * DAY) })
   const initech = sub("sub_initech", "initech", pro, "past_due", 90)
-  const hooli = sub("sub_hooli", "hooli", starter, "paused", 60)
+  const hooli = sub("sub_hooli", "hooli", starter, "paused", 60, { paused_at: ago(12) })
   const umbrella = sub("sub_umbrella", "umbrella", starter, "canceled", 200, { canceled_at: ago(40), cancel_at: ago(40) })
   sub("sub_wayne", "wayne", starter, "active", 30, { cancel_at: iso(periodEnd) })
 
