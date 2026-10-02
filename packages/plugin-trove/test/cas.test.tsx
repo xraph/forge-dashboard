@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest"
-import { fireEvent, screen, waitFor, within } from "@testing-library/react"
+import { act, fireEvent, screen, waitFor, within } from "@testing-library/react"
+import { queryStore } from "@forge-go/dashboard-plugin"
 import { CasPage } from "../src/pages/cas"
 import { recordingCommandClient, recordingQueryClient, renderPage, stubClient } from "./harness"
 
@@ -86,6 +87,27 @@ describe("CasPage", () => {
     expect(within(dialog).getByText(/Blobs the index does not know are never touched/)).toBeTruthy()
     fireEvent.click(within(dialog).getByRole("button", { name: "Run" }))
     await waitFor(() => expect(sent).toEqual([{ intent: "cas.gc", payload: {} }]))
-    expect(await screen.findByText(/Checked 0 index entries, deleted 0, freed 0 B/)).toBeTruthy()
+    expect(await screen.findByText(/Found 0 entries with no references and no pin, deleted 0, freed 0 B/)).toBeTruthy()
+  })
+
+  it("keeps the GC result and the table on screen while the host refetches", async () => {
+    const { client } = recordingCommandClient(
+      { "cas.status": ON, "cas.list": PAGE1, "stores.list": SINGLE },
+      { "cas.gc": { scanned: 1, deleted: 1, freedBytes: 2048, errors: 0 } },
+    )
+    renderPage(CasPage, client)
+    fireEvent.click(await screen.findByRole("button", { name: "Run garbage collection" }))
+    const dialog = await screen.findByRole("alertdialog")
+    fireEvent.click(within(dialog).getByRole("button", { name: "Run" }))
+    expect(await screen.findByText(/Found 1 entry with no references and no pin, deleted 1, freed 2,048 B/)).toBeTruthy()
+
+    // What the host does when cas.gc settles: cas.gc declares invalidates.
+    act(() => queryStore.invalidate("trove", ["cas.list", "cas.status"]))
+
+    expect(screen.getByText(/Found 1 entry with no references and no pin, deleted 1/)).toBeTruthy()
+    expect(screen.getByText(A)).toBeTruthy()
+    await waitFor(() => expect(screen.queryByRole("status", { name: /Loading/ })).toBeNull())
+    expect(screen.getByText(/Found 1 entry with no references and no pin, deleted 1/)).toBeTruthy()
+    expect(screen.getByText(A)).toBeTruthy()
   })
 })

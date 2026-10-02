@@ -1,7 +1,7 @@
 import { useState } from "react"
-import type { ComponentType } from "react"
+import type { ComponentType, ReactNode } from "react"
 import { useCommand, useQuery } from "@forge-go/dashboard-plugin"
-import type { PluginPageProps } from "@forge-go/dashboard-plugin"
+import type { PluginPageProps, QueryState } from "@forge-go/dashboard-plugin"
 import { Button } from "@forge-go/dashboard-kit/components/button"
 import { ConfirmDialog } from "@forge-go/dashboard-kit/components/confirm-dialog"
 import { DescriptionList } from "@forge-go/dashboard-kit/components/detail-layout"
@@ -20,6 +20,37 @@ import type { CasEntry, CasGCResult, CasList, CasStatus } from "../types"
 
 const PAGE_SIZE = 100
 
+/**
+ * QueryBoundary, except that data already on screen stays on screen.
+ *
+ * QueryBoundary checks `loading` first, so a refetch swaps its children for a
+ * skeleton. cas.gc, cas.pin and cas.unpin all declare invalidates, and the
+ * host invalidates before the command resolves, so that swap would unmount
+ * everything below the boundary mid-command: the GC result line, the open
+ * dialog and the page cursor go with it. The store keeps `data` beside
+ * `loading` during a refetch, so render from it when it is there. A failed
+ * refetch drops the data from the store, and then the boundary's own error
+ * card shows.
+ */
+function SettledBoundary<T>({
+  title,
+  query,
+  skeletonRows,
+  children,
+}: {
+  title: string
+  query: QueryState<T>
+  skeletonRows: number
+  children: (data: T) => ReactNode
+}) {
+  if (query.data !== undefined) return <>{children(query.data)}</>
+  return (
+    <QueryBoundary title={title} query={query} skeletonRows={skeletonRows}>
+      {children}
+    </QueryBoundary>
+  )
+}
+
 export const CasPage: ComponentType<PluginPageProps> = () => {
   const store = useActiveStore()
   const status = useQuery<CasStatus>("cas.status", withStore(store, {}))
@@ -31,7 +62,7 @@ export const CasPage: ComponentType<PluginPageProps> = () => {
         description="Content-addressable storage: blobs stored under their hash, with a reference count per hash."
         actions={<StorePicker />}
       />
-      <QueryBoundary title="CAS status" query={status} skeletonRows={3}>
+      <SettledBoundary title="CAS status" query={status} skeletonRows={3}>
         {(data) =>
           data.enabled ? (
             <>
@@ -43,7 +74,7 @@ export const CasPage: ComponentType<PluginPageProps> = () => {
             <EmptyState title="CAS is not enabled on this store." />
           )
         }
-      </QueryBoundary>
+      </SettledBoundary>
     </section>
   )
 }
@@ -123,14 +154,14 @@ function CasEntries({ store }: { store: string }) {
       </div>
       {gcResult ? (
         <p className="text-sm">
-          {`Checked ${gcResult.scanned} index entries, deleted ${gcResult.deleted}, freed ${formatBytes(gcResult.freedBytes)}.`}
+          {`Found ${gcResult.scanned} ${gcResult.scanned === 1 ? "entry" : "entries"} with no references and no pin, deleted ${gcResult.deleted}, freed ${formatBytes(gcResult.freedBytes)}.`}
           {gcResult.errors > 0 ? ` ${gcResult.errors} could not be deleted.` : ""}
         </p>
       ) : null}
       <CommandAlert error={pin.error} title="Could not pin" />
       <CommandAlert error={unpin.error} title="Could not unpin" />
 
-      <QueryBoundary title="CAS entries" query={list} skeletonRows={5}>
+      <SettledBoundary title="CAS entries" query={list} skeletonRows={5}>
         {(data) => (
           <>
             <ResourceTable<CasEntry>
@@ -172,7 +203,7 @@ function CasEntries({ store }: { store: string }) {
             </div>
           </>
         )}
-      </QueryBoundary>
+      </SettledBoundary>
 
       <ConfirmDialog
         open={confirmingGC}
@@ -181,7 +212,7 @@ function CasEntries({ store }: { store: string }) {
         description={
           <span className="flex flex-col gap-2">
             <span>
-              It deletes indexed entries that have no references and are not pinned. Nothing lowers a reference count today, so expect it to delete nothing. Blobs the index does not know are never touched.
+              It deletes the stored blob and index entry of every entry that has no references and is not pinned. Nothing lowers a reference count today, so expect it to delete nothing. Blobs the index does not know are never touched.
             </span>
             <CommandAlert error={gc.error} title="Garbage collection failed" />
           </span>
