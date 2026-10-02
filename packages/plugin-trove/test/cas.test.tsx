@@ -125,7 +125,8 @@ describe("CasPage", () => {
     const dialog = await screen.findByRole("alertdialog")
     expect(within(dialog).getByText(/Blobs the index does not know are never touched/)).toBeTruthy()
     // Deleting is what it does, so the confirm is painted as destructive.
-    expect(within(dialog).getByRole("button", { name: "Run" }).className).toMatch(/destructive/)
+    // The base class mentions destructive for aria-invalid, so pin the variant's own fill.
+    expect(within(dialog).getByRole("button", { name: "Run" }).className.split(" ")).toContain("bg-destructive/10")
     fireEvent.click(within(dialog).getByRole("button", { name: "Run" }))
     await waitFor(() => expect(sent).toEqual([{ intent: "cas.gc", payload: {} }]))
     expect(await screen.findByText(/Found 0 entries with no references and no pin, deleted 0, freed 0 B/)).toBeTruthy()
