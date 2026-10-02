@@ -35,9 +35,11 @@ export type SubscriptionAction = "generate" | "changePlan" | "applyCoupon" | "pa
  * coupon. Generate stays available once a subscription has ended, because an
  * immediate cancel would otherwise strand the final period's overage and seats
  * with no way to invoice them; the engine refuses a second invoice for the same
- * period as a conflict, which the alert shows. It is withheld from a paused
- * subscription, which is not running. Apply coupon is withheld from paused and
- * finished subscriptions: a discount on one that is not running helps nobody.
+ * period as a conflict, which the alert shows. A paused subscription can be
+ * invoiced too: a pause freezes its billing period, so the period that was
+ * running at the pause can only be invoiced before the resume, which starts a
+ * new one. Apply coupon is withheld from paused and finished subscriptions: a
+ * discount on one that is not running helps nobody.
  */
 export function legalActions(status: SubscriptionStatus): SubscriptionAction[] {
   switch (status) {
@@ -47,7 +49,7 @@ export function legalActions(status: SubscriptionStatus): SubscriptionAction[] {
     case "past_due":
       return ["generate", "changePlan", "applyCoupon", "cancel"]
     case "paused":
-      return ["changePlan", "resume", "cancel"]
+      return ["generate", "changePlan", "resume", "cancel"]
     case "canceled":
     case "expired":
       return ["generate"]
@@ -221,6 +223,7 @@ function SubscriptionDetailView({ detail }: { detail: SubscriptionDetail }) {
                   term: "Trial",
                   value: sub.trial_start && sub.trial_end ? formatPeriod(sub.trial_start, sub.trial_end) : <NoneCell label="trial" />,
                 },
+                ...(sub.paused_at ? [{ term: "Paused since", value: <Timestamp value={sub.paused_at} label="pause" /> }] : []),
                 cancelRow,
                 { term: "Seats", value: seatText.length > 0 ? <span className="font-mono text-xs">{seatText.join(", ")}</span> : <NoneCell label="seat counts" /> },
                 { term: "Started", value: <Timestamp value={sub.created_at} label="start" /> },
@@ -252,7 +255,7 @@ function SubscriptionDetailView({ detail }: { detail: SubscriptionDetail }) {
         open={dialog === "pause"}
         onOpenChange={close}
         title={`Pause ${sub.tenant_id}'s subscription?`}
-        description="Entitlement checks refuse while it is paused. Resume it to restore access."
+        description="Entitlement checks refuse while it is paused. Resume it to restore access. The billing period stands still while it is paused: invoicing it bills that frozen period, and resuming starts a new one."
         confirmLabel="Pause subscription"
         command={pause}
         payload={{ id: sub.id }}
@@ -262,7 +265,7 @@ function SubscriptionDetailView({ detail }: { detail: SubscriptionDetail }) {
         open={dialog === "resume"}
         onOpenChange={close}
         title={`Resume ${sub.tenant_id}'s subscription?`}
-        description="It becomes active again straight away."
+        description="Resuming starts a new billing period from now. If the period that was running at the pause has not been invoiced, invoice it first: once the subscription is resumed that period can no longer be invoiced. A trial that had not ended at the pause resumes as a trial, extended by the length of the pause. Otherwise the subscription becomes active."
         confirmLabel="Resume subscription"
         command={resume}
         payload={{ id: sub.id }}

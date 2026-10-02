@@ -123,6 +123,10 @@ export interface Subscription {
   canceled_at?: string
   cancel_at?: string
   ended_at?: string
+  /** When the subscription was paused. Set while it is paused, cleared by a resume. */
+  paused_at?: string
+  /** When the subscription was last resumed. A resume restarts the billing cycle. */
+  resumed_at?: string
   quantity?: Record<string, number>
   app_id: string
   provider_id?: string

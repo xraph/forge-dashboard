@@ -60,14 +60,16 @@ describe("legalActions", () => {
   // and CancelSubscription: pause takes active and trialing, resume takes
   // paused, cancel and change-plan refuse only canceled and expired. The engine
   // puts no status rule on generating an invoice or applying a coupon. The page
-  // still withholds both from a paused or finished subscription, so an operator
-  // is not invited to discount one that is not running or to bill a paused one.
-  // Generate stays for canceled and expired, so the last period can be billed.
+  // withholds apply coupon from a paused or finished subscription, so an
+  // operator is not invited to discount one that is not running. Generate stays
+  // for paused, canceled and expired: a pause freezes the billing period, and
+  // the period that was running at the pause can only be invoiced before the
+  // resume starts a new one.
   it("offers only what the engine allows from each state", () => {
     expect(legalActions("active")).toEqual(["generate", "changePlan", "applyCoupon", "pause", "cancel"])
     expect(legalActions("trialing")).toEqual(["generate", "changePlan", "applyCoupon", "pause", "cancel"])
     expect(legalActions("past_due")).toEqual(["generate", "changePlan", "applyCoupon", "cancel"])
-    expect(legalActions("paused")).toEqual(["changePlan", "resume", "cancel"])
+    expect(legalActions("paused")).toEqual(["generate", "changePlan", "resume", "cancel"])
     // A finished subscription can still be invoiced: an immediate cancel would
     // otherwise strand the final period's overage and seats.
     expect(legalActions("canceled")).toEqual(["generate"])
@@ -153,11 +155,45 @@ describe("LedgerSubscriptionDetailPage", () => {
     }
   })
 
-  it("offers no invoicing on a paused subscription", async () => {
-    open(aSubscription({ status: "paused" }))
+  it("offers invoicing on a paused subscription, so its frozen period can be billed before the resume", async () => {
+    const { sent } = open(aSubscription({ status: "paused" }), { "invoices.generate": anInvoice({ id: "inv_frozen" }) })
     await screen.findByText("inv_1")
-    expect(screen.queryByRole("button", { name: "Generate invoice" })).toBeNull()
     expect(screen.queryByRole("button", { name: "Apply coupon" })).toBeNull()
+    expect(screen.queryByRole("button", { name: "Pause" })).toBeNull()
+    fireEvent.click(screen.getByRole("button", { name: "Generate invoice" }))
+    await waitFor(() => expect(sent[0]).toEqual({ intent: "invoices.generate", payload: { subscription_id: "sub_acme" } }))
+  })
+
+  it("says when a paused subscription was paused, and shows nothing for one that is not", async () => {
+    const first = open(aSubscription({ status: "paused", paused_at: "2026-09-25T08:30:00Z" }))
+    await screen.findByText("inv_1")
+    const aside = screen.getByRole("complementary")
+    expect(within(aside).getByText("Paused since", { selector: "dt" })).toBeTruthy()
+    expect(within(aside).queryByLabelText("no pause")).toBeNull()
+    first.unmount()
+    queryStore.clear()
+
+    open(aSubscription({ resumed_at: "2026-09-26T08:30:00Z" }))
+    await screen.findByText("inv_1")
+    expect(within(screen.getByRole("complementary")).queryByText("Paused since", { selector: "dt" })).toBeNull()
+  })
+
+  it("explains in the pause and resume dialogs what a pause does to the billing period", async () => {
+    const first = open(aSubscription())
+    fireEvent.click(await screen.findByRole("button", { name: "Pause" }))
+    let dialog = await screen.findByRole("alertdialog")
+    expectPhrasingOnly(dialog)
+    expect(within(dialog).getByText(/invoicing it bills that frozen period, and resuming starts a new one/)).toBeTruthy()
+    first.unmount()
+    queryStore.clear()
+
+    open(aSubscription({ status: "paused" }))
+    fireEvent.click(await screen.findByRole("button", { name: "Resume" }))
+    dialog = await screen.findByRole("alertdialog")
+    expectPhrasingOnly(dialog)
+    expect(within(dialog).getByText(/Resuming starts a new billing period from now/)).toBeTruthy()
+    expect(within(dialog).getByText(/that period can no longer be invoiced/)).toBeTruthy()
+    expect(within(dialog).queryByText(/straight away/)).toBeNull()
   })
 
   it("says a scheduled cancellation whose date has passed ends on the clock's next run", async () => {
