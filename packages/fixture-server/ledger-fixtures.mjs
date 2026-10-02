@@ -20,8 +20,10 @@
 // lifecycle_interval "off" for that reason. The engine's rules for the periods
 // invoices.generate may bill (billedPeriod below) are ported, the clock's work
 // is not. The commands' own work is ported: a pause records paused_at and
-// leaves the period alone, and a resume restarts the cycle and moves a
-// running trial's end on by the pause (resumeOf below).
+// leaves the period alone, and a resume stretches the period, and a running
+// trial, by the length of the pause (resumeOf below). The engine's stretch
+// record, which the named-period rules need, is kept in state.stretches and
+// never sent, as the engine never sends it.
 //
 // Two switches, read on every call so a running server can be flipped:
 //   LEDGER_FIXTURE_NO_APP=1       no app is selected. Every intent except the
@@ -184,6 +186,9 @@ function seedLedgerState() {
     applied: [],
     events: [],
     paymentMethods: {},
+    // The engine's internal stretch record per subscription id, as
+    // {start, end, originalEnd, floor} in ms (floor null for none). Never on the wire.
+    stretches: new Map(),
   }
 
   const tier = (feature_key, type, up_to, unit, flat, priority) => ({
@@ -1168,8 +1173,7 @@ function firstPeriodEnd(startMs, billingPeriod) {
  * it must land on the creation date.
  */
 function clampedFirstStart(sub, months, endMs) {
-  // The cycle began at creation, or at the last resume, which restarted it.
-  const created = new Date(sub.resumed_at ?? sub.created_at)
+  const created = new Date(sub.created_at)
   const end = new Date(endMs)
   if (end.getUTCDate() !== daysIn(end.getUTCFullYear(), end.getUTCMonth()) || created.getUTCDate() <= end.getUTCDate()) return undefined
   const first = shiftMonths(endMs, -months, created.getUTCDate())
@@ -1180,29 +1184,108 @@ function clampedFirstStart(sub, months, endMs) {
 
 /**
  * As the engine's resumeOf in subscription_write.go: what resuming sub at nowMs
- * writes. The cycle restarts, so the period runs from now for one billing
- * period of the plan, on the arithmetic of a new subscription's first period.
- * The subscription resumes trialing if trial_end is after paused_at (after now
- * when there is no paused_at), otherwise active, and a trialing resume moves
- * trial_end on by now minus paused_at. resumed_at is now. The caller clears
- * paused_at. Times are the whole-second stamps the fixture writes, so the
- * period start, resumed_at and the shifted trial end agree with each other.
+ * writes. The period keeps its start and its end moves on by the length of the
+ * pause, now minus paused_at. A cancel_at that equalled the old end moves with
+ * it. The subscription resumes trialing if trial_end is after paused_at (after
+ * now when there is no paused_at), otherwise active, and a trialing resume
+ * moves trial_end on by the same amount. A row with no paused_at, paused
+ * before the engine recorded it, keeps its period and its trial end. The
+ * caller clears paused_at. Times are the whole-second stamps the fixture
+ * writes, so the shifted ends agree with the stored ones exactly. The second
+ * value is the stretch record, undefined when nothing was stretched.
  */
-function resumeOf(sub, p, nowMs) {
+function resumeOf(sub, prevStretch, nowMs) {
   const now = Date.parse(iso(nowMs))
-  const out = {
-    status: "active",
-    current_period_start: iso(now),
-    current_period_end: iso(firstPeriodEnd(now, p.pricing?.billing_period)),
-    resumed_at: iso(now),
-  }
-  if (!sub.trial_end) return out
+  const out = { status: "active" }
   const pauseStart = sub.paused_at ? Date.parse(sub.paused_at) : now
-  const trialEnd = Date.parse(sub.trial_end)
-  if (!(trialEnd > pauseStart)) return out
+  const paused = now - pauseStart
+  let stretch
+  if (paused > 0) {
+    const start = Date.parse(sub.current_period_start)
+    const end = Date.parse(sub.current_period_end)
+    const stretched = end + paused
+    out.current_period_end = iso(stretched)
+    if (sub.cancel_at && Date.parse(sub.cancel_at) === end) out.cancel_at = out.current_period_end
+    stretch = { start, end: stretched, originalEnd: end, floor: null }
+    if (prevStretch) {
+      if (prevStretch.start === start) {
+        // A second pause in the same period: the cadence before it still led to the first original end.
+        stretch.originalEnd = prevStretch.originalEnd
+        stretch.floor = prevStretch.floor
+      } else {
+        // The cadence this period sits on began at the previous stretch's end, and nothing before that is remembered.
+        stretch.floor = prevStretch.end
+      }
+    }
+  }
+  if (!sub.trial_end || !(Date.parse(sub.trial_end) > pauseStart)) return [out, stretch]
   out.status = "trialing"
-  if (now > pauseStart) out.trial_end = iso(trialEnd + (now - pauseStart))
-  return out
+  if (paused > 0) out.trial_end = iso(Date.parse(sub.trial_end) + paused)
+  return [out, stretch]
+}
+
+/**
+ * As the engine's periodBelongsTo and walkBack in invoice_period.go: whether
+ * want is a period the subscription had before its current one, walking back
+ * from the current period. A resume stretches a period, which breaks the
+ * cadence: periods after a stretched one renew on its new end's day, and the
+ * ones before it on the day that led to its original end. Only the most
+ * recent stretch is remembered, and the walk stops at its floor, the end of an
+ * older stretch. What it cannot prove is refused, never guessed.
+ */
+function periodBelongsTo(sub, period, want, stretch) {
+  const months = period === "yearly" ? 12 : 1
+  let start = Date.parse(sub.current_period_start)
+  const end = Date.parse(sub.current_period_end)
+  if (!stretch) return walkBack(sub, months, want, start, end, true)
+
+  const { start: stStart, end: stEnd } = stretch
+  if (start === stStart && end === stEnd) {
+    // The current period is the stretched one.
+  } else if (start >= stEnd) {
+    // On the cadence after the stretch: walk back to the stretched end, then step over the stretched period in one go.
+    const day = anchorDay(start, end)
+    for (let i = 0; i < 1200; i++) {
+      if (start === want.endMs) {
+        if (start === stEnd) return want.startMs === stStart
+        return shiftMonths(start, -months, day) === want.startMs
+      }
+      if (start < want.endMs || start === stEnd) break
+      const prev = shiftMonths(start, -months, day)
+      if (prev < stEnd) return false // the cadence does not meet the stretched end: prove nothing
+      start = prev
+    }
+    if (start !== stEnd) return false
+  } else {
+    return false // the stretch does not line up with the current period
+  }
+  if (stretch.floor !== null && want.startMs < stretch.floor) return false
+  return walkBack(sub, months, want, stStart, stretch.originalEnd, stretch.floor === null)
+}
+
+/** The periods before [start, end) on that period's own cadence. fromCreation: the cadence runs back to creation, where the 29 February rule applies. */
+function walkBack(sub, months, want, start, end, fromCreation) {
+  const day = anchorDay(start, end)
+  for (let i = 0; i < 1200; i++) {
+    if (start < want.endMs) return false
+    if (start === want.endMs) {
+      // A yearly plan loses its anchor where a year from 29 February lands on
+      // the 28th, so the walk back cannot tell 29 February to 28 February
+      // from 28 to 28. The creation day settles it: want is the first period
+      // or it is not a period at all. A monthly plan recovers the anchor from
+      // the period itself, so its walk is exact.
+      const first = months === 12 && fromCreation ? clampedFirstStart(sub, months, want.endMs) : undefined
+      if (first !== undefined) {
+        // The period after want must be the one the walk is standing on.
+        const reproduces = shiftMonths(want.endMs, months, anchorDay(want.startMs, want.endMs)) === end
+        return want.startMs === first && reproduces
+      }
+      return shiftMonths(start, -months, day) === want.startMs
+    }
+    end = start
+    start = shiftMonths(start, -months, day)
+  }
+  return false
 }
 
 function billingHandlers(h) {
@@ -1281,37 +1364,10 @@ function billingHandlers(h) {
     if (startMs === current.startMs && endMs === current.endMs) return current
     const refuse = () => badRequest(`ledger: invalid input: subscription ${sub.id} had no billing period from ${iso(startMs)} to ${iso(endMs)}`)
     if (!(startMs < endMs) || startMs > Date.now() || !(endMs > Date.parse(sub.created_at))) throw refuse()
-    // A resume restarted the cycle: a period starting before it was spent
-    // paused, or belongs to the cycle the pause ended.
-    if (sub.resumed_at && startMs < Date.parse(sub.resumed_at)) throw refuse()
     const period = p.pricing?.billing_period || "monthly"
     if (period !== "monthly" && period !== "yearly") throw refuse()
-    const months = period === "yearly" ? 12 : 1
-    const day = anchorDay(current.startMs, current.endMs)
-    let start = current.startMs
-    let end = current.endMs
-    for (let i = 0; i < 1200; i++) {
-      if (start < endMs) throw refuse()
-      if (start === endMs) {
-        // A yearly plan loses its anchor where a year from 29 February lands
-        // on the 28th, so the walk back cannot tell 29 February to 28 February
-        // from 28 to 28. The creation day settles it: want is the first period
-        // or it is not a period at all. A monthly plan recovers the anchor from
-        // the period itself, so its walk is exact.
-        const first = period === "yearly" ? clampedFirstStart(sub, months, endMs) : undefined
-        if (first !== undefined) {
-          // The period after want must be the one the walk is standing on.
-          const reproduces = shiftMonths(endMs, months, anchorDay(startMs, endMs)) === end
-          if (startMs === first && reproduces) return { startMs, endMs, named: true }
-          throw refuse()
-        }
-        if (shiftMonths(start, -months, day) === startMs) return { startMs, endMs, named: true }
-        throw refuse()
-      }
-      end = start
-      start = shiftMonths(start, -months, day)
-    }
-    throw refuse()
+    if (!periodBelongsTo(sub, period, { startMs, endMs }, ledger.stretches.get(sub.id))) throw refuse()
+    return { startMs, endMs, named: true }
   }
 
   function usedFor(tenant, app, key, period) {
@@ -1548,11 +1604,12 @@ function billingHandlers(h) {
       handler: (input) => {
         const sub = loadSub(input?.id)
         if (sub.status !== "paused") throw badRequest(`a ${sub.status} subscription cannot be resumed`)
-        const p = ledger.plans.find((x) => x.id === sub.plan_id)
-        if (!p) throw notFound("plan")
-        Object.assign(sub, resumeOf(sub, p, Date.now()))
+        const nowMs = Date.now()
+        const [write, stretch] = resumeOf(sub, ledger.stretches.get(sub.id), nowMs)
+        Object.assign(sub, write)
+        if (stretch) ledger.stretches.set(sub.id, stretch)
         delete sub.paused_at
-        sub.updated_at = sub.resumed_at
+        sub.updated_at = iso(nowMs)
         return clone(sub)
       },
     },
@@ -1694,6 +1751,9 @@ function billingHandlers(h) {
         const p = ledger.plans.find((x) => x.id === sub.plan_id)
         if (!p) throw notFound("plan")
         const period = billedPeriod(sub, p, input)
+        // As the engine's GenerateInvoice: a resume moves a paused subscription's period end on, so that period is not
+        // finished and is billed when it ends. Ended periods named while paused stay billable.
+        if (!period.named && sub.status === "paused") throw badRequest(`ledger: invalid input: subscription ${sub.id} is paused; its period is billed when it ends`)
         const live = ledger.invoices.find(
           (i) => i.subscription_id === sub.id && Date.parse(i.period_start) === period.startMs && Date.parse(i.period_end) === period.endMs && i.status !== "voided",
         )
