@@ -2,6 +2,7 @@ import { defineForgeDashboard } from "@forge-go/dashboard-next"
 import authsomePlugin from "@forge-go/dashboard-plugin-authsome"
 import corePlugin from "@forge-go/dashboard-plugin-core"
 import streamingPlugin from "@forge-go/dashboard-plugin-streaming"
+import trovePlugin from "@forge-go/dashboard-plugin-trove"
 
 /*
  * One value. The page lives at app/admin/[[...slug]]/page.tsx and the contract
@@ -10,5 +11,5 @@ import streamingPlugin from "@forge-go/dashboard-plugin-streaming"
  */
 export const forge = defineForgeDashboard({
   mountPath: "/admin",
-  plugins: [corePlugin, streamingPlugin, authsomePlugin],
+  plugins: [corePlugin, streamingPlugin, authsomePlugin, trovePlugin],
 })

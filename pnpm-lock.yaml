@@ -44,6 +44,9 @@ importers:
       '@forge-go/dashboard-plugin-streaming':
         specifier: workspace:*
         version: link:../../packages/plugin-streaming
+      '@forge-go/dashboard-plugin-trove':
+        specifier: workspace:*
+        version: link:../../packages/plugin-trove
       '@forge-go/dashboard-runtime':
         specifier: workspace:*
         version: link:../../packages/runtime
@@ -184,6 +187,9 @@ importers:
       '@forge-go/dashboard-plugin-streaming':
         specifier: workspace:*
         version: link:../../packages/plugin-streaming
+      '@forge-go/dashboard-plugin-trove':
+        specifier: workspace:*
+        version: link:../../packages/plugin-trove
       '@forge-go/dashboard-plugin-vault':
         specifier: workspace:*
         version: link:../../packages/plugin-vault

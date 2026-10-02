@@ -15,3 +15,4 @@
 @source "../../../packages/plugin-core/src/**/*.{ts,tsx}";
 @source "../../../packages/plugin-streaming/src/**/*.{ts,tsx}";
 @source "../../../packages/plugin-authsome/src/**/*.{ts,tsx}";
+@source "../../../packages/plugin-trove/src/**/*.{ts,tsx}";

@@ -10,6 +10,7 @@ import relayPlugin from "@forge-go/dashboard-plugin-relay"
 import streamingPlugin from "@forge-go/dashboard-plugin-streaming"
 import wardenPlugin from "@forge-go/dashboard-plugin-warden"
 import vaultPlugin from "@forge-go/dashboard-plugin-vault"
+import trovePlugin from "@forge-go/dashboard-plugin-trove"
 import keysmithPlugin from "@forge-go/dashboard-plugin-keysmith"
 import chroniclePlugin from "@forge-go/dashboard-plugin-chronicle"
 
@@ -31,6 +32,7 @@ const plugins = [
   authsomePlugin,
   wardenPlugin,
   vaultPlugin,
+  trovePlugin,
   keysmithPlugin,
   chroniclePlugin,
   relayPlugin,
