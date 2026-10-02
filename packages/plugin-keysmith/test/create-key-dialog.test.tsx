@@ -438,6 +438,55 @@ describe("CreateKeyDialog expiry", () => {
     expect(expiry().max).toBe("")
   })
 
+  // The invariant behind `max`, written with its own local arithmetic: the
+  // last date whose local end of day is not after now + lifetime. It must hold
+  // in every zone, and across clock changes, where a day is 23 or 25 hours.
+  async function maxFor(now: Date, policy: string): Promise<string> {
+    vi.setSystemTime(now)
+    queryStore.clear()
+    const { client } = standard()
+    const view = mount(client)
+    await dialog()
+    await screen.findByRole("option", { name: "Standard" })
+    fill("Policy", policy)
+    const max = (screen.getByLabelText(/^Expiry/) as HTMLInputElement).max
+    view.unmount()
+    return max
+  }
+
+  function endOfDay(value: string, plusDays = 0): number {
+    const [y, m, d] = value.split("-").map(Number)
+    return new Date(y, m - 1, d + plusDays, 23, 59, 59).getTime()
+  }
+
+  it("never allows a date whose end of day is past now plus the lifetime", async () => {
+    // 90 days from 3 Aug 10:00 lands on 1 Nov, the fall-back day in the US
+    // (25 hours long); the same arithmetic also crosses spring and autumn
+    // changes in the southern zones. The first case is the one that broke.
+    // 90 days from 5 Jan 10:00 is the southern fall-back day, 5 Apr.
+    const opened: Date[] = [
+      new Date(2026, 7, 3, 10, 0, 0),
+      new Date(2026, 0, 5, 10, 0, 0),
+      new Date(2026, 0, 5, 23, 30, 0),
+    ]
+    for (let day = 0; day < 365; day += 7) {
+      for (const hour of [10, 23]) {
+        opened.push(new Date(2026, 0, 1 + day, hour, 30, 0))
+      }
+    }
+    const lifetimes = { kpol_standard: 90 * 86400, kpol_short: 7 * 86400 }
+    for (const now of opened) {
+      for (const [policy, seconds] of Object.entries(lifetimes)) {
+        const limit = now.getTime() + seconds * 1000
+        const max = await maxFor(now, policy)
+        const label = `${now.toString()} ${policy} -> ${max}`
+        expect(endOfDay(max) <= limit, label).toBe(true)
+        // And it is the latest such date, so a valid day is not given up.
+        expect(endOfDay(max, 1) > limit, label).toBe(true)
+      }
+    }
+  }, 60_000)
+
   it("clears a date the newly chosen policy would refuse", async () => {
     const { client } = standard()
     mount(client)

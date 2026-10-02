@@ -55,7 +55,6 @@ const EXPIRY_IN_PAST = "Choose today or a later date."
 // The most each picker asks for, and what its "first N" lines say.
 const PICKER_LIMIT = 200
 const PICKER_PARAMS = { limit: PICKER_LIMIT }
-const DAY_MS = 86_400_000
 
 function pad(n: number): string {
   return String(n).padStart(2, "0")
@@ -79,9 +78,11 @@ function endOfLocalDay(value: string): Date {
 function lastDateWithin(now: number, lifetimeSeconds: number): string {
   const limit = new Date(now + lifetimeSeconds * 1000)
   const sameDay = dateValue(limit)
-  return endOfLocalDay(sameDay).getTime() <= limit.getTime()
-    ? sameDay
-    : dateValue(new Date(endOfLocalDay(sameDay).getTime() - DAY_MS))
+  if (endOfLocalDay(sameDay).getTime() <= limit.getTime()) return sameDay
+  // Step the calendar, not 24 hours: on a clock-change day a day is 23 or 25
+  // hours, and day 0 normalises to the last day of the previous month.
+  const [y, m, d] = sameDay.split("-").map(Number)
+  return dateValue(new Date(y, m - 1, d - 1))
 }
 
 function longDate(value: string): string {
