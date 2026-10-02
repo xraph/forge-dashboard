@@ -23,6 +23,8 @@ const MAX_PREVIEW = 256 * 1024
 const ENC_NOT_APPLIED =
   "enable_encryption is set, but the extension never registers the encrypt middleware. Nothing is encrypted."
 const NO_SCAN = "No scan middleware is registered, so uploads are not scanned."
+const SCAN_CAVEAT =
+  "Registered in code. A scan with no provider, an excluded extension or an object over its size limit passes through unscanned, and nothing records which objects were scanned."
 const ROUTING_NOTE =
   "This store routes some keys to other backends. Listings, bucket operations and health describe the default backend only."
 const CAS_GUARD = (b) =>
@@ -104,7 +106,10 @@ function seed() {
       createdAtMeaning: "created",
       backends: ["cold"],
       configured: { encryption: false, compression: false, cas: false },
-      registrations: [],
+      // One scoped registration, so the Overview shows an applied flag that
+      // carries a scope note. Its scope matches no seeded key, so presign on
+      // the seeded dumps stays available.
+      registrations: [{ name: "compress", direction: "readwrite", scope: "key(*.log)", priority: 0 }],
       cas: null,
       index: new Map(),
       streams: [],
@@ -137,7 +142,7 @@ export function createTroveHandlers(FixtureError) {
     const raw = input?.store
     if (raw === undefined || raw === null || raw === "") return { name: "primary", s: state.primary }
     if (typeof raw !== "string" || raw.trim() === "") throw badRequest("store is blank")
-    if (!(raw in state)) throw notFound(`no store named "${raw}"`)
+    if (!Object.hasOwn(state, raw)) throw notFound(`no store named "${raw}"`)
     return { name: raw, s: state[raw] }
   }
 
@@ -207,9 +212,47 @@ export function createTroveHandlers(FixtureError) {
     return { keys, prefixes, next }
   }
 
-  function matchingRows(s) {
-    // Every fixture registration has a global scope, so it matches every key.
-    return s.registrations.map((r) => ({ name: r.name, direction: r.direction, scope: r.scope, priority: r.priority }))
+  /** Splits "a,b(c,d)" at the commas outside any parentheses. */
+  function splitTop(text) {
+    const parts = []
+    let depth = 0
+    let from = 0
+    for (let i = 0; i < text.length; i++) {
+      if (text[i] === "(") depth += 1
+      else if (text[i] === ")") depth -= 1
+      else if (text[i] === "," && depth === 0) {
+        parts.push(text.slice(from, i))
+        from = i + 1
+      }
+    }
+    parts.push(text.slice(from))
+    return parts
+  }
+
+  /** Go's key patterns are filepath.Match globs: "*" and "?" stop at a slash. */
+  function globMatches(pattern, key) {
+    const re = pattern.replace(/[.+^${}|\\[\]]/g, "\\$&").replace(/\*/g, "[^/]*").replace(/\?/g, "[^/]")
+    return new RegExp(`^${re}$`).test(key)
+  }
+
+  /** The scope forms the fixture seeds, written the way Go's String() prints them. */
+  function scopeMatches(scope, bucket, key) {
+    if (scope === "global") return true
+    const m = /^(bucket|key|and)\((.*)\)$/.exec(scope)
+    if (!m) throw new Error(`fixture scope not supported: ${scope}`)
+    const args = splitTop(m[2])
+    if (m[1] === "bucket") return args.includes(bucket)
+    if (m[1] === "key") return args.some((p) => globMatches(p, key))
+    return args.every((a) => scopeMatches(a, bucket, key))
+  }
+
+  const sortedRegistrations = (s) => s.registrations.slice().sort((a, b) => a.priority - b.priority)
+  const runsWrite = (r) => r.direction !== "read"
+
+  function matchingRows(s, bucket, key) {
+    return sortedRegistrations(s)
+      .filter((r) => scopeMatches(r.scope, bucket, key))
+      .map((r) => ({ name: r.name, direction: r.direction, scope: r.scope, priority: r.priority }))
   }
 
   function presignOf(s, rows) {
@@ -229,15 +272,42 @@ export function createTroveHandlers(FixtureError) {
     return { token: b64(JSON.stringify({ ...fields, e: expires })), expiresAt: new Date(expires * 1000).toISOString().replace(/\.\d{3}Z$/, "Z") }
   }
 
+  /** Go's coverageOf: where one middleware runs on the write path. */
+  function coverageOf(s, name) {
+    const c = { registered: false, applied: false, global: false, scopes: [] }
+    for (const r of s.registrations) {
+      if (r.name !== name) continue
+      c.registered = true
+      if (!runsWrite(r)) continue
+      c.applied = true
+      if (r.scope === "global") c.global = true
+      if (!c.scopes.includes(r.scope)) c.scopes.push(r.scope)
+    }
+    return c
+  }
+
+  /** Go's protectionFlag, string for string. */
+  function protectionFlag(name, configured, c, verb, missing) {
+    const notes = []
+    if (c.registered && !c.applied) notes.push(`Registered for reads only, so nothing is ${verb} on write.`)
+    else if (!c.registered && configured) notes.push(missing)
+    else if (c.applied && !configured) notes.push("Registered in code rather than by a config switch.")
+    if (c.applied && !c.global) {
+      notes.push(`Applies only where its scope matches: ${c.scopes.join(", ")}. Objects outside that scope are not ${verb}.`)
+    }
+    return { name, configured, applied: c.applied, note: notes.length > 0 ? notes.join(" ") : null }
+  }
+
   function flags(s) {
-    const has = (n) => s.registrations.some((r) => r.name === n)
-    const f = (name, configured, applied, note) => ({ name, configured, applied, note })
-    return [
-      f("encryption", s.configured.encryption, has("encrypt"), s.configured.encryption && !has("encrypt") ? ENC_NOT_APPLIED : null),
-      f("compression", s.configured.compression, has("compress"), s.configured.compression && !has("compress") ? "enable_compression is set, but no compress middleware is registered." : null),
-      f("scanning", has("scan"), has("scan"), has("scan") ? null : NO_SCAN),
-      f("cas", s.configured.cas, s.cas !== null, s.configured.cas && s.cas === null ? "enable_cas is set, but this store has no CAS engine." : null),
-    ]
+    const encryption = protectionFlag("encryption", s.configured.encryption, coverageOf(s, "encrypt"), "encrypted", ENC_NOT_APPLIED)
+    const compression = protectionFlag("compression", s.configured.compression, coverageOf(s, "compress"), "compressed",
+      "enable_compression is set, but no compress middleware is registered.")
+    const sc = coverageOf(s, "scan")
+    const scanning = protectionFlag("scanning", sc.registered, sc, "scanned", "")
+    if (!sc.registered) scanning.note = NO_SCAN
+    else scanning.note = scanning.note === null ? SCAN_CAVEAT : `${SCAN_CAVEAT} ${scanning.note}`
+    const cas = { name: "cas", configured: s.configured.cas, applied: s.cas !== null, note: s.configured.cas && s.cas === null ? "enable_cas is set, but this store has no CAS engine." : null }
+    return [encryption, compression, scanning, cas]
   }
 
   function requireCAS(s) {
@@ -332,7 +402,7 @@ export function createTroveHandlers(FixtureError) {
         const key = requireKey(input?.key)
         const { s } = store(input)
         const o = objectOf(s, bucket, key)
-        const rows = matchingRows(s)
+        const rows = matchingRows(s, bucket, key)
         return { object: detail(key, o), middleware: rows, presign: presignOf(s, rows) }
       },
     },
@@ -421,7 +491,7 @@ export function createTroveHandlers(FixtureError) {
         const key = requireKey(input?.key)
         const { s } = store(input)
         objectOf(s, bucket, key)
-        const status = presignOf(s, matchingRows(s))
+        const status = presignOf(s, matchingRows(s, bucket, key))
         if (!status.available) throw unavailable(status.reason)
         let secs = typeof input?.expiresSeconds === "number" ? Math.trunc(input.expiresSeconds) : 0
         if (secs === 0) secs = 3600
@@ -435,10 +505,10 @@ export function createTroveHandlers(FixtureError) {
       handler: (input) => {
         const { s } = store(input)
         const tested = typeof input?.bucket === "string" && input.bucket !== "" && typeof input?.key === "string" && input.key !== ""
-        const registrations = s.registrations.map((r) => ({
+        const registrations = sortedRegistrations(s).map((r) => ({
           ...r,
-          matchesWrite: tested ? r.direction !== "read" : null,
-          matchesRead: tested ? r.direction !== "write" : null,
+          matchesWrite: tested ? scopeMatches(r.scope, input.bucket, input.key) && runsWrite(r) : null,
+          matchesRead: tested ? scopeMatches(r.scope, input.bucket, input.key) && r.direction !== "write" : null,
         }))
         const warnings = s.registrations.length > 0
           ? [{ code: "bypass", message: "CAS, copy and streams move stored bytes without running any middleware." }]

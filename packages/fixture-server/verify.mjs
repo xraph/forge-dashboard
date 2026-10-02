@@ -2456,7 +2456,7 @@ async function main() {
     const full = await tc("buckets.delete", { name: "reports" })
     check("buckets.delete on a bucket with objects is 409 CONFLICT", full.status === 409 && code(full) === "CONFLICT", `${full.status} ${code(full)}`)
     const casDelete = await tc("buckets.delete", { name: "cas" })
-    check("buckets.delete refuses the CAS bucket with 409 CONFLICT", casDelete.status === 409 && code(casDelete) === "CONFLICT", `${casDelete.status} ${code(casDelete)}`)
+    check("buckets.delete refuses the CAS bucket with 409 CONFLICT and the CAS message", casDelete.status === 409 && code(casDelete) === "CONFLICT" && /^CAS manages the cas bucket\./.test(casDelete.body?.error?.message ?? ""), `trove ${casDelete.status} ${code(casDelete)} ${casDelete.body?.error?.message}`)
 
     const first = await tq("objects.list", { bucket: "reports", limit: 1 })
     const cursor = first.body?.data?.nextCursor
@@ -2474,8 +2474,15 @@ async function main() {
     check("system.status with a blank store is 400 BAD_REQUEST", blankStore.status === 400 && code(blankStore) === "BAD_REQUEST", `${blankStore.status} ${code(blankStore)}`)
     const unknownStore = await tq("system.status", { store: "nope" })
     check("system.status with an unknown store is 404 NOT_FOUND", unknownStore.status === 404 && code(unknownStore) === "NOT_FOUND", `${unknownStore.status} ${code(unknownStore)}`)
+    const protoStore = await tq("system.status", { store: "constructor" })
+    check("system.status with store \"constructor\" is 404 NOT_FOUND, not a prototype hit", protoStore.status === 404 && code(protoStore) === "NOT_FOUND" && protoStore.body?.error?.message === 'no store named "constructor"', `trove ${protoStore.status} ${code(protoStore)} ${protoStore.body?.error?.message}`)
     const archive = await tq("system.status", { store: "archive" })
     check("the archive store reports a routing note and the s3 driver", archive.body?.data?.driver === "s3" && typeof archive.body.data.routingNote === "string" && archive.body.data.backends?.[0] === "cold", JSON.stringify(archive.body?.data))
+    const archiveCompression = (archive.body?.data?.flags ?? []).find((f) => f.name === "compression")
+    check("the archive store's compression is applied with a scope note (trove protection flags)", archiveCompression?.applied === true && archiveCompression.configured === false && /Applies only where its scope matches: key\(\*\.log\)\. Objects outside that scope are not compressed\./.test(archiveCompression.note ?? ""), JSON.stringify(archiveCompression))
+    const primaryStatus = await tq("system.status", {})
+    const primaryCompression = (primaryStatus.body?.data?.flags ?? []).find((f) => f.name === "compression")
+    check("the primary store's compression is applied with no note (trove global registration)", primaryCompression?.applied === true && primaryCompression.note === null, JSON.stringify(primaryCompression))
 
     const archiveCas = await tq("cas.list", { store: "archive" })
     check("cas.list on a store with no CAS is 503 UNAVAILABLE", archiveCas.status === 503 && code(archiveCas) === "UNAVAILABLE", `${archiveCas.status} ${code(archiveCas)}`)
