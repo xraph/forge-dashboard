@@ -64,3 +64,60 @@ export interface KeyDetail {
   metadata: Record<string, unknown>
   previousKeys: PreviousKey[]
 }
+
+/** A policy as the key forms' picker shows it. Mirrors contract.PolicySummary. */
+export interface PolicySummary {
+  id: string
+  name: string
+  description?: string
+  /** null when the policy sets no maximum. Never 0: the engine reads 0 as unset. */
+  maxKeyLifetimeSeconds: number | null
+  /** null when the policy sets no grace, and rotation then uses 24 hours. */
+  graceSeconds: number | null
+  /** Never null on the wire; an empty list means the policy allows any scope. */
+  allowedScopes: string[]
+}
+
+/** A scope as the key forms' picker shows it. Mirrors contract.ScopeSummary. */
+export interface ScopeSummary {
+  id: string
+  name: string
+  parent?: string
+  description?: string
+}
+
+export interface PoliciesList {
+  policies: PolicySummary[]
+  hasMore: boolean
+}
+
+export interface ScopesList {
+  scopes: ScopeSummary[]
+  hasMore: boolean
+}
+
+/** keys.create. `rawKey` is on the wire exactly once and is shown only by OneTimeKey. */
+export interface KeyWithSecret {
+  key: KeySummary
+  rawKey: string
+}
+
+/** keys.rotate. `previousKeys` is every window open after the rotation. */
+export interface KeyRotated {
+  key: KeySummary
+  rawKey: string
+  previousKeys: PreviousKey[]
+}
+
+/** keys.endGrace: how many rotation windows were closed. */
+export interface KeyGraceClosed {
+  key: KeySummary
+  closed: number
+}
+
+/** keys.suspend, keys.reinstate and keys.revoke answer with just the key. */
+export interface KeyOnly {
+  key: KeySummary
+}
+
+export type RotationReason = "manual" | "compromise" | "policy"

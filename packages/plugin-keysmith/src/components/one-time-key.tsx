@@ -1,0 +1,132 @@
+import { useEffect, useId, useRef, useState } from "react"
+import type { ReactNode } from "react"
+import { Button } from "@forge-go/dashboard-kit/components/button"
+import { Checkbox } from "@forge-go/dashboard-kit/components/checkbox"
+import { Label } from "@forge-go/dashboard-kit/components/label"
+import { maskedKey } from "../format"
+import type { KeySummary } from "../types"
+
+export interface OneTimeKeyProps {
+  /** The key as the server returned it. Rendered here and copied to the clipboard, nowhere else. */
+  rawKey: string
+  /** prefix, environment and hint: what the key reads as in every list afterwards. */
+  summary: KeySummary
+  /** Extra content under the key, such as the rotate dialog's window list. */
+  children?: ReactNode
+  onDone: () => void
+}
+
+const COPIED_MS = 2000
+const UNDERLINED = 4
+
+/**
+ * The single place a raw API key is ever shown. The server will not show it
+ * again, so the person has to say they have stored it before Done unlocks, and
+ * the browser warns before the page is closed or reloaded while this is up.
+ *
+ * The key is cut by known lengths, never by "_": a custom generator may put
+ * underscores anywhere, or nowhere.
+ */
+export function OneTimeKey({ rawKey, summary, children, onDone }: OneTimeKeyProps) {
+  const [hidden, setHidden] = useState(false)
+  const [copied, setCopied] = useState(false)
+  const [copyFailed, setCopyFailed] = useState(false)
+  const [stored, setStored] = useState(false)
+  const timer = useRef<number | undefined>(undefined)
+  const checkboxId = useId()
+
+  useEffect(() => {
+    function warn(event: BeforeUnloadEvent) {
+      event.preventDefault()
+      event.returnValue = ""
+    }
+    window.addEventListener("beforeunload", warn)
+    return () => window.removeEventListener("beforeunload", warn)
+  }, [])
+
+  useEffect(() => () => window.clearTimeout(timer.current), [])
+
+  async function copy() {
+    try {
+      await navigator.clipboard.writeText(rawKey)
+    } catch {
+      // Clipboard access can be denied or missing. The key stays on screen and
+      // select-all, so the person can still take it by hand.
+      setCopyFailed(true)
+      return
+    }
+    setCopyFailed(false)
+    setCopied(true)
+    window.clearTimeout(timer.current)
+    timer.current = window.setTimeout(() => setCopied(false), COPIED_MS)
+  }
+
+  const known = `${summary.prefix}_${summary.environment}_`
+  const head = rawKey.startsWith(known) ? known : ""
+  const rest = rawKey.slice(head.length)
+  const tail = rest.slice(-UNDERLINED)
+  const body = rest.slice(0, rest.length - tail.length)
+
+  return (
+    <div className="flex flex-col gap-4">
+      <div className="flex flex-col gap-1">
+        <h2 className="text-lg font-semibold">Save your new key</h2>
+        <p className="text-sm text-muted-foreground">
+          This is the only time Keysmith will show it.
+        </p>
+      </div>
+
+      <div
+        data-part="key"
+        className="select-all rounded-md border bg-muted/40 p-3 font-mono text-lg break-all"
+      >
+        {hidden ? (
+          "••••"
+        ) : (
+          <>
+            {head && (
+              <span data-part="prefix" className="text-muted-foreground">
+                {head}
+              </span>
+            )}
+            <span data-part="body">{body}</span>
+            <span data-part="tail" className="underline">
+              {tail}
+            </span>
+          </>
+        )}
+      </div>
+
+      <p className="text-sm text-muted-foreground">
+        You&apos;ll recognise it later as{" "}
+        <span className="font-mono text-foreground">{maskedKey(summary)}</span>
+      </p>
+
+      <div className="flex gap-2">
+        <Button variant="outline" size="sm" onClick={() => void copy()}>
+          {copied ? "Copied" : copyFailed ? "Select and copy" : "Copy"}
+        </Button>
+        <Button variant="outline" size="sm" onClick={() => setHidden((h) => !h)}>
+          {hidden ? "Show" : "Hide"}
+        </Button>
+      </div>
+
+      {children}
+
+      <div className="flex items-center gap-2">
+        <Checkbox
+          id={checkboxId}
+          checked={stored}
+          onCheckedChange={(checked) => setStored(checked === true)}
+        />
+        <Label htmlFor={checkboxId}>I&apos;ve stored this key somewhere safe</Label>
+      </div>
+
+      <div className="flex justify-end">
+        <Button disabled={!stored} onClick={onDone}>
+          Done
+        </Button>
+      </div>
+    </div>
+  )
+}
