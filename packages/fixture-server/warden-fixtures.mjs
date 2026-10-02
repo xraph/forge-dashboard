@@ -5853,7 +5853,8 @@ function relationsExpand(params) {
   const kept = keep.filter(Boolean).length
 
   // A kept node with an edge to a dropped node no longer has all its tuples
-  // drawn, so it is not reported as walked.
+  // drawn, so it is not reported as walked, and it is reported as capped so
+  // that a walked node is not mistaken for an unwalked one.
   const incomplete = new Array(x.nodes.length).fill(false)
   for (const e of x.edges) if (keep[e.from] && !keep[e.to]) incomplete[e.from] = true
 
@@ -5866,6 +5867,8 @@ function relationsExpand(params) {
     if (n.relation) out.relation = n.relation
     out.depth = n.depth
     out.walked = n.walked && !incomplete[i]
+    // True when the node cap removed any of this node's outgoing edges.
+    out.capped = incomplete[i]
     nodes.push(out)
   })
   return {
