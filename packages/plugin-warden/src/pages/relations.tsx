@@ -524,74 +524,61 @@ export function WardenRelationsPage() {
         pending={create.loading}
         confirmDisabled={missing}
         onConfirm={() => void confirmCreate()}
-        description={
-          <span className="flex flex-col gap-3">
-            <span>
-              Writing a tuple in{" "}
-              {createNamespace === "" ? "the tenant root" : createNamespace}. It
-              is in scope for checks there and in every namespace below it. All
-              five parts are required. The subject relation is only for a set,
-              such as a group&apos;s members.
+        description={`Writing a tuple in ${createNamespace === "" ? "the tenant root" : createNamespace}. It is in scope for checks there and in every namespace below it. All five parts are required. The subject relation is only for a set, such as a group's members.`}
+      >
+        {REQUIRED_PARTS.map((part) => (
+          <PartInput
+            key={part}
+            idPrefix="relation"
+            part={part}
+            parts={form}
+            placeholder
+            onChange={(p, value) => setForm((f) => ({ ...f, [p]: value }))}
+          />
+        ))}
+        <PartInput
+          idPrefix="relation"
+          part="subjectRelation"
+          parts={form}
+          placeholder
+          optional
+          onChange={(p, value) => setForm((f) => ({ ...f, [p]: value }))}
+        />
+        {/* Out of the description now, so it carries the description's text
+            style itself. */}
+        <div className="text-xs/relaxed text-muted-foreground">
+          Writes:{" "}
+          {missing ? (
+            <span className="text-muted-foreground">
+              fill in the five parts
             </span>
-            {REQUIRED_PARTS.map((part) => (
-              <PartInput
-                key={part}
-                idPrefix="relation"
-                part={part}
-                parts={form}
-                placeholder
-                onChange={(p, value) => setForm((f) => ({ ...f, [p]: value }))}
-              />
-            ))}
-            <PartInput
-              idPrefix="relation"
-              part="subjectRelation"
-              parts={form}
-              placeholder
-              optional
-              onChange={(p, value) => setForm((f) => ({ ...f, [p]: value }))}
-            />
-            <span>
-              Writes:{" "}
-              {missing ? (
-                <span className="text-muted-foreground">
-                  fill in the five parts
-                </span>
-              ) : (
-                <span className="font-mono text-xs">
-                  {tupleString({
-                    objectType: formPresent.objectType ?? "",
-                    objectId: formPresent.objectId ?? "",
-                    relation: formPresent.relation ?? "",
-                    subjectType: formPresent.subjectType ?? "",
-                    subjectId: formPresent.subjectId ?? "",
-                    subjectRelation: formPresent.subjectRelation,
-                  })}
-                </span>
-              )}
+          ) : (
+            <span className="font-mono text-xs">
+              {tupleString({
+                objectType: formPresent.objectType ?? "",
+                objectId: formPresent.objectId ?? "",
+                relation: formPresent.relation ?? "",
+                subjectType: formPresent.subjectType ?? "",
+                subjectId: formPresent.subjectId ?? "",
+                subjectRelation: formPresent.subjectRelation,
+              })}
             </span>
-            <CommandAlert error={create.error} title="Could not create the relation" />
-          </span>
-        }
-      />
+          )}
+        </div>
+        <CommandAlert error={create.error} title="Could not create the relation" />
+      </ConfirmDialog>
 
       <ConfirmDialog
         open={deleting !== null}
         onOpenChange={(open) => !open && setDeleting(null)}
         title={deleting ? `Delete ${tupleString(deleting)}?` : "Delete relation?"}
-        description={
-          <span className="flex flex-col gap-2">
-            <span>
-              Access that depends on this tuple stops. Writing the same tuple
-              again restores it.
-            </span>
-            <CommandAlert error={remove.error} title="Could not delete" />
-          </span>
-        }
+        description="Access that depends on this tuple stops. Writing the same tuple again restores it."
         confirmLabel="Delete"
         pending={remove.loading}
         onConfirm={() => void confirmDelete()}
-      />
+      >
+        <CommandAlert error={remove.error} title="Could not delete" />
+      </ConfirmDialog>
     </section>
   )
 }

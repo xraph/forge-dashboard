@@ -226,20 +226,13 @@ export function WardenRoleDetailPage({ params }: PluginPageProps) {
             open={revoking !== null}
             onOpenChange={(open) => !open && setRevoking(null)}
             title={`Revoke ${revoking?.name ?? ""}?`}
-            description={
-              <span className="flex flex-col gap-2">
-                <span>
-                  {role.name} stops granting this permission. Anyone holding the
-                  role loses it, and any role inheriting from {role.slug} loses it
-                  too.
-                </span>
-                <CommandAlert error={detach.error} title="Could not revoke" />
-              </span>
-            }
+            description={`${role.name} stops granting this permission. Anyone holding the role loses it, and any role inheriting from ${role.slug} loses it too.`}
             confirmLabel="Revoke"
             pending={detach.loading}
             onConfirm={() => void confirmRevoke()}
-          />
+          >
+            <CommandAlert error={detach.error} title="Could not revoke" />
+          </ConfirmDialog>
 
           {/*
             Mounted only while open, not just made invisible: useQuery fires
@@ -403,53 +396,47 @@ function AttachDialog({
       open
       onOpenChange={(open) => !open && onClose()}
       title={`Attach a permission to ${roleName}`}
-      description={
-        <span className="flex flex-col gap-2">
-          <span>
-            Anyone holding this role gains it immediately, as does any role that
-            inherits from it.
-          </span>
-          <NativeSelect
-            aria-label="Permission to attach"
-            value={chosen}
-            onChange={(e) => setChosen(e.target.value)}
-          >
-            <option value="">Choose a permission</option>
-            {options.map((p) => (
-              <option key={p.id} value={joinRef(p.namespacePath, p.name)}>
-                {p.name}
-                {p.namespacePath === "" ? " (/)" : ` (${p.namespacePath})`}
-              </option>
-            ))}
-          </NativeSelect>
-          {/* Four different reasons the picker can be empty, and only one of
-              them is "everything is granted". A failed read must say so
-              rather than read as an answer. */}
-          <CommandAlert error={list.error} title="Could not load permissions" />
-          {list.data !== undefined && total === 0 && (
-            <span className="text-sm text-muted-foreground">
-              No permissions exist yet. Create one on the Permissions page first.
-            </span>
-          )}
-          {list.data !== undefined && total > 0 && options.length === 0 && !truncated && (
-            <span className="text-sm text-muted-foreground">
-              Every permission is already granted to this role.
-            </span>
-          )}
-          {truncated && (
-            <span className="text-sm text-muted-foreground">
-              Showing the first {loaded.length} of {total} permissions, so this list is
-              incomplete{options.length === 0 ? " and every one shown is already granted" : ""}.
-            </span>
-          )}
-          <CommandAlert error={attach.error} title="Could not attach" />
-        </span>
-      }
+      description="Anyone holding this role gains it immediately, as does any role that inherits from it."
       confirmLabel="Attach"
       pending={attach.loading}
       confirmDisabled={chosen === ""}
       onConfirm={() => void confirmAttach()}
-    />
+    >
+      <NativeSelect
+        aria-label="Permission to attach"
+        value={chosen}
+        onChange={(e) => setChosen(e.target.value)}
+      >
+        <option value="">Choose a permission</option>
+        {options.map((p) => (
+          <option key={p.id} value={joinRef(p.namespacePath, p.name)}>
+            {p.name}
+            {p.namespacePath === "" ? " (/)" : ` (${p.namespacePath})`}
+          </option>
+        ))}
+      </NativeSelect>
+      {/* Four different reasons the picker can be empty, and only one of
+          them is "everything is granted". A failed read must say so
+          rather than read as an answer. */}
+      <CommandAlert error={list.error} title="Could not load permissions" />
+      {list.data !== undefined && total === 0 && (
+        <span className="text-sm text-muted-foreground">
+          No permissions exist yet. Create one on the Permissions page first.
+        </span>
+      )}
+      {list.data !== undefined && total > 0 && options.length === 0 && !truncated && (
+        <span className="text-sm text-muted-foreground">
+          Every permission is already granted to this role.
+        </span>
+      )}
+      {truncated && (
+        <span className="text-sm text-muted-foreground">
+          Showing the first {loaded.length} of {total} permissions, so this list is
+          incomplete{options.length === 0 ? " and every one shown is already granted" : ""}.
+        </span>
+      )}
+      <CommandAlert error={attach.error} title="Could not attach" />
+    </ConfirmDialog>
   )
 }
 
@@ -654,55 +641,7 @@ function ReplaceDialog({
       open
       onOpenChange={(open) => !open && !pending && onClose()}
       title={`Replace all permissions on ${roleName}`}
-      description={
-        <span className="flex flex-col gap-2">
-          <span>
-            The role will grant exactly the permissions checked here. Anything
-            unchecked is revoked, from everyone holding the role and from any
-            role inheriting from it.
-          </span>
-          <span
-            role="group"
-            aria-label="Permissions to grant"
-            className="flex max-h-64 flex-col gap-1 overflow-y-auto rounded-md border p-2"
-          >
-            {options.map((p) => {
-              // Every option names its namespace, the root as "/" like every
-              // other namespace cell, so a root permission and a same-named
-              // one elsewhere never read alike.
-              const label = `${p.name} (${p.namespacePath === "" ? "/" : p.namespacePath})`
-              return (
-                <label key={p.id} className="flex items-center gap-2 text-sm">
-                  <input
-                    type="checkbox"
-                    className="size-4"
-                    aria-label={label}
-                    checked={chosen.has(joinRef(p.namespacePath, p.name))}
-                    disabled={pending}
-                    onChange={() => toggle(p)}
-                  />
-                  <span className="font-mono text-xs">{label}</span>
-                </label>
-              )
-            })}
-          </span>
-          <CommandAlert error={list.error} title="Could not load permissions" />
-          {truncated && (
-            <span className="text-sm text-muted-foreground">
-              Showing the first {loaded.length} of {total} permissions, so a
-              permission past that is not listed. Everything the role holds is
-              listed, and stays granted while it is checked.
-            </span>
-          )}
-          {selected.length === 0 && held.length > 0 && (
-            <span className="text-sm text-destructive">
-              Nothing is checked. This revokes all {held.length}{" "}
-              {held.length === 1 ? "permission" : "permissions"} from the role.
-            </span>
-          )}
-          <CommandAlert error={error} title="Could not replace the permissions" />
-        </span>
-      }
+      description="The role will grant exactly the permissions checked here. Anything unchecked is revoked, from everyone holding the role and from any role inheriting from it."
       confirmLabel="Replace grants"
       pending={pending}
       confirmDisabled={unchanged}
@@ -711,6 +650,47 @@ function ReplaceDialog({
           selected.map((p) => ({ name: p.name, namespacePath: p.namespacePath }))
         )
       }
-    />
+    >
+      <div
+        role="group"
+        aria-label="Permissions to grant"
+        className="flex max-h-64 flex-col gap-1 overflow-y-auto rounded-md border p-2"
+      >
+        {options.map((p) => {
+          // Every option names its namespace, the root as "/" like every
+          // other namespace cell, so a root permission and a same-named
+          // one elsewhere never read alike.
+          const label = `${p.name} (${p.namespacePath === "" ? "/" : p.namespacePath})`
+          return (
+            <label key={p.id} className="flex items-center gap-2 text-sm">
+              <input
+                type="checkbox"
+                className="size-4"
+                aria-label={label}
+                checked={chosen.has(joinRef(p.namespacePath, p.name))}
+                disabled={pending}
+                onChange={() => toggle(p)}
+              />
+              <span className="font-mono text-xs">{label}</span>
+            </label>
+          )
+        })}
+      </div>
+      <CommandAlert error={list.error} title="Could not load permissions" />
+      {truncated && (
+        <span className="text-sm text-muted-foreground">
+          Showing the first {loaded.length} of {total} permissions, so a
+          permission past that is not listed. Everything the role holds is
+          listed, and stays granted while it is checked.
+        </span>
+      )}
+      {selected.length === 0 && held.length > 0 && (
+        <span className="text-sm text-destructive">
+          Nothing is checked. This revokes all {held.length}{" "}
+          {held.length === 1 ? "permission" : "permissions"} from the role.
+        </span>
+      )}
+      <CommandAlert error={error} title="Could not replace the permissions" />
+    </ConfirmDialog>
   )
 }

@@ -402,89 +402,85 @@ export function WardenAssignmentsPage() {
           halfScoped
         }
         onConfirm={() => void confirmCreate()}
-        description={
-          <span className="flex flex-col gap-3">
-            <span>
-              Binding a subject to a role in{" "}
-              {createNamespace === "" ? "the tenant root" : createNamespace}. The
-              assignment applies there and in every namespace below it. A role
-              with a member cap refuses a new subject once it is full.
-            </span>
-            <RoleSelect
-              value={form.roleId}
-              onChange={(roleId) => setForm((f) => ({ ...f, roleId }))}
-            />
-            <span className="flex flex-col gap-1.5">
-              <Label htmlFor="assignment-subject-kind">Subject kind</Label>
-              <NativeSelect
-                id="assignment-subject-kind"
-                className="w-full"
-                value={form.subjectKind}
-                onChange={(e) =>
-                  setForm((f) => ({ ...f, subjectKind: e.target.value }))
-                }
-              >
-                {SUBJECT_KINDS.map((kind) => (
-                  <NativeSelectOption key={kind} value={kind}>
-                    {kind}
-                  </NativeSelectOption>
-                ))}
-              </NativeSelect>
-            </span>
-            <span className="flex flex-col gap-1.5">
-              <Label htmlFor="assignment-subject-id">Subject id</Label>
-              <Input
-                id="assignment-subject-id"
-                className="font-mono text-xs"
-                value={form.subjectId}
-                onChange={(e) => setForm((f) => ({ ...f, subjectId: e.target.value }))}
-              />
-            </span>
-            <span className="flex flex-col gap-1.5">
-              <Label htmlFor="assignment-resource-type">Resource type (optional)</Label>
-              <Input
-                id="assignment-resource-type"
-                className="font-mono text-xs"
-                value={form.resourceType}
-                onChange={(e) =>
-                  setForm((f) => ({ ...f, resourceType: e.target.value }))
-                }
-              />
-            </span>
-            <span className="flex flex-col gap-1.5">
-              <Label htmlFor="assignment-resource-id">Resource id (optional)</Label>
-              <Input
-                id="assignment-resource-id"
-                className="font-mono text-xs"
-                value={form.resourceId}
-                onChange={(e) => setForm((f) => ({ ...f, resourceId: e.target.value }))}
-              />
-              <span>
-                Fill in both to limit the assignment to one resource, or leave
-                both empty.
-              </span>
-              {halfScoped && (
-                <span className="text-destructive">
-                  {form.resourceType.trim() === ""
-                    ? "A resource id needs a resource type. Without one, warden ignores the id and the assignment is not limited to one resource."
-                    : "A resource type needs a resource id. Without one, the assignment matches only checks on a resource whose id is empty."}
-                </span>
-              )}
-            </span>
-            <span className="flex flex-col gap-1.5">
-              <Label htmlFor="assignment-expires">Expires (optional)</Label>
-              <Input
-                id="assignment-expires"
-                type="datetime-local"
-                value={form.expires}
-                onChange={(e) => setForm((f) => ({ ...f, expires: e.target.value }))}
-              />
-              <span>Leave empty for a permanent assignment.</span>
-            </span>
-            <CommandAlert error={create.error} title="Could not create the assignment" />
+        description={`Binding a subject to a role in ${createNamespace === "" ? "the tenant root" : createNamespace}. The assignment applies there and in every namespace below it. A role with a member cap refuses a new subject once it is full.`}
+      >
+        <RoleSelect
+          value={form.roleId}
+          onChange={(roleId) => setForm((f) => ({ ...f, roleId }))}
+        />
+        <div className="flex flex-col gap-1.5">
+          <Label htmlFor="assignment-subject-kind">Subject kind</Label>
+          <NativeSelect
+            id="assignment-subject-kind"
+            className="w-full"
+            value={form.subjectKind}
+            onChange={(e) =>
+              setForm((f) => ({ ...f, subjectKind: e.target.value }))
+            }
+          >
+            {SUBJECT_KINDS.map((kind) => (
+              <NativeSelectOption key={kind} value={kind}>
+                {kind}
+              </NativeSelectOption>
+            ))}
+          </NativeSelect>
+        </div>
+        <div className="flex flex-col gap-1.5">
+          <Label htmlFor="assignment-subject-id">Subject id</Label>
+          <Input
+            id="assignment-subject-id"
+            className="font-mono text-xs"
+            value={form.subjectId}
+            onChange={(e) => setForm((f) => ({ ...f, subjectId: e.target.value }))}
+          />
+        </div>
+        <div className="flex flex-col gap-1.5">
+          <Label htmlFor="assignment-resource-type">Resource type (optional)</Label>
+          <Input
+            id="assignment-resource-type"
+            className="font-mono text-xs"
+            value={form.resourceType}
+            onChange={(e) =>
+              setForm((f) => ({ ...f, resourceType: e.target.value }))
+            }
+          />
+        </div>
+        {/* The hints below sit outside the description now, so they carry
+            its text style themselves. */}
+        <div className="flex flex-col gap-1.5">
+          <Label htmlFor="assignment-resource-id">Resource id (optional)</Label>
+          <Input
+            id="assignment-resource-id"
+            className="font-mono text-xs"
+            value={form.resourceId}
+            onChange={(e) => setForm((f) => ({ ...f, resourceId: e.target.value }))}
+          />
+          <span className="text-xs/relaxed text-muted-foreground">
+            Fill in both to limit the assignment to one resource, or leave
+            both empty.
           </span>
-        }
-      />
+          {halfScoped && (
+            <span className="text-xs/relaxed text-destructive">
+              {form.resourceType.trim() === ""
+                ? "A resource id needs a resource type. Without one, warden ignores the id and the assignment is not limited to one resource."
+                : "A resource type needs a resource id. Without one, the assignment matches only checks on a resource whose id is empty."}
+            </span>
+          )}
+        </div>
+        <div className="flex flex-col gap-1.5">
+          <Label htmlFor="assignment-expires">Expires (optional)</Label>
+          <Input
+            id="assignment-expires"
+            type="datetime-local"
+            value={form.expires}
+            onChange={(e) => setForm((f) => ({ ...f, expires: e.target.value }))}
+          />
+          <span className="text-xs/relaxed text-muted-foreground">
+            Leave empty for a permanent assignment.
+          </span>
+        </div>
+        <CommandAlert error={create.error} title="Could not create the assignment" />
+      </ConfirmDialog>
 
       <ConfirmDialog
         open={deleting !== null}
@@ -495,19 +491,16 @@ export function WardenAssignmentsPage() {
             : "Delete assignment?"
         }
         description={
-          <span className="flex flex-col gap-2">
-            <span>
-              {deleting?.expired
-                ? "This assignment has already expired and grants nothing, so deleting it only removes the row."
-                : "This binding is removed. The subject keeps this role only where another of its assignments grants it."}
-            </span>
-            <CommandAlert error={remove.error} title="Could not delete" />
-          </span>
+          deleting?.expired
+            ? "This assignment has already expired and grants nothing, so deleting it only removes the row."
+            : "This binding is removed. The subject keeps this role only where another of its assignments grants it."
         }
         confirmLabel="Delete"
         pending={remove.loading}
         onConfirm={() => void confirmDelete()}
-      />
+      >
+        <CommandAlert error={remove.error} title="Could not delete" />
+      </ConfirmDialog>
     </section>
   )
 }

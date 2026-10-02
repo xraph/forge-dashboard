@@ -269,19 +269,13 @@ export function WardenRolesPage() {
         open={deleting !== null}
         onOpenChange={(open) => !open && setDeleting(null)}
         title={`Delete ${deleting?.name ?? ""}?`}
-        description={
-          <span className="flex flex-col gap-2">
-            <span>
-              Every assignment of this role is removed with it, and any role
-              inheriting from it loses its parent. This cannot be undone.
-            </span>
-            <CommandAlert error={remove.error} title="Could not delete" />
-          </span>
-        }
+        description="Every assignment of this role is removed with it, and any role inheriting from it loses its parent. This cannot be undone."
         confirmLabel="Delete"
         pending={remove.loading}
         onConfirm={() => void confirmDelete()}
-      />
+      >
+        <CommandAlert error={remove.error} title="Could not delete" />
+      </ConfirmDialog>
     </section>
   )
 }

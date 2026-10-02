@@ -259,19 +259,13 @@ export function WardenPermissionsPage() {
         open={deleting !== null}
         onOpenChange={(open) => !open && setDeleting(null)}
         title={`Delete ${deleting?.name ?? ""}?`}
-        description={
-          <span className="flex flex-col gap-2">
-            <span>
-              This is refused while any role still grants it. Detach it from
-              those roles first, and the error below will name them.
-            </span>
-            <CommandAlert error={remove.error} title="Could not delete" />
-          </span>
-        }
+        description="This is refused while any role still grants it. Detach it from those roles first, and the error below will name them."
         confirmLabel="Delete"
         pending={remove.loading}
         onConfirm={() => void confirmDelete()}
-      />
+      >
+        <CommandAlert error={remove.error} title="Could not delete" />
+      </ConfirmDialog>
     </section>
   )
 }

@@ -468,44 +468,41 @@ export function WardenPoliciesPage() {
         confirmDisabled={missing}
         onConfirm={() => void confirmCreate()}
         description={
-          <span className="flex flex-col gap-3">
-            {/* With evaluation off, activating takes no effect either, so
-                the dialog promises nothing about it. Only an explicit false
-                from config.detail says so, never an unreadable config. */}
-            <span>
-              {abacOff
-                ? "It starts inactive."
-                : "It starts inactive, so it takes no effect until you activate it."}
-            </span>
-            <span className="flex flex-col gap-1.5">
-              <Label htmlFor="policy-name">Name</Label>
-              <Input
-                id="policy-name"
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-              />
-            </span>
-            <span className="flex flex-col gap-1.5">
-              <Label htmlFor="policy-effect">Effect</Label>
-              <NativeSelect
-                id="policy-effect"
-                className="w-full"
-                value={newEffect}
-                onChange={(e) => setNewEffect(e.target.value)}
-              >
-                <NativeSelectOption value="">Choose an effect</NativeSelectOption>
-                {EFFECTS.map((e) => (
-                  <NativeSelectOption key={e} value={e}>
-                    {e}
-                  </NativeSelectOption>
-                ))}
-              </NativeSelect>
-            </span>
-            <NamespaceSelect value={newNamespace} onChange={setNewNamespace} />
-            <CommandAlert error={create.error} title="Could not create the policy" />
-          </span>
+          // With evaluation off, activating takes no effect either, so the
+          // dialog promises nothing about it. Only an explicit false from
+          // config.detail says so, never an unreadable config.
+          abacOff
+            ? "It starts inactive."
+            : "It starts inactive, so it takes no effect until you activate it."
         }
-      />
+      >
+        <div className="flex flex-col gap-1.5">
+          <Label htmlFor="policy-name">Name</Label>
+          <Input
+            id="policy-name"
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+          />
+        </div>
+        <div className="flex flex-col gap-1.5">
+          <Label htmlFor="policy-effect">Effect</Label>
+          <NativeSelect
+            id="policy-effect"
+            className="w-full"
+            value={newEffect}
+            onChange={(e) => setNewEffect(e.target.value)}
+          >
+            <NativeSelectOption value="">Choose an effect</NativeSelectOption>
+            {EFFECTS.map((e) => (
+              <NativeSelectOption key={e} value={e}>
+                {e}
+              </NativeSelectOption>
+            ))}
+          </NativeSelect>
+        </div>
+        <NamespaceSelect value={newNamespace} onChange={setNewNamespace} />
+        <CommandAlert error={create.error} title="Could not create the policy" />
+      </ConfirmDialog>
     </section>
   )
 }

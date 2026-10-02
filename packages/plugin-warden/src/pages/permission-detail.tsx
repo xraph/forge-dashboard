@@ -166,19 +166,13 @@ export function WardenPermissionDetailPage({ params }: PluginPageProps) {
             open={deleting}
             onOpenChange={setDeleting}
             title={`Delete ${permission.name}?`}
-            description={
-              <span className="flex flex-col gap-2">
-                <span>
-                  This is refused while any role attaches it directly. Detach it
-                  from those roles first, and the error below will name them.
-                </span>
-                <CommandAlert error={remove.error} title="Could not delete" />
-              </span>
-            }
+            description="This is refused while any role attaches it directly. Detach it from those roles first, and the error below will name them."
             confirmLabel="Delete"
             pending={remove.loading}
             onConfirm={() => void confirmDelete()}
-          />
+          >
+            <CommandAlert error={remove.error} title="Could not delete" />
+          </ConfirmDialog>
         </section>
       )}
     </QueryBoundary>

@@ -272,61 +272,45 @@ export function WardenResourceTypesPage() {
         pending={create.loading}
         confirmDisabled={missingName}
         onConfirm={() => void confirmCreate()}
-        description={
-          <span className="flex flex-col gap-3">
-            <span>
-              Creating in{" "}
-              {createNamespace === "" ? "the tenant root" : createNamespace}. The
-              name cannot be changed later. Add its relations and permissions on
-              the type&apos;s page once it exists.
-            </span>
-            <span className="flex flex-col gap-1.5">
-              <Label htmlFor="resource-type-name">Name</Label>
-              <Input
-                id="resource-type-name"
-                className="font-mono text-xs"
-                placeholder="document"
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-              />
-            </span>
-            <span className="flex flex-col gap-1.5">
-              <Label htmlFor="resource-type-description">
-                Description (optional)
-              </Label>
-              <Input
-                id="resource-type-description"
-                value={description}
-                onChange={(e) => setDescription(e.target.value)}
-              />
-            </span>
-            <CommandAlert
-              error={create.error}
-              title="Could not create the resource type"
-            />
-          </span>
-        }
-      />
+        description={`Creating in ${createNamespace === "" ? "the tenant root" : createNamespace}. The name cannot be changed later. Add its relations and permissions on the type's page once it exists.`}
+      >
+        <div className="flex flex-col gap-1.5">
+          <Label htmlFor="resource-type-name">Name</Label>
+          <Input
+            id="resource-type-name"
+            className="font-mono text-xs"
+            placeholder="document"
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+          />
+        </div>
+        <div className="flex flex-col gap-1.5">
+          <Label htmlFor="resource-type-description">
+            Description (optional)
+          </Label>
+          <Input
+            id="resource-type-description"
+            value={description}
+            onChange={(e) => setDescription(e.target.value)}
+          />
+        </div>
+        <CommandAlert
+          error={create.error}
+          title="Could not create the resource type"
+        />
+      </ConfirmDialog>
 
       <ConfirmDialog
         open={deleting !== null}
         onOpenChange={(open) => !open && setDeleting(null)}
         title={`Delete ${deleting?.name ?? ""}?`}
-        description={
-          <span className="flex flex-col gap-2">
-            <span>
-              Permissions derived through this type stop resolving. A type that
-              relation tuples still name as their object type cannot be deleted:
-              the server refuses and says how many, and those tuples have to go
-              first. This cannot be undone.
-            </span>
-            <CommandAlert error={remove.error} title="Could not delete" />
-          </span>
-        }
+        description="Permissions derived through this type stop resolving. A type that relation tuples still name as their object type cannot be deleted: the server refuses and says how many, and those tuples have to go first. This cannot be undone."
         confirmLabel="Delete"
         pending={remove.loading}
         onConfirm={() => void confirmDelete()}
-      />
+      >
+        <CommandAlert error={remove.error} title="Could not delete" />
+      </ConfirmDialog>
     </section>
   )
 }

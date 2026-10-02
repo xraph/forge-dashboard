@@ -220,40 +220,28 @@ export function WardenConfigPage() {
         open={confirmingRun}
         onOpenChange={(open) => !open && setConfirmingRun(false)}
         title="Run maintenance now?"
-        description={
-          <span className="flex flex-col gap-2">
-            <span>
-              Purges assignments that have already expired, and check log entries
-              older than the retention window. This runs across every tenant.
-            </span>
-            <CommandAlert
-              error={runMaintenance.error}
-              title="Could not run maintenance"
-            />
-          </span>
-        }
+        description="Purges assignments that have already expired, and check log entries older than the retention window. This runs across every tenant."
         confirmLabel="Run"
         pending={runMaintenance.loading}
         onConfirm={() => void doRun()}
-      />
+      >
+        <CommandAlert
+          error={runMaintenance.error}
+          title="Could not run maintenance"
+        />
+      </ConfirmDialog>
 
       <ConfirmDialog
         open={confirmingClear}
         onOpenChange={(open) => !open && setConfirmingClear(false)}
         title="Clear this tenant's decision cache?"
-        description={
-          <span className="flex flex-col gap-2">
-            <span>
-              The next check for every subject in this tenant is evaluated from
-              the store rather than served from cache. Nothing stored changes.
-            </span>
-            <CommandAlert error={clearCache.error} title="Could not clear the cache" />
-          </span>
-        }
+        description="The next check for every subject in this tenant is evaluated from the store rather than served from cache. Nothing stored changes."
         confirmLabel="Clear"
         pending={clearCache.loading}
         onConfirm={() => void doClear()}
-      />
+      >
+        <CommandAlert error={clearCache.error} title="Could not clear the cache" />
+      </ConfirmDialog>
     </section>
   )
 }

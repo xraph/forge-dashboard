@@ -435,21 +435,22 @@ export function WardenPolicyDetailPage({ params, editing = false }: PolicyPagePr
               pending={setActive.loading}
               onConfirm={() => void confirmToggle()}
               description={
-                <span className="flex flex-col gap-2">
-                  {target ? (
-                    onActivate.map((s) => <span key={s}>{s}</span>)
-                  ) : (
-                    <span>
-                      {deactivateSentence(policy, abacOff)}
-                    </span>
-                  )}
-                  <CommandAlert
-                    error={setActive.error}
-                    title={target ? "Could not activate" : "Could not deactivate"}
-                  />
-                </span>
+                target ? (
+                  <span className="flex flex-col gap-2">
+                    {onActivate.map((s) => (
+                      <span key={s}>{s}</span>
+                    ))}
+                  </span>
+                ) : (
+                  deactivateSentence(policy, abacOff)
+                )
               }
-            />
+            >
+              <CommandAlert
+                error={setActive.error}
+                title={target ? "Could not activate" : "Could not deactivate"}
+              />
+            </ConfirmDialog>
 
             <ConfirmDialog
               open={deleting}
@@ -459,13 +460,10 @@ export function WardenPolicyDetailPage({ params, editing = false }: PolicyPagePr
               confirmLabel="Delete"
               pending={remove.loading}
               onConfirm={() => void confirmDelete()}
-              description={
-                <span className="flex flex-col gap-2">
-                  <span>This cannot be undone.</span>
-                  <CommandAlert error={remove.error} title="Could not delete" />
-                </span>
-              }
-            />
+              description="This cannot be undone."
+            >
+              <CommandAlert error={remove.error} title="Could not delete" />
+            </ConfirmDialog>
           </section>
         )
       }}

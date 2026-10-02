@@ -1301,13 +1301,10 @@ export function PolicyEditor({
         confirmLabel="Save changes"
         pending={update.loading}
         onConfirm={() => void confirmSave()}
-        description={
-          <span className="flex flex-col gap-2">
-            <span>{confirming?.sentence}</span>
-            <CommandAlert error={update.error} title="Could not save the policy" />
-          </span>
-        }
-      />
+        description={confirming?.sentence}
+      >
+        <CommandAlert error={update.error} title="Could not save the policy" />
+      </ConfirmDialog>
     </div>
   )
 }
