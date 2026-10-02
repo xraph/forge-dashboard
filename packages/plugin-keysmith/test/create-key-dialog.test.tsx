@@ -1,5 +1,5 @@
 import { useState } from "react"
-import { afterEach, describe, expect, it, vi } from "vitest"
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 import {
   cleanup,
   fireEvent,
@@ -54,6 +54,13 @@ const POLICIES: PoliciesList = {
       allowedScopes: [],
     },
     {
+      id: "kpol_short",
+      name: "Short",
+      maxKeyLifetimeSeconds: 7 * 86400,
+      graceSeconds: null,
+      allowedScopes: [],
+    },
+    {
       id: "kpol_narrow",
       name: "Narrow",
       maxKeyLifetimeSeconds: null,
@@ -74,9 +81,17 @@ const SCOPES: ScopesList = {
 
 const WITH_SECRET: KeyWithSecret = { key: CREATED, rawKey: RAW_KEY }
 
+// Only Date is faked, so timers and promises behave. A fixed local "now" lets
+// the date bounds be written out: 10:00 on 2 October 2026, wherever this runs.
+beforeEach(() => {
+  vi.useFakeTimers({ toFake: ["Date"] })
+  vi.setSystemTime(new Date(2026, 9, 2, 10, 0, 0))
+})
+
 afterEach(() => {
   cleanup()
   queryStore.clear()
+  vi.useRealTimers()
 })
 
 function Host({ initiallyOpen = true }: { initiallyOpen?: boolean }) {
@@ -111,11 +126,24 @@ function mount(
   return { ...view, navigate }
 }
 
-function standard(commandAnswer: unknown = WITH_SECRET) {
-  return recordingCommandClient(
-    { "policies.list": POLICIES, "scopes.list": SCOPES },
+function standard(
+  commandAnswer: unknown = WITH_SECRET,
+  answers: Record<string, unknown> = {}
+) {
+  const base = recordingCommandClient(
+    { "policies.list": POLICIES, "scopes.list": SCOPES, ...answers },
     { "keys.create": commandAnswer }
   )
+  const queried: { intent: string; params?: unknown }[] = []
+  const client = {
+    extension: base.client.extension,
+    command: base.client.command,
+    query: (intent: string, params?: Record<string, unknown>) => {
+      queried.push({ intent, params })
+      return base.client.query(intent, params)
+    },
+  } as ScopedClient
+  return { client, sent: base.sent, queried }
 }
 
 async function dialog(): Promise<HTMLElement> {
@@ -177,7 +205,7 @@ describe("CreateKeyDialog form", () => {
     const options = within(screen.getByLabelText("Policy"))
       .getAllByRole("option")
       .map((o) => o.textContent)
-    expect(options).toEqual(["No policy", "Standard", "Narrow"])
+    expect(options).toEqual(["No policy", "Standard", "Short", "Narrow"])
 
     fill("Policy", "kpol_standard")
     expect(screen.getByText(/Maximum lifetime: 90 days/)).toBeTruthy()
@@ -241,7 +269,7 @@ describe("CreateKeyDialog submit", () => {
     fireEvent.click(screen.getByRole("radio", { name: "Staging" }))
     fill("Prefix", "bill")
     fill("Policy", "kpol_standard")
-    fill(/^Expiry/, "2027-03-01")
+    fill(/^Expiry/, "2026-12-15")
     fireEvent.click(screen.getByRole("checkbox", { name: "billing:write" }))
     fireEvent.click(screen.getByRole("checkbox", { name: "billing:read" }))
     fireEvent.click(createButton())
@@ -254,7 +282,9 @@ describe("CreateKeyDialog submit", () => {
       environment: "staging",
       prefix: "bill",
       policyId: "kpol_standard",
-      expiresAt: "2027-03-01T23:59:59Z",
+      // The operator's local end of that day, computed the way a person
+      // would read it, not as a UTC literal.
+      expiresAt: new Date(2026, 11, 15, 23, 59, 59).toISOString(),
       scopes: ["billing:read", "billing:write"],
     })
   })
@@ -316,6 +346,43 @@ describe("CreateKeyDialog submit", () => {
     expect(createButton().disabled).toBe(false)
   })
 
+  it("marks the prefix invalid when the server says so, and points at the error", async () => {
+    const { client } = standard()
+    const prefixMessage =
+      "prefix must be 2 to 16 lowercase letters or digits, starting with a letter"
+    const failing = {
+      extension: client.extension,
+      query: client.query,
+      command: async () => {
+        throw new ContractError("BAD_REQUEST", prefixMessage)
+      },
+    } as ScopedClient
+    mount(failing)
+    await dialog()
+    fill("Name", "Fine")
+    // Valid here, so only the server can refuse it.
+    fireEvent.click(createButton())
+
+    const alert = await screen.findByRole("alert")
+    expect(alert.textContent).toBe(prefixMessage)
+    const prefix = screen.getByLabelText("Prefix")
+    expect(prefix.getAttribute("aria-invalid")).toBe("true")
+    expect(prefix.getAttribute("aria-describedby")).toBe(alert.id)
+    expect(screen.getByLabelText("Name").getAttribute("aria-invalid")).toBeNull()
+  })
+
+  it("marks the name invalid for the name messages", async () => {
+    const { client } = standard()
+    mount(client)
+    await dialog()
+    fireEvent.click(createButton())
+    const alert = screen.getByRole("alert")
+    const name = screen.getByLabelText("Name")
+    expect(name.getAttribute("aria-invalid")).toBe("true")
+    expect(name.getAttribute("aria-describedby")).toBe(alert.id)
+    expect(screen.getByLabelText("Prefix").getAttribute("aria-invalid")).toBeNull()
+  })
+
   it("sends one command however many times Create is pressed while pending", async () => {
     const base = standard()
     let release: (value: unknown) => void = () => {}
@@ -344,6 +411,173 @@ describe("CreateKeyDialog submit", () => {
 
     release(WITH_SECRET)
     await screen.findByText("This is the only time Keysmith will show it.")
+  })
+})
+
+describe("CreateKeyDialog expiry", () => {
+  const expiry = () => screen.getByLabelText(/^Expiry/) as HTMLInputElement
+
+  it("bounds the date from today, and by a policy's maximum lifetime", async () => {
+    const { client } = standard()
+    mount(client)
+    await dialog()
+    await screen.findByRole("option", { name: "Standard" })
+    expect(expiry().min).toBe("2026-10-02")
+    expect(expiry().max).toBe("")
+
+    // 90 days from 10:00 on 2 Oct is 10:00 on 31 Dec, so the 31st's end of day
+    // is past it and 30 Dec is the last date that fits.
+    fill("Policy", "kpol_standard")
+    expect(expiry().min).toBe("2026-10-02")
+    expect(expiry().max).toBe("2026-12-30")
+
+    fill("Policy", "kpol_short")
+    expect(expiry().max).toBe("2026-10-08")
+
+    fill("Policy", "kpol_narrow")
+    expect(expiry().max).toBe("")
+  })
+
+  it("clears a date the newly chosen policy would refuse", async () => {
+    const { client } = standard()
+    mount(client)
+    await dialog()
+    await screen.findByRole("option", { name: "Standard" })
+    fill("Policy", "kpol_standard")
+    fill(/^Expiry/, "2026-12-15")
+    expect(expiry().value).toBe("2026-12-15")
+
+    fill("Policy", "kpol_short")
+    expect(expiry().value).toBe("")
+
+    // A date that still fits stays.
+    fill(/^Expiry/, "2026-10-05")
+    fill("Policy", "kpol_standard")
+    expect(expiry().value).toBe("2026-10-05")
+  })
+
+  it("says when the key will expire, in the operator's time", async () => {
+    const { client } = standard()
+    mount(client)
+    await dialog()
+    expect(screen.queryByText(/Expires at the end of/)).toBeNull()
+    fill(/^Expiry/, "2026-12-15")
+    const long = new Date(2026, 11, 15).toLocaleDateString(undefined, {
+      dateStyle: "long",
+    })
+    expect(
+      screen.getByText(`Expires at the end of ${long}, your time.`)
+    ).toBeTruthy()
+  })
+
+  it("accepts today, as the end of the operator's day", async () => {
+    const { client, sent } = standard()
+    mount(client)
+    await dialog()
+    fill("Name", "Today")
+    fill(/^Expiry/, "2026-10-02")
+    fireEvent.click(createButton())
+    await waitFor(() => expect(sent).toHaveLength(1))
+    expect((sent[0].payload as { expiresAt: string }).expiresAt).toBe(
+      new Date(2026, 9, 2, 23, 59, 59).toISOString()
+    )
+  })
+
+  it("refuses a date before today next to the field, without sending", async () => {
+    const { client, sent } = standard()
+    mount(client)
+    await dialog()
+    fill("Name", "Yesterday")
+    fill(/^Expiry/, "2026-10-01")
+    fireEvent.click(createButton())
+
+    const note = screen.getByText("Choose today or a later date.")
+    expect(note.closest("[data-slot=field]")?.contains(expiry())).toBe(true)
+    expect(expiry().getAttribute("aria-invalid")).toBe("true")
+    expect(expiry().getAttribute("aria-describedby")).toBe(note.id)
+    expect(sent).toHaveLength(0)
+
+    // Choosing another date takes the message away.
+    fill(/^Expiry/, "2026-10-03")
+    expect(screen.queryByText("Choose today or a later date.")).toBeNull()
+  })
+})
+
+describe("CreateKeyDialog pickers", () => {
+  it("asks each picker for 200", async () => {
+    const { client, queried } = standard()
+    mount(client)
+    await dialog()
+    await screen.findByRole("option", { name: "Standard" })
+    expect(queried).toContainEqual({
+      intent: "policies.list",
+      params: { limit: 200 },
+    })
+    expect(queried).toContainEqual({
+      intent: "scopes.list",
+      params: { limit: 200 },
+    })
+  })
+
+  it("says when there are more policies than the picker shows", async () => {
+    const { client } = standard(WITH_SECRET, {
+      "policies.list": { ...POLICIES, hasMore: true },
+    })
+    mount(client)
+    await dialog()
+    expect(
+      await screen.findByText("Only the first 200 policies are listed.")
+    ).toBeTruthy()
+  })
+
+  it("says when there are more scopes than the picker shows", async () => {
+    const { client } = standard(WITH_SECRET, {
+      "scopes.list": { ...SCOPES, hasMore: true },
+    })
+    mount(client)
+    await dialog()
+    expect(
+      await screen.findByText(
+        "Only the first 200 scopes are listed. You can add others from the key's page after it is created."
+      )
+    ).toBeTruthy()
+  })
+
+  it("blames the first 200 when a policy allows none of the scopes shown", async () => {
+    const { client } = standard(WITH_SECRET, {
+      "scopes.list": {
+        hasMore: true,
+        scopes: [{ id: "kscope_9", name: "reports:read" }],
+      },
+    })
+    mount(client)
+    await dialog()
+    await screen.findByRole("checkbox", { name: "reports:read" })
+    await screen.findByRole("option", { name: "Narrow" })
+    fill("Policy", "kpol_narrow")
+    expect(
+      screen.getByText("None of the first 200 scopes are allowed by this policy.")
+    ).toBeTruthy()
+    expect(
+      screen.queryByText("This policy allows none of the scopes that exist.")
+    ).toBeNull()
+  })
+
+  it("says a policy allows none of the scopes that exist when the list is complete", async () => {
+    const { client } = standard(WITH_SECRET, {
+      "scopes.list": {
+        hasMore: false,
+        scopes: [{ id: "kscope_9", name: "reports:read" }],
+      },
+    })
+    mount(client)
+    await dialog()
+    await screen.findByRole("checkbox", { name: "reports:read" })
+    await screen.findByRole("option", { name: "Narrow" })
+    fill("Policy", "kpol_narrow")
+    expect(
+      screen.getByText("This policy allows none of the scopes that exist.")
+    ).toBeTruthy()
   })
 })
 

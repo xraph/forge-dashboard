@@ -51,6 +51,44 @@ const NAME_REQUIRED = "name is required"
 const NAME_TOO_LONG = "name is too long"
 const PREFIX_INVALID =
   "prefix must be 2 to 16 lowercase letters or digits, starting with a letter"
+const EXPIRY_IN_PAST = "Choose today or a later date."
+// The most each picker asks for, and what its "first N" lines say.
+const PICKER_LIMIT = 200
+const PICKER_PARAMS = { limit: PICKER_LIMIT }
+const DAY_MS = 86_400_000
+
+function pad(n: number): string {
+  return String(n).padStart(2, "0")
+}
+
+/** A date input's value for a Date, in the operator's own time zone. */
+function dateValue(d: Date): string {
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`
+}
+
+/** The operator's local 23:59:59 on a date input's `YYYY-MM-DD` value. */
+function endOfLocalDay(value: string): Date {
+  const [y, m, d] = value.split("-").map(Number)
+  return new Date(y, m - 1, d, 23, 59, 59)
+}
+
+/**
+ * The last date whose local end of day is at or before now + the lifetime, as
+ * a date input's value. Later than that and the server refuses the key.
+ */
+function lastDateWithin(now: number, lifetimeSeconds: number): string {
+  const limit = new Date(now + lifetimeSeconds * 1000)
+  const sameDay = dateValue(limit)
+  return endOfLocalDay(sameDay).getTime() <= limit.getTime()
+    ? sameDay
+    : dateValue(new Date(endOfLocalDay(sameDay).getTime() - DAY_MS))
+}
+
+function longDate(value: string): string {
+  return endOfLocalDay(value).toLocaleDateString(undefined, {
+    dateStyle: "long",
+  })
+}
 
 export interface CreateKeyDialogProps {
   open: boolean
@@ -112,11 +150,13 @@ function CreateKeyForm({
     prefix: useId(),
     policy: useId(),
     expiry: useId(),
+    expiryNote: useId(),
+    error: useId(),
   }
   const navigate = useNavigateTo()
   const create = useCommand<KeyWithSecret>("keys.create")
-  const policies = useQuery<PoliciesList>("policies.list")
-  const scopes = useQuery<ScopesList>("scopes.list")
+  const policies = useQuery<PoliciesList>("policies.list", PICKER_PARAMS)
+  const scopes = useQuery<ScopesList>("scopes.list", PICKER_PARAMS)
 
   const [name, setName] = useState("")
   const [description, setDescription] = useState("")
@@ -126,6 +166,10 @@ function CreateKeyForm({
   const [expiry, setExpiry] = useState("")
   const [picked, setPicked] = useState<string[]>([])
   const [problem, setProblem] = useState<string | null>(null)
+  const [expiryProblem, setExpiryProblem] = useState<string | null>(null)
+  // When the form opened. Only the date input's bounds read it, so they do not
+  // move under the operator mid-edit; the submit check reads the clock afresh.
+  const [openedAt] = useState(() => Date.now())
   // The one copy of the raw key outside OneTimeKey's props. It is cleared by
   // Done, and by the whole form unmounting.
   const [revealed, setRevealed] = useState<KeyWithSecret | null>(null)
@@ -139,9 +183,18 @@ function CreateKeyForm({
   }, [locked, onLockedChange])
   useEffect(() => () => onLockedChange(false), [onLockedChange])
 
+  const message = problem ?? create.error?.message
+  const nameInvalid = message === NAME_REQUIRED || message === NAME_TOO_LONG
+  const prefixInvalid = message === PREFIX_INVALID
+
   const policy = policies.data?.policies?.find((p) => p.id === policyId)
   const allowed = policy?.allowedScopes ?? []
   const narrowed = allowed.length > 0
+  const minDate = dateValue(new Date(openedAt))
+  const maxDate =
+    policy?.maxKeyLifetimeSeconds != null
+      ? lastDateWithin(openedAt, policy.maxKeyLifetimeSeconds)
+      : undefined
   const visibleScopes = (scopes.data?.scopes ?? []).filter(
     (s) => !narrowed || allowed.includes(s.name)
   )
@@ -159,8 +212,11 @@ function CreateKeyForm({
           : !PREFIX_PATTERN.test(prefix)
             ? PREFIX_INVALID
             : null
+    const pastDate =
+      expiry !== "" && expiry < dateValue(new Date()) ? EXPIRY_IN_PAST : null
     setProblem(invalid)
-    if (invalid) return
+    setExpiryProblem(pastDate)
+    if (invalid || pastDate) return
 
     // A scope ticked under one policy and not allowed by the next is left out.
     const chosen = visibleScopes
@@ -176,9 +232,8 @@ function CreateKeyForm({
         environment,
         prefix,
         ...(policyId !== "" && { policyId }),
-        // A date input has no time. The end of that day, so "today" is still
-        // in the future for the server's check.
-        ...(expiry !== "" && { expiresAt: `${expiry}T23:59:59Z` }),
+        // A date input has no time: the end of that day where the operator is.
+        ...(expiry !== "" && { expiresAt: endOfLocalDay(expiry).toISOString() }),
         scopes: chosen,
       })
     } finally {
@@ -188,6 +243,18 @@ function CreateKeyForm({
     // Copy first, then drop the hook's own copy of the answer.
     setRevealed(result)
     create.reset()
+  }
+
+  function changePolicy(id: string) {
+    setPolicyId(id)
+    const next = policies.data?.policies?.find((p) => p.id === id)
+    const max =
+      next?.maxKeyLifetimeSeconds != null
+        ? lastDateWithin(openedAt, next.maxKeyLifetimeSeconds)
+        : undefined
+    // A date the new policy would refuse is not kept.
+    if (max !== undefined && expiry > max) setExpiry("")
+    setExpiryProblem(null)
   }
 
   function done() {
@@ -229,6 +296,8 @@ function CreateKeyForm({
           <Input
             id={ids.name}
             value={name}
+            aria-invalid={nameInvalid ? true : undefined}
+            aria-describedby={nameInvalid ? ids.error : undefined}
             autoComplete="off"
             onChange={(e) => setName(e.target.value)}
           />
@@ -265,6 +334,8 @@ function CreateKeyForm({
           <Input
             id={ids.prefix}
             value={prefix}
+            aria-invalid={prefixInvalid ? true : undefined}
+            aria-describedby={prefixInvalid ? ids.error : undefined}
             className="font-mono"
             autoComplete="off"
             spellCheck={false}
@@ -284,9 +355,7 @@ function CreateKeyForm({
             id={ids.policy}
             className="w-full"
             value={policyId}
-            onChange={(e) => {
-              setPolicyId(e.target.value)
-            }}
+            onChange={(e) => changePolicy(e.target.value)}
           >
             <NativeSelectOption value="">No policy</NativeSelectOption>
             {(policies.data?.policies ?? []).map((p) => (
@@ -295,6 +364,11 @@ function CreateKeyForm({
               </NativeSelectOption>
             ))}
           </NativeSelect>
+          {policies.data?.hasMore && (
+            <FieldDescription>
+              {`Only the first ${PICKER_LIMIT} policies are listed.`}
+            </FieldDescription>
+          )}
           {policies.error && (
             <FieldDescription>
               Policies could not be loaded, so none can be chosen right now.
@@ -321,8 +395,25 @@ function CreateKeyForm({
             id={ids.expiry}
             type="date"
             value={expiry}
-            onChange={(e) => setExpiry(e.target.value)}
+            min={minDate}
+            max={maxDate}
+            aria-invalid={expiryProblem ? true : undefined}
+            aria-describedby={expiryProblem ? ids.expiryNote : undefined}
+            onChange={(e) => {
+              setExpiry(e.target.value)
+              setExpiryProblem(null)
+            }}
           />
+          {expiryProblem && (
+            <p id={ids.expiryNote} className="text-xs text-destructive">
+              {expiryProblem}
+            </p>
+          )}
+          {expiry !== "" && !expiryProblem && (
+            <FieldDescription>
+              {`Expires at the end of ${longDate(expiry)}, your time.`}
+            </FieldDescription>
+          )}
           {policy?.maxKeyLifetimeSeconds != null && (
             <FieldDescription>
               {`Keys under this policy expire after ${formatDuration(policy.maxKeyLifetimeSeconds)} unless you choose an earlier date.`}
@@ -342,7 +433,9 @@ function CreateKeyForm({
           ) : visibleScopes.length === 0 ? (
             <FieldDescription>
               {narrowed
-                ? "This policy allows none of the scopes that exist."
+                ? scopes.data?.hasMore
+                  ? `None of the first ${PICKER_LIMIT} scopes are allowed by this policy.`
+                  : "This policy allows none of the scopes that exist."
                 : "No scopes exist in this tenant yet."}
             </FieldDescription>
           ) : (
@@ -371,15 +464,15 @@ function CreateKeyForm({
           )}
           {scopes.data?.hasMore && (
             <FieldDescription>
-              Only the first scopes are listed here.
+              {`Only the first ${PICKER_LIMIT} scopes are listed. You can add others from the key's page after it is created.`}
             </FieldDescription>
           )}
         </FieldSet>
       </FieldGroup>
 
-      {(problem ?? create.error?.message) && (
-        <p role="alert" className="text-sm text-destructive">
-          {problem ?? create.error?.message}
+      {message && (
+        <p id={ids.error} role="alert" className="text-sm text-destructive">
+          {message}
         </p>
       )}
 
