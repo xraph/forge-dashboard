@@ -14,6 +14,13 @@
 // and NOT_FOUND, CONFLICT and PERMISSION_DENIED reach the wire with their own
 // codes; createLedgerHandlers takes it as an argument for that reason.
 //
+// There is no lifecycle clock. Periods never roll, trials never end, a
+// scheduled cancel is never enacted and an unpaid invoice never becomes past
+// due on its own (the seed has some that already are). settings.detail reports
+// lifecycle_interval "off" for that reason. The engine's rules for the periods
+// invoices.generate may bill (billedPeriod below) are ported, the clock's work
+// is not.
+//
 // Two switches, read on every call so a running server can be flipped:
 //   LEDGER_FIXTURE_NO_APP=1       no app is selected. Every intent except the
 //                                 feature catalog and settings.detail answers
@@ -1107,7 +1114,11 @@ function catalogHandlers(h) {
         meter_batch_size: 100,
         meter_flush_interval: "5s",
         entitlement_cache_ttl: "1m0s",
-        lifecycle_interval: "1m0s",
+        // The fixture has no lifecycle clock: nothing here advances a period,
+        // ends a trial, enacts a cancel or marks an invoice past due. Say so,
+        // as the engine does for a clock that is disabled. Reporting an
+        // interval would tell the dashboard a clock is coming that never will.
+        lifecycle_interval: "off",
         app_id: currentApp(),
         require_app_claim: false,
         providers: providerConfigured() ? [PROVIDER] : [],
@@ -1144,6 +1155,24 @@ function anchorDay(startMs, endMs) {
 /** As the engine's firstPeriodEnd: one month on (twelve for yearly), on the start's day. */
 function firstPeriodEnd(startMs, billingPeriod) {
   return shiftMonths(startMs, billingPeriod === "yearly" ? 12 : 1, new Date(startMs).getUTCDate())
+}
+
+/**
+ * As the engine's clampedFirstStart: where a subscription's first period
+ * started when it began on a day the month it ended in does not have, a yearly
+ * subscription created on 29 February whose first period ends on the 28th.
+ * Undefined unless endMs falls on a month's last day and the creation day is
+ * later than it. The start is the creation day one period before the end, and
+ * it must land on the creation date.
+ */
+function clampedFirstStart(sub, months, endMs) {
+  const created = new Date(sub.created_at)
+  const end = new Date(endMs)
+  if (end.getUTCDate() !== daysIn(end.getUTCFullYear(), end.getUTCMonth()) || created.getUTCDate() <= end.getUTCDate()) return undefined
+  const first = shiftMonths(endMs, -months, created.getUTCDate())
+  const f = new Date(first)
+  const sameDay = f.getUTCFullYear() === created.getUTCFullYear() && f.getUTCMonth() === created.getUTCMonth() && f.getUTCDate() === created.getUTCDate()
+  return first < endMs && sameDay ? first : undefined
 }
 
 function billingHandlers(h) {
@@ -1197,9 +1226,10 @@ function billingHandlers(h) {
   /**
    * The period invoices.generate bills, as the engine's namedPeriod and
    * periodBelongsTo in invoice_period.go: the current period, unless
-   * period_start and period_end both name one the subscription had. It omits
-   * the engine's yearly 29 February branch, so it can disagree with the engine
-   * about the periods of a yearly plan anchored on 29 February.
+   * period_start and period_end both name one the subscription had, including
+   * the engine's yearly 29 February branch (clampedFirstStart and reproduces),
+   * so a yearly plan anchored on 29 February accepts its real first period and
+   * refuses the phantom one.
    */
   function billedPeriod(sub, p, input) {
     const current = { startMs: Date.parse(sub.current_period_start), endMs: Date.parse(sub.current_period_end), named: false }
@@ -1219,11 +1249,27 @@ function billingHandlers(h) {
     const months = period === "yearly" ? 12 : 1
     const day = anchorDay(current.startMs, current.endMs)
     let start = current.startMs
+    let end = current.endMs
     for (let i = 0; i < 1200; i++) {
       if (start < endMs) throw refuse()
-      const end = start
+      if (start === endMs) {
+        // A yearly plan loses its anchor where a year from 29 February lands
+        // on the 28th, so the walk back cannot tell 29 February to 28 February
+        // from 28 to 28. The creation day settles it: want is the first period
+        // or it is not a period at all. A monthly plan recovers the anchor from
+        // the period itself, so its walk is exact.
+        const first = period === "yearly" ? clampedFirstStart(sub, months, endMs) : undefined
+        if (first !== undefined) {
+          // The period after want must be the one the walk is standing on.
+          const reproduces = shiftMonths(endMs, months, anchorDay(startMs, endMs)) === end
+          if (startMs === first && reproduces) return { startMs, endMs, named: true }
+          throw refuse()
+        }
+        if (shiftMonths(start, -months, day) === startMs) return { startMs, endMs, named: true }
+        throw refuse()
+      }
+      end = start
       start = shiftMonths(start, -months, day)
-      if (start === startMs && end === endMs) return { startMs, endMs, named: true }
     }
     throw refuse()
   }
