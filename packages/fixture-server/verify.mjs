@@ -1966,7 +1966,7 @@ async function main() {
     const twiceB = await lc("subscriptions.create", "command", { tenant_id: "spot-twice", plan_id: "plan_pro" })
     check("the ledger has no one-subscription-per-tenant rule", body(twiceA)?.status === "active" && body(twiceB)?.status === "active" && body(twiceA)?.id !== body(twiceB)?.id, JSON.stringify([twiceA.body, twiceB.body]))
     check("pause from trialing", body(await lc("subscriptions.pause", "command", { id }))?.status === "paused", "")
-    check("resume from paused", body(await lc("subscriptions.resume", "command", { id }))?.status === "active", "")
+    check("resume from paused, still trialing because the trial outlived the pause", body(await lc("subscriptions.resume", "command", { id }))?.status === "trialing", "")
     check("pausing an active subscription twice is BAD_REQUEST the second time", (await lc("subscriptions.pause", "command", { id }), code(await lc("subscriptions.pause", "command", { id }))) === "BAD_REQUEST", "")
 
     await lc("subscriptions.resume", "command", { id })
