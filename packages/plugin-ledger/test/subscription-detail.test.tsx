@@ -214,11 +214,11 @@ describe("LedgerSubscriptionDetailPage", () => {
     await waitFor(() => expect(sent).toEqual([{ intent: "subscriptions.cancel", payload: { id: "sub_acme", immediately: false } }]))
   })
 
-  it("says a period-end cancellation keeps it active until the date", async () => {
+  it("says a period-end cancellation keeps its current status until the date", async () => {
     open()
     fireEvent.click(await screen.findByRole("button", { name: "Cancel subscription" }))
     const dialog = await screen.findByRole("alertdialog")
-    expect(within(dialog).getByLabelText("Schedule the cancellation for the end of the period, Oct 20, 2026. It stays active until then.")).toBeTruthy()
+    expect(within(dialog).getByLabelText("Schedule the cancellation for the end of the period, Oct 20, 2026. It keeps its current status until then.")).toBeTruthy()
     expect(within(dialog).getByRole("radiogroup", { name: "When to cancel" })).toBeTruthy()
   })
 
@@ -228,10 +228,24 @@ describe("LedgerSubscriptionDetailPage", () => {
     const dialog = await screen.findByRole("alertdialog")
     expect(
       within(dialog).getByLabelText(
-        "The period ended on Sep 20, 2026, so the cancellation is dated then. The subscription stays active until the ledger ends it. Choose End it now to stop it today.",
+        "The period ended on Sep 20, 2026, so the cancellation is dated then. The subscription keeps its current status until the ledger ends it. Choose End it now to stop it today.",
       ),
     ).toBeTruthy()
     expect(within(dialog).queryByLabelText(/Schedule the cancellation/)).toBeNull()
+  })
+
+  it("does not call a paused subscription active in either cancel branch", async () => {
+    // A paused subscription stays paused until the cancellation is enacted, so
+    // neither the scheduled branch nor the period-ended branch may say "active".
+    for (const periodEnd of ["2026-10-20T00:00:00Z", "2026-09-20T00:00:00Z"]) {
+      const { unmount } = open(aSubscription({ status: "paused", current_period_end: periodEnd }))
+      fireEvent.click(await screen.findByRole("button", { name: "Cancel subscription" }))
+      const dialog = await screen.findByRole("alertdialog")
+      const label = within(dialog).getByRole("radiogroup", { name: "When to cancel" }).querySelector("label") as HTMLElement
+      expect(label.textContent).toMatch(/keeps its current status until/)
+      expect(dialog.textContent).not.toMatch(/active/i)
+      unmount()
+    }
   })
 
   it("cancels now when asked, and keeps a refusal inside the dialog", async () => {

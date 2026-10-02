@@ -15,7 +15,7 @@ import { OffsetPager } from "../components/offset-pager"
 import { dailyTotals, UsageChart, windowStart, type DayTotal } from "../components/usage-chart"
 import { formatUTCInstant } from "../lib/datetime"
 import { pageCaption, pageParams } from "../lib/paging"
-import type { Ack, EntitlementResult, Page, UsageEvent, UsageTotals } from "../types"
+import type { Ack, EntitlementResult, Page, SettingsDetail, UsageEvent, UsageTotals } from "../types"
 
 const CHART_READ = 200
 const number = new Intl.NumberFormat()
@@ -30,6 +30,12 @@ const columns: Column<UsageEvent>[] = [
 
 function MonthTotal({ tenant, feature }: { tenant: string; feature: string }) {
   const totals = useQuery<UsageTotals>("usage.aggregate", { tenant_id: tenant, feature_keys: [feature], period: "monthly" })
+  // A ledger that sends lifecycle_interval (a number, or "off") opens months at
+  // midnight UTC in every store. An older one opened them in the server's own
+  // zone, so until the settings answer says otherwise, or when it is refused,
+  // the hint names no zone.
+  const settings = useQuery<SettingsDetail>("settings.detail")
+  const utc = settings.data?.lifecycle_interval !== undefined
   return (
     <QueryBoundary title="Month total" query={totals} skeletonRows={1}>
       {(t) => (
@@ -38,8 +44,7 @@ function MonthTotal({ tenant, feature }: { tenant: string; feature: string }) {
             {
               label: `${feature} this month, ${tenant}`,
               value: number.format(t.totals?.[feature] ?? 0),
-              // Every ledger store opens the month at midnight UTC.
-              hint: "Since the start of the month, UTC",
+              hint: utc ? "Since the start of the month, UTC" : "Since the start of the month",
             },
           ]}
         />

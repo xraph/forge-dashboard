@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest"
-import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react"
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react"
 import { ContractError, PluginProvider } from "@forge-go/dashboard-plugin"
 import type { ScopedClient } from "@forge-go/dashboard-plugin"
 import { LedgerUsagePage } from "../src/pages/usage"
@@ -79,12 +79,47 @@ describe("LedgerUsagePage", () => {
     expect(queries.find((q) => q.intent === "usage.aggregate")?.params).toEqual({ tenant_id: "acme", feature_keys: ["api_calls"], period: "monthly" })
   })
 
-  it("says the month total starts at the UTC month", async () => {
-    open({ "usage.aggregate": { period: "monthly", totals: { api_calls: 450 } } })
+  const SETTINGS = { meter_batch_size: 100, meter_flush_interval: "5s", entitlement_cache_ttl: "1m0s", app_id: "app_ledger", require_app_claim: false, providers: [], invoice_formats: [] }
+
+  async function openMonthTotal(settings: Record<string, unknown> | undefined) {
+    const { queries } = open({
+      "usage.aggregate": { period: "monthly", totals: { api_calls: 450 } },
+      ...(settings === undefined ? {} : { "settings.detail": settings }),
+    })
     await screen.findByText("evt_1")
     type("Tenant ID", "acme")
     type("Feature key", "api_calls")
+    await screen.findByText("api_calls this month, acme")
+    return queries
+  }
+
+  // The neutral hint is also what shows while the settings read is in flight, so
+  // a test that expects it must let that read settle before it looks.
+  async function settled(queries: Sent[]) {
+    await waitFor(() => expect(queries.some((q) => q.intent === "settings.detail")).toBe(true))
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 20))
+    })
+  }
+
+  it("says the month total starts at the UTC month when the ledger runs the lifecycle clock", async () => {
+    await openMonthTotal({ ...SETTINGS, lifecycle_interval: "1m0s" })
     expect(await screen.findByText("Since the start of the month, UTC")).toBeTruthy()
+    cleanup()
+    // Off still names a clock-era ledger: every store opens months in UTC.
+    await openMonthTotal({ ...SETTINGS, lifecycle_interval: "off" })
+    expect(await screen.findByText("Since the start of the month, UTC")).toBeTruthy()
+  })
+
+  it("names no zone against a ledger older than the clock, which opened months in server time", async () => {
+    await settled(await openMonthTotal(SETTINGS))
+    expect(screen.getByText("Since the start of the month")).toBeTruthy()
+    expect(screen.queryByText(/UTC/, { selector: "[data-slot=card] *" })).toBeNull()
+  })
+
+  it("names no zone when the settings read is refused", async () => {
+    await settled(await openMonthTotal(undefined))
+    expect(screen.getByText("Since the start of the month")).toBeTruthy()
   })
 
   it("does not ask for a month total until a tenant and a feature are named", async () => {

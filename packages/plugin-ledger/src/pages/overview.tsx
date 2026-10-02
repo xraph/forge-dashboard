@@ -4,7 +4,7 @@ import { QueryBoundary } from "@forge-go/dashboard-kit/components/query-boundary
 import { ResourceTable } from "@forge-go/dashboard-kit/components/resource-table"
 import { StatGrid } from "@forge-go/dashboard-kit/components/stat-grid"
 import { invoiceColumns } from "../components/invoice-columns"
-import type { Invoice, OverviewStats } from "../types"
+import type { Invoice, OverviewStats, Page } from "../types"
 
 const RECENT = 10
 
@@ -18,6 +18,10 @@ const invoices = (n: number) => `${n} ${n === 1 ? "invoice" : "invoices"}`
 export function LedgerOverviewPage() {
   const stats = useQuery<OverviewStats>("overview.stats")
   const pending = useQuery<Invoice[]>("invoices.pending")
+  // An unpaid invoice leaves "pending" once the clock marks it past due, and
+  // the Invoices list is the only other place that shows it. Without this table
+  // the page would count it and give no way to reach it.
+  const pastDue = useQuery<Page<Invoice>>("invoices.list", { status: "past_due", limit: RECENT })
   const recent = useQuery<Invoice[]>("overview.recentInvoices", { limit: RECENT })
 
   return (
@@ -68,6 +72,31 @@ export function LedgerOverviewPage() {
               emptyMessage="No invoices are pending."
             />
           )}
+        </QueryBoundary>
+      </section>
+
+      <section className="flex flex-col gap-2">
+        <h2 className="text-base font-medium">Past-due invoices</h2>
+        <QueryBoundary title="Past-due invoices" query={pastDue} skeletonRows={3}>
+          {(data) => {
+            const rows = data.items ?? []
+            return (
+              <div className="flex flex-col gap-2">
+                <ResourceTable<Invoice>
+                  columns={invoiceColumns({ withStatus: false })}
+                  rows={rows}
+                  rowKey={(i) => i.id}
+                  caption={`${invoices(rows.length)} past due${data.has_more ? ", newest first" : ""}`}
+                  emptyMessage="No invoices are past due."
+                />
+                {data.has_more && (
+                  <p className="text-sm text-muted-foreground">
+                    Showing the newest {RECENT}. Filter the Invoices list by Past due to see the rest.
+                  </p>
+                )}
+              </div>
+            )
+          }}
         </QueryBoundary>
       </section>
 

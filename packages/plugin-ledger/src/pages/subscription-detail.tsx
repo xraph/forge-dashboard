@@ -278,8 +278,8 @@ function SubscriptionDetailView({ detail }: { detail: SubscriptionDetail }) {
               <label className="flex items-center gap-2">
                 <input type="radio" name="cancel-when" checked={!immediately} onChange={() => setImmediately(false)} />
                 {periodEnded
-                  ? `The period ended on ${formatDay(sub.current_period_end)}, so the cancellation is dated then. The subscription stays active until the ledger ends it. Choose End it now to stop it today.`
-                  : `Schedule the cancellation for the end of the period, ${formatDay(sub.current_period_end)}. It stays active until then.`}
+                  ? `The period ended on ${formatDay(sub.current_period_end)}, so the cancellation is dated then. The subscription keeps its current status until the ledger ends it. Choose End it now to stop it today.`
+                  : `Schedule the cancellation for the end of the period, ${formatDay(sub.current_period_end)}. It keeps its current status until then.`}
               </label>
               <label className="flex items-center gap-2">
                 <input type="radio" name="cancel-when" checked={immediately} onChange={() => setImmediately(true)} />
