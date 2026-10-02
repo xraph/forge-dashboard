@@ -218,6 +218,11 @@ function GraphPicker() {
 
   return (
     <div className="mt-3 flex flex-col gap-3">
+      {graph.data?.truncated && (
+        <p className="text-sm text-muted-foreground">
+          Showing the first 500 resource types.
+        </p>
+      )}
       <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
         <span className="flex flex-col gap-1.5">
           <Label htmlFor="graph-object-type">Object type</Label>

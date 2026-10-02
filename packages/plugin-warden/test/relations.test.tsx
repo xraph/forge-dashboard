@@ -661,6 +661,28 @@ describe("WardenRelationsPage: the graph", () => {
     expect(sent.map((q) => q.intent)).not.toContain("resourceTypes.graph")
   })
 
+  it("says when the schema it offers is only the first 500 types", async () => {
+    renderPage(
+      WardenRelationsPage,
+      client({ "resourceTypes.graph": { ...GRAPH, truncated: true } })
+    )
+    await screen.findByText(PLAIN)
+    const details = screen.getByText("Draw a relation graph").closest("details")!
+    details.open = true
+    fireEvent(details, new Event("toggle"))
+    expect(await within(details).findByText("Showing the first 500 resource types.")).toBeTruthy()
+  })
+
+  it("does not say it when the schema is whole", async () => {
+    renderPage(WardenRelationsPage, client({ "resourceTypes.graph": GRAPH }))
+    await screen.findByText(PLAIN)
+    const details = screen.getByText("Draw a relation graph").closest("details")!
+    details.open = true
+    fireEvent(details, new Event("toggle"))
+    await within(details).findByLabelText("Object type")
+    expect(screen.queryByText("Showing the first 500 resource types.")).toBeNull()
+  })
+
   describe("the form", () => {
     async function open() {
       renderPage(WardenRelationsPage, client({ "resourceTypes.graph": GRAPH }))

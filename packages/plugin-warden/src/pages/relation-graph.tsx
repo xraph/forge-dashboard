@@ -1,5 +1,4 @@
-import { useState } from "react"
-import { PluginLink, useQuery } from "@forge-go/dashboard-plugin"
+import { PluginLink, useNavigateTo, useQuery } from "@forge-go/dashboard-plugin"
 import type { PluginPageProps } from "@forge-go/dashboard-plugin"
 import { Label } from "@forge-go/dashboard-kit/components/label"
 import {
@@ -9,6 +8,7 @@ import {
 import { PageHeader } from "@forge-go/dashboard-kit/components/page-header"
 import { QueryBoundary } from "@forge-go/dashboard-kit/components/query-boundary"
 import { RelationGraph } from "../components/relation-graph"
+import { relationGraphPath } from "../components/relation-graph-path"
 import type { RelationExpansion } from "../components/relation-graph"
 import { namespaceOptions } from "../components/namespace-filter"
 import type { NamespacesResponse } from "../components/namespace-filter"
@@ -22,11 +22,17 @@ const OWN_WALKER =
 function stopSentence(expansion: RelationExpansion, root: string): string {
   switch (expansion.stop) {
     case "complete":
-      return `Every tuple reachable from ${root} is shown.`
+      // A complete walk reached every tuple, but the cap can leave some of
+      // what it reached undrawn, and then "is shown" would be false.
+      return expansion.truncatedNodes > 0
+        ? `The walk reached every tuple from ${root}.`
+        : `Every tuple reachable from ${root} is shown.`
     case "depth":
       return `Stopped at depth ${expansion.limit}, the engine's limit. Relations beyond it are not shown.`
     case "visited":
-      return `Stopped after ${expansion.limit} nodes, the engine's limit. More may be reachable.`
+      // The walker counts the object relations it walks (type:id#relation), not
+      // every node it draws, so "nodes" would be the wrong unit.
+      return `Stopped after walking ${expansion.limit} object relations, the engine's limit. More may be reachable.`
     case "fanout":
       return `Stopped where one relation has ${expansion.limit} or more tuples, the engine's limit. The walk ends there, so what it had not yet reached is not shown.`
   }
@@ -95,7 +101,10 @@ export function WardenRelationGraphPage({ params }: PluginPageProps) {
   const asked = subjectType !== undefined && subjectId !== undefined
   const root = `${objectType}:${objectId}#${relation}`
 
-  const [namespace, setNamespace] = useState(params.namespace ?? "")
+  // The route is the namespace, so a reload or a shared link keeps it, and
+  // the control navigates instead of holding a state of its own.
+  const namespace = params.namespace ?? ""
+  const navigate = useNavigateTo()
   const namespaces = useQuery<NamespacesResponse>("namespaces.list")
   const known = namespaces.data?.namespaces ?? [""]
   // The route may name a namespace the list does not hold; keep it selectable.
@@ -136,7 +145,19 @@ export function WardenRelationGraphPage({ params }: PluginPageProps) {
         <NativeSelect
           id="relation-graph-namespace"
           value={namespace}
-          onChange={(e) => setNamespace(e.target.value)}
+          onChange={(e) =>
+            navigate(
+              relationGraphPath({
+                objectType,
+                objectId,
+                relation,
+                subject: asked
+                  ? { type: subjectType, id: subjectId }
+                  : undefined,
+                namespace: e.target.value,
+              })
+            )
+          }
         >
           {options.map((o) => (
             <NativeSelectOption key={o.value} value={o.value}>

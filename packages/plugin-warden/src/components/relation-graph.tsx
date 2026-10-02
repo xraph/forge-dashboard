@@ -53,25 +53,34 @@ const NODE_HEIGHT = 64
 /**
  * What a node says about itself besides its key. The root is marked. A single
  * subject is a leaf the walk never expands, so it is marked as a subject and
- * not as unexpanded. A subject set that was not walked is the one that is
- * "not expanded": reached, with its own tuples not all drawn.
+ * not as unexpanded. A subject set that was not walked has its own tuples not
+ * all drawn, and the mark says how much is: "not fully drawn" when some of its
+ * edges are on the canvas (the cap cut the rest), "not expanded" when none is
+ * (the walk reached it and stopped).
  */
-function marks(node: RelationExpandNode): string[] {
+function marks(node: RelationExpandNode, hasDrawnEdge: boolean): string[] {
   const out: string[] = []
   if (node.depth === 0) out.push("root")
   if (!node.relation) out.push("subject")
-  else if (!node.walked) out.push("not expanded")
+  else if (!node.walked)
+    out.push(hasDrawnEdge ? "not fully drawn" : "not expanded")
   return out
 }
 
-function NodeCard({ node }: { node: RelationExpandNode }) {
+function NodeCard({
+  node,
+  hasDrawnEdge,
+}: {
+  node: RelationExpandNode
+  hasDrawnEdge: boolean
+}) {
   return (
     <div className="flex h-full flex-col justify-center gap-1 p-3">
       <span className="truncate font-mono text-xs" title={node.key}>
         {node.key}
       </span>
       <span className="flex gap-2 text-xs text-muted-foreground">
-        {marks(node).map((m) => (
+        {marks(node, hasDrawnEdge).map((m) => (
           <span key={m}>{m}</span>
         ))}
       </span>
@@ -93,33 +102,48 @@ export function buildRelationGraph(expansion: RelationExpansion): {
   descriptions: string[]
 } {
   const onPath = new Set(expansion.path)
-  const pathEdges = new Set<string>()
+  const pathPairs = new Set<string>()
   for (let i = 0; i + 1 < expansion.path.length; i++) {
-    pathEdges.add(`${expansion.path[i]}\n${expansion.path[i + 1]}`)
+    pathPairs.add(`${expansion.path[i]}\n${expansion.path[i + 1]}`)
   }
   const known = new Set(expansion.nodes.map((n) => n.key))
+  // Which nodes have an edge out that is drawn: an edge to a node the cap left
+  // out is not on the canvas, so it does not count.
+  const drawnFrom = new Set<string>()
+  for (const e of expansion.edges) {
+    if (known.has(e.from) && known.has(e.to)) drawnFrom.add(e.from)
+  }
 
   const nodes: CanvasNode[] = expansion.nodes.map((n) => ({
     id: n.key,
     width: NODE_WIDTH,
     height: NODE_HEIGHT,
-    content: <NodeCard node={n} />,
+    content: <NodeCard node={n} hasDrawnEdge={drawnFrom.has(n.key)} />,
     highlighted: onPath.has(n.key),
   }))
   const edges: CanvasEdge[] = []
   const descriptions: string[] = []
   const seen = new Set<string>()
+  // The path is node keys with no namespace, so when one pair has tuples in
+  // two namespaces it does not say which the walk took. The walk reports an
+  // edge in the order it saw the tuples, and the first edge into a node is the
+  // one that reached it, so the first edge of the pair, in the response's
+  // order, is the one that is lit.
+  const lit = new Set<string>()
   for (const e of expansion.edges) {
     if (!known.has(e.from) || !known.has(e.to)) continue
     const id = `${e.from}|${e.to}|${e.namespacePath}`
     if (seen.has(id)) continue
     seen.add(id)
+    const pair = `${e.from}\n${e.to}`
+    const onPathPair = pathPairs.has(pair) && !lit.has(pair)
+    if (onPathPair) lit.add(pair)
     edges.push({
       id,
       source: e.from,
       target: e.to,
       label: e.namespacePath === "" ? undefined : e.namespacePath,
-      highlighted: pathEdges.has(`${e.from}\n${e.to}`),
+      highlighted: onPathPair,
     })
     descriptions.push(
       `${e.from} includes ${e.to}${e.namespacePath === "" ? "" : ` (${e.namespacePath})`}`

@@ -1,7 +1,18 @@
 import "./flow-env"
-import { describe, expect, it } from "vitest"
-import { fireEvent, screen, waitFor, within } from "@testing-library/react"
-import { ContractError } from "@forge-go/dashboard-plugin"
+import { describe, expect, it, vi } from "vitest"
+import {
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+  within,
+} from "@testing-library/react"
+import {
+  ContractError,
+  NavigationProvider,
+  PluginProvider,
+} from "@forge-go/dashboard-plugin"
+import type { Navigation } from "@forge-go/dashboard-plugin"
 import { WardenRelationGraphPage } from "../src/pages/relation-graph"
 import {
   failingClient,
@@ -168,6 +179,54 @@ describe("the relation graph page", () => {
     expect(erin.getByText("subject")).toBeTruthy()
   })
 
+  it("marks a set that was not walked but has edges drawn as not fully drawn", async () => {
+    const { container } = setup({
+      nodes: [
+        ...EXPANSION.nodes,
+        {
+          key: "group:cut#member",
+          type: "group",
+          id: "cut",
+          relation: "member",
+          depth: 3,
+          walked: false,
+        },
+        { key: "user:dana", type: "user", id: "dana", depth: 4, walked: false },
+      ],
+      edges: [
+        ...EXPANSION.edges,
+        {
+          from: "group:platform#member",
+          to: "group:cut#member",
+          namespacePath: "",
+        },
+        { from: "group:cut#member", to: "user:dana", namespacePath: "" },
+      ],
+    })
+    await drawn()
+    const cut = within(nodeOf(container, "group:cut#member"))
+    expect(cut.getByText("not fully drawn")).toBeTruthy()
+    expect(cut.queryByText("not expanded")).toBeNull()
+    // oncall has no edge out, so it is the one that is not expanded.
+    const oncall = within(nodeOf(container, "group:oncall#member"))
+    expect(oncall.getByText("not expanded")).toBeTruthy()
+    expect(oncall.queryByText("not fully drawn")).toBeNull()
+    expect(screen.getAllByText("not fully drawn")).toHaveLength(1)
+  })
+
+  it("does not count an edge to a node that is not drawn as a drawn edge", async () => {
+    const { container } = setup({
+      edges: [
+        ...EXPANSION.edges,
+        { from: "group:oncall#member", to: "user:left-out", namespacePath: "" },
+      ],
+    })
+    await drawn()
+    expect(
+      within(nodeOf(container, "group:oncall#member")).getByText("not expanded")
+    ).toBeTruthy()
+  })
+
   it("marks a walked set with nothing", async () => {
     const { container } = setup()
     await drawn()
@@ -214,7 +273,7 @@ describe("the relation graph page", () => {
       await drawn()
       expect(
         screen.getByText(
-          "Stopped after 3 nodes, the engine's limit. More may be reachable."
+          "Stopped after walking 3 object relations, the engine's limit. More may be reachable."
         )
       ).toBeTruthy()
     })
@@ -236,7 +295,7 @@ describe("the relation graph page", () => {
     })
 
     it("counts the nodes it left out past the cap", async () => {
-      setup({ truncatedNodes: 2 })
+      setup({ stop: "depth", limit: 2, truncatedNodes: 2 })
       await drawn()
       expect(
         screen.getByText(
@@ -245,12 +304,27 @@ describe("the relation graph page", () => {
       ).toBeTruthy()
     })
 
+    it("does not say every tuple is shown when it completed but left nodes out", async () => {
+      setup({ truncatedNodes: 2 })
+      await drawn()
+      expect(
+        screen.getByText(`The walk reached every tuple from ${ROOT}.`)
+      ).toBeTruthy()
+      expect(
+        screen.getByText(
+          "Showing 5 of 7 nodes. 2 more were reached but are not drawn."
+        )
+      ).toBeTruthy()
+      expect(screen.queryByText(/is shown\./)).toBeNull()
+    })
+
     it("says nothing about the cap when no node was left out", async () => {
       setup()
       await drawn()
       expect(
         screen.queryByText(/more were reached but are not drawn/)
       ).toBeNull()
+      expect(screen.queryByText(/The walk reached every tuple/)).toBeNull()
     })
   })
 
@@ -329,6 +403,35 @@ describe("the relation graph page", () => {
       ])
     })
 
+    it("lights only the first edge of a pair that has tuples in two namespaces", async () => {
+      // The path names node keys and no namespace, so the edge the walk took
+      // between a pair is the first one in the walk's order.
+      const { container } = setup(
+        {
+          path: PATH,
+          edges: [
+            {
+              from: ROOT,
+              to: "group:eng#member",
+              namespacePath: "eng/platform",
+            },
+            { from: ROOT, to: "group:eng#member", namespacePath: "" },
+            ...EXPANSION.edges.slice(1),
+          ],
+        },
+        TO_ERIN
+      )
+      await drawn()
+      const pair = Array.from(
+        container.querySelectorAll(`[data-edge-source="${ROOT}"]`)
+      )
+      expect(pair).toHaveLength(2)
+      expect(pair.map((e) => e.getAttribute("data-highlighted"))).toEqual([
+        "true",
+        null,
+      ])
+    })
+
     it("says the walk did not reach a subject it did not reach", async () => {
       const { container } = setup(
         { path: [] },
@@ -366,24 +469,95 @@ describe("the relation graph page", () => {
   })
 
   describe("the namespace", () => {
-    it("starts at the tenant root, and sends the one chosen", async () => {
-      const { expands } = setup()
-      await drawn()
-      const select = screen.getByLabelText("Namespace") as HTMLSelectElement
-      expect(select.value).toBe("")
-      fireEvent.change(select, { target: { value: "eng/platform" } })
-      await waitFor(() =>
-        expect(expands().at(-1)?.namespacePath).toBe("eng/platform")
+    function navigating(params: Record<string, string>) {
+      const navigate = vi.fn()
+      const nav: Navigation = {
+        navigate,
+        Link: ({ to, children, className }) => (
+          <a href={to} className={className}>
+            {children}
+          </a>
+        ),
+      }
+      const { client, sent } = recordingQueryClient(answers())
+      const tree = (p: Record<string, string>) => (
+        <PluginProvider client={client}>
+          <NavigationProvider value={nav}>
+            <WardenRelationGraphPage params={p} />
+          </NavigationProvider>
+        </PluginProvider>
       )
+      const view = render(tree(params))
+      const namespaceOf = () =>
+        sent
+          .filter((q) => q.intent === "relations.expand")
+          .map((q) => (q.params as Record<string, unknown>).namespacePath)
+      return {
+        navigate,
+        namespaceOf,
+        rerenderWith: (p: Record<string, string>) => view.rerender(tree(p)),
+      }
+    }
+
+    it("starts at the tenant root", async () => {
+      const { namespaceOf } = navigating(PARAMS)
+      await drawn()
+      expect(namespaceOf()).toEqual([""])
+      expect(
+        (screen.getByLabelText("Namespace") as HTMLSelectElement).value
+      ).toBe("")
     })
 
     it("starts at the namespace the route names", async () => {
-      const { expands } = setup({}, { ...PARAMS, namespace: "eng/platform" })
+      const { namespaceOf } = navigating({
+        ...PARAMS,
+        namespace: "eng/platform",
+      })
       await drawn()
-      expect(expands()[0]?.namespacePath).toBe("eng/platform")
+      expect(namespaceOf()).toEqual(["eng/platform"])
       expect(
         (screen.getByLabelText("Namespace") as HTMLSelectElement).value
       ).toBe("eng/platform")
+    })
+
+    it("navigates to the matching route when it is changed, and not before", async () => {
+      const { navigate, namespaceOf } = navigating(PARAMS)
+      await drawn()
+      expect(navigate).not.toHaveBeenCalled()
+      fireEvent.change(screen.getByLabelText("Namespace"), {
+        target: { value: "eng/platform" },
+      })
+      expect(navigate).toHaveBeenCalledWith(
+        "/relations/graph/document/readme/editor/in/eng%2Fplatform"
+      )
+      // The route is the state: nothing is asked until it changes.
+      expect(namespaceOf()).toEqual([""])
+    })
+
+    it("navigates to the plain route for the root, keeping the subject of a path", async () => {
+      const { navigate } = navigating({ ...TO_ERIN, namespace: "eng/platform" })
+      await drawn()
+      fireEvent.change(screen.getByLabelText("Namespace"), {
+        target: { value: "" },
+      })
+      expect(navigate).toHaveBeenCalledWith(
+        "/relations/graph/document/readme/editor/to/user/erin"
+      )
+    })
+
+    it("follows the route when its params change", async () => {
+      const { namespaceOf, rerenderWith } = navigating(PARAMS)
+      await drawn()
+      rerenderWith({ ...PARAMS, namespace: "eng/platform" })
+      await waitFor(() => expect(namespaceOf().at(-1)).toBe("eng/platform"))
+      expect(
+        (screen.getByLabelText("Namespace") as HTMLSelectElement).value
+      ).toBe("eng/platform")
+      rerenderWith(PARAMS)
+      await waitFor(() => expect(namespaceOf().at(-1)).toBe(""))
+      expect(
+        (screen.getByLabelText("Namespace") as HTMLSelectElement).value
+      ).toBe("")
     })
   })
 
