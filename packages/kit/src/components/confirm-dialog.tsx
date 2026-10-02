@@ -16,8 +16,22 @@ export interface ConfirmDialogProps {
   onOpenChange: (open: boolean) => void
   /** Names the exact thing about to happen. "Ban ada@example.com?" */
   title: string
-  /** What it costs. Consequences the operator cannot undo belong here. */
+  /**
+   * What it costs. Consequences the operator cannot undo belong here.
+   *
+   * Plain text only: it renders inside a `<p>`, which cannot hold a `<div>`,
+   * and it becomes the dialog's accessible description. Anything else goes
+   * in `children`.
+   */
   description?: ReactNode
+  /**
+   * Whatever is not prose: a `CommandAlert` for the command this dialog
+   * fires, a field the confirm needs. Renders between the description and
+   * the buttons, outside the `<p>`, so block content is valid here. Must stay
+   * inside the dialog because Base UI marks the rest of the page inert and
+   * aria-hidden while it is open.
+   */
+  children?: ReactNode
   confirmLabel?: string
   cancelLabel?: string
   /** Paints the confirm button as destructive. Default true. */
@@ -64,6 +78,7 @@ export function ConfirmDialog({
   confirmDisabled = false,
   onConfirm,
   className,
+  children,
 }: ConfirmDialogProps) {
   return (
     <AlertDialog open={open} onOpenChange={onOpenChange}>
@@ -74,6 +89,15 @@ export function ConfirmDialog({
             <AlertDialogDescription>{description}</AlertDialogDescription>
           )}
         </AlertDialogHeader>
+        {/*
+          empty:hidden because a CommandAlert with no error renders nothing,
+          and an empty grid row would still take the content's gap.
+        */}
+        {children != null && (
+          <div data-slot="confirm-dialog-body" className="flex flex-col gap-2 empty:hidden">
+            {children}
+          </div>
+        )}
         <AlertDialogFooter>
           <AlertDialogCancel disabled={pending}>{cancelLabel}</AlertDialogCancel>
           <AlertDialogAction

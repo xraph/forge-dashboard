@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from "vitest"
 import { fireEvent, render, screen } from "@testing-library/react"
 import { ConfirmDialog } from "../src/components/confirm-dialog"
+import { CommandAlert } from "../src/components/query-boundary"
 
 describe("ConfirmDialog", () => {
   it("renders nothing while closed", () => {
@@ -27,6 +28,37 @@ describe("ConfirmDialog", () => {
     )
     expect(screen.getByText("Ban ada@example.com?")).toBeTruthy()
     expect(screen.getByText("They will be signed out of every session.")).toBeTruthy()
+  })
+
+  it("renders children outside the description, so a block alert is valid markup", () => {
+    const consoleError = vi.spyOn(console, "error").mockImplementation(() => {})
+    try {
+      render(
+        <ConfirmDialog
+          open
+          onOpenChange={() => {}}
+          title="Delete orders?"
+          description="The bucket and its objects are removed."
+          onConfirm={() => {}}
+        >
+          <CommandAlert
+            error={{ code: "conflict", message: "The bucket is not empty." }}
+            title="Could not delete the bucket"
+          />
+        </ConfirmDialog>,
+      )
+      const alert = screen.getByRole("alert")
+      expect(alert.textContent).toContain("The bucket is not empty.")
+      // A <div> inside the description's <p> is what React complained about.
+      expect(alert.closest("p")).toBeNull()
+      expect(screen.getByText("The bucket and its objects are removed.").contains(alert)).toBe(false)
+      const nesting = consoleError.mock.calls.filter((args) =>
+        args.map(String).join(" ").includes("cannot be a descendant of"),
+      )
+      expect(nesting).toEqual([])
+    } finally {
+      consoleError.mockRestore()
+    }
   })
 
   it("calls onConfirm when the confirm button is pressed", () => {
