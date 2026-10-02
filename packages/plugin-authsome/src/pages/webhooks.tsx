@@ -319,7 +319,7 @@ export function AuthWebhooksPage() {
       )}
 
       {/*
-        The error lives inside the dialog's description, not above the table.
+        The error lives inside the dialog, not above the table.
         Base UI marks everything outside an open AlertDialog `inert` and
         `aria-hidden`, so an alert rendered up here is unreachable for as long
         as the dialog that can actually fail is open.
@@ -328,18 +328,13 @@ export function AuthWebhooksPage() {
         open={deleting !== null}
         onOpenChange={(open) => !open && setDeleting(null)}
         title="Delete this webhook?"
-        description={
-          <span className="flex flex-col gap-2">
-            <span>
-              {deleting?.url ?? "It"} stops receiving events immediately. This cannot be undone.
-            </span>
-            <CommandAlert error={remove.error} title="Could not delete" />
-          </span>
-        }
+        description={`${deleting?.url ?? "It"} stops receiving events immediately. This cannot be undone.`}
         confirmLabel="Delete"
         pending={remove.loading}
         onConfirm={() => void confirmDelete()}
-      />
+      >
+        <CommandAlert error={remove.error} title="Could not delete" />
+      </ConfirmDialog>
     </section>
   )
 }

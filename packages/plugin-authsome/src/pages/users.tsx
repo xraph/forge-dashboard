@@ -249,52 +249,50 @@ export function AuthUsersPage() {
           }
         }}
         title={`Ban ${banning?.email ?? ""}?`}
-        description={
-          <span className="flex flex-col gap-2">
-            <span>They are signed out of every session and cannot sign in again.</span>
-            <span className="flex flex-col gap-1.5">
-              <Label htmlFor="ban-reason">Reason</Label>
-              <Input id="ban-reason" value={banReason} onChange={(e) => setBanReason(e.target.value)} />
-            </span>
-            <span className="flex flex-col gap-1.5">
-              <Label htmlFor="ban-expiry">Expires at</Label>
-              <Input
-                id="ban-expiry"
-                type="datetime-local"
-                value={banExpiry}
-                onChange={(e) => setBanExpiry(e.target.value)}
-              />
-              <span className="text-xs text-muted-foreground">
-                Leave empty to ban indefinitely.
-              </span>
-            </span>
-            {/*
-              Base UI marks everything outside an open AlertDialog `inert`
-              and `aria-hidden`, so an alert rendered above the table is
-              unreachable for as long as this dialog is open.
-            */}
-            <CommandAlert error={ban.error} title="Could not ban" />
-          </span>
-        }
+        description="They are signed out of every session and cannot sign in again."
         confirmLabel="Ban"
         pending={ban.loading}
         onConfirm={() => void confirmBan()}
-      />
+      >
+        <div className="flex flex-col gap-1.5">
+          <Label htmlFor="ban-reason">Reason</Label>
+          <Input
+            id="ban-reason"
+            value={banReason}
+            onChange={(e) => setBanReason(e.target.value)}
+          />
+        </div>
+        <div className="flex flex-col gap-1.5">
+          <Label htmlFor="ban-expiry">Expires at</Label>
+          <Input
+            id="ban-expiry"
+            type="datetime-local"
+            value={banExpiry}
+            onChange={(e) => setBanExpiry(e.target.value)}
+          />
+          <span className="text-xs text-muted-foreground">
+            Leave empty to ban indefinitely.
+          </span>
+        </div>
+        {/*
+          Base UI marks everything outside an open AlertDialog `inert`
+          and `aria-hidden`, so an alert rendered above the table is
+          unreachable for as long as this dialog is open.
+        */}
+        <CommandAlert error={ban.error} title="Could not ban" />
+      </ConfirmDialog>
 
       <ConfirmDialog
         open={deleting !== null}
         onOpenChange={(open) => !open && setDeleting(null)}
         title={`Delete ${deleting?.email ?? ""}?`}
-        description={
-          <span className="flex flex-col gap-2">
-            <span>Their sessions, devices and role assignments go with them. This cannot be undone.</span>
-            <CommandAlert error={remove.error} title="Could not delete" />
-          </span>
-        }
+        description="Their sessions, devices and role assignments go with them. This cannot be undone."
         confirmLabel="Delete"
         pending={remove.loading}
         onConfirm={() => void confirmDelete()}
-      />
+      >
+        <CommandAlert error={remove.error} title="Could not delete" />
+      </ConfirmDialog>
     </section>
   )
 }

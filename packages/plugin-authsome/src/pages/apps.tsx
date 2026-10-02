@@ -123,7 +123,7 @@ export function AuthAppsPage() {
       </QueryBoundary>
 
       {/*
-        The delete error lives inside the dialog's description, not above the
+        The delete error lives inside the dialog, not above the
         table. Base UI marks everything outside an open AlertDialog `inert`
         and `aria-hidden`, so an alert rendered up here is unreachable for as
         long as the dialog that can fail is open.
@@ -132,19 +132,13 @@ export function AuthAppsPage() {
         open={deleting !== null}
         onOpenChange={(open) => !open && setDeleting(null)}
         title={`Delete ${deleting?.name ?? ""}?`}
-        description={
-          <span className="flex flex-col gap-2">
-            <span>
-              Everything scoped to this app goes with it: users, sessions,
-              environments and settings. This cannot be undone.
-            </span>
-            <CommandAlert error={remove.error} title="Could not delete" />
-          </span>
-        }
+        description="Everything scoped to this app goes with it: users, sessions, environments and settings. This cannot be undone."
         confirmLabel="Delete"
         pending={remove.loading}
         onConfirm={() => void confirmDelete()}
-      />
+      >
+        <CommandAlert error={remove.error} title="Could not delete" />
+      </ConfirmDialog>
     </section>
   )
 }

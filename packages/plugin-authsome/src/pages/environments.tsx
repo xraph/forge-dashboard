@@ -256,7 +256,7 @@ export function AuthEnvironmentsPage() {
       </QueryBoundary>
 
       {/*
-        Both error alerts live inside their dialog's description, not above
+        Both error alerts live inside their dialog, not above
         the table. Base UI marks everything outside an open AlertDialog
         `inert` and `aria-hidden`, so an alert rendered up here is
         unreachable for as long as the dialog that can fail is open.
@@ -265,16 +265,13 @@ export function AuthEnvironmentsPage() {
         open={deleting !== null}
         onOpenChange={(open) => !open && setDeleting(null)}
         title={`Delete ${deleting?.name ?? ""}?`}
-        description={
-          <span className="flex flex-col gap-2">
-            <span>Everything scoped to this environment goes with it. This cannot be undone.</span>
-            <CommandAlert error={remove.error} title="Could not delete" />
-          </span>
-        }
+        description="Everything scoped to this environment goes with it. This cannot be undone."
         confirmLabel="Delete"
         pending={remove.loading}
         onConfirm={() => void confirmDelete()}
-      />
+      >
+        <CommandAlert error={remove.error} title="Could not delete" />
+      </ConfirmDialog>
 
       <ConfirmDialog
         open={cloning !== null}
@@ -285,25 +282,22 @@ export function AuthEnvironmentsPage() {
         pending={clone.loading}
         confirmDisabled={cloneName.trim() === "" || cloneSlug.trim() === ""}
         onConfirm={() => void confirmClone()}
-        description={
-          <span className="flex flex-col gap-3">
-            <span>Copies its settings into a new environment under the same app.</span>
-            <span className="flex flex-col gap-1.5">
-              <Label htmlFor="clone-env-name">New name</Label>
-              <Input id="clone-env-name" value={cloneName} onChange={(e) => setCloneName(e.target.value)} />
-            </span>
-            <span className="flex flex-col gap-1.5">
-              <Label htmlFor="clone-env-slug">New slug</Label>
-              <Input id="clone-env-slug" value={cloneSlug} onChange={(e) => setCloneSlug(e.target.value)} />
-            </span>
-            <span className="flex flex-col gap-1.5">
-              <Label htmlFor="clone-env-type">Type</Label>
-              <Input id="clone-env-type" value={cloneType} onChange={(e) => setCloneType(e.target.value)} />
-            </span>
-            <CommandAlert error={clone.error} title="Could not clone" />
-          </span>
-        }
-      />
+        description="Copies its settings into a new environment under the same app."
+      >
+        <div className="flex flex-col gap-1.5">
+          <Label htmlFor="clone-env-name">New name</Label>
+          <Input id="clone-env-name" value={cloneName} onChange={(e) => setCloneName(e.target.value)} />
+        </div>
+        <div className="flex flex-col gap-1.5">
+          <Label htmlFor="clone-env-slug">New slug</Label>
+          <Input id="clone-env-slug" value={cloneSlug} onChange={(e) => setCloneSlug(e.target.value)} />
+        </div>
+        <div className="flex flex-col gap-1.5">
+          <Label htmlFor="clone-env-type">Type</Label>
+          <Input id="clone-env-type" value={cloneType} onChange={(e) => setCloneType(e.target.value)} />
+        </div>
+        <CommandAlert error={clone.error} title="Could not clone" />
+      </ConfirmDialog>
     </section>
   )
 }

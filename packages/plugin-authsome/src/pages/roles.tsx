@@ -193,7 +193,7 @@ export function AuthRolesPage() {
       </QueryBoundary>
 
       {/*
-        The error lives inside the dialog's description, not above the table.
+        The error lives inside the dialog, not above the table.
         Base UI marks everything outside an open AlertDialog `inert` and
         `aria-hidden`, so an alert rendered up here is unreachable for as long
         as the dialog that can actually fail is open.
@@ -202,16 +202,13 @@ export function AuthRolesPage() {
         open={deleting !== null}
         onOpenChange={(open) => !open && setDeleting(null)}
         title={`Delete ${deleting?.name ?? ""}?`}
-        description={
-          <span className="flex flex-col gap-2">
-            <span>Anyone assigned this role loses it. This cannot be undone.</span>
-            <CommandAlert error={remove.error} title="Could not delete" />
-          </span>
-        }
+        description="Anyone assigned this role loses it. This cannot be undone."
         confirmLabel="Delete"
         pending={remove.loading}
         onConfirm={() => void confirmDelete()}
-      />
+      >
+        <CommandAlert error={remove.error} title="Could not delete" />
+      </ConfirmDialog>
     </section>
   )
 }

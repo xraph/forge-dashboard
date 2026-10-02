@@ -200,7 +200,7 @@ export function AuthSessionsPage() {
       </QueryBoundary>
 
       {/*
-        The error alerts live inside each dialog's description rather than
+        The error alerts live inside each dialog rather than
         above the table. Base UI marks everything outside an open AlertDialog
         `inert` and `aria-hidden`, so an alert rendered up here is invisible -
         to assistive tech and to CSS both - for as long as the dialog that
@@ -211,30 +211,24 @@ export function AuthSessionsPage() {
         open={revoking !== null}
         onOpenChange={(open) => !open && setRevoking(null)}
         title="Revoke this session?"
-        description={
-          <span className="flex flex-col gap-2">
-            <span>Signs {revoking?.userId ?? "the user"} out on that device immediately.</span>
-            <CommandAlert error={revoke.error} title="Could not revoke" />
-          </span>
-        }
+        description={`Signs ${revoking?.userId ?? "the user"} out on that device immediately.`}
         confirmLabel="Revoke"
         pending={revoke.loading}
         onConfirm={() => void confirmRevoke()}
-      />
+      >
+        <CommandAlert error={revoke.error} title="Could not revoke" />
+      </ConfirmDialog>
       <ConfirmDialog
         open={bulkFor !== null}
         onOpenChange={(open) => !open && setBulkFor(null)}
         title={`Revoke every session for ${bulkFor ?? ""}?`}
-        description={
-          <span className="flex flex-col gap-2">
-            <span>Signs them out everywhere, on every device, at once.</span>
-            <CommandAlert error={bulkRevoke.error} title="Could not revoke" />
-          </span>
-        }
+        description="Signs them out everywhere, on every device, at once."
         confirmLabel="Revoke all"
         pending={bulkRevoke.loading}
         onConfirm={() => void confirmBulk()}
-      />
+      >
+        <CommandAlert error={bulkRevoke.error} title="Could not revoke" />
+      </ConfirmDialog>
     </section>
   )
 }

@@ -60,7 +60,7 @@ function DeviceActions({
       </div>
 
       {/*
-        The forget error lives inside the dialog's description, not above it:
+        The forget error lives inside the dialog, not above it:
         Base UI marks everything outside an open AlertDialog `inert` and
         `aria-hidden`, so an alert rendered outside it is unreachable for as
         long as the dialog that can fail is open.
@@ -69,16 +69,13 @@ function DeviceActions({
         open={forgetting}
         onOpenChange={setForgetting}
         title={`Forget ${deviceLabel(device)}?`}
-        description={
-          <span className="flex flex-col gap-2">
-            <span>The next sign-in from it counts as a new device, which may trigger verification.</span>
-            <CommandAlert error={remove.error} title="Could not forget the device" />
-          </span>
-        }
+        description="The next sign-in from it counts as a new device, which may trigger verification."
         confirmLabel="Forget"
         pending={remove.loading}
         onConfirm={() => void confirmForget()}
-      />
+      >
+        <CommandAlert error={remove.error} title="Could not forget the device" />
+      </ConfirmDialog>
     </div>
   )
 }
