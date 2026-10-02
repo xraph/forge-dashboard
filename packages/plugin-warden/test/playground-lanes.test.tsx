@@ -6,6 +6,7 @@ import {
   decidingLaneOnlyGaveReason,
   verdictSentence,
   type LaneState,
+  type PlaygroundInput,
   type PlaygroundLane,
   type PlaygroundResult,
 } from "../src/components/playground-lanes"
@@ -355,5 +356,89 @@ describe("LaneRow", () => {
     row(NO_RBAC, true, true)
     expect(screen.getByText("gave the reason")).toBeTruthy()
     expect(screen.queryByText("decided it")).toBeNull()
+  })
+})
+
+describe("the walk link on a ReBAC lane", () => {
+  const LINK = "Show this walk in the graph"
+  const CHECK: PlaygroundInput = {
+    subjectKind: "user",
+    subjectId: "erin",
+    action: "editor",
+    resourceType: "document",
+    resourceId: "readme",
+    namespacePath: "",
+  }
+  const transitive = lane("rebac", "allow", {
+    decision: "allow",
+    matchedBy: [
+      {
+        source: "rebac",
+        detail: "transitive: document:readme#editor -> group:eng#member -> user:erin",
+      },
+    ],
+  })
+
+  // null is "no check", since passing undefined would take the default.
+  function row(l: PlaygroundLane, input: PlaygroundInput | null = CHECK) {
+    return render(<LaneRow lane={l} deciding={false} input={input ?? undefined} />)
+  }
+
+  it("links a transitive allow to the path route for this check", () => {
+    row(transitive)
+    expect(screen.getByRole("link", { name: LINK }).getAttribute("href")).toBe(
+      "/relations/graph/document/readme/editor/to/user/erin"
+    )
+  })
+
+  it("carries the check's namespace when it is not the root", () => {
+    row(transitive, { ...CHECK, namespacePath: "eng/platform" })
+    expect(screen.getByRole("link", { name: LINK }).getAttribute("href")).toBe(
+      "/relations/graph/document/readme/editor/to/user/erin/in/eng%2Fplatform"
+    )
+  })
+
+  it("is absent for a direct relation", () => {
+    row(lane("rebac", "allow", { decision: "allow", matchedBy: REBAC_MATCH }))
+    expect(screen.queryByRole("link", { name: LINK })).toBeNull()
+  })
+
+  it("is absent for an allow through the resource type's expression", () => {
+    row(
+      lane("rebac", "allow", {
+        decision: "allow",
+        matchedBy: [{ source: "rebac", detail: "expression: read" }],
+      })
+    )
+    expect(screen.queryByRole("link", { name: LINK })).toBeNull()
+  })
+
+  it("is absent on a lane that is not ReBAC, whatever its detail says", () => {
+    row(
+      lane("rbac", "allow", {
+        decision: "allow",
+        matchedBy: [{ source: "rbac", detail: "transitive: a -> b" }],
+      })
+    )
+    expect(screen.queryByRole("link", { name: LINK })).toBeNull()
+  })
+
+  it("is absent unless the ReBAC lane allowed", () => {
+    row(lane("rebac", "deny", { decision: "deny_relation", matchedBy: transitive.matchedBy }))
+    expect(screen.queryByRole("link", { name: LINK })).toBeNull()
+    row(lane("rebac", "noMatch", { reason: "no relation", matchedBy: transitive.matchedBy }))
+    expect(screen.queryByRole("link", { name: LINK })).toBeNull()
+  })
+
+  it("is absent without a resource id, which the path route has no segment for", () => {
+    row(transitive, { ...CHECK, resourceId: "" })
+    expect(screen.queryByRole("link", { name: LINK })).toBeNull()
+    row(transitive, { ...CHECK, resourceId: undefined })
+    expect(screen.queryByRole("link", { name: LINK })).toBeNull()
+  })
+
+  it("is absent when the row is not told which check it belongs to", () => {
+    row(transitive, null)
+    expect(screen.queryByRole("link", { name: LINK })).toBeNull()
   })
 })

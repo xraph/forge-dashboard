@@ -48,6 +48,21 @@ describe("wardenPlugin", () => {
     ).toBe("hidden")
   })
 
+  it("serves the relation graph at its four routes, and links none from the nav", () => {
+    const base = "/relations/graph/:objectType/:objectId/:relation"
+    const wanted = [
+      base,
+      `${base}/in/:namespace`,
+      `${base}/to/:subjectType/:subjectId`,
+      `${base}/to/:subjectType/:subjectId/in/:namespace`,
+    ]
+    const paths = wardenPlugin.routes.map((r) => r.path)
+    for (const path of wanted) expect(paths).toContain(path)
+    const routes = wardenPlugin.routes.filter((r) => wanted.includes(r.path))
+    expect(new Set(routes.map((r) => r.element)).size).toBe(1)
+    expect((wardenPlugin.nav ?? []).some((n) => n.to.startsWith("/relations/graph"))).toBe(false)
+  })
+
   it("names a route for every nav entry", () => {
     // A nav link pointing at a path no route serves is a dead link that no
     // other test would catch, because nav and routes are independent lists.

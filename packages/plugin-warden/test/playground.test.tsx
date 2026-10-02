@@ -1268,3 +1268,60 @@ describe("WardenPlaygroundPage: opened from a check log row", () => {
     expect(screen.queryByText(/^Prefilled from a check logged at/)).toBeNull()
   })
 })
+
+describe("WardenPlaygroundPage: the walk link", () => {
+  const TRANSITIVE: PlaygroundResult = {
+    decision: "allow",
+    allowed: true,
+    matchedBy: [],
+    obligations: [],
+    evalTimeNs: 1_120_000,
+    lanes: [
+      { model: "rbac", state: "noMatch", decision: "deny_no_roles", reason: "no roles", matchedBy: [] },
+      {
+        model: "rebac",
+        state: "allow",
+        decision: "allow",
+        matchedBy: [
+          {
+            source: "rebac",
+            detail: "transitive: document:readme#editor -> group:eng#member -> user:erin",
+          },
+        ],
+      },
+      { model: "abac", state: "noMatch", matchedBy: [] },
+    ],
+  }
+
+  function runTransitive(namespace: string) {
+    setup({ "playground.explain": TRANSITIVE })
+    fill("Subject id", "erin")
+    fill("Action", "editor")
+    fill("Resource type", "document")
+    fill("Resource id", "readme")
+    if (namespace) fill("Namespace", namespace)
+    fireEvent.click(run())
+  }
+
+  it("opens the walk to the subject the check was run for", async () => {
+    runTransitive("")
+    const link = await screen.findByRole("link", { name: "Show this walk in the graph" })
+    expect(link.getAttribute("href")).toBe("/relations/graph/document/readme/editor/to/user/erin")
+  })
+
+  it("keeps the namespace the check was run in", async () => {
+    runTransitive("eng/platform")
+    const link = await screen.findByRole("link", { name: "Show this walk in the graph" })
+    expect(link.getAttribute("href")).toBe(
+      "/relations/graph/document/readme/editor/to/user/erin/in/eng%2Fplatform"
+    )
+  })
+
+  it("is not offered on a result whose ReBAC lane did not walk", async () => {
+    setup()
+    fillRequired()
+    fireEvent.click(run())
+    await screen.findByText("deny_explicit")
+    expect(screen.queryByRole("link", { name: "Show this walk in the graph" })).toBeNull()
+  })
+})

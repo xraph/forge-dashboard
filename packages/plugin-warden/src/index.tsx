@@ -23,6 +23,7 @@ import { WardenPermissionsPage } from "./pages/permissions"
 import { WardenPlaygroundPage } from "./pages/playground"
 import { WardenPoliciesPage } from "./pages/policies"
 import { WardenPolicyDetailPage, WardenPolicyEditPage } from "./pages/policy-detail"
+import { WardenRelationGraphPage } from "./pages/relation-graph"
 import { WardenRelationsPage } from "./pages/relations"
 import { WardenResourceTypeDetailPage } from "./pages/resource-type-detail"
 import { WardenResourceTypesPage } from "./pages/resource-types"
@@ -226,6 +227,26 @@ export const wardenPlugin = definePlugin({
     { path: "/policies/:id", element: WardenPolicyDetailPage },
     { path: "/policies/:id/edit", element: WardenPolicyEditPage },
     { path: "/relations", element: WardenRelationsPage },
+    // No nav entry for any of these: a sidebar link to "a relation walk" with
+    // none chosen points nowhere. They are reached from a tuple's Graph link,
+    // from the form on Relations, and from a transitive ReBAC allow in the
+    // playground. A plugin cannot read a query string, so the object, the
+    // relation, the optional subject whose path is asked for and the optional
+    // namespace are all path segments, and the namespace segment is omitted
+    // for the tenant root.
+    { path: "/relations/graph/:objectType/:objectId/:relation", element: WardenRelationGraphPage },
+    {
+      path: "/relations/graph/:objectType/:objectId/:relation/in/:namespace",
+      element: WardenRelationGraphPage,
+    },
+    {
+      path: "/relations/graph/:objectType/:objectId/:relation/to/:subjectType/:subjectId",
+      element: WardenRelationGraphPage,
+    },
+    {
+      path: "/relations/graph/:objectType/:objectId/:relation/to/:subjectType/:subjectId/in/:namespace",
+      element: WardenRelationGraphPage,
+    },
     { path: "/resource-types", element: WardenResourceTypesPage },
     // No nav entry: a sidebar link to "a resource type" with none chosen
     // points nowhere. This route is reached only from a row's Details link.

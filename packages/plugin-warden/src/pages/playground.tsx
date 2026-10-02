@@ -403,7 +403,15 @@ function BatchSection({
   )
 }
 
-function ResultView({ result, stale }: { result: PlaygroundResult; stale: boolean }) {
+function ResultView({
+  result,
+  stale,
+  input,
+}: {
+  result: PlaygroundResult
+  stale: boolean
+  input: PlaygroundInput
+}) {
   const failed = result.decision === "error"
   const deciding = decidingLane(result)
   const obligations = result.obligations ?? []
@@ -441,6 +449,7 @@ function ResultView({ result, stale }: { result: PlaygroundResult; stale: boolea
             lane={lane}
             deciding={lane.model === deciding}
             reasonOnly={decidingLaneOnlyGaveReason(result)}
+            input={input}
           />
         ))}
       </ol>
@@ -768,7 +777,7 @@ function Playground({ checkId }: { checkId: string | undefined }) {
             </p>
           ) : (
             <QueryBoundary title="Result" query={query} skeletonRows={4}>
-              {(result) => <ResultView result={result} stale={stale} />}
+              {(result) => <ResultView result={result} stale={stale} input={submitted} />}
             </QueryBoundary>
           )}
         </div>

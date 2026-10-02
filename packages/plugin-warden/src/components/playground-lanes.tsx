@@ -3,6 +3,7 @@ import { Badge } from "@forge-go/dashboard-kit/components/badge"
 import { NoneCell } from "@forge-go/dashboard-kit/components/none-cell"
 import { cn } from "@forge-go/dashboard-kit/lib/utils"
 import type { CheckMatch } from "./check-log"
+import { relationGraphPath } from "./relation-graph-path"
 
 /**
  * What one model did in an explained check. The values are `warden.LaneState`
@@ -205,6 +206,30 @@ function LaneMatch({ match }: { match: CheckMatch }) {
   )
 }
 
+/** What ReBAC records for an allow it reached through a userset chain. */
+const TRANSITIVE_DETAIL = "transitive: "
+
+/**
+ * Where the walk behind a transitive ReBAC allow is drawn, or null.
+ *
+ * Only an allow whose detail says it was transitive has a walk to draw: a
+ * direct relation is one tuple, and an expression allow is decided outside the
+ * walk. The relation the walk starts from is the check's action, which is how
+ * ReBAC reads it, and the subject is the check's own. The path route has no
+ * segment for an empty resource id, so a check on a type alone gets no link.
+ */
+export function walkGraphHref(lane: PlaygroundLane, input: PlaygroundInput | undefined): string | null {
+  if (lane.model !== "rebac" || lane.state !== "allow" || !input?.resourceId) return null
+  if (!(lane.matchedBy ?? []).some((m) => m.detail?.startsWith(TRANSITIVE_DETAIL))) return null
+  return relationGraphPath({
+    objectType: input.resourceType,
+    objectId: input.resourceId,
+    relation: input.action,
+    subject: { type: input.subjectKind, id: input.subjectId },
+    namespace: input.namespacePath,
+  })
+}
+
 function LaneDetail({ lane }: { lane: PlaygroundLane }) {
   const matches = lane.matchedBy ?? []
   switch (lane.state) {
@@ -248,18 +273,22 @@ function LaneDetail({ lane }: { lane: PlaygroundLane }) {
  * `deciding` marks the lane the merge chose, with a left rule in the
  * foreground colour. On an allow or an explicit deny it "decided it". On any
  * other denial it only supplied the reason, so `reasonOnly` says it "gave the
- * reason". Render inside a list.
+ * reason". `input` is the check the lane belongs to, which a transitive ReBAC
+ * allow needs to link to its walk. Render inside a list.
  */
 export function LaneRow({
   lane,
   deciding,
   reasonOnly = false,
+  input,
 }: {
   lane: PlaygroundLane
   deciding: boolean
   reasonOnly?: boolean
+  input?: PlaygroundInput
 }) {
   const bad = lane.state === "deny" || lane.state === "error"
+  const walkHref = walkGraphHref(lane, input)
   return (
     <li
       data-lane={lane.model}
@@ -280,6 +309,11 @@ export function LaneRow({
           )}
         </span>
         <LaneDetail lane={lane} />
+        {walkHref && (
+          <PluginLink to={walkHref} className={cn(LINK_CLASS, "text-xs")}>
+            Show this walk in the graph
+          </PluginLink>
+        )}
       </div>
     </li>
   )

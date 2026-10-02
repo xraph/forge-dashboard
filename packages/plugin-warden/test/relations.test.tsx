@@ -610,3 +610,109 @@ describe("WardenRelationsPage", () => {
     })
   })
 })
+
+describe("WardenRelationsPage: the graph", () => {
+  const GRAPH = {
+    nodes: [
+      {
+        id: "rt_doc",
+        namespacePath: "",
+        name: "document",
+        relations: [
+          { name: "viewer", allowedSubjects: ["user"] },
+          { name: "editor", allowedSubjects: ["group#member"] },
+        ],
+        permissions: [],
+      },
+      {
+        id: "rt_doc_eng",
+        namespacePath: "eng/platform",
+        name: "document",
+        relations: [{ name: "reviewer", allowedSubjects: ["user"] }],
+        permissions: [],
+      },
+      {
+        id: "rt_folder",
+        namespacePath: "",
+        name: "folder",
+        relations: [{ name: "owner", allowedSubjects: ["user"] }],
+        permissions: [],
+      },
+    ],
+    edges: [],
+    truncated: false,
+  }
+
+  it("opens each tuple's object and relation in the graph, at the tuple's namespace", async () => {
+    renderPage(WardenRelationsPage, client())
+    const plain = within(await rowOf(PLAIN)).getByRole("link", { name: /^Graph/ })
+    expect(plain.textContent).toBe("Graph")
+    expect(plain.getAttribute("href")).toBe("/relations/graph/document/readme/viewer")
+    const userset = within(await rowOf(USERSET)).getByRole("link", { name: /^Graph/ })
+    expect(userset.getAttribute("href")).toBe(
+      "/relations/graph/document/spec/editor/in/eng%2Fplatform"
+    )
+  })
+
+  it("does not read the schema for the form until the form is opened", async () => {
+    const { client: c, sent } = recordingQueryClient(answers({ "resourceTypes.graph": GRAPH }))
+    renderPage(WardenRelationsPage, c)
+    await screen.findByText(PLAIN)
+    expect(sent.map((q) => q.intent)).not.toContain("resourceTypes.graph")
+  })
+
+  describe("the form", () => {
+    async function open() {
+      renderPage(WardenRelationsPage, client({ "resourceTypes.graph": GRAPH }))
+      await screen.findByText(PLAIN)
+      const details = screen.getByText("Draw a relation graph").closest("details")!
+      fireEvent.click(screen.getByText("Draw a relation graph"))
+      // jsdom does not fire toggle on a click, so say it opened.
+      details.open = true
+      fireEvent(details, new Event("toggle"))
+      return within(details)
+    }
+
+    it("offers the declared relations of the chosen type, and nothing before one is chosen", async () => {
+      const form = await open()
+      await waitFor(() => expect(form.getByLabelText("Object type")).toBeTruthy())
+      const relation = form.getByLabelText("Relation") as HTMLSelectElement
+      expect(relation.disabled).toBe(true)
+      fireEvent.change(form.getByLabelText("Object type"), { target: { value: "document" } })
+      const names = Array.from(relation.options).map((o) => o.textContent)
+      // Both namespaces' document types, once each.
+      expect(names).toEqual(["Choose a relation", "viewer", "editor", "reviewer"])
+      expect(relation.disabled).toBe(false)
+    })
+
+    it("links to the graph once an object, a type and a relation are chosen", async () => {
+      const form = await open()
+      await waitFor(() => expect(form.getByLabelText("Object type")).toBeTruthy())
+      expect(form.queryByRole("link", { name: "Show graph" })).toBeNull()
+      expect((form.getByRole("button", { name: "Show graph" }) as HTMLButtonElement).disabled).toBe(
+        true
+      )
+      fireEvent.change(form.getByLabelText("Object type"), { target: { value: "document" } })
+      fireEvent.change(form.getByLabelText("Object id"), { target: { value: "readme" } })
+      fireEvent.change(form.getByLabelText("Relation"), { target: { value: "editor" } })
+      expect(form.getByRole("link", { name: "Show graph" }).getAttribute("href")).toBe(
+        "/relations/graph/document/readme/editor"
+      )
+      fireEvent.change(form.getByLabelText("Namespace"), { target: { value: "eng/platform" } })
+      expect(form.getByRole("link", { name: "Show graph" }).getAttribute("href")).toBe(
+        "/relations/graph/document/readme/editor/in/eng%2Fplatform"
+      )
+    })
+
+    it("drops the relation when the type changes to one that does not declare it", async () => {
+      const form = await open()
+      await waitFor(() => expect(form.getByLabelText("Object type")).toBeTruthy())
+      fireEvent.change(form.getByLabelText("Object type"), { target: { value: "document" } })
+      fireEvent.change(form.getByLabelText("Object id"), { target: { value: "readme" } })
+      fireEvent.change(form.getByLabelText("Relation"), { target: { value: "editor" } })
+      fireEvent.change(form.getByLabelText("Object type"), { target: { value: "folder" } })
+      expect(form.queryByRole("link", { name: "Show graph" })).toBeNull()
+      expect((form.getByLabelText("Relation") as HTMLSelectElement).value).toBe("")
+    })
+  })
+})

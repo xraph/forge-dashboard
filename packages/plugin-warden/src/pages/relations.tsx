@@ -1,6 +1,6 @@
 import { useState } from "react"
-import { useCommand, useQuery } from "@forge-go/dashboard-plugin"
-import { Button } from "@forge-go/dashboard-kit/components/button"
+import { PluginLink, useCommand, useQuery } from "@forge-go/dashboard-plugin"
+import { Button, buttonVariants } from "@forge-go/dashboard-kit/components/button"
 import { ConfirmDialog } from "@forge-go/dashboard-kit/components/confirm-dialog"
 import { FilterBar } from "@forge-go/dashboard-kit/components/filter-bar"
 import { Input } from "@forge-go/dashboard-kit/components/input"
@@ -15,12 +15,20 @@ import {
   ResourceTable,
   type Column,
 } from "@forge-go/dashboard-kit/components/resource-table"
+import {
+  NativeSelect,
+  NativeSelectOption,
+} from "@forge-go/dashboard-kit/components/native-select"
 import { Timestamp } from "@forge-go/dashboard-kit/components/timestamp"
 import {
   NamespaceCell,
   emptyListMessage,
+  namespaceOptions,
   useNamespaceFilter,
 } from "../components/namespace-filter"
+import type { NamespacesResponse } from "../components/namespace-filter"
+import { relationGraphPath } from "../components/relation-graph-path"
+import type { ResourceTypeGraph } from "../components/schema-graph"
 import type { AckResponse } from "./roles"
 
 /**
@@ -176,6 +184,124 @@ function PartInput({
   )
 }
 
+/**
+ * Pick an object and one of its type's declared relations, and open the
+ * relation walk from it.
+ *
+ * The types and their relations come from the schema graph, which is one read
+ * of every type. Two types can share a name in different namespaces, and a
+ * tuple names its object type by name alone, so a type's relations are the
+ * union over every type of that name. The reads wait for the form to be
+ * opened, so the page does not make them for operators who never use it.
+ */
+function GraphPicker() {
+  const graph = useQuery<ResourceTypeGraph>("resourceTypes.graph")
+  const namespaces = useQuery<NamespacesResponse>("namespaces.list")
+  const [objectType, setObjectType] = useState("")
+  const [objectId, setObjectId] = useState("")
+  const [relation, setRelation] = useState("")
+  const [namespace, setNamespace] = useState("")
+
+  const nodes = graph.data?.nodes ?? []
+  const typeNames = [...new Set(nodes.map((n) => n.name))].sort()
+  const relations = [
+    ...new Set(
+      nodes
+        .filter((n) => n.name === objectType)
+        .flatMap((n) => n.relations.map((r) => r.name))
+    ),
+  ]
+  const nsOptions = namespaceOptions(namespaces.data?.namespaces ?? [""]).filter(
+    (o) => o.value !== "all"
+  )
+  const complete = objectType !== "" && objectId.trim() !== "" && relation !== ""
+
+  return (
+    <div className="mt-3 flex flex-col gap-3">
+      <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+        <span className="flex flex-col gap-1.5">
+          <Label htmlFor="graph-object-type">Object type</Label>
+          <NativeSelect
+            id="graph-object-type"
+            value={objectType}
+            onChange={(e) => {
+              setObjectType(e.target.value)
+              // A relation is one this type declares, so a new type clears it.
+              setRelation("")
+            }}
+          >
+            <NativeSelectOption value="">Choose a type</NativeSelectOption>
+            {typeNames.map((name) => (
+              <NativeSelectOption key={name} value={name}>
+                {name}
+              </NativeSelectOption>
+            ))}
+          </NativeSelect>
+        </span>
+        <span className="flex flex-col gap-1.5">
+          <Label htmlFor="graph-object-id">Object id</Label>
+          <Input
+            id="graph-object-id"
+            className="font-mono text-xs"
+            placeholder="readme"
+            value={objectId}
+            onChange={(e) => setObjectId(e.target.value)}
+          />
+        </span>
+        <span className="flex flex-col gap-1.5">
+          <Label htmlFor="graph-relation">Relation</Label>
+          <NativeSelect
+            id="graph-relation"
+            value={relation}
+            disabled={objectType === ""}
+            onChange={(e) => setRelation(e.target.value)}
+          >
+            <NativeSelectOption value="">Choose a relation</NativeSelectOption>
+            {relations.map((name) => (
+              <NativeSelectOption key={name} value={name}>
+                {name}
+              </NativeSelectOption>
+            ))}
+          </NativeSelect>
+        </span>
+        <span className="flex flex-col gap-1.5">
+          <Label htmlFor="graph-namespace">Namespace</Label>
+          <NativeSelect
+            id="graph-namespace"
+            value={namespace}
+            onChange={(e) => setNamespace(e.target.value)}
+          >
+            {nsOptions.map((o) => (
+              <NativeSelectOption key={o.value} value={o.value}>
+                {o.label}
+              </NativeSelectOption>
+            ))}
+          </NativeSelect>
+        </span>
+      </div>
+      <div>
+        {complete ? (
+          <PluginLink
+            to={relationGraphPath({
+              objectType,
+              objectId: objectId.trim(),
+              relation,
+              namespace,
+            })}
+            className={buttonVariants({ variant: "outline", size: "sm" })}
+          >
+            Show graph
+          </PluginLink>
+        ) : (
+          <Button variant="outline" size="sm" disabled>
+            Show graph
+          </Button>
+        )}
+      </div>
+    </div>
+  )
+}
+
 export function WardenRelationsPage() {
   // One-based, matching ResourceTable's PaginationState.
   const [page, setPage] = useState(1)
@@ -184,6 +310,7 @@ export function WardenRelationsPage() {
   const [creating, setCreating] = useState(false)
   const [form, setForm] = useState<Parts>(EMPTY_PARTS)
   const [deleting, setDeleting] = useState<RelationSummary | null>(null)
+  const [pickingGraph, setPickingGraph] = useState(false)
 
   // Trimmed and dropped when empty: the server treats "" and absent the same
   // way today, but an absent field is the honest way to say "no filter".
@@ -305,6 +432,13 @@ export function WardenRelationsPage() {
         </p>
       </div>
 
+      <details onToggle={(e) => setPickingGraph(e.currentTarget.open)}>
+        <summary className="cursor-pointer text-sm font-medium">
+          Draw a relation graph
+        </summary>
+        {pickingGraph && <GraphPicker />}
+      </details>
+
       <FilterBar filters={[namespace.filterConfig]} />
 
       <div
@@ -342,17 +476,31 @@ export function WardenRelationsPage() {
               pagination={{ page, pageSize: data.limit, total: data.total }}
               onPageChange={setPage}
               rowActions={(r) => (
-                <Button
-                  variant="destructive"
-                  size="sm"
-                  aria-label={`Delete ${tupleString(r)}`}
-                  onClick={() => {
-                    remove.reset()
-                    setDeleting(r)
-                  }}
-                >
-                  Delete
-                </Button>
+                <>
+                  <PluginLink
+                    to={relationGraphPath({
+                      objectType: r.objectType,
+                      objectId: r.objectId,
+                      relation: r.relation,
+                      namespace: r.namespacePath,
+                    })}
+                    aria-label={`Graph ${r.objectType}:${r.objectId}#${r.relation}`}
+                    className="text-sm underline underline-offset-4"
+                  >
+                    Graph
+                  </PluginLink>
+                  <Button
+                    variant="destructive"
+                    size="sm"
+                    aria-label={`Delete ${tupleString(r)}`}
+                    onClick={() => {
+                      remove.reset()
+                      setDeleting(r)
+                    }}
+                  >
+                    Delete
+                  </Button>
+                </>
               )}
             />
           )

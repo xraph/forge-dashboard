@@ -24,6 +24,8 @@ export interface CanvasNode {
   content?: ReactNode
   /** Drawn dashed and dim: something named but not known. */
   muted?: boolean
+  /** Drawn with a strong border: on the path being pointed at. */
+  highlighted?: boolean
 }
 
 /** A line between two boxes. Parallel edges between a pair are fine. */
@@ -32,6 +34,8 @@ export interface CanvasEdge {
   source: string
   target: string
   label?: string
+  /** Drawn in the foreground colour and heavier: on the path being pointed at. */
+  highlighted?: boolean
 }
 
 interface Point {
@@ -144,21 +148,30 @@ function pathThrough(points: Point[]): string {
   return d
 }
 
-type CardNodeType = Node<{ content?: ReactNode; muted: boolean }, "card">
-type RoutedEdgeType = Edge<EdgeRoute & { label?: string }, "routed">
+type CardNodeType = Node<
+  { content?: ReactNode; muted: boolean; highlighted: boolean },
+  "card"
+>
+type RoutedEdgeType = Edge<
+  EdgeRoute & { label?: string; highlighted: boolean },
+  "routed"
+>
 
 // Hidden: the lines are drawn from dagre's routes. React Flow still wants a
 // handle on each end to attach an edge to.
 const HANDLE: CSSProperties = { opacity: 0, pointerEvents: "none" }
 
-function CardNode({ data, width, height }: NodeProps<CardNodeType>) {
+function CardNode({ id, data, width, height }: NodeProps<CardNodeType>) {
   return (
     <div
+      data-node-id={id}
+      data-highlighted={data.highlighted ? "true" : undefined}
       style={{ width, height }}
       className={cn(
         "overflow-hidden rounded-md border bg-card text-card-foreground shadow-xs",
         data.muted &&
-          "border-dashed bg-muted/40 text-muted-foreground shadow-none"
+          "border-dashed bg-muted/40 text-muted-foreground shadow-none",
+        data.highlighted && "border-foreground ring-2 ring-foreground"
       )}
     >
       <Handle
@@ -186,11 +199,20 @@ function RoutedEdge({
   markerEnd,
 }: EdgeProps<RoutedEdgeType>) {
   return (
-    <g data-edge-source={source} data-edge-target={target}>
+    <g
+      data-edge-source={source}
+      data-edge-target={target}
+      data-highlighted={data?.highlighted ? "true" : undefined}
+    >
       <BaseEdge
         id={id}
         path={pathThrough(data?.points ?? [])}
         markerEnd={markerEnd}
+        style={
+          data?.highlighted
+            ? { stroke: "var(--foreground)", strokeWidth: 2.5 }
+            : undefined
+        }
       />
       {data?.label ? (
         <EdgeLabelRenderer>
@@ -264,7 +286,11 @@ export default function GraphCanvas({
       id: n.id,
       type: "card",
       position: positions.get(n.id)!,
-      data: { content: n.content, muted: n.muted ?? false },
+      data: {
+        content: n.content,
+        muted: n.muted ?? false,
+        highlighted: n.highlighted ?? false,
+      },
       // The size is known, so the node draws before React Flow has measured
       // it, and the handles are placed where they will be.
       width: n.width,
@@ -296,10 +322,14 @@ export default function GraphCanvas({
       type: "routed",
       source: e.source,
       target: e.target,
-      data: { ...routes.get(e.id)!, label: e.label },
+      data: {
+        ...routes.get(e.id)!,
+        label: e.label,
+        highlighted: e.highlighted ?? false,
+      },
       markerEnd: {
         type: MarkerType.ArrowClosed,
-        color: "var(--muted-foreground)",
+        color: e.highlighted ? "var(--foreground)" : "var(--muted-foreground)",
       },
       focusable: false,
     }))
