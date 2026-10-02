@@ -167,32 +167,26 @@ function RouteDetailBody({ id }: { id: string }) {
                   setConfirming(null)
                 }}
                 title={`Disable ${d.path}?`}
-                description={
-                  <span className="flex flex-col gap-2">
-                    <span>A disabled route stops matching. Requests fall through to the next matching route, or get a 404.</span>
-                    <CommandAlert error={setEnabled.error} title="Could not disable the route" />
-                  </span>
-                }
+                description="A disabled route stops matching. Requests fall through to the next matching route, or get a 404."
                 confirmLabel="Disable"
                 destructive={false}
                 pending={setEnabled.loading}
                 onConfirm={() => void toggle(d, false)}
-              />
+              >
+                <CommandAlert error={setEnabled.error} title="Could not disable the route" />
+              </ConfirmDialog>
               <ConfirmDialog
                 open={confirming === "delete"}
                 onOpenChange={(o) => !o && !remove.loading && setConfirming(null)}
                 title={`Delete ${d.path}?`}
-                description={
-                  <span className="flex flex-col gap-2">
-                    <span>Requests to this path stop reaching its upstreams. This cannot be undone from the dashboard.</span>
-                    <CommandAlert error={remove.error} title="Could not delete the route" />
-                  </span>
-                }
+                description="Requests to this path stop reaching its upstreams. This cannot be undone from the dashboard."
                 confirmLabel="Delete"
                 destructive
                 pending={remove.loading}
                 onConfirm={() => void confirmDelete()}
-              />
+              >
+                <CommandAlert error={remove.error} title="Could not delete the route" />
+              </ConfirmDialog>
               {d.config && (
                 <p className="text-sm text-muted-foreground">
                   This route comes from the gateway's config file. A change made here lasts until the gateway restarts.
