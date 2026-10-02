@@ -34,6 +34,7 @@ import { createServer } from "node:http"
 import { randomBytes } from "node:crypto"
 import { createRelayFixtures } from "./relay-fixtures.mjs"
 import { createVaultHandlers, resetVault } from "./vault-fixtures.mjs"
+import { createTroveHandlers, resetTrove } from "./trove-fixtures.mjs"
 import { createLedgerHandlers, resetLedger } from "./ledger-fixtures.mjs"
 import { createChronicleHandlers, resetChronicle } from "./chronicle-fixtures.mjs"
 import { createBastionHandlers, resetBastion } from "./bastion-fixtures.mjs"
@@ -2837,6 +2838,7 @@ const CONTRIBUTORS = [
   { name: "password", envPrefix: "PASSWORD", handlers: passwordHandlers },
   { name: "relay", envPrefix: "RELAY", handlers: { ...relayHandlers, ...relayFixtures.handlers } },
   { name: "vault", envPrefix: "VAULT", handlers: createVaultHandlers(FixtureError) },
+  { name: "trove", envPrefix: "TROVE", handlers: createTroveHandlers(FixtureError) },
   { name: "ledger", envPrefix: "LEDGER", handlers: createLedgerHandlers(FixtureError) },
   { name: "chronicle", envPrefix: "CHRONICLE", handlers: createChronicleHandlers(FixtureError) },
   { name: "keysmith", envPrefix: "KEYSMITH", handlers: createKeysmithHandlers(FixtureError) },

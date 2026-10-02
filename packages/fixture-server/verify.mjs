@@ -259,6 +259,21 @@ const INPUT = {
   "streaming-contract::rooms.send-message": { roomID: "room_1", userID: "usr_1", content: "hello from verify.mjs" },
   "streaming-contract::connections.kick": { connID: "conn_2", reason: "verify script" },
   "streaming-contract::presence.set": { userID: "usr_1", status: "away" },
+
+  // trove: the seed in trove-fixtures.mjs. Store "primary" is the default; "archive" is s3 and can presign.
+  "trove::objects.list": { bucket: "reports" },
+  "trove::objects.head": { bucket: "reports", key: "readme.txt" },
+  "trove::objects.contentUrl": { bucket: "reports", key: "readme.txt" },
+  "trove::middleware.list": { bucket: "reports", key: "readme.txt" },
+  "trove::buckets.create": { name: "verify-trove-bucket" },
+  "trove::buckets.delete": { name: "empty" },
+  "trove::objects.delete": { bucket: "reports", key: "2026/08/summary.json" },
+  "trove::objects.copy": { srcBucket: "reports", srcKey: "readme.txt", dstBucket: "assets", dstKey: "readme-copy.txt" },
+  "trove::objects.beginUpload": { bucket: "reports", key: "verify/trove-upload.txt", size: 5, contentType: "text/plain" },
+  "trove::objects.completeUpload": { bucket: "reports", key: "readme.txt" },
+  "trove::objects.presign": { store: "archive", bucket: "backups", key: "db/2026-09-30.dump" },
+  "trove::cas.pin": { hash: `sha256:${"a1".repeat(32)}` },
+  "trove::cas.unpin": { hash: `sha256:${"b2".repeat(32)}` },
 }
 
 /**
@@ -2415,6 +2430,97 @@ async function main() {
     check("an events.list limit over 1000 is capped, not refused", capped !== undefined && capped.events.length <= 1000, `${capped?.events?.length}`)
     const negative = await cc("events.list", "query", { limit: -1 })
     check("a negative limit is BAD_REQUEST", code(negative) === "BAD_REQUEST" && negative.body.error.message === "limit and offset cannot be negative", JSON.stringify(negative.body))
+  }
+
+  // trove: writes change the next read and refusals are real. The intent loop
+  // above wrote to the trove seed, so reset it (this also drops the CSRF
+  // token, so fetch a new one) before asserting on exact state.
+  {
+    await fetch(`${base}/_fixture/reset`, { method: "POST" })
+    const tcsrf = await getCSRF()
+    const tq = (intent, input) => dispatch("trove", intent, "query", input, tcsrf)
+    const tc = (intent, input) => dispatch("trove", intent, "command", input, tcsrf)
+    const check = (name, ok, detail) => {
+      console.log(`  trove ${name}: ${ok}`)
+      if (!ok) failures.push({ key: `spot-check::trove ${name}`, reason: detail })
+    }
+    const code = (r) => r.body?.error?.code
+    const invalidates = (r) => (r.body?.meta?.invalidates ?? []).slice().sort().join(",")
+
+    const created = await tc("buckets.create", { name: "verify-trove-2" })
+    const buckets = await tq("buckets.list", {})
+    check("buckets.create then buckets.list contains the new bucket", created.body?.ok === true && (buckets.body?.data?.buckets ?? []).some((b) => b.name === "verify-trove-2"), JSON.stringify(buckets.body?.data))
+    const again = await tc("buckets.create", { name: "verify-trove-2" })
+    check("buckets.create on an existing name is 409 CONFLICT", again.status === 409 && code(again) === "CONFLICT", `${again.status} ${code(again)}`)
+
+    const full = await tc("buckets.delete", { name: "reports" })
+    check("buckets.delete on a bucket with objects is 409 CONFLICT", full.status === 409 && code(full) === "CONFLICT", `${full.status} ${code(full)}`)
+    const casDelete = await tc("buckets.delete", { name: "cas" })
+    check("buckets.delete refuses the CAS bucket with 409 CONFLICT", casDelete.status === 409 && code(casDelete) === "CONFLICT", `${casDelete.status} ${code(casDelete)}`)
+
+    const first = await tq("objects.list", { bucket: "reports", limit: 1 })
+    const cursor = first.body?.data?.nextCursor
+    check("objects.list with limit 1 answers a nextCursor", typeof cursor === "string" && cursor.length > 0, JSON.stringify(first.body?.data))
+    const second = await tq("objects.list", { bucket: "reports", limit: 1, cursor })
+    const firstItem = first.body?.data?.objects?.[0]?.key ?? first.body?.data?.prefixes?.[0]
+    const secondItem = second.body?.data?.objects?.[0]?.key ?? second.body?.data?.prefixes?.[0]
+    check("passing the cursor back answers a different first item", typeof secondItem === "string" && secondItem !== firstItem, `${firstItem} then ${secondItem}`)
+    const flat = await tq("objects.list", { bucket: "reports", delimiter: "" })
+    check("objects.list with delimiter \"\" is flat: prefixes null, foldersSupported false", flat.body?.data?.prefixes === null && flat.body.data.foldersSupported === false && flat.body.data.objects.length === 5, JSON.stringify(flat.body?.data))
+    const badCursor = await tq("objects.list", { bucket: "reports", cursor: "!!!" })
+    check("objects.list with a malformed cursor is 400 BAD_REQUEST", badCursor.status === 400 && code(badCursor) === "BAD_REQUEST", `${badCursor.status} ${code(badCursor)}`)
+
+    const blankStore = await tq("system.status", { store: "  " })
+    check("system.status with a blank store is 400 BAD_REQUEST", blankStore.status === 400 && code(blankStore) === "BAD_REQUEST", `${blankStore.status} ${code(blankStore)}`)
+    const unknownStore = await tq("system.status", { store: "nope" })
+    check("system.status with an unknown store is 404 NOT_FOUND", unknownStore.status === 404 && code(unknownStore) === "NOT_FOUND", `${unknownStore.status} ${code(unknownStore)}`)
+    const archive = await tq("system.status", { store: "archive" })
+    check("the archive store reports a routing note and the s3 driver", archive.body?.data?.driver === "s3" && typeof archive.body.data.routingNote === "string" && archive.body.data.backends?.[0] === "cold", JSON.stringify(archive.body?.data))
+
+    const archiveCas = await tq("cas.list", { store: "archive" })
+    check("cas.list on a store with no CAS is 503 UNAVAILABLE", archiveCas.status === 503 && code(archiveCas) === "UNAVAILABLE", `${archiveCas.status} ${code(archiveCas)}`)
+    const localPresign = await tc("objects.presign", { bucket: "reports", key: "readme.txt" })
+    check("objects.presign on the local store is 503 UNAVAILABLE", localPresign.status === 503 && code(localPresign) === "UNAVAILABLE", `${localPresign.status} ${code(localPresign)}`)
+
+    // Writes show in the next read, and the invalidates are the manifest's.
+    const copied = await tc("objects.copy", { srcBucket: "reports", srcKey: "readme.txt", dstBucket: "assets", dstKey: "spot.txt" })
+    const assets = await tq("objects.list", { bucket: "assets" })
+    check("objects.copy lands in the destination's next listing", copied.body?.ok === true && (assets.body?.data?.objects ?? []).some((o) => o.key === "spot.txt"), JSON.stringify(assets.body?.data))
+    const copyAgain = await tc("objects.copy", { srcBucket: "reports", srcKey: "readme.txt", dstBucket: "assets", dstKey: "spot.txt" })
+    check("objects.copy onto an existing key is 409 CONFLICT with details.exists", copyAgain.status === 409 && copyAgain.body?.error?.details?.exists === true, JSON.stringify(copyAgain.body))
+    const begun = await tc("objects.beginUpload", { bucket: "reports", key: "spot/new.txt", size: 5, contentType: "text/plain" })
+    check("objects.beginUpload answers the bare content path and a ticket", begun.body?.data?.url === "/dashboard/trove/content" && typeof begun.body.data.ticket === "string" && !begun.body.data.url.includes("?"), JSON.stringify(begun.body?.data))
+    const exists = await tc("objects.beginUpload", { bucket: "reports", key: "readme.txt", size: 5 })
+    check("objects.beginUpload onto an existing key is 409 CONFLICT", exists.status === 409 && code(exists) === "CONFLICT", `${exists.status} ${code(exists)}`)
+    const casUpload = await tc("objects.beginUpload", { bucket: "cas", key: "x", size: 1 })
+    check("objects.beginUpload into the CAS bucket is 409 CONFLICT", casUpload.status === 409 && code(casUpload) === "CONFLICT", `${casUpload.status} ${code(casUpload)}`)
+    const deleted = await tc("objects.delete", { bucket: "reports", key: "readme.txt" })
+    const afterDelete = await tq("objects.head", { bucket: "reports", key: "readme.txt" })
+    check("objects.delete makes the next objects.head 404 NOT_FOUND", deleted.body?.ok === true && afterDelete.status === 404 && code(afterDelete) === "NOT_FOUND", `${afterDelete.status} ${code(afterDelete)}`)
+    const pinned = await tc("cas.pin", { hash: `sha256:${"a1".repeat(32)}` })
+    const casAfter = await tq("cas.list", {})
+    const pinnedRow = (casAfter.body?.data?.entries ?? []).find((e) => e.hash === `sha256:${"a1".repeat(32)}`)
+    check("cas.pin shows in the next cas.list", pinned.body?.data?.pinned === true && pinnedRow?.pinned === true, JSON.stringify(pinnedRow))
+    const orphan = (casAfter.body?.data?.entries ?? []).find((e) => e.indexed === false)
+    check("cas.list carries a blob the index does not know, with null refCount and pinned", orphan?.refCount === null && orphan.pinned === null, JSON.stringify(orphan))
+    const missingPin = await tc("cas.pin", { hash: "sha256:nope" })
+    check("cas.pin on an unindexed hash is 404 NOT_FOUND", missingPin.status === 404 && code(missingPin) === "NOT_FOUND", `${missingPin.status} ${code(missingPin)}`)
+
+    const wantInvalidates = [
+      ["buckets.create", created, "buckets.list"],
+      ["buckets.delete", await tc("buckets.delete", { name: "empty" }), "buckets.list,objects.list"],
+      ["objects.delete", deleted, "cas.list,objects.head,objects.list"],
+      ["objects.copy", copied, "objects.head,objects.list"],
+      ["objects.beginUpload", begun, ""],
+      ["objects.completeUpload", await tc("objects.completeUpload", { bucket: "reports", key: "2026/09/summary.json" }), "objects.head,objects.list"],
+      ["objects.presign", await tc("objects.presign", { store: "archive", bucket: "backups", key: "db/2026-09-30.dump" }), ""],
+      ["cas.pin", pinned, "cas.list"],
+      ["cas.unpin", await tc("cas.unpin", { hash: `sha256:${"a1".repeat(32)}` }), "cas.list"],
+      ["cas.gc", await tc("cas.gc", {}), "cas.list,cas.status"],
+    ]
+    for (const [intent, response, want] of wantInvalidates) {
+      check(`${intent} declares the manifest's invalidates`, invalidates(response) === want, `${invalidates(response)} vs ${want}`)
+    }
   }
 
   console.log(`\nFinal: ${passed + (failures.length === 0 ? 0 : 0)} handler calls verified, ${failures.length} total failures (including spot checks).`)
