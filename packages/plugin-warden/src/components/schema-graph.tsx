@@ -61,7 +61,8 @@ export interface ResourceTypeGraph {
 const NODE_WIDTH = 256
 const HEADER_HEIGHT = 52
 const ROW_HEIGHT = 18
-const MUTED_HEIGHT = 56
+// Two lines of text-xs (16px each, 2px apart) and 12px of padding either side.
+const MUTED_HEIGHT = 64
 // A type with dozens of permissions would make a card taller than the canvas.
 // The rest are on its own page, one click away.
 const SHOWN_PERMISSIONS = 6
@@ -113,9 +114,35 @@ function UndeclaredCard({ name }: { name: string }) {
       className="flex h-full flex-col justify-center gap-0.5 p-3"
     >
       <span className="truncate font-mono text-xs">{name}</span>
-      <span className="text-xs">not a resource type</span>
+      <span className="text-xs">not a resource type in this view</span>
     </div>
   )
+}
+
+/** A type's name, with its namespace in parentheses unless it is the root. */
+function typeName(name: string, namespacePath: string, suffix = ""): string {
+  return namespacePath === ""
+    ? `${name}${suffix}`
+    : `${name}${suffix} (${namespacePath})`
+}
+
+/**
+ * One edge as a sentence a screen reader can read: "document viewer
+ * group#member", with the namespace of either end after it when that end is
+ * not at the root, as in "document viewer group#member (eng/platform)". A
+ * target that is no type in the view has no namespace to give.
+ */
+function describeEdge(
+  from: ResourceTypeGraphNode,
+  edge: ResourceTypeGraphEdge,
+  to: ResourceTypeGraphNode | null
+): string {
+  const suffix = edge.toRelation ? `#${edge.toRelation}` : ""
+  return [
+    typeName(from.name, from.namespacePath),
+    edge.relation,
+    to ? typeName(to.name, to.namespacePath, suffix) : `${edge.to}${suffix}`,
+  ].join(" ")
 }
 
 /**
@@ -129,6 +156,8 @@ function UndeclaredCard({ name }: { name: string }) {
 export function buildSchemaGraph(graph: ResourceTypeGraph): {
   nodes: CanvasNode[]
   edges: CanvasEdge[]
+  /** One line per drawn edge, in the order drawn: the graph as text. */
+  descriptions: string[]
 } {
   const nodes: CanvasNode[] = graph.nodes.map((n) => {
     const shown = Math.min(n.permissions.length, SHOWN_PERMISSIONS)
@@ -141,9 +170,11 @@ export function buildSchemaGraph(graph: ResourceTypeGraph): {
     }
   })
   const known = new Set(graph.nodes.map((n) => n.id))
+  const byId = new Map(graph.nodes.map((n) => [n.id, n]))
 
   const undeclared = new Set<string>()
   const edges: CanvasEdge[] = []
+  const descriptions: string[] = []
   const seen = new Set<string>()
   for (const e of graph.edges) {
     if (!known.has(e.fromId)) continue
@@ -158,6 +189,9 @@ export function buildSchemaGraph(graph: ResourceTypeGraph): {
       if (seen.has(id)) continue
       seen.add(id)
       edges.push({ id, source: e.fromId, target, label })
+      descriptions.push(
+        describeEdge(byId.get(e.fromId)!, e, byId.get(target) ?? null)
+      )
     }
   }
   for (const name of undeclared) {
@@ -169,7 +203,7 @@ export function buildSchemaGraph(graph: ResourceTypeGraph): {
       content: <UndeclaredCard name={name} />,
     })
   }
-  return { nodes, edges }
+  return { nodes, edges, descriptions }
 }
 
 function SchemaGraphView({
@@ -193,8 +227,11 @@ function SchemaGraphView({
         </p>
       )}
       <p className="text-sm text-muted-foreground">
-        Each box is a resource type. An arrow runs from a type to a subject one
-        of its relations allows, and is labelled with that relation.
+        Each solid box is a resource type. A dashed box is a name the relations
+        allow that no resource type in this view has: a subject kind such as
+        user, or a type outside this namespace or past the first 500. An arrow
+        runs from a type to a subject one of its relations allows, and is
+        labelled with that relation.
       </p>
       <Suspense
         fallback={
@@ -213,6 +250,20 @@ function SchemaGraphView({
           edges={built.edges}
         />
       </Suspense>
+      {/* The picture has no text alternative of its own, so every edge is
+          here as a line a screen reader can read. */}
+      <details className="text-sm">
+        <summary className="cursor-pointer text-muted-foreground">
+          Relationships as text
+        </summary>
+        <ul className="mt-2 flex flex-col gap-1">
+          {built.descriptions.map((d) => (
+            <li key={d} className="font-mono text-xs">
+              {d}
+            </li>
+          ))}
+        </ul>
+      </details>
     </div>
   )
 }

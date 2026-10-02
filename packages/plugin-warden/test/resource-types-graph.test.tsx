@@ -273,9 +273,13 @@ describe("the resource types graph", () => {
       m.textContent?.includes("user")
     ) as HTMLElement
     expect(within(user).getByText("user").className).toContain("font-mono")
-    expect(within(user).getByText("not a resource type")).toBeTruthy()
+    expect(
+      within(user).getByText("not a resource type in this view")
+    ).toBeTruthy()
     expect(within(user).queryByRole("link")).toBeNull()
-    expect(screen.getAllByText("not a resource type")).toHaveLength(2)
+    expect(
+      screen.getAllByText("not a resource type in this view")
+    ).toHaveLength(2)
     for (const from of [
       "rt_cluster",
       "rt_group_eng",
@@ -286,6 +290,64 @@ describe("the resource types graph", () => {
         edgesBetween(container, from, "undeclared:user").length
       ).toBeGreaterThan(0)
     }
+  })
+
+  it("tells a dashed box from a solid one in the intro", async () => {
+    renderPage(WardenResourceTypesPage, stubClient(answers()))
+    await nodeLink(/Open document/)
+    expect(
+      screen.getByText(
+        "Each solid box is a resource type. A dashed box is a name the relations allow that no resource type in this view has: a subject kind such as user, or a type outside this namespace or past the first 500. An arrow runs from a type to a subject one of its relations allows, and is labelled with that relation."
+      )
+    ).toBeTruthy()
+  })
+
+  describe("Relationships as text", () => {
+    async function textList() {
+      await nodeLink(/Open document/)
+      const details = screen
+        .getByText("Relationships as text")
+        .closest("details")!
+      return within(details).getAllByRole("listitem", { hidden: true })
+    }
+
+    it("lists every drawn edge as from, relation, to, in the order drawn", async () => {
+      renderPage(WardenResourceTypesPage, stubClient(answers()))
+      const items = await textList()
+      expect(items.map((li) => li.textContent)).toEqual([
+        "cluster (eng/platform) admin service",
+        "cluster (eng/platform) admin user",
+        "group (eng/platform) member user",
+        "document viewer user",
+        "document viewer group#member",
+        "document viewer group#member (eng/platform)",
+        "document editor group#member",
+        "document editor group#member (eng/platform)",
+        "group member user",
+        "group member group#member",
+        "group member group#member (eng/platform)",
+      ])
+    })
+
+    it("is a disclosure under the graph, closed until opened", async () => {
+      renderPage(WardenResourceTypesPage, stubClient(answers()))
+      await textList()
+      const details = screen
+        .getByText("Relationships as text")
+        .closest("details")!
+      expect(details.hasAttribute("open")).toBe(false)
+      expect(details.querySelector("summary")?.textContent).toBe(
+        "Relationships as text"
+      )
+      expect(details.querySelector("ul")).not.toBeNull()
+    })
+
+    it("names the muted targets, which have no namespace to give", async () => {
+      renderPage(WardenResourceTypesPage, stubClient(answers()))
+      const lines = (await textList()).map((li) => li.textContent)
+      expect(lines).toContain("document viewer user")
+      expect(lines).toContain("cluster (eng/platform) admin service")
+    })
   })
 
   it("links each type's node to its own page", async () => {
