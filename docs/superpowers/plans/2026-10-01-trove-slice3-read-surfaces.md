@@ -42,7 +42,8 @@ The controller writes this to `$W/commit-mine.sh` (the SDD workspace) before Tas
 #
 # --whole   paths that are entirely yours: committed as they are in the tree.
 # --shared  paths others also have uncommitted edits in: only the diff hunks
-#           against HEAD (zero context) that contain NEEDLE are committed.
+#           against HEAD (zero context) that contain NEEDLE are applied to
+#           HEAD's copy of the file, at their exact old-side line numbers.
 #
 # The commit is built in a private index that starts from HEAD, so neither the
 # shared index nor anyone's staged work is read or changed by it. Afterwards
@@ -73,26 +74,39 @@ paths=()
 for p in ${whole[@]+"${whole[@]}"}; do git add -- "$p"; paths+=("$p"); done
 for spec in ${shared[@]+"${shared[@]}"}; do
   p=${spec%%:*}; needle=${spec#*:}
+  git show "$old_head:$p" > "$tmp/old"
   git diff -U0 "$old_head" -- "$p" > "$tmp/full.patch"
-  python3 - "$needle" "$tmp/full.patch" > "$tmp/mine.patch" <<'PY'
-import sys
-needle, path = sys.argv[1], sys.argv[2]
-lines = open(path, encoding="utf-8").read().splitlines(keepends=True)
-head, hunks, cur = [], [], None
-for line in lines:
-    if line.startswith("@@"):
-        cur = [line]
+  python3 - "$needle" "$tmp/old" "$tmp/full.patch" "$tmp/new" <<'PY'
+import re, sys
+needle, old_path, patch_path, out_path = sys.argv[1:5]
+old = open(old_path, encoding="utf-8").read().splitlines(keepends=True)
+hunks, cur = [], None
+for line in open(patch_path, encoding="utf-8").read().splitlines(keepends=True):
+    m = re.match(r"@@ -(\d+)(?:,(\d+))? \+(\d+)(?:,(\d+))? @@", line)
+    if m:
+        cur = {"os": int(m.group(1)), "ol": int(m.group(2) or 1), "minus": [], "plus": []}
         hunks.append(cur)
-    elif cur is None:
-        head.append(line)
+    elif cur is not None and line.startswith("-"):
+        cur["minus"].append(line[1:])
+    elif cur is not None and line.startswith("+"):
+        cur["plus"].append(line[1:])
+mine = [h for h in hunks if any(needle in l for l in h["minus"] + h["plus"])]
+if not mine:
+    sys.exit(f"commit-mine: no hunk mentions {needle!r}")
+for h in sorted(mine, key=lambda h: h["os"], reverse=True):
+    if h["ol"] == 0:
+        at = h["os"]  # insert after old line os
+        old[at:at] = h["plus"]
     else:
-        cur.append(line)
-keep = [h for h in hunks if any(needle in l for l in h[1:])]
-if keep:
-    sys.stdout.write("".join(head) + "".join("".join(h) for h in keep))
+        start = h["os"] - 1
+        if old[start:start + h["ol"]] != h["minus"]:
+            sys.exit(f"commit-mine: hunk at old line {h['os']} does not match HEAD")
+        old[start:start + h["ol"]] = h["plus"]
+open(out_path, "w", encoding="utf-8").write("".join(old))
 PY
-  if [ ! -s "$tmp/mine.patch" ]; then echo "commit-mine: no hunk in $p mentions '$needle'" >&2; exit 1; fi
-  git apply --cached --unidiff-zero "$tmp/mine.patch"
+  blob=$(git hash-object -w "$tmp/new")
+  fmode=$(git ls-tree "$old_head" -- "$p" | awk '{print $1}')
+  git update-index --add --cacheinfo "$fmode,$blob,$p"
   paths+=("$p")
 done
 if [ "$(git rev-parse HEAD)" != "$old_head" ]; then
@@ -107,8 +121,8 @@ for p in "${paths[@]}"; do
     old=$(git rev-parse -q --verify "$old_head:$f" 2>/dev/null || true)
     cur=$(git ls-files -s -- "$f" | awk '{print $2}')
     if [ -z "$cur" ] || [ "$cur" = "$old" ]; then
-      fmode=$(git ls-tree HEAD -- "$f" | awk '{print $1}')
-      git update-index --add --cacheinfo "$fmode,$new,$f"
+      fm=$(git ls-tree HEAD -- "$f" | awk '{print $1}')
+      git update-index --add --cacheinfo "$fm,$new,$f"
     else
       echo "commit-mine: left $f alone in the shared index; someone has it staged" >&2
     fi
