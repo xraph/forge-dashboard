@@ -1,7 +1,11 @@
+import { useState } from "react"
 import type { ComponentType, ReactNode } from "react"
 import { PluginLink, useQuery } from "@forge-go/dashboard-plugin"
 import type { PluginPageProps } from "@forge-go/dashboard-plugin"
-import { buttonVariants } from "@forge-go/dashboard-kit/components/button"
+import {
+  Button,
+  buttonVariants,
+} from "@forge-go/dashboard-kit/components/button"
 import {
   DescriptionList,
   DetailLayout,
@@ -15,10 +19,13 @@ import { Timestamp } from "@forge-go/dashboard-kit/components/timestamp"
 import { formatTimestamp } from "@forge-go/dashboard-kit/lib/format"
 import { KeyStateBadge } from "../badges"
 import { formatDuration, maskedKey } from "../format"
+import { EndGraceDialog } from "../components/end-grace-dialog"
+import { RotateKeyDialog } from "../components/rotate-key-dialog"
 import type { KeyDetail, KeyState } from "../types"
 
 /**
- * The detail page for one key. Read-only in this slice.
+ * The detail page for one key: what it is, which previous keys still work,
+ * and the two actions on its keys, Rotate and End now.
  *
  * `params.id` is split off so a missing id renders a status line before the
  * body's hook runs: a query with no id would ask the server about a key
@@ -90,11 +97,28 @@ function Section({ title, children }: { title: string; children: ReactNode }) {
 function KeyDetailView({ data }: { data: KeyDetail }) {
   const { key } = data
   const expiredUnmarked = key.effectiveState === "expired" && key.expiryPending
+  // Matches the server: a revoked or expired key answers CONFLICT.
+  const rotatable =
+    key.effectiveState === "active" || key.effectiveState === "suspended"
+  const [rotating, setRotating] = useState(false)
 
   return (
     <section className="flex flex-col gap-6">
       <div className="flex flex-col gap-2">
-        <PageHeader title={key.name} description={key.description} />
+        <PageHeader
+          title={key.name}
+          description={key.description}
+          actions={
+            rotatable ? (
+              <Button onClick={() => setRotating(true)}>Rotate key</Button>
+            ) : undefined
+          }
+        />
+        {!rotatable && (
+          <p className="text-sm text-muted-foreground">
+            A revoked or expired key cannot be rotated.
+          </p>
+        )}
         <div className="flex flex-wrap items-center gap-2">
           <span className="font-mono text-sm">{maskedKey(key)}</span>
           <KeyStateBadge summary={key} />
@@ -132,6 +156,14 @@ function KeyDetailView({ data }: { data: KeyDetail }) {
           </>
         }
       />
+      {rotatable && (
+        <RotateKeyDialog
+          open={rotating}
+          onOpenChange={setRotating}
+          summary={key}
+          policy={data.policy}
+        />
+      )}
     </section>
   )
 }
@@ -139,6 +171,9 @@ function KeyDetailView({ data }: { data: KeyDetail }) {
 function ValiditySection({ data }: { data: KeyDetail }) {
   const { key } = data
   const previous = data.previousKeys ?? []
+  const [ending, setEnding] = useState(false)
+  const maskedOf = (hint: string) =>
+    maskedKey({ prefix: key.prefix, environment: key.environment, hint })
   return (
     <Section title="Validity">
       {previous.length === 0 ? (
@@ -153,21 +188,29 @@ function ValiditySection({ data }: { data: KeyDetail }) {
                 key={p.rotationId}
                 className="flex flex-wrap items-center gap-x-3 gap-y-1 rounded-md border px-3 py-2 text-sm"
               >
-                <span className="font-mono text-xs">
-                  {maskedKey({
-                    prefix: key.prefix,
-                    environment: key.environment,
-                    hint: p.hint,
-                  })}
-                </span>
+                <span className="font-mono text-xs">{maskedOf(p.hint)}</span>
                 <span className="text-muted-foreground">valid until</span>
                 <Timestamp value={p.graceEnds} label="cutoff" />
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="ml-auto"
+                  onClick={() => setEnding(true)}
+                >
+                  End now
+                </Button>
               </li>
             ))}
           </ul>
           <p className="text-sm text-muted-foreground">
             {validitySentence(key.effectiveState, previous.length)}
           </p>
+          <EndGraceDialog
+            open={ending}
+            onOpenChange={setEnding}
+            keyId={key.id}
+            masked={previous.map((p) => maskedOf(p.hint))}
+          />
         </>
       )}
     </Section>

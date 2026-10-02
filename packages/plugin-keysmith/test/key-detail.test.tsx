@@ -1,10 +1,11 @@
 import { describe, expect, it } from "vitest"
-import { screen, within } from "@testing-library/react"
+import { cleanup, fireEvent, screen, waitFor, within } from "@testing-library/react"
 import { ContractError } from "@forge-go/dashboard-plugin"
 import { KeyDetailPage } from "../src/pages/key-detail"
 import type { KeyDetail, KeySummary, PolicyRef } from "../src/types"
 import {
   failingClient,
+  recordingCommandClient,
   recordingQueryClient,
   renderPage,
   stubClient,
@@ -405,5 +406,121 @@ describe("KeyDetailPage failure", () => {
   it("says so when the address has no id", () => {
     renderPage(KeyDetailPage, stubClient({}), {})
     expect(screen.getByRole("status").textContent).toMatch(/no key id/i)
+  })
+})
+
+describe("KeyDetailPage rotate", () => {
+  it("offers Rotate key on an active key and on a suspended one", async () => {
+    await render()
+    expect(screen.getByRole("button", { name: "Rotate key" })).toBeTruthy()
+    expect(screen.queryByText("A revoked or expired key cannot be rotated.")).toBeNull()
+    cleanup()
+
+    await render(
+      detail({ key: key({ state: "suspended", effectiveState: "suspended" }) }),
+    )
+    expect(screen.getByRole("button", { name: "Rotate key" })).toBeTruthy()
+  })
+
+  it("has no Rotate on a revoked key, and says why", async () => {
+    await render(
+      detail({
+        key: key({
+          state: "revoked",
+          effectiveState: "revoked",
+          revokedAt: "2026-09-20T10:00:00Z",
+        }),
+        previousKeys: [],
+      }),
+    )
+    expect(screen.queryByRole("button", { name: "Rotate key" })).toBeNull()
+    expect(screen.getByText("A revoked or expired key cannot be rotated.")).toBeTruthy()
+  })
+
+  it("has no Rotate on an expired key that is not yet marked", async () => {
+    await render(
+      detail({
+        key: key({
+          effectiveState: "expired",
+          expiryPending: true,
+          expiresAt: "2026-09-01T00:00:00Z",
+        }),
+        previousKeys: [],
+      }),
+    )
+    expect(screen.queryByRole("button", { name: "Rotate key" })).toBeNull()
+    expect(screen.getByText("A revoked or expired key cannot be rotated.")).toBeTruthy()
+  })
+
+  it("opens the dialog with the grace from the key's policy", async () => {
+    await render()
+    fireEvent.click(screen.getByRole("button", { name: "Rotate key" }))
+    const d = await screen.findByRole("dialog", { name: "Rotate key" })
+    expect((within(d).getByLabelText("Grace period") as HTMLInputElement).value).toBe("36")
+  })
+})
+
+describe("KeyDetailPage End now", () => {
+  const SECOND = {
+    rotationId: "krot_2",
+    hint: "19d4",
+    reason: "manual",
+    rotatedAt: "2026-09-28T10:00:00Z",
+    graceEnds: "2026-10-01T10:00:00Z",
+  }
+
+  async function renderWithCommands(d: KeyDetail) {
+    const { client, sent } = recordingCommandClient(
+      { "keys.detail": d },
+      { "keys.endGrace": { key: d.key, closed: d.previousKeys.length } },
+    )
+    renderPage(KeyDetailPage, client, { id: "akey_billing" })
+    await screen.findByRole("heading", { level: 1, name: d.key.name })
+    return sent
+  }
+
+  it("asks about the one previous key, then sends keys.endGrace once on a double click", async () => {
+    const sent = await renderWithCommands(DETAIL)
+    fireEvent.click(
+      within(section("Validity")).getByRole("button", { name: "End now" }),
+    )
+    const confirm = await screen.findByRole("alertdialog", {
+      name: "Stop accepting sk_live_…7c1e?",
+    })
+    expect(
+      within(confirm).getByText(
+        "Requests using it fail from now on. This cannot be undone.",
+      ),
+    ).toBeTruthy()
+    expect(sent).toHaveLength(0)
+
+    const go = within(confirm).getByRole("button", { name: "End now" })
+    fireEvent.click(go)
+    fireEvent.click(go)
+    await waitFor(() => expect(screen.queryByRole("alertdialog")).toBeNull())
+    expect(sent).toEqual([
+      { intent: "keys.endGrace", payload: { id: "akey_billing" } },
+    ])
+  })
+
+  it("asks about every previous key when there are several", async () => {
+    await renderWithCommands(
+      detail({ previousKeys: [...DETAIL.previousKeys, SECOND] }),
+    )
+    const buttons = within(section("Validity")).getAllByRole("button", {
+      name: "End now",
+    })
+    expect(buttons).toHaveLength(2)
+    fireEvent.click(buttons[1])
+    expect(
+      await screen.findByRole("alertdialog", {
+        name: "Stop accepting every previous key?",
+      }),
+    ).toBeTruthy()
+  })
+
+  it("has no End now when no previous key is accepted", async () => {
+    await render(detail({ previousKeys: [] }))
+    expect(screen.queryByRole("button", { name: "End now" })).toBeNull()
   })
 })
