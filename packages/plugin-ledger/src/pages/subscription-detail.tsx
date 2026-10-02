@@ -35,11 +35,12 @@ export type SubscriptionAction = "generate" | "changePlan" | "applyCoupon" | "pa
  * coupon. Generate stays available once a subscription has ended, because an
  * immediate cancel would otherwise strand the final period's overage and seats
  * with no way to invoice them; the engine refuses a second invoice for the same
- * period as a conflict, which the alert shows. A paused subscription can be
- * invoiced too: a pause freezes its billing period, so the period that was
- * running at the pause can only be invoiced before the resume, which starts a
- * new one. Apply coupon is withheld from paused and finished subscriptions: a
- * discount on one that is not running helps nobody.
+ * period as a conflict, which the alert shows. It is withheld from a paused
+ * subscription: the engine refuses to invoice a paused subscription's current
+ * period, because a resume moves that period's end on by the time spent paused
+ * and the period is invoiced once it ends. Apply coupon is withheld from paused
+ * and finished subscriptions: a discount on one that is not running helps
+ * nobody.
  */
 export function legalActions(status: SubscriptionStatus): SubscriptionAction[] {
   switch (status) {
@@ -49,7 +50,7 @@ export function legalActions(status: SubscriptionStatus): SubscriptionAction[] {
     case "past_due":
       return ["generate", "changePlan", "applyCoupon", "cancel"]
     case "paused":
-      return ["generate", "changePlan", "resume", "cancel"]
+      return ["changePlan", "resume", "cancel"]
     case "canceled":
     case "expired":
       return ["generate"]
@@ -104,6 +105,19 @@ function PassedNote() {
   if (interval === "off") text = "Date passed, but the lifecycle clock is off. It ends only when something else runs it."
   else if (interval !== undefined) text = `Date passed, ends on the next lifecycle clock run (every ${interval})`
   return <span className="text-xs text-muted-foreground">{text}</span>
+}
+
+/**
+ * What a resume does. The engine extends the period end by the time since
+ * paused_at, and a trial still running at the pause by the same amount. A row
+ * paused before the engine recorded paused_at has no pause start to measure
+ * from, so a resume extends nothing, and the text says that instead.
+ */
+function resumeDescription(sub: Subscription): string {
+  if (sub.paused_at === undefined) {
+    return "This subscription has no recorded pause start, so resuming extends nothing: its billing period and trial end stay where they are. It returns to trialing if its trial has not ended, and becomes active otherwise."
+  }
+  return "Resuming extends the billing period's end by the time spent paused, and the period can be invoiced once it ends. A trial that had not ended at the pause moves out by the same amount and the subscription returns to trialing. Otherwise it becomes active."
 }
 
 function SubscriptionDetailView({ detail }: { detail: SubscriptionDetail }) {
@@ -255,7 +269,7 @@ function SubscriptionDetailView({ detail }: { detail: SubscriptionDetail }) {
         open={dialog === "pause"}
         onOpenChange={close}
         title={`Pause ${sub.tenant_id}'s subscription?`}
-        description="Entitlement checks refuse while it is paused. Resume it to restore access. The billing period stands still while it is paused: invoicing it bills that frozen period, and resuming starts a new one."
+        description="Entitlement checks refuse while it is paused. Resume it to restore access. Pausing freezes the billing period, and the current period cannot be invoiced while the subscription is paused. Resuming extends the period's end by the time spent paused, and the period can be invoiced once it ends. A trial still running at the pause moves out by the same amount."
         confirmLabel="Pause subscription"
         command={pause}
         payload={{ id: sub.id }}
@@ -265,7 +279,7 @@ function SubscriptionDetailView({ detail }: { detail: SubscriptionDetail }) {
         open={dialog === "resume"}
         onOpenChange={close}
         title={`Resume ${sub.tenant_id}'s subscription?`}
-        description="Resuming starts a new billing period from now. If the period that was running at the pause has not been invoiced, invoice it first: once the subscription is resumed that period can no longer be invoiced. A trial that had not ended at the pause resumes as a trial, extended by the length of the pause. Otherwise the subscription becomes active."
+        description={resumeDescription(sub)}
         confirmLabel="Resume subscription"
         command={resume}
         payload={{ id: sub.id }}
