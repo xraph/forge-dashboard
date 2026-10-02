@@ -1,5 +1,6 @@
 import { useEffect } from "react"
 import { useQuery } from "@forge-go/dashboard-plugin"
+import { Button } from "@forge-go/dashboard-kit/components/button"
 import { NativeSelect, NativeSelectOption } from "@forge-go/dashboard-kit/components/native-select"
 import { setActiveStore, useActiveStore } from "../store"
 import type { StoresList } from "../types"
@@ -7,7 +8,9 @@ import type { StoresList } from "../types"
 /**
  * Picks the store every page reads. Renders nothing in single-store mode,
  * where there is nothing to pick. A remembered store the server no longer
- * lists falls back to the default rather than failing every page.
+ * lists falls back to the default rather than failing every page. When the
+ * list itself cannot be read, a store other than the default stays in use, so
+ * the picker says which one and offers the way back.
  */
 export function StorePicker() {
   const active = useActiveStore()
@@ -19,6 +22,18 @@ export function StorePicker() {
     if (!known) setActiveStore("")
   }, [known])
 
+  if (stores.error && active !== "") {
+    return (
+      <div className="flex items-center gap-2 text-sm">
+        <span className="text-muted-foreground">
+          Store list unavailable, showing <span className="font-mono text-xs">{active}</span>
+        </span>
+        <Button variant="outline" size="sm" onClick={() => setActiveStore("")}>
+          Use default
+        </Button>
+      </div>
+    )
+  }
   if (!list || list.mode !== "multi") return null
   const fallback = list.stores.find((s) => s.isDefault)?.name ?? list.stores[0]?.name ?? ""
   const value = active !== "" && known ? active : fallback

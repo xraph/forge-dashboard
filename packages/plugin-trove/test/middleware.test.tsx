@@ -28,6 +28,13 @@ describe("MiddlewarePage", () => {
     expect(within(rowFor("encrypt")).getByText("bucket(reports)").className).toContain("font-mono")
   })
 
+  it("lets a long scope expression wrap", async () => {
+    renderPage(MiddlewarePage, stubClient({ "middleware.list": LIST, "stores.list": SINGLE }))
+    const scope = await screen.findByText("bucket(reports)")
+    expect(scope.className).toContain("whitespace-normal")
+    expect(scope.className).toContain("break-all")
+  })
+
   it("shows every warning", async () => {
     renderPage(MiddlewarePage, stubClient({ "middleware.list": LIST, "stores.list": SINGLE }))
     expect(await screen.findByText(/move stored bytes without running any middleware/)).toBeTruthy()

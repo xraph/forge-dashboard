@@ -73,8 +73,13 @@ function CasCeiling({ status }: { status: CasStatus }) {
   )
 }
 
-function entriesCaption(n: number, more: boolean): string {
+/**
+ * No list returns a total, so a bare count is only honest for a complete first
+ * page. Any page reached by paging is one page of a longer listing.
+ */
+function entriesCaption(n: number, more: boolean, paged: boolean): string {
   if (more) return `${n} on this page, more after it`
+  if (paged) return `${n} on this page, the last one`
   return `${n} ${n === 1 ? "entry" : "entries"}`
 }
 
@@ -89,7 +94,16 @@ function CasEntries({ store }: { store: string }) {
   const [gcResult, setGCResult] = useState<CasGCResult | null>(null)
 
   const columns: Column<CasEntry>[] = [
-    { id: "hash", header: "Hash", className: "font-mono text-xs font-medium", cell: (e) => e.hash },
+    {
+      id: "hash",
+      header: "Hash",
+      className: "font-medium",
+      cell: (e) => (
+        <span className="block max-w-xs truncate font-mono text-xs" title={e.hash}>
+          {e.hash}
+        </span>
+      ),
+    },
     { id: "size", header: "Stored size", cell: (e) => <Bytes value={e.storedSize} /> },
     {
       id: "refs",
@@ -138,7 +152,7 @@ function CasEntries({ store }: { store: string }) {
               columns={columns}
               rows={data.entries}
               rowKey={(e) => e.hash}
-              caption={entriesCaption(data.entries.length, data.nextCursor !== null)}
+              caption={entriesCaption(data.entries.length, data.nextCursor !== null, cursors.length > 0)}
               emptyMessage={
                 data.nextCursor !== null
                   ? "Nothing on this page, but the driver has more to list."
@@ -188,7 +202,6 @@ function CasEntries({ store }: { store: string }) {
           </span>
         }
         confirmLabel="Run"
-        destructive={false}
         pending={gc.loading}
         onConfirm={() => void runGC()}
       />

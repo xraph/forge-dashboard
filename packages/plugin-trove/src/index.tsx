@@ -18,8 +18,7 @@ export { BucketsPage, CasPage, MiddlewarePage, OverviewPage, TransfersPage }
  * never writes.
  *
  * `label` is "Trove": definePlugin requires the label to spell the extension's
- * own name. The "Storage" heading belongs to the nav items' `group`, which
- * Tasks 2 to 6 set.
+ * own name. The "Storage" heading belongs to each nav item's `group`.
  */
 export const trovePlugin = definePlugin({
   extension: "trove",

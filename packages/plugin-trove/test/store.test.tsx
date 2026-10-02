@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest"
 import { act, fireEvent, screen, waitFor } from "@testing-library/react"
-import { renderPage, stubClient } from "./harness"
+import { ContractError } from "@forge-go/dashboard-plugin"
+import { failingClient, renderPage, stubClient } from "./harness"
 import { setActiveStore, useActiveStore, withStore } from "../src/store"
 import { StorePicker } from "../src/components/store-picker"
 
@@ -52,5 +53,27 @@ describe("StorePicker", () => {
     act(() => setActiveStore("retired"))
     renderPage(Probe, stubClient({ "stores.list": MULTI }))
     await waitFor(() => expect(screen.getByLabelText("active store").textContent).toBe("(default)"))
+  })
+
+  it("keeps a way back to the default when the store list cannot be read", async () => {
+    act(() => setActiveStore("archive"))
+    renderPage(Probe, failingClient(new ContractError("UNAVAILABLE", "stores offline")))
+    expect(await screen.findByText("Store list unavailable, showing")).toBeTruthy()
+    const shown = screen.getByText("Store list unavailable, showing").querySelector("span")
+    expect(shown?.textContent).toBe("archive")
+    expect(shown?.className).toContain("font-mono")
+    expect(screen.getByLabelText("active store").textContent).toBe("archive")
+    fireEvent.click(screen.getByRole("button", { name: "Use default" }))
+    expect(screen.getByLabelText("active store").textContent).toBe("(default)")
+    await waitFor(() => expect(screen.queryByRole("button", { name: "Use default" })).toBeNull())
+  })
+
+  it("renders nothing when the store list fails and the default is active", async () => {
+    renderPage(Probe, failingClient(new ContractError("UNAVAILABLE", "stores offline")))
+    await screen.findByText("(default)")
+    await new Promise((r) => setTimeout(r, 20))
+    expect(screen.queryByText(/Store list unavailable/)).toBeNull()
+    expect(screen.queryByRole("button", { name: "Use default" })).toBeNull()
+    expect(screen.queryByLabelText("Store")).toBeNull()
   })
 })

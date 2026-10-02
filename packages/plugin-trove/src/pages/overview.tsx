@@ -27,7 +27,7 @@ const flagColumns: Column<FlagStatus>[] = [
   {
     id: "note",
     header: "What it means",
-    cell: (f) => (f.note ? <span className="text-sm">{f.note}</span> : <NoneCell label="note" />),
+    cell: (f) => (f.note ? <span className="block max-w-sm whitespace-normal text-sm">{f.note}</span> : <NoneCell label="note" />),
   },
 ]
 
@@ -36,13 +36,13 @@ type CapabilityKey = keyof SystemStatus["capabilities"]
 /** What each capability means for the operator, both ways. */
 const CAPABILITIES: { key: CapabilityKey; label: string; yes: string; no: string }[] = [
   { key: "folders", label: "Folders", yes: "Listings group keys into folders.", no: "Listings are flat: this driver does not report folders." },
-  { key: "presign", label: "Presigned links", yes: "Share links can be offered where no middleware applies.", no: "No share links: this driver cannot sign one." },
+  { key: "presign", label: "Presigned links", yes: "Share links can be offered where no middleware applies. GCS and Azure also need signing credentials.", no: "No share links: this driver cannot sign one." },
   { key: "multipart", label: "Multipart uploads", yes: "The driver accepts uploads in parts.", no: "No multipart uploads." },
   { key: "range", label: "Range reads", yes: "The driver can read part of an object.", no: "No range reads." },
-  { key: "serverCopy", label: "Server-side copy", yes: "Copies stay inside the backend.", no: "No server-side copy." },
-  { key: "versioning", label: "Versioning", yes: "The driver keeps object versions.", no: "No object versions." },
-  { key: "lifecycle", label: "Lifecycle rules", yes: "The driver applies lifecycle rules.", no: "No lifecycle rules." },
-  { key: "notification", label: "Change notifications", yes: "The driver reports changes as they happen.", no: "No change notifications." },
+  { key: "serverCopy", label: "Server-side copy", yes: "The driver can copy inside the backend. Trove's copy does not use it yet.", no: "No server-side copy." },
+  { key: "versioning", label: "Versioning", yes: "The driver can keep object versions.", no: "No object versions." },
+  { key: "lifecycle", label: "Lifecycle rules", yes: "The driver can apply lifecycle rules.", no: "No lifecycle rules." },
+  { key: "notification", label: "Change notifications", yes: "The driver can send change notifications.", no: "No change notifications." },
 ]
 
 function protectionCaption(n: number): string {
@@ -84,7 +84,7 @@ export const OverviewPage: ComponentType<PluginPageProps> = () => {
             <section className="flex flex-col gap-2">
               <h2 className="text-sm font-medium">Protection</h2>
               <p className="text-sm text-muted-foreground">
-                Configured is what the config asks for. Applied is what is registered now. Neither says how earlier writes were stored.
+                Configured is what the config asks for. Applied means it runs when objects are written, now. Neither says how earlier writes were stored. Scanning has no config switch, so its Configured follows what is registered.
               </p>
               <ResourceTable<FlagStatus>
                 columns={flagColumns}

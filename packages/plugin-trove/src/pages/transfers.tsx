@@ -14,7 +14,19 @@ import type { StreamRow, StreamsList } from "../types"
 const POLL_MS = 5000
 
 const columns: Column<StreamRow>[] = [
-  { id: "target", header: "Object", className: "font-mono text-xs font-medium", cell: (s) => `${s.bucket}/${s.key}` },
+  {
+    id: "target",
+    header: "Object",
+    className: "font-medium",
+    cell: (s) => {
+      const target = `${s.bucket}/${s.key}`
+      return (
+        <span className="block max-w-sm truncate font-mono text-xs" title={target}>
+          {target}
+        </span>
+      )
+    },
+  },
   { id: "direction", header: "Direction", cell: (s) => s.direction },
   { id: "state", header: "State", cell: (s) => <StreamStateBadge state={s.state} /> },
   { id: "offset", header: "Transferred", cell: (s) => <Bytes value={s.offset} /> },

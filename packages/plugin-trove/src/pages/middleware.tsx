@@ -26,7 +26,11 @@ function columnsFor(tested: boolean): Column<Row>[] {
     { id: "order", header: "Order", className: "font-mono text-xs", cell: (r) => r.order },
     { id: "name", header: "Middleware", className: "font-mono text-xs font-medium", cell: (r) => r.name },
     { id: "direction", header: "Direction", cell: (r) => r.direction },
-    { id: "scope", header: "Scope", className: "font-mono text-xs", cell: (r) => r.scope },
+    {
+      id: "scope",
+      header: "Scope",
+      cell: (r) => <span className="whitespace-normal break-all font-mono text-xs">{r.scope}</span>,
+    },
     { id: "priority", header: "Priority", className: "font-mono text-xs", cell: (r) => r.priority },
   ]
   if (!tested) return base

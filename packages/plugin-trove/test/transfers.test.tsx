@@ -35,6 +35,14 @@ describe("TransfersPage", () => {
     expect(screen.getByText("2 open streams, 16 allowed")).toBeTruthy()
   })
 
+  it("truncates a long object path and keeps it whole in the title", async () => {
+    renderPage(TransfersPage, stubClient({ "streams.list": LIST, "stores.list": SINGLE }))
+    const cell = await screen.findByText("reports/2026/09/big.csv")
+    expect(cell.className).toContain("truncate")
+    expect(cell.className).toContain("max-w-sm")
+    expect(cell.getAttribute("title")).toBe("reports/2026/09/big.csv")
+  })
+
   it("counts zero and says so", async () => {
     renderPage(TransfersPage, stubClient({ "streams.list": { streams: [], active: 0, max: 16 }, "stores.list": SINGLE }))
     expect(await screen.findByText("0 open streams, 16 allowed")).toBeTruthy()

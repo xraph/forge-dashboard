@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest"
 import { act, fireEvent, screen, waitFor, within } from "@testing-library/react"
-import { queryStore } from "@forge-go/dashboard-plugin"
+import { ContractError, queryStore } from "@forge-go/dashboard-plugin"
+import type { ScopedClient } from "@forge-go/dashboard-plugin"
 import { CasPage } from "../src/pages/cas"
 import { recordingCommandClient, recordingQueryClient, renderPage, stubClient } from "./harness"
 
@@ -48,6 +49,44 @@ describe("CasPage", () => {
     expect(screen.getByText("3 on this page, more after it")).toBeTruthy()
   })
 
+  it("truncates a long hash in the cell and keeps the full hash in its title", async () => {
+    renderPage(CasPage, stubClient({ "cas.status": ON, "cas.list": PAGE1, "stores.list": SINGLE }))
+    const hash = await screen.findByText(A)
+    expect(hash.className).toContain("truncate")
+    expect(hash.className).toContain("max-w-xs")
+    expect(hash.getAttribute("title")).toBe(A)
+    expect(within(rowFor(A)).getByRole("button", { name: `Pin ${A}` })).toBeTruthy()
+  })
+
+  it("does not read the last page of a listing as a total", async () => {
+    const LAST = { entries: [PAGE1.entries[0], PAGE1.entries[1]], nextCursor: null }
+    const client = {
+      extension: "trove",
+      query: async (intent: string, params?: Record<string, unknown>) => {
+        if (intent === "cas.status") return ON
+        if (intent === "stores.list") return SINGLE
+        if (intent === "cas.list") return params?.cursor ? LAST : PAGE1
+        throw new ContractError("NOT_FOUND", `no handler for intent "${intent}"`)
+      },
+      command: async () => {
+        throw new ContractError("NOT_FOUND", "no commands")
+      },
+    } as ScopedClient
+    renderPage(CasPage, client)
+    await screen.findByText("3 on this page, more after it")
+    fireEvent.click(screen.getByRole("button", { name: "Next page" }))
+    const caption = await screen.findByText("2 on this page, the last one")
+    expect(caption.textContent).not.toMatch(/^\d+ entr/)
+  })
+
+  it("calls a complete first page by its count", async () => {
+    renderPage(
+      CasPage,
+      stubClient({ "cas.status": ON, "cas.list": { entries: [PAGE1.entries[0]], nextCursor: null }, "stores.list": SINGLE }),
+    )
+    expect(await screen.findByText("1 entry")).toBeTruthy()
+  })
+
   it("pages with the cursor it was given", async () => {
     const { client, sent } = recordingQueryClient({ "cas.status": ON, "cas.list": PAGE1, "stores.list": SINGLE })
     renderPage(CasPage, client)
@@ -85,6 +124,8 @@ describe("CasPage", () => {
     fireEvent.click(await screen.findByRole("button", { name: "Run garbage collection" }))
     const dialog = await screen.findByRole("alertdialog")
     expect(within(dialog).getByText(/Blobs the index does not know are never touched/)).toBeTruthy()
+    // Deleting is what it does, so the confirm is painted as destructive.
+    expect(within(dialog).getByRole("button", { name: "Run" }).className).toMatch(/destructive/)
     fireEvent.click(within(dialog).getByRole("button", { name: "Run" }))
     await waitFor(() => expect(sent).toEqual([{ intent: "cas.gc", payload: {} }]))
     expect(await screen.findByText(/Found 0 entries with no references and no pin, deleted 0, freed 0 B/)).toBeTruthy()

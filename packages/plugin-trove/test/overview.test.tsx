@@ -75,6 +75,40 @@ describe("OverviewPage", () => {
     expect(screen.getByText("1 protection")).toBeTruthy()
   })
 
+  it("defines Applied as running on the write path, not as registered", async () => {
+    renderPage(OverviewPage, stubClient({ "system.status": status(), "stores.list": SINGLE }))
+    await screen.findByText("Encryption")
+    const intro = screen.getByText(/Configured is what the config asks for/)
+    expect(intro.textContent).not.toContain("registered now")
+    expect(intro.textContent).toContain("runs when objects are written")
+    expect(intro.textContent).toBe(
+      "Configured is what the config asks for. Applied means it runs when objects are written, now. Neither says how earlier writes were stored. Scanning has no config switch, so its Configured follows what is registered.",
+    )
+  })
+
+  it("lets the note column wrap", async () => {
+    renderPage(OverviewPage, stubClient({ "system.status": status(), "stores.list": SINGLE }))
+    const note = await screen.findByText(/Nothing is encrypted/)
+    expect(note.className).toContain("whitespace-normal")
+    expect(note.className).toContain("max-w-sm")
+  })
+
+  it("says what a capable driver can do, never what is switched on", async () => {
+    const all = Object.fromEntries(
+      ["multipart", "presign", "range", "serverCopy", "versioning", "notification", "lifecycle", "folders"].map((k) => [k, true]),
+    )
+    renderPage(OverviewPage, stubClient({ "system.status": status({ capabilities: all }), "stores.list": SINGLE }))
+    await screen.findByText("Encryption")
+    expect(screen.getByText("The driver can copy inside the backend. Trove's copy does not use it yet.")).toBeTruthy()
+    expect(screen.getByText("The driver can keep object versions.")).toBeTruthy()
+    expect(screen.getByText("The driver can apply lifecycle rules.")).toBeTruthy()
+    expect(screen.getByText("The driver can send change notifications.")).toBeTruthy()
+    expect(
+      screen.getByText("Share links can be offered where no middleware applies. GCS and Azure also need signing credentials."),
+    ).toBeTruthy()
+    expect(screen.queryByText(/Copies stay inside the backend/)).toBeNull()
+  })
+
   it("names the driver, its health and what it cannot do", async () => {
     renderPage(
       OverviewPage,
@@ -89,7 +123,8 @@ describe("OverviewPage", () => {
   it("shows no object counts or storage totals", async () => {
     renderPage(OverviewPage, stubClient({ "system.status": status(), "stores.list": SINGLE }))
     await screen.findByText("Encryption")
-    expect(screen.queryByText(/objects/i)).toBeNull()
+    // The Protection intro says "objects are written", so match a count.
+    expect(screen.queryByText(/\d[\d,]*\s+objects?\b/i)).toBeNull()
     expect(screen.queryByText(/storage used/i)).toBeNull()
   })
 
