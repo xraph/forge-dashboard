@@ -53,7 +53,7 @@ describe("CasPage", () => {
     renderPage(CasPage, stubClient({ "cas.status": ON, "cas.list": PAGE1, "stores.list": SINGLE }))
     const hash = await screen.findByText(A)
     expect(hash.className).toContain("truncate")
-    expect(hash.className).toContain("max-w-xs")
+    expect(hash.className).toContain("max-w-48")
     expect(hash.getAttribute("title")).toBe(A)
     expect(within(rowFor(A)).getByRole("button", { name: `Pin ${A}` })).toBeTruthy()
   })

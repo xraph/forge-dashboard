@@ -99,7 +99,7 @@ function CasEntries({ store }: { store: string }) {
       header: "Hash",
       className: "font-medium",
       cell: (e) => (
-        <span className="block max-w-xs truncate font-mono text-xs" title={e.hash}>
+        <span className="block max-w-48 truncate font-mono text-xs" title={e.hash}>
           {e.hash}
         </span>
       ),
