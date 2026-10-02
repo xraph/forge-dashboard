@@ -1,11 +1,12 @@
 import { definePlugin } from "@forge-go/dashboard-plugin"
-import { DatabaseIcon, FingerprintIcon, HouseIcon, LayersIcon } from "@forge-go/dashboard-kit/icons"
+import { ArrowLeftRightIcon, DatabaseIcon, FingerprintIcon, HouseIcon, LayersIcon } from "@forge-go/dashboard-kit/icons"
 import { BucketsPage } from "./pages/buckets"
 import { CasPage } from "./pages/cas"
 import { MiddlewarePage } from "./pages/middleware"
 import { OverviewPage } from "./pages/overview"
+import { TransfersPage } from "./pages/transfers"
 
-export { BucketsPage, CasPage, MiddlewarePage, OverviewPage }
+export { BucketsPage, CasPage, MiddlewarePage, OverviewPage, TransfersPage }
 
 /**
  * The first-party UI for the `trove` extension.
@@ -29,12 +30,14 @@ export const trovePlugin = definePlugin({
     { label: "Buckets", to: "/buckets", priority: 0, icon: <DatabaseIcon />, group: "Storage" },
     { label: "Middleware", to: "/middleware", priority: 10, icon: <LayersIcon />, group: "Storage" },
     { label: "CAS", to: "/cas", priority: 20, icon: <FingerprintIcon />, group: "Storage" },
+    { label: "Transfers", to: "/transfers", priority: 30, icon: <ArrowLeftRightIcon />, group: "Storage" },
   ],
   routes: [
     { path: "/", element: OverviewPage },
     { path: "/buckets", element: BucketsPage },
     { path: "/middleware", element: MiddlewarePage },
     { path: "/cas", element: CasPage },
+    { path: "/transfers", element: TransfersPage },
   ],
 })
 

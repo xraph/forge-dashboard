@@ -15,9 +15,10 @@ import {
 import { Input } from "@forge-go/dashboard-kit/components/input"
 import { Label } from "@forge-go/dashboard-kit/components/label"
 import { PageHeader } from "@forge-go/dashboard-kit/components/page-header"
-import { CommandAlert, QueryBoundary } from "@forge-go/dashboard-kit/components/query-boundary"
+import { CommandAlert } from "@forge-go/dashboard-kit/components/query-boundary"
 import { ResourceTable, type Column } from "@forge-go/dashboard-kit/components/resource-table"
 import { Timestamp } from "@forge-go/dashboard-kit/components/timestamp"
+import { SettledBoundary } from "../components/settled-boundary"
 import { StorePicker } from "../components/store-picker"
 import { useActiveStore, withStore } from "../store"
 import type { BucketRow, BucketsList } from "../types"
@@ -77,7 +78,7 @@ export const BucketsPage: ComponentType<PluginPageProps> = () => {
         }
       />
 
-      <QueryBoundary title="Buckets" query={list} skeletonRows={5}>
+      <SettledBoundary title="Buckets" query={list} skeletonRows={5}>
         {(data) => (
           <ResourceTable<BucketRow>
             columns={columnsFor(data.createdAtMeaning)}
@@ -92,7 +93,7 @@ export const BucketsPage: ComponentType<PluginPageProps> = () => {
             )}
           />
         )}
-      </QueryBoundary>
+      </SettledBoundary>
 
       {creating ? (
         <CreateBucketDialog store={store} create={create} onClose={() => setCreating(false)} />

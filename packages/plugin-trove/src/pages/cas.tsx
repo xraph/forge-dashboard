@@ -1,55 +1,25 @@
 import { useState } from "react"
-import type { ComponentType, ReactNode } from "react"
+import type { ComponentType } from "react"
 import { useCommand, useQuery } from "@forge-go/dashboard-plugin"
-import type { PluginPageProps, QueryState } from "@forge-go/dashboard-plugin"
+import type { PluginPageProps } from "@forge-go/dashboard-plugin"
 import { Button } from "@forge-go/dashboard-kit/components/button"
 import { ConfirmDialog } from "@forge-go/dashboard-kit/components/confirm-dialog"
 import { DescriptionList } from "@forge-go/dashboard-kit/components/detail-layout"
 import { EmptyState } from "@forge-go/dashboard-kit/components/empty-state"
 import { NoneCell } from "@forge-go/dashboard-kit/components/none-cell"
 import { PageHeader } from "@forge-go/dashboard-kit/components/page-header"
-import { CommandAlert, QueryBoundary } from "@forge-go/dashboard-kit/components/query-boundary"
+import { CommandAlert } from "@forge-go/dashboard-kit/components/query-boundary"
 import { ResourceTable, type Column } from "@forge-go/dashboard-kit/components/resource-table"
 import { Timestamp } from "@forge-go/dashboard-kit/components/timestamp"
 import { CasStateBadge } from "../badges"
 import { Bytes } from "../components/bytes"
+import { SettledBoundary } from "../components/settled-boundary"
 import { StorePicker } from "../components/store-picker"
 import { formatBytes } from "../format"
 import { useActiveStore, withStore } from "../store"
 import type { CasEntry, CasGCResult, CasList, CasStatus } from "../types"
 
 const PAGE_SIZE = 100
-
-/**
- * QueryBoundary, except that data already on screen stays on screen.
- *
- * QueryBoundary checks `loading` first, so a refetch swaps its children for a
- * skeleton. cas.gc, cas.pin and cas.unpin all declare invalidates, and the
- * host invalidates before the command resolves, so that swap would unmount
- * everything below the boundary mid-command: the GC result line, the open
- * dialog and the page cursor go with it. The store keeps `data` beside
- * `loading` during a refetch, so render from it when it is there. A failed
- * refetch drops the data from the store, and then the boundary's own error
- * card shows.
- */
-function SettledBoundary<T>({
-  title,
-  query,
-  skeletonRows,
-  children,
-}: {
-  title: string
-  query: QueryState<T>
-  skeletonRows: number
-  children: (data: T) => ReactNode
-}) {
-  if (query.data !== undefined) return <>{children(query.data)}</>
-  return (
-    <QueryBoundary title={title} query={query} skeletonRows={skeletonRows}>
-      {children}
-    </QueryBoundary>
-  )
-}
 
 export const CasPage: ComponentType<PluginPageProps> = () => {
   const store = useActiveStore()
