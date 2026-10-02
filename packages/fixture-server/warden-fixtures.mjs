@@ -140,6 +140,33 @@ function seedWardenState() {
       // userset subject, so this is the tuple that makes a transitive allow
       // reachable at all.
       { id: "rel_01f", namespacePath: "", objectType: "group", objectId: "eng", relation: "member", subjectType: "user", subjectId: "erin", subjectRelation: "", createdBy: WARDEN_ACTOR, createdAt: hourAgo },
+      // THE USERSET CHAIN relations.expand is read against, rooted at
+      // document:readme#editor. With rel_01c and rel_01f above it runs four
+      // subject sets deep (the root counts as the first, depth 0):
+      //
+      //   document:readme#editor            depth 0, one tuple   (rel_01c)
+      //     group:eng#member                depth 1, two tuples  (rel_01f, rel_01g)
+      //       user:erin                     depth 2, a single subject
+      //       group:platform#member         depth 2, two tuples  (rel_01h, rel_01i)
+      //         group:oncall#member         depth 3, one tuple   (rel_01j)
+      //           user:frank                depth 4, a single subject
+      //         user:dana                   depth 3, a single subject
+      //
+      // The graph walker would follow it, and the three limits in
+      // warden.config below each stop it at a different place: see the table
+      // on the graph section (search "THE STOP STATES"). The ids ascend in the
+      // order each hop lists its tuples, because every seeded row shares one
+      // createdAt and the store breaks that tie by id.
+      { id: "rel_01g", namespacePath: "", objectType: "group", objectId: "eng", relation: "member", subjectType: "group", subjectId: "platform", subjectRelation: "member", createdBy: WARDEN_ACTOR, createdAt: hourAgo },
+      { id: "rel_01h", namespacePath: "", objectType: "group", objectId: "platform", relation: "member", subjectType: "group", subjectId: "oncall", subjectRelation: "member", createdBy: WARDEN_ACTOR, createdAt: hourAgo },
+      { id: "rel_01i", namespacePath: "", objectType: "group", objectId: "platform", relation: "member", subjectType: "user", subjectId: "dana", subjectRelation: "", createdBy: WARDEN_ACTOR, createdAt: hourAgo },
+      { id: "rel_01j", namespacePath: "", objectType: "group", objectId: "oncall", relation: "member", subjectType: "user", subjectId: "frank", subjectRelation: "", createdBy: WARDEN_ACTOR, createdAt: hourAgo },
+      // The one tuple of the chain stored below the root. An expansion at the
+      // root does not see it. One at eng/platform does, because tuples cascade
+      // down from every ancestor namespace: it adds user:bob under
+      // group:platform#member, which makes that hop three tuples there and
+      // two at the root.
+      { id: "rel_01k", namespacePath: "eng/platform", objectType: "group", objectId: "platform", relation: "member", subjectType: "user", subjectId: "bob", subjectRelation: "", createdBy: WARDEN_ACTOR, createdAt: hourAgo },
     ],
     policies: seedPolicies(hourAgo, now),
     resourceTypes: [
@@ -179,6 +206,29 @@ function seedWardenState() {
         permissions: [{ name: "operate", expression: "admin" }],
         createdAt: hourAgo, updatedAt: hourAgo,
       },
+      // The type the chain's groups are, and what makes the schema graph
+      // show a declared edge: document's "group#member" subjects name it, so
+      // those edges are declared and carry toIds. A group's members are users
+      // or other groups' members, which is how the chain nests. Tuples use it
+      // (group:eng, group:platform and group:oncall), so deleting it is
+      // refused like document.
+      {
+        id: "rtype_01d", namespacePath: "", name: "group", description: "A set of subjects",
+        relations: [{ name: "member", allowedSubjects: ["user", "group#member"] }],
+        permissions: [],
+        createdBy: WARDEN_ACTOR, updatedBy: WARDEN_ACTOR, createdAt: hourAgo, updatedAt: hourAgo,
+      },
+      // A second type NAMED group, in eng/platform. Two types can share a
+      // name across namespaces, which is why an edge carries fromId and toIds
+      // and not only names: document's group#member edges now name two
+      // target ids, root first because types sort by namespace path. A
+      // namespace filter of "eng/platform" leaves only this one.
+      {
+        id: "rtype_01e", namespacePath: "eng/platform", name: "group", description: "",
+        relations: [{ name: "member", allowedSubjects: ["user"] }],
+        permissions: [],
+        createdAt: hourAgo, updatedAt: hourAgo,
+      },
     ],
     // Newest first, matching what a correctly-ordered "Recent checks" panel
     // must show. Distinct createdAt values are the point: a fixture where
@@ -190,6 +240,11 @@ function seedWardenState() {
     // hours before the newest row, so the page's loss line has a window to
     // print. checkLogs.list reports it only while checkLogEnabled is true.
     checkLogLoss: { queueFull: 3, writeFailed: 1, since: rfc3339(Date.parse(checkLogs[0].createdAt) - 2 * 3600_000) },
+    // maxGraphDepth, maxGraphVisited and maxGraphFanout are the budget
+    // relations.expand walks under, and each one is the knob for one stop
+    // reason. Change one here and restart the server to reach that stop on
+    // the seeded userset chain: see THE STOP STATES in the graph section. A 0
+    // means the walker's default (10, 5000, 1000), as in Go.
     config: {
       maxGraphDepth: 10,
       maxGraphVisited: 5000,
@@ -5539,6 +5594,294 @@ function schemaApply(payload) {
   }
 }
 
+// ---------------------------------------------------------------------------
+// resourceTypes.graph and relations.expand
+//
+// handlers_graphs.go, over expand.go and graph_walker.go in warden. The Go is
+// the authority for every key, rule and refusal here.
+//
+// The schema graph is drawn from resource types alone, one edge per allowed
+// subject of each relation: what the schema allows, not what is stored. The
+// expansion is the opposite. It is the ReBAC walker's own breadth-first walk
+// from one object and relation with no target, over the stored tuples, under
+// the engine's graph budget (warden.config). Relations match exactly, tuples
+// cascade down from every ancestor namespace of the request, and only a
+// subject SET (a tuple with a subjectRelation) is walked into: a single
+// subject is a leaf.
+//
+// THE STOP STATES. Every request below is
+//   { objectType: "document", objectId: "readme", relation: "editor" }
+// against the seeded chain (see the tuples above rel_01g in seedWardenState),
+// and a state is reached by changing ONE value in warden.config and
+// restarting. A 0 in the config is the default (10, 5000, 1000), and the
+// response's limit is always the effective value.
+//
+//   state     config change             namespacePath   response
+//   --------  ------------------------  --------------  ---------------------
+//   complete  none (10 / 5000 / 1000)   ""              stop complete, limit 0, 7 nodes,
+//                                                       all four sets walked
+//   depth     maxGraphDepth: 2          ""              stop depth, limit 2. group:oncall#member
+//                                                       sits at depth 3, so it is dequeued past
+//                                                       the limit: it is reached but not walked
+//                                                       and user:frank is never found (6 nodes)
+//   visited   maxGraphVisited: 3        ""              stop visited, limit 3. The fourth
+//                                                       distinct set, group:oncall#member, trips
+//                                                       the count: not walked, 6 nodes. With 2
+//                                                       it is group:platform#member (4 nodes)
+//   fanout    maxGraphFanout: 2         ""              stop fanout, limit 2. group:eng#member
+//                                                       lists two tuples, which is at the limit
+//                                                       (>=, not >): it is the node that trips,
+//                                                       not walked, with no edges (2 nodes)
+//   fanout    maxGraphFanout: 3         "eng/platform"  stop fanout, limit 3. Only here: rel_01k
+//                                                       adds a third tuple to
+//                                                       group:platform#member, so that hop trips
+//                                                       and the same limit completes at the root
+//
+// Depth 3 and above complete on this chain, visited 4 and above complete, and
+// fanout 3 and above complete at the root. To see the 2000 node cap
+// (truncatedNodes above 0), a chain of subject sets must reach more nodes than
+// that: relations.create about 700 single subjects under each of
+// group:eng#member, group:platform#member and group:oncall#member (a hop of
+// 1000 tuples would trip the default fanout first).
+//
+// A hop lists its tuples in the store's order, oldest first and by id on a
+// tie, and a hop that returns maxGraphFanout tuples is a fanout stop, which is
+// why the list is capped at the limit before it is counted.
+// ---------------------------------------------------------------------------
+
+/** The walker's defaults when warden.config holds 0 (NewGraphWalker). */
+const DEFAULT_MAX_GRAPH_DEPTH = 10
+const DEFAULT_MAX_GRAPH_VISITED = 5000
+const DEFAULT_MAX_GRAPH_FANOUT = 1000
+
+/** maxExpandNodes: how many nodes an expansion returns. */
+const MAX_EXPAND_NODES = 2000
+
+/** maxSchemaGraphTypes: how many resource types the schema graph draws. */
+const MAX_SCHEMA_GRAPH_TYPES = 500
+
+const effectiveLimit = (configured, fallback) => (configured > 0 ? configured : fallback)
+
+/** The Go code's byte order on ids and names. For ASCII it is code unit order. */
+const compareStrings = (a, b) => (a < b ? -1 : a > b ? 1 : 0)
+
+function resourceTypesGraph(params) {
+  const S = "ResourceTypeGraphInput"
+  // *string: absent and null are no filter, and "" is the tenant root.
+  const nsAbsent = params?.namespacePath === undefined || params?.namespacePath === null
+  const namespacePath = nsAbsent ? null : decodeString(params.namespacePath, S, "namespacePath")
+  if (namespacePath !== null) validateNamespace(namespacePath)
+
+  // The cap keeps the first 500 types in namespace, name and id order, so
+  // which survive does not depend on the store's order.
+  let rows = (namespacePath === null ? [...warden.resourceTypes] : warden.resourceTypes.filter((rt) => rt.namespacePath === namespacePath)).sort(
+    (a, b) => compareStrings(a.namespacePath, b.namespacePath) || compareStrings(a.name, b.name) || compareStrings(a.id, b.id)
+  )
+  const truncated = rows.length > MAX_SCHEMA_GRAPH_TYPES
+  if (truncated) rows = rows.slice(0, MAX_SCHEMA_GRAPH_TYPES)
+
+  // Both lists are always arrays, never null.
+  const nodes = rows.map((rt) => ({
+    id: rt.id,
+    namespacePath: rt.namespacePath,
+    name: rt.name,
+    relations: rt.relations.map((d) => ({ name: d.name, allowedSubjects: [...d.allowedSubjects] })),
+    permissions: rt.permissions.map((d) => ({ name: d.name, expression: d.expression })),
+  }))
+  const idsByName = new Map()
+  for (const n of nodes) idsByName.set(n.name, [...(idsByName.get(n.name) ?? []), n.id])
+
+  const edges = []
+  for (const n of nodes) {
+    for (const rel of n.relations) {
+      for (const allowed of rel.allowedSubjects) {
+        // strings.Cut at the first "#".
+        const cut = allowed.indexOf("#")
+        const to = cut === -1 ? allowed : allowed.slice(0, cut)
+        const toRelation = cut === -1 ? "" : allowed.slice(cut + 1)
+        const toIds = [...(idsByName.get(to) ?? [])]
+        const edge = { from: n.name, fromId: n.id, relation: rel.name, to }
+        // toRelation is omitempty.
+        if (toRelation) edge.toRelation = toRelation
+        edge.declared = toIds.length > 0
+        edge.toIds = toIds
+        edges.push(edge)
+      }
+    }
+  }
+  return { nodes, edges, truncated }
+}
+
+/** expandKey: type:id#relation for a subject set, type:id for a single subject. */
+function expandKey(n) {
+  return n.relation === "" ? `${n.type}:${n.id}` : `${n.type}:${n.id}#${n.relation}`
+}
+
+/**
+ * Engine.ExpandRelation over the seeded tuples, as bfsGraphWalker.traverse
+ * walks them. Written step for step like traverse, so each stop reads the way
+ * the Go does:
+ *   depth    a dequeued entry is deeper than maxDepth, checked BEFORE the
+ *            visited test, so a repeat entry past the limit stops it too;
+ *   visited  the count of distinct type:id#relation nodes passes maxVisited;
+ *   fanout   a hop's tuples, capped at maxFanout, number maxFanout.
+ * Nodes are deduplicated by the walker's visit key, so a subject set is one
+ * node however many tuples reach it. Walked is set when a node's hop passed
+ * the fanout check, so it is false for a frontier node, for the node that
+ * tripped fanout, and for every single subject.
+ */
+function expandRelation(objectType, objectId, rel, namespacePath) {
+  const maxDepth = effectiveLimit(warden.config.maxGraphDepth, DEFAULT_MAX_GRAPH_DEPTH)
+  const maxVisited = effectiveLimit(warden.config.maxGraphVisited, DEFAULT_MAX_GRAPH_VISITED)
+  const maxFanout = effectiveLimit(warden.config.maxGraphFanout, DEFAULT_MAX_GRAPH_FANOUT)
+
+  // Tuples cascade down: the request namespace and every ancestor of it. One
+  // pass groups what is in scope by the hop that lists it, oldest first.
+  const scope = new Set(ancestorNamespaces(namespacePath))
+  const hops = new Map()
+  for (const t of [...warden.relations].sort(byCreated)) {
+    if (!scope.has(t.namespacePath)) continue
+    const key = `${t.objectType}:${t.objectId}#${t.relation}`
+    const list = hops.get(key)
+    if (list) list.push(t)
+    else hops.set(key, [t])
+  }
+
+  const nodes = []
+  const parent = []
+  const edges = []
+  const sets = new Map() // visit key -> node index
+  const singles = new Map() // "type\u0000id" -> node index
+  const add = (n, from) => {
+    nodes.push({ ...n, walked: false })
+    parent.push(from)
+    return nodes.length - 1
+  }
+  const rootKey = `${objectType}:${objectId}#${rel}`
+  sets.set(rootKey, add({ type: objectType, id: objectId, relation: rel, depth: 0 }, -1))
+
+  let stop = "complete"
+  let limit = 0
+  const queue = [{ type: objectType, id: objectId, relation: rel, depth: 0 }]
+  const visited = new Set()
+  for (let head = 0; head < queue.length; head++) {
+    const entry = queue[head]
+    if (entry.depth > maxDepth) {
+      stop = "depth"
+      limit = maxDepth
+      break
+    }
+    const visitKey = `${entry.type}:${entry.id}#${entry.relation}`
+    if (visited.has(visitKey)) continue
+    visited.add(visitKey)
+    if (visited.size > maxVisited) {
+      stop = "visited"
+      limit = maxVisited
+      break
+    }
+    const tuples = (hops.get(visitKey) ?? []).slice(0, maxFanout)
+    if (tuples.length >= maxFanout) {
+      stop = "fanout"
+      limit = maxFanout
+      break
+    }
+    const from = sets.get(visitKey)
+    nodes[from].walked = true
+    for (const t of tuples) {
+      const depth = entry.depth + 1
+      let to
+      if (t.subjectRelation) {
+        const key = `${t.subjectType}:${t.subjectId}#${t.subjectRelation}`
+        if (!sets.has(key)) sets.set(key, add({ type: t.subjectType, id: t.subjectId, relation: t.subjectRelation, depth }, from))
+        to = sets.get(key)
+        // Only a subject set is walked into.
+        queue.push({ type: t.subjectType, id: t.subjectId, relation: t.subjectRelation, depth })
+      } else {
+        const key = `${t.subjectType}\u0000${t.subjectId}`
+        if (!singles.has(key)) singles.set(key, add({ type: t.subjectType, id: t.subjectId, relation: "", depth }, from))
+        to = singles.get(key)
+      }
+      edges.push({ from, to, namespacePath: t.namespacePath })
+    }
+  }
+  return { nodes, edges, parent, stop, limit }
+}
+
+/**
+ * expansionPath: the node indexes of the walk's path to the first node for
+ * subjectType:subjectID, root first. The first edge into a node of that type
+ * and id (a single subject or a subject set) is the tuple Walk would have
+ * stopped on. Empty when the expansion never reached it.
+ */
+function expansionPath(x, subjectType, subjectId) {
+  for (const edge of x.edges) {
+    const to = x.nodes[edge.to]
+    if (to.type !== subjectType || to.id !== subjectId) continue
+    const path = []
+    for (let i = edge.from; i !== -1; i = x.parent[i]) path.unshift(i)
+    path.push(edge.to)
+    return path
+  }
+  return []
+}
+
+function relationsExpand(params) {
+  const S = "RelationExpandInput"
+  // The whole request decodes before any check runs, as it does in Go.
+  const objectType = decodeString(params?.objectType, S, "objectType")
+  const objectId = decodeString(params?.objectId, S, "objectId")
+  const relation = decodeString(params?.relation, S, "relation")
+  const namespacePath = decodeString(params?.namespacePath, S, "namespacePath")
+  const pathToType = decodeString(params?.pathToType, S, "pathToType")
+  const pathToId = decodeString(params?.pathToId, S, "pathToId")
+
+  if (objectType === "") throw badRequest("objectType is required")
+  if (objectId === "") throw badRequest("objectId is required")
+  if (relation === "") throw badRequest("relation is required")
+  if ((pathToType === "") !== (pathToId === "")) {
+    throw badRequest("pathToType and pathToId go together: set both or neither")
+  }
+  validateNamespace(namespacePath)
+
+  const x = expandRelation(objectType, objectId, relation, namespacePath)
+  const pathIdx = pathToType !== "" ? expansionPath(x, pathToType, pathToId) : []
+
+  // The first MAX_EXPAND_NODES nodes in the walk's order stay, and so do the
+  // root (index 0, inside the cap) and every node on the path.
+  const keep = x.nodes.map((_, i) => i < MAX_EXPAND_NODES)
+  for (const i of pathIdx) keep[i] = true
+  const kept = keep.filter(Boolean).length
+
+  // A kept node with an edge to a dropped node no longer has all its tuples
+  // drawn, so it is not reported as walked.
+  const incomplete = new Array(x.nodes.length).fill(false)
+  for (const e of x.edges) if (keep[e.from] && !keep[e.to]) incomplete[e.from] = true
+
+  const keys = x.nodes.map(expandKey)
+  const nodes = []
+  x.nodes.forEach((n, i) => {
+    if (!keep[i]) return
+    const out = { key: keys[i], type: n.type, id: n.id }
+    // relation is omitempty.
+    if (n.relation) out.relation = n.relation
+    out.depth = n.depth
+    out.walked = n.walked && !incomplete[i]
+    nodes.push(out)
+  })
+  return {
+    nodes,
+    edges: x.edges
+      .filter((e) => keep[e.from] && keep[e.to])
+      .map((e) => ({ from: keys[e.from], to: keys[e.to], namespacePath: e.namespacePath })),
+    stop: x.stop,
+    limit: x.limit,
+    // The built-in walker is the only one the fixture has.
+    exactWalk: true,
+    truncatedNodes: x.nodes.length - kept,
+    path: pathIdx.map((i) => keys[i]),
+  }
+}
+
 export const wardenHandlers = {
   "config.detail": {
     kind: "query",
@@ -6076,9 +6419,13 @@ export const wardenHandlers = {
       return { ...page, items: page.items.map(projectTuple) }
     },
   },
+  "relations.expand": {
+    kind: "query",
+    handler: (params) => relationsExpand(params),
+  },
   "relations.create": {
     kind: "command",
-    invalidates: ["relations.list", "overview.stats", "namespaces.list"],
+    invalidates: ["relations.list", "relations.expand", "overview.stats", "namespaces.list"],
     handler: (payload) => {
       // The same order as Go, so the first missing part reported is the
       // same one on every run.
@@ -6121,7 +6468,7 @@ export const wardenHandlers = {
   },
   "relations.delete": {
     kind: "command",
-    invalidates: ["relations.list", "overview.stats", "namespaces.list"],
+    invalidates: ["relations.list", "relations.expand", "overview.stats", "namespaces.list"],
     handler: (payload) => {
       requireId("rel", "relation", payload?.id)
       const i = warden.relations.findIndex((t) => t.id === payload.id)
@@ -6169,9 +6516,13 @@ export const wardenHandlers = {
       return out
     },
   },
+  "resourceTypes.graph": {
+    kind: "query",
+    handler: (params) => resourceTypesGraph(params),
+  },
   "resourceTypes.create": {
     kind: "command",
-    invalidates: ["resourceTypes.list", "overview.stats", "namespaces.list"],
+    invalidates: ["resourceTypes.list", "resourceTypes.graph", "overview.stats", "namespaces.list"],
     handler: (payload) => {
       if (!payload?.name) throw badRequest("a resource type needs a name")
       const namespacePath = payload.namespacePath ?? ""
@@ -6203,7 +6554,7 @@ export const wardenHandlers = {
   },
   "resourceTypes.update": {
     kind: "command",
-    invalidates: ["resourceTypes.list", "resourceTypes.detail"],
+    invalidates: ["resourceTypes.list", "resourceTypes.detail", "resourceTypes.graph"],
     handler: (payload) => {
       requireId("rtype", "resource type", payload?.id)
       const rt = warden.resourceTypes.find((x) => x.id === payload.id)
@@ -6235,7 +6586,7 @@ export const wardenHandlers = {
   },
   "resourceTypes.delete": {
     kind: "command",
-    invalidates: ["resourceTypes.list", "resourceTypes.detail", "overview.stats", "namespaces.list"],
+    invalidates: ["resourceTypes.list", "resourceTypes.detail", "resourceTypes.graph", "overview.stats", "namespaces.list"],
     handler: (payload) => {
       requireId("rtype", "resource type", payload?.id)
       const i = warden.resourceTypes.findIndex((x) => x.id === payload.id)
@@ -6594,7 +6945,7 @@ export const wardenHandlers = {
     // The invalidates list in warden's manifest.yaml for schema.apply, verbatim.
     invalidates: [
       "roles.list", "roles.detail", "permissions.list", "permissions.detail", "policies.list", "policies.detail",
-      "resourceTypes.list", "resourceTypes.detail", "relations.list", "assignments.list", "assignments.expiring",
+      "resourceTypes.list", "resourceTypes.detail", "resourceTypes.graph", "relations.list", "relations.expand", "assignments.list", "assignments.expiring",
       "namespaces.list", "overview.stats", "subjects.detail", "schema.export", "schema.plan",
     ],
     handler: (payload) => schemaApply(payload),
