@@ -173,20 +173,15 @@ function SecretDetailBody({ secretKey }: { secretKey: string }) {
             // failure would then be shown nowhere.
             onOpenChange={(open) => !open && !remove.loading && setDeleting(false)}
             title={`Delete ${secretKey}?`}
-            description={
-              <span className="flex flex-col gap-2">
-                <span>
-                  This deletes {secretKey} and every version of it.
-                  {data.rotation !== null && " Its rotation policy is deleted too."} This
-                  cannot be undone.
-                </span>
-                <CommandAlert error={remove.error} title="Could not delete" />
-              </span>
-            }
+            description={`This deletes ${secretKey} and every version of it.${
+              data.rotation !== null ? " Its rotation policy is deleted too." : ""
+            } This cannot be undone.`}
             confirmLabel="Delete"
             pending={remove.loading}
             onConfirm={() => void confirmDelete()}
-          />
+          >
+            <CommandAlert error={remove.error} title="Could not delete" />
+          </ConfirmDialog>
         </section>
       )}
     </QueryBoundary>

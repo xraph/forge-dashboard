@@ -598,35 +598,25 @@ function FlagDetailView({ flagKey, data }: { flagKey: string; data: FlagDetail }
         // would then be shown nowhere.
         onOpenChange={(next) => !next && !removeOverride.loading && closeRemove()}
         title={`Remove the override for ${removal?.tenantId ?? ""}?`}
-        description={
-          <span className="flex flex-col gap-2">
-            <span>
-              {removal?.tenantId ?? "That tenant"} goes back to the rules and the default.
-            </span>
-            <CommandAlert error={removeOverride.error} title="Could not remove the override" />
-          </span>
-        }
+        description={`${removal?.tenantId ?? "That tenant"} goes back to the rules and the default.`}
         confirmLabel="Remove"
         pending={removeOverride.loading}
         onConfirm={() => void confirmRemove()}
-      />
+      >
+        <CommandAlert error={removeOverride.error} title="Could not remove the override" />
+      </ConfirmDialog>
 
       <ConfirmDialog
         open={deleting}
         onOpenChange={(next) => !next && !remove.loading && setDeleting(false)}
         title={`Delete ${flagKey}?`}
-        description={
-          <span className="flex flex-col gap-2">
-            <span>
-              {`This deletes ${flagKey}, its ${ruleWord} and ${overrideWord}. Applications fall back to their own default.`}
-            </span>
-            <CommandAlert error={remove.error} title="Could not delete" />
-          </span>
-        }
+        description={`This deletes ${flagKey}, its ${ruleWord} and ${overrideWord}. Applications fall back to their own default.`}
         confirmLabel="Delete"
         pending={remove.loading}
         onConfirm={() => void confirmDelete()}
-      />
+      >
+        <CommandAlert error={remove.error} title="Could not delete" />
+      </ConfirmDialog>
     </section>
   )
 }

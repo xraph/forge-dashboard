@@ -75,23 +75,20 @@ export function useRevertOverride(): {
           ? `Remove ${target.tenantId}'s leftover override?`
           : `Revert ${target?.tenantId ?? ""} to the app default?`
       }
-      description={
-        <span className="flex flex-col gap-2">
-          <span>{target?.sentence}</span>
-          <CommandAlert
-            error={remove.error}
-            title={
-              target?.leftover === true
-                ? "Could not remove the override"
-                : "Could not revert the override"
-            }
-          />
-        </span>
-      }
+      description={target?.sentence}
       confirmLabel={target?.leftover === true ? "Remove leftover override" : "Revert to app default"}
       pending={remove.loading}
       onConfirm={() => void confirm()}
-    />
+    >
+      <CommandAlert
+        error={remove.error}
+        title={
+          target?.leftover === true
+            ? "Could not remove the override"
+            : "Could not revert the override"
+        }
+      />
+    </ConfirmDialog>
   )
 
   return { request, dialog }

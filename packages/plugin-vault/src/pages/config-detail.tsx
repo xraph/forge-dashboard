@@ -337,36 +337,26 @@ function ConfigDetailView({
         // would then be shown nowhere.
         onOpenChange={(next) => !next && !rollback.loading && closeRollback()}
         title={`Roll back ${entryKey} to version ${rolling?.version ?? ""}?`}
-        description={
-          <span className="flex flex-col gap-2">
-            <span>
-              This saves its value as a new version. The type and description stay as they are.
-            </span>
-            <CommandAlert error={rollback.error} title="Could not roll back" />
-          </span>
-        }
+        description="This saves its value as a new version. The type and description stay as they are."
         confirmLabel="Roll back"
         destructive={false}
         pending={rollback.loading}
         onConfirm={() => void confirmRollback()}
-      />
+      >
+        <CommandAlert error={rollback.error} title="Could not roll back" />
+      </ConfirmDialog>
 
       <ConfirmDialog
         open={deleting}
         onOpenChange={(next) => !next && !remove.loading && setDeleting(false)}
         title={`Delete ${entryKey}?`}
-        description={
-          <span className="flex flex-col gap-2">
-            <span>
-              {`This deletes ${entryKey}, its ${versionWord} and ${overrideWord}. Applications fall back to their own default.`}
-            </span>
-            <CommandAlert error={remove.error} title="Could not delete" />
-          </span>
-        }
+        description={`This deletes ${entryKey}, its ${versionWord} and ${overrideWord}. Applications fall back to their own default.`}
         confirmLabel="Delete"
         pending={remove.loading}
         onConfirm={() => void confirmDelete()}
-      />
+      >
+        <CommandAlert error={remove.error} title="Could not delete" />
+      </ConfirmDialog>
     </section>
   )
 }

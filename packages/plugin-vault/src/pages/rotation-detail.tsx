@@ -272,36 +272,25 @@ function RotationDetailBody({ secretKey }: { secretKey: string }) {
               // would unmount the dialog and hide a failure that arrives later.
               onOpenChange={(open) => !open && !rotate.loading && setRotating(false)}
               title={`Rotate ${secretKey} now?`}
-              description={
-                <span className="flex flex-col gap-2">
-                  <span>
-                    This creates a new version of the secret. Applications must pick up the new
-                    value.
-                  </span>
-                  <CommandAlert error={rotate.error} title="Could not rotate" />
-                </span>
-              }
+              description="This creates a new version of the secret. Applications must pick up the new value."
               confirmLabel="Rotate now"
               destructive={false}
               pending={rotate.loading}
               onConfirm={() => void confirmRotate()}
-            />
+            >
+              <CommandAlert error={rotate.error} title="Could not rotate" />
+            </ConfirmDialog>
             <ConfirmDialog
               open={deleting}
               onOpenChange={(open) => !open && !remove.loading && setDeleting(false)}
               title={`Delete the rotation policy for ${secretKey}?`}
-              description={
-                <span className="flex flex-col gap-2">
-                  <span>
-                    The secret and its versions are kept. It will no longer rotate on schedule.
-                  </span>
-                  <CommandAlert error={remove.error} title="Could not delete the policy" />
-                </span>
-              }
+              description="The secret and its versions are kept. It will no longer rotate on schedule."
               confirmLabel="Delete policy"
               pending={remove.loading}
               onConfirm={() => void confirmDelete()}
-            />
+            >
+              <CommandAlert error={remove.error} title="Could not delete the policy" />
+            </ConfirmDialog>
           </section>
         )
       }}
