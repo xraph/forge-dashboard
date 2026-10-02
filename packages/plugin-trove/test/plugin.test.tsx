@@ -51,4 +51,11 @@ describe("trovePlugin", () => {
     expect(middleware?.group).toBe("Storage")
     expect(trovePlugin.routes.map((r) => r.path)).toContain("/middleware")
   })
+
+  it("puts CAS in the Storage group at /cas", () => {
+    const cas = trovePlugin.nav?.find((n) => n.label === "CAS")
+    expect(cas?.to).toBe("/cas")
+    expect(cas?.group).toBe("Storage")
+    expect(trovePlugin.routes.map((r) => r.path)).toContain("/cas")
+  })
 })
