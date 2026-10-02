@@ -844,7 +844,7 @@ The plugin's label is "Trove", not "Storage", because `definePlugin` throws when
 
 ### The store model
 
-The active store is module state in `src/store.ts`, mirrored to `sessionStorage` under `forge.trove.store`. Read it with `useActiveStore()`, change it with `setActiveStore(name)`, and build every request with `withStore(input, active, defaultName)`, which leaves `store` out for the default store so single-store installs never send it. `StorePicker` renders nothing when there is only one store, and falls back to the default when the remembered name no longer exists.
+The active store is module state in `src/store.ts`, mirrored to `sessionStorage` under `forge.trove.store`. Read it with `useActiveStore()`, change it with `setActiveStore(name)`, and build every request with `withStore(useActiveStore(), params)`. The active store is `""` for the default, and `withStore` leaves `store` out in that case, so single-store installs never send it. `StorePicker` renders nothing when there is only one store, and falls back to the default when the remembered name no longer exists.
 
 The store is not in the URL. That was fine for five pages you reach from the nav. A browser link is different, because it's something you copy and paste and bookmark, and if you paste `/@trove/buckets/reports` into a new tab you get the default store, which may not have a `reports` bucket at all. We think the browser should carry `?store=` for anything but the default and call `setActiveStore` from it on mount. Decide that in the slice 4 plan.
 
