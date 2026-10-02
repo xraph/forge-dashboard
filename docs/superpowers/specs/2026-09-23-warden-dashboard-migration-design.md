@@ -630,6 +630,15 @@ as a highlighted trail through exactly the same walk the engine performed.
 That discipline is the difference between reaching for a graph because the
 domain is one and reaching for it because a table felt boring.
 
+Correction (plan 5b): the instance graph is the engine's walk itself. Core
+extracts the graph walker's BFS so `Check`'s walker and a new
+`Engine.ExpandRelation` run the same traversal with the same budget and stop
+rules, and the highlighted trail is the path the walker would report, by
+construction. A graph is rooted at one object and one relation, because the
+store matches relations exactly. Permission expressions are evaluated outside
+the walk, so the schema graph shows them as text on each type and the instance
+graph says it shows tuples only.
+
 ## Subject access view
 
 `/subjects/:kind/:id`. One page answering what a subject can do and why.
