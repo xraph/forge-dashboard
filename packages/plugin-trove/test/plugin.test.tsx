@@ -37,4 +37,11 @@ describe("trovePlugin", () => {
     expect(overview?.group).toBe("Storage")
     expect(trovePlugin.routes.map((r) => r.path)).toContain("/")
   })
+
+  it("puts Buckets in the Storage group at /buckets", () => {
+    const buckets = trovePlugin.nav?.find((n) => n.label === "Buckets")
+    expect(buckets?.to).toBe("/buckets")
+    expect(buckets?.group).toBe("Storage")
+    expect(trovePlugin.routes.map((r) => r.path)).toContain("/buckets")
+  })
 })
