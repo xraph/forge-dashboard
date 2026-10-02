@@ -193,18 +193,13 @@ function CasEntries({ store }: { store: string }) {
         open={confirmingGC}
         onOpenChange={(open) => !open && !gc.loading && setConfirmingGC(false)}
         title="Run garbage collection?"
-        description={
-          <span className="flex flex-col gap-2">
-            <span>
-              It deletes the stored blob and index entry of every entry that has no references and is not pinned. Nothing lowers a reference count today, so expect it to delete nothing. Blobs the index does not know are never touched.
-            </span>
-            <CommandAlert error={gc.error} title="Garbage collection failed" />
-          </span>
-        }
+        description="It deletes the stored blob and index entry of every entry that has no references and is not pinned. Nothing lowers a reference count today, so expect it to delete nothing. Blobs the index does not know are never touched."
         confirmLabel="Run"
         pending={gc.loading}
         onConfirm={() => void runGC()}
-      />
+      >
+        <CommandAlert error={gc.error} title="Garbage collection failed" />
+      </ConfirmDialog>
     </section>
   )
 }

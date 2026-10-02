@@ -103,18 +103,13 @@ export const BucketsPage: ComponentType<PluginPageProps> = () => {
         open={deleting !== null}
         onOpenChange={(open) => !open && !remove.loading && setDeleting(null)}
         title={`Delete ${deleting ?? ""}?`}
-        description={
-          <span className="flex flex-col gap-2">
-            <span>
-              Only an empty bucket can be deleted. Trove refuses a bucket that still holds objects, and the CAS bucket while CAS is on.
-            </span>
-            <CommandAlert error={remove.error} title="Could not delete the bucket" />
-          </span>
-        }
+        description="Only an empty bucket can be deleted. Trove refuses a bucket that still holds objects, and the CAS bucket while CAS is on."
         confirmLabel="Delete"
         pending={remove.loading}
         onConfirm={() => void confirmDelete()}
-      />
+      >
+        <CommandAlert error={remove.error} title="Could not delete the bucket" />
+      </ConfirmDialog>
     </section>
   )
 }
