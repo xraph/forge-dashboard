@@ -15,6 +15,7 @@ import {
   type Column,
 } from "@forge-go/dashboard-kit/components/resource-table"
 import { Timestamp } from "@forge-go/dashboard-kit/components/timestamp"
+import { SchemaGraph } from "../components/schema-graph"
 import {
   NamespaceCell,
   emptyListMessage,
@@ -49,9 +50,42 @@ export interface ResourceTypesList {
 
 const PAGE_SIZE = 25
 
+/** The page opens on the graph: the schema as a picture, the list one click away. */
+type View = "graph" | "table"
+
+/** Graph or Table. Two buttons, pressed state on each, as a labelled group. */
+function ViewSwitch({
+  view,
+  onChange,
+}: {
+  view: View
+  onChange: (next: View) => void
+}) {
+  return (
+    <div
+      role="group"
+      aria-label="View"
+      className="ml-auto flex items-center gap-1"
+    >
+      {(["graph", "table"] as const).map((v) => (
+        <Button
+          key={v}
+          size="sm"
+          variant={view === v ? "secondary" : "outline"}
+          aria-pressed={view === v}
+          onClick={() => onChange(v)}
+        >
+          {v === "graph" ? "Graph" : "Table"}
+        </Button>
+      ))}
+    </div>
+  )
+}
+
 export function WardenResourceTypesPage() {
   // One-based, matching ResourceTable's PaginationState.
   const [page, setPage] = useState(1)
+  const [view, setView] = useState<View>("graph")
   const namespace = useNamespaceFilter(() => setPage(1))
   const [search, setSearch] = useState("")
   const [creating, setCreating] = useState(false)
@@ -62,12 +96,17 @@ export function WardenResourceTypesPage() {
   // Trimmed, and absent when empty: an absent field is the honest way to say
   // "no filter", and a search of spaces is not one.
   const trimmedSearch = search.trim()
-  const list = useQuery<ResourceTypesList>("resourceTypes.list", {
-    ...namespace.param,
-    ...(trimmedSearch ? { search: trimmedSearch } : {}),
-    limit: PAGE_SIZE,
-    offset: (page - 1) * PAGE_SIZE,
-  })
+  const list = useQuery<ResourceTypesList>(
+    "resourceTypes.list",
+    {
+      ...namespace.param,
+      ...(trimmedSearch ? { search: trimmedSearch } : {}),
+      limit: PAGE_SIZE,
+      offset: (page - 1) * PAGE_SIZE,
+    },
+    // The graph has its own read. The list is the table's.
+    { enabled: view === "table" }
+  )
   const create = useCommand<AckResponse>("resourceTypes.create")
   const remove = useCommand<AckResponse>("resourceTypes.delete")
 
@@ -152,64 +191,74 @@ export function WardenResourceTypesPage() {
         cannot be renamed once it exists.
       </p>
 
+      {/* The graph is not searched: the server filters it by namespace only. */}
       <FilterBar
-        search={{
-          value: search,
-          onChange: (v) => {
-            setSearch(v)
-            setPage(1)
-          },
-          placeholder: "Search by name",
-          label: "Search resource types",
-        }}
+        search={
+          view === "table"
+            ? {
+                value: search,
+                onChange: (v) => {
+                  setSearch(v)
+                  setPage(1)
+                },
+                placeholder: "Search by name",
+                label: "Search resource types",
+              }
+            : undefined
+        }
         filters={[namespace.filterConfig]}
+        actions={<ViewSwitch view={view} onChange={setView} />}
       />
 
-      <QueryBoundary title="Resource types" query={list} skeletonRows={5}>
-        {(data) => {
-          const rows = data.items ?? []
-          // The server's total, never rows.length: rows is one page.
-          const caption = `${data.total} ${data.total === 1 ? "resource type" : "resource types"}`
-          return (
-            <ResourceTable<ResourceTypeSummary>
-              columns={columns}
-              rows={rows}
-              rowKey={(r) => r.id}
-              caption={caption}
-              emptyMessage={emptyListMessage(
-                "resource types",
-                trimmedSearch,
-                namespace.value
-              )}
-              pagination={{ page, pageSize: data.limit, total: data.total }}
-              onPageChange={setPage}
-              rowActions={(r) => (
-                <>
-                  <PluginLink
-                    to={`/resource-types/${r.id}`}
-                    className="text-sm underline underline-offset-4"
-                  >
-                    Details
-                  </PluginLink>
-                  <Button
-                    variant="destructive"
-                    size="sm"
-                    aria-label={`Delete ${r.name}`}
-                    onClick={() => {
-                      // Reset at open, not at close: the operator is about
-                      // to read whatever this dialog shows for THIS type.
-                      remove.reset()
-                      setDeleting(r)
-                    }}
-                  >
-                    Delete
-                  </Button>
-                </>
-              )}
-            />
-          )
-        }}
-      </QueryBoundary>
+      {view === "graph" ? (
+        <SchemaGraph namespace={namespace.value} param={namespace.param} />
+      ) : (
+        <QueryBoundary title="Resource types" query={list} skeletonRows={5}>
+          {(data) => {
+            const rows = data.items ?? []
+            // The server's total, never rows.length: rows is one page.
+            const caption = `${data.total} ${data.total === 1 ? "resource type" : "resource types"}`
+            return (
+              <ResourceTable<ResourceTypeSummary>
+                columns={columns}
+                rows={rows}
+                rowKey={(r) => r.id}
+                caption={caption}
+                emptyMessage={emptyListMessage(
+                  "resource types",
+                  trimmedSearch,
+                  namespace.value
+                )}
+                pagination={{ page, pageSize: data.limit, total: data.total }}
+                onPageChange={setPage}
+                rowActions={(r) => (
+                  <>
+                    <PluginLink
+                      to={`/resource-types/${r.id}`}
+                      className="text-sm underline underline-offset-4"
+                    >
+                      Details
+                    </PluginLink>
+                    <Button
+                      variant="destructive"
+                      size="sm"
+                      aria-label={`Delete ${r.name}`}
+                      onClick={() => {
+                        // Reset at open, not at close: the operator is about
+                        // to read whatever this dialog shows for THIS type.
+                        remove.reset()
+                        setDeleting(r)
+                      }}
+                    >
+                      Delete
+                    </Button>
+                  </>
+                )}
+              />
+            )
+          }}
+        </QueryBoundary>
+      )}
 
       {/* Both errors live inside their dialog. Base UI marks everything
           outside an open dialog inert and aria-hidden, so an alert on the

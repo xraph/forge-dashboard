@@ -7,9 +7,19 @@ import {
   failingClient,
   recordingCommandClient,
   recordingQueryClient,
-  renderPage,
+  renderPage as renderPageRaw,
   stubClient,
 } from "./harness"
+
+/**
+ * The page opens on the graph (see resource-types-graph.test.tsx), and every
+ * test in this file is about the table, so it starts by switching to it.
+ */
+function renderPage(...args: Parameters<typeof renderPageRaw>) {
+  const view = renderPageRaw(...args)
+  fireEvent.click(screen.getByRole("button", { name: "Table" }))
+  return view
+}
 
 // Three types, one per shape that matters: a rooted type with both kinds of
 // definition, a namespaced one, and a bare one with neither. The counts are
