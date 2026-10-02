@@ -288,7 +288,7 @@ Error mapping:
 |---|---|
 | `ErrObjectNotFound`, `ErrBucketNotFound`, unknown store | `NOT_FOUND` |
 | `ErrBucketExists`, key exists without `overwrite` | `CONFLICT` |
-| `trove.ErrContentBlocked` | `BAD_REQUEST`, with the threat name in `details` |
+| `trove.ErrContentBlocked` | `BAD_REQUEST`, with no threat name (trove does not carry one) |
 | a refused precondition (non-empty bucket, CAS bucket delete, copy across middleware) | `CONFLICT`, with the reason |
 | missing or malformed field | `BAD_REQUEST` |
 | anything else | `INTERNAL` with a generic message, logged with the intent name |
@@ -321,7 +321,7 @@ Commands:
 | `buckets.delete` | `store?, name` | lists one key first and refuses a non-empty bucket on every driver | `buckets.list`, `objects.list` |
 | `objects.delete` | `store?, bucket, key` | refuses keys in the CAS bucket while CAS is enabled | `objects.list`, `objects.head`, `cas.list` |
 | `objects.copy` | `store?, srcBucket, srcKey, dstBucket, dstKey, overwrite` | refuses when source and destination match different middleware | `objects.list`, `objects.head` |
-| `objects.beginUpload` | `store?, bucket, key, size, contentType, overwrite` | checks size cap and overwrite, returns `url, expiresAt` | none, and the manifest says why |
+| `objects.beginUpload` | `store?, bucket, key, size, contentType, overwrite` | checks size cap and overwrite, returns `url, ticket, expiresAt`; the ticket goes in the PUT's `X-Trove-Ticket` header | none, and the manifest says why |
 | `objects.completeUpload` | `store?, bucket, key` | `Head`s the object and returns what was stored | `objects.list`, `objects.head` |
 | `objects.presign` | `store?, bucket, key, expiresSeconds` | a GET share link, refused with the reason when unavailable | none, and the manifest says why |
 | `cas.pin` | `store?, hash` | engine index | `cas.list` |
@@ -357,7 +357,7 @@ Notes that are not obvious from the table:
 Two routes under `dashboard_content_path`:
 
 - `GET {path}?t=<ticket>`: download or preview.
-- `PUT {path}?t=<ticket>`: upload the raw body.
+- `PUT {path}` with the ticket in an `X-Trove-Ticket` header: upload the raw body. A PUT carrying `?t=` is refused.
 
 A ticket is `base64url(payload).base64url(hmac)`, where the payload carries
 store, bucket, key, operation (`download`, `preview` or `upload`), expiry, the
@@ -382,7 +382,7 @@ route stops after that many logical bytes, after middleware.
 
 PUT checks the ticket, refuses a body larger than the ticket's declared size,
 calls `trove.Put` with the ticket's content type, and answers
-`{key, storedSize, etag}`. A scan rejection is 422 with the threat name.
+`{key, storedSize, etag}`. A scan rejection is 422 with no threat name.
 
 `dashboard_content_secret` empty means a random key per process. That breaks
 behind a load balancer, where a ticket minted on one instance is presented to
@@ -516,7 +516,7 @@ A status block that states the ceiling: the index is in memory and resets on
 restart, and nothing can release content, so GC has nothing to collect. Then
 the entries table from `cas.list`: hash in mono, stored size, refs, state. Pin
 and Unpin per row. Run GC behind a `ConfirmDialog` that reports the real
-result. Lookup by hash.
+result. (Lookup by hash was dropped in slice 3; see "What slice 3 found".)
 
 If CAS is disabled the page says so and renders nothing else.
 
@@ -833,3 +833,52 @@ A throwaway program built a memdriver Trove with CAS, registered the contract, s
 The upload ran end to end: beginUpload, a PUT through `Content.Handler` (200), completeUpload, contentUrl, then a GET that returned the same bytes with `filename*=UTF-8''new.txt`. A preview with `limit: 4` returned 4 bytes. The route answered 403, 404, 405, 409 and 413 where this section says it should, and the `invalidates` lists in the responses matched the manifest. The walk ran before the upload ticket moved to the header, so its PUT used `?t=`. The route tests now send every PUT with `X-Trove-Ticket`.
 
 The walk did not produce a 422 or a dropped connection. Unit tests on the route cover both: the 422 test registers `scan` with a provider that blocks everything and checks the PUT answers 422 and stores nothing, on mem and local.
+
+## What slice 3 found that slice 4 must know
+
+Slice 3 landed in forge-dashboard as aed1d39, bc6962f, 3f603a3, 01fc571, 4697ea7, 366806a, 27f3596, 646a265, 0799538 and 7331185, with other sessions' commits in between. You now have `packages/plugin-trove` with Overview, Buckets, Middleware, CAS and Transfers, a fixture server that answers all 20 intents with `verify.mjs` passing, and the plugin mounted in both the shell and example-next. Read this before you build the browser at `/buckets/:bucket`.
+
+### Where things are
+
+The plugin's label is "Trove", not "Storage", because `definePlugin` throws when a plugin that is not the root has a label that does not spell its extension name, and so "Storage" became the nav group instead. The pages mount at `/@trove`, and the nav runs Overview (`/`), Buckets (`/buckets`), Middleware (`/middleware`), CAS (`/cas`) and Transfers (`/transfers`) at priorities -10, 0, 10, 20 and 30. Give the browser a route and no nav entry, since you reach it from a bucket name. Those names are plain mono text on the Buckets page today. Make them links.
+
+### The store model
+
+The active store is module state in `src/store.ts`, mirrored to `sessionStorage` under `forge.trove.store`. Read it with `useActiveStore()`, change it with `setActiveStore(name)`, and build every request with `withStore(input, active, defaultName)`, which leaves `store` out for the default store so single-store installs never send it. `StorePicker` renders nothing when there is only one store, and falls back to the default when the remembered name no longer exists.
+
+The store is not in the URL. That was fine for five pages you reach from the nav. A browser link is different, because it's something you copy and paste and bookmark, and if you paste `/@trove/buckets/reports` into a new tab you get the default store, which may not have a `reports` bucket at all. We think the browser should carry `?store=` for anything but the default and call `setActiveStore` from it on mount. Decide that in the slice 4 plan.
+
+### SettledBoundary
+
+The kit's `QueryBoundary` shows its skeleton whenever a query is loading, even when it already has data. So any refetch, whether from an invalidation or a poll, unmounts the page body and throws away its local state, which on CAS lost the GC result the moment `cas.gc` invalidated `cas.status`. `src/components/settled-boundary.tsx` renders from the last data while a refetch runs and only hands the first load to `QueryBoundary`. CAS, Transfers and Buckets use it. You'll need it too: an upload's `completeUpload` invalidates `objects.list`, and the listing must not drop the user's place, the inspector or the cursor stack when that happens.
+
+### CAS lookup by hash is gone
+
+The spec asked for a lookup by hash on the CAS page, but no intent answers it, and filtering the page you already loaded would show a partial search as if it were complete. We dropped it. If you want it back, it needs a `cas.lookup` intent in the contract first.
+
+### Styles
+
+`apps/shell/src/styles.css` belongs to another session and is still untracked, so we did not add an `@source` line for `packages/plugin-trove/src`. Every class the five pages use is already generated from the kit or another plugin, and a browser walk found nothing unstyled. The browser will bring classes nobody else uses (the virtualised list, the CodeMirror wrapper, image previews). Check them in the shell. If any render unstyled, the fix is one `@source` line in that file, and its owner has to add it.
+
+### Fixtures
+
+`packages/fixture-server/trove-fixtures.mjs` seeds two stores:
+
+- `primary` is local and the default. Encryption is configured but not applied, compress is registered, and CAS is on with its own `cas` bucket. The buckets are `reports`, `assets`, `empty` and `cas`. CAS has one indexed blob with two references, one pinned blob and one orphan the index does not know. There are two open streams, one paused with no total size.
+- `archive` is s3, can presign, holds one bucket called `backups`, and has one extra backend called `cold`, so its Overview shows the routing note.
+
+Listings go through a port of `driver.PageKeys` with real cursors. Tickets in the fixtures are unsigned, because nothing checks them yet. Slice 4 adds the content routes to `server.mjs` (the user allowed trove-only routes there) and they should check what they can: the operation against the method, the expiry, the header for PUT, `?t=` refused on PUT. `POST /dashboard/api/dashboard/v1/_fixture/reset` puts every fixture back to its seed, trove included.
+
+### What the browser walk found
+
+We clicked through all five pages in the shell against the fixture server at a 1024 px viewport. Store switching, bucket create and delete (refused for `reports` inside the dialog, then `empty` deleted), the middleware test on `reports/readme.txt`, pin, unpin, GC and the Transfers poll all behaved as specified. Three things didn't:
+
+- On CAS the full 71-character hash pushes the table to 1227 px inside a 928 px wrapper, so Pin and Unpin sit behind a horizontal scroll. Shorten the hash in the cell and keep the full value in a title or a copy button. Object keys in the browser will have the same problem.
+- The Overview's "What it means" column does not wrap, so the encryption note runs off the right edge.
+- `ConfirmDialog` puts its `description` inside a `<p>`, and the bucket delete dialog puts a `CommandAlert` (a `<div>`) in there. React logs a nesting error. Vault does the same thing. The real fix is a body slot on the kit's `ConfirmDialog`, which is not ours to edit, so the browser's delete dialogs will log it too until the kit changes.
+
+In dev, the first visit to each page shows "Loading dashboard capabilities…" for a second or two while the lazy chunk loads. That's the host.
+
+### Copy to correct
+
+The Overview's capability lines say what a driver does ("Copies stay inside the backend") when they should say what it can do. Trove's copy never calls `ServerCopy`, so that line is false even when the flag is set. The slice 3 fix wave rewords them with "can". The presign line also leaves out that GCS and Azure need signing credentials.
