@@ -19,7 +19,9 @@
 // due on its own (the seed has some that already are). settings.detail reports
 // lifecycle_interval "off" for that reason. The engine's rules for the periods
 // invoices.generate may bill (billedPeriod below) are ported, the clock's work
-// is not.
+// is not. The commands' own work is ported: a pause records paused_at and
+// leaves the period alone, and a resume restarts the cycle and moves a
+// running trial's end on by the pause (resumeOf below).
 //
 // Two switches, read on every call so a running server can be flipped:
 //   LEDGER_FIXTURE_NO_APP=1       no app is selected. Every intent except the
@@ -1166,13 +1168,41 @@ function firstPeriodEnd(startMs, billingPeriod) {
  * it must land on the creation date.
  */
 function clampedFirstStart(sub, months, endMs) {
-  const created = new Date(sub.created_at)
+  // The cycle began at creation, or at the last resume, which restarted it.
+  const created = new Date(sub.resumed_at ?? sub.created_at)
   const end = new Date(endMs)
   if (end.getUTCDate() !== daysIn(end.getUTCFullYear(), end.getUTCMonth()) || created.getUTCDate() <= end.getUTCDate()) return undefined
   const first = shiftMonths(endMs, -months, created.getUTCDate())
   const f = new Date(first)
   const sameDay = f.getUTCFullYear() === created.getUTCFullYear() && f.getUTCMonth() === created.getUTCMonth() && f.getUTCDate() === created.getUTCDate()
   return first < endMs && sameDay ? first : undefined
+}
+
+/**
+ * As the engine's resumeOf in subscription_write.go: what resuming sub at nowMs
+ * writes. The cycle restarts, so the period runs from now for one billing
+ * period of the plan, on the arithmetic of a new subscription's first period.
+ * The subscription resumes trialing if trial_end is after paused_at (after now
+ * when there is no paused_at), otherwise active, and a trialing resume moves
+ * trial_end on by now minus paused_at. resumed_at is now. The caller clears
+ * paused_at. Times are the whole-second stamps the fixture writes, so the
+ * period start, resumed_at and the shifted trial end agree with each other.
+ */
+function resumeOf(sub, p, nowMs) {
+  const now = Date.parse(iso(nowMs))
+  const out = {
+    status: "active",
+    current_period_start: iso(now),
+    current_period_end: iso(firstPeriodEnd(now, p.pricing?.billing_period)),
+    resumed_at: iso(now),
+  }
+  if (!sub.trial_end) return out
+  const pauseStart = sub.paused_at ? Date.parse(sub.paused_at) : now
+  const trialEnd = Date.parse(sub.trial_end)
+  if (!(trialEnd > pauseStart)) return out
+  out.status = "trialing"
+  if (now > pauseStart) out.trial_end = iso(trialEnd + (now - pauseStart))
+  return out
 }
 
 function billingHandlers(h) {
@@ -1212,13 +1242,20 @@ function billingHandlers(h) {
     if (period === "yearly") return Date.UTC(d.getUTCFullYear(), 0, 1)
     return 0
   }
-  /** A named period's usage from its own events, [start, end), as the engine's usageInPeriod. */
-  function usedBetween(sub, key, startMs, endMs) {
+  /**
+   * A period's usage from its own events, as the engine's usageWindow and
+   * usageInPeriod: [start, min(end, now)). A period that has ended counts to
+   * its end, the running one to now, and a window that is empty counts nothing.
+   * The current period and a named one take this same path.
+   */
+  function billedUsage(sub, key, startMs, endMs) {
+    const to = Math.min(endMs, Date.now())
+    if (!(to > startMs)) return 0
     return ledger.events
       .filter((e) => e.tenant_id === sub.tenant_id && e.app_id === sub.app_id && e.feature_key === key)
       .filter((e) => {
         const t = Date.parse(e.timestamp)
-        return t >= startMs && t < endMs
+        return t >= startMs && t < to
       })
       .reduce((sum, e) => sum + e.quantity, 0)
   }
@@ -1244,6 +1281,9 @@ function billingHandlers(h) {
     if (startMs === current.startMs && endMs === current.endMs) return current
     const refuse = () => badRequest(`ledger: invalid input: subscription ${sub.id} had no billing period from ${iso(startMs)} to ${iso(endMs)}`)
     if (!(startMs < endMs) || startMs > Date.now() || !(endMs > Date.parse(sub.created_at))) throw refuse()
+    // A resume restarted the cycle: a period starting before it was spent
+    // paused, or belongs to the cycle the pause ended.
+    if (sub.resumed_at && startMs < Date.parse(sub.resumed_at)) throw refuse()
     const period = p.pricing?.billing_period || "monthly"
     if (period !== "monthly" && period !== "yearly") throw refuse()
     const months = period === "yearly" ? 12 : 1
@@ -1492,8 +1532,12 @@ function billingHandlers(h) {
       handler: (input) => {
         const sub = loadSub(input?.id)
         if (sub.status !== "active" && sub.status !== "trialing") throw badRequest(`a ${sub.status} subscription cannot be paused`)
+        // As the engine's PauseSubscription: paused_at is now, the period and
+        // the trial stay where they are.
+        const stamp = iso(Date.now())
         sub.status = "paused"
-        sub.updated_at = iso(Date.now())
+        sub.paused_at = stamp
+        sub.updated_at = stamp
         return clone(sub)
       },
     },
@@ -1504,8 +1548,11 @@ function billingHandlers(h) {
       handler: (input) => {
         const sub = loadSub(input?.id)
         if (sub.status !== "paused") throw badRequest(`a ${sub.status} subscription cannot be resumed`)
-        sub.status = "active"
-        sub.updated_at = iso(Date.now())
+        const p = ledger.plans.find((x) => x.id === sub.plan_id)
+        if (!p) throw notFound("plan")
+        Object.assign(sub, resumeOf(sub, p, Date.now()))
+        delete sub.paused_at
+        sub.updated_at = sub.resumed_at
         return clone(sub)
       },
     },
@@ -1652,7 +1699,7 @@ function billingHandlers(h) {
         )
         if (live) throw conflict(`ledger: already exists: invoice ${live.id} already covers this billing period`)
         const metered = p.features.find((f) => f.key === "api_calls" && f.type === "metered")
-        const used = !metered ? 0 : period.named ? usedBetween(sub, "api_calls", period.startMs, period.endMs) : usedFor(sub.tenant_id, sub.app_id, "api_calls", metered.period)
+        const used = !metered ? 0 : billedUsage(sub, "api_calls", period.startMs, period.endMs)
         const overageQty = metered && metered.limit > 0 && used > metered.limit ? used - metered.limit : 0
         const percentCoupon = ledger.applied
           .filter((a) => a.subscription_id === sub.id)
