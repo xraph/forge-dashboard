@@ -1,4 +1,8 @@
 import { definePlugin } from "@forge-go/dashboard-plugin"
+import { HouseIcon } from "@forge-go/dashboard-kit/icons"
+import { OverviewPage } from "./pages/overview"
+
+export { OverviewPage }
 
 /**
  * The first-party UI for the `trove` extension.
@@ -17,8 +21,8 @@ export const trovePlugin = definePlugin({
   extension: "trove",
   namespace: "trove",
   label: "Trove",
-  nav: [],
-  routes: [],
+  nav: [{ label: "Overview", to: "/", priority: -10, icon: <HouseIcon />, group: "Storage" }],
+  routes: [{ path: "/", element: OverviewPage }],
 })
 
 export default trovePlugin

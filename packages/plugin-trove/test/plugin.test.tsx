@@ -30,4 +30,11 @@ describe("trovePlugin", () => {
     expect(trovePlugin.namespace).toBe("trove")
     expect(trovePlugin.label).toBe("Trove")
   })
+
+  it("puts Overview first in the Storage group at /", () => {
+    const overview = trovePlugin.nav?.find((n) => n.label === "Overview")
+    expect(overview?.to).toBe("/")
+    expect(overview?.group).toBe("Storage")
+    expect(trovePlugin.routes.map((r) => r.path)).toContain("/")
+  })
 })
