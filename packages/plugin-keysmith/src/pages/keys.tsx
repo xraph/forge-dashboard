@@ -2,6 +2,7 @@ import { useState } from "react"
 import type { ComponentType } from "react"
 import { PluginLink, useQuery } from "@forge-go/dashboard-plugin"
 import type { PluginPageProps } from "@forge-go/dashboard-plugin"
+import { Button } from "@forge-go/dashboard-kit/components/button"
 import { FilterBar } from "@forge-go/dashboard-kit/components/filter-bar"
 import { NoneCell } from "@forge-go/dashboard-kit/components/none-cell"
 import { PageHeader } from "@forge-go/dashboard-kit/components/page-header"
@@ -13,6 +14,7 @@ import {
 import { TagList } from "@forge-go/dashboard-kit/components/tag-list"
 import { Timestamp } from "@forge-go/dashboard-kit/components/timestamp"
 import { KeyStateBadge } from "../badges"
+import { CreateKeyDialog } from "../components/create-key-dialog"
 import { ENVIRONMENTS, keyPath, maskedKey, STATES } from "../format"
 import type { KeysList, KeySummary } from "../types"
 
@@ -72,6 +74,7 @@ export const KeysPage: ComponentType<PluginPageProps> = () => {
   const [page, setPage] = useState(1)
   const [environment, setEnvironment] = useState("")
   const [state, setState] = useState("")
+  const [creating, setCreating] = useState(false)
 
   // An empty filter is left out of the params rather than sent as "".
   const list = useQuery<KeysList>("keys.list", {
@@ -116,6 +119,7 @@ export const KeysPage: ComponentType<PluginPageProps> = () => {
       <PageHeader
         title="API keys"
         description="Keys are shown by prefix and last four characters. The full value is only ever shown once, when a key is created or rotated."
+        actions={<Button onClick={() => setCreating(true)}>Create key</Button>}
       />
 
       <div className="flex flex-col gap-1.5">
@@ -159,12 +163,21 @@ export const KeysPage: ComponentType<PluginPageProps> = () => {
                 // a page past the end. Say which one this is.
                 filtered ? "No keys match these filters." : "No API keys yet."
               }
+              // Only for "none yet". A filter that matches nothing is not the
+              // moment to offer a key.
+              emptyAction={
+                filtered ? undefined : (
+                  <Button onClick={() => setCreating(true)}>Create key</Button>
+                )
+              }
               pagination={{ page, pageSize: PAGE_SIZE, total: data.total }}
               onPageChange={setPage}
             />
           )
         }}
       </QueryBoundary>
+
+      <CreateKeyDialog open={creating} onOpenChange={setCreating} />
     </section>
   )
 }

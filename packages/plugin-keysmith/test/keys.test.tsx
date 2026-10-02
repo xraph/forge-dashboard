@@ -139,12 +139,50 @@ describe("KeysPage", () => {
     expect(screen.getByText("1 key")).toBeTruthy()
   })
 
-  it("says so when there are no keys, with no create action yet", async () => {
+  it("says so when there are no keys, and offers to create one", async () => {
     renderPage(KeysPage, stubClient({ "keys.list": { keys: [], total: 0 } }))
     expect(await screen.findByText("No API keys yet.")).toBeTruthy()
     expect(screen.getByText("0 keys")).toBeTruthy()
     expect(screen.queryByRole("link")).toBeNull()
-    expect(screen.queryByRole("button", { name: /create|new/i })).toBeNull()
+    // The header's action and the empty state's own.
+    expect(screen.getAllByRole("button", { name: "Create key" })).toHaveLength(2)
+  })
+
+  it("offers a single Create key in the header when there are keys", async () => {
+    renderPage(KeysPage, stubClient({ "keys.list": LIST }))
+    await screen.findByText("Reporting export")
+    expect(screen.getAllByRole("button", { name: "Create key" })).toHaveLength(1)
+  })
+
+  it("does not offer a second Create key when a filter matches nothing", async () => {
+    const client = stubClientByParams((params) =>
+      params.state === "revoked"
+        ? { keys: [], total: 0 }
+        : { keys: LIST.keys, total: 5 },
+    )
+    renderPage(KeysPage, client)
+    await screen.findByText("Reporting export")
+    fireEvent.change(screen.getByLabelText("State"), {
+      target: { value: "revoked" },
+    })
+    await screen.findByText("No keys match these filters.")
+    expect(screen.getAllByRole("button", { name: "Create key" })).toHaveLength(1)
+  })
+
+  it("opens the create dialog from the header action", async () => {
+    renderPage(
+      KeysPage,
+      stubClient({
+        "keys.list": LIST,
+        "policies.list": { policies: [], hasMore: false },
+        "scopes.list": { scopes: [], hasMore: false },
+      }),
+    )
+    await screen.findByText("Reporting export")
+    expect(screen.queryByRole("dialog")).toBeNull()
+    fireEvent.click(screen.getByRole("button", { name: "Create key" }))
+    const dialog = await screen.findByRole("dialog")
+    expect(within(dialog).getByLabelText("Name")).toBeTruthy()
   })
 
   it("links the name to the key's detail path and shows the masked key in mono", async () => {

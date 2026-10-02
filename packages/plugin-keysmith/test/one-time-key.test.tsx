@@ -45,15 +45,6 @@ function renderKey(
 
 let writeText: ReturnType<typeof vi.fn>
 
-// jsdom 25 has no PointerEvent, and base-ui's checkbox builds one on click.
-// MouseEvent carries every field the checkbox reads.
-if (typeof window.PointerEvent === "undefined") {
-  Object.defineProperty(window, "PointerEvent", {
-    value: window.MouseEvent,
-    configurable: true,
-  })
-}
-
 beforeEach(() => {
   writeText = vi.fn().mockResolvedValue(undefined)
   Object.defineProperty(navigator, "clipboard", {
@@ -68,6 +59,24 @@ afterEach(() => {
 })
 
 describe("OneTimeKey anatomy", () => {
+  it("renders no heading when showHeading is false", () => {
+    const { rerender } = renderKey()
+    expect(screen.getByRole("heading", { name: "Save your new key" })).toBeTruthy()
+    rerender(
+      <OneTimeKey
+        rawKey={STANDARD}
+        summary={summary()}
+        onDone={vi.fn()}
+        showHeading={false}
+      />
+    )
+    expect(screen.queryByRole("heading")).toBeNull()
+    // The sentence that says it is the only time stays.
+    expect(
+      screen.getByText("This is the only time Keysmith will show it.")
+    ).toBeTruthy()
+  })
+
   it("says it is the only time", () => {
     renderKey()
     expect(screen.getByText("Save your new key")).toBeTruthy()

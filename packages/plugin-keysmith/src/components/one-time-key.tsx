@@ -14,6 +14,12 @@ export interface OneTimeKeyProps {
   /** Extra content under the key, such as the rotate dialog's window list. */
   children?: ReactNode
   onDone: () => void
+  /**
+   * Show the "Save your new key" heading. A host that already names the thing
+   * (a dialog titled the same) turns it off so there is one accessible name,
+   * not two.
+   */
+  showHeading?: boolean
 }
 
 const COPIED_MS = 2000
@@ -35,6 +41,7 @@ export function OneTimeKey({
   summary,
   children,
   onDone,
+  showHeading = true,
 }: OneTimeKeyProps) {
   const [hidden, setHidden] = useState(false)
   const [copied, setCopied] = useState(false)
@@ -109,7 +116,9 @@ export function OneTimeKey({
   return (
     <div className="flex flex-col gap-4">
       <div className="flex flex-col gap-1">
-        <h2 className="text-lg font-semibold">Save your new key</h2>
+        {showHeading && (
+          <h2 className="text-lg font-semibold">Save your new key</h2>
+        )}
         <p className="text-sm text-muted-foreground">
           This is the only time Keysmith will show it.
         </p>
