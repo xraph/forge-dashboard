@@ -298,3 +298,112 @@ The CSS is 273.83 KB (40.96 KB gzip) in both builds. Ledger's Tailwind
 present for both. As in the sections above, this tree carries other
 workstreams' uncommitted work in both builds, so the 85.09 KB is ledger's share
 and the rest of the eager total is not.
+
+## Warden's schema editor and graphs, and where they land (2026-10-02)
+
+Measured with `vite build` in `apps/shell` on 2026-10-02, written to a scratch
+directory with `--outDir` so the shared `dist` stayed as it was. The shell's
+own `build` script is `tsc -b && vite build`, and `tsc -b` was skipped: it can
+stop on another session's untracked files, and this measurement is about what
+Vite emits. Sizes are Vite's own kB (1 kB is 1,000 bytes, gzip as Vite
+reports it). A plain `gzip -c <file> | wc -c` comes out about 1% smaller, which
+is a difference in the compressor and not in the files.
+
+Eleven plugins are registered in the shell: core, streaming, authsome,
+warden, vault, trove, keysmith, chronicle, relay, ledger and bastion. The shell
+bundles all of them, so every figure below carries other sessions' plugins and
+uncommitted work as well as warden's. There is no "without warden" build here,
+and the eager total is not warden's share. Nothing in this section is meant to
+isolate it.
+
+Thirty JS chunks are emitted. The eager set is the entry plus everything it
+imports with `from"./..."`, read from the built entry's static import
+statements. It is the entry and eleven small chunks, and none of those eleven
+imports anything outside the set.
+
+| chunk | raw | gzip | loaded |
+|---|---|---|---|
+| `index` (entry) | 1,231.14 KB | 331.87 KB | eager |
+| `page-header` | 59.92 KB | 22.19 KB | eager, static from the entry |
+| `confirm-dialog` | 55.91 KB | 18.63 KB | eager, static from the entry |
+| `utils` | 27.26 KB | 8.69 KB | eager, static from the entry |
+| `jsx-runtime` | 8.55 KB | 3.26 KB | eager, static from the entry |
+| `with-selector` | 5.11 KB | 1.91 KB | eager, static from the entry |
+| `createLucideIcon` | 2.88 KB | 1.52 KB | eager, static from the entry |
+| `label` | 2.81 KB | 1.34 KB | eager, static from the entry |
+| `empty-state` | 2.68 KB | 1.03 KB | eager, static from the entry |
+| `detail-layout` | 2.43 KB | 1.05 KB | eager, static from the entry |
+| `input` | 2.39 KB | 1.24 KB | eager, static from the entry |
+| `none-cell` | 0.24 KB | 0.21 KB | eager, static from the entry |
+| `chart` (recharts) | 330.52 KB | 97.24 KB | lazy, with Usage or Activity |
+| `dist-C1o7dCB9` (CodeMirror core, holds `EditorView`) | 288.56 KB | 93.24 KB | lazy |
+| `graph-canvas` (React Flow and dagre) | 217.19 KB | 69.69 KB | lazy |
+| `dist-yY4JzDLC` (CodeMirror, search) | 43.12 KB | 14.15 KB | lazy |
+| `ledger-table` | 30.50 KB | 9.59 KB | lazy |
+| `dist-BTo3Thc2` (CodeMirror) | 28.03 KB | 9.82 KB | lazy |
+| `schema` (warden's schema editor page) | 24.45 KB | 9.26 KB | lazy |
+| `json-diff` | 20.43 KB | 7.70 KB | lazy |
+| `config-detail` | 20.35 KB | 6.17 KB | lazy |
+| `usage` | 9.89 KB | 3.70 KB | lazy |
+| `invoice-detail` | 9.67 KB | 3.51 KB | lazy |
+| `value` (shared by `chart` and `graph-canvas`) | 9.22 KB | 3.96 KB | lazy |
+| `event-detail` | 6.79 KB | 2.43 KB | lazy |
+| `plan-detail` | 6.09 KB | 2.23 KB | lazy |
+| `activity` | 5.79 KB | 2.37 KB | lazy |
+| `json-editor` (three chunks, one per wrapper) | 1.75 / 1.20 / 1.20 KB | 0.92 / 0.67 / 0.67 KB | lazy |
+
+The eager set is 1,401.32 KB raw and 392.94 KB gzip (the sum of the figures
+above), against 1,303.76 KB and 366.51 KB in the ledger section. That is 97.56
+KB raw and 26.43 KB gzip more, from three more plugins (trove, keysmith,
+bastion), warden's eager pages and whatever else landed in the shared tree in
+the meantime. It is not warden's graphs or editor, which are lazy.
+
+### CodeMirror
+
+CodeMirror lives in three `dist-*` chunks of 288.56, 43.12 and 28.03 KB raw
+(93.24, 14.15 and 9.82 KB gzip), 359.71 KB raw and 117.21 KB gzip together,
+and all three are lazy. `EditorView` and `cm-editor` are in `dist-C1o7dCB9`,
+the only built file that matches `codemirror` or `cm-editor`. The search
+bindings are in `dist-yY4JzDLC`.
+
+Warden's schema editor is the `schema` chunk, 24.45 KB raw. It statically
+imports `dist-C1o7dCB9` and `dist-yY4JzDLC`, so opening it loads about 356 KB
+raw and 117 KB gzip in total, on first open only. It reaches the shell through
+a `lazy()` call in the entry. `schema-C5gDbhA5` appears in the entry twice,
+once in `__vite__mapDeps` and once in that `import()`, and never in a
+`from"./..."` clause. The vault editor, the diff and the relay and chronicle
+viewers share these chunks, as before.
+
+### React Flow and dagre
+
+React Flow and dagre are in `graph-canvas`, 217.19 KB raw and 69.69 KB gzip,
+and nowhere else: `grep -l` for `ReactFlow` and for `dagre` over every built
+asset lists only `graph-canvas-*.js`. Its stylesheet, `graph-canvas-*.css`
+(15.41 KB raw, 2.56 KB gzip), is lazy with it and is not part of the entry's
+CSS. Two `lazy()` calls in the entry import it, and the chunk name shows up three
+times in the entry: those two `import()` calls and `__vite__mapDeps`. There is no static
+`from"./graph-canvas-..."`. Opening a graph loads `graph-canvas`, the shared
+`value` chunk and the stylesheet: 226.41 KB raw and 73.65 KB gzip of JS, plus
+the CSS.
+
+### The entry does not carry either
+
+Counts in the built entry chunk (`index-czdfffDy.js`):
+
+| string | matches |
+|---|---|
+| `EditorView` | 0 |
+| `ReactFlow` | 0 |
+| `dagre` | 0 |
+| `@codemirror` | 0 |
+| `cm-editor` | 0 |
+| `react-flow` | 0 |
+
+None of the three heavy chunks (`dist-C1o7dCB9`, `dist-yY4JzDLC`,
+`graph-canvas`), nor `dist-BTo3Thc2` or `schema`, has a static `from"./..."`
+entry in the built entry chunk, and none of them is in `index.html`'s
+`modulepreload` list. Both surfaces are split out, and they are measured as
+split, not assumed.
+
+The CSS is 273.94 KB (40.99 KB gzip) for the shell stylesheet, plus the
+15.41 KB lazy graph stylesheet above.
