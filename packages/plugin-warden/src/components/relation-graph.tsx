@@ -20,6 +20,11 @@ export interface RelationExpandNode {
    * reached and not expanded, and for every single subject, which is a leaf.
    */
   walked: boolean
+  /**
+   * The node cap removed some of this node's edges. Tells a set the walk went
+   * through, whose edges were then cut, from one it never walked.
+   */
+  capped: boolean
 }
 
 /** Mirrors the Go `RelationExpandEdge`: one tuple, between node keys. */
@@ -53,34 +58,30 @@ const NODE_HEIGHT = 64
 /**
  * What a node says about itself besides its key. The root is marked. A single
  * subject is a leaf the walk never expands, so it is marked as a subject and
- * not as unexpanded. A subject set that was not walked has its own tuples not
- * all drawn, and the mark says how much is: "not fully drawn" when some of its
- * edges are on the canvas (the cap cut the rest), "not expanded" when none is
- * (the walk reached it and stopped).
+ * not as unexpanded. A subject set with `walked` false has not all its tuples
+ * drawn, for one of two reasons that the server tells apart with `capped`: the
+ * walk went through it and the node cap then cut its edges ("not fully drawn",
+ * whether some of them are on the canvas or none), or the walk never went
+ * through it, as at a stop ("not expanded"). The drawn edges cannot say which:
+ * a set whose children all fell past the cap has none, like one never walked.
  */
-function marks(node: RelationExpandNode, hasDrawnEdge: boolean): string[] {
+function marks(node: RelationExpandNode): string[] {
   const out: string[] = []
   if (node.depth === 0) out.push("root")
   if (!node.relation) out.push("subject")
   else if (!node.walked)
-    out.push(hasDrawnEdge ? "not fully drawn" : "not expanded")
+    out.push(node.capped ? "not fully drawn" : "not expanded")
   return out
 }
 
-function NodeCard({
-  node,
-  hasDrawnEdge,
-}: {
-  node: RelationExpandNode
-  hasDrawnEdge: boolean
-}) {
+function NodeCard({ node }: { node: RelationExpandNode }) {
   return (
     <div className="flex h-full flex-col justify-center gap-1 p-3">
       <span className="truncate font-mono text-xs" title={node.key}>
         {node.key}
       </span>
       <span className="flex gap-2 text-xs text-muted-foreground">
-        {marks(node, hasDrawnEdge).map((m) => (
+        {marks(node).map((m) => (
           <span key={m}>{m}</span>
         ))}
       </span>
@@ -107,18 +108,12 @@ export function buildRelationGraph(expansion: RelationExpansion): {
     pathPairs.add(`${expansion.path[i]}\n${expansion.path[i + 1]}`)
   }
   const known = new Set(expansion.nodes.map((n) => n.key))
-  // Which nodes have an edge out that is drawn: an edge to a node the cap left
-  // out is not on the canvas, so it does not count.
-  const drawnFrom = new Set<string>()
-  for (const e of expansion.edges) {
-    if (known.has(e.from) && known.has(e.to)) drawnFrom.add(e.from)
-  }
 
   const nodes: CanvasNode[] = expansion.nodes.map((n) => ({
     id: n.key,
     width: NODE_WIDTH,
     height: NODE_HEIGHT,
-    content: <NodeCard node={n} hasDrawnEdge={drawnFrom.has(n.key)} />,
+    content: <NodeCard node={n} />,
     highlighted: onPath.has(n.key),
   }))
   const edges: CanvasEdge[] = []

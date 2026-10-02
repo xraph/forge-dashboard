@@ -37,6 +37,7 @@ const EXPANSION = {
       relation: "editor",
       depth: 0,
       walked: true,
+      capped: false,
     },
     {
       key: "group:eng#member",
@@ -45,8 +46,16 @@ const EXPANSION = {
       relation: "member",
       depth: 1,
       walked: true,
+      capped: false,
     },
-    { key: "user:erin", type: "user", id: "erin", depth: 2, walked: false },
+    {
+      key: "user:erin",
+      type: "user",
+      id: "erin",
+      depth: 2,
+      walked: false,
+      capped: false,
+    },
     {
       key: "group:platform#member",
       type: "group",
@@ -54,6 +63,7 @@ const EXPANSION = {
       relation: "member",
       depth: 2,
       walked: true,
+      capped: false,
     },
     {
       key: "group:oncall#member",
@@ -62,6 +72,7 @@ const EXPANSION = {
       relation: "member",
       depth: 3,
       walked: false,
+      capped: false,
     },
   ],
   edges: [
@@ -179,52 +190,97 @@ describe("the relation graph page", () => {
     expect(erin.getByText("subject")).toBeTruthy()
   })
 
-  it("marks a set that was not walked but has edges drawn as not fully drawn", async () => {
-    const { container } = setup({
-      nodes: [
-        ...EXPANSION.nodes,
-        {
-          key: "group:cut#member",
-          type: "group",
-          id: "cut",
-          relation: "member",
-          depth: 3,
-          walked: false,
-        },
-        { key: "user:dana", type: "user", id: "dana", depth: 4, walked: false },
-      ],
-      edges: [
-        ...EXPANSION.edges,
-        {
-          from: "group:platform#member",
-          to: "group:cut#member",
-          namespacePath: "",
-        },
-        { from: "group:cut#member", to: "user:dana", namespacePath: "" },
-      ],
-    })
-    await drawn()
-    const cut = within(nodeOf(container, "group:cut#member"))
-    expect(cut.getByText("not fully drawn")).toBeTruthy()
-    expect(cut.queryByText("not expanded")).toBeNull()
-    // oncall has no edge out, so it is the one that is not expanded.
-    const oncall = within(nodeOf(container, "group:oncall#member"))
-    expect(oncall.getByText("not expanded")).toBeTruthy()
-    expect(oncall.queryByText("not fully drawn")).toBeNull()
-    expect(screen.getAllByText("not fully drawn")).toHaveLength(1)
-  })
+  describe("a set that was not walked", () => {
+    // The reason is the server's `capped`: the cap cut some of its edges, or
+    // the walk simply never went through it.
+    const CUT = {
+      key: "group:cut#member",
+      type: "group",
+      id: "cut",
+      relation: "member",
+      depth: 3,
+    }
+    const DANA = {
+      key: "user:dana",
+      type: "user",
+      id: "dana",
+      depth: 4,
+      walked: false,
+      capped: false,
+    }
+    const INTO_CUT = {
+      from: "group:platform#member",
+      to: "group:cut#member",
+      namespacePath: "",
+    }
+    const OUT_OF_CUT = {
+      from: "group:cut#member",
+      to: "user:dana",
+      namespacePath: "",
+    }
 
-  it("does not count an edge to a node that is not drawn as a drawn edge", async () => {
-    const { container } = setup({
-      edges: [
-        ...EXPANSION.edges,
-        { from: "group:oncall#member", to: "user:left-out", namespacePath: "" },
-      ],
+    it("reads not fully drawn when the cap cut some of its edges and some are drawn", async () => {
+      const { container } = setup({
+        nodes: [
+          ...EXPANSION.nodes,
+          { ...CUT, walked: false, capped: true },
+          DANA,
+        ],
+        edges: [...EXPANSION.edges, INTO_CUT, OUT_OF_CUT],
+      })
+      await drawn()
+      const cut = within(nodeOf(container, "group:cut#member"))
+      expect(cut.getByText("not fully drawn")).toBeTruthy()
+      expect(cut.queryByText("not expanded")).toBeNull()
     })
-    await drawn()
-    expect(
-      within(nodeOf(container, "group:oncall#member")).getByText("not expanded")
-    ).toBeTruthy()
+
+    it("reads not fully drawn when the walk went through it and the cap cut every edge", async () => {
+      // walked false with no edge drawn is what the server sends for a set
+      // that was expanded and whose children all fell past the cap.
+      const { container } = setup({
+        nodes: [...EXPANSION.nodes, { ...CUT, walked: false, capped: true }],
+        edges: [...EXPANSION.edges, INTO_CUT],
+      })
+      await drawn()
+      const cut = within(nodeOf(container, "group:cut#member"))
+      expect(cut.getByText("not fully drawn")).toBeTruthy()
+      expect(cut.queryByText("not expanded")).toBeNull()
+    })
+
+    it("reads not expanded when the cap cut nothing, whatever edges are drawn", async () => {
+      const { container } = setup({
+        nodes: [
+          ...EXPANSION.nodes,
+          { ...CUT, walked: false, capped: false },
+          DANA,
+        ],
+        edges: [...EXPANSION.edges, INTO_CUT, OUT_OF_CUT],
+      })
+      await drawn()
+      const cut = within(nodeOf(container, "group:cut#member"))
+      expect(cut.getByText("not expanded")).toBeTruthy()
+      expect(cut.queryByText("not fully drawn")).toBeNull()
+      // oncall, the frontier set of the base data, reads the same.
+      expect(
+        within(nodeOf(container, "group:oncall#member")).getByText(
+          "not expanded"
+        )
+      ).toBeTruthy()
+      expect(screen.queryByText("not fully drawn")).toBeNull()
+    })
+
+    it("never marks a single subject, capped or not", async () => {
+      const { container } = setup({
+        nodes: EXPANSION.nodes.map((n) =>
+          n.relation ? n : { ...n, capped: true }
+        ),
+      })
+      await drawn()
+      const erin = within(nodeOf(container, "user:erin"))
+      expect(erin.queryByText("not fully drawn")).toBeNull()
+      expect(erin.queryByText("not expanded")).toBeNull()
+      expect(erin.getByText("subject")).toBeTruthy()
+    })
   })
 
   it("marks a walked set with nothing", async () => {
