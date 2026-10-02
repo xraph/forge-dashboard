@@ -3109,6 +3109,7 @@ function handleReset(res) {
   relayState = seedRelayState()
   relayFixtures.reset()
   resetVault()
+  resetTrove()
   resetLedger()
   resetChronicle()
   resetKeysmith()
