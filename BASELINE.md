@@ -407,3 +407,75 @@ split, not assumed.
 
 The CSS is 273.94 KB (40.99 KB gzip) for the shell stylesheet, plus the
 15.41 KB lazy graph stylesheet above.
+
+## Trove's object browser, and where it lands (2026-10-04)
+
+Measured with `vite build` in `apps/shell` on 2026-10-04, written to a scratch
+directory with `--outDir`, the same way as the warden section: `tsc -b` skipped,
+sizes in Vite's own kB. The shell still bundles every registered plugin, so the
+eager figures carry other sessions' work as well as trove's.
+
+Thirty-three JS chunks are emitted, three more than before. Two of them are
+trove's: the browser page and its code view.
+
+| chunk | raw | gzip | loaded |
+|---|---|---|---|
+| `index` (entry) | 1,241.99 KB | 333.83 KB | eager |
+| `page-header` | 59.92 KB | 22.19 KB | eager, static from the entry |
+| `confirm-dialog` | 55.91 KB | 18.63 KB | eager, static from the entry |
+| `utils` | 27.26 KB | 8.69 KB | eager, static from the entry |
+| `jsx-runtime` | 8.55 KB | 3.26 KB | eager, static from the entry |
+| `checkbox` | 6.51 KB | 3.01 KB | eager, static from the entry |
+| `with-selector` | 5.11 KB | 1.91 KB | eager, static from the entry |
+| `createLucideIcon` | 2.88 KB | 1.52 KB | eager, static from the entry |
+| `label` | 2.81 KB | 1.34 KB | eager, static from the entry |
+| `empty-state` | 2.68 KB | 1.03 KB | eager, static from the entry |
+| `detail-layout` | 2.43 KB | 1.05 KB | eager, static from the entry |
+| `input` | 2.39 KB | 1.24 KB | eager, static from the entry |
+| `none-cell` | 0.24 KB | 0.21 KB | eager, static from the entry |
+| `browser` (trove's object browser) | 86.27 KB | 26.99 KB | lazy, when you open a bucket |
+| `code-view` (trove's text preview) | 1.23 KB | 0.70 KB | lazy, the first time a text preview shows |
+
+The eager set is 1,418.68 KB raw and 397.91 KB gzip, against 1,401.32 KB and
+392.94 KB in the warden section: 17.36 KB raw and 4.97 KB gzip more. A new
+eager `checkbox` chunk is 6.51 KB of that, and the rest is whatever landed in
+the shared tree since. None of it is the browser, which is lazy.
+
+### What the browser chunk carries
+
+`browser` holds the listing, the inspector, the share, copy and delete dialogs
+and the upload queue. It is the only built file with `useVirtualizer` in it, and
+the only one with `X-Trove-Ticket`. It statically imports the entry and ten small
+chunks the entry already loaded, and nothing heavy. Opening a bucket costs 86.27 KB raw
+and 26.99 KB gzip, once.
+
+### CodeMirror
+
+Trove adds no CodeMirror bytes. `code-view` is a 1.23 KB wrapper that imports
+the same three `dist-*` chunks the vault, relay, chronicle and warden editors
+already share (`dist-C1o7dCB9`, `dist-yY4JzDLC`, `dist-BTo3Thc2`, 359.71 KB raw
+and 117.21 KB gzip together, the same hashes as the warden section). `browser`
+reaches `code-view` only through `import()`. The first text preview loads about
+361 KB raw and 118 KB gzip, unless another plugin's editor already did.
+
+### The entry does not carry any of it
+
+Counts in the built entry chunk (`index-BvsKMWki.js`):
+
+| string | matches |
+|---|---|
+| `EditorView` | 0 |
+| `@codemirror` | 0 |
+| `cm-editor` | 0 |
+| `useVirtualizer` | 0 |
+| `react-virtual` | 0 |
+| `measureElement` | 0 |
+| `trove/content` | 0 |
+| `X-Trove-Ticket` | 0 |
+| `beginUpload` | 0 |
+| `webkitGetAsEntry` | 0 |
+
+The entry names `browser-Bn9Tqny5.js` twice, once in `__vite__mapDeps` and once
+in the `import()` the route's `lazy()` compiles to, and never in a
+`from"./..."` clause. Neither trove chunk is in `index.html`'s `modulepreload`
+list. The CSS is unchanged at 273.94 KB (40.99 KB gzip).
