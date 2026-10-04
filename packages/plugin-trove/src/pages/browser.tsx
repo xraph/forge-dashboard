@@ -3,6 +3,7 @@ import { PluginLink } from "@forge-go/dashboard-plugin"
 import type { PluginPageProps } from "@forge-go/dashboard-plugin"
 import { PageHeader } from "@forge-go/dashboard-kit/components/page-header"
 import { TROVE_MOUNT, useBrowserLocation } from "../browser-location"
+import { ObjectListing } from "../components/object-listing"
 import { PathBar } from "../components/path-bar"
 
 /**
@@ -15,7 +16,7 @@ import { PathBar } from "../components/path-bar"
  */
 const BrowserPage: ComponentType<PluginPageProps> = ({ params }) => {
   const bucket = params.bucket ?? ""
-  const { store, prefix } = useBrowserLocation()
+  const { store, prefix, key } = useBrowserLocation()
 
   return (
     <section className="flex flex-col gap-4">
@@ -31,6 +32,7 @@ const BrowserPage: ComponentType<PluginPageProps> = ({ params }) => {
         </p>
       ) : null}
       <PathBar key={prefix} bucket={bucket} store={store} prefix={prefix} />
+      <ObjectListing key={`${store}\n${bucket}\n${prefix}`} store={store} bucket={bucket} prefix={prefix} selectedKey={key} />
     </section>
   )
 }

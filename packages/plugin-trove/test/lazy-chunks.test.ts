@@ -44,6 +44,14 @@ describe("the browser's heavy code stays out of the entry", () => {
     expect(importers).toEqual([])
   })
 
+  it("names the virtualiser only in the listing, which only the browser page imports", () => {
+    expect(namingFiles("@tanstack/react-virtual")).toEqual(["../src/components/object-listing.tsx"])
+    const importers = Object.entries(modules)
+      .filter(([, mod]) => /from\s+["'][./]*components\/object-listing["']/.test(sourceOf(mod)))
+      .map(([path]) => path)
+    expect(importers).toEqual(["../src/pages/browser.tsx"])
+  })
+
   it("names CodeMirror in no file yet", () => {
     expect(namingFiles("@codemirror")).toEqual([])
   })
