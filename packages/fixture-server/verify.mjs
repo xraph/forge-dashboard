@@ -2559,6 +2559,27 @@ async function main() {
       }
     }
     check("trove content PUT answers 413 to five 3 MB bodies in a row without a network error", troveBigOutcomes.every((o) => o === 413), JSON.stringify(troveBigOutcomes))
+    // trove: every refusal of a large PUT reaches the client as its status (403 and 409 here), never as a reset.
+    const troveBigPut = async (ticket) => {
+      const out = []
+      for (let i = 0; i < 5; i++) {
+        try {
+          const r = await fetch(`${origin}/dashboard/trove/content`, { method: "PUT", body: troveBig, headers: { "X-Trove-Ticket": ticket } })
+          await r.arrayBuffer()
+          out.push(r.status)
+        } catch (e) {
+          out.push(`trove fetch rejected: ${e?.cause?.code ?? e?.message}`)
+        }
+      }
+      return out
+    }
+    const troveDownloadTicket = new URL(`${origin}${link.body?.data?.url}`).searchParams.get("t")
+    const troveForbidden = await troveBigPut(troveDownloadTicket)
+    check("trove content PUT answers 403 to five 3 MB bodies sent with a download ticket", troveForbidden.every((o) => o === 403), JSON.stringify(troveForbidden))
+    const troveRaceTicket = await tc("objects.beginUpload", { bucket: "reports", key: "spot/put3.txt", size: 5 })
+    await tc("objects.copy", { srcBucket: "reports", srcKey: "readme.txt", dstBucket: "reports", dstKey: "spot/put3.txt" })
+    const troveConflicts = await troveBigPut(troveRaceTicket.body?.data?.ticket)
+    check("trove content PUT answers 409 to five 3 MB bodies onto an existing key", troveConflicts.every((o) => o === 409), JSON.stringify(troveConflicts))
     const put = await fetch(`${origin}/dashboard/trove/content`, { method: "PUT", body: "hello", headers: { "X-Trove-Ticket": upTicket.body?.data?.ticket } })
     const putBody = await put.json()
     check("trove content PUT stores the body and answers key, storedSize and etag", put.status === 200 && putBody.key === "spot/put.txt" && putBody.storedSize === 5 && typeof putBody.etag === "string", JSON.stringify(putBody))

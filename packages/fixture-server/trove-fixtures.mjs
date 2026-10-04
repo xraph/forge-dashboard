@@ -625,6 +625,26 @@ function sendContentError(res, status, message, headers = {}) {
   res.end(JSON.stringify({ error: message }))
 }
 
+// Refuses a PUT without cutting the client off. The answer carries a
+// Content-Length and Connection: close, and the rest of the request body is
+// drained rather than abandoned: closing the socket while the client is still
+// sending resets the connection, which a browser reports as a network error
+// instead of the status. The response is complete before the drain ends, and
+// the socket closes only once the request has been read to its end.
+function refuseDrained(req, res, status, message) {
+  const payload = Buffer.from(JSON.stringify({ error: message }))
+  res.writeHead(status, { "Content-Type": "application/json", "Cache-Control": "no-store", "Content-Length": String(payload.length), Connection: "close" })
+  res.write(payload)
+  const finish = () => res.end()
+  if (req.complete) finish()
+  else {
+    req.once("end", finish)
+    req.once("error", finish)
+    req.once("close", finish)
+  }
+  req.resume()
+}
+
 // Seeded objects without a body serve a deterministic filler of their stored
 // size, streamed, so a 50 MB dump downloads without the fixture holding it.
 function writeFiller(res, key, size) {
@@ -676,36 +696,19 @@ export async function handleTroveContent(req, res, url) {
     return
   }
 
-  if (url.searchParams.has("t")) return sendContentError(res, 403, "Upload tickets go in the X-Trove-Ticket header, never in the URL.")
+  if (url.searchParams.has("t")) return refuseDrained(req, res, 403, "Upload tickets go in the X-Trove-Ticket header, never in the URL.")
   const header = req.headers["x-trove-ticket"]
-  if (typeof header !== "string" || header === "") return sendContentError(res, 403, "This upload has no X-Trove-Ticket header.")
+  if (typeof header !== "string" || header === "") return refuseDrained(req, res, 403, "This upload has no X-Trove-Ticket header.")
   const { ticket: t, error } = readTicket(header)
-  if (error) return sendContentError(res, 403, error)
-  if (t.o !== "upload") return sendContentError(res, 403, "This ticket is not for uploading.")
+  if (error) return refuseDrained(req, res, 403, error)
+  if (t.o !== "upload") return refuseDrained(req, res, 403, "This ticket is not for uploading.")
   const s = Object.hasOwn(state, t.s) ? state[t.s] : null
   const b = s?.buckets.get(t.b)
-  if (!b) return sendContentError(res, 404, "bucket not found")
-  if (b.objects.has(t.k) && t.ow !== true) return sendContentError(res, 409, "An object with this key already exists.")
+  if (!b) return refuseDrained(req, res, 404, "bucket not found")
+  if (b.objects.has(t.k) && t.ow !== true) return refuseDrained(req, res, 409, "An object with this key already exists.")
   const declared = typeof t.n === "number" ? t.n : 0
-  // Like Go, refuse on Content-Length before reading a byte. The answer
-  // carries Connection: close and the rest of the body is drained, not cut off:
-  // closing the socket while the client is still sending resets the connection
-  // and turns a clean 413 into an ECONNRESET or EPIPE in the browser. The
-  // response is complete (it has a Content-Length) before the drain ends, and
-  // the socket closes only once the request has been read to its end.
-  const refuseTooBig = () => {
-    const payload = Buffer.from(JSON.stringify({ error: "The body is larger than the size this upload was started with." }))
-    res.writeHead(413, { "Content-Type": "application/json", "Cache-Control": "no-store", "Content-Length": String(payload.length), Connection: "close" })
-    res.write(payload)
-    const finish = () => res.end()
-    if (req.complete) finish()
-    else {
-      req.once("end", finish)
-      req.once("error", finish)
-      req.once("close", finish)
-    }
-    req.resume()
-  }
+  // Like Go, refuse on Content-Length before reading a byte.
+  const refuseTooBig = () => refuseDrained(req, res, 413, "The body is larger than the size this upload was started with.")
   const announced = Number(req.headers["content-length"])
   if (req.headers["content-length"] !== undefined && Number.isFinite(announced) && announced > declared) {
     refuseTooBig()
