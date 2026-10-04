@@ -88,6 +88,38 @@ describe("Copy to", () => {
     await waitFor(() => expect(sent.map((s) => s.payload.overwrite)).toEqual([false, true]))
   })
 
+  async function conflictThenTickReplace(client: ScopedClient) {
+    renderActions(client)
+    fireEvent.click(screen.getByRole("button", { name: "Copy to" }))
+    const dialog = await screen.findByRole("dialog")
+    fireEvent.change(within(dialog).getByLabelText("Destination key"), { target: { value: "taken.json" } })
+    fireEvent.click(within(dialog).getByRole("button", { name: "Copy" }))
+    fireEvent.click(await within(dialog).findByLabelText("Replace the existing object"))
+    return dialog
+  }
+
+  it("asks again when the destination key changes after Replace was ticked", async () => {
+    const client = throwing("objects.copy", new ContractError("CONFLICT", "an object with this key already exists", { exists: true }), { "buckets.list": BUCKETS })
+    const dialog = await conflictThenTickReplace(client)
+    fireEvent.change(within(dialog).getByLabelText("Destination key"), { target: { value: "other.json" } })
+    expect(within(dialog).queryByLabelText("Replace the existing object")).toBeNull()
+    fireEvent.click(within(dialog).getByRole("button", { name: "Copy" }))
+    const sent = (client as unknown as { sent: { intent: string; payload: { overwrite: boolean; dstKey: string } }[] }).sent
+    await waitFor(() => expect(sent.map((s) => [s.payload.dstKey, s.payload.overwrite])).toEqual([["taken.json", false], ["other.json", false]]))
+    expect(within(dialog).queryByLabelText("Replace the existing object")).toBeNull()
+  })
+
+  it("asks again when the destination bucket changes after Replace was ticked", async () => {
+    const client = throwing("objects.copy", new ContractError("CONFLICT", "an object with this key already exists", { exists: true }), { "buckets.list": BUCKETS })
+    const dialog = await conflictThenTickReplace(client)
+    fireEvent.change(within(dialog).getByLabelText("Destination bucket"), { target: { value: "assets" } })
+    expect(within(dialog).queryByLabelText("Replace the existing object")).toBeNull()
+    fireEvent.click(within(dialog).getByRole("button", { name: "Copy" }))
+    const sent = (client as unknown as { sent: { intent: string; payload: { overwrite: boolean; dstBucket: string } }[] }).sent
+    await waitFor(() => expect(sent.map((s) => [s.payload.dstBucket, s.payload.overwrite])).toEqual([["reports", false], ["assets", false]]))
+    expect(within(dialog).queryByLabelText("Replace the existing object")).toBeNull()
+  })
+
   it("will not copy an object onto itself", async () => {
     const { client } = recordingCommandClient({ "buckets.list": BUCKETS })
     renderActions(client)

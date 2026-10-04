@@ -144,7 +144,22 @@ function CopyDialog({ store, bucket, objectKey, onClose }: { store: string; buck
     event.preventDefault()
     if (!canSubmit) return
     const result = await copy.execute(withStore(store, { srcBucket: bucket, srcKey: objectKey, dstBucket, dstKey, overwrite }))
-    if (result !== undefined) setDone({ bucket: dstBucket, key: dstKey })
+    if (result !== undefined) {
+      setDone({ bucket: dstBucket, key: dstKey })
+      return
+    }
+    // A failed attempt never leaves a Replace consent behind. If the key still
+    // exists, the CONFLICT shows the checkbox again and the operator re-ticks it.
+    setOverwrite(false)
+  }
+
+  // A new destination is a new question: the Replace consent was for the old
+  // one, and the CONFLICT that showed the checkbox described the old one too.
+  function pickDestination(change: () => void) {
+    change()
+    setOverwrite(false)
+    setDone(null)
+    copy.reset()
   }
 
   return (
@@ -158,7 +173,7 @@ function CopyDialog({ store, bucket, objectKey, onClose }: { store: string; buck
           {exists ? null : <CommandAlert error={copy.error} title="Could not copy the object" />}
           <div className="flex flex-col gap-1.5">
             <Label htmlFor="copy-bucket">Destination bucket</Label>
-            <NativeSelect id="copy-bucket" value={dstBucket} onChange={(e) => setDstBucket(e.target.value)}>
+            <NativeSelect id="copy-bucket" value={dstBucket} onChange={(e) => pickDestination(() => setDstBucket(e.target.value))}>
               {(buckets.data?.buckets ?? [{ name: bucket, createdAt: null }]).map((b) => (
                 <NativeSelectOption key={b.name} value={b.name}>
                   {b.name}
@@ -168,7 +183,7 @@ function CopyDialog({ store, bucket, objectKey, onClose }: { store: string; buck
           </div>
           <div className="flex flex-col gap-1.5">
             <Label htmlFor="copy-key">Destination key</Label>
-            <Input id="copy-key" className="font-mono text-xs" autoComplete="off" spellCheck={false} value={dstKey} onChange={(e) => setDstKey(e.target.value)} />
+            <Input id="copy-key" className="font-mono text-xs" autoComplete="off" spellCheck={false} value={dstKey} onChange={(e) => pickDestination(() => setDstKey(e.target.value))} />
           </div>
           {exists ? (
             <div className="flex items-center gap-2">
