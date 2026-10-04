@@ -1,10 +1,10 @@
 import { ConfirmDialog } from "@forge-go/dashboard-kit/components/confirm-dialog"
+import { CommandAlert } from "@forge-go/dashboard-kit/components/query-boundary"
 import { useCommand, useQuery } from "@forge-go/dashboard-plugin"
 import type { EnforceResponse, PolicyListResponse, PolicySummary, RetentionPreviewResponse } from "../types"
 import { LIMITS } from "../types"
 import { formatSeq } from "../format"
 import { categoryLabel, policyScopeLabel } from "../policy"
-import { DialogError } from "./dialog-error"
 
 const events = (n: number) => (n === 1 ? "event" : "events")
 
@@ -52,17 +52,20 @@ function EnforceForm({ onOpenChange }: { onOpenChange: (open: boolean) => void }
       confirmDisabled={!ready}
       onConfirm={() => void enforce.execute()}
       description={
-        <span className="flex flex-col gap-3">
-          {/* After a run the server invalidates the count, and a refreshed "eligible" figure beside the result would read as a contradiction. */}
-          {!done && preview.loading && <span role="status">Counting...</span>}
-          {!done && counted && <PreviewSummary preview={counted} policies={scopes} />}
-          {!done && <DialogError what="count the eligible events" error={preview.error} />}
-          {!done && !policies.loading && <DialogError what="read whose events each policy removes" error={policies.error} />}
-          {enforce.data && <RunOutcome r={enforce.data} />}
-          <DialogError what="run retention" error={enforce.error} />
-        </span>
+        // After a run the server invalidates the count, and a refreshed "eligible" figure beside the result would read as a contradiction.
+        done || (!preview.loading && !counted) ? undefined : (
+          <span className="flex flex-col gap-3">
+            {preview.loading && <span role="status">Counting...</span>}
+            {counted && <PreviewSummary preview={counted} policies={scopes} />}
+          </span>
+        )
       }
-    />
+    >
+      {!done && <CommandAlert title="Could not count the eligible events" error={preview.error} />}
+      {!done && !policies.loading && <CommandAlert title="Could not read whose events each policy removes" error={policies.error} />}
+      {enforce.data && <RunOutcome r={enforce.data} />}
+      <CommandAlert title="Could not run retention" error={enforce.error} />
+    </ConfirmDialog>
   )
 }
 

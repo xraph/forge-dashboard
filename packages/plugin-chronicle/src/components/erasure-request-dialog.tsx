@@ -2,12 +2,12 @@ import { useState } from "react"
 import { ConfirmDialog } from "@forge-go/dashboard-kit/components/confirm-dialog"
 import { Button } from "@forge-go/dashboard-kit/components/button"
 import { Input } from "@forge-go/dashboard-kit/components/input"
+import { CommandAlert } from "@forge-go/dashboard-kit/components/query-boundary"
 import { Textarea } from "@forge-go/dashboard-kit/components/textarea"
 import { useCommand, useQuery } from "@forge-go/dashboard-plugin"
 import type { ErasurePreviewResponse, ErasureResult } from "../types"
 import { LIMITS } from "../types"
 import { formatSeq } from "../format"
-import { DialogError } from "./dialog-error"
 
 /** The server's rules for a subject id, checked before sending so the operator sees them at once. */
 export function subjectProblem(s: string): string | null {
@@ -29,11 +29,9 @@ export function reasonProblem(r: string): string | null {
 const plural = (n: number) => (n === 1 ? "event" : "events")
 
 /**
- * The form sits inside the confirm dialog's description, which the kit renders
- * as a <p>. Only phrasing content is allowed there (span, label, input,
- * textarea, button), so every wrapper below is a span. The kit offers no other
- * slot, and its confirm button does not close the dialog, which is what lets
- * the result stay on screen after erasing.
+ * The form is the confirm dialog's children, so it stays inside the dialog
+ * that Base UI keeps interactive. The kit's confirm button does not close the
+ * dialog, which is what lets the result stay on screen after erasing.
  */
 export function ErasureRequestDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (open: boolean) => void }) {
   // Mounted only while open, so every opening starts from an empty form, no
@@ -73,42 +71,39 @@ function ErasureRequestForm({ onOpenChange }: { onOpenChange: (open: boolean) =>
       // execute(), so each confirm is a new request rather than a replay of one
       // that may already have destroyed a key.
       onConfirm={() => void request.execute({ subjectId: subject, reason })}
-      description={
-        <span className="flex flex-col gap-3">
-          <span>
-            Erasure destroys this subject's encryption key in your scope. Their sealed fields become unreadable and cannot be recovered. The events stay in the chain, so verification is unchanged.
-          </span>
-          <label className="flex flex-col gap-1">
-            <span>Subject ID</span>
-            <Input aria-label="Subject ID" className="font-mono text-xs" value={subject} onChange={(e) => setSubject(e.target.value)} />
-          </label>
-          {sProblem && <span className="text-destructive">{sProblem}</span>}
-          <label className="flex flex-col gap-1">
-            <span>Reason</span>
-            <Textarea aria-label="Reason" value={reason} onChange={(e) => setReason(e.target.value)} />
-          </label>
-          {rProblem && <span className="text-destructive">{rProblem}</span>}
-          <Button
-            type="button"
-            variant="outline"
-            disabled={subject === "" || sProblem !== null || done || (current && preview.loading)}
-            // Counting the subject already counted asks again: the number is
-            // what the operator is about to act on, so it should be current.
-            onClick={() => (current ? preview.refetch() : setCounted(subject))}
-          >
-            Count affected events
-          </Button>
-          {current && preview.loading && <span role="status">Counting...</span>}
-          {/* After the request the server invalidates this count, and a refreshed "0 events will be erased" beside the result would read as a contradiction. */}
-          {current && !done && preview.data && (
-            <span>{`${formatSeq(preview.data.eventsAffected)} ${plural(preview.data.eventsAffected)} in your scope will have their sealed fields erased.`}</span>
-          )}
-          {current && !done && <DialogError what="count the events" error={preview.error} />}
-          {request.data && <ErasureOutcome r={request.data} />}
-          <DialogError what="request the erasure" error={request.error} />
-        </span>
-      }
-    />
+      description="Erasure destroys this subject's encryption key in your scope. Their sealed fields become unreadable and cannot be recovered. The events stay in the chain, so verification is unchanged."
+    >
+      <div className="flex flex-col gap-3">
+        <label className="flex flex-col gap-1">
+          <span>Subject ID</span>
+          <Input aria-label="Subject ID" className="font-mono text-xs" value={subject} onChange={(e) => setSubject(e.target.value)} />
+        </label>
+        {sProblem && <span className="text-destructive">{sProblem}</span>}
+        <label className="flex flex-col gap-1">
+          <span>Reason</span>
+          <Textarea aria-label="Reason" value={reason} onChange={(e) => setReason(e.target.value)} />
+        </label>
+        {rProblem && <span className="text-destructive">{rProblem}</span>}
+        <Button
+          type="button"
+          variant="outline"
+          disabled={subject === "" || sProblem !== null || done || (current && preview.loading)}
+          // Counting the subject already counted asks again: the number is
+          // what the operator is about to act on, so it should be current.
+          onClick={() => (current ? preview.refetch() : setCounted(subject))}
+        >
+          Count affected events
+        </Button>
+        {current && preview.loading && <span role="status">Counting...</span>}
+        {/* After the request the server invalidates this count, and a refreshed "0 events will be erased" beside the result would read as a contradiction. */}
+        {current && !done && preview.data && (
+          <span>{`${formatSeq(preview.data.eventsAffected)} ${plural(preview.data.eventsAffected)} in your scope will have their sealed fields erased.`}</span>
+        )}
+        {current && !done && <CommandAlert title="Could not count the events" error={preview.error} />}
+        {request.data && <ErasureOutcome r={request.data} />}
+        <CommandAlert title="Could not request the erasure" error={request.error} />
+      </div>
+    </ConfirmDialog>
   )
 }
 

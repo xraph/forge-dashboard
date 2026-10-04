@@ -1,7 +1,7 @@
 import { useState, type ComponentType } from "react"
 import { Button } from "@forge-go/dashboard-kit/components/button"
 import { PageHeader } from "@forge-go/dashboard-kit/components/page-header"
-import { QueryBoundary } from "@forge-go/dashboard-kit/components/query-boundary"
+import { CommandAlert, QueryBoundary } from "@forge-go/dashboard-kit/components/query-boundary"
 import { ResourceTable, type Column } from "@forge-go/dashboard-kit/components/resource-table"
 import { Timestamp } from "@forge-go/dashboard-kit/components/timestamp"
 import { PluginLink, useCommand, useQuery } from "@forge-go/dashboard-plugin"
@@ -10,7 +10,6 @@ import type { CheckpointListResponse, CheckpointSummary, MineResponse, StreamLis
 import { LIMITS } from "../types"
 import { countOf, formatSeq } from "../format"
 import { ChainPicker, listTruncated } from "../components/chain-picker"
-import { DialogError } from "../components/dialog-error"
 
 const PAGE = 50
 
@@ -130,7 +129,7 @@ function CheckpointsView({ streamId }: { streamId?: string }) {
           Nothing new since the last checkpoint: the chain is already checkpointed to its head.
         </p>
       )}
-      <DialogError what="take a checkpoint" error={take.error} />
+      <CommandAlert title="Could not take a checkpoint" error={take.error} />
       {streamId === undefined ? (
         <QueryBoundary title="chain" query={mine} skeletonRows={3}>
           {(m) => (m.stream ? listing : <NoOwnChain list={list} />)}

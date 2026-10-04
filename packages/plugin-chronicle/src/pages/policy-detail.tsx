@@ -11,7 +11,6 @@ import { Timestamp } from "@forge-go/dashboard-kit/components/timestamp"
 import { PluginLink, useCommand, useNavigateTo, useQuery } from "@forge-go/dashboard-plugin"
 import type { PluginPageProps } from "@forge-go/dashboard-plugin"
 import type { PolicySummary } from "../types"
-import { DialogError } from "../components/dialog-error"
 import { DurationField } from "../components/duration-field"
 import { durationLabel } from "../format"
 import { categoryLabel, durationProblem, goDuration, policyScopeLabel, splitDuration } from "../policy"
@@ -175,15 +174,10 @@ function DeleteAction({ policy, onDeleted }: { policy: PolicySummary; onDeleted:
             navigateTo("/retention")
           })
         }}
-        description={
-          <span className="flex flex-col gap-2">
-            <span>
-              {`Events in ${categoryLabel(policy.category)} stop being removed by this policy. Events already removed by it stay removed.`}
-            </span>
-            <DialogError what="delete the policy" error={del.error} />
-          </span>
-        }
-      />
+        description={`Events in ${categoryLabel(policy.category)} stop being removed by this policy. Events already removed by it stay removed.`}
+      >
+        <CommandAlert title="Could not delete the policy" error={del.error} />
+      </ConfirmDialog>
     </div>
   )
 }
