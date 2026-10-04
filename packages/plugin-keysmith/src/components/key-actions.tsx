@@ -112,8 +112,10 @@ export interface KeyStateDialogProps {
 }
 
 /**
- * The confirmation for keys.revoke. It asks why, because the server keeps the
- * reason with the key and refuses a revoke without one.
+ * The confirmation for keys.revoke. It asks why, because the server refuses a
+ * revoke without a reason. The reason goes to the audit trail (the engine
+ * hands it to its revoke hooks); the engine does not store it on the key, so
+ * the key's page never shows it.
  */
 export function RevokeKeyDialog({ open, onOpenChange, keyId, masked }: KeyStateDialogProps) {
   const revoke = useCommand<KeyOnly>("keys.revoke")

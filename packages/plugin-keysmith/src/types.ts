@@ -46,6 +46,10 @@ export interface PolicyRef {
 
 /** An open rotation window: the old key still validates until `graceEnds`. */
 export interface PreviousKey {
+  /**
+   * Can be "": when keys.rotate cannot read the windows back after rotating,
+   * it answers the new window as it computed it, with no rotation ID.
+   */
   rotationId: string
   hint: string
   reason: string
@@ -115,7 +119,10 @@ export interface KeyGraceClosed {
   closed: number
 }
 
-/** keys.suspend, keys.reinstate and keys.revoke answer with just the key. */
+/**
+ * keys.suspend, keys.reactivate, keys.revoke, keys.scopes.assign and
+ * keys.scopes.remove answer with just the key.
+ */
 export interface KeyOnly {
   key: KeySummary
 }
