@@ -3,7 +3,16 @@ import { fireEvent, screen, waitFor, within } from "@testing-library/react"
 import { ContractError } from "@forge-go/dashboard-plugin"
 import type { ScopedClient } from "@forge-go/dashboard-plugin"
 import { WardenRoleDetailPage } from "../src/pages/role-detail"
-import { failingClient, recordingCommandClient, renderPage, stubClient } from "./harness"
+import { formatTimestamp } from "@forge-go/dashboard-kit/lib/format"
+import {
+  EMPTY_MARK,
+  cellUnder,
+  describedAs,
+  failingClient,
+  recordingCommandClient,
+  renderPage,
+  stubClient,
+} from "./harness"
 
 const DETAIL = {
   id: "role_01hq",
@@ -77,6 +86,47 @@ describe("WardenRoleDetailPage", () => {
     renderPage(WardenRoleDetailPage, client(), { id: "role_01hq" })
     expect(await screen.findByText("Reader")).toBeTruthy()
     expect(await screen.findByText("reader")).toBeTruthy()
+  })
+
+  it("shows when the role was created, apart from when it was updated", async () => {
+    renderPage(
+      WardenRoleDetailPage,
+      client({ ...DETAIL, createdAt: "2025-01-02T03:04:05Z" }),
+      { id: "role_01hq" }
+    )
+    await screen.findByText("Reader")
+    expect(describedAs("Created").textContent).toBe(formatTimestamp("2025-01-02T03:04:05Z"))
+    expect(describedAs("Updated").textContent).toBe(formatTimestamp("2026-09-23T10:00:00Z"))
+  })
+
+  it("marks a missing created time with the empty mark, never undefined", async () => {
+    renderPage(
+      WardenRoleDetailPage,
+      client({ ...DETAIL, createdAt: undefined } as unknown as typeof DETAIL),
+      { id: "role_01hq" }
+    )
+    await screen.findByText("Reader")
+    expect(describedAs("Created").textContent).toBe(EMPTY_MARK)
+  })
+
+  it("shows when each child role was created", async () => {
+    const child = { ...DETAIL.children[0], createdAt: "2025-03-04T05:06:07Z" }
+    renderPage(WardenRoleDetailPage, client({ ...DETAIL, children: [child] }), {
+      id: "role_01hq",
+    })
+    const row = (await screen.findByText("Editor")).closest("tr") as HTMLElement
+    expect(cellUnder(row, "Created").textContent).toBe(formatTimestamp("2025-03-04T05:06:07Z"))
+  })
+
+  it("marks a child with no created time with the empty mark", async () => {
+    const child = { ...DETAIL.children[0], createdAt: undefined }
+    renderPage(
+      WardenRoleDetailPage,
+      client({ ...DETAIL, children: [child] } as unknown as typeof DETAIL),
+      { id: "role_01hq" }
+    )
+    const row = (await screen.findByText("Editor")).closest("tr") as HTMLElement
+    expect(cellUnder(row, "Created").textContent).toBe(EMPTY_MARK)
   })
 
   it("lists the role's grants with a live count", async () => {

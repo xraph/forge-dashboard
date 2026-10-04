@@ -1,4 +1,4 @@
-import { useState } from "react"
+import { useState, type FormEvent } from "react"
 import { PluginLink, useCommand, useQuery } from "@forge-go/dashboard-plugin"
 import { Badge } from "@forge-go/dashboard-kit/components/badge"
 import { Button } from "@forge-go/dashboard-kit/components/button"
@@ -30,6 +30,24 @@ import type { PermissionSummary, PermissionsList } from "./role-detail"
 export type { PermissionSummary, PermissionsList }
 
 const PAGE_SIZE = 25
+
+/** The two fields the store matches exactly, held as typed text. */
+interface ExactFields {
+  resource: string
+  action: string
+}
+
+const NO_EXACT: ExactFields = { resource: "", action: "" }
+
+/** Only the fields somebody filled in, trimmed. Blank ones are absent. */
+function exactParams(fields: ExactFields): Partial<ExactFields> {
+  const out: Partial<ExactFields> = {}
+  const resource = fields.resource.trim()
+  const action = fields.action.trim()
+  if (resource !== "") out.resource = resource
+  if (action !== "") out.action = action
+  return out
+}
 
 function CreatePermissionForm({
   namespacePath,
@@ -125,13 +143,42 @@ export function WardenPermissionsPage() {
   const [search, setSearch] = useState("")
   const [creating, setCreating] = useState(false)
   const [deleting, setDeleting] = useState<PermissionSummary | null>(null)
+  // Typed and applied are kept apart: the store matches resource and action
+  // exactly, so a query per keystroke would show an empty table for every
+  // prefix on the way to the whole word.
+  const [draft, setDraft] = useState<ExactFields>(NO_EXACT)
+  const [applied, setApplied] = useState<ExactFields>(NO_EXACT)
+  const appliedParams = exactParams(applied)
 
   const list = useQuery<PermissionsList>("permissions.list", {
     ...namespace.param,
     search: search || undefined,
+    ...appliedParams,
     limit: PAGE_SIZE,
     offset: (page - 1) * PAGE_SIZE,
   })
+
+  // Each one changes the result set, so each one goes back to page one, the
+  // way the namespace filter and the search do.
+  function apply(event: FormEvent) {
+    event.preventDefault()
+    setApplied(draft)
+    setPage(1)
+  }
+
+  function clear() {
+    setDraft(NO_EXACT)
+    setApplied(NO_EXACT)
+    setPage(1)
+  }
+
+  function emptyMessage(): string {
+    // The shared message knows only search and namespace. With an exact
+    // filter on, "No permissions yet" would say nothing exists when the
+    // filter is what hid it.
+    if (Object.keys(appliedParams).length > 0) return "No permissions match these filters."
+    return emptyListMessage("permissions", search, namespace.value)
+  }
   const remove = useCommand<AckResponse>("permissions.delete")
 
   async function confirmDelete() {
@@ -196,6 +243,33 @@ export function WardenPermissionsPage() {
         filters={[namespace.filterConfig]}
       />
 
+      <form className="flex flex-wrap items-end gap-3" onSubmit={apply}>
+        <span className="flex flex-col gap-1.5">
+          <Label htmlFor="permissions-filter-resource">Filter by resource</Label>
+          <Input
+            id="permissions-filter-resource"
+            className="font-mono text-xs"
+            placeholder="exact match"
+            value={draft.resource}
+            onChange={(e) => setDraft((d) => ({ ...d, resource: e.target.value }))}
+          />
+        </span>
+        <span className="flex flex-col gap-1.5">
+          <Label htmlFor="permissions-filter-action">Filter by action</Label>
+          <Input
+            id="permissions-filter-action"
+            className="font-mono text-xs"
+            placeholder="exact match"
+            value={draft.action}
+            onChange={(e) => setDraft((d) => ({ ...d, action: e.target.value }))}
+          />
+        </span>
+        <Button type="submit">Apply</Button>
+        <Button type="button" variant="outline" onClick={clear}>
+          Clear
+        </Button>
+      </form>
+
       {creating && (
         <CreatePermissionForm
           namespacePath={namespace.value === "all" ? "" : namespace.value}
@@ -215,7 +289,7 @@ export function WardenPermissionsPage() {
               rows={rows}
               rowKey={(p) => p.id}
               caption={caption}
-              emptyMessage={emptyListMessage("permissions", search, namespace.value)}
+              emptyMessage={emptyMessage()}
               pagination={{ page, pageSize: data.limit, total: data.total }}
               onPageChange={setPage}
               rowActions={(p) => (

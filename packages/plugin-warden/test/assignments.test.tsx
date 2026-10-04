@@ -2,8 +2,11 @@ import { describe, expect, it } from "vitest"
 import { fireEvent, screen, waitFor, within } from "@testing-library/react"
 import { ContractError } from "@forge-go/dashboard-plugin"
 import type { ScopedClient } from "@forge-go/dashboard-plugin"
+import { formatTimestamp } from "@forge-go/dashboard-kit/lib/format"
 import { WardenAssignmentsPage } from "../src/pages/assignments"
 import {
+  EMPTY_MARK,
+  cellUnder,
   failingClient,
   recordingCommandClient,
   recordingQueryClient,
@@ -358,15 +361,168 @@ describe("WardenAssignmentsPage", () => {
     })
   })
 
-  describe("creating", () => {
-    it("does not fetch the role list until the dialog opens", async () => {
+  it("shows who granted each assignment, and the empty mark when nobody is recorded", async () => {
+    renderPage(WardenAssignmentsPage, client())
+    expect(cellUnder(await rowOf("user:gone"), "Granted by").textContent).toBe("admin")
+    const none = cellUnder(await rowOf("api_key:soon"), "Granted by")
+    expect(none.textContent).toBe(EMPTY_MARK)
+    expect(within(none).getByLabelText("no granter")).toBeTruthy()
+    expect(screen.queryByText("undefined")).toBeNull()
+  })
+
+  it("shows when each assignment was created", async () => {
+    renderPage(WardenAssignmentsPage, client())
+    expect(cellUnder(await rowOf("user:gone"), "Created").textContent).toBe(
+      formatTimestamp("2019-12-01T00:00:00Z")
+    )
+  })
+
+  it("marks a missing created time with the empty mark, never undefined", async () => {
+    renderPage(
+      WardenAssignmentsPage,
+      client({
+        "assignments.list": {
+          ...ASSIGNMENTS,
+          items: [{ ...ASSIGNMENTS.items[2], createdAt: undefined }],
+          total: 1,
+        },
+      })
+    )
+    expect(cellUnder(await rowOf("service:forever"), "Created").textContent).toBe(EMPTY_MARK)
+  })
+
+  describe("filtering", () => {
+    function lastList(sent: { intent: string; params?: unknown }[]) {
+      return sent.filter((q) => q.intent === "assignments.list").at(-1)?.params
+    }
+
+    /** Moves to page two and waits until the page-two read went out. */
+    async function toPageTwo(sent: { intent: string; params?: unknown }[]) {
+      await screen.findByText("user:gone")
+      fireEvent.click(screen.getByRole("button", { name: /next page/i }))
+      await waitFor(() => expect(lastList(sent)).toMatchObject({ offset: 25 }))
+    }
+
+    function paged() {
+      return recordingQueryClient(answers({ "assignments.list": { ...ASSIGNMENTS, total: 60 } }))
+    }
+
+    it("offers subject kind over the closed set, with no filter by default", async () => {
+      renderPage(WardenAssignmentsPage, client())
+      await screen.findByText("user:gone")
+      const kind = screen.getByLabelText("Subject kind") as HTMLSelectElement
+      expect(kind.value).toBe("")
+      expect(Array.from(kind.options).map((o) => o.value)).toEqual([
+        "",
+        "user",
+        "api_key",
+        "service",
+        "service_acct",
+      ])
+    })
+
+    it("sends the subject kind and goes back to page one", async () => {
+      const { client: c, sent } = paged()
+      renderPage(WardenAssignmentsPage, c)
+      await toPageTwo(sent)
+      fireEvent.change(screen.getByLabelText("Subject kind"), { target: { value: "api_key" } })
+      await waitFor(() =>
+        expect(lastList(sent)).toEqual({ subjectKind: "api_key", limit: 25, offset: 0 })
+      )
+    })
+
+    it("offers every role by slug and namespace, and sends the role id from page one", async () => {
+      const { client: c, sent } = paged()
+      renderPage(WardenAssignmentsPage, c)
+      const select = (await screen.findByLabelText("Role")) as HTMLSelectElement
+      await waitFor(() => expect(within(select).getByText("reader (eng/platform)")).toBeTruthy())
+      const options = Array.from(select.options).map((o) => [o.value, o.textContent])
+      expect(options[0]).toEqual(["", "Any role"])
+      expect(options).toContainEqual(["role_reader", "reader (/)"])
+      expect(options).toContainEqual(["role_reader_eng", "reader (eng/platform)"])
+      await toPageTwo(sent)
+      fireEvent.change(select, { target: { value: "role_reader_eng" } })
+      await waitFor(() =>
+        expect(lastList(sent)).toEqual({ roleId: "role_reader_eng", limit: 25, offset: 0 })
+      )
+    })
+
+    it("says the role filter is short when there are more roles than it could read", async () => {
+      renderPage(
+        WardenAssignmentsPage,
+        client({ "roles.list": { ...ROLES, total: 450 } })
+      )
+      expect(
+        await screen.findByText(
+          "The role filter offers 4 of the 450 roles."
+        )
+      ).toBeTruthy()
+    })
+
+    it("still lists assignments when the role filter cannot load roles", async () => {
+      const c = {
+        ...client(),
+        query: async (intent: string) => {
+          if (intent === "roles.list") throw new ContractError("PERMISSION_DENIED", "cannot list roles")
+          return answers()[intent as keyof ReturnType<typeof answers>]
+        },
+      } as ScopedClient
+      renderPage(WardenAssignmentsPage, c)
+      expect(await screen.findByText("user:gone")).toBeTruthy()
+      expect(
+        await screen.findByText("The role filter could not load roles: cannot list roles")
+      ).toBeTruthy()
+    })
+
+    it("sends the subject id, trimmed, once applied, from page one", async () => {
+      const { client: c, sent } = paged()
+      renderPage(WardenAssignmentsPage, c)
+      await toPageTwo(sent)
+      fireEvent.change(screen.getByLabelText("Filter by subject id"), {
+        target: { value: " ada " },
+      })
+      // Typing alone sends nothing: the store matches the id exactly, so
+      // every keystroke short of the whole id is an empty page.
+      expect(lastList(sent)).toMatchObject({ offset: 25 })
+      expect(lastList(sent)).not.toHaveProperty("subjectId")
+      fireEvent.click(screen.getByRole("button", { name: /^apply$/i }))
+      await waitFor(() =>
+        expect(lastList(sent)).toEqual({ subjectId: "ada", limit: 25, offset: 0 })
+      )
+      fireEvent.click(screen.getByRole("button", { name: /^clear$/i }))
+      await waitFor(() => expect(lastList(sent)).toEqual({ limit: 25, offset: 0 }))
+      expect((screen.getByLabelText("Filter by subject id") as HTMLInputElement).value).toBe("")
+    })
+
+    it("combines the filters with the namespace", async () => {
       const { client: c, sent } = recordingQueryClient(answers())
       renderPage(WardenAssignmentsPage, c)
       await screen.findByText("user:gone")
-      expect(sent.some((q) => q.intent === "roles.list")).toBe(false)
-      fireEvent.click(screen.getByRole("button", { name: /new assignment/i }))
-      await waitFor(() => expect(sent.some((q) => q.intent === "roles.list")).toBe(true))
+      fireEvent.change(screen.getByLabelText("Namespace"), { target: { value: "eng/platform" } })
+      fireEvent.change(screen.getByLabelText("Subject kind"), { target: { value: "user" } })
+      fireEvent.change(screen.getByLabelText("Filter by subject id"), { target: { value: "ada" } })
+      fireEvent.click(screen.getByRole("button", { name: /^apply$/i }))
+      await waitFor(() =>
+        expect(lastList(sent)).toEqual({
+          namespacePath: "eng/platform",
+          subjectKind: "user",
+          subjectId: "ada",
+          limit: 25,
+          offset: 0,
+        })
+      )
     })
+
+    it("says the filters emptied the list rather than that none exist", async () => {
+      renderPage(WardenAssignmentsPage, client({ "assignments.list": EMPTY }))
+      await screen.findByText("No assignments yet.")
+      fireEvent.change(screen.getByLabelText("Subject kind"), { target: { value: "service" } })
+      expect(await screen.findByText("No assignments match these filters.")).toBeTruthy()
+      expect(screen.queryByText("No assignments yet.")).toBeNull()
+    })
+  })
+
+  describe("creating", () => {
 
     it("offers each role by slug and namespace, the root as /, and sends the id", async () => {
       // Slugs are unique only within a namespace. Labelled by slug alone, the

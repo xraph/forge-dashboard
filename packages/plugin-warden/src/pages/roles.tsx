@@ -180,6 +180,11 @@ export function WardenRolesPage() {
       ),
     },
     {
+      id: "createdAt",
+      header: "Created",
+      cell: (r) => <Timestamp value={r.createdAt} label="created at" />,
+    },
+    {
       id: "updatedAt",
       header: "Updated",
       cell: (r) => <Timestamp value={r.updatedAt} label="updated at" />,

@@ -27,6 +27,14 @@ export interface ConfigDetail {
   checkLogQueueSize: number
   checkLogRetentionHours: number
   maintenanceIntervalMinutes: number
+  /**
+   * The name of every plugin in the engine's registry, sorted. It can
+   * include plugins warden registers on its own, such as its cache
+   * invalidators and the audit log sink. Absent from a server older than
+   * this field, and then the page says nothing about plugins rather than
+   * claiming there are none.
+   */
+  plugins?: string[]
 }
 
 interface MaintenanceResult {
@@ -65,6 +73,40 @@ function clearSummary(r: { scope: string }): string {
     return "Cleared the decision cache for one subject."
   }
   return "Cleared the decision cache for this tenant."
+}
+
+/**
+ * The plugins section. Templ hid its card when the list was empty; here an
+ * empty list says so, because a missing section reads the same as one that
+ * failed to load. Names are not guaranteed unique (the registry does not
+ * check), so the key carries the position.
+ */
+function PluginList({ names }: { names: string[] }) {
+  return (
+    <section aria-labelledby="warden-config-plugins" className="flex flex-col gap-2">
+      <h2 id="warden-config-plugins" className="text-sm font-medium">
+        Plugins
+      </h2>
+      {names.length === 0 ? (
+        <p className="text-sm text-muted-foreground">No authorization plugins are registered.</p>
+      ) : (
+        <>
+          <p className="text-sm text-muted-foreground">
+            The plugins in the engine's registry, including any warden registers on its own.
+          </p>
+          <ul className="flex flex-wrap gap-2">
+            {names.map((name, i) => (
+              <li key={`${i}:${name}`}>
+                <Badge variant="outline" className="font-mono">
+                  {name}
+                </Badge>
+              </li>
+            ))}
+          </ul>
+        </>
+      )}
+    </section>
+  )
 }
 
 function ModelBadge({ label, on }: { label: string; on: boolean }) {
@@ -207,6 +249,8 @@ export function WardenConfigPage() {
                 },
               ]}
             />
+
+            {c.plugins && <PluginList names={c.plugins} />}
           </div>
         )}
       </QueryBoundary>

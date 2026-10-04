@@ -261,6 +261,12 @@ function seedWardenState() {
       checkLogQueueSize: 4096,
       checkLogRetentionHours: 2160,
       maintenanceIntervalMinutes: 60,
+      // What a real engine with these settings and the extension's defaults
+      // holds: the audit log sink (auth.audit_log is on by default), the
+      // expression-cache invalidator the extension adds, and the decision
+      // cache invalidator NewEngine adds because cacheTtlSeconds is above 0.
+      // Sorted, as config.detail sends them.
+      plugins: ["auditlog", "dsl-expression-cache-invalidator", "warden-cache-invalidator"],
     },
   }
 }

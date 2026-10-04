@@ -97,8 +97,8 @@ describe("WardenPermissionsPage", () => {
     renderPage(WardenPermissionsPage, client())
     await screen.findByText("document:read")
     fireEvent.click(screen.getByRole("button", { name: /New permission/i }))
-    const resource = await screen.findByLabelText(/Resource/i)
-    const action = await screen.findByLabelText(/Action/i)
+    const resource = await screen.findByLabelText("Resource")
+    const action = await screen.findByLabelText("Action")
     fireEvent.change(resource, { target: { value: "folder" } })
     fireEvent.change(action, { target: { value: "write" } })
     expect(await screen.findByText(/folder:write/)).toBeTruthy()
@@ -179,6 +179,97 @@ describe("WardenPermissionsPage", () => {
     })
   })
 
+  it("sends no resource or action filter until one is applied", async () => {
+    const { client: c, sent } = recordingQueryClient({
+      "permissions.list": PERMS,
+      "namespaces.list": NAMESPACES,
+    })
+    renderPage(WardenPermissionsPage, c)
+    await screen.findByText("document:read")
+    const first = sent.find((q) => q.intent === "permissions.list")
+    expect(first?.params).toEqual({ limit: 25, offset: 0 })
+  })
+
+  it("filters by exact resource and action, trimmed, from page one", async () => {
+    // The store matches both exactly, so " document" would match nothing.
+    // A filter that changes the set sends the operator back to the start,
+    // the way the namespace filter does.
+    const { client: c, sent } = recordingQueryClient({
+      "permissions.list": { ...PERMS, total: 60, limit: 25, offset: 0 },
+      "namespaces.list": NAMESPACES,
+    })
+    renderPage(WardenPermissionsPage, c)
+    await screen.findByText("document:read")
+    fireEvent.click(screen.getByRole("button", { name: /next page/i }))
+    await waitFor(() =>
+      expect(
+        sent.some(
+          (q) => q.intent === "permissions.list" && (q.params as { offset?: number }).offset === 25
+        )
+      ).toBe(true)
+    )
+    fireEvent.change(screen.getByLabelText("Filter by resource"), {
+      target: { value: " document " },
+    })
+    fireEvent.change(screen.getByLabelText("Filter by action"), { target: { value: "read " } })
+    fireEvent.click(screen.getByRole("button", { name: /^apply$/i }))
+    await waitFor(() => {
+      const last = sent.filter((q) => q.intent === "permissions.list").at(-1)
+      expect(last?.params).toEqual({ resource: "document", action: "read", limit: 25, offset: 0 })
+    })
+  })
+
+  it("sends only the filter that was filled in", async () => {
+    const { client: c, sent } = recordingQueryClient({
+      "permissions.list": PERMS,
+      "namespaces.list": NAMESPACES,
+    })
+    renderPage(WardenPermissionsPage, c)
+    await screen.findByText("document:read")
+    fireEvent.change(screen.getByLabelText("Filter by action"), { target: { value: "admin" } })
+    fireEvent.click(screen.getByRole("button", { name: /^apply$/i }))
+    await waitFor(() => {
+      const last = sent.filter((q) => q.intent === "permissions.list").at(-1)
+      expect(last?.params).toEqual({ action: "admin", limit: 25, offset: 0 })
+    })
+  })
+
+  it("drops the resource and action filters on Clear", async () => {
+    const { client: c, sent } = recordingQueryClient({
+      "permissions.list": PERMS,
+      "namespaces.list": NAMESPACES,
+    })
+    renderPage(WardenPermissionsPage, c)
+    await screen.findByText("document:read")
+    fireEvent.change(screen.getByLabelText("Filter by resource"), { target: { value: "document" } })
+    fireEvent.click(screen.getByRole("button", { name: /^apply$/i }))
+    await waitFor(() =>
+      expect(sent.filter((q) => q.intent === "permissions.list").at(-1)?.params).toMatchObject({
+        resource: "document",
+      })
+    )
+    fireEvent.click(screen.getByRole("button", { name: /^clear$/i }))
+    await waitFor(() =>
+      expect(sent.filter((q) => q.intent === "permissions.list").at(-1)?.params).toEqual({
+        limit: 25,
+        offset: 0,
+      })
+    )
+    expect((screen.getByLabelText("Filter by resource") as HTMLInputElement).value).toBe("")
+  })
+
+  it("says the filters emptied the list rather than that none exist", async () => {
+    renderPage(
+      WardenPermissionsPage,
+      client({ "permissions.list": { items: [], total: 0, limit: 25, offset: 0 } })
+    )
+    await screen.findByText(/No permissions yet/i)
+    fireEvent.change(screen.getByLabelText("Filter by resource"), { target: { value: "folder" } })
+    fireEvent.click(screen.getByRole("button", { name: /^apply$/i }))
+    expect(await screen.findByText("No permissions match these filters.")).toBeTruthy()
+    expect(screen.queryByText(/No permissions yet/i)).toBeNull()
+  })
+
   it("sends resource and action and no name when creating a permission", async () => {
     // The contract derives the name and refuses one that disagrees with
     // resource:action, so a name on the wire is a second source of truth.
@@ -191,8 +282,8 @@ describe("WardenPermissionsPage", () => {
     renderPage(WardenPermissionsPage, c)
     await screen.findByText("document:read")
     fireEvent.click(screen.getByRole("button", { name: /New permission/i }))
-    fireEvent.change(await screen.findByLabelText(/Resource/i), { target: { value: " folder " } })
-    fireEvent.change(await screen.findByLabelText(/Action/i), { target: { value: " write" } })
+    fireEvent.change(await screen.findByLabelText("Resource"), { target: { value: " folder " } })
+    fireEvent.change(await screen.findByLabelText("Action"), { target: { value: " write" } })
     fireEvent.click(screen.getByRole("button", { name: /^create permission$/i }))
     await waitFor(() => expect(sent).toHaveLength(1))
     expect(sent[0]?.intent).toBe("permissions.create")

@@ -1,8 +1,11 @@
 import { describe, expect, it } from "vitest"
 import { fireEvent, screen, waitFor, within } from "@testing-library/react"
 import { ContractError } from "@forge-go/dashboard-plugin"
+import { formatTimestamp } from "@forge-go/dashboard-kit/lib/format"
 import { WardenRolesPage } from "../src/pages/roles"
 import {
+  EMPTY_MARK,
+  cellUnder,
   failingClient,
   recordingCommandClient,
   recordingQueryClient,
@@ -78,6 +81,36 @@ describe("WardenRolesPage", () => {
     )
     expect(await screen.findByText(/0 roles/)).toBeTruthy()
     expect(await screen.findByText(/No roles yet/i)).toBeTruthy()
+  })
+
+  it("shows when each role was created, apart from when it was updated", async () => {
+    const created = "2025-01-02T03:04:05Z"
+    renderPage(
+      WardenRolesPage,
+      client({
+        "roles.list": {
+          ...ROLES,
+          items: [{ ...ROLES.items[0], createdAt: created, updatedAt: "2026-09-23T10:00:00Z" }],
+          total: 1,
+        },
+      })
+    )
+    const row = (await screen.findByText("Reader")).closest("tr") as HTMLElement
+    expect(cellUnder(row, "Created").textContent).toBe(formatTimestamp(created))
+    expect(cellUnder(row, "Updated").textContent).toBe(formatTimestamp("2026-09-23T10:00:00Z"))
+  })
+
+  it("marks a missing created time with the empty mark, never undefined", async () => {
+    renderPage(
+      WardenRolesPage,
+      client({
+        "roles.list": { ...ROLES, items: [{ ...ROLES.items[0], createdAt: undefined }], total: 1 },
+      })
+    )
+    const row = (await screen.findByText("Reader")).closest("tr") as HTMLElement
+    const cell = cellUnder(row, "Created")
+    expect(cell.textContent).toBe(EMPTY_MARK)
+    expect(within(cell).getByLabelText("no created at")).toBeTruthy()
   })
 
   it("marks a system role so an operator can see why it cannot be edited", async () => {

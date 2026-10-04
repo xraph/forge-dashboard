@@ -155,3 +155,33 @@ export function renderPage(
     </PluginProvider>
   )
 }
+
+/**
+ * The cell of `row` under the column headed `header`.
+ *
+ * ResourceTable renders one header cell per column, then Actions, and the
+ * same count of cells per row, so the header's index is the cell's index.
+ * Matching by header rather than by text is what lets a test tell the
+ * Created column from the Updated one when both hold a date.
+ */
+export function cellUnder(row: HTMLElement, header: string): HTMLElement {
+  const table = row.closest("table")
+  if (!table) throw new Error("row is not inside a table")
+  const headers = Array.from(table.querySelectorAll("thead th")).map((th) => th.textContent)
+  const index = headers.indexOf(header)
+  if (index < 0) throw new Error(`no column headed "${header}", only ${headers.join(", ")}`)
+  return row.querySelectorAll("td")[index] as HTMLElement
+}
+
+/** The value beside the term `term` in a DescriptionList. */
+export function describedAs(term: string): HTMLElement {
+  const dt = Array.from(document.querySelectorAll("dt")).find((el) => el.textContent === term)
+  if (!dt) throw new Error(`no term "${term}"`)
+  return dt.nextElementSibling as HTMLElement
+}
+
+/**
+ * What NoneCell draws for "none". Written as an escape so this source holds
+ * no dash character, only the code point the kit renders.
+ */
+export const EMPTY_MARK = "–"

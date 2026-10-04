@@ -1,5 +1,5 @@
-import { useState } from "react"
-import { PluginLink, useCommand, useQuery } from "@forge-go/dashboard-plugin"
+import { useState, type FormEvent } from "react"
+import { PluginLink, useCommand, useQuery, type QueryState } from "@forge-go/dashboard-plugin"
 import { Badge } from "@forge-go/dashboard-kit/components/badge"
 import { Button } from "@forge-go/dashboard-kit/components/button"
 import { ConfirmDialog } from "@forge-go/dashboard-kit/components/confirm-dialog"
@@ -166,8 +166,8 @@ function RoleSelect({
   value: string
   onChange: (id: string) => void
 }) {
-  // Mounted only while the dialog is open, so the list is fetched when an
-  // operator asks to create, not on every visit to the page.
+  // The same read as the page's role filter, so the two share one cache
+  // entry. The page reads it on every visit for that filter.
   const roles = useQuery<RolesList>("roles.list", { limit: ROLE_PICKER_LIMIT })
   const items = roles.data?.items ?? []
 
@@ -202,19 +202,75 @@ function RoleSelect({
   )
 }
 
+/**
+ * Why the role filter cannot offer every role, if it cannot. One roles.list
+ * read is capped at ROLE_PICKER_LIMIT, so a tenant with more roles than that
+ * gets a filter that is missing some, and the page says so rather than
+ * letting the operator conclude a role they cannot find does not exist.
+ */
+function RoleFilterNote({ roles }: { roles: QueryState<RolesList> }) {
+  if (roles.error) {
+    return (
+      <p className="text-sm text-destructive">
+        The role filter could not load roles: {roles.error.message}
+      </p>
+    )
+  }
+  const shown = roles.data?.items?.length ?? 0
+  const total = roles.data?.total ?? 0
+  if (total > shown) {
+    return (
+      <p className="text-sm text-muted-foreground">
+        The role filter offers {shown} of the {total} roles.
+      </p>
+    )
+  }
+  return null
+}
+
 export function WardenAssignmentsPage() {
-  // One-based, matching ResourceTable's PaginationState.
+  // One-based, matching ResourceTable's PaginationState. Every filter below
+  // resets it, because a page number carried across filters lands on page N
+  // of a shorter set.
   const [page, setPage] = useState(1)
   const namespace = useNamespaceFilter(() => setPage(1))
+  const [subjectKind, setSubjectKind] = useState("")
+  const [roleId, setRoleId] = useState("")
+  // Typed and applied are kept apart: the store matches the subject id
+  // exactly, so a query per keystroke would be an empty table for every
+  // prefix on the way to the whole id.
+  const [subjectIdDraft, setSubjectIdDraft] = useState("")
+  const [subjectId, setSubjectId] = useState("")
   const [creating, setCreating] = useState(false)
   const [form, setForm] = useState<Form>(EMPTY_FORM)
   const [deleting, setDeleting] = useState<AssignmentSummary | null>(null)
 
   const list = useQuery<AssignmentsList>("assignments.list", {
     ...namespace.param,
+    // Unset filters are ABSENT, not empty strings.
+    ...(subjectKind !== "" && { subjectKind }),
+    ...(subjectId !== "" && { subjectId }),
+    ...(roleId !== "" && { roleId }),
     limit: PAGE_SIZE,
     offset: (page - 1) * PAGE_SIZE,
   })
+  // Every namespace's roles, because an assignment's role can sit in a
+  // namespace above the assignment's own. The same read as the create
+  // dialog's picker, so the two share one cache entry.
+  const roles = useQuery<RolesList>("roles.list", { limit: ROLE_PICKER_LIMIT })
+  const filtered = subjectKind !== "" || subjectId !== "" || roleId !== ""
+
+  function applySubjectId(event: FormEvent) {
+    event.preventDefault()
+    setSubjectId(subjectIdDraft.trim())
+    setPage(1)
+  }
+
+  function clearSubjectId() {
+    setSubjectIdDraft("")
+    setSubjectId("")
+    setPage(1)
+  }
   const create = useCommand<AckResponse>("assignments.create")
   const remove = useCommand<AckResponse>("assignments.delete")
 
@@ -316,6 +372,21 @@ export function WardenAssignmentsPage() {
         ),
     },
     {
+      id: "grantedBy",
+      header: "Granted by",
+      cell: (a) =>
+        a.grantedBy ? (
+          <span className="font-mono text-xs">{a.grantedBy}</span>
+        ) : (
+          <NoneCell label="granter" />
+        ),
+    },
+    {
+      id: "createdAt",
+      header: "Created",
+      cell: (a) => <Timestamp value={a.createdAt} label="created at" />,
+    },
+    {
       id: "status",
       header: "Status",
       cell: (a) =>
@@ -351,7 +422,58 @@ export function WardenAssignmentsPage() {
         same binding as a duplicate while the expired row exists.
       </p>
 
-      <FilterBar filters={[namespace.filterConfig]} />
+      <FilterBar
+        filters={[
+          namespace.filterConfig,
+          {
+            id: "subjectKind",
+            label: "Subject kind",
+            value: subjectKind,
+            options: [
+              { label: "Any kind", value: "" },
+              ...SUBJECT_KINDS.map((kind) => ({ label: kind, value: kind })),
+            ],
+            onChange: (next) => {
+              setSubjectKind(next)
+              setPage(1)
+            },
+          },
+          {
+            id: "role",
+            label: "Role",
+            value: roleId,
+            options: [
+              { label: "Any role", value: "" },
+              ...(roles.data?.items ?? []).map((r) => ({
+                label: roleOptionLabel(r),
+                value: r.id,
+              })),
+            ],
+            onChange: (next) => {
+              setRoleId(next)
+              setPage(1)
+            },
+          },
+        ]}
+      />
+      <RoleFilterNote roles={roles} />
+
+      <form className="flex flex-wrap items-end gap-3" onSubmit={applySubjectId}>
+        <span className="flex flex-col gap-1.5">
+          <Label htmlFor="assignments-filter-subject-id">Filter by subject id</Label>
+          <Input
+            id="assignments-filter-subject-id"
+            className="font-mono text-xs"
+            placeholder="exact match"
+            value={subjectIdDraft}
+            onChange={(e) => setSubjectIdDraft(e.target.value)}
+          />
+        </span>
+        <Button type="submit">Apply</Button>
+        <Button type="button" variant="outline" onClick={clearSubjectId}>
+          Clear
+        </Button>
+      </form>
 
       <QueryBoundary title="Assignments" query={list} skeletonRows={5}>
         {(data) => {
@@ -364,7 +486,14 @@ export function WardenAssignmentsPage() {
               rows={rows}
               rowKey={(a) => a.id}
               caption={caption}
-              emptyMessage={emptyListMessage("assignments", "", namespace.value)}
+              emptyMessage={
+                // The shared message knows only the namespace. With another
+                // filter on, "No assignments yet" would say nothing exists
+                // when the filter is what hid it.
+                filtered
+                  ? "No assignments match these filters."
+                  : emptyListMessage("assignments", "", namespace.value)
+              }
               pagination={{ page, pageSize: data.limit, total: data.total }}
               onPageChange={setPage}
               rowActions={(a) => (

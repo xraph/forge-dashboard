@@ -194,6 +194,10 @@ export function WardenRoleDetailPage({ params }: PluginPageProps) {
                     ),
                   },
                   {
+                    term: "Created",
+                    value: <Timestamp value={role.createdAt} label="created at" />,
+                  },
+                  {
                     term: "Updated",
                     value: <Timestamp value={role.updatedAt} label="updated at" />,
                   },
@@ -334,6 +338,11 @@ function ChildrenTable({ role }: { role: RoleDetail }) {
       // the thing somebody scanning this column is hunting.
       cell: (r) =>
         r.isSystem ? <Badge variant="destructive">system</Badge> : <NoneCell label="flags" />,
+    },
+    {
+      id: "createdAt",
+      header: "Created",
+      cell: (r) => <Timestamp value={r.createdAt} label="created at" />,
     },
   ]
   return (

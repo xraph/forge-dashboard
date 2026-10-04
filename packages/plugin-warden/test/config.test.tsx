@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest"
-import { fireEvent, screen, waitFor } from "@testing-library/react"
+import { fireEvent, screen, waitFor, within } from "@testing-library/react"
 import { ContractError } from "@forge-go/dashboard-plugin"
 import { WardenConfigPage } from "../src/pages/config"
 import { failingClient, recordingCommandClient, renderPage, stubClient } from "./harness"
@@ -52,6 +52,35 @@ describe("WardenConfigPage", () => {
     )
     expect(await screen.findByText(/check logging is disabled/i)).toBeTruthy()
     expect(await screen.findByText(/nothing is being recorded/i)).toBeTruthy()
+  })
+
+  it("lists every registered plugin by name", async () => {
+    renderPage(
+      WardenConfigPage,
+      stubClient({
+        "config.detail": { ...CONFIG, plugins: ["auditlog", "warden-cache-invalidator"] },
+      })
+    )
+    const section = await screen.findByRole("region", { name: "Plugins" })
+    expect(within(section).getByText("auditlog")).toBeTruthy()
+    expect(within(section).getByText("warden-cache-invalidator")).toBeTruthy()
+    expect(within(section).queryByText(/no authorization plugins/i)).toBeNull()
+  })
+
+  it("says no plugins are registered when the list is empty", async () => {
+    // Templ hid the card when there were none. A missing section reads the
+    // same as one that failed to load, so the page says it outright.
+    renderPage(WardenConfigPage, stubClient({ "config.detail": { ...CONFIG, plugins: [] } }))
+    expect(await screen.findByText("No authorization plugins are registered.")).toBeTruthy()
+  })
+
+  it("says nothing about plugins when the server does not report them", async () => {
+    // A server older than the plugins field sends none. Saying "none are
+    // registered" then would be a claim the page cannot back.
+    renderPage(WardenConfigPage, stubClient({ "config.detail": CONFIG }))
+    await screen.findByText("RBAC")
+    expect(screen.queryByRole("region", { name: "Plugins" })).toBeNull()
+    expect(screen.queryByText(/no authorization plugins/i)).toBeNull()
   })
 
   it("does not warn when check logging is on", async () => {
