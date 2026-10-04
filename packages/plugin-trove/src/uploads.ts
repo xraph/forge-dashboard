@@ -106,6 +106,12 @@ function put(id: string, ticket: UploadTicket, file: File): Promise<void> {
   })
 }
 
+/** True once the row is cancelled or has been dismissed: nothing more may be sent for it. */
+function abandoned(id: string): boolean {
+  const item = find(id)
+  return item === undefined || item.state === "cancelled"
+}
+
 async function run(id: string) {
   const start = find(id)
   if (!start) return
@@ -119,13 +125,18 @@ async function run(id: string) {
     )
   } catch (error) {
     const e = error as ContractError
-    if (find(id)?.state === "cancelled") return
+    if (abandoned(id)) {
+      pump()
+      return
+    }
     if (e.code === "CONFLICT" && e.details?.exists === true) update(id, { state: "conflict", message: "An object with this key already exists." })
     else update(id, { state: "failed", message: e.message })
     pump()
     return
   }
-  if (find(id)?.state === "cancelled") {
+  // The ticket is dropped unused when the operator cancelled, or cancelled and
+  // then dismissed the row, while it was being fetched.
+  if (abandoned(id)) {
     pump()
     return
   }
@@ -135,6 +146,11 @@ async function run(id: string) {
   } catch (failure) {
     const f = failure as { state: UploadState; message?: string }
     update(id, { state: f.state, message: f.message, xhr: undefined })
+    pump()
+    return
+  }
+  // Never confirm an object the operator no longer has a row for.
+  if (abandoned(id)) {
     pump()
     return
   }
@@ -211,6 +227,7 @@ export function clearFinishedUploads(): void {
 export function resetUploads(): void {
   for (const item of items) item.xhr?.abort()
   items = []
-  counter = 0
+  // `counter` is not reset: an id is never reused, so a late callback from an
+  // earlier upload cannot land on a later one.
   publish()
 }

@@ -3,7 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 import { ContractError, PluginProvider } from "@forge-go/dashboard-plugin"
 import type { ScopedClient } from "@forge-go/dashboard-plugin"
 import { UploadDropZone, UploadTray } from "../src/components/upload-tray"
-import { enqueueUploads } from "../src/uploads"
+import { enqueueUploads, resetUploads, useUploads } from "../src/uploads"
 import "./harness"
 
 class FakeXHR {
@@ -183,5 +183,142 @@ describe("uploads", () => {
     fireEvent.drop(zone, { dataTransfer: { types: ["Files"], items: [folderItem], files: [] } })
     expect(await screen.findByText(/Folders can't be uploaded here/)).toBeTruthy()
     expect(sent).toEqual([])
+  })
+
+  it("never uploads or confirms a file whose row was dismissed while the ticket was being fetched", async () => {
+    let release: (ticket: typeof TICKET) => void = () => {}
+    const begin = new Promise<typeof TICKET>((resolve) => {
+      release = resolve
+    })
+    const { client: c, sent } = client((intent) => (intent === "objects.beginUpload" ? begin : ROW))
+    renderTray(c)
+    act(() => enqueueUploads(c, { store: "", bucket: "reports", folder: "", maxBytes: null }, [file("q3.csv")]))
+    await waitFor(() => expect(sent).toHaveLength(1))
+    fireEvent.click(screen.getByRole("button", { name: "Cancel" }))
+    fireEvent.click(await screen.findByRole("button", { name: "Dismiss" }))
+    await act(async () => {
+      release(TICKET)
+      await begin
+    })
+    await new Promise((resolve) => setTimeout(resolve, 20))
+    expect(FakeXHR.instances).toHaveLength(0)
+    expect(sent.map((s) => s.intent)).toEqual(["objects.beginUpload"])
+  })
+
+  it("never confirms a file whose row was dismissed during the PUT", async () => {
+    const { client: c, sent } = client((intent) => (intent === "objects.beginUpload" ? TICKET : ROW))
+    renderTray(c)
+    act(() => enqueueUploads(c, { store: "", bucket: "reports", folder: "", maxBytes: null }, [file("q3.csv")]))
+    await waitFor(() => expect(FakeXHR.instances).toHaveLength(1))
+    fireEvent.click(screen.getByRole("button", { name: "Cancel" }))
+    fireEvent.click(await screen.findByRole("button", { name: "Dismiss" }))
+    await new Promise((resolve) => setTimeout(resolve, 20))
+    expect(sent.some((s) => s.intent === "objects.completeUpload")).toBe(false)
+  })
+
+  it("never reuses an upload id after a reset", () => {
+    const { client: c } = client(() => TICKET)
+    const ids = (): string[] => {
+      const seen: string[] = []
+      const Probe = () => {
+        seen.push(...useUploads().map((u) => u.id))
+        return null
+      }
+      render(<Probe />).unmount()
+      return seen
+    }
+    act(() => enqueueUploads(c, { store: "", bucket: "reports", folder: "", maxBytes: 0 }, [file("a")]))
+    const first = ids()
+    act(() => resetUploads())
+    act(() => enqueueUploads(c, { store: "", bucket: "reports", folder: "", maxBytes: 0 }, [file("a")]))
+    const second = ids()
+    expect(first).toHaveLength(1)
+    expect(second).toHaveLength(1)
+    expect(second[0]).not.toBe(first[0])
+  })
+})
+
+/** jsdom has no DragEvent, so a plain Event carries the one field the zone reads. */
+function dragLeave(target: Element, relatedTarget: Element | null) {
+  const event = new Event("dragleave", { bubbles: true, cancelable: true })
+  Object.defineProperty(event, "relatedTarget", { value: relatedTarget })
+  fireEvent(target, event)
+}
+
+function dropEvent(type: string, dataTransfer: unknown) {
+  const event = new Event(type, { bubbles: true, cancelable: true })
+  Object.defineProperty(event, "dataTransfer", { value: dataTransfer })
+  return event
+}
+
+describe("the drop zone", () => {
+  function zoneFor(c: ScopedClient, disabled = false) {
+    return render(
+      <PluginProvider client={c}>
+        <UploadDropZone store="" bucket="reports" folder="2026/" maxBytes={null} disabled={disabled}>
+          <p>listing</p>
+        </UploadDropZone>
+      </PluginProvider>,
+    )
+  }
+
+  it("drops the overlay when the drag leaves the zone, even from over a child", () => {
+    const { client: c } = client(() => TICKET)
+    zoneFor(c)
+    const zone = screen.getByText("listing").parentElement!
+    fireEvent.dragEnter(zone, { dataTransfer: { types: ["Files"] } })
+    expect(screen.getByText("Drop files to upload to")).toBeTruthy()
+    dragLeave(screen.getByText("listing"), null)
+    expect(screen.queryByText("Drop files to upload to")).toBeNull()
+  })
+
+  it("keeps the overlay while the drag moves between children of the zone", () => {
+    const { client: c } = client(() => TICKET)
+    zoneFor(c)
+    const zone = screen.getByText("listing").parentElement!
+    fireEvent.dragEnter(zone, { dataTransfer: { types: ["Files"] } })
+    dragLeave(screen.getByText("listing"), zone)
+    expect(screen.getByText("Drop files to upload to")).toBeTruthy()
+  })
+
+  it("drops the overlay on dragend", () => {
+    const { client: c } = client(() => TICKET)
+    zoneFor(c)
+    const zone = screen.getByText("listing").parentElement!
+    fireEvent.dragEnter(zone, { dataTransfer: { types: ["Files"] } })
+    fireEvent.dragEnd(zone)
+    expect(screen.queryByText("Drop files to upload to")).toBeNull()
+  })
+
+  it("swallows a drop on a disabled zone without queueing or opening anything", () => {
+    const { client: c, sent } = client(() => TICKET)
+    zoneFor(c, true)
+    const zone = screen.getByText("listing").parentElement!
+    const dataTransfer = { types: ["Files"], dropEffect: "copy", items: [{ kind: "file", webkitGetAsEntry: () => ({ isDirectory: false }), getAsFile: () => file("a.csv") }], files: [] }
+    expect(fireEvent.dragOver(zone, { dataTransfer })).toBe(false)
+    expect(dataTransfer.dropEffect).toBe("none")
+    expect(fireEvent.drop(zone, { dataTransfer })).toBe(false)
+    expect(FakeXHR.instances).toHaveLength(0)
+    expect(sent).toEqual([])
+    expect(screen.queryByText("Drop files to upload to")).toBeNull()
+  })
+
+  it("guards the window against a stray file drop only while mounted", () => {
+    const { client: c } = client(() => TICKET)
+    const view = zoneFor(c)
+    for (const type of ["dragover", "drop"]) {
+      const event = dropEvent(type, { types: ["Files"] })
+      window.dispatchEvent(event)
+      expect(event.defaultPrevented).toBe(true)
+    }
+    const text = dropEvent("drop", { types: ["text/plain"] })
+    window.dispatchEvent(text)
+    expect(text.defaultPrevented).toBe(false)
+    view.unmount()
+    for (const type of ["dragover", "drop"]) {
+      const event = dropEvent(type, { types: ["Files"] })
+      window.dispatchEvent(event)
+      expect(event.defaultPrevented).toBe(false)
+    }
   })
 })

@@ -1,4 +1,4 @@
-import { useRef, useState } from "react"
+import { useEffect, useRef, useState } from "react"
 import type { DragEvent, ReactNode } from "react"
 import { usePluginClient } from "@forge-go/dashboard-plugin"
 import { Button } from "@forge-go/dashboard-kit/components/button"
@@ -21,7 +21,7 @@ interface Destination {
   maxBytes: number | null
 }
 
-function hasFiles(event: DragEvent): boolean {
+function hasFiles(event: { dataTransfer?: DataTransfer | null }): boolean {
   return Array.from(event.dataTransfer?.types ?? []).includes("Files")
 }
 
@@ -35,16 +35,39 @@ export function UploadDropZone({ store, bucket, folder, maxBytes, disabled, chil
   const [dragging, setDragging] = useState(false)
   const [refusal, setRefusal] = useState<string | null>(null)
 
+  // A file dropped anywhere the page does not handle makes the browser open it
+  // in this tab, which unloads the dashboard and kills every queued upload. So
+  // while the zone is mounted, a stray file drag is swallowed at the window.
+  useEffect(() => {
+    function guard(event: globalThis.DragEvent) {
+      if (!hasFiles(event)) return
+      event.preventDefault()
+      if (event.type === "dragover" && event.dataTransfer) event.dataTransfer.dropEffect = "none"
+    }
+    window.addEventListener("dragover", guard)
+    window.addEventListener("drop", guard)
+    return () => {
+      window.removeEventListener("dragover", guard)
+      window.removeEventListener("drop", guard)
+    }
+  }, [])
+
   function onDragOver(event: DragEvent) {
-    if (disabled || !hasFiles(event)) return
+    if (!hasFiles(event)) return
     event.preventDefault()
+    if (disabled) {
+      // Refuse the drop, but still own the event so the browser does not open the file.
+      if (event.dataTransfer) event.dataTransfer.dropEffect = "none"
+      return
+    }
     setDragging(true)
   }
 
   function onDrop(event: DragEvent) {
-    if (disabled || !hasFiles(event)) return
+    if (!hasFiles(event)) return
     event.preventDefault()
     setDragging(false)
+    if (disabled) return
     const files: File[] = []
     let folders = 0
     for (const item of Array.from(event.dataTransfer.items ?? [])) {
@@ -67,8 +90,11 @@ export function UploadDropZone({ store, bucket, folder, maxBytes, disabled, chil
       onDragEnter={onDragOver}
       onDragOver={onDragOver}
       onDragLeave={(e) => {
-        if (e.currentTarget === e.target) setDragging(false)
+        // relatedTarget is where the drag went. Null means it left the window
+        // (or Escape was pressed); inside the zone means it only crossed a child.
+        if (!e.currentTarget.contains(e.relatedTarget as Node | null)) setDragging(false)
       }}
+      onDragEnd={() => setDragging(false)}
       onDrop={onDrop}
     >
       {children}
