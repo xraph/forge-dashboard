@@ -34,7 +34,7 @@ import { createServer } from "node:http"
 import { randomBytes } from "node:crypto"
 import { createRelayFixtures } from "./relay-fixtures.mjs"
 import { createVaultHandlers, resetVault } from "./vault-fixtures.mjs"
-import { createTroveHandlers, resetTrove } from "./trove-fixtures.mjs"
+import { createTroveHandlers, handleTroveContent, resetTrove, TROVE_CONTENT_PATH } from "./trove-fixtures.mjs"
 import { createLedgerHandlers, resetLedger } from "./ledger-fixtures.mjs"
 import { createChronicleHandlers, resetChronicle } from "./chronicle-fixtures.mjs"
 import { createBastionHandlers, resetBastion } from "./bastion-fixtures.mjs"
@@ -3200,6 +3200,9 @@ const server = createServer(async (req, res) => {
     }
     if (url.pathname === `${BASE_PATH}/_fixture/reset` && req.method === "POST") {
       return handleReset(res)
+    }
+    if (url.pathname === TROVE_CONTENT_PATH) {
+      return await handleTroveContent(req, res, url)
     }
     if (url.pathname === "/" || url.pathname === "/health") {
       return sendJSON(res, 200, {

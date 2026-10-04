@@ -9,13 +9,16 @@
 //
 // Like the Go contract, nothing here reads a metadata store: buckets, objects,
 // the CAS index and streams are what the drivers and engines would report.
-// Content tickets are unsigned here; slice 4 gives the fixture its content
-// routes and checks them there.
+// Content tickets are unsigned here: the content routes live in this file
+// (handleTroveContent) and check a ticket by its shape, not by an HMAC.
 //
 // server.mjs hands in its FixtureError class so refusals carry their real
 // status and code (a class declared here would not pass instanceof there).
 
+import { createHash } from "node:crypto"
+
 const CONTENT_PATH = "/dashboard/trove/content"
+export const TROVE_CONTENT_PATH = CONTENT_PATH
 const MAX_UPLOAD = 64 * 1024 * 1024
 const DEFAULT_LIMIT = 100
 const MAX_LIMIT = 1000
@@ -52,8 +55,18 @@ function obj(size, minutes, extra = {}) {
     storageClass: extra.storageClass ?? null,
     versionId: extra.versionId ?? null,
     metadata: extra.metadata ?? null,
+    body: extra.body === undefined ? null : Buffer.isBuffer(extra.body) ? extra.body : Buffer.from(extra.body, "utf8"),
   }
 }
+
+const README = "Reports land here.\nMonthly summaries live under YYYY/MM/summary.json.\n"
+const SUMMARY_09 = JSON.stringify({ month: "2026-09", total: 4812, rows: [{ team: "ops", count: 31 }, { team: "billing", count: 12 }] })
+const SUMMARY_08 = JSON.stringify({ month: "2026-08", total: 3901, rows: [{ team: "ops", count: 27 }] })
+// A 1x1 PNG, the smallest valid image.
+const LOGO_PNG = Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=", "base64")
+// An SVG with a script in it. Shown through an <img>, the script cannot run;
+// that is what the browser's preview relies on.
+const DIAGRAM_SVG = '<svg xmlns="http://www.w3.org/2000/svg" width="120" height="60"><rect width="120" height="60" rx="8" fill="#4f46e5"/><text x="60" y="36" font-size="16" text-anchor="middle" fill="white">trove</text><script>alert("this must never run")</script></svg>'
 
 function seed() {
   return {
@@ -79,14 +92,15 @@ function seed() {
       ],
       buckets: new Map([
         ["reports", { createdAt: ago(60 * 24 * 30), objects: new Map([
-          ["2026/08/summary.json", obj(3901, 60 * 24 * 31, { contentType: "application/json" })],
+          ["2026/08/summary.json", obj(3901, 60 * 24 * 31, { contentType: "application/json", body: SUMMARY_08 })],
           ["2026/09/raw.bin", obj(1048576, 60 * 5)],
-          ["2026/09/summary.json", obj(4812, 2, { contentType: "application/json", metadata: { owner: "ops" } })],
+          ["2026/09/summary.json", obj(4812, 2, { contentType: "application/json", metadata: { owner: "ops" }, body: SUMMARY_09 })],
           ["q3 résumé #1.pdf", obj(88213, 60 * 24, { contentType: "application/pdf" })],
-          ["readme.txt", obj(1204, 60 * 2, { contentType: "text/plain" })],
+          ["readme.txt", obj(1204, 60 * 2, { contentType: "text/plain", body: README })],
         ]) }],
         ["assets", { createdAt: ago(60 * 24 * 20), objects: new Map([
-          ["logo.png", obj(20480, 60 * 24 * 3, { contentType: "image/png" })],
+          ["diagram.svg", obj(DIAGRAM_SVG.length, 60 * 24, { contentType: "image/svg+xml", body: DIAGRAM_SVG })],
+          ["logo.png", obj(20480, 60 * 24 * 3, { contentType: "image/png", body: LOGO_PNG })],
         ]) }],
         ["empty", { createdAt: ago(60 * 24 * 2), objects: new Map() }],
         ["cas", { createdAt: ago(60 * 24 * 10), objects: new Map([
@@ -130,6 +144,49 @@ export function resetTrove() {
 }
 
 const b64 = (s) => Buffer.from(s, "utf8").toString("base64url")
+
+/** Splits "a,b(c,d)" at the commas outside any parentheses. */
+function splitTop(text) {
+  const parts = []
+  let depth = 0
+  let from = 0
+  for (let i = 0; i < text.length; i++) {
+    if (text[i] === "(") depth += 1
+    else if (text[i] === ")") depth -= 1
+    else if (text[i] === "," && depth === 0) {
+      parts.push(text.slice(from, i))
+      from = i + 1
+    }
+  }
+  parts.push(text.slice(from))
+  return parts
+}
+
+/** Go's key patterns are filepath.Match globs: "*" and "?" stop at a slash. */
+function globMatches(pattern, key) {
+  const re = pattern.replace(/[.+^${}|\\[\]]/g, "\\$&").replace(/\*/g, "[^/]*").replace(/\?/g, "[^/]")
+  return new RegExp(`^${re}$`).test(key)
+}
+
+/** The scope forms the fixture seeds, written the way Go's String() prints them. */
+function scopeMatches(scope, bucket, key) {
+  if (scope === "global") return true
+  const m = /^(bucket|key|and)\((.*)\)$/.exec(scope)
+  if (!m) throw new Error(`fixture scope not supported: ${scope}`)
+  const args = splitTop(m[2])
+  if (m[1] === "bucket") return args.includes(bucket)
+  if (m[1] === "key") return args.some((p) => globMatches(p, key))
+  return args.every((a) => scopeMatches(a, bucket, key))
+}
+
+const sortedRegistrations = (s) => s.registrations.slice().sort((a, b) => a.priority - b.priority)
+const runsWrite = (r) => r.direction !== "read"
+
+function matchingRows(s, bucket, key) {
+  return sortedRegistrations(s)
+    .filter((r) => scopeMatches(r.scope, bucket, key))
+    .map((r) => ({ name: r.name, direction: r.direction, scope: r.scope, priority: r.priority }))
+}
 
 export function createTroveHandlers(FixtureError) {
   const badRequest = (m, details) => new FixtureError(400, "BAD_REQUEST", m, details)
@@ -210,49 +267,6 @@ export function createTroveHandlers(FixtureError) {
       emitted += 1
     }
     return { keys, prefixes, next }
-  }
-
-  /** Splits "a,b(c,d)" at the commas outside any parentheses. */
-  function splitTop(text) {
-    const parts = []
-    let depth = 0
-    let from = 0
-    for (let i = 0; i < text.length; i++) {
-      if (text[i] === "(") depth += 1
-      else if (text[i] === ")") depth -= 1
-      else if (text[i] === "," && depth === 0) {
-        parts.push(text.slice(from, i))
-        from = i + 1
-      }
-    }
-    parts.push(text.slice(from))
-    return parts
-  }
-
-  /** Go's key patterns are filepath.Match globs: "*" and "?" stop at a slash. */
-  function globMatches(pattern, key) {
-    const re = pattern.replace(/[.+^${}|\\[\]]/g, "\\$&").replace(/\*/g, "[^/]*").replace(/\?/g, "[^/]")
-    return new RegExp(`^${re}$`).test(key)
-  }
-
-  /** The scope forms the fixture seeds, written the way Go's String() prints them. */
-  function scopeMatches(scope, bucket, key) {
-    if (scope === "global") return true
-    const m = /^(bucket|key|and)\((.*)\)$/.exec(scope)
-    if (!m) throw new Error(`fixture scope not supported: ${scope}`)
-    const args = splitTop(m[2])
-    if (m[1] === "bucket") return args.includes(bucket)
-    if (m[1] === "key") return args.some((p) => globMatches(p, key))
-    return args.every((a) => scopeMatches(a, bucket, key))
-  }
-
-  const sortedRegistrations = (s) => s.registrations.slice().sort((a, b) => a.priority - b.priority)
-  const runsWrite = (r) => r.direction !== "read"
-
-  function matchingRows(s, bucket, key) {
-    return sortedRegistrations(s)
-      .filter((r) => scopeMatches(r.scope, bucket, key))
-      .map((r) => ({ name: r.name, direction: r.direction, scope: r.scope, priority: r.priority }))
   }
 
   function presignOf(s, rows) {
@@ -587,4 +601,117 @@ export function createTroveHandlers(FixtureError) {
       },
     }
   }
+}
+
+// What the Go route checks with an HMAC, the fixture checks by shape: the
+// ticket is base64url JSON (see ticket() above). It still enforces the
+// operation, the expiry, the header for PUT and the declared size, so the
+// browser meets the same refusals it will meet against Go.
+function readTicket(token) {
+  if (typeof token !== "string" || token === "") return { error: "This request has no ticket." }
+  let t
+  try {
+    t = JSON.parse(Buffer.from(token, "base64url").toString("utf8"))
+  } catch {
+    return { error: "This ticket is malformed." }
+  }
+  if (!t || typeof t !== "object" || typeof t.s !== "string" || typeof t.b !== "string" || typeof t.k !== "string") return { error: "This ticket is malformed." }
+  if (typeof t.e !== "number" || t.e * 1000 < Date.now()) return { error: "This ticket has expired. Ask for a new link." }
+  return { ticket: t }
+}
+
+function sendContentError(res, status, message, headers = {}) {
+  res.writeHead(status, { "Content-Type": "application/json", "Cache-Control": "no-store", ...headers })
+  res.end(JSON.stringify({ error: message }))
+}
+
+// Seeded objects without a body serve a deterministic filler of their stored
+// size, streamed, so a 50 MB dump downloads without the fixture holding it.
+function writeFiller(res, key, size) {
+  const unit = Buffer.from(`${key}\n`, "utf8")
+  const chunk = Buffer.alloc(64 * 1024)
+  for (let i = 0; i < chunk.length; i++) chunk[i] = unit[i % unit.length]
+  let left = size
+  while (left > 0) {
+    const n = Math.min(left, chunk.length)
+    res.write(n === chunk.length ? chunk : chunk.subarray(0, n))
+    left -= n
+  }
+}
+
+export async function handleTroveContent(req, res, url) {
+  if (req.method !== "GET" && req.method !== "PUT") return sendContentError(res, 405, "Only GET and PUT are allowed here.", { Allow: "GET, PUT" })
+
+  if (req.method === "GET") {
+    const { ticket: t, error } = readTicket(url.searchParams.get("t"))
+    if (error) return sendContentError(res, 403, error)
+    if (t.o !== "download" && t.o !== "preview") return sendContentError(res, 403, "This ticket is not for reading.")
+    const s = Object.hasOwn(state, t.s) ? state[t.s] : null
+    const o = s?.buckets.get(t.b)?.objects.get(t.k)
+    if (!o) return sendContentError(res, 404, "object not found")
+    const name = t.k.slice(t.k.lastIndexOf("/") + 1)
+    const headers = {
+      "Content-Type": o.contentType ?? "application/octet-stream",
+      "Content-Disposition": `attachment; filename*=UTF-8''${encodeURIComponent(name)}`,
+      "X-Content-Type-Options": "nosniff",
+      "Content-Security-Policy": "sandbox",
+      "Cache-Control": "no-store",
+    }
+    const limit = t.o === "preview" && typeof t.l === "number" && t.l > 0 ? t.l : Infinity
+    // Like Go: Content-Length only when no read middleware matches, because
+    // the stored size is not the size of what comes out.
+    const readsThrough = matchingRows(s, t.b, t.k).some((r) => r.direction !== "write")
+    if (o.body) {
+      const bytes = o.body.subarray(0, Math.min(o.body.length, limit))
+      if (!readsThrough) headers["Content-Length"] = String(bytes.length)
+      res.writeHead(200, headers)
+      res.end(bytes)
+      return
+    }
+    const size = Math.min(o.storedSize, limit)
+    if (!readsThrough) headers["Content-Length"] = String(size)
+    res.writeHead(200, headers)
+    writeFiller(res, t.k, size)
+    res.end()
+    return
+  }
+
+  if (url.searchParams.has("t")) return sendContentError(res, 403, "Upload tickets go in the X-Trove-Ticket header, never in the URL.")
+  const header = req.headers["x-trove-ticket"]
+  if (typeof header !== "string" || header === "") return sendContentError(res, 403, "This upload has no X-Trove-Ticket header.")
+  const { ticket: t, error } = readTicket(header)
+  if (error) return sendContentError(res, 403, error)
+  if (t.o !== "upload") return sendContentError(res, 403, "This ticket is not for uploading.")
+  const s = Object.hasOwn(state, t.s) ? state[t.s] : null
+  const b = s?.buckets.get(t.b)
+  if (!b) return sendContentError(res, 404, "bucket not found")
+  if (b.objects.has(t.k) && t.ow !== true) return sendContentError(res, 409, "An object with this key already exists.")
+  const declared = typeof t.n === "number" ? t.n : 0
+  const chunks = []
+  let total = 0
+  for await (const chunk of req) {
+    total += chunk.length
+    if (total > declared) {
+      sendContentError(res, 413, "The body is larger than the size this upload was started with.")
+      req.destroy()
+      return
+    }
+    chunks.push(chunk)
+  }
+  // The fixture's stand-in for a scan provider: any key containing "eicar".
+  if (/eicar/i.test(t.k)) return sendContentError(res, 422, "A content scan blocked this upload.")
+  const body = Buffer.concat(chunks)
+  const etag = createHash("md5").update(body).digest("hex")
+  b.objects.set(t.k, {
+    storedSize: body.length,
+    etag,
+    lastModified: new Date().toISOString().replace(/\.\d{3}Z$/, "Z"),
+    contentType: typeof t.ct === "string" && t.ct !== "" ? t.ct : null,
+    storageClass: null,
+    versionId: null,
+    metadata: null,
+    body,
+  })
+  res.writeHead(200, { "Content-Type": "application/json", "Cache-Control": "no-store" })
+  res.end(JSON.stringify({ key: t.k, storedSize: body.length, etag }))
 }
