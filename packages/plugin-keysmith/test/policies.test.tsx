@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest"
-import { screen, within } from "@testing-library/react"
-import { ContractError } from "@forge-go/dashboard-plugin"
+import { act, fireEvent, screen, waitFor, within } from "@testing-library/react"
+import { ContractError, queryStore } from "@forge-go/dashboard-plugin"
+import type { ScopedClient } from "@forge-go/dashboard-plugin"
 import { PoliciesPage } from "../src/pages/policies"
 import { policyPath } from "../src/format"
 import type { PoliciesList, PolicySummary } from "../src/types"
@@ -172,5 +173,87 @@ describe("PoliciesPage", () => {
     )
     expect(await screen.findByText(/policy store is down/)).toBeTruthy()
     expect(screen.queryByRole("table")).toBeNull()
+  })
+
+  it("opens the policy editor from Create policy, with the list's rate limiter line", async () => {
+    renderPage(
+      PoliciesPage,
+      stubClient({
+        "policies.list": { ...list([STANDARD]), rateLimiterConfigured: true },
+        "scopes.list": { scopes: [], hasMore: false },
+      }),
+    )
+    await screen.findByText("Standard")
+    fireEvent.click(screen.getByRole("button", { name: "Create policy" }))
+    const d = await screen.findByRole("dialog", { name: "Create policy" })
+    expect(
+      within(d).getByText(
+        "This deployment has a rate limiter, so Keysmith enforces these.",
+      ),
+    ).toBeTruthy()
+  })
+
+  it("waits for the list before offering Create policy", async () => {
+    renderPage(
+      PoliciesPage,
+      failingClient(new ContractError("INTERNAL", "policy store is down")),
+    )
+    await screen.findByText(/policy store is down/)
+    const create = screen.getByRole("button", {
+      name: "Create policy",
+    }) as HTMLButtonElement
+    // Without the list the page cannot say whether a rate limit is enforced.
+    expect(create.disabled).toBe(true)
+  })
+
+  it("keeps the editor and what was typed through a refetch of the list", async () => {
+    // The first read answers; every later one waits until released, so the
+    // page sits in its loading state while the editor is open.
+    const held: (() => void)[] = []
+    let reads = 0
+    const client = {
+      extension: "keysmith",
+      query: (intent: string) => {
+        if (intent === "scopes.list") {
+          return Promise.resolve({ scopes: [], hasMore: false })
+        }
+        if (intent !== "policies.list") {
+          return Promise.reject(
+            new ContractError("NOT_FOUND", `no handler for intent "${intent}"`),
+          )
+        }
+        reads += 1
+        const answer = list([STANDARD])
+        if (reads === 1) return Promise.resolve(answer)
+        return new Promise((resolve) => held.push(() => resolve(answer)))
+      },
+      command: () => Promise.reject(new ContractError("NOT_FOUND", "none")),
+    } as unknown as ScopedClient
+    renderPage(PoliciesPage, client)
+    await screen.findByText("Standard")
+    fireEvent.click(screen.getByRole("button", { name: "Create policy" }))
+    await screen.findByRole("dialog", { name: "Create policy" })
+    fireEvent.change(screen.getByLabelText("Name"), {
+      target: { value: "Partner" },
+    })
+
+    act(() => queryStore.invalidate("keysmith", ["policies.list"]))
+    await screen.findByRole("status", { name: "Loading Policies", hidden: true })
+    const d = screen.getByRole("dialog", { name: "Create policy" })
+    expect((within(d).getByLabelText("Name") as HTMLInputElement).value).toBe(
+      "Partner",
+    )
+
+    act(() => {
+      for (const release of held.splice(0)) release()
+    })
+    await waitFor(() =>
+      expect(
+        screen.queryByRole("status", { name: "Loading Policies", hidden: true }),
+      ).toBeNull(),
+    )
+    expect(
+      (screen.getByLabelText("Name") as HTMLInputElement).value,
+    ).toBe("Partner")
   })
 })

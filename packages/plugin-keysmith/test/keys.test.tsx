@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest"
-import { fireEvent, screen, within } from "@testing-library/react"
-import { ContractError } from "@forge-go/dashboard-plugin"
+import { fireEvent, screen, waitFor, within } from "@testing-library/react"
+import { ContractError, queryStore } from "@forge-go/dashboard-plugin"
 import type { ScopedClient } from "@forge-go/dashboard-plugin"
 import { KeysPage } from "../src/pages/keys"
 import { keyPath, policyPath } from "../src/format"
@@ -275,6 +275,16 @@ describe("KeysPage", () => {
     // keys.list answers; policies.list is refused. The key list still renders.
     renderPage(KeysPage, stubClient({ "keys.list": LIST }))
     await screen.findByText("Billing service")
+    // Wait for the refusal to land, so the checks below see the settled
+    // failure and not a read still in flight.
+    const policiesKey = queryStore.keyOf("keysmith", "policies.list", {
+      limit: 200,
+    })
+    await waitFor(() =>
+      expect(queryStore.snapshot(policiesKey).error?.message).toMatch(
+        /no handler for intent "policies.list"/,
+      ),
+    )
     const id = within(rowFor("Billing service")).getByText("kpol_standard")
     expect(id.className).toMatch(/font-mono text-xs/)
     expect(screen.queryByText(/no handler for intent/)).toBeNull()

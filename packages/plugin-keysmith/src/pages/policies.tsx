@@ -1,6 +1,8 @@
+import { useState } from "react"
 import type { ComponentType } from "react"
 import { PluginLink, useQuery } from "@forge-go/dashboard-plugin"
 import type { PluginPageProps } from "@forge-go/dashboard-plugin"
+import { Button } from "@forge-go/dashboard-kit/components/button"
 import { NoneCell } from "@forge-go/dashboard-kit/components/none-cell"
 import { PageHeader } from "@forge-go/dashboard-kit/components/page-header"
 import { QueryBoundary } from "@forge-go/dashboard-kit/components/query-boundary"
@@ -9,6 +11,7 @@ import {
   type Column,
 } from "@forge-go/dashboard-kit/components/resource-table"
 import { TagList } from "@forge-go/dashboard-kit/components/tag-list"
+import { PolicyEditorDialog } from "../components/policy-editor-dialog"
 import { formatDuration, policyPath } from "../format"
 import type { PoliciesList, PolicySummary } from "../types"
 
@@ -61,12 +64,24 @@ const columns: Column<PolicySummary>[] = [
 
 export const PoliciesPage: ComponentType<PluginPageProps> = () => {
   const list = useQuery<PoliciesList>("policies.list", LIST_PARAMS)
+  const [creating, setCreating] = useState(false)
+  // The editor has to say whether a rate limit is enforced here, and only
+  // the list knows. Until it has answered, there is nothing honest to say.
+  const rateLimiterConfigured = list.data?.rateLimiterConfigured
 
   return (
     <section className="flex flex-col gap-4">
       <PageHeader
         title="Policies"
         description="Rules attached to keys. Each field says whether Keysmith enforces it."
+        actions={
+          <Button
+            disabled={rateLimiterConfigured === undefined}
+            onClick={() => setCreating(true)}
+          >
+            Create policy
+          </Button>
+        }
       />
 
       <QueryBoundary title="Policies" query={list} skeletonRows={5}>
@@ -91,6 +106,16 @@ export const PoliciesPage: ComponentType<PluginPageProps> = () => {
           )
         }}
       </QueryBoundary>
+
+      {/*
+        Outside the boundary: it shows a skeleton on every refetch, and the
+        editor and what was typed in it must survive one.
+      */}
+      <PolicyEditorDialog
+        open={creating}
+        onOpenChange={setCreating}
+        rateLimiterConfigured={rateLimiterConfigured ?? false}
+      />
     </section>
   )
 }
