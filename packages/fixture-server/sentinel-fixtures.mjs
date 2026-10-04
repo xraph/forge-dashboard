@@ -1284,3 +1284,408 @@ define("suites.detail", "query", [], (input) => {
   const app = resolveApp()
   return suiteView(suiteInApp(app, str(input, "suiteId")))
 })
+
+// ---------------------------------------------------------------------------
+// suites (writes)
+// ---------------------------------------------------------------------------
+
+function checkTemperature(t) {
+  if (t !== undefined && (t < 0 || t > 2)) throw badRequest("temperature must be between 0 and 2")
+}
+
+function nameTaken(app, name, exceptId) {
+  return state.suites.some((s) => s.appId === app && s.name === name && s.id !== exceptId)
+}
+
+define("suites.create", "command", ["suites.list", "overview.stats"], (input) => {
+  const app = resolveApp()
+  const name = str(input, "name").trim()
+  if (!name) throw badRequest("a suite needs a name")
+  const temperature = optNum(input, "temperature")
+  checkTemperature(temperature)
+  if (nameTaken(app, name)) throw conflict("a suite with this name already exists")
+  const now = Date.now()
+  const s = {
+    id: newId("suite"),
+    appId: app,
+    name,
+    description: str(input, "description"),
+    model: str(input, "model") || CONFIG.defaultModel,
+    temperature: temperature ?? 0,
+    personaRef: str(input, "personaRef"),
+    systemPrompt: str(input, "systemPrompt"),
+    createdAt: now,
+    updatedAt: now,
+  }
+  state.suites.push(s)
+  return suiteView(s)
+})
+
+define(
+  "suites.update",
+  "command",
+  ["suites.list", "suites.detail", "runs.list", "runs.detail", "runs.trend", "runs.compare", "baselines.list", "baselines.detail", "overview.stats"],
+  (input) => {
+    const app = resolveApp()
+    const s = suiteInApp(app, str(input, "suiteId"))
+    const temperature = optNum(input, "temperature")
+    checkTemperature(temperature)
+    const patch = {}
+    const name = optStr(input, "name")
+    if (name !== undefined) {
+      const trimmed = name.trim()
+      if (!trimmed) throw badRequest("a suite needs a name")
+      if (trimmed !== s.name && nameTaken(app, trimmed, s.id)) throw conflict("a suite with this name already exists")
+      patch.name = trimmed
+    }
+    for (const key of ["description", "model", "personaRef", "systemPrompt"]) {
+      const v = optStr(input, key)
+      if (v !== undefined) patch[key] = v
+    }
+    if (temperature !== undefined) patch.temperature = temperature
+    Object.assign(s, patch, { updatedAt: Date.now() })
+    return suiteView(s)
+  },
+)
+
+define(
+  "suites.delete",
+  "command",
+  [
+    "suites.list",
+    "suites.detail",
+    "cases.list",
+    "cases.detail",
+    "prompts.list",
+    "prompts.detail",
+    "runs.list",
+    "runs.detail",
+    "runs.results",
+    "results.detail",
+    "runs.trend",
+    "runs.regression",
+    "runs.compare",
+    "redteam.report",
+    "baselines.list",
+    "baselines.detail",
+    "overview.stats",
+  ],
+  (input) => {
+    const app = resolveApp()
+    const s = suiteInApp(app, str(input, "suiteId"))
+    const runIds = new Set(state.runs.filter((r) => r.suiteId === s.id).map((r) => r.id))
+    state.results = state.results.filter((r) => !runIds.has(r.runId))
+    state.runs = state.runs.filter((r) => r.suiteId !== s.id)
+    state.cases = state.cases.filter((c) => c.suiteId !== s.id)
+    state.baselines = state.baselines.filter((b) => b.suiteId !== s.id)
+    state.versions = state.versions.filter((v) => v.suiteId !== s.id)
+    state.suites = state.suites.filter((x) => x.id !== s.id)
+    return { suiteId: s.id }
+  },
+)
+
+// ---------------------------------------------------------------------------
+// cases
+// ---------------------------------------------------------------------------
+
+/** cleanTags: trimmed, blanks dropped, order kept, duplicates kept. */
+function cleanTags(tags) {
+  return (tags ?? []).map((t) => t.trim()).filter(Boolean)
+}
+
+function checkScenario(raw) {
+  const s = raw === "" ? "standard" : raw
+  if (!SCENARIO_TYPES.includes(s)) throw badRequest(`unknown scenario type "${raw}"`)
+  return s
+}
+
+function checkScorers(scorers) {
+  for (const sc of scorers) {
+    const err = scorerBuildError(sc.name, sc.config)
+    if (err) throw badRequest(`scorer "${sc.name}": ${err}`)
+  }
+}
+
+define("cases.list", "query", [], (input) => {
+  const app = resolveApp()
+  const s = suiteInApp(app, str(input, "suiteId"))
+  return { items: suiteCases(s.id).map(caseView) }
+})
+
+define("cases.detail", "query", [], (input) => {
+  const app = resolveApp()
+  return caseView(caseInApp(app, str(input, "caseId")))
+})
+
+define("cases.create", "command", ["cases.list", "suites.list", "suites.detail", "redteam.report", "overview.stats"], (input) => {
+  const app = resolveApp()
+  const s = suiteInApp(app, str(input, "suiteId"))
+  const name = str(input, "name")
+  const caseInput = str(input, "input")
+  if (!name.trim() || !caseInput.trim()) throw badRequest("a case needs a name and an input")
+  const scenarioType = checkScenario(str(input, "scenarioType"))
+  const scorers = optScorers(input, "scorers") ?? []
+  checkScorers(scorers)
+  const now = Date.now()
+  const tc = {
+    id: newId("tcase"),
+    suiteId: s.id,
+    name: name.trim(),
+    input: caseInput,
+    expected: str(input, "expected"),
+    scenarioType,
+    tags: cleanTags(optStrList(input, "tags")),
+    scorers,
+    context: {},
+    metadata: {},
+    createdAt: now,
+    updatedAt: now,
+  }
+  state.cases.push(tc)
+  return caseView(tc)
+})
+
+define(
+  "cases.update",
+  "command",
+  ["cases.list", "cases.detail", "runs.results", "results.detail", "runs.compare", "redteam.report", "overview.stats"],
+  (input) => {
+    const app = resolveApp()
+    const tc = caseInApp(app, str(input, "caseId"))
+    const hide = promptHidden(tc)
+    const patch = {}
+    const name = optStr(input, "name")
+    if (name !== undefined) {
+      if (!name.trim()) throw badRequest("a case needs a name")
+      patch.name = name.trim()
+    }
+    const caseInput = optStr(input, "input")
+    if (caseInput !== undefined) {
+      if (!caseInput.trim()) throw badRequest("a case needs an input")
+      patch.input = caseInput
+    }
+    const expected = optStr(input, "expected")
+    if (expected !== undefined) patch.expected = expected
+    const scenarioType = optStr(input, "scenarioType")
+    if (scenarioType !== undefined) patch.scenarioType = checkScenario(scenarioType)
+    const tags = optStrList(input, "tags")
+    if (tags !== undefined) patch.tags = cleanTags(tags)
+    const scorers = optScorers(input, "scorers")
+    if (scorers !== undefined) {
+      if (hide) {
+        // The client never saw the substring, so it cannot send it back: keep
+        // the stored one unless a new non-empty one is given.
+        let stored = ""
+        for (const sc of tc.scorers) {
+          if (sc.name === "not_contains" && typeof sc.config?.substring === "string") stored = sc.config.substring
+        }
+        for (const sc of scorers) {
+          if (sc.name !== "not_contains") continue
+          const sub = sc.config?.substring
+          if (typeof sub === "string") {
+            if (sub === "") throw badRequest("a not_contains scorer needs a non-empty substring")
+          } else if (stored !== "") {
+            sc.config = { ...(sc.config ?? {}), substring: stored }
+          }
+        }
+      }
+      checkScorers(scorers)
+      patch.scorers = scorers
+    }
+    Object.assign(tc, patch, { updatedAt: Date.now() })
+    return caseView(tc)
+  },
+)
+
+define(
+  "cases.delete",
+  "command",
+  ["cases.list", "cases.detail", "suites.list", "suites.detail", "runs.results", "results.detail", "runs.compare", "redteam.report", "overview.stats"],
+  (input) => {
+    const app = resolveApp()
+    const tc = caseInApp(app, str(input, "caseId"))
+    state.cases = state.cases.filter((c) => c.id !== tc.id)
+    return { caseId: tc.id }
+  },
+)
+
+/** A small RFC 4180 reader: quoted fields, doubled quotes, commas and newlines inside quotes. */
+function parseCSV(text) {
+  const rows = []
+  let row = []
+  let field = ""
+  let quoted = false
+  for (let i = 0; i < text.length; i++) {
+    const ch = text[i]
+    if (quoted) {
+      if (ch === '"' && text[i + 1] === '"') {
+        field += '"'
+        i++
+      } else if (ch === '"') quoted = false
+      else field += ch
+    } else if (ch === '"') quoted = true
+    else if (ch === ",") {
+      row.push(field)
+      field = ""
+    } else if (ch === "\n" || ch === "\r") {
+      if (ch === "\r" && text[i + 1] === "\n") i++
+      row.push(field)
+      rows.push(row)
+      row = []
+      field = ""
+    } else field += ch
+  }
+  if (field !== "" || row.length) {
+    row.push(field)
+    rows.push(row)
+  }
+  return rows
+}
+
+/** testcase.Import*: the rows a file holds, or an Error carrying the parser's complaint. */
+function parseImport(format, data) {
+  const fromObject = (o, where) => {
+    if (!o || typeof o !== "object" || Array.isArray(o)) throw new Error(`${where}: a case must be an object`)
+    for (const k of ["name", "input", "expected"]) {
+      if (o[k] !== undefined && o[k] !== null && typeof o[k] !== "string") throw new Error(`${where}: ${k} must be a string`)
+    }
+    if (o.tags !== undefined && o.tags !== null && (!Array.isArray(o.tags) || o.tags.some((t) => typeof t !== "string"))) throw new Error(`${where}: tags must be a list of strings`)
+    if (o.context !== undefined && o.context !== null && (typeof o.context !== "object" || Array.isArray(o.context))) throw new Error(`${where}: context must be an object`)
+    return { name: o.name ?? "", input: o.input ?? "", expected: o.expected ?? "", tags: o.tags ?? [], context: o.context ?? {} }
+  }
+  if (format === "json") {
+    let parsed
+    try {
+      parsed = JSON.parse(data)
+    } catch (err) {
+      throw new Error(`testcase: import json: ${err.message}`)
+    }
+    if (!Array.isArray(parsed)) throw new Error("testcase: import json: the data must be a list of cases")
+    return parsed.map((o) => fromObject(o, "testcase: import json"))
+  }
+  if (format === "jsonl") {
+    const out = []
+    data
+      .trim()
+      .split("\n")
+      .forEach((line, i) => {
+        const trimmed = line.trim()
+        if (!trimmed) return
+        let o
+        try {
+          o = JSON.parse(trimmed)
+        } catch (err) {
+          throw new Error(`testcase: import jsonl line ${i + 1}: ${err.message}`)
+        }
+        out.push(fromObject(o, `testcase: import jsonl line ${i + 1}`))
+      })
+    return out
+  }
+  const rows = parseCSV(data)
+  if (rows.length === 0) throw new Error("testcase: import csv header: EOF")
+  const header = rows[0].map((h) => h.trim().toLowerCase())
+  const col = (name) => header.indexOf(name)
+  return rows.slice(1).map((r, i) => {
+    if (r.length !== header.length) throw new Error(`testcase: import csv row: record on line ${i + 2}: wrong number of fields`)
+    const cell = (name) => (col(name) >= 0 ? r[col(name)] : "")
+    const tags = cell("tags")
+    return { name: cell("name"), input: cell("input"), expected: cell("expected"), tags: tags === "" ? [] : tags.split(";"), context: {} }
+  })
+}
+
+define("cases.import", "command", ["cases.list", "suites.list", "suites.detail", "redteam.report", "overview.stats"], (input) => {
+  const app = resolveApp()
+  const s = suiteInApp(app, str(input, "suiteId"))
+  const format = str(input, "format")
+  const data = str(input, "data")
+  if (Buffer.byteLength(data, "utf8") > MAX_IMPORT_BYTES) throw badRequest(`import data is larger than ${MAX_IMPORT_BYTES} bytes`)
+  const kind = format.toLowerCase()
+  if (!["json", "csv", "jsonl"].includes(kind)) throw badRequest(`sentinel: unsupported format "${format}": use json, csv or jsonl`)
+  let rows
+  try {
+    rows = parseImport(kind, data)
+  } catch (err) {
+    throw badRequest(`sentinel: invalid input: parse ${format}: ${err.message}`)
+  }
+  if (rows.length === 0) throw badRequest("sentinel: empty input: the data holds no cases")
+  rows.forEach((row, i) => {
+    if (!row.name.trim()) throw badRequest(`sentinel: invalid input: row ${i + 1} has no name`)
+    if (!row.input.trim()) throw badRequest(`sentinel: invalid input: row ${i + 1} has no input`)
+  })
+  const now = Date.now()
+  for (const row of rows) {
+    state.cases.push({
+      id: newId("tcase"),
+      suiteId: s.id,
+      name: row.name,
+      input: row.input,
+      expected: row.expected,
+      scenarioType: "standard",
+      tags: [...row.tags],
+      scorers: [],
+      context: { ...row.context },
+      metadata: {},
+      createdAt: now,
+      updatedAt: now,
+    })
+  }
+  return { imported: rows.length }
+})
+
+// ---------------------------------------------------------------------------
+// prompt versions
+// ---------------------------------------------------------------------------
+
+function suiteVersions(suiteId) {
+  return state.versions.filter((v) => v.suiteId === suiteId).sort((a, b) => a.version - b.version)
+}
+
+function makeCurrent(pv) {
+  for (const v of state.versions) if (v.suiteId === pv.suiteId) v.isCurrent = v.id === pv.id
+}
+
+define("prompts.list", "query", [], (input) => {
+  const app = resolveApp()
+  const s = suiteInApp(app, str(input, "suiteId"))
+  return { items: suiteVersions(s.id).map((v) => versionView(v, true)) }
+})
+
+define("prompts.detail", "query", [], (input) => {
+  const app = resolveApp()
+  const pv = versionInApp(app, str(input, "versionId"))
+  const out = versionView(pv, true)
+  const previous = suiteVersions(pv.suiteId)
+    .filter((v) => v.version < pv.version)
+    .pop()
+  if (previous) out.previous = versionView(previous, true)
+  return out
+})
+
+define("prompts.create", "command", ["prompts.list", "prompts.detail", "suites.list", "suites.detail", "overview.stats"], (input) => {
+  const app = resolveApp()
+  const s = suiteInApp(app, str(input, "suiteId"))
+  const systemPrompt = str(input, "systemPrompt")
+  if (!systemPrompt.trim()) throw badRequest("a prompt version needs a system prompt")
+  const versions = suiteVersions(s.id)
+  const pv = {
+    id: newId("pver"),
+    suiteId: s.id,
+    version: versions.length ? versions[versions.length - 1].version + 1 : 1,
+    systemPrompt,
+    changelog: str(input, "changelog"),
+    isCurrent: false,
+    createdAt: Date.now(),
+  }
+  state.versions.push(pv)
+  if (bool(input, "makeCurrent")) makeCurrent(pv)
+  return versionView(pv, false)
+})
+
+define("prompts.setCurrent", "command", ["prompts.list", "prompts.detail", "suites.list", "suites.detail", "overview.stats"], (input) => {
+  const app = resolveApp()
+  const s = suiteInApp(app, str(input, "suiteId"))
+  const pv = versionInApp(app, str(input, "versionId"))
+  if (pv.suiteId !== s.id) throw notFound("prompt version")
+  makeCurrent(pv)
+  return versionView(pv, false)
+})
