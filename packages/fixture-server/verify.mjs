@@ -251,6 +251,18 @@ const INPUT = {
 
   // keysmith: the seed key "Billing service" (keysmith-fixtures.mjs). keys.list takes no input.
   "keysmith::keys.detail": { id: "akey_01j9k4m2e7t8x3q5r6v0w1y2za" },
+  // Commands run in intent order against the seed: create, rotate and end the grace of the
+  // billing key, revoke the reporting key, suspend then reactivate the globex-linked key,
+  // assign then remove a scope on the billing key. policies.list and scopes.list take no input.
+  "keysmith::keys.create": { name: "Verify key", environment: "test", prefix: "vk", scopes: ["reports:read"] },
+  "keysmith::keys.rotate": { id: "akey_01j9k4m2e7t8x3q5r6v0w1y2za", reason: "manual" },
+  "keysmith::keys.endGrace": { id: "akey_01j9k4m2e7t8x3q5r6v0w1y2za" },
+  "keysmith::keys.revoke": { id: "akey_01j9k4m2e8f9d4n6s7w1x2z3ab", reason: "verify script" },
+  "keysmith::keys.suspend": { id: "akey_01j9k4m2edm4j9t1y2b6c7e8fg" },
+  "keysmith::keys.reactivate": { id: "akey_01j9k4m2edm4j9t1y2b6c7e8fg" },
+  "keysmith::keys.scopes.assign": { id: "akey_01j9k4m2e7t8x3q5r6v0w1y2za", scopes: ["catalog:read"] },
+  "keysmith::keys.scopes.remove": { id: "akey_01j9k4m2e7t8x3q5r6v0w1y2za", scopes: ["catalog:read"] },
+
   "streaming-contract::rooms.detail": { id: "room_1" },
   "streaming-contract::rooms.create": { name: "Verify room", description: "d", owner: "usr_1", private: false },
   "streaming-contract::rooms.delete": { id: "room_2" },
