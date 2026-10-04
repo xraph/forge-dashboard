@@ -24,6 +24,7 @@ export function PageHeader({
 }: PageHeaderProps) {
   return (
     <div
+      data-slot="page-header"
       className={cn(
         "flex flex-wrap items-start justify-between gap-2",
         className,
