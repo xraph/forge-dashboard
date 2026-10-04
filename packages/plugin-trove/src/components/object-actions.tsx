@@ -143,9 +143,13 @@ function CopyDialog({ store, bucket, objectKey, onClose }: { store: string; buck
   async function submit(event: FormEvent) {
     event.preventDefault()
     if (!canSubmit) return
+    // The last success was an answer to the last attempt, not this one.
+    setDone(null)
     const result = await copy.execute(withStore(store, { srcBucket: bucket, srcKey: objectKey, dstBucket, dstKey, overwrite }))
     if (result !== undefined) {
       setDone({ bucket: dstBucket, key: dstKey })
+      // The consent was spent on this copy. Another copy to the same key asks again.
+      setOverwrite(false)
       return
     }
     // A failed attempt never leaves a Replace consent behind. If the key still
@@ -155,7 +159,11 @@ function CopyDialog({ store, bucket, objectKey, onClose }: { store: string; buck
 
   // A new destination is a new question: the Replace consent was for the old
   // one, and the CONFLICT that showed the checkbox described the old one too.
+  // The inputs are disabled while a copy runs, and this holds even if an edit
+  // gets through: a reset mid-flight would end the pending state early, let
+  // the dialog close and drop the command's failure.
   function pickDestination(change: () => void) {
+    if (copy.loading) return
     change()
     setOverwrite(false)
     setDone(null)
@@ -173,7 +181,7 @@ function CopyDialog({ store, bucket, objectKey, onClose }: { store: string; buck
           {exists ? null : <CommandAlert error={copy.error} title="Could not copy the object" />}
           <div className="flex flex-col gap-1.5">
             <Label htmlFor="copy-bucket">Destination bucket</Label>
-            <NativeSelect id="copy-bucket" value={dstBucket} onChange={(e) => pickDestination(() => setDstBucket(e.target.value))}>
+            <NativeSelect id="copy-bucket" value={dstBucket} disabled={copy.loading} onChange={(e) => pickDestination(() => setDstBucket(e.target.value))}>
               {(buckets.data?.buckets ?? [{ name: bucket, createdAt: null }]).map((b) => (
                 <NativeSelectOption key={b.name} value={b.name}>
                   {b.name}
@@ -183,14 +191,23 @@ function CopyDialog({ store, bucket, objectKey, onClose }: { store: string; buck
           </div>
           <div className="flex flex-col gap-1.5">
             <Label htmlFor="copy-key">Destination key</Label>
-            <Input id="copy-key" className="font-mono text-xs" autoComplete="off" spellCheck={false} value={dstKey} onChange={(e) => pickDestination(() => setDstKey(e.target.value))} />
+            <Input id="copy-key" className="font-mono text-xs" autoComplete="off" spellCheck={false} value={dstKey} disabled={copy.loading} onChange={(e) => pickDestination(() => setDstKey(e.target.value))} />
           </div>
           {exists ? (
-            <div className="flex items-center gap-2">
-              <Checkbox id="copy-overwrite" aria-labelledby="copy-overwrite-label" checked={overwrite} onCheckedChange={(v) => setOverwrite(v === true)} />
-              <span id="copy-overwrite-label" className="cursor-default text-sm select-none" onClick={() => setOverwrite((v) => !v)}>
-                Replace the existing object
-              </span>
+            <div className="flex flex-col gap-2">
+              <p className="text-sm">An object already exists at this key.</p>
+              <div className="flex items-center gap-2">
+                <Checkbox
+                  id="copy-overwrite"
+                  aria-labelledby="copy-overwrite-label"
+                  checked={overwrite}
+                  disabled={copy.loading}
+                  onCheckedChange={(v) => setOverwrite(v === true)}
+                />
+                <span id="copy-overwrite-label" className="cursor-default text-sm select-none" onClick={() => !copy.loading && setOverwrite((v) => !v)}>
+                  Replace the existing object
+                </span>
+              </div>
             </div>
           ) : null}
           {same ? <p className="text-xs text-muted-foreground">Pick a different bucket or key.</p> : null}

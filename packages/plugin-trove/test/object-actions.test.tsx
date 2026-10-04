@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor, within } from "@testing-library/react"
+import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react"
 import { describe, expect, it, vi } from "vitest"
 import { ContractError, NavigationProvider, PluginProvider } from "@forge-go/dashboard-plugin"
 import type { ScopedClient } from "@forge-go/dashboard-plugin"
@@ -118,6 +118,95 @@ describe("Copy to", () => {
     const sent = (client as unknown as { sent: { intent: string; payload: { overwrite: boolean; dstBucket: string } }[] }).sent
     await waitFor(() => expect(sent.map((s) => [s.payload.dstBucket, s.payload.overwrite])).toEqual([["reports", false], ["assets", false]]))
     expect(within(dialog).queryByLabelText("Replace the existing object")).toBeNull()
+  })
+
+  /**
+   * Answers objects.copy by call number: a call listed in `conflicts` throws a
+   * CONFLICT for an existing key, and `hold` keeps that call pending until
+   * released. Every other call succeeds.
+   */
+  function copyClient({ conflicts = [], hold }: { conflicts?: number[]; hold?: number } = {}) {
+    const sent: { intent: string; payload: { overwrite: boolean; dstKey: string } }[] = []
+    let release: () => void = () => {}
+    const client = {
+      extension: "trove",
+      query: async (i: string) => {
+        if (i === "buckets.list") return BUCKETS
+        throw new ContractError("NOT_FOUND", `no handler for intent "${i}"`)
+      },
+      command: async (i: string, payload: { overwrite: boolean; dstKey: string }) => {
+        if (i !== "objects.copy") throw new ContractError("NOT_FOUND", `no handler for command "${i}"`)
+        sent.push({ intent: i, payload })
+        const n = sent.length
+        if (n === hold) await new Promise<void>((resolve) => (release = resolve))
+        if (conflicts.includes(n)) throw new ContractError("CONFLICT", "an object with this key already exists", { exists: true })
+        return { key: payload.dstKey, storedSize: 1, etag: null, lastModified: null, contentType: null, storageClass: null }
+      },
+    } as unknown as ScopedClient
+    return { client, sent, release: () => release() }
+  }
+
+  async function openCopy(client: ScopedClient, dstKey = "taken.json") {
+    renderActions(client)
+    fireEvent.click(screen.getByRole("button", { name: "Copy to" }))
+    const dialog = await screen.findByRole("dialog")
+    await within(dialog).findByRole("option", { name: "assets" })
+    fireEvent.change(within(dialog).getByLabelText("Destination key"), { target: { value: dstKey } })
+    return dialog
+  }
+
+  it("says the key already exists when it asks about replacing", async () => {
+    const { client } = copyClient({ conflicts: [1] })
+    const dialog = await openCopy(client)
+    fireEvent.click(within(dialog).getByRole("button", { name: "Copy" }))
+    expect(await within(dialog).findByText("An object already exists at this key.")).toBeTruthy()
+    expect(within(dialog).getByLabelText("Replace the existing object")).toBeTruthy()
+  })
+
+  it("clears the last Copied to line as soon as another copy starts", async () => {
+    const { client, release } = copyClient({ conflicts: [2], hold: 2 })
+    const dialog = await openCopy(client)
+    fireEvent.click(within(dialog).getByRole("button", { name: "Copy" }))
+    expect(await within(dialog).findByRole("link", { name: "reports/taken.json" })).toBeTruthy()
+    fireEvent.click(within(dialog).getByRole("button", { name: "Copy" }))
+    await within(dialog).findByRole("button", { name: "Copying…" })
+    expect(within(dialog).queryByText(/Copied to/)).toBeNull()
+    await act(async () => release())
+    expect(await within(dialog).findByText("An object already exists at this key.")).toBeTruthy()
+    expect(within(dialog).queryByText(/Copied to/)).toBeNull()
+  })
+
+  it("drops the Replace consent after a copy that used it succeeds", async () => {
+    const { client, sent } = copyClient({ conflicts: [1, 3] })
+    const dialog = await openCopy(client)
+    fireEvent.click(within(dialog).getByRole("button", { name: "Copy" }))
+    fireEvent.click(await within(dialog).findByLabelText("Replace the existing object"))
+    fireEvent.click(within(dialog).getByRole("button", { name: "Copy" }))
+    await within(dialog).findByText(/Copied to/)
+    fireEvent.click(within(dialog).getByRole("button", { name: "Copy" }))
+    const replace = await within(dialog).findByLabelText("Replace the existing object")
+    expect(sent.map((s) => s.payload.overwrite)).toEqual([false, true, false])
+    expect(replace.getAttribute("aria-checked")).toBe("false")
+  })
+
+  it("holds the destination and stays open while a copy is in flight", async () => {
+    const { client, sent, release } = copyClient({ conflicts: [1], hold: 1 })
+    const dialog = await openCopy(client)
+    fireEvent.click(within(dialog).getByRole("button", { name: "Copy" }))
+    await within(dialog).findByRole("button", { name: "Copying…" })
+    const bucketSelect = within(dialog).getByLabelText("Destination bucket") as HTMLSelectElement
+    const keyInput = within(dialog).getByLabelText("Destination key") as HTMLInputElement
+    expect(bucketSelect.disabled).toBe(true)
+    expect(keyInput.disabled).toBe(true)
+    // Even an edit that reaches the handler must not end the pending state.
+    fireEvent.change(keyInput, { target: { value: "other.json" } })
+    fireEvent.keyDown(dialog, { key: "Escape" })
+    expect(screen.getByRole("dialog")).toBe(dialog)
+    const close = within(dialog).getAllByRole("button", { name: "Close" }).find((b) => b.textContent === "Close") as HTMLButtonElement
+    expect(close.disabled).toBe(true)
+    await act(async () => release())
+    expect(await within(dialog).findByText("An object already exists at this key.")).toBeTruthy()
+    expect(sent).toHaveLength(1)
   })
 
   it("will not copy an object onto itself", async () => {
