@@ -68,6 +68,20 @@ const LOGO_PNG = Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0
 // that is what the browser's preview relies on.
 const DIAGRAM_SVG = '<svg xmlns="http://www.w3.org/2000/svg" width="120" height="60"><rect width="120" height="60" rx="8" fill="#4f46e5"/><text x="60" y="36" font-size="16" text-anchor="middle" fill="white">trove</text><script>alert("this must never run")</script></svg>'
 
+// 450 small JSON request logs under one prefix, so the browser has to page.
+// The default page is 100: Load more shows four times, and the third page
+// takes the listing past the 200 rows where it starts to virtualise.
+const LOG_COUNT = 450
+function requestLogs() {
+  const objects = new Map()
+  for (let i = 1; i <= LOG_COUNT; i++) {
+    const n = String(i).padStart(4, "0")
+    const body = JSON.stringify({ request: `req-${n}`, status: i % 50 === 0 ? 500 : 200, ms: (i * 37) % 900 })
+    objects.set(`2026/10/04/req-${n}.json`, obj(body.length, LOG_COUNT - i + 1, { contentType: "application/json", body }))
+  }
+  return objects
+}
+
 function seed() {
   return {
     primary: {
@@ -103,6 +117,7 @@ function seed() {
           ["logo.png", obj(20480, 60 * 24 * 3, { contentType: "image/png", body: LOGO_PNG })],
         ]) }],
         ["empty", { createdAt: ago(60 * 24 * 2), objects: new Map() }],
+        ["logs", { createdAt: ago(60 * 24 * 5), objects: requestLogs() }],
         ["cas", { createdAt: ago(60 * 24 * 10), objects: new Map([
           [HASH_A, obj(4812, 60 * 24)],
           [HASH_B, obj(120, 60 * 12)],

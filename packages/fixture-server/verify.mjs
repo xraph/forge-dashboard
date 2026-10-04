@@ -2481,6 +2481,20 @@ async function main() {
     check("objects.list with delimiter \"\" is flat: prefixes null, foldersSupported false", flat.body?.data?.prefixes === null && flat.body.data.foldersSupported === false && flat.body.data.objects.length === 5, JSON.stringify(flat.body?.data))
     const badCursor = await tq("objects.list", { bucket: "reports", cursor: "!!!" })
     check("objects.list with a malformed cursor is 400 BAD_REQUEST", badCursor.status === 400 && code(badCursor) === "BAD_REQUEST", `${badCursor.status} ${code(badCursor)}`)
+    // trove: the logs bucket holds 450 keys under one prefix, so the browser's Load more pages for real.
+    const trovePrefix = "2026/10/04/"
+    const troveLogs = await tq("objects.list", { bucket: "logs", prefix: trovePrefix })
+    check("objects.list on logs answers a default page of 100 and a nextCursor (trove paging seed)", troveLogs.body?.data?.objects?.length === 100 && typeof troveLogs.body.data.nextCursor === "string" && troveLogs.body.data.nextCursor !== "", `trove ${troveLogs.status} ${troveLogs.body?.data?.objects?.length} ${troveLogs.body?.data?.nextCursor}`)
+    const troveLogKeys = (troveLogs.body?.data?.objects ?? []).map((o) => o.key)
+    let troveLogCursor = troveLogs.body?.data?.nextCursor ?? null
+    let troveLogPages = 1
+    while (troveLogCursor !== null && troveLogPages < 20) {
+      const trovePage = await tq("objects.list", { bucket: "logs", prefix: trovePrefix, cursor: troveLogCursor })
+      troveLogKeys.push(...(trovePage.body?.data?.objects ?? []).map((o) => o.key))
+      troveLogCursor = trovePage.body?.data?.nextCursor ?? null
+      troveLogPages += 1
+    }
+    check("following objects.list cursors on logs reaches all 450 keys with no duplicate (trove paging seed)", troveLogKeys.length === 450 && new Set(troveLogKeys).size === 450 && troveLogCursor === null, `trove ${troveLogKeys.length} keys, ${new Set(troveLogKeys).size} distinct, ${troveLogPages} pages`)
 
     const blankStore = await tq("system.status", { store: "  " })
     check("system.status with a blank store is 400 BAD_REQUEST", blankStore.status === 400 && code(blankStore) === "BAD_REQUEST", `${blankStore.status} ${code(blankStore)}`)
