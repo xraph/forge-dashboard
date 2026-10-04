@@ -21,14 +21,16 @@ import {
 } from "@forge-go/dashboard-kit/components/native-select"
 import { NoneCell } from "@forge-go/dashboard-kit/components/none-cell"
 import { PageHeader } from "@forge-go/dashboard-kit/components/page-header"
-import { QueryBoundary } from "@forge-go/dashboard-kit/components/query-boundary"
+import {
+  CommandAlert,
+  QueryBoundary,
+} from "@forge-go/dashboard-kit/components/query-boundary"
 import {
   ResourceTable,
   type Column,
 } from "@forge-go/dashboard-kit/components/resource-table"
 import { Timestamp } from "@forge-go/dashboard-kit/components/timestamp"
 import { CursorPager, useCursorStack } from "../components/cursor-pager"
-import { DialogError } from "../components/dialog-error"
 import { describeStatus } from "../lib/format"
 import type { Ack, DLQEntrySummary, DLQPage } from "../types"
 
@@ -62,16 +64,13 @@ export function ReplayDialog({
       open={open}
       onOpenChange={onOpenChange}
       title="Replay this webhook?"
-      description={
-        <>
-          <span>{entry ? replayConsequence(entry.url) : ""}</span>
-          <DialogError what="replay it" error={replay.error} />
-        </>
-      }
+      description={entry ? replayConsequence(entry.url) : ""}
       confirmLabel="Replay"
       pending={replay.loading}
       onConfirm={onConfirm}
-    />
+    >
+      <CommandAlert title="Could not replay it" error={replay.error} />
+    </ConfirmDialog>
   )
 }
 
@@ -376,8 +375,8 @@ function BulkReplayBody({
             : `${count} ${count === 1 ? "webhook" : "webhooks"} will be sent.`}
         {skipped > 0 && ` ${skipped} already replayed will be skipped.`}
       </p>
-      <DialogError
-        what="replay the window"
+      <CommandAlert
+        title="Could not replay the window"
         error={bulk.error ?? preview.error}
       />
       <AlertDialogFooter>
@@ -471,7 +470,7 @@ function PurgeBody({
           ))}
         </NativeSelect>
       </div>
-      <DialogError what="delete them" error={purge.error} />
+      <CommandAlert title="Could not delete them" error={purge.error} />
       <AlertDialogFooter>
         <AlertDialogCancel disabled={purge.loading}>Cancel</AlertDialogCancel>
         <Button

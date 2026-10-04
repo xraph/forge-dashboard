@@ -17,7 +17,6 @@ import {
 import { TagList } from "@forge-go/dashboard-kit/components/tag-list"
 import { Timestamp } from "@forge-go/dashboard-kit/components/timestamp"
 import type { EndpointSummary } from "./endpoints"
-import { DialogError } from "../components/dialog-error"
 import { RecentDeliveries } from "../components/recent-deliveries"
 import {
   EndpointForm,
@@ -339,39 +338,31 @@ function EndpointDetailView({ id }: { id: string }) {
         open={confirming === "rotate"}
         onOpenChange={(o) => !o && setConfirming(null)}
         title="Rotate this endpoint's signing secret?"
-        description={
-          <>
-            <span>
-              Relay starts signing deliveries with a new secret straight away.
-              Until the receiver is updated with it, every delivery fails its
-              signature check. You will see the new secret once.
-            </span>
-            <DialogError what="rotate the secret" error={rotate.error} />
-          </>
-        }
+        description="Relay starts signing deliveries with a new secret straight away. Until the receiver is updated with it, every delivery fails its signature check. You will see the new secret once."
         confirmLabel="Rotate"
         // Required. It does not debounce, and a double-click would rotate twice.
         pending={rotate.loading}
         onConfirm={() => void confirmRotate()}
-      />
+      >
+        <CommandAlert
+          title="Could not rotate the secret"
+          error={rotate.error}
+        />
+      </ConfirmDialog>
       <ConfirmDialog
         open={confirming === "delete"}
         onOpenChange={(o) => !o && setConfirming(null)}
         title="Delete this endpoint?"
-        description={
-          <>
-            <span>
-              Relay stops delivering to it at once. Events that match its
-              patterns go nowhere unless another endpoint matches them. This
-              cannot be undone.
-            </span>
-            <DialogError what="delete the endpoint" error={remove.error} />
-          </>
-        }
+        description="Relay stops delivering to it at once. Events that match its patterns go nowhere unless another endpoint matches them. This cannot be undone."
         confirmLabel="Delete"
         pending={remove.loading}
         onConfirm={() => void confirmDelete()}
-      />
+      >
+        <CommandAlert
+          title="Could not delete the endpoint"
+          error={remove.error}
+        />
+      </ConfirmDialog>
     </section>
   )
 }

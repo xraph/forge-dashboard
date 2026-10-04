@@ -10,10 +10,12 @@ import {
 } from "@forge-go/dashboard-kit/components/detail-layout"
 import { NoneCell } from "@forge-go/dashboard-kit/components/none-cell"
 import { PageHeader } from "@forge-go/dashboard-kit/components/page-header"
-import { QueryBoundary } from "@forge-go/dashboard-kit/components/query-boundary"
+import {
+  CommandAlert,
+  QueryBoundary,
+} from "@forge-go/dashboard-kit/components/query-boundary"
 import { TagList } from "@forge-go/dashboard-kit/components/tag-list"
 import { Timestamp } from "@forge-go/dashboard-kit/components/timestamp"
-import { DialogError } from "../components/dialog-error"
 import { JsonView } from "../components/json-view"
 import type { Ack, EventTypeDetail } from "../types"
 
@@ -164,19 +166,16 @@ function EventTypeView({ name }: { name: string }) {
               open={confirming}
               onOpenChange={setConfirming}
               title={`Deprecate ${t.name}?`}
-              description={
-                <>
-                  <span>
-                    Relay will refuse new events of this type. Events already
-                    sent, and their deliveries, are not touched.
-                  </span>
-                  <DialogError what="deprecate it" error={deprecate.error} />
-                </>
-              }
+              description="Relay will refuse new events of this type. Events already sent, and their deliveries, are not touched."
               confirmLabel="Deprecate"
               pending={deprecate.loading}
               onConfirm={() => void confirm()}
-            />
+            >
+              <CommandAlert
+                title="Could not deprecate it"
+                error={deprecate.error}
+              />
+            </ConfirmDialog>
           </>
         )}
       </QueryBoundary>
