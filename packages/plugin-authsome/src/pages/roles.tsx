@@ -142,7 +142,7 @@ export function AuthRolesPage() {
     <section className="flex flex-col gap-4">
       <PageHeader
         title="App roles"
-        description="Authsome keeps these roles in Warden, scoped to this app. Warden's dashboard, where it is installed, shows every field a role has, including its namespace, the role it inherits from, its member cap, and whether it is a system or default role."
+        description="Authsome keeps these roles in Warden, scoped to this app. Warden's dashboard, where it is installed, also shows each role's namespace, the role it inherits from, its member cap, and whether it is a system or default role."
         actions={!creating && <Button onClick={() => setCreating(true)}>New role</Button>}
       />
 

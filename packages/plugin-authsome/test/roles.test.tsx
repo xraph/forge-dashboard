@@ -28,7 +28,7 @@ describe("AuthRolesPage", () => {
     expect(screen.getByRole("heading", { level: 1, name: "App roles" })).toBeTruthy()
     expect(
       screen.getByText(
-        "Authsome keeps these roles in Warden, scoped to this app. Warden's dashboard, where it is installed, shows every field a role has, including its namespace, the role it inherits from, its member cap, and whether it is a system or default role."
+        "Authsome keeps these roles in Warden, scoped to this app. Warden's dashboard, where it is installed, also shows each role's namespace, the role it inherits from, its member cap, and whether it is a system or default role."
       )
     ).toBeTruthy()
     // Without the warden extension the shell mounts no /@warden routes, so a
