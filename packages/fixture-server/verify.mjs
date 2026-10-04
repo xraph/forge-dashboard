@@ -2534,6 +2534,19 @@ async function main() {
     check("trove content PUT refuses a download ticket with 403", putWithDownload.status === 403, String(putWithDownload.status))
     const tooBig = await fetch(`${origin}/dashboard/trove/content`, { method: "PUT", body: "hello, world", headers: { "X-Trove-Ticket": upTicket.body?.data?.ticket } })
     check("trove content PUT refuses a body over the declared size with 413", tooBig.status === 413, String(tooBig.status))
+    // trove: a large body must get a clean 413 every time, never a reset socket (EPIPE) mid-send.
+    const troveBig = Buffer.alloc(3 * 1024 * 1024, 97)
+    const troveBigOutcomes = []
+    for (let i = 0; i < 5; i++) {
+      try {
+        const r = await fetch(`${origin}/dashboard/trove/content`, { method: "PUT", body: troveBig, headers: { "X-Trove-Ticket": upTicket.body?.data?.ticket } })
+        await r.arrayBuffer()
+        troveBigOutcomes.push(r.status)
+      } catch (e) {
+        troveBigOutcomes.push(`trove fetch rejected: ${e?.cause?.code ?? e?.message}`)
+      }
+    }
+    check("trove content PUT answers 413 to five 3 MB bodies in a row without a network error", troveBigOutcomes.every((o) => o === 413), JSON.stringify(troveBigOutcomes))
     const put = await fetch(`${origin}/dashboard/trove/content`, { method: "PUT", body: "hello", headers: { "X-Trove-Ticket": upTicket.body?.data?.ticket } })
     const putBody = await put.json()
     check("trove content PUT stores the body and answers key, storedSize and etag", put.status === 200 && putBody.key === "spot/put.txt" && putBody.storedSize === 5 && typeof putBody.etag === "string", JSON.stringify(putBody))

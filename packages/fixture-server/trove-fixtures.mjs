@@ -687,17 +687,52 @@ export async function handleTroveContent(req, res, url) {
   if (!b) return sendContentError(res, 404, "bucket not found")
   if (b.objects.has(t.k) && t.ow !== true) return sendContentError(res, 409, "An object with this key already exists.")
   const declared = typeof t.n === "number" ? t.n : 0
-  const chunks = []
-  let total = 0
-  for await (const chunk of req) {
-    total += chunk.length
-    if (total > declared) {
-      sendContentError(res, 413, "The body is larger than the size this upload was started with.")
-      req.destroy()
-      return
+  // Like Go, refuse on Content-Length before reading a byte. The answer
+  // carries Connection: close and the rest of the body is drained, not cut off:
+  // closing the socket while the client is still sending resets the connection
+  // and turns a clean 413 into an ECONNRESET or EPIPE in the browser. The
+  // response is complete (it has a Content-Length) before the drain ends, and
+  // the socket closes only once the request has been read to its end.
+  const refuseTooBig = () => {
+    const payload = Buffer.from(JSON.stringify({ error: "The body is larger than the size this upload was started with." }))
+    res.writeHead(413, { "Content-Type": "application/json", "Cache-Control": "no-store", "Content-Length": String(payload.length), Connection: "close" })
+    res.write(payload)
+    const finish = () => res.end()
+    if (req.complete) finish()
+    else {
+      req.once("end", finish)
+      req.once("error", finish)
+      req.once("close", finish)
     }
-    chunks.push(chunk)
+    req.resume()
   }
+  const announced = Number(req.headers["content-length"])
+  if (req.headers["content-length"] !== undefined && Number.isFinite(announced) && announced > declared) {
+    refuseTooBig()
+    return
+  }
+  // A chunked body has no Content-Length, so count as it arrives. This reads
+  // with events rather than for await: leaving a for await early destroys the stream.
+  const chunks = []
+  const outcome = await new Promise((resolve) => {
+    let total = 0
+    let over = false
+    req.on("data", (chunk) => {
+      if (over) return
+      total += chunk.length
+      if (total > declared) {
+        over = true
+        chunks.length = 0
+        refuseTooBig()
+        resolve("over")
+        return
+      }
+      chunks.push(chunk)
+    })
+    req.on("end", () => resolve(over ? "over" : "ok"))
+    req.on("error", () => resolve("error"))
+  })
+  if (outcome !== "ok") return
   // The fixture's stand-in for a scan provider: any key containing "eicar".
   if (/eicar/i.test(t.k)) return sendContentError(res, 422, "A content scan blocked this upload.")
   const body = Buffer.concat(chunks)
