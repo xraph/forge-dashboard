@@ -322,6 +322,8 @@ describe("PolicyRule", () => {
     const NOTES: [ConditionProblem, ConditionReason, string, unknown, string][] = [
       ["throws", "unknownOperator", "context.ip", "x", "This is not an operator warden knows, so it cannot be evaluated."],
       ["throws", "invalidRegex", "subject.email", "(", "This pattern does not compile, so it cannot be evaluated."],
+      ["throws", "notAList", "context.ip", "10.0.0.0/8", "This needs a list of values, not one, so it cannot be evaluated."],
+      // An older warden, which read a non-list as an empty list, sends these two.
       ["alwaysTrue", "matchesAnything", "context.ip", "", "This is always true, so it restricts nothing. This value matches every string."],
       ["alwaysTrue", "alwaysPresent", "subject.id", undefined, "This is always true, so it restricts nothing. Warden always gives subject.id a value, even an empty one."],
       ["alwaysFalse", "alwaysPresent", "subject.id", undefined, "This is always false. Warden always gives subject.id a value, even an empty one."],
@@ -355,13 +357,13 @@ describe("PolicyRule", () => {
     it("puts each note under its own row and no other", () => {
       const conditions: PolicyConditionView[] = [
         { field: "subject.dept", operator: "eq", value: "eng" },
-        { field: "context.ip", operator: "in", value: "10.0.0.0/8", problem: "alwaysFalse", reason: "notAList" },
+        { field: "context.ip", operator: "in", value: "10.0.0.0/8", problem: "throws", reason: "notAList" },
         { field: "subject.level", operator: "gt", value: 3 },
       ]
       const { container } = show({ conditions })
       const marked = conditionRow(container, 1)
       expect(lineOf(marked)[0]).toBe("context.ip")
-      expect(noteOf(marked)).toBe("This is always false. It needs a list of values, not one.")
+      expect(noteOf(marked)).toBe("This needs a list of values, not one, so it cannot be evaluated.")
       expect(noteOf(conditionRow(container, 0))).toBeNull()
       expect(noteOf(conditionRow(container, 2))).toBeNull()
     })

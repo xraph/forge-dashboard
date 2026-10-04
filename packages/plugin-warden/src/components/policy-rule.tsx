@@ -136,6 +136,11 @@ function reasonText(reason: ConditionReason, field: string): string | null {
  * are true of what warden evaluates because every store hands the engine
  * plain Go values: the mongo store normalises its driver types (bson.A,
  * bson.DateTime) on read, so a stored list is a list to the evaluator too.
+ *
+ * `notAList` arrives two ways. Current warden refuses to evaluate an `in` or
+ * `not_in` whose value is not a list, so it sends `throws`. An older warden
+ * read that value as an empty list and sends `alwaysTrue` or `alwaysFalse`.
+ * Both are rendered, because the page can talk to either.
  */
 export function conditionNote(
   problem: ConditionProblem | undefined,
@@ -149,6 +154,9 @@ export function conditionNote(
     }
     if (reason === "invalidRegex") {
       return "This pattern does not compile, so it cannot be evaluated."
+    }
+    if (reason === "notAList") {
+      return "This needs a list of values, not one, so it cannot be evaluated."
     }
     return null
   }

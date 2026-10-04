@@ -625,8 +625,9 @@ function seedPolicies(hourAgo, now) {
       actions: ["delete"],
       resources: ["report:*"],
     }),
-    // A not_in GIVEN A STRING: not_in against something that is not a list is
-    // always true, so this deny denies everyone the other matchers select.
+    // A not_in GIVEN A STRING: the evaluator refuses an in or not_in whose value
+    // is not a list, and a deny whose condition errors fails closed, so this
+    // deny denies everyone the other matchers select.
     policy("office-ip-lockout", {
       namespacePath: SANDBOX,
       description: "not_in was given a string, not a list.",
@@ -2261,6 +2262,10 @@ function classifyCondition(c) {
     compiled = compileGoRegex(goSprint(c.value))
     if (compiled.status === "invalid") return { problem: "throws", reason: "invalidRegex" }
   }
+  // inSlice refuses a value that is not a list, whatever the field.
+  if ((c.operator === "in" || c.operator === "not_in") && goListOf(c.value) === null) {
+    return { problem: "throws", reason: "notAList" }
+  }
   if (!fieldResolves(c.field)) {
     const outcome = nilOutcome(c, compiled)
     if (outcome === null) return none
@@ -2278,13 +2283,9 @@ function classifyCondition(c) {
   switch (c.operator) {
     case "in":
     case "not_in": {
-      const items = goListOf(c.value)
-      let reason = "notAList"
-      if (items !== null) {
-        if (items.length > 0) return none
-        reason = "emptyList"
-      }
-      return { problem: c.operator === "in" ? "alwaysFalse" : "alwaysTrue", reason }
+      // A value that is not a list was classified as throwing above.
+      if (goListOf(c.value).length > 0) return none
+      return { problem: c.operator === "in" ? "alwaysFalse" : "alwaysTrue", reason: "emptyList" }
     }
     case "gt":
     case "lt":
