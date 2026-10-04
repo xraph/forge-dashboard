@@ -913,3 +913,28 @@ Uploads live in a module-level queue, two at a time, and survive in-app navigati
 ### Bundle
 
 The browser chunk is 86.27 KB raw and 26.99 KB gzip, and trove adds no CodeMirror bytes, since the code view reuses the shared chunks. BASELINE.md has the full table and the entry string counts.
+
+## What slice 5 found
+
+The templ dashboard is gone. Trove commit 2c2c22f deleted `extension/dashboard/` (25 `.templ` files, their 25 generated `*_templ.go`, and `contributor.go`, `data.go`, `manifest.go` and `plugin_iface.go`) on its own. The registration had already gone in 0ad27be, when forge main dropped `DashboardAware`. `find . -name '*.templ'` prints nothing. Both modules build and pass their tests, and no non-test Go file imports templ, forgeui or the old package.
+
+`MIGRATION.md` in the trove root is the record. It was written from the templ sources before the deletion and checked twice against them and against `packages/plugin-trove`. The walk turned up four templ bugs this spec never listed:
+- bucket delete only removed the metadata row;
+- object delete was a soft delete;
+- saving metadata always wiped it, because the form's field names didn't match the handler's;
+- the Copy Key button built inline JavaScript from the key, so a quote in a key broke out of it.
+
+None of these were fixed, because the code is gone.
+
+forgeui didn't drop out of `go.mod` the way this spec expected. It's no longer a direct dependency, but it stays `// indirect` because `extension/dashboard_aware_test.go` checks the extension against forge's `ContractContributorAware`, and forge v1.11.2's dashboard root still imports forgeui. We kept the test, since it's the only check of that interface, and production code never imports the root. templ is indirect for the reason this spec already gave. A forge release without either finishes the job.
+
+golangci-lint on a fresh cache now reports 21 issues, all in `extension/handler`, `extension/hooks`, `extension/model` and `extension/store/memory`. They're older than the migration, and `MIGRATION.md` lists them as still open.
+
+The docs page `integration/dashboard.mdx` now describes the React plugin. We couldn't build the docs site because its dependencies aren't installed, so the MDX was checked by hand. The CHANGELOG records what an upgrade changes:
+- the content route, mounted on every app;
+- the three config keys, and the 32-byte floor on the secret;
+- the contract contributor;
+- `Trove.Backends()` and `Trove.DriverFor()`;
+- the removals.
+
+The last slice 4 residual is closed too: the upload tray caps its list at 12rem and scrolls (forge-dashboard aa2c9cc). We checked it in the shell with twelve rows.
