@@ -44,7 +44,7 @@ export function PathBar({ bucket, store, prefix }: { bucket: string; store: stri
         spellCheck={false}
         value={draft}
         onChange={(e) => setDraft(e.target.value)}
-        className="h-7 w-48 font-mono text-xs"
+        className="h-7 w-64 font-mono text-xs"
       />
     </form>
   )

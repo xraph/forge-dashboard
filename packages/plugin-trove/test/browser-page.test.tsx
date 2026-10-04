@@ -43,6 +43,16 @@ describe("BrowserPage header and path bar", () => {
     expect((screen.getByRole("textbox", { name: "Continue the prefix" }) as HTMLInputElement).value).toBe("sum")
   })
 
+  it("gives the prefix input room for its placeholder, and keeps its name", () => {
+    window.history.replaceState(null, "", "/@trove/buckets/reports")
+    renderPage(BrowserPage, stubClient(LIST), { bucket: "reports" })
+    const input = screen.getByRole("textbox", { name: "Continue the prefix" }) as HTMLInputElement
+    expect(input.placeholder).toBe("filter this prefix, then Enter")
+    // w-48 clips that placeholder at text-xs in the mono face; w-64 holds it.
+    expect(input.className.split(/\s+/)).toContain("w-64")
+    expect(input.className.split(/\s+/)).not.toContain("w-48")
+  })
+
   it("names a non-default store and keeps it on every link", () => {
     window.history.replaceState(null, "", "/@trove/buckets/backups?store=archive&prefix=db%2F")
     renderPage(BrowserPage, stubClient(LIST), { bucket: "backups" })
