@@ -460,6 +460,12 @@ describe("CreateKeyDialog expiry", () => {
   }
 
   it("never allows a date whose end of day is past now plus the lifetime", async () => {
+    // The package pins TZ to America/Chicago (vitest.config.ts). In a zone
+    // with no clock change this test would pass without testing anything.
+    const winter = new Date(2026, 0, 15).getTimezoneOffset()
+    const summer = new Date(2026, 6, 15).getTimezoneOffset()
+    expect(winter, "the test zone must observe daylight saving").not.toBe(summer)
+
     // 90 days from 3 Aug 10:00 lands on 1 Nov, the fall-back day in the US
     // (25 hours long); the same arithmetic also crosses spring and autumn
     // changes in the southern zones. The first case is the one that broke.
@@ -498,11 +504,31 @@ describe("CreateKeyDialog expiry", () => {
 
     fill("Policy", "kpol_short")
     expect(expiry().value).toBe("")
+    const long = new Date(2026, 11, 15).toLocaleDateString(undefined, {
+      dateStyle: "long",
+    })
+    const cleared = `${long} is later than this policy allows, so the date was cleared.`
+    expect(screen.getByText(cleared)).toBeTruthy()
 
-    // A date that still fits stays.
+    // A date that still fits stays, and the note goes once a date is chosen.
     fill(/^Expiry/, "2026-10-05")
+    expect(screen.queryByText(cleared)).toBeNull()
     fill("Policy", "kpol_standard")
     expect(expiry().value).toBe("2026-10-05")
+    expect(screen.queryByText(/so the date was cleared/)).toBeNull()
+  })
+
+  it("drops the cleared-date note when another policy is chosen", async () => {
+    const { client } = standard()
+    mount(client)
+    await dialog()
+    await screen.findByRole("option", { name: "Standard" })
+    fill("Policy", "kpol_standard")
+    fill(/^Expiry/, "2026-12-15")
+    fill("Policy", "kpol_short")
+    expect(screen.getByText(/so the date was cleared/)).toBeTruthy()
+    fill("Policy", "")
+    expect(screen.queryByText(/so the date was cleared/)).toBeNull()
   })
 
   it("says when the key will expire, in the operator's time", async () => {

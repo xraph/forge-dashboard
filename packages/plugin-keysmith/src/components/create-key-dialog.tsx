@@ -168,6 +168,8 @@ function CreateKeyForm({
   const [picked, setPicked] = useState<string[]>([])
   const [problem, setProblem] = useState<string | null>(null)
   const [expiryProblem, setExpiryProblem] = useState<string | null>(null)
+  // The date a policy change just took away, so the form can say so.
+  const [clearedExpiry, setClearedExpiry] = useState<string | null>(null)
   // When the form opened. Only the date input's bounds read it, so they do not
   // move under the operator mid-edit; the submit check reads the clock afresh.
   const [openedAt] = useState(() => Date.now())
@@ -257,8 +259,13 @@ function CreateKeyForm({
       next?.maxKeyLifetimeSeconds != null
         ? lastDateWithin(openedAt, next.maxKeyLifetimeSeconds)
         : undefined
-    // A date the new policy would refuse is not kept.
-    if (max !== undefined && expiry > max) setExpiry("")
+    // A date the new policy would refuse is not kept, and the form says so.
+    if (max !== undefined && expiry > max) {
+      setClearedExpiry(expiry)
+      setExpiry("")
+    } else {
+      setClearedExpiry(null)
+    }
     setExpiryProblem(null)
   }
 
@@ -416,8 +423,14 @@ function CreateKeyForm({
             onChange={(e) => {
               setExpiry(e.target.value)
               setExpiryProblem(null)
+              setClearedExpiry(null)
             }}
           />
+          {clearedExpiry && (
+            <FieldDescription>
+              {`${longDate(clearedExpiry)} is later than this policy allows, so the date was cleared.`}
+            </FieldDescription>
+          )}
           {expiryProblem && (
             <p id={ids.expiryNote} className="text-xs text-destructive">
               {expiryProblem}
