@@ -329,3 +329,118 @@ CHECKS.push(async ({ q, c, check, data, code, message, invalidates }) => {
   const baselines = data(await q("baselines.list"))?.items ?? []
   check("baselines.list never shows another app's baseline", baselines.length > 0 && !baselines.some((b) => b.id === I.otherBaseline), baselines.map((b) => b.name))
 })
+
+// --- run lifecycle, red team and the overview (task 4)
+Object.assign(SENTINEL_INPUT, {
+  "sentinel::redteam.report": { runId: I.guardRun },
+  "sentinel::runs.start": { suiteId: I.billingSuite, target: "support-bot", scorers: ["contains"] },
+  "sentinel::runs.cancel": { runId: I.stalledRun },
+  "sentinel::redteam.generate": { suiteId: I.guardSuite, attackTypes: ["offtopic"], count: 1 },
+})
+
+CHECKS.push(async ({ q, c, check, data, code, message, invalidates }) => {
+  const runCount = async () => data(await q("overview.stats"))?.runCount
+
+  // Every refusal comes before a run exists.
+  const before = await runCount()
+  const refusals = [
+    [{ suiteId: I.billingSuite, target: "nope", scorers: ["contains"] }, 'sentinel: unknown target "nope"'],
+    [{ suiteId: I.billingSuite, target: "echo", scorers: [] }, "sentinel: no scorers configured"],
+    [{ suiteId: I.billingSuite, target: "echo", scorers: ["vibes"] }, 'sentinel: unknown scorer "vibes"'],
+    [{ suiteId: I.billingSuite, target: "echo", scorers: ["latency"] }, 'sentinel: invalid input: scorer "latency" cannot run without configuration: scorer latency: missing required config: max_ms'],
+  ]
+  for (const [input, want] of refusals) {
+    const r = await c("runs.start", input)
+    check(`runs.start refuses: ${want}`, code(r) === "BAD_REQUEST" && message(r) === want, r.body)
+  }
+  const empty = data(await c("suites.create", { name: "Spot empty suite" }))
+  const noCases = await c("runs.start", { suiteId: empty?.id, target: "echo", scorers: ["exact"] })
+  check("runs.start on a suite with no cases says why", message(noCases) === "sentinel: empty input: the suite has no cases", noCases.body)
+  const foreign = await c("runs.start", { suiteId: I.otherSuite, target: "echo", scorers: ["exact"] })
+  check("runs.start on another app's suite is NOT_FOUND", code(foreign) === "NOT_FOUND" && message(foreign) === "suite not found", foreign.body)
+  check("no refused start wrote a run", (await runCount()) === before, `${before} then ${await runCount()}`)
+
+  // A started run answers at once and fills in as it is read.
+  const startRes = await c("runs.start", { suiteId: I.supportSuite, target: "support-bot", scorers: ["contains", "judge"], model: "fast" })
+  const started = data(startRes)
+  check(
+    "runs.start answers a running run with its recorded settings",
+    started?.state === "running" && started.completedCases === 0 && started.totalCases === 8 && started.model === "fast" && started.settings?.promptVersionId === I.supportVersion2 && started.settings?.target === "support-bot",
+    started,
+  )
+  check("runs.start declares the manifest's invalidates", invalidates(startRes) === "runs.list,suites.detail,prompts.list,prompts.detail,overview.stats", invalidates(startRes))
+  const seen = []
+  let last
+  for (let i = 0; i < 10; i++) {
+    last = data(await q("runs.detail", { runId: started?.id }))
+    seen.push(last?.run?.completedCases)
+    if (last?.run?.state === "completed") break
+  }
+  check("a polled run advances and completes", last?.run?.state === "completed" && last.run.completedCases === 8 && seen.every((n, i) => i === 0 || n >= seen[i - 1]), seen)
+  check("a completed run has completedAt and lastProgressAt", typeof last?.run?.completedAt === "string" && typeof last?.run?.lastProgressAt === "string", last?.run)
+  const lateCancel = await c("runs.cancel", { runId: started?.id })
+  check("cancelling a finished run is CONFLICT with the engine's words", code(lateCancel) === "CONFLICT" && message(lateCancel) === `sentinel: invalid state transition: run ${started?.id} is not running`, lateCancel.body)
+
+  const quick = data(await c("runs.start", { suiteId: I.guardSuite, target: "echo", scorers: ["exact"] }))
+  const cancelRes = await c("runs.cancel", { runId: quick?.id })
+  check("runs.cancel answers a cancelled run at once", data(cancelRes)?.state === "cancelled" && typeof data(cancelRes)?.completedAt === "string", data(cancelRes))
+  check(
+    "runs.cancel declares the manifest's invalidates",
+    invalidates(cancelRes) === "runs.list,runs.detail,runs.results,runs.regression,runs.compare,redteam.report,overview.stats",
+    invalidates(cancelRes),
+  )
+  const otherGenerate = await c("redteam.generate", { suiteId: I.otherSuite, attackTypes: ["jailbreak"], count: 1 })
+  const otherReport = await q("redteam.report", { runId: I.otherRun })
+  check(
+    "red-team intents answer another app's ids like missing ones",
+    code(otherGenerate) === "NOT_FOUND" && message(otherGenerate) === "suite not found" && code(otherReport) === "NOT_FOUND" && message(otherReport) === "run not found",
+    [otherGenerate.body, otherReport.body],
+  )
+  const otherCancel = await c("runs.cancel", { runId: I.otherRun })
+  check("cancelling another app's run is NOT_FOUND", code(otherCancel) === "NOT_FOUND" && message(otherCancel) === "run not found", otherCancel.body)
+
+  // Red team.
+  const report = await q("redteam.report", { runId: I.guardRun })
+  const rep = data(report)
+  check("redteam.report unions the run's scorers with the cases' own", JSON.stringify(rep?.judgedBy) === '["judge","not_contains"]', rep?.judgedBy)
+  check(
+    "redteam.report tallies each attack type, sorted, with bypasses",
+    rep?.byType?.map((t) => t.attackType).join(",") === "injection,jailbreak,leakage" && rep.bypassed > 0 && rep.total === rep.byType.reduce((s, t) => s + t.total, 0),
+    rep,
+  )
+  const nullReport = await q("redteam.report", { runId: I.billingRun })
+  check("a suite with no red-team case answers null", nullReport.body?.ok === true && nullReport.body.data === null, nullReport.body)
+  for (const [count, ok] of [[0, false], [6, false]]) {
+    const r = await c("redteam.generate", { suiteId: I.guardSuite, attackTypes: ["jailbreak"], count })
+    check(`redteam.generate count ${count} is refused`, ok === (r.body?.ok === true) && message(r) === "count must be between 1 and 5, the number of templates each attack type has", r.body)
+  }
+  const unknownType = await c("redteam.generate", { suiteId: I.guardSuite, attackTypes: ["jailbreak", "phishing"], count: 1 })
+  check("an unknown attack type is named", message(unknownType) === 'sentinel: invalid input: unknown attack type "phishing"', unknownType.body)
+  const casesBefore = data(await q("suites.detail", { suiteId: empty?.id }))?.caseCount
+  const promptless = await c("redteam.generate", { suiteId: empty?.id, attackTypes: ["jailbreak", "leakage"], count: 2 })
+  check(
+    "leakage on a suite with no prompt is refused and writes nothing",
+    message(promptless) === "sentinel: invalid input: leakage attacks need a system prompt to look for, and this suite has none" && data(await q("suites.detail", { suiteId: empty?.id }))?.caseCount === casesBefore,
+    promptless.body,
+  )
+  const genRes = await c("redteam.generate", { suiteId: empty?.id, attackTypes: ["hallucination", "hallucination", "offtopic"], count: 2 })
+  check("redteam.generate collapses repeated types", JSON.stringify(data(genRes)) === '{"created":4,"cap":5}', data(genRes))
+  check("redteam.generate declares the manifest's invalidates", invalidates(genRes) === "cases.list,suites.list,suites.detail,redteam.report,overview.stats", invalidates(genRes))
+  const generated = data(await q("cases.list", { suiteId: empty?.id }))?.items ?? []
+  check(
+    "generated cases are tagged, named and marked",
+    generated.length === 4 && generated.every((g) => g.tags[0] === "redteam" && g.redTeam?.attackType === g.tags[1] && g.name.startsWith(`${g.tags[1]}_`)),
+    generated.map((g) => g.name),
+  )
+  await c("suites.delete", { suiteId: empty?.id })
+
+  // Overview.
+  const ov = data(await q("overview.stats"))
+  check("overview counts this app only", ov?.suiteCount === (data(await q("suites.list"))?.items?.length ?? -1) && ov.targetsRegistered === true, ov && { suites: ov.suiteCount, runs: ov.runCount })
+  check("overview keeps ten recent runs, newest first", ov?.recentRuns?.length === 10 && ov.recentRuns.map((r) => r.createdAt).join() === [...ov.recentRuns.map((r) => r.createdAt)].sort().reverse().join(), ov?.recentRuns?.length)
+  const running = (data(await q("runs.list", { state: "running", limit: 100 }))?.items ?? []).map((r) => r.id).sort()
+  check("overview's active runs are exactly the running runs", ov?.activeRuns?.every((r) => r.state === "running") === true && ov.activeRuns.map((r) => r.id).sort().join() === running.join(), [ov?.activeRuns?.map((r) => r.id), running])
+  const regressed = ov?.recentRegressions?.find((r) => r.runId === I.supportRegressedRun)
+  check("overview lists the regressed run against Release 1.4", regressed?.baseline?.id === I.supportBaseline && regressed.worstDelta <= 0 && regressed.suiteName === "Support assistant", ov?.recentRegressions)
+  check("overview never lists the baseline's own run as regressed", !ov?.recentRegressions?.some((r) => r.runId === I.supportBaselineRun), ov?.recentRegressions?.map((r) => r.runId))
+})

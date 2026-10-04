@@ -1887,3 +1887,135 @@ define("baselines.delete", "command", BASELINE_INVALIDATES, (input) => {
   state.baselines = state.baselines.filter((x) => x.id !== b.id)
   return { baselineId: b.id }
 })
+
+// ---------------------------------------------------------------------------
+// Run lifecycle, red team and the overview
+// ---------------------------------------------------------------------------
+
+// How a run started from the dashboard behaves: the fixture's own numbers.
+const STARTED_RUN_QUALITY = 82
+const STARTED_RUN_LEAK_RATE = 30
+
+define("runs.start", "command", ["runs.list", "suites.detail", "prompts.list", "prompts.detail", "overview.stats"], (input) => {
+  const app = resolveApp()
+  const s = suiteInApp(app, str(input, "suiteId"))
+  const target = str(input, "target")
+  if (!registeredTargets().some((t) => t.name === target)) throw badRequest(`sentinel: unknown target "${target}"`)
+  const scorers = optStrList(input, "scorers") ?? []
+  if (scorers.length === 0) throw badRequest("sentinel: no scorers configured")
+  for (const name of scorers) {
+    if (!SCORERS.some((x) => x.name === name)) throw badRequest(`sentinel: unknown scorer "${name}"`)
+    const err = scorerBuildError(name, null)
+    if (err) throw badRequest(`sentinel: invalid input: scorer "${name}" cannot run without configuration: ${err}`)
+  }
+  if (suiteCases(s.id).length === 0) throw badRequest("sentinel: empty input: the suite has no cases")
+  const run = planRun(s, {
+    target,
+    scorers,
+    model: str(input, "model"),
+    quality: STARTED_RUN_QUALITY,
+    leakRate: STARTED_RUN_LEAK_RATE,
+    createdAt: Date.now(),
+  })
+  run.simulated = true
+  return runView(run)
+})
+
+define("runs.cancel", "command", ["runs.list", "runs.detail", "runs.results", "runs.regression", "runs.compare", "redteam.report", "overview.stats"], (input) => {
+  const app = resolveApp()
+  const run = runInApp(app, str(input, "runId"))
+  if (run.state !== "running") throw conflict(`sentinel: invalid state transition: run ${run.id} is not running`)
+  run.state = "cancelled"
+  finalizeRun(run, Date.now())
+  return runView(run)
+})
+
+define("redteam.generate", "command", ["cases.list", "suites.list", "suites.detail", "redteam.report", "overview.stats"], (input) => {
+  const app = resolveApp()
+  const s = suiteInApp(app, str(input, "suiteId"))
+  const count = int(input, "count")
+  if (count < 1 || count > MAX_PER_TYPE) throw badRequest(`count must be between 1 and ${MAX_PER_TYPE}, the number of templates each attack type has`)
+  const types = [...new Set(optStrList(input, "attackTypes") ?? [])]
+  if (types.length === 0) throw badRequest("sentinel: invalid input: choose at least one attack type")
+  for (const t of types) {
+    if (!REDTEAM_TEMPLATES[t]) throw badRequest(`sentinel: invalid input: unknown attack type "${t}"`)
+    if ((t === "leakage" || t === "injection") && !effectivePrompt(s).trim()) {
+      throw badRequest(`sentinel: invalid input: ${t} attacks need a system prompt to look for, and this suite has none`)
+    }
+  }
+  const cases = redTeamCases(s, types, count, Date.now())
+  state.cases.push(...cases)
+  return { created: cases.length, cap: MAX_PER_TYPE }
+})
+
+/**
+ * redteam.report: null only when the suite has no red-team case at all. A
+ * failed result is a bypass, an errored one is unscored, and judgedBy is the
+ * run's own scorers plus those the red-team cases with a result carried.
+ */
+define("redteam.report", "query", [], (input) => {
+  const app = resolveApp()
+  const run = runInApp(app, str(input, "runId"))
+  const cases = new Map(suiteCases(run.suiteId).map((c) => [c.id, c]))
+  if (![...cases.values()].some((c) => attackTypeOf(c) !== "")) return null
+  const judges = new Set(run.config.scorers ?? [])
+  const tallies = new Map()
+  const report = { judgedBy: [], byType: [], total: 0, bypassed: 0, unscored: 0 }
+  for (const res of runResults(run.id)) {
+    const tc = cases.get(res.caseId)
+    if (!tc) continue
+    const at = attackTypeOf(tc)
+    if (!at) continue
+    for (const sc of tc.scorers) judges.add(sc.name)
+    if (!tallies.has(at)) tallies.set(at, { attackType: at, total: 0, bypassed: 0, unscored: 0 })
+    const tally = tallies.get(at)
+    tally.total += 1
+    report.total += 1
+    if (res.status === "fail") {
+      tally.bypassed += 1
+      report.bypassed += 1
+    } else if (res.status === "error") {
+      tally.unscored += 1
+      report.unscored += 1
+    }
+  }
+  report.judgedBy = [...judges].sort()
+  report.byType = [...tallies.values()].sort((x, y) => (x.attackType < y.attackType ? -1 : x.attackType > y.attackType ? 1 : 0))
+  return report
+})
+
+define("overview.stats", "query", [], () => {
+  const app = resolveApp()
+  const suites = appSuites(app)
+  const all = appRuns(app)
+  const out = {
+    suiteCount: suites.length,
+    caseCount: suites.reduce((sum, s) => sum + suiteCases(s.id).length, 0),
+    runCount: all.length,
+    recentRuns: [],
+    activeRuns: [],
+    recentRegressions: [],
+    targetsRegistered: registeredTargets().length > 0,
+  }
+  all.forEach((r, i) => {
+    const recent = i < RECENT_RUNS_LIMIT
+    const running = r.state === "running"
+    if (!recent && !running) return
+    const v = runView(r)
+    if (recent) out.recentRuns.push(v)
+    if (running) out.activeRuns.push(v)
+  })
+  for (const r of appRuns(app, { state: "completed" }).slice(0, REGRESSION_LOOKBACK_RUNS)) {
+    const reg = regressionFor(app, r, "", undefined)
+    if (reg.state !== "compared" || !reg.hasRegression) continue
+    out.recentRegressions.push({
+      runId: r.id,
+      suiteId: r.suiteId,
+      suiteName: suiteName(r.suiteId),
+      createdAt: iso(r.createdAt),
+      baseline: reg.baseline,
+      worstDelta: reg.worstDelta,
+    })
+  }
+  return out
+})
