@@ -41,6 +41,8 @@ const MAX_LIST_LIMIT = 100
 const DEFAULT_PICKER_LIMIT = 100
 const MAX_PICKER_LIMIT = 200
 const MAX_KEY_NAME_LENGTH = 200
+// Counted in code points, as Go counts runes.
+const MAX_KEY_DESCRIPTION_LENGTH = 1000
 const MAX_REVOKE_REASON_LENGTH = 500
 // 90 days, the longest grace window a rotation may ask for.
 const MAX_GRACE_SECONDS = 7_776_000
@@ -654,7 +656,6 @@ export function createKeysmithHandlers(FixtureError) {
       },
     },
 
-
     "policies.list": {
       kind: "query",
       handler: (params) => {
@@ -704,6 +705,10 @@ export function createKeysmithHandlers(FixtureError) {
         if (name === "") throw badRequest("name is required")
         if ([...name].length > MAX_KEY_NAME_LENGTH) throw badRequest("name is too long")
 
+        // Trimmed like the name. One that is only spaces is no description.
+        const description = str(params?.description).trim()
+        if ([...description].length > MAX_KEY_DESCRIPTION_LENGTH) throw badRequest("description is too long")
+
         const environment = params?.environment
         if (!ENVIRONMENTS.includes(environment)) throw badRequest("environment must be one of live, test, staging")
 
@@ -750,7 +755,7 @@ export function createKeysmithHandlers(FixtureError) {
           id: newTypeID("akey"),
           tenantId,
           name,
-          ...(typeof params?.description === "string" && params.description !== "" ? { description: params.description } : {}),
+          ...(description !== "" ? { description } : {}),
           prefix,
           hint: rawKey.slice(-4),
           environment,
