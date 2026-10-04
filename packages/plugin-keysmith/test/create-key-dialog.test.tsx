@@ -45,6 +45,7 @@ const CREATED: KeySummary = {
 
 const POLICIES: PoliciesList = {
   hasMore: false,
+  rateLimiterConfigured: false,
   policies: [
     {
       id: "kpol_standard",

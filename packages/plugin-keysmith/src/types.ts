@@ -93,7 +93,55 @@ export interface ScopeSummary {
 export interface PoliciesList {
   policies: PolicySummary[]
   hasMore: boolean
+  /**
+   * False when the engine has no rate limiter, so a policy's rate limit is
+   * stored but not enforced in this deployment.
+   */
+  rateLimiterConfigured: boolean
 }
+
+/**
+ * Every policy field the editor and the detail page show. Mirrors
+ * contract.PolicyDetail. An unset duration or count is null, never 0: the
+ * engine reads 0 as unset. Lists are never null on the wire.
+ */
+export type PolicyDetail = {
+  id: string
+  name: string
+  description?: string
+  maxKeyLifetimeSeconds: number | null
+  /** null means rotation uses 24 hours. */
+  graceSeconds: number | null
+  /** An empty list means the policy allows any scope. */
+  allowedScopes: string[]
+  rateLimit: number | null
+  rateLimitWindowSeconds: number | null
+  burstLimit: number | null
+  allowedIps: string[]
+  allowedOrigins: string[]
+  allowedMethods: string[]
+  allowedPaths: string[]
+  rotationPeriodSeconds: number | null
+  dailyQuota: number | null
+  monthlyQuota: number | null
+  createdAt: string
+  updatedAt: string
+}
+
+/** policies.detail. */
+export type PolicyDetailResponse = {
+  policy: PolicyDetail
+  /** Every key in the tenant on this policy, revoked or not. */
+  keysUsing: number
+  /** The keys on it that are not revoked. While above 0, policies.delete refuses. */
+  keysBlockingDelete: number
+  rateLimiterConfigured: boolean
+}
+
+/** The fields policies.create and policies.update carry. */
+export type PolicyFields = Partial<
+  Omit<PolicyDetail, "id" | "createdAt" | "updatedAt">
+>
 
 export interface ScopesList {
   scopes: ScopeSummary[]

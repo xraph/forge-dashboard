@@ -1,24 +1,35 @@
 import { definePlugin } from "@forge-go/dashboard-plugin"
-import { KeyRoundIcon } from "@forge-go/dashboard-kit/icons"
+import { KeyRoundIcon, ShieldCheckIcon } from "@forge-go/dashboard-kit/icons"
 import { KeyDetailPage } from "./pages/key-detail"
 import { KeysPage } from "./pages/keys"
+import { PoliciesPage } from "./pages/policies"
 
-export { KeyDetailPage, KeysPage }
+export { KeyDetailPage, KeysPage, PoliciesPage }
 export { KeyStateBadge } from "./badges"
 export {
   ENVIRONMENTS,
+  formatRateLimit,
   keyPath,
   maskedKey,
+  policyPath,
+  splitDuration,
   STATE_LABEL,
   STATES,
+  toSeconds,
 } from "./format"
+export type { DurationUnit } from "./format"
 export type {
   Environment,
   KeyDetail,
   KeysList,
   KeyState,
   KeySummary,
+  PoliciesList,
+  PolicyDetail,
+  PolicyDetailResponse,
+  PolicyFields,
   PolicyRef,
+  PolicySummary,
   PreviousKey,
 } from "./types"
 
@@ -46,12 +57,20 @@ export const keysmithPlugin = definePlugin({
       icon: <KeyRoundIcon />,
       group: "API keys",
     },
+    {
+      label: "Policies",
+      to: "/policies",
+      priority: 1,
+      icon: <ShieldCheckIcon />,
+      group: "API keys",
+    },
   ],
   routes: [
     { path: "/keys", element: KeysPage },
     // No nav entry: a sidebar link to "a key" with none chosen points
     // nowhere. It is reached from the list's row links.
     { path: "/keys/:id", element: KeyDetailPage },
+    { path: "/policies", element: PoliciesPage },
   ],
 })
 

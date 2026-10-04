@@ -43,7 +43,7 @@ function policy(allowedScopes: string[]): PolicySummary {
 }
 
 function policies(...list: PolicySummary[]): PoliciesList {
-  return { policies: list, hasMore: false }
+  return { policies: list, hasMore: false, rateLimiterConfigured: false }
 }
 
 const READS = {

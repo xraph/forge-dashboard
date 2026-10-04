@@ -1,4 +1,4 @@
-import { useState } from "react"
+import { useMemo, useState } from "react"
 import type { ComponentType } from "react"
 import { PluginLink, useQuery } from "@forge-go/dashboard-plugin"
 import type { PluginPageProps } from "@forge-go/dashboard-plugin"
@@ -15,59 +15,84 @@ import { TagList } from "@forge-go/dashboard-kit/components/tag-list"
 import { Timestamp } from "@forge-go/dashboard-kit/components/timestamp"
 import { KeyStateBadge } from "../badges"
 import { CreateKeyDialog } from "../components/create-key-dialog"
-import { ENVIRONMENTS, keyPath, maskedKey, STATES } from "../format"
-import type { KeysList, KeySummary } from "../types"
+import { ENVIRONMENTS, keyPath, maskedKey, policyPath, STATES } from "../format"
+import type { KeysList, KeySummary, PoliciesList } from "../types"
 
 const PAGE_SIZE = 25
 
 const ALL = { value: "", label: "All" }
 
-const columns: Column<KeySummary>[] = [
-  {
-    id: "name",
-    header: "Name",
-    className: "font-medium",
-    cell: (k) => <PluginLink to={keyPath(k.id)}>{k.name}</PluginLink>,
-  },
-  {
-    id: "key",
-    header: "Key",
-    className: "font-mono text-xs",
-    cell: (k) => maskedKey(k),
-  },
-  {
-    id: "environment",
-    header: "Environment",
-    cell: (k) => k.environment,
-  },
-  {
-    id: "state",
-    header: "State",
-    cell: (k) => <KeyStateBadge summary={k} />,
-  },
-  {
-    id: "policy",
-    header: "Policy",
-    // The id until slice 4 brings the policy name with it.
-    className: "font-mono text-xs",
-    cell: (k) => k.policyId || <NoneCell label="policy" />,
-  },
-  {
-    id: "scopes",
-    header: "Scopes",
-    cell: (k) => <TagList values={k.scopes} label="scopes" />,
-  },
-  {
-    id: "lastUsed",
-    header: "Last used",
-    cell: (k) => <Timestamp value={k.lastUsedAt} label="recorded use" />,
-  },
-  {
-    id: "expires",
-    header: "Expires",
-    cell: (k) => <Timestamp value={k.expiresAt} label="expiry" />,
-  },
-]
+// The same read the key forms' pickers make, so the three share one entry.
+const POLICY_PARAMS = { limit: 200 }
+
+/**
+ * A key's policy by name, linked to its page. The id stands in, as a raw
+ * value, when the name is not known: policies.list is still loading, it
+ * failed, or the policy is past the first 200.
+ */
+function PolicyCell({
+  id,
+  names,
+}: {
+  id?: string
+  names: ReadonlyMap<string, string>
+}) {
+  if (!id) return <NoneCell label="policy" />
+  const name = names.get(id)
+  if (name === undefined) {
+    return <span className="font-mono text-xs">{id}</span>
+  }
+  return <PluginLink to={policyPath(id)}>{name}</PluginLink>
+}
+
+function columnsFor(
+  policyNames: ReadonlyMap<string, string>,
+): Column<KeySummary>[] {
+  return [
+    {
+      id: "name",
+      header: "Name",
+      className: "font-medium",
+      cell: (k) => <PluginLink to={keyPath(k.id)}>{k.name}</PluginLink>,
+    },
+    {
+      id: "key",
+      header: "Key",
+      className: "font-mono text-xs",
+      cell: (k) => maskedKey(k),
+    },
+    {
+      id: "environment",
+      header: "Environment",
+      cell: (k) => k.environment,
+    },
+    {
+      id: "state",
+      header: "State",
+      cell: (k) => <KeyStateBadge summary={k} />,
+    },
+    {
+      id: "policy",
+      header: "Policy",
+      cell: (k) => <PolicyCell id={k.policyId} names={policyNames} />,
+    },
+    {
+      id: "scopes",
+      header: "Scopes",
+      cell: (k) => <TagList values={k.scopes} label="scopes" />,
+    },
+    {
+      id: "lastUsed",
+      header: "Last used",
+      cell: (k) => <Timestamp value={k.lastUsedAt} label="recorded use" />,
+    },
+    {
+      id: "expires",
+      header: "Expires",
+      cell: (k) => <Timestamp value={k.expiresAt} label="expiry" />,
+    },
+  ]
+}
 
 export const KeysPage: ComponentType<PluginPageProps> = () => {
   // One-based, matching ResourceTable's PaginationState.
@@ -75,6 +100,18 @@ export const KeysPage: ComponentType<PluginPageProps> = () => {
   const [environment, setEnvironment] = useState("")
   const [state, setState] = useState("")
   const [creating, setCreating] = useState(false)
+
+  // Names only. A failed or slow read leaves the ids showing, and never
+  // holds up the key list itself.
+  const policies = useQuery<PoliciesList>("policies.list", POLICY_PARAMS)
+  const policyData = policies.data
+  const columns = useMemo(
+    () =>
+      columnsFor(
+        new Map((policyData?.policies ?? []).map((p) => [p.id, p.name])),
+      ),
+    [policyData],
+  )
 
   // An empty filter is left out of the params rather than sent as "".
   const list = useQuery<KeysList>("keys.list", {

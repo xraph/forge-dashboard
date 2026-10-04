@@ -3,7 +3,7 @@ import { fireEvent, screen, within } from "@testing-library/react"
 import { ContractError } from "@forge-go/dashboard-plugin"
 import type { ScopedClient } from "@forge-go/dashboard-plugin"
 import { KeysPage } from "../src/pages/keys"
-import { keyPath } from "../src/format"
+import { keyPath, policyPath } from "../src/format"
 import type { KeySummary } from "../src/types"
 import {
   failingClient,
@@ -208,9 +208,76 @@ describe("KeysPage", () => {
     await screen.findByText("Billing service")
     const billing = within(rowFor("Billing service"))
     const policy = billing.getByText("kpol_standard")
-    expect(policy.closest("td")?.className).toMatch(/font-mono text-xs/)
+    expect(policy.className).toMatch(/font-mono text-xs/)
     expect(billing.queryByLabelText("no policy")).toBeNull()
     expect(within(rowFor("Reporting export")).getByLabelText("no policy")).toBeTruthy()
+  })
+
+  it("names the policy and links to its page, reading policies.list for up to 200", async () => {
+    const { client, sent } = recordingQueryClient({
+      "keys.list": LIST,
+      "policies.list": {
+        policies: [
+          {
+            id: "kpol_standard",
+            name: "Standard",
+            maxKeyLifetimeSeconds: null,
+            graceSeconds: null,
+            allowedScopes: [],
+          },
+        ],
+        hasMore: false,
+        rateLimiterConfigured: false,
+      },
+    })
+    renderPage(KeysPage, client)
+    await screen.findByText("Billing service")
+    const link = await within(rowFor("Billing service")).findByRole("link", {
+      name: "Standard",
+    })
+    expect(link.getAttribute("href")).toBe(policyPath("kpol_standard"))
+    expect(within(rowFor("Billing service")).queryByText("kpol_standard")).toBeNull()
+    expect(within(rowFor("Reporting export")).getByLabelText("no policy")).toBeTruthy()
+    const policies = sent.find((s) => s.intent === "policies.list")
+    expect(policies?.params).toEqual({ limit: 200 })
+  })
+
+  it("falls back to the policy id in mono when policies.list has no match", async () => {
+    const reporting = { ...REPORTING, policyId: "kpol_other" }
+    renderPage(
+      KeysPage,
+      stubClient({
+        "keys.list": { keys: [BILLING, reporting], total: 2 },
+        "policies.list": {
+          policies: [
+            {
+              id: "kpol_other",
+              name: "Other",
+              maxKeyLifetimeSeconds: null,
+              graceSeconds: null,
+              allowedScopes: [],
+            },
+          ],
+          hasMore: true,
+          rateLimiterConfigured: false,
+        },
+      }),
+    )
+    await screen.findByText("Billing service")
+    // policies.list has settled once the key it does name shows a link.
+    await within(rowFor("Reporting export")).findByRole("link", { name: "Other" })
+    const id = within(rowFor("Billing service")).getByText("kpol_standard")
+    expect(id.className).toMatch(/font-mono text-xs/)
+    expect(id.closest("a")).toBeNull()
+  })
+
+  it("keeps showing the policy id when policies.list fails", async () => {
+    // keys.list answers; policies.list is refused. The key list still renders.
+    renderPage(KeysPage, stubClient({ "keys.list": LIST }))
+    await screen.findByText("Billing service")
+    const id = within(rowFor("Billing service")).getByText("kpol_standard")
+    expect(id.className).toMatch(/font-mono text-xs/)
+    expect(screen.queryByText(/no handler for intent/)).toBeNull()
   })
 
   it("shows scopes as tags, and says so when a key has none", async () => {

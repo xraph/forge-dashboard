@@ -1,7 +1,10 @@
 import { describe, expect, it } from "vitest"
 import { resolvePluginState } from "@forge-go/dashboard-plugin"
 import type { Capabilities } from "@forge-go/dashboard-plugin"
-import keysmithPlugin, { keysmithPlugin as named } from "../src/index"
+import keysmithPlugin, {
+  keysmithPlugin as named,
+  PoliciesPage,
+} from "../src/index"
 
 function capabilities(
   ...contributors: { name: string; configured?: boolean }[]
@@ -48,6 +51,29 @@ describe("keysmithPlugin", () => {
     const paths = keysmithPlugin.routes.map((r) => r.path)
     expect(paths).toContain("/keys")
     expect(paths).toContain("/keys/:id")
+  })
+
+  it("puts Policies after Keys at /policies, in the same group", () => {
+    const nav = keysmithPlugin.nav ?? []
+    const keys = nav.find((n) => n.label === "Keys")
+    const policies = nav.find((n) => n.label === "Policies")
+    expect(keys?.priority).toBe(0)
+    expect(policies?.to).toBe("/policies")
+    expect(policies?.group).toBe("API keys")
+    expect(policies?.priority).toBe(1)
+    expect(policies?.icon).toBeTruthy()
+    expect(keysmithPlugin.routes.map((r) => r.path)).toContain("/policies")
+  })
+
+  it("mounts the Policies page at the route its nav entry points at", () => {
+    const route = keysmithPlugin.routes.find((r) => r.path === "/policies")
+    expect(route?.element).toBe(PoliciesPage)
+  })
+
+  it("gives every nav entry an icon", () => {
+    for (const item of keysmithPlugin.nav ?? []) {
+      expect(item.icon, `nav "${item.label}" has no icon`).toBeTruthy()
+    }
   })
 
   it("names a route for every nav entry", () => {
