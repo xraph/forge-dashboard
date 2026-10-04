@@ -1,12 +1,15 @@
 import type { ComponentType } from "react"
-import { PluginLink } from "@forge-go/dashboard-plugin"
+import { PluginLink, useQuery } from "@forge-go/dashboard-plugin"
 import type { PluginPageProps } from "@forge-go/dashboard-plugin"
 import { PageHeader } from "@forge-go/dashboard-kit/components/page-header"
 import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from "@forge-go/dashboard-kit/components/resizable"
 import { TROVE_MOUNT, useBrowserLocation } from "../browser-location"
 import { Inspector } from "../components/inspector"
+import { ObjectActions } from "../components/object-actions"
 import { ObjectListing } from "../components/object-listing"
 import { PathBar } from "../components/path-bar"
+import { withStore } from "../store"
+import type { CasStatus } from "../types"
 
 /**
  * One bucket, browsed by prefix. Lazy: the plugin entry reaches this file only
@@ -19,6 +22,8 @@ import { PathBar } from "../components/path-bar"
 const BrowserPage: ComponentType<PluginPageProps> = ({ params }) => {
   const bucket = params.bucket ?? ""
   const { store, prefix, key } = useBrowserLocation()
+  const cas = useQuery<CasStatus>("cas.status", withStore(store, {}))
+  const casBucket = cas.data?.enabled ? cas.data.bucket : null
 
   return (
     <section className="flex flex-col gap-4">
@@ -44,7 +49,9 @@ const BrowserPage: ComponentType<PluginPageProps> = ({ params }) => {
         <ResizablePanel defaultSize="38" minSize="25">
           <div className="h-full overflow-auto p-3">
             {key !== "" ? (
-              <Inspector key={`${store}\n${bucket}\n${key}`} store={store} bucket={bucket} objectKey={key} />
+              <Inspector key={`${store}\n${bucket}\n${key}`} store={store} bucket={bucket} objectKey={key}>
+                {(head) => <ObjectActions store={store} bucket={bucket} prefix={prefix} head={head} casBucket={casBucket} />}
+              </Inspector>
             ) : (
               <p className="text-sm text-muted-foreground">Select an object to see it here.</p>
             )}

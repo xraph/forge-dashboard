@@ -5,7 +5,8 @@ import { HEAD } from "./fixtures"
 import { renderPage, stubClient } from "./harness"
 
 const EMPTY_LIST = { objects: [], prefixes: [], nextCursor: null, foldersSupported: true, routed: false }
-const LIST = { "objects.list": { objects: [], prefixes: [], nextCursor: null, foldersSupported: true, routed: false } }
+const CAS_OFF = { enabled: false, algorithm: null, bucket: null, index: null, resetsOnRestart: false, releaseSupported: false }
+const LIST = { "objects.list": { objects: [], prefixes: [], nextCursor: null, foldersSupported: true, routed: false }, "cas.status": CAS_OFF }
 
 afterEach(() => window.history.replaceState(null, "", "/"))
 
@@ -37,7 +38,7 @@ describe("BrowserPage header and path bar", () => {
 
   it("asks the operator to pick an object until a key is selected", () => {
     window.history.replaceState(null, "", "/@trove/buckets/reports")
-    renderPage(BrowserPage, stubClient({ "objects.list": EMPTY_LIST }), { bucket: "reports" })
+    renderPage(BrowserPage, stubClient({ "objects.list": EMPTY_LIST, "cas.status": CAS_OFF }), { bucket: "reports" })
     expect(screen.getByText("Select an object to see it here.")).toBeTruthy()
   })
 
@@ -45,9 +46,10 @@ describe("BrowserPage header and path bar", () => {
     window.history.replaceState(null, "", "/@trove/buckets/reports?key=readme.txt")
     renderPage(
       BrowserPage,
-      stubClient({ "objects.list": EMPTY_LIST, "objects.head": { ...HEAD, object: { ...HEAD.object, key: "readme.txt" } } }),
+      stubClient({ "objects.list": EMPTY_LIST, "cas.status": CAS_OFF, "objects.head": { ...HEAD, object: { ...HEAD.object, key: "readme.txt" } } }),
       { bucket: "reports" },
     )
     expect(await screen.findByRole("heading", { name: "readme.txt" })).toBeTruthy()
+    expect(screen.getByRole("button", { name: "Copy to" })).toBeTruthy()
   })
 })
