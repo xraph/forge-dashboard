@@ -5,6 +5,7 @@ import { Button } from "@forge-go/dashboard-kit/components/button"
 import { DescriptionList, DetailLayout } from "@forge-go/dashboard-kit/components/detail-layout"
 import { Input } from "@forge-go/dashboard-kit/components/input"
 import { Label } from "@forge-go/dashboard-kit/components/label"
+import { NativeSelect, NativeSelectOption } from "@forge-go/dashboard-kit/components/native-select"
 import { NoneCell } from "@forge-go/dashboard-kit/components/none-cell"
 import { PageHeader } from "@forge-go/dashboard-kit/components/page-header"
 import { CommandAlert, QueryBoundary } from "@forge-go/dashboard-kit/components/query-boundary"
@@ -13,7 +14,6 @@ import { Timestamp } from "@forge-go/dashboard-kit/components/timestamp"
 import { SubscriptionStatusBadge } from "../badges"
 import { ConfirmAction } from "../components/confirm-action"
 import { EntitlementPanel } from "../components/entitlement-panel"
-import { InlineAlert } from "../components/inline-alert"
 import { invoiceColumns } from "../components/invoice-columns"
 import { isNotFound, NotFoundState } from "../components/not-found"
 import { SyncPanel } from "../components/sync-panel"
@@ -289,55 +289,53 @@ function SubscriptionDetailView({ detail }: { detail: SubscriptionDetail }) {
         open={dialog === "cancel"}
         onOpenChange={close}
         title={`Cancel ${sub.tenant_id}'s subscription?`}
-        description={
-          <span className="flex flex-col gap-2">
-            <span role="radiogroup" aria-label="When to cancel" className="flex flex-col gap-2">
-              <label className="flex items-center gap-2">
-                <input type="radio" name="cancel-when" checked={!immediately} onChange={() => setImmediately(false)} />
-                {periodEnded
-                  ? `The period ended on ${formatDay(sub.current_period_end)}, so the cancellation is dated then. The subscription keeps its current status until the ledger ends it. Choose End it now to stop it today.`
-                  : `Schedule the cancellation for the end of the period, ${formatDay(sub.current_period_end)}. It keeps its current status until then.`}
-              </label>
-              <label className="flex items-center gap-2">
-                <input type="radio" name="cancel-when" checked={immediately} onChange={() => setImmediately(true)} />
-                End it now
-              </label>
-            </span>
-            <span>A canceled subscription cannot be restarted. The tenant would need a new one.</span>
-          </span>
-        }
+        description="A canceled subscription cannot be restarted. The tenant would need a new one."
         confirmLabel="Cancel it"
         destructive
         command={cancel}
         payload={{ id: sub.id, immediately }}
         onDone={() => setDialog(null)}
-      />
+      >
+        <div role="radiogroup" aria-label="When to cancel" className="flex flex-col gap-2 text-xs/relaxed">
+          <label className="flex items-center gap-2">
+            <input type="radio" name="cancel-when" checked={!immediately} onChange={() => setImmediately(false)} />
+            {periodEnded
+              ? `The period ended on ${formatDay(sub.current_period_end)}, so the cancellation is dated then. The subscription keeps its current status until the ledger ends it. Choose End it now to stop it today.`
+              : `Schedule the cancellation for the end of the period, ${formatDay(sub.current_period_end)}. It keeps its current status until then.`}
+          </label>
+          <label className="flex items-center gap-2">
+            <input type="radio" name="cancel-when" checked={immediately} onChange={() => setImmediately(true)} />
+            End it now
+          </label>
+        </div>
+      </ConfirmAction>
       <ConfirmAction
         open={dialog === "applyCoupon"}
         onOpenChange={close}
         title={`Apply a coupon to ${sub.tenant_id}'s subscription`}
-        description={
-          <span className="flex flex-col gap-1.5">
-            <Label htmlFor="apply-code">Coupon code</Label>
-            {/* No uppercase style: the engine matches a code exactly, so the field must show what it sends. */}
-            <Input
-              id="apply-code"
-              aria-describedby="apply-code-help"
-              className="font-mono"
-              autoComplete="off"
-              spellCheck={false}
-              value={code}
-              onChange={(e) => setCode(e.target.value)}
-            />
-            <span id="apply-code-help">It applies from the next invoice. Invoices already issued are not changed.</span>
-          </span>
-        }
         confirmLabel="Apply"
         command={applyCoupon}
         payload={{ subscription_id: sub.id, code: code.trim() }}
         confirmDisabled={code.trim() === ""}
         onDone={() => setDialog(null)}
-      />
+      >
+        <div className="flex flex-col gap-1.5">
+          <Label htmlFor="apply-code">Coupon code</Label>
+          {/* No uppercase style: the engine matches a code exactly, so the field must show what it sends. */}
+          <Input
+            id="apply-code"
+            aria-describedby="apply-code-help"
+            className="font-mono"
+            autoComplete="off"
+            spellCheck={false}
+            value={code}
+            onChange={(e) => setCode(e.target.value)}
+          />
+          <p id="apply-code-help" className="text-xs/relaxed text-muted-foreground">
+            It applies from the next invoice. Invoices already issued are not changed.
+          </p>
+        </div>
+      </ConfirmAction>
       {/* Mounted only while open: it reads the plan list, and useQuery fires on mount. */}
       {dialog === "changePlan" && <ChangePlanDialog subscription={sub} current={plan} onClose={() => setDialog(null)} />}
     </section>
@@ -374,47 +372,47 @@ function ChangePlanDialog({ subscription: sub, current, onClose }: { subscriptio
       open
       onOpenChange={(o) => !o && onClose()}
       title={`Move ${sub.tenant_id} to another plan`}
-      description={
-        <span className="flex flex-col gap-1.5">
-          <Label htmlFor="change-plan">New plan</Label>
-          {/* A bare select, not the kit's NativeSelect: that wraps the select in a div, and a dialog description is a paragraph. */}
-          <select
-            id="change-plan"
-            aria-describedby="change-plan-help"
-            className="h-7 w-full rounded-md border border-input bg-input/20 px-2 text-xs/relaxed outline-none focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/30 disabled:cursor-not-allowed disabled:opacity-50 dark:bg-input/30"
-            value={newPlan}
-            onChange={(e) => {
-              setNewPlan(e.target.value)
-              setClear(false)
-            }}
-            disabled={plans.loading}
-          >
-            <option value="">{plans.loading ? "Loading plans…" : "Choose a plan"}</option>
-            {choices.map((p) => (
-              <option key={p.id} value={p.id} className="bg-[Canvas] text-[CanvasText]">
-                {p.name}
-              </option>
-            ))}
-          </select>
-          <span id="change-plan-help">Seat counts carry over. The change is not prorated: the next invoice bills the new plan for the whole period.</span>
-          {target && stranded.length > 0 && (
-            <>
-              <span>{`${target.name} has no seat feature for ${stranded.join(", ")}, so those seat counts cannot carry over.`}</span>
-              <label className="flex items-center gap-2">
-                <input type="checkbox" checked={clear} onChange={(e) => setClear(e.target.checked)} />
-                {`Clear the seat counts for ${stranded.join(", ")}`}
-              </label>
-            </>
-          )}
-          {plans.error && <InlineAlert title="Could not load the plans" error={plans.error} />}
-        </span>
-      }
       confirmLabel="Change plan"
       command={changePlan}
       payload={payload}
       confirmDisabled={newPlan === "" || (stranded.length > 0 && !clear)}
       onDone={onClose}
-    />
+    >
+      <div className="flex flex-col gap-1.5 text-xs/relaxed">
+        <Label htmlFor="change-plan">New plan</Label>
+        <NativeSelect
+          id="change-plan"
+          aria-describedby="change-plan-help"
+          className="w-full"
+          value={newPlan}
+          onChange={(e) => {
+            setNewPlan(e.target.value)
+            setClear(false)
+          }}
+          disabled={plans.loading}
+        >
+          <NativeSelectOption value="">{plans.loading ? "Loading plans…" : "Choose a plan"}</NativeSelectOption>
+          {choices.map((p) => (
+            <NativeSelectOption key={p.id} value={p.id}>
+              {p.name}
+            </NativeSelectOption>
+          ))}
+        </NativeSelect>
+        <p id="change-plan-help" className="text-muted-foreground">
+          Seat counts carry over. The change is not prorated: the next invoice bills the new plan for the whole period.
+        </p>
+        {target && stranded.length > 0 && (
+          <>
+            <p>{`${target.name} has no seat feature for ${stranded.join(", ")}, so those seat counts cannot carry over.`}</p>
+            <label className="flex items-center gap-2">
+              <input type="checkbox" checked={clear} onChange={(e) => setClear(e.target.checked)} />
+              {`Clear the seat counts for ${stranded.join(", ")}`}
+            </label>
+          </>
+        )}
+        <CommandAlert title="Could not load the plans" error={plans.error} />
+      </div>
+    </ConfirmAction>
   )
 }
 

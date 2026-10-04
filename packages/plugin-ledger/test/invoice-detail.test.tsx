@@ -16,9 +16,9 @@ function open(over = {}, commands: Record<string, unknown> = {}, extra: Record<s
 
 /** A dialog's description is a paragraph, so nothing block-level may sit inside it. */
 function expectPhrasingOnly(dialog: HTMLElement) {
+  // A dialog whose fields carry it has no description at all, which is fine.
   const description = dialog.querySelector("[data-slot=alert-dialog-description]")
-  expect(description).not.toBeNull()
-  expect(description?.querySelector("div, p, ul, ol, table, section, h1, h2, h3")).toBeNull()
+  expect(description?.querySelector("div, p, ul, ol, table, section, h1, h2, h3") ?? null).toBeNull()
 }
 
 const realCreate = URL.createObjectURL

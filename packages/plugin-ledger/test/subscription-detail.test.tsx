@@ -45,9 +45,9 @@ afterEach(() => {
  * spy cannot tell one test from the next; the structure can.
  */
 function expectPhrasingOnly(dialog: HTMLElement) {
+  // A dialog whose fields carry it has no description at all, which is fine.
   const description = dialog.querySelector("[data-slot=alert-dialog-description]")
-  expect(description).not.toBeNull()
-  expect(description?.querySelector("div, p, ul, ol, table, section, h1, h2, h3")).toBeNull()
+  expect(description?.querySelector("div, p, ul, ol, table, section, h1, h2, h3") ?? null).toBeNull()
 }
 
 function open(sub = aSubscription(), commands: Record<string, unknown> = {}, over: Record<string, unknown> = {}) {
@@ -308,8 +308,8 @@ describe("LedgerSubscriptionDetailPage", () => {
   })
 
   // A dialog's description is a paragraph, so anything block-level inside it
-  // (the kit's NativeSelect wraps its select in a div) is invalid markup that
-  // React reports on the console.
+  // is invalid markup that React reports on the console. The fields, the
+  // kit's NativeSelect among them, belong in the dialog's children.
   it("opens every dialog as valid markup", async () => {
     const complaints = vi.spyOn(console, "error").mockImplementation(() => {})
     try {

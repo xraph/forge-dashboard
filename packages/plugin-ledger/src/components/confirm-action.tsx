@@ -1,25 +1,24 @@
 import type { ReactNode } from "react"
 import type { CommandState } from "@forge-go/dashboard-plugin"
 import { ConfirmDialog } from "@forge-go/dashboard-kit/components/confirm-dialog"
-import { InlineAlert } from "./inline-alert"
+import { CommandAlert } from "@forge-go/dashboard-kit/components/query-boundary"
 
 /**
  * One confirmation dialog for one command. The refusal renders inside the
  * dialog, because Base UI makes everything outside an open dialog inert, and
  * the dialog stays open on failure so the operator can read it. `pending`
- * keeps a double click from sending twice. The caller resets the command when
- * it opens the dialog.
+ * keeps a double click from sending twice.
  *
- * `description` must be phrasing content (text, span, strong): the kit renders
- * it inside a `<p>`, so a div, ul or p would be invalid markup. For the same
- * reason the error below is spans, styled like the kit's CommandAlert. The
- * caller must call `command.reset()` when it opens the dialog.
+ * `description` is prose only: the kit renders it inside a `<p>`. Fields go in
+ * `children`, which render below it and above the refusal. The caller must
+ * call `command.reset()` when it opens the dialog.
  */
 export function ConfirmAction<T>({
   open,
   onOpenChange,
   title,
   description,
+  children,
   confirmLabel,
   destructive = false,
   command,
@@ -30,7 +29,8 @@ export function ConfirmAction<T>({
   open: boolean
   onOpenChange: (open: boolean) => void
   title: string
-  description: ReactNode
+  description?: ReactNode
+  children?: ReactNode
   confirmLabel: string
   destructive?: boolean
   command: CommandState<T>
@@ -49,17 +49,15 @@ export function ConfirmAction<T>({
       // Escape and an outside click would close the dialog on a pending command, and a refusal that then arrives has nowhere to show.
       onOpenChange={(next) => (next || !command.loading) && onOpenChange(next)}
       title={title}
-      description={
-        <span className="flex flex-col gap-2">
-          <span>{description}</span>
-          {command.error && <InlineAlert title={`Could not ${confirmLabel.toLowerCase()}`} error={command.error} />}
-        </span>
-      }
+      description={description}
       confirmLabel={confirmLabel}
       destructive={destructive}
       pending={command.loading}
       confirmDisabled={confirmDisabled}
       onConfirm={() => void confirm()}
-    />
+    >
+      {children}
+      <CommandAlert title={`Could not ${confirmLabel.toLowerCase()}`} error={command.error} />
+    </ConfirmDialog>
   )
 }

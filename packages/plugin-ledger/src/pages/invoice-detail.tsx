@@ -354,44 +354,40 @@ function InvoiceDetailView({ detail }: { detail: InvoiceDetail }) {
         open={dialog === "markPaid"}
         onOpenChange={close}
         title={`Mark ${formatMoney(invoice.total)} as paid?`}
-        description={
-          <span className="flex flex-col gap-2">
-            <span className="flex flex-col gap-1.5">
-              <Label htmlFor="paid-ref">Payment reference</Label>
-              <Input id="paid-ref" className="font-mono" autoComplete="off" value={paymentRef} onChange={(e) => setPaymentRef(e.target.value)} />
-            </span>
-            <span className="flex flex-col gap-1.5">
-              <Label htmlFor="paid-at">Paid at</Label>
-              <Input id="paid-at" type="datetime-local" value={paidAt} onChange={(e) => setPaidAt(e.target.value)} />
-            </span>
-            <span>Leave the time empty for now.</span>
-          </span>
-        }
         confirmLabel="Mark as paid"
         command={markPaid}
         payload={markPaidPayload}
         onDone={() => setDialog(null)}
-      />
+      >
+        <div className="flex flex-col gap-1.5">
+          <Label htmlFor="paid-ref">Payment reference</Label>
+          <Input id="paid-ref" className="font-mono" autoComplete="off" value={paymentRef} onChange={(e) => setPaymentRef(e.target.value)} />
+        </div>
+        <div className="flex flex-col gap-1.5">
+          <Label htmlFor="paid-at">Paid at</Label>
+          <Input id="paid-at" type="datetime-local" aria-describedby="paid-at-help" value={paidAt} onChange={(e) => setPaidAt(e.target.value)} />
+        </div>
+        <p id="paid-at-help" className="text-xs/relaxed text-muted-foreground">
+          Leave the time empty for now.
+        </p>
+      </ConfirmAction>
       <ConfirmAction
         open={dialog === "void"}
         onOpenChange={close}
         title="Void this invoice?"
-        description={
-          <span className="flex flex-col gap-2">
-            <span className="flex flex-col gap-1.5">
-              <Label htmlFor="void-reason">Reason</Label>
-              <Input id="void-reason" value={reason} onChange={(e) => setReason(e.target.value)} />
-            </span>
-            <span>It will not be collected. A new invoice can then be generated for the same period.</span>
-          </span>
-        }
+        description="It will not be collected. A new invoice can then be generated for the same period."
         confirmLabel="Void invoice"
         destructive
         command={voidIt}
         payload={{ id: invoice.id, reason: reason.trim() }}
         confirmDisabled={reason.trim() === ""}
         onDone={() => setDialog(null)}
-      />
+      >
+        <div className="flex flex-col gap-1.5">
+          <Label htmlFor="void-reason">Reason</Label>
+          <Input id="void-reason" value={reason} onChange={(e) => setReason(e.target.value)} />
+        </div>
+      </ConfirmAction>
     </section>
   )
 }

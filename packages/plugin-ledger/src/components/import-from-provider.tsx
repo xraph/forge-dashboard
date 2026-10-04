@@ -6,8 +6,8 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Input } from "@forge-go/dashboard-kit/components/input"
 import { Label } from "@forge-go/dashboard-kit/components/label"
 import { NativeSelect, NativeSelectOption } from "@forge-go/dashboard-kit/components/native-select"
+import { CommandAlert } from "@forge-go/dashboard-kit/components/query-boundary"
 import type { SettingsDetail } from "../types"
-import { InlineAlert } from "./inline-alert"
 
 interface ImportProps<T> {
   /** The command, such as "plans.importFromProvider". */
@@ -95,7 +95,7 @@ function ImportDialog<T>({ intent, noun, description, pathOf, onClose }: ImportP
             <DialogDescription>{description}</DialogDescription>
           </DialogHeader>
           {settings.error ? (
-            <InlineAlert title="Could not read the payment providers" error={settings.error} />
+            <CommandAlert title="Could not read the payment providers" error={settings.error} />
           ) : settings.data === undefined ? (
             <p role="status" className="text-sm text-muted-foreground">
               Checking which payment providers are configured…
@@ -109,7 +109,7 @@ function ImportDialog<T>({ intent, noun, description, pathOf, onClose }: ImportP
             <>
               {command.error && (
                 <div ref={errorRef} tabIndex={-1} className="outline-none">
-                  <InlineAlert title={`Could not import the ${noun}`} error={command.error} />
+                  <CommandAlert title={`Could not import the ${noun}`} error={command.error} />
                 </div>
               )}
               <div className="flex flex-col gap-1.5">
