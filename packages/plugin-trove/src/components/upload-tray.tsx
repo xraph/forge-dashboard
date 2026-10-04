@@ -163,7 +163,7 @@ export function UploadTray() {
           </Button>
         ) : null}
       </div>
-      <ul className="flex flex-col gap-2">
+      <ul className="flex flex-col gap-2 overflow-auto" style={{ maxHeight: "12rem" }}>
         {uploads.map((u) => {
           const pct = u.size > 0 ? Math.round((u.loaded / u.size) * 100) : 0
           return (

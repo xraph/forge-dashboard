@@ -1,4 +1,4 @@
-import { act, fireEvent, render, screen, waitFor } from "@testing-library/react"
+import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 import { ContractError, PluginProvider } from "@forge-go/dashboard-plugin"
 import type { ScopedClient } from "@forge-go/dashboard-plugin"
@@ -85,6 +85,23 @@ beforeEach(() => {
 afterEach(() => vi.unstubAllGlobals())
 
 describe("uploads", () => {
+  it("keeps a long tray to a fixed height that scrolls, so the listing keeps its room", async () => {
+    const { client: c } = client(() => new Promise(() => {}))
+    renderTray(c)
+    act(() =>
+      enqueueUploads(
+        c,
+        { store: "", bucket: "reports", folder: "", maxBytes: null },
+        Array.from({ length: 12 }, (_, i) => file(`f${i}.csv`)),
+      ),
+    )
+    const tray = await screen.findByRole("region", { name: "Uploads" })
+    const list = within(tray).getByRole("list")
+    expect(list.style.maxHeight).toBe("12rem")
+    expect(list.className).toContain("overflow-auto")
+    expect(within(list).getAllByRole("listitem")).toHaveLength(12)
+  })
+
   it("begins, PUTs with the ticket in the header, reports progress, then completes", async () => {
     const { client: c, sent } = client((intent) => (intent === "objects.beginUpload" ? TICKET : ROW))
     renderTray(c)
