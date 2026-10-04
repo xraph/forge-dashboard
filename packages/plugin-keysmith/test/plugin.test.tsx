@@ -4,6 +4,7 @@ import type { Capabilities } from "@forge-go/dashboard-plugin"
 import keysmithPlugin, {
   keysmithPlugin as named,
   PoliciesPage,
+  PolicyDetailPage,
 } from "../src/index"
 
 function capabilities(
@@ -68,6 +69,15 @@ describe("keysmithPlugin", () => {
   it("mounts the Policies page at the route its nav entry points at", () => {
     const route = keysmithPlugin.routes.find((r) => r.path === "/policies")
     expect(route?.element).toBe(PoliciesPage)
+  })
+
+  it("mounts the policy page at /policies/:id, with no nav entry", () => {
+    const route = keysmithPlugin.routes.find((r) => r.path === "/policies/:id")
+    expect(PolicyDetailPage).toBeTypeOf("function")
+    expect(route?.element).toBe(PolicyDetailPage)
+    expect((keysmithPlugin.nav ?? []).map((n) => n.to)).not.toContain(
+      "/policies/:id",
+    )
   })
 
   it("gives every nav entry an icon", () => {

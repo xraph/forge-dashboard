@@ -3,8 +3,9 @@ import { KeyRoundIcon, ShieldCheckIcon } from "@forge-go/dashboard-kit/icons"
 import { KeyDetailPage } from "./pages/key-detail"
 import { KeysPage } from "./pages/keys"
 import { PoliciesPage } from "./pages/policies"
+import { PolicyDetailPage } from "./pages/policy-detail"
 
-export { KeyDetailPage, KeysPage, PoliciesPage }
+export { KeyDetailPage, KeysPage, PoliciesPage, PolicyDetailPage }
 export { KeyStateBadge } from "./badges"
 export {
   ENVIRONMENTS,
@@ -71,6 +72,9 @@ export const keysmithPlugin = definePlugin({
     // nowhere. It is reached from the list's row links.
     { path: "/keys/:id", element: KeyDetailPage },
     { path: "/policies", element: PoliciesPage },
+    // No nav entry, like a key: reached from the policies list and from the
+    // policy names on the key list.
+    { path: "/policies/:id", element: PolicyDetailPage },
   ],
 })
 
