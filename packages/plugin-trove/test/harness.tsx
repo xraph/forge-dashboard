@@ -8,6 +8,7 @@ import {
 } from "@forge-go/dashboard-plugin"
 import type { PluginPageProps, ScopedClient } from "@forge-go/dashboard-plugin"
 import { setActiveStore } from "../src/store"
+import { resetUploads } from "../src/uploads"
 
 /**
  * `queryStore` is a module-level singleton, so an entry one test writes
@@ -18,6 +19,8 @@ beforeEach(() => {
   queryStore.clear()
   // The active store is module state that outlives a test, like queryStore.
   setActiveStore("")
+  // The upload queue is module state too.
+  resetUploads()
 })
 
 /**

@@ -3,14 +3,15 @@ import { PluginLink, useQuery } from "@forge-go/dashboard-plugin"
 import type { PluginPageProps } from "@forge-go/dashboard-plugin"
 import { PageHeader } from "@forge-go/dashboard-kit/components/page-header"
 import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from "@forge-go/dashboard-kit/components/resizable"
-import { TROVE_MOUNT, useBrowserLocation } from "../browser-location"
+import { TROVE_MOUNT, folderOf, useBrowserLocation } from "../browser-location"
 import { Inspector } from "../components/inspector"
 import { ObjectActions } from "../components/object-actions"
 import { ObjectListing } from "../components/object-listing"
 import { PathBar } from "../components/path-bar"
 import { Preview } from "../components/preview"
+import { UploadButton, UploadDropZone, UploadTray } from "../components/upload-tray"
 import { withStore } from "../store"
-import type { CasStatus } from "../types"
+import type { CasStatus, SystemStatus } from "../types"
 
 /**
  * One bucket, browsed by prefix. Lazy: the plugin entry reaches this file only
@@ -25,6 +26,10 @@ const BrowserPage: ComponentType<PluginPageProps> = ({ params }) => {
   const { store, prefix, key } = useBrowserLocation()
   const cas = useQuery<CasStatus>("cas.status", withStore(store, {}))
   const casBucket = cas.data?.enabled ? cas.data.bucket : null
+  const status = useQuery<SystemStatus>("system.status", withStore(store, {}))
+  const maxBytes = status.data?.config.maxUploadBytes ?? null
+  const folder = folderOf(prefix)
+  const uploadsRefused = casBucket !== null && casBucket === bucket
 
   return (
     <section className="flex flex-col gap-4">
@@ -33,7 +38,14 @@ const BrowserPage: ComponentType<PluginPageProps> = ({ params }) => {
           Buckets
         </PluginLink>
       </nav>
-      <PageHeader title={bucket} description="Objects as the driver lists them, one prefix at a time." />
+      <PageHeader
+        title={bucket}
+        description="Objects as the driver lists them, one prefix at a time."
+        actions={<UploadButton store={store} bucket={bucket} folder={folder} maxBytes={maxBytes} disabled={uploadsRefused} />}
+      />
+      {uploadsRefused ? (
+        <p className="text-sm text-muted-foreground">CAS manages this bucket. Its objects are written through CAS, not uploaded here.</p>
+      ) : null}
       {store !== "" ? (
         <p className="text-sm text-muted-foreground">
           Store <span className="font-mono text-xs text-foreground">{store}</span>
@@ -43,7 +55,10 @@ const BrowserPage: ComponentType<PluginPageProps> = ({ params }) => {
       <ResizablePanelGroup orientation="horizontal" className="rounded-md border" style={{ minHeight: "24rem" }}>
         <ResizablePanel defaultSize="62" minSize="35">
           <div className="flex h-full flex-col gap-3 p-3">
-            <ObjectListing key={`${store}\n${bucket}\n${prefix}`} store={store} bucket={bucket} prefix={prefix} selectedKey={key} />
+            <UploadDropZone store={store} bucket={bucket} folder={folder} maxBytes={maxBytes} disabled={uploadsRefused}>
+              <ObjectListing key={`${store}\n${bucket}\n${prefix}`} store={store} bucket={bucket} prefix={prefix} selectedKey={key} />
+              <UploadTray />
+            </UploadDropZone>
           </div>
         </ResizablePanel>
         <ResizableHandle withHandle />
