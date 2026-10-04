@@ -8,7 +8,7 @@ import { FilterBar } from "@forge-go/dashboard-kit/components/filter-bar"
 import type { FilterOption } from "@forge-go/dashboard-kit/components/filter-bar"
 import { NoneCell } from "@forge-go/dashboard-kit/components/none-cell"
 import { PageHeader } from "@forge-go/dashboard-kit/components/page-header"
-import { QueryBoundary } from "@forge-go/dashboard-kit/components/query-boundary"
+import { CommandAlert, QueryBoundary } from "@forge-go/dashboard-kit/components/query-boundary"
 import {
   ResourceTable,
   type Column,
@@ -268,29 +268,19 @@ export function ConsentsPage() {
         open={revoking !== null}
         onOpenChange={(open) => !open && setRevoking(null)}
         title={`Revoke ${revoking?.purpose ?? ""} for ${revoking?.userId ?? ""}?`}
-        description={
-          <>
-            <span>They are treated as though they never gave this consent.</span>
-            {/*
-              Base UI marks everything outside an open dialog inert and
-              aria-hidden, so a CommandAlert rendered on the page body would be
-              unreachable while this dialog is open, for a sighted operator and
-              for assistive tech alike. It has to render inside the dialog
-              itself, and as a <span> rather than CommandAlert's <div>:
-              AlertDialogDescription renders a <p>, and a <div> is not valid
-              <p> content.
-            */}
-            {revoke.error && (
-              <span role="alert" className="mt-2 block font-medium text-destructive">
-                Could not revoke: {revoke.error.message} ({revoke.error.code})
-              </span>
-            )}
-          </>
-        }
+        description="They are treated as though they never gave this consent."
         confirmLabel="Revoke"
         pending={revoke.loading}
         onConfirm={() => void confirmRevoke()}
-      />
+      >
+        {/*
+          Base UI marks everything outside an open dialog inert and
+          aria-hidden, so a CommandAlert rendered on the page body would be
+          unreachable while this dialog is open, for a sighted operator and
+          for assistive tech alike. It has to render inside the dialog itself.
+        */}
+        <CommandAlert title="Could not revoke" error={revoke.error} />
+      </ConfirmDialog>
     </section>
   )
 }

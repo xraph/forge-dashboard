@@ -255,34 +255,22 @@ export function AuthSignupFormEditorPage() {
       </QueryBoundary>
 
       {/*
-        The error lives inside the dialog's description, not above the page.
-        Base UI marks everything outside an open AlertDialog `inert` and
-        `aria-hidden`, so an alert rendered outside it is unreachable for as
-        long as the dialog that can fail is open. Rendered as a <span> with
-        role="alert" rather than CommandAlert's <div>: AlertDialogDescription
-        renders a <p>, and a <div> is not valid <p> content.
+        The error lives inside the dialog, not above the page. Base UI marks
+        everything outside an open AlertDialog `inert` and `aria-hidden`, so
+        an alert rendered outside it is unreachable for as long as the dialog
+        that can fail is open.
       */}
       <ConfirmDialog
         open={deleting}
         onOpenChange={setDeleting}
         title="Delete this signup form?"
-        description={
-          <span className="flex flex-col gap-2">
-            <span>
-              The dynamic signup form is removed entirely. New signups fall back to the static
-              form. This cannot be undone.
-            </span>
-            {remove.error && (
-              <span role="alert" className="mt-2 block font-medium text-destructive">
-                Could not delete: {remove.error.message} ({remove.error.code})
-              </span>
-            )}
-          </span>
-        }
+        description="The dynamic signup form is removed entirely. New signups fall back to the static form. This cannot be undone."
         confirmLabel="Delete"
         pending={remove.loading}
         onConfirm={() => void confirmDelete()}
-      />
+      >
+        <CommandAlert title="Could not delete" error={remove.error} />
+      </ConfirmDialog>
     </section>
   )
 }

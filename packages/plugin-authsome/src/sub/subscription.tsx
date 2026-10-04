@@ -8,7 +8,10 @@ import { ConfirmDialog } from "@forge-go/dashboard-kit/components/confirm-dialog
 import { DescriptionList } from "@forge-go/dashboard-kit/components/detail-layout"
 import { NoneCell } from "@forge-go/dashboard-kit/components/none-cell"
 import { Timestamp } from "@forge-go/dashboard-kit/components/timestamp"
-import { QueryBoundary } from "@forge-go/dashboard-kit/components/query-boundary"
+import {
+  CommandAlert,
+  QueryBoundary,
+} from "@forge-go/dashboard-kit/components/query-boundary"
 import {
   ResourceTable,
   type Column,
@@ -208,30 +211,24 @@ export function PlansPage() {
         onOpenChange={(open) => !open && setTarget(null)}
         title={`${target?.action === "activate" ? "Activate" : "Archive"} ${target?.plan.name ?? ""}?`}
         description={
-          <>
-            <span>
-              {target?.action === "activate"
-                ? "The plan becomes available for new subscriptions."
-                : "The plan stops being offered for new subscriptions."}
-            </span>
-            {/*
-              Base UI marks everything outside an open dialog inert and
-              aria-hidden, so this has to render inside the dialog itself, as
-              a span rather than a div: AlertDialogDescription renders a <p>,
-              and a <div> is not valid <p> content.
-            */}
-            {command.error && (
-              <span role="alert" className="mt-2 block font-medium text-destructive">
-                Could not {target?.action}: {command.error.message} ({command.error.code})
-              </span>
-            )}
-          </>
+          target?.action === "activate"
+            ? "The plan becomes available for new subscriptions."
+            : "The plan stops being offered for new subscriptions."
         }
         confirmLabel={target?.action === "activate" ? "Activate" : "Archive"}
         destructive={target?.action !== "activate"}
         pending={command.loading}
         onConfirm={() => void confirm()}
-      />
+      >
+        {/*
+          Base UI marks everything outside an open dialog inert and
+          aria-hidden, so this has to render inside the dialog itself.
+        */}
+        <CommandAlert
+          title={`Could not ${target?.action ?? "archive"}`}
+          error={command.error}
+        />
+      </ConfirmDialog>
     </section>
   )
 }

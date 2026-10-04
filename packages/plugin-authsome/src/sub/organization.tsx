@@ -321,29 +321,20 @@ function OrgMembers({ orgId }: { orgId: string }) {
         open={removing !== null}
         onOpenChange={(open) => !open && setRemoving(null)}
         title={`Remove ${removing?.userId ?? ""}?`}
-        description={
-          <>
-            <span>They lose access to this organization immediately.</span>
-            {/*
-              Base UI marks everything outside an open dialog inert and
-              aria-hidden, so a CommandAlert rendered on the page body would be
-              unreachable while this dialog is open, for a sighted operator
-              and for assistive tech alike. It has to render inside the
-              dialog itself, and as a `<span>` rather than CommandAlert's
-              `<div>`: AlertDialogDescription renders a `<p>`, and a `<div>`
-              is not valid `<p>` content.
-            */}
-            {removeMember.error && (
-              <span role="alert" className="mt-2 block font-medium text-destructive">
-                Could not remove: {removeMember.error.message} ({removeMember.error.code})
-              </span>
-            )}
-          </>
-        }
+        description="They lose access to this organization immediately."
         confirmLabel="Remove"
         pending={removeMember.loading}
         onConfirm={() => void confirmRemove()}
-      />
+      >
+        {/*
+          Base UI marks everything outside an open dialog inert and
+          aria-hidden, so a CommandAlert rendered on the page body would be
+          unreachable while this dialog is open, for a sighted operator
+          and for assistive tech alike. It has to render inside the
+          dialog itself.
+        */}
+        <CommandAlert title="Could not remove" error={removeMember.error} />
+      </ConfirmDialog>
     </div>
   )
 }
@@ -495,31 +486,17 @@ function OrgDetailBody({ orgId }: { orgId: string }) {
               open={deleting}
               onOpenChange={setDeleting}
               title={`Delete ${org.name}?`}
-              description={
-                <>
-                  <span>
-                    This removes the organization and cannot be undone.
-                    Members, teams, invitations and subscriptions tied to it
-                    are removed as well.
-                  </span>
-                  {/*
-                    Base UI marks everything outside an open dialog inert and
-                    aria-hidden, so this has to render inside the dialog
-                    itself, as a <span> rather than CommandAlert's <div>:
-                    AlertDialogDescription renders a <p>, and a <div> is not
-                    valid <p> content.
-                  */}
-                  {deleteOrg.error && (
-                    <span role="alert" className="mt-2 block font-medium text-destructive">
-                      Could not delete: {deleteOrg.error.message} ({deleteOrg.error.code})
-                    </span>
-                  )}
-                </>
-              }
+              description="This removes the organization and cannot be undone. Members, teams, invitations and subscriptions tied to it are removed as well."
               confirmLabel="Delete"
               pending={deleteOrg.loading}
               onConfirm={() => void confirmDelete()}
-            />
+            >
+              {/*
+                Base UI marks everything outside an open dialog inert and
+                aria-hidden, so this has to render inside the dialog itself.
+              */}
+              <CommandAlert title="Could not delete" error={deleteOrg.error} />
+            </ConfirmDialog>
           </>
         )}
       </QueryBoundary>

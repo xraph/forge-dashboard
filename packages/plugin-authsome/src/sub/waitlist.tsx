@@ -8,7 +8,7 @@ import { Input } from "@forge-go/dashboard-kit/components/input"
 import { Label } from "@forge-go/dashboard-kit/components/label"
 import { NoneCell } from "@forge-go/dashboard-kit/components/none-cell"
 import { PageHeader } from "@forge-go/dashboard-kit/components/page-header"
-import { QueryBoundary } from "@forge-go/dashboard-kit/components/query-boundary"
+import { CommandAlert, QueryBoundary } from "@forge-go/dashboard-kit/components/query-boundary"
 import {
   ResourceTable,
   type Column,
@@ -297,36 +297,26 @@ export function WaitlistPage() {
           }
         }}
         title={`Approve ${approving?.email ?? ""}?`}
-        description={
-          <span className="flex flex-col gap-2">
-            <span>They gain access immediately.</span>
-            <span className="flex flex-col gap-1.5">
-              <Label htmlFor="waitlist-approve-note">Note</Label>
-              <Input
-                id="waitlist-approve-note"
-                value={note}
-                onChange={(e) => setNote(e.target.value)}
-              />
-            </span>
-            {/*
-              Base UI marks everything outside an open dialog inert and
-              aria-hidden, so the error has to render inside this dialog, as a
-              <span role="alert"> rather than CommandAlert's <div>:
-              AlertDialogDescription renders a <p>, and a <div> is not valid
-              <p> content.
-            */}
-            {approveCmd.error && (
-              <span role="alert" className="font-medium text-destructive">
-                Could not approve: {approveCmd.error.message} ({approveCmd.error.code})
-              </span>
-            )}
-          </span>
-        }
+        description="They gain access immediately."
         confirmLabel="Approve"
         destructive={false}
         pending={approveCmd.loading}
         onConfirm={() => void confirmApprove()}
-      />
+      >
+        <div className="flex flex-col gap-1.5">
+          <Label htmlFor="waitlist-approve-note">Note</Label>
+          <Input
+            id="waitlist-approve-note"
+            value={note}
+            onChange={(e) => setNote(e.target.value)}
+          />
+        </div>
+        {/*
+          Base UI marks everything outside an open dialog inert and
+          aria-hidden, so the error has to render inside this dialog.
+        */}
+        <CommandAlert title="Could not approve" error={approveCmd.error} />
+      </ConfirmDialog>
 
       <ConfirmDialog
         open={rejecting !== null}
@@ -337,57 +327,40 @@ export function WaitlistPage() {
           }
         }}
         title={`Reject ${rejecting?.email ?? ""}?`}
-        description={
-          <span className="flex flex-col gap-2">
-            <span>They are not admitted from the waitlist.</span>
-            <span className="flex flex-col gap-1.5">
-              <Label htmlFor="waitlist-reject-note">Note</Label>
-              <Input
-                id="waitlist-reject-note"
-                value={note}
-                onChange={(e) => setNote(e.target.value)}
-              />
-            </span>
-            {rejectCmd.error && (
-              <span role="alert" className="font-medium text-destructive">
-                Could not reject: {rejectCmd.error.message} ({rejectCmd.error.code})
-              </span>
-            )}
-          </span>
-        }
+        description="They are not admitted from the waitlist."
         confirmLabel="Reject"
         pending={rejectCmd.loading}
         onConfirm={() => void confirmReject()}
-      />
+      >
+        <div className="flex flex-col gap-1.5">
+          <Label htmlFor="waitlist-reject-note">Note</Label>
+          <Input
+            id="waitlist-reject-note"
+            value={note}
+            onChange={(e) => setNote(e.target.value)}
+          />
+        </div>
+        <CommandAlert title="Could not reject" error={rejectCmd.error} />
+      </ConfirmDialog>
 
       <ConfirmDialog
         open={deleting !== null}
         onOpenChange={(open) => !open && setDeleting(null)}
         title={`Delete ${deleting?.email ?? ""}?`}
-        description={
-          <span className="flex flex-col gap-2">
-            <span>This entry is removed from the waitlist. This cannot be undone.</span>
-            {/*
-              Base UI marks everything outside an open dialog inert and
-              aria-hidden, so an error rendered on the page body (as the
-              CommandAlert above the table is) would be unreachable while this
-              dialog is open, for a sighted operator and for assistive tech
-              alike. It has to render inside the dialog itself, as a <span
-              role="alert"> rather than CommandAlert's <div>:
-              AlertDialogDescription renders a <p>, and a <div> is not valid
-              <p> content.
-            */}
-            {deleteCmd.error && (
-              <span role="alert" className="font-medium text-destructive">
-                Could not delete: {deleteCmd.error.message} ({deleteCmd.error.code})
-              </span>
-            )}
-          </span>
-        }
+        description="This entry is removed from the waitlist. This cannot be undone."
         confirmLabel="Delete"
         pending={deleteCmd.loading}
         onConfirm={() => void confirmDelete()}
-      />
+      >
+        {/*
+          Base UI marks everything outside an open dialog inert and
+          aria-hidden, so an error rendered on the page body (as the
+          CommandAlert above the table is) would be unreachable while this
+          dialog is open, for a sighted operator and for assistive tech
+          alike. It has to render inside the dialog itself.
+        */}
+        <CommandAlert title="Could not delete" error={deleteCmd.error} />
+      </ConfirmDialog>
     </section>
   )
 }

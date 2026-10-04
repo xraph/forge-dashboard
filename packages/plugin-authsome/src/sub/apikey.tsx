@@ -268,28 +268,21 @@ export function APIKeyListPage() {
         title={`Revoke ${revoking?.name ?? ""}?`}
         description={
           <>
-            <span>
-              {revoking?.name} immediately loses the ability to authenticate
-              with this key. There is no delete and no undo: a replacement
-              means minting a new one.
-            </span>
-            {/*
-              Base UI marks everything outside an open dialog inert and
-              aria-hidden, so this has to render inside the dialog itself, as
-              a <span> rather than CommandAlert's <div>: AlertDialogDescription
-              renders a <p>, and a <div> is not valid <p> content.
-            */}
-            {revoke.error && (
-              <span role="alert" className="mt-2 block font-medium text-destructive">
-                Could not revoke: {revoke.error.message} ({revoke.error.code})
-              </span>
-            )}
+            {revoking?.name} immediately loses the ability to authenticate
+            with this key. There is no delete and no undo: a replacement
+            means minting a new one.
           </>
         }
         confirmLabel="Revoke"
         pending={revoke.loading}
         onConfirm={() => void confirmRevoke()}
-      />
+      >
+        {/*
+          Base UI marks everything outside an open dialog inert and
+          aria-hidden, so this has to render inside the dialog itself.
+        */}
+        <CommandAlert title="Could not revoke" error={revoke.error} />
+      </ConfirmDialog>
     </section>
   )
 }
