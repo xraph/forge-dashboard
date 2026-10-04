@@ -463,6 +463,33 @@ describe("KeyDetailPage rotate", () => {
     expect(screen.getByText("A revoked or expired key cannot be rotated.")).toBeTruthy()
   })
 
+  it("has no Rotate on a suspended key past its expiry, and says why", async () => {
+    // A suspended key keeps its state past expiry, and RotateKey refuses it.
+    await render(
+      detail({
+        key: key({
+          state: "suspended",
+          effectiveState: "suspended",
+          expiresAt: "2020-01-01T00:00:00Z",
+        }),
+        previousKeys: [],
+      }),
+    )
+    expect(screen.queryByRole("button", { name: "Rotate key" })).toBeNull()
+    expect(screen.getByText("A revoked or expired key cannot be rotated.")).toBeTruthy()
+    // Reactivate and Revoke are still offered: the server decides those.
+    expect(screen.getByRole("button", { name: "Reactivate" })).toBeTruthy()
+  })
+
+  it("offers Rotate on a suspended key with no expiry", async () => {
+    await render(
+      detail({
+        key: key({ state: "suspended", effectiveState: "suspended", expiresAt: undefined }),
+      }),
+    )
+    expect(screen.getByRole("button", { name: "Rotate key" })).toBeTruthy()
+  })
+
   it("opens the dialog with the grace from the key's policy", async () => {
     await render()
     fireEvent.click(screen.getByRole("button", { name: "Rotate key" }))
@@ -633,6 +660,29 @@ describe("KeyDetailPage state actions", () => {
     const alert = await screen.findByRole("alert")
     expect(alert.textContent).toBe("only a suspended key can be reactivated")
   })
+
+  it.each(["Rotate key", "Revoke"])(
+    "drops a refused reactivate's error when %s starts",
+    async (button) => {
+      const client = {
+        extension: "keysmith",
+        query: stubClient({ "keys.detail": SUSPENDED }).query,
+        command: async () => {
+          throw new ContractError("CONFLICT", "only a suspended key can be reactivated")
+        },
+      } as unknown as ScopedClient
+      renderPage(KeyDetailPage, client, { id: "akey_billing" })
+      await screen.findByRole("heading", { level: 1 })
+      fireEvent.click(screen.getByRole("button", { name: "Reactivate" }))
+      await screen.findByRole("alert")
+
+      fireEvent.click(screen.getByRole("button", { name: button }))
+      await screen.findByRole(button === "Revoke" ? "alertdialog" : "dialog")
+      expect(
+        screen.queryByText("only a suspended key can be reactivated"),
+      ).toBeNull()
+    },
+  )
 })
 
 /**
@@ -651,7 +701,11 @@ type HostOutcome = { held?: boolean } & (
   | { error: ContractError }
 )
 
-function hostLikeClient(first: KeyDetail, commands: Record<string, HostOutcome | HostOutcome[]>) {
+function hostLikeClient(
+  first: KeyDetail,
+  commands: Record<string, HostOutcome | HostOutcome[]>,
+  options: { refetchError?: ContractError } = {},
+) {
   let current = first
   let reads = 0
   const sent: { intent: string; payload: unknown }[] = []
@@ -666,7 +720,10 @@ function hostLikeClient(first: KeyDetail, commands: Record<string, HostOutcome |
       reads += 1
       const answer = current
       if (reads === 1) return Promise.resolve(answer)
-      return new Promise((resolve) => held.push(() => resolve(answer)))
+      const { refetchError } = options
+      return new Promise((resolve, reject) =>
+        held.push(() => (refetchError ? reject(refetchError) : resolve(answer))),
+      )
     },
     command: async (intent: string, payload?: unknown) => {
       sent.push({ intent, payload })
@@ -760,6 +817,43 @@ describe("KeyDetailPage rotate through the refetch", () => {
     await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull())
     expect(document.body.textContent).not.toContain(RAW_KEY)
     expect(storeText()).not.toContain(RAW_KEY)
+  })
+
+  it("keeps the new key on screen when the refetch after the rotation fails", async () => {
+    const host = hostLikeClient(
+      detail({ previousKeys: [] }),
+      {
+        "keys.rotate": {
+          answer: ROTATED,
+          invalidates: ["keys.list", "keys.detail", "rotations.list", "overview"],
+          next: AFTER,
+        },
+      },
+      { refetchError: new ContractError("TRANSPORT", "contract request failed with HTTP 502") },
+    )
+    renderPage(KeyDetailPage, host.client, { id: "akey_billing" })
+    await screen.findByRole("heading", { level: 1, name: "Billing service" })
+
+    fireEvent.click(screen.getByRole("button", { name: "Rotate key" }))
+    const form = await screen.findByRole("dialog", { name: "Rotate key" })
+    fireEvent.click(within(form).getByRole("button", { name: "Rotate key" }))
+    await screen.findByRole("dialog", { name: "Save your new key" })
+
+    // The read after the rotation fails: the page drops its data and shows
+    // its error card, and the dialog with the only copy of the key stays.
+    host.releaseReads()
+    await waitFor(() =>
+      expect(screen.queryByRole("status", { name: "Loading Key", hidden: true })).toBeNull(),
+    )
+    expect(screen.queryByRole("heading", { level: 1, hidden: true })).toBeNull()
+    const shown = screen.getByRole("dialog", { name: "Save your new key" })
+    expect(shown.textContent).toContain(RAW_KEY)
+    expect(within(shown).getByText("sk_live_…a3f8")).toBeTruthy()
+
+    fireEvent.click(within(shown).getByRole("checkbox"))
+    fireEvent.click(within(shown).getByRole("button", { name: "Done" }))
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull())
+    expect(document.body.textContent).not.toContain(RAW_KEY)
   })
 
   it("closes End now cleanly through its refetch and shows the window gone", async () => {
@@ -873,6 +967,74 @@ describe("KeyDetailPage revoke and scopes through the refetch", () => {
       { intent: "keys.reactivate", payload: { id: "akey_billing" } },
       { intent: "keys.revoke", payload: { id: "akey_billing", reason } },
       { intent: "keys.revoke", payload: { id: "akey_billing", reason } },
+    ])
+  })
+
+  // Suspend needs an active key, which offers no Reactivate, so a scope
+  // removal (no dialog either) is what refetches under the open dialog.
+  it("keeps the suspend dialog and a later attempt's error through a refetch, then closes on success", async () => {
+    const WITHOUT_READ = key({ scopes: ["billing:write"] })
+    const SUSPENDED_KEY = key({
+      state: "suspended",
+      effectiveState: "suspended",
+      scopes: ["billing:write"],
+    })
+    const host = hostLikeClient(ACTIVE, {
+      "keys.scopes.remove": {
+        answer: { key: WITHOUT_READ },
+        invalidates: ["keys.list", "keys.detail"],
+        next: detail({ key: WITHOUT_READ, previousKeys: [] }),
+        held: true,
+      },
+      "keys.suspend": [
+        { error: new ContractError("TRANSPORT", "contract request failed with HTTP 502") },
+        {
+          answer: { key: SUSPENDED_KEY },
+          invalidates: STATE_INVALIDATES,
+          next: detail({ key: SUSPENDED_KEY, previousKeys: [] }),
+        },
+      ],
+    })
+    renderPage(KeyDetailPage, host.client, { id: "akey_billing" })
+    await screen.findByRole("heading", { level: 1, name: "Billing service" })
+
+    fireEvent.click(screen.getByRole("button", { name: "Remove billing:read" }))
+    fireEvent.click(screen.getByRole("button", { name: "Suspend" }))
+    await screen.findByRole("alertdialog", { name: "Suspend sk_live_…a3f8?" })
+
+    // The removal lands and the page refetches under the open dialog.
+    host.releaseCommands()
+    await waitFor(() => expect(loading()).not.toBeNull())
+    const during = screen.getByRole("alertdialog", { name: "Suspend sk_live_…a3f8?" })
+
+    // The suspend is refused while the refetch is still out.
+    fireEvent.click(within(during).getByRole("button", { name: "Suspend" }))
+    expect((await within(during).findByRole("alert")).textContent).toBe(
+      "contract request failed with HTTP 502",
+    )
+
+    // The refetch settles, and the error is still in the dialog.
+    host.releaseReads()
+    await waitFor(() => expect(loading()).toBeNull())
+    const after = screen.getByRole("alertdialog", { name: "Suspend sk_live_…a3f8?" })
+    expect(within(after).getByRole("alert").textContent).toBe(
+      "contract request failed with HTTP 502",
+    )
+
+    // A retry succeeds, the dialog closes, and the page shows the key suspended.
+    fireEvent.click(within(after).getByRole("button", { name: "Suspend" }))
+    await waitFor(() => expect(screen.queryByRole("alertdialog")).toBeNull())
+    host.releaseReads()
+    await waitFor(() => expect(loading()).toBeNull())
+    const page = screen.getByRole("heading", { level: 1 }).closest("section") as HTMLElement
+    expect(within(page).getByText("Suspended", { selector: "[data-slot=badge]" })).toBeTruthy()
+    expect(screen.getByRole("button", { name: "Reactivate" })).toBeTruthy()
+    expect(screen.queryByRole("button", { name: "Suspend" })).toBeNull()
+
+    expect(host.sent).toEqual([
+      { intent: "keys.scopes.remove", payload: { id: "akey_billing", scopes: ["billing:read"] } },
+      { intent: "keys.suspend", payload: { id: "akey_billing" } },
+      { intent: "keys.suspend", payload: { id: "akey_billing" } },
     ])
   })
 

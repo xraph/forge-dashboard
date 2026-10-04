@@ -110,11 +110,16 @@ function EditableScopes({ summary, editing }: ScopesEditorProps) {
   const [choice, setChoice] = useState("")
 
   const held = summary.scopes ?? []
+  const hasPolicy = summary.policyId !== undefined
+  // Until the policies are in, a key with a policy may still be narrowed, so
+  // nothing is added from a list that could shrink under the operator.
+  const policySettling = hasPolicy && !policies.data && !policies.error
+  const policyFailed = hasPolicy && policies.error !== undefined && !policies.data
   // A policy that is not in the first page, or a list that failed, leaves the
   // choice wide, and the server refuses a scope the policy does not allow.
   const allowed =
     policies.data?.policies?.find((p) => p.id === summary.policyId)?.allowedScopes ?? []
-  const narrowed = summary.policyId !== undefined && allowed.length > 0
+  const narrowed = hasPolicy && allowed.length > 0
   const tenantScopes = scopes.data?.scopes ?? []
   const available = tenantScopes
     .map((s) => s.name)
@@ -170,11 +175,15 @@ function EditableScopes({ summary, editing }: ScopesEditorProps) {
             <NativeSelect
               id={pickerId}
               value={choice}
-              disabled={!scopes.data || editing.busy}
+              disabled={!scopes.data || policySettling || editing.busy}
               onChange={(e) => setChoice(e.target.value)}
             >
               <NativeSelectOption value="">
-                {scopes.data ? "Choose a scope" : "Loading scopes…"}
+                {!scopes.data
+                  ? "Loading scopes…"
+                  : policySettling
+                    ? "Loading the key's policy…"
+                    : "Choose a scope"}
               </NativeSelectOption>
               {available.map((name) => (
                 <NativeSelectOption key={name} value={name}>
@@ -185,13 +194,19 @@ function EditableScopes({ summary, editing }: ScopesEditorProps) {
             <Button
               variant="outline"
               size="sm"
-              disabled={choice === "" || editing.busy}
+              disabled={choice === "" || policySettling || editing.busy}
               onClick={() => void add()}
             >
               Add
             </Button>
           </div>
         </div>
+      )}
+      {policyFailed && !scopes.error && (
+        <p className="text-sm text-muted-foreground">
+          The key&apos;s policy could not be loaded, so this list is not
+          narrowed to it. The server refuses a scope the policy does not allow.
+        </p>
       )}
       {narrowed && !scopes.error && (
         <p className="text-sm text-muted-foreground">

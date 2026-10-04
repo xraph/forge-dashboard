@@ -204,6 +204,52 @@ describe("ScopesEditor add", () => {
     await waitFor(() => expect(sent).toHaveLength(1))
   })
 
+  /** scopes.list answers; policies.list waits forever, or throws `policiesError`. */
+  function policiesClient(policiesError?: ContractError): ScopedClient {
+    const inner = stubClient({ "scopes.list": SCOPES })
+    return {
+      extension: inner.extension,
+      query: (intent: string, params?: Record<string, unknown>) => {
+        if (intent !== "policies.list") return inner.query(intent, params)
+        if (policiesError) return Promise.reject(policiesError)
+        return new Promise<never>(() => {})
+      },
+      command: inner.command,
+    } as ScopedClient
+  }
+
+  it("holds Add while the key's policy is still loading", async () => {
+    renderEditor(policiesClient())
+    // Scopes are in, the policy is not: the list may still narrow.
+    await waitFor(() => expect(picker().options.length).toBeGreaterThan(1))
+    fireEvent.change(picker(), { target: { value: "users:read" } })
+    expect(addButton().disabled).toBe(true)
+    expect(picker().disabled).toBe(true)
+    expect(screen.getByRole("option", { name: "Loading the key's policy…" })).toBeTruthy()
+  })
+
+  it("does not wait for policies on a key with no policy", async () => {
+    renderEditor(policiesClient(), { ...KEY, policyId: undefined })
+    expect(await options()).toHaveLength(3)
+    fireEvent.change(picker(), { target: { value: "users:read" } })
+    expect(addButton().disabled).toBe(false)
+  })
+
+  it("says the list is not narrowed when policies fail, and still lets you add", async () => {
+    renderEditor(
+      policiesClient(new ContractError("TRANSPORT", "contract request failed with HTTP 502")),
+    )
+    expect(
+      await screen.findByText(
+        "The key's policy could not be loaded, so this list is not narrowed to it. The server refuses a scope the policy does not allow.",
+      ),
+    ).toBeTruthy()
+    expect(await options()).toHaveLength(3)
+    fireEvent.change(picker(), { target: { value: "users:read" } })
+    expect(addButton().disabled).toBe(false)
+    expect(screen.queryByText(/policy allows are listed/)).toBeNull()
+  })
+
   it("says only the first scopes are listed when there are more", async () => {
     renderEditor(stubClient({ ...READS, "scopes.list": { ...SCOPES, hasMore: true } }))
     expect(await screen.findByText("Only the first 200 scopes are listed.")).toBeTruthy()

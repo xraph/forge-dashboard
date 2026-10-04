@@ -75,6 +75,8 @@ export interface ReactivateKey {
   reactivate: () => void
   loading: boolean
   error?: ContractError
+  /** Drops a refusal, for when another action starts and it no longer applies. */
+  reset: () => void
 }
 
 /**
@@ -82,7 +84,7 @@ export interface ReactivateKey {
  * is what the operator suspended it to be able to do, so there is no confirm.
  */
 export function useReactivateKey(keyId: string): ReactivateKey {
-  const { execute, loading, error } = useCommand<KeyOnly>("keys.reactivate")
+  const { execute, loading, error, reset } = useCommand<KeyOnly>("keys.reactivate")
   // Set synchronously, so a second click in the same tick cannot slip past a
   // button that has not re-rendered as disabled yet.
   const sending = useRef(false)
@@ -95,7 +97,7 @@ export function useReactivateKey(keyId: string): ReactivateKey {
     })
   }, [execute, keyId])
 
-  return { reactivate, loading, error }
+  return { reactivate, loading, error, reset }
 }
 
 export interface KeyStateDialogProps {

@@ -78,12 +78,23 @@ function KeyDetailBody({ id }: { id: string }) {
   const reactivate = useReactivateKey(id)
   const scopeEditing = useScopeEditing(id)
 
+  // A refused Reactivate says why on the page, and stays until something else
+  // is tried: by then it describes an attempt nobody is looking at.
+  const { reset: resetReactivate } = reactivate
+
+  function startRotating() {
+    resetReactivate()
+    setRotating(true)
+  }
+
   function startEnding(data: KeyDetail) {
+    resetReactivate()
     setEndingMasked(previousMasked(data))
     setEnding(true)
   }
 
   function startAction(data: KeyDetail, open: (open: boolean) => void) {
+    resetReactivate()
     setActionMasked(maskedKey(data.key))
     open(true)
   }
@@ -113,7 +124,7 @@ function KeyDetailBody({ id }: { id: string }) {
         {(data) => (
           <KeyDetailView
             data={data}
-            onRotate={() => setRotating(true)}
+            onRotate={startRotating}
             onEnd={() => startEnding(data)}
             onSuspend={() => startAction(data, setSuspending)}
             onRevoke={() => startAction(data, setRevoking)}
@@ -174,6 +185,10 @@ function useLatestDetail(
   return current?.key.id === id ? current : undefined
 }
 
+function isPast(at: string | undefined): boolean {
+  return at !== undefined && Date.parse(at) <= Date.now()
+}
+
 function previousMasked(data: KeyDetail): string[] {
   const { key } = data
   return (data.previousKeys ?? []).map((p) =>
@@ -218,9 +233,11 @@ function KeyDetailView({
 }) {
   const { key } = data
   const expiredUnmarked = key.effectiveState === "expired" && key.expiryPending
-  // Matches the server: a revoked or expired key answers CONFLICT.
+  // Matches the server: a revoked or expired key answers CONFLICT, and so
+  // does a suspended one past its expiry, whose state still says suspended.
   const rotatable =
-    key.effectiveState === "active" || key.effectiveState === "suspended"
+    (key.effectiveState === "active" || key.effectiveState === "suspended") &&
+    !isPast(key.expiresAt)
   const offer = stateActionsFor(key)
   const anyAction = rotatable || offer.suspend || offer.reactivate || offer.revoke
 
