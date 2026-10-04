@@ -122,6 +122,21 @@ describe("OneTimeKey anatomy", () => {
     expect(part(container, "key")?.textContent).toBe(STANDARD)
   })
 
+  it("keeps a short body after the prefix, underlining all of it", () => {
+    const { container } = renderKey("sk_live_ab")
+    expect(part(container, "prefix")?.textContent).toBe("sk_live_")
+    expect(part(container, "body")?.textContent).toBe("")
+    expect(part(container, "tail")?.textContent).toBe("ab")
+    expect(part(container, "key")?.textContent).toBe("sk_live_ab")
+  })
+
+  it("splits a body of exactly five after the prefix as one and four", () => {
+    const { container } = renderKey("sk_live_vwxyz")
+    expect(part(container, "prefix")?.textContent).toBe("sk_live_")
+    expect(part(container, "body")?.textContent).toBe("v")
+    expect(part(container, "tail")?.textContent).toBe("wxyz")
+  })
+
   it("copes with a key shorter than the underline", () => {
     const { container } = renderKey("ab", { prefix: "zz" })
     expect(part(container, "key")?.textContent).toBe("ab")
@@ -228,6 +243,26 @@ describe("OneTimeKey copy fallback", () => {
     expect(status().textContent).not.toContain(STANDARD)
   })
 
+  it("clears the announcement as each copy starts, so a repeat is read again", async () => {
+    renderKey()
+    await clickCopy()
+    expect(status().textContent).toBe("Copied to clipboard")
+
+    // A second copy that has not settled yet: the old message is gone.
+    let resolve!: () => void
+    writeText.mockReturnValue(
+      new Promise<void>((r) => {
+        resolve = r
+      })
+    )
+    fireEvent.click(screen.getByRole("button", { name: "Copied" }))
+    expect(status().textContent).toBe("")
+    await act(async () => {
+      resolve()
+    })
+    expect(status().textContent).toBe("Copied to clipboard")
+  })
+
   it("announces failure without ever containing the key", async () => {
     writeText.mockRejectedValue(new Error("denied"))
     renderKey()
@@ -247,11 +282,13 @@ describe("OneTimeKey copy fallback", () => {
   it("shows a hidden key again and selects it when the copy fails", async () => {
     writeText.mockRejectedValue(new Error("denied"))
     const { container } = renderKey()
-    fireEvent.click(screen.getByRole("button", { name: "Hide" }))
+    fireEvent.click(screen.getByRole("button", { name: "Hide key" }))
     expect(part(container, "key")?.textContent).toBe("••••")
     await clickCopy()
     expect(part(container, "key")?.textContent).toBe(STANDARD)
-    expect(screen.getByRole("button", { name: "Hide" })).toBeTruthy()
+    expect(
+      screen.getByRole("button", { name: "Hide key" }).getAttribute("aria-pressed")
+    ).toBe("false")
     expect(window.getSelection()?.toString()).toBe(STANDARD)
   })
 
@@ -259,7 +296,7 @@ describe("OneTimeKey copy fallback", () => {
     writeText.mockRejectedValue(new Error("denied"))
     const { container } = renderKey()
     await clickCopy()
-    fireEvent.click(screen.getByRole("button", { name: "Hide" }))
+    fireEvent.click(screen.getByRole("button", { name: "Hide key" }))
     window.getSelection()?.removeAllRanges()
     await clickCopy("Select and copy")
     expect(part(container, "key")?.textContent).toBe(STANDARD)
@@ -310,10 +347,13 @@ describe("OneTimeKey copy fallback", () => {
 describe("OneTimeKey hide", () => {
   it("masks the key and keeps the recognisable form visible", () => {
     const { container } = renderKey()
-    const toggle = screen.getByRole("button", { name: "Hide" })
+    const toggle = screen.getByRole("button", { name: "Hide key" })
     expect(toggle.getAttribute("aria-pressed")).toBe("false")
     fireEvent.click(toggle)
+    // The label stays put; only the pressed state says which way it is.
+    expect(toggle.textContent).toBe("Hide key")
     expect(toggle.getAttribute("aria-pressed")).toBe("true")
+    expect(screen.queryByRole("button", { name: "Show" })).toBeNull()
     expect(container.textContent).not.toContain("0123456789abcdef")
     expect(screen.getByText("Key hidden").className).toContain("sr-only")
     expect(
@@ -321,13 +361,14 @@ describe("OneTimeKey hide", () => {
     ).toBe("••••")
     expect(part(container, "key")?.textContent).toBe("••••")
     expect(screen.getByText("sk_live_…a3f8")).toBeTruthy()
-    fireEvent.click(screen.getByRole("button", { name: "Show" }))
+    fireEvent.click(toggle)
+    expect(toggle.getAttribute("aria-pressed")).toBe("false")
     expect(part(container, "key")?.textContent).toBe(STANDARD)
   })
 
   it("still copies the real key while hidden", async () => {
     renderKey()
-    fireEvent.click(screen.getByRole("button", { name: "Hide" }))
+    fireEvent.click(screen.getByRole("button", { name: "Hide key" }))
     await act(async () => {
       fireEvent.click(screen.getByRole("button", { name: "Copy" }))
     })
@@ -370,6 +411,22 @@ describe("OneTimeKey done", () => {
 })
 
 describe("OneTimeKey leaving the page", () => {
+  it("calls preventDefault and sets returnValue, which older browsers need", () => {
+    renderKey()
+    const event = new Event("beforeunload", { cancelable: true })
+    const assigned: unknown[] = []
+    Object.defineProperty(event, "returnValue", {
+      configurable: true,
+      get: () => assigned.at(-1),
+      set: (v: unknown) => {
+        assigned.push(v)
+      },
+    })
+    window.dispatchEvent(event)
+    expect(event.defaultPrevented).toBe(true)
+    expect(assigned).toEqual([""])
+  })
+
   it("prevents unload while mounted and not after unmount", () => {
     const { unmount } = renderKey()
     const during = new Event("beforeunload", { cancelable: true })

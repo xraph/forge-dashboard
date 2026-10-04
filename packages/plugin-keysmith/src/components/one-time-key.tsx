@@ -85,6 +85,9 @@ export function OneTimeKey({
   }
 
   async function copy() {
+    // Emptied first: a live region does not read out the same text twice, so
+    // a second "Copied to clipboard" would otherwise be silent.
+    setMessage("")
     if (copyFailed) selectKey()
     try {
       await navigator.clipboard.writeText(rawKey)
@@ -157,13 +160,15 @@ export function OneTimeKey({
         <Button variant="outline" size="sm" onClick={() => void copy()}>
           {copied ? "Copied" : copyFailed ? "Select and copy" : "Copy"}
         </Button>
+        {/* A toggle keeps one label and says its state with aria-pressed. A
+            label that flipped to "Show" would read as "Show, pressed". */}
         <Button
           variant="outline"
           size="sm"
           aria-pressed={hidden}
           onClick={() => setHidden((h) => !h)}
         >
-          {hidden ? "Show" : "Hide"}
+          Hide key
         </Button>
       </div>
 
