@@ -875,7 +875,7 @@ We clicked through all five pages in the shell against the fixture server at a 1
 
 - On CAS the full 71-character hash pushes the table to 1227 px inside a 928 px wrapper, so Pin and Unpin sit behind a horizontal scroll. Shorten the hash in the cell and keep the full value in a title or a copy button. Object keys in the browser will have the same problem.
 - The Overview's "What it means" column does not wrap, so the encryption note runs off the right edge.
-- `ConfirmDialog` puts its `description` inside a `<p>`, and the bucket delete dialog puts a `CommandAlert` (a `<div>`) in there. React logs a nesting error. Vault does the same thing. The real fix is a body slot on the kit's `ConfirmDialog`, which is not ours to edit, so the browser's delete dialogs will log it too until the kit changes.
+- `ConfirmDialog` puts its `description` inside a `<p>`, and the bucket delete dialog puts a `CommandAlert` (a `<div>`) in there. React logs a nesting error. Vault does the same thing. The real fix is a body slot on the kit's `ConfirmDialog`, which is not ours to edit, so the browser's delete dialogs will log it too until the kit changes. (Resolved: kit 7d85568 added `children`, and trove's dialogs pass their `CommandAlert` there.)
 
 In dev, the first visit to each page shows "Loading dashboard capabilities…" for a second or two while the lazy chunk loads. That's the host.
 

@@ -968,9 +968,9 @@ line of copy about invitations.
 
 **The remove dialog's error must render INSIDE the dialog.** Base UI marks
 everything outside an open dialog inert and `aria-hidden`, so a `CommandAlert`
-on the page body is invisible to a real operator, not just to a test. Put a
-`<span role="alert">` in the dialog description, as `plugin-streaming`'s
-`rooms.tsx` does.
+on the page body is invisible to a real operator, not just to a test. Pass a
+`CommandAlert` to `ConfirmDialog` as `children` (not inside `description`,
+which renders a `<p>`), as `plugin-streaming`'s `rooms.tsx` does.
 
 The create page has Name (required), Slug (required, help text "Lowercase
 letters, numbers and hyphens only. Filled in from the name until you edit it.")

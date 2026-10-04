@@ -2,6 +2,8 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
+> **Updated 2026-10-04: dialog errors and fields.** This plan was written before `ConfirmDialog` had a `children` prop (kit 7d85568). Wherever it puts an error or a form field inside a dialog's `description`, or asks for `DialogError`, don't follow it. Keep `description` to plain prose and put everything else in `children`, with errors as the kit's `CommandAlert`. `DialogError` was deleted in e9575f2. The code listings below are left as they were written; the shipped versions are in `packages/plugin-chronicle/src`.
+
 **Goal:** Build `packages/plugin-chronicle`, the React plugin that renders chronicle's 29-intent dashboard contract. Verification of the operator's chain is the landing surface. Add the `enabled` option to `useQuery` that four of its reads need, and a fixture that serves an intact chain, a plain chain, a broken chain and a truncated one.
 
 **Architecture:** A Vault-shaped plugin package: hand-written wire types in `src/types.ts`, the badge mapping in `src/badges.tsx`, and one page per route. The page logic that decides what a verification result *says* lives in pure modules under `src/verification/` and is tested without React. That's where this dashboard's claims are made, so that's where the tests concentrate. The fixture is a new `packages/fixture-server/chronicle-fixtures.mjs` registered in `server.mjs` like Vault's.
@@ -54,7 +56,7 @@ packages/plugin-chronicle/
   src/types.ts           every wire type, from the wire reference Task 2
   src/format.ts          formatSeq, shortHash, durationLabel      Task 2
   src/badges.tsx         the badge mapping and its reasons        Task 2
-  src/components/dialog-error.tsx  copied from plugin-relay       Task 2
+  src/components/dialog-error.tsx  copied from plugin-relay       Task 2 (deleted 2026-10-04, use CommandAlert)
   src/components/chain-picker.tsx  own chain or a tenant chain    Task 5
   src/components/json-view.tsx, json-editor.tsx  copied from plugin-relay  Task 8
   src/verification/tri-state.ts    tri(checked, ok)               Task 4
@@ -358,7 +360,7 @@ The first task that produces a plugin the shell could load. Settings is the firs
 - Create:
   - `packages/plugin-chronicle/package.json`, `tsconfig.json`, `vitest.config.ts`, `eslint.config.js`
   - `packages/plugin-chronicle/src/index.tsx`, `src/types.ts`, `src/format.ts`, `src/badges.tsx`
-  - `packages/plugin-chronicle/src/components/dialog-error.tsx`
+  - `packages/plugin-chronicle/src/components/dialog-error.tsx` (no longer: see Step 7)
   - `packages/plugin-chronicle/src/pages/settings.tsx`
 - Test:
   - `packages/plugin-chronicle/test/harness.tsx`
@@ -862,9 +864,9 @@ export function CheckFailedBadge({ children }: { children: string }) {
 }
 ```
 
-- [ ] **Step 7: Copy `DialogError`**
+- [ ] **Step 7: Skip `DialogError`**
 
-Copy `packages/plugin-relay/src/components/dialog-error.tsx` to `packages/plugin-chronicle/src/components/dialog-error.tsx` unchanged.
+Don't copy it. It was a `<span>` so it could sit inside a dialog's `<p>` description, and both copies were deleted on 2026-10-04. Show a command error with the kit's `CommandAlert` (from `@forge-go/dashboard-kit/components/query-boundary`) and pass it to `ConfirmDialog` as `children`, titled "Could not <what>".
 
 - [ ] **Step 8: Write the settings page test**
 
@@ -3284,7 +3286,7 @@ Checkpoints are what lift assurance above `keyed`, and templ never showed them. 
 - Test: `packages/plugin-chronicle/test/checkpoints.test.tsx`, `test/checkpoint-detail.test.tsx`
 
 **Interfaces:**
-- Consumes: `ChainPicker`, `chainLabel` (Task 5); `CheckpointListResponse`, `CheckpointSummary`, `GetCheckpointResponse`, `TakeCheckpointResponse`, `StreamListResponse`, `MineResponse` (Task 2); `DialogError` (Task 2).
+- Consumes: `ChainPicker`, `chainLabel` (Task 5); `CheckpointListResponse`, `CheckpointSummary`, `GetCheckpointResponse`, `TakeCheckpointResponse`, `StreamListResponse`, `MineResponse` (Task 2); the kit's `CommandAlert`.
 - Produces: `CheckpointsPage`, `CheckpointDetailPage`.
 
 - [ ] **Step 1: Write the failing tests**
@@ -3533,7 +3535,7 @@ export const CheckpointsPage: ComponentType<PluginPageProps> = ({ params }) => {
 }
 ```
 
-The command's `invalidates` refreshes `checkpoints.list` itself. The page must not call `refetch`. `DialogError` renders `role="alert"` text of the form "Could not take a checkpoint: <message> (<code>)". An empty message still shows the code, which is what the refusal test reads.
+The command's `invalidates` refreshes `checkpoints.list` itself. The page must not call `refetch`. Render the error as `<CommandAlert title="Could not take a checkpoint" error={take.error} />`. It has `role="alert"` and shows the code under the message, so an empty message still shows the code, which is what the refusal test reads.
 
 - [ ] **Step 4: Implement the detail page**
 
@@ -4528,7 +4530,7 @@ An erasure destroys a subject's encryption key, and with it every sealed field o
   - `test/erasure-detail.test.tsx`
 
 **Interfaces:**
-- Consumes: `ErasureListResponse`, `ErasureSummary`, `ErasurePreviewResponse`, `ErasureResult`, `LIMITS` (Task 2); `DialogError` (Task 2); `useQuery(..., { enabled })` (Task 1).
+- Consumes: `ErasureListResponse`, `ErasureSummary`, `ErasurePreviewResponse`, `ErasureResult`, `LIMITS` (Task 2); the kit's `CommandAlert`; `useQuery(..., { enabled })` (Task 1).
 - Produces:
   - `ErasuresPage` and `ErasureDetailPage`
   - `ErasureRequestDialog(props: { open: boolean; onOpenChange(open: boolean): void })`
@@ -4765,7 +4767,7 @@ function ErasureOutcome({ r }: { r: ErasureResult }) {
 }
 ```
 
-`ConfirmDialog`'s `description` is a `ReactNode` rendered inside a `<p>`, so every element inside it must be phrasing content: `span` and `label`, never `div` or `p`. That's why `DialogError` is a span. If kit's `Textarea` renders a block element that the `<p>` rejects, render the form above the description and check the kit's `ConfirmDialog` for a `children` slot. Read `confirm-dialog.tsx` first and use what it offers.
+`ConfirmDialog`'s `description` renders inside a `<p>`, so keep it to the one sentence about what erasure destroys. The form (Subject ID, Reason, the count button, the count), the outcome and both errors go in `children`, which renders below the description and can hold `div`s. Errors use `CommandAlert`.
 
 The confirm button must not close the dialog before the result shows. If `ConfirmDialog` closes on confirm by default, check its API for a way to keep it open (the `pending` prop, or `onConfirm` returning a promise), and use it.
 
@@ -4828,7 +4830,7 @@ Enforce runs its preview first, and a run that stopped part-way is never shown a
   - `test/archives.test.tsx`
 
 **Interfaces:**
-- Consumes: `PolicyListResponse`, `PolicySummary`, `RetentionPreviewResponse`, `EnforceResponse`, `ArchiveListResponse`, `LIMITS` (Task 2); `durationLabel` (Task 2); `DialogError` (Task 2).
+- Consumes: `PolicyListResponse`, `PolicySummary`, `RetentionPreviewResponse`, `EnforceResponse`, `ArchiveListResponse`, `LIMITS` (Task 2); `durationLabel` (Task 2); the kit's `CommandAlert`.
 - Produces:
   - `RetentionPage`, `PolicyDetailPage`, `PolicyCreatePage`, `ArchivesPage`
   - `EnforceDialog(props: { open: boolean; onOpenChange(open: boolean): void })`
@@ -5016,7 +5018,7 @@ export function categoryProblem(c: string): string | null {
 
 `EnforceDialog`:
 - `useQuery("retention.preview", {}, { enabled: open })` and `useCommand("retention.enforce")`, with `reset()` on open.
-- The description, built from phrasing content only:
+- The description (it renders inside a `<p>`, so spans only):
   - `noPolicies`: "You have no retention policies of your own, so running retention here removes nothing." When `governingAppPolicies > 0`, also "<n> app-level policy (or policies) also removes events from your chain on the scheduler's run."
   - Otherwise:
     - "<At least if capped><count> events are eligible under your policies.";
@@ -5028,7 +5030,7 @@ export function categoryProblem(c: string): string | null {
   - `failed`: "Retention stopped part-way. <purged> events were removed before it stopped, and that cannot be undone. Open the preview again to see what remains." Use the destructive colour, since this is a failure.
   - Otherwise: "<purged> events removed<, archived count>." plus "More remain: run it again." when `moreRemain`.
 
-Errors go in `DialogError`, inside the dialog.
+The result and the errors go in the dialog's `children`, not the description. Errors are `CommandAlert`s.
 
 `PolicyCreatePage`:
 - a category input, validated live with `categoryProblem`;
