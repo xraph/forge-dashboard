@@ -1509,12 +1509,25 @@ define(
   },
 )
 
-/** A small RFC 4180 reader: quoted fields, doubled quotes, commas and newlines inside quotes. */
+/**
+ * A small reader with encoding/csv's default rules: quoted fields with
+ * doubled quotes, commas and newlines inside quotes, empty lines skipped,
+ * and a bare quote in an unquoted field refused. Each row remembers the line
+ * it started on, for the wrong-field-count message.
+ */
 function parseCSV(text) {
   const rows = []
   let row = []
   let field = ""
   let quoted = false
+  let wasQuoted = false
+  let line = 1
+  let rowLine = 1
+  const endField = () => {
+    row.push(field)
+    field = ""
+    wasQuoted = false
+  }
   for (let i = 0; i < text.length; i++) {
     const ch = text[i]
     if (quoted) {
@@ -1522,21 +1535,31 @@ function parseCSV(text) {
         field += '"'
         i++
       } else if (ch === '"') quoted = false
-      else field += ch
-    } else if (ch === '"') quoted = true
-    else if (ch === ",") {
-      row.push(field)
-      field = ""
-    } else if (ch === "\n" || ch === "\r") {
+      else {
+        if (ch === "\n") line++
+        field += ch
+      }
+    } else if (ch === '"') {
+      if (field !== "") throw new Error(`testcase: import csv row: parse error on line ${line}: bare " in non-quoted-field`)
+      quoted = true
+      wasQuoted = true
+    } else if (ch === ",") endField()
+    else if (ch === "\n" || ch === "\r") {
       if (ch === "\r" && text[i + 1] === "\n") i++
-      row.push(field)
-      rows.push(row)
+      const blank = row.length === 0 && field === "" && !wasQuoted
+      endField()
+      if (!blank) {
+        row.line = rowLine
+        rows.push(row)
+      }
       row = []
-      field = ""
+      line++
+      rowLine = line
     } else field += ch
   }
-  if (field !== "" || row.length) {
-    row.push(field)
+  if (field !== "" || wasQuoted || row.length) {
+    endField()
+    row.line = rowLine
     rows.push(row)
   }
   return rows
@@ -1545,7 +1568,9 @@ function parseCSV(text) {
 /** testcase.Import*: the rows a file holds, or an Error carrying the parser's complaint. */
 function parseImport(format, data) {
   const fromObject = (o, where) => {
-    if (!o || typeof o !== "object" || Array.isArray(o)) throw new Error(`${where}: a case must be an object`)
+    // A null row decodes to an empty one in Go, so it fails the row checks, not the parse.
+    if (o === null) o = {}
+    if (typeof o !== "object" || Array.isArray(o)) throw new Error(`${where}: a case must be an object`)
     for (const k of ["name", "input", "expected"]) {
       if (o[k] !== undefined && o[k] !== null && typeof o[k] !== "string") throw new Error(`${where}: ${k} must be a string`)
     }
@@ -1560,6 +1585,8 @@ function parseImport(format, data) {
     } catch (err) {
       throw new Error(`testcase: import json: ${err.message}`)
     }
+    // null decodes to an empty list in Go: no cases, not a parse error.
+    if (parsed === null) return []
     if (!Array.isArray(parsed)) throw new Error("testcase: import json: the data must be a list of cases")
     return parsed.map((o) => fromObject(o, "testcase: import json"))
   }
@@ -1585,8 +1612,8 @@ function parseImport(format, data) {
   if (rows.length === 0) throw new Error("testcase: import csv header: EOF")
   const header = rows[0].map((h) => h.trim().toLowerCase())
   const col = (name) => header.indexOf(name)
-  return rows.slice(1).map((r, i) => {
-    if (r.length !== header.length) throw new Error(`testcase: import csv row: record on line ${i + 2}: wrong number of fields`)
+  return rows.slice(1).map((r) => {
+    if (r.length !== header.length) throw new Error(`testcase: import csv row: record on line ${r.line}: wrong number of fields`)
     const cell = (name) => (col(name) >= 0 ? r[col(name)] : "")
     const tags = cell("tags")
     return { name: cell("name"), input: cell("input"), expected: cell("expected"), tags: tags === "" ? [] : tags.split(";"), context: {} }

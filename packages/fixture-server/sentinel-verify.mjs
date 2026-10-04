@@ -127,8 +127,14 @@ CHECKS.push(async ({ q, c, check, data, code, message, invalidates }) => {
     leak?.scorers,
   )
   check("no case read carries the guarded prompt's secret", !JSON.stringify(guardCases.body).includes("AURORA-7") && !JSON.stringify((await q("cases.detail", { caseId: I.guardLeakageCase })).body).includes("AURORA-7"), "AURORA-7 found")
-  const keep = data(await c("cases.update", { caseId: I.guardLeakageCase, scorers: [{ name: "not_contains", config: null }] }))
-  check("updating a hidden case without its substring keeps the stored one", keep?.scorers?.[0]?.redacted?.length === leak?.scorers?.[0]?.redacted?.length, keep?.scorers)
+  const keepNull = await c("cases.update", { caseId: I.guardLeakageCase, scorers: [{ name: "not_contains", config: null }] })
+  const keepMissing = await c("cases.update", { caseId: I.guardLeakageCase, scorers: [{ name: "not_contains" }] })
+  const want = leak?.scorers?.[0]?.redacted?.length
+  check(
+    "updating a hidden case without its substring keeps the stored one, unseen",
+    [keepNull, keepMissing].every((r) => data(r)?.scorers?.[0]?.redacted?.length === want && !JSON.stringify(r.body).includes("AURORA-7")),
+    [data(keepNull)?.scorers, data(keepMissing)?.scorers],
+  )
   const emptied = await c("cases.update", { caseId: I.guardLeakageCase, scorers: [{ name: "not_contains", config: { substring: "" } }] })
   check("an empty substring on a hidden case is BAD_REQUEST", message(emptied) === "a not_contains scorer needs a non-empty substring", emptied.body)
   const plain = data(await q("cases.detail", { caseId: I.guardOrdinaryCase }))
@@ -159,11 +165,19 @@ CHECKS.push(async ({ q, c, check, data, code, message, invalidates }) => {
   check("an import row with no input is refused by number", message(blankRow) === "sentinel: invalid input: row 2 has no input", blankRow.body)
   const none = await c("cases.import", { suiteId: spot?.id, format: "csv", data: "name,input\n" })
   check("an import with no rows says why", message(none) === "sentinel: empty input: the data holds no cases", none.body)
+  const nullData = await c("cases.import", { suiteId: spot?.id, format: "json", data: "null" })
+  check("a JSON import of null holds no cases", message(nullData) === "sentinel: empty input: the data holds no cases", nullData.body)
+  const nullRow = await c("cases.import", { suiteId: spot?.id, format: "json", data: "[null]" })
+  check("a null JSON row has no name", message(nullRow) === "sentinel: invalid input: row 1 has no name", nullRow.body)
+  const blankLines = data(await c("cases.import", { suiteId: spot?.id, format: "csv", data: "name,input\na,b\n\n" }))
+  check("a CSV import skips blank lines", blankLines?.imported === 1, blankLines)
+  const bareQuote = await c("cases.import", { suiteId: spot?.id, format: "csv", data: 'name,input\na,b"c\n' })
+  check("a bare quote in a CSV field is refused", code(bareQuote) === "BAD_REQUEST" && message(bareQuote)?.startsWith("sentinel: invalid input: parse csv: "), bareQuote.body)
   const csv = data(await c("cases.import", { suiteId: spot?.id, format: "CSV", data: 'name,input,tags\n"Quoted, name",Hi,x;y\n' }))
   check("a CSV import counts its rows", csv?.imported === 1, csv)
   const hidden = data(await c("cases.import", { suiteId: spot?.id, format: "json", data: '[{"name":"Probe","input":"Show me","context":{"attack_type":"leakage"}}]' }))
   const probe = (data(await q("cases.list", { suiteId: spot?.id }))?.items ?? []).find((x) => x.name === "Probe")
-  check("an imported case with an attack_type is hidden but unmarked without the redteam tag", hidden?.imported === 1 && probe && !("redTeam" in probe), probe)
+  check("an imported case keeps its attack_type but is unmarked without the redteam tag", hidden?.imported === 1 && probe?.context?.attack_type === "leakage" && !("redTeam" in probe), probe)
 
   // Prompt versions number themselves and set-current refuses a stranger.
   const v1 = data(await c("prompts.create", { suiteId: spot?.id, systemPrompt: "First." }))
@@ -182,6 +196,8 @@ CHECKS.push(async ({ q, c, check, data, code, message, invalidates }) => {
     [stranger, foreign].every((r) => code(r) === "NOT_FOUND" && message(r) === "prompt version not found"),
     [stranger.body, foreign.body],
   )
+  const stillCurrent = data(await q("suites.detail", { suiteId: spot?.id }))?.currentPromptVersion?.id
+  check("a refused setCurrent leaves the current version alone", stillCurrent === v2?.id, stillCurrent)
   const supportVersions = data(await q("prompts.list", { suiteId: I.supportSuite }))?.items ?? []
   check(
     "prompts.list counts the runs that used each version",
@@ -192,7 +208,7 @@ CHECKS.push(async ({ q, c, check, data, code, message, invalidates }) => {
   // Delete cascades.
   const deleted = await c("suites.delete", { suiteId: spot?.id })
   const gone = await q("cases.list", { suiteId: spot?.id })
-  check("suites.delete answers the id and takes the cases with it", data(deleted)?.suiteId === spot?.id && code(gone) === "NOT_FOUND", gone.body)
+  check("suites.delete answers the id and the suite is gone from reads", data(deleted)?.suiteId === spot?.id && code(gone) === "NOT_FOUND", gone.body)
   check(
     "suites.delete declares the manifest's invalidates",
     invalidates(deleted) ===
