@@ -1,10 +1,6 @@
 import { useEffect, useId, useRef, useState } from "react"
 import type { FormEvent, ReactNode } from "react"
-import {
-  useCommand,
-  useNavigateTo,
-  useQuery,
-} from "@forge-go/dashboard-plugin"
+import { useCommand, useNavigateTo } from "@forge-go/dashboard-plugin"
 import type { CommandState } from "@forge-go/dashboard-plugin"
 import { Button } from "@forge-go/dashboard-kit/components/button"
 import { Checkbox } from "@forge-go/dashboard-kit/components/checkbox"
@@ -33,16 +29,12 @@ import {
 import { Textarea } from "@forge-go/dashboard-kit/components/textarea"
 import { policyPath, splitDuration, toSeconds } from "../format"
 import type { DurationUnit } from "../format"
-import type { PolicyDetail, PolicyFields, ScopesList } from "../types"
+import type { PolicyDetail, PolicyFields } from "../types"
+import { AllowedScopesField } from "./allowed-scopes-field"
 
 const NAME_REQUIRED = "name is required"
 const NAME_TOO_LONG = "name is too long"
 const NEEDS_WINDOW = "A rate limit needs a window."
-
-// The most the scope picker asks for, the same as the key forms' pickers, so
-// they share one store entry.
-const PICKER_LIMIT = 200
-const PICKER_PARAMS = { limit: PICKER_LIMIT }
 
 const METHODS = ["GET", "HEAD", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"]
 
@@ -123,8 +115,11 @@ export interface PolicyEditorDialogProps {
   onOpenChange: (open: boolean) => void
   /** The policy to edit. Without one the dialog creates a policy. */
   policy?: PolicyDetail
-  /** Whether this deployment enforces a policy's rate limit. */
-  rateLimiterConfigured: boolean
+  /**
+   * Whether this deployment enforces a policy's rate limit. Undefined when
+   * the page has not been told, and the form then says it does not know.
+   */
+  rateLimiterConfigured: boolean | undefined
 }
 
 /**
@@ -190,14 +185,13 @@ function PolicyForm({
   onClose,
 }: {
   policy?: PolicyDetail
-  rateLimiterConfigured: boolean
+  rateLimiterConfigured: boolean | undefined
   command: CommandState<{ policy: PolicyDetail }>
   onClose: () => void
 }) {
   const base = useId()
   const id = (name: string) => `${base}-${name}`
   const navigate = useNavigateTo()
-  const scopes = useQuery<ScopesList>("scopes.list", PICKER_PARAMS)
 
   const [name, setName] = useState(policy?.name ?? "")
   const [description, setDescription] = useState(policy?.description ?? "")
@@ -270,22 +264,6 @@ function PolicyForm({
       ? { "aria-invalid": true as const, "aria-describedby": id("error") }
       : {}
 
-  const listed = scopes.data?.scopes ?? []
-  const listedNames = new Set(listed.map((s) => s.name))
-  const unlisted = storedScopes.filter((n) => !listedNames.has(n))
-  const scopeRows: { name: string; note?: string }[] = [
-    ...listed.map((s) => ({ name: s.name })),
-    ...unlisted.map((n) => ({
-      name: n,
-      // Only a complete list can say a scope is gone.
-      note: !scopes.data
-        ? undefined
-        : scopes.data.hasMore
-          ? `(not among the first ${PICKER_LIMIT})`
-          : "(no longer exists)",
-    })),
-  ]
-
   function setDuration(key: DurationKey, change: Partial<Duration>) {
     setDurations((cur) => ({ ...cur, [key]: { ...cur[key], ...change } }))
   }
@@ -329,9 +307,9 @@ function PolicyForm({
       description: description.trim(),
       maxKeyLifetimeSeconds: lifetime,
       graceSeconds: grace,
-      allowedScopes: scopeRows
-        .map((r) => r.name)
-        .filter((n) => pickedScopes.includes(n)),
+      // Exactly what is ticked. Never filtered through scopes.list, which can
+      // fail or change under the open form.
+      allowedScopes: pickedScopes,
       rateLimit,
       rateLimitWindowSeconds: window,
       burstLimit: burst,
@@ -480,55 +458,11 @@ function PolicyForm({
               {durationField("maxKeyLifetime", "Max key lifetime", "No maximum")}
               {durationField("grace", "Grace on rotation", "24 hours (default)")}
             </div>
-            <FieldSet>
-              <FieldLegend variant="label">Allowed scopes</FieldLegend>
-              {scopes.error && (
-                <FieldDescription>
-                  Scopes could not be loaded. The scopes this policy already
-                  allows are kept.
-                </FieldDescription>
-              )}
-              {scopes.loading && !scopes.data && (
-                <FieldDescription>Loading scopes…</FieldDescription>
-              )}
-              {scopes.data && scopeRows.length === 0 && (
-                <FieldDescription>
-                  No scopes exist in this tenant yet.
-                </FieldDescription>
-              )}
-              {scopeRows.length > 0 && (
-                <div className="flex max-h-40 flex-col gap-2 overflow-y-auto">
-                  {scopeRows.map((row) => (
-                    <Label key={row.name} className="font-normal">
-                      <Checkbox
-                        checked={pickedScopes.includes(row.name)}
-                        onCheckedChange={(on) =>
-                          setPickedScopes((cur) =>
-                            on === true
-                              ? [...cur.filter((n) => n !== row.name), row.name]
-                              : cur.filter((n) => n !== row.name),
-                          )
-                        }
-                      />
-                      <span className="font-mono text-xs">{row.name}</span>
-                      {row.note && (
-                        <span className="text-muted-foreground">
-                          {` ${row.note}`}
-                        </span>
-                      )}
-                    </Label>
-                  ))}
-                </div>
-              )}
-              {pickedScopes.length === 0 && (
-                <FieldDescription>None ticked: any scope.</FieldDescription>
-              )}
-              {scopes.data?.hasMore && (
-                <FieldDescription>
-                  {`Only the first ${PICKER_LIMIT} scopes are listed.`}
-                </FieldDescription>
-              )}
-            </FieldSet>
+            <AllowedScopesField
+              stored={storedScopes}
+              picked={pickedScopes}
+              onChange={setPickedScopes}
+            />
           </FieldGroup>
         </FieldSet>
 
@@ -536,11 +470,7 @@ function PolicyForm({
 
         <FieldSet>
           <FieldLegend>Enforced only with a rate limiter</FieldLegend>
-          <FieldDescription>
-            {rateLimiterConfigured
-              ? "This deployment has a rate limiter, so Keysmith enforces these."
-              : "This deployment has no rate limiter. These are stored, but not enforced here."}
-          </FieldDescription>
+          <FieldDescription>{rateLimiterLine(rateLimiterConfigured)}</FieldDescription>
           <div className="grid gap-4 sm:grid-cols-2">
             {countField("rateLimit", "Rate limit", "No limit")}
             {durationField("rateLimitWindow", "Window")}
@@ -632,4 +562,17 @@ function PolicyForm({
       </DialogFooter>
     </form>
   )
+}
+
+/**
+ * What the rate limit group says about enforcement here. The policy page
+ * shows the same line above the same group.
+ */
+export function rateLimiterLine(configured: boolean | undefined): string {
+  if (configured === undefined) {
+    return "Whether this deployment enforces these is not known right now."
+  }
+  return configured
+    ? "This deployment has a rate limiter, so Keysmith enforces these."
+    : "This deployment has no rate limiter. These are stored, but not enforced here."
 }

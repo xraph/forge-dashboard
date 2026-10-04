@@ -193,7 +193,7 @@ describe("PoliciesPage", () => {
     ).toBeTruthy()
   })
 
-  it("waits for the list before offering Create policy", async () => {
+  it("offers Create policy when the list fails, and says the rate limiter is not known", async () => {
     renderPage(
       PoliciesPage,
       failingClient(new ContractError("INTERNAL", "policy store is down")),
@@ -202,8 +202,59 @@ describe("PoliciesPage", () => {
     const create = screen.getByRole("button", {
       name: "Create policy",
     }) as HTMLButtonElement
-    // Without the list the page cannot say whether a rate limit is enforced.
-    expect(create.disabled).toBe(true)
+    expect(create.disabled).toBe(false)
+    fireEvent.click(create)
+    const d = await screen.findByRole("dialog", { name: "Create policy" })
+    expect(
+      within(d).getByText(
+        "Whether this deployment enforces these is not known right now.",
+      ),
+    ).toBeTruthy()
+  })
+
+  it("keeps the last rate limiter answer it saw through a failed refetch", async () => {
+    let reads = 0
+    const client = {
+      extension: "keysmith",
+      query: (intent: string) => {
+        if (intent === "scopes.list") {
+          return Promise.resolve({ scopes: [], hasMore: false })
+        }
+        if (intent !== "policies.list") {
+          return Promise.reject(
+            new ContractError("NOT_FOUND", `no handler for intent "${intent}"`),
+          )
+        }
+        reads += 1
+        if (reads === 1) {
+          return Promise.resolve({ ...list([STANDARD]), rateLimiterConfigured: true })
+        }
+        return Promise.reject(new ContractError("INTERNAL", "policy store is down"))
+      },
+      command: () => Promise.reject(new ContractError("NOT_FOUND", "none")),
+    } as unknown as ScopedClient
+    renderPage(PoliciesPage, client)
+    await screen.findByText("Standard")
+    fireEvent.click(screen.getByRole("button", { name: "Create policy" }))
+    await screen.findByRole("dialog", { name: "Create policy" })
+    const enforced =
+      "This deployment has a rate limiter, so Keysmith enforces these."
+
+    act(() => queryStore.invalidate("keysmith", ["policies.list"]))
+    await screen.findByText(/policy store is down/)
+    expect(
+      within(screen.getByRole("dialog")).getByText(enforced),
+    ).toBeTruthy()
+
+    // Closed and opened again, it still says what the list last said.
+    fireEvent.click(
+      within(screen.getByRole("dialog")).getByRole("button", { name: "Cancel" }),
+    )
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull())
+    fireEvent.click(screen.getByRole("button", { name: "Create policy" }))
+    const d = await screen.findByRole("dialog", { name: "Create policy" })
+    expect(within(d).getByText(enforced)).toBeTruthy()
+    expect(within(d).queryByText(/not known/)).toBeNull()
   })
 
   it("keeps the editor and what was typed through a refetch of the list", async () => {

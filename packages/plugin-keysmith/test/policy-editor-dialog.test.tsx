@@ -1,6 +1,7 @@
 import { useState } from "react"
 import { afterEach, describe, expect, it, vi } from "vitest"
 import {
+  act,
   cleanup,
   fireEvent,
   render,
@@ -80,33 +81,41 @@ afterEach(() => {
   queryStore.clear()
 })
 
+interface HostProps {
+  policy?: PolicyDetail
+  /** Left out, the host knows there is no rate limiter. */
+  rateLimiterConfigured?: boolean | undefined
+}
+
 function Host({
   policy,
-  rateLimiterConfigured = false,
+  rateLimiterConfigured,
   onClosed,
 }: {
   policy?: PolicyDetail
-  rateLimiterConfigured?: boolean
+  rateLimiterConfigured: boolean | undefined
   onClosed?: () => void
 }) {
   const [open, setOpen] = useState(true)
   return (
-    <PolicyEditorDialog
-      open={open}
-      onOpenChange={(next) => {
-        setOpen(next)
-        if (!next) onClosed?.()
-      }}
-      policy={policy}
-      rateLimiterConfigured={rateLimiterConfigured}
-    />
+    <>
+      <button type="button" onClick={() => setOpen(true)}>
+        Open editor
+      </button>
+      <PolicyEditorDialog
+        open={open}
+        onOpenChange={(next) => {
+          setOpen(next)
+          if (!next) onClosed?.()
+        }}
+        policy={policy}
+        rateLimiterConfigured={rateLimiterConfigured}
+      />
+    </>
   )
 }
 
-function mount(
-  client: ScopedClient,
-  props: { policy?: PolicyDetail; rateLimiterConfigured?: boolean } = {},
-) {
+function mount(client: ScopedClient, props: HostProps = {}) {
   const navigate = vi.fn()
   const closed = vi.fn()
   const view = render(
@@ -117,7 +126,13 @@ function mount(
           Link: ({ to, children }) => <a href={to}>{children}</a>,
         }}
       >
-        <Host {...props} onClosed={closed} />
+        <Host
+          policy={props.policy}
+          rateLimiterConfigured={
+            "rateLimiterConfigured" in props ? props.rateLimiterConfigured : false
+          }
+          onClosed={closed}
+        />
       </NavigationProvider>
     </PluginProvider>,
   )
@@ -222,6 +237,18 @@ describe("PolicyEditorDialog groups", () => {
         "This deployment has a rate limiter, so Keysmith enforces these.",
       ),
     ).toBeTruthy()
+    expect(within(d).queryByText(/no rate limiter/)).toBeNull()
+  })
+
+  it("says plainly when it is not known whether there is a rate limiter", async () => {
+    mount(standard().client, { rateLimiterConfigured: undefined })
+    const d = await screen.findByRole("dialog")
+    expect(
+      within(d).getByText(
+        "Whether this deployment enforces these is not known right now.",
+      ),
+    ).toBeTruthy()
+    expect(within(d).queryByText(/has a rate limiter/)).toBeNull()
     expect(within(d).queryByText(/no rate limiter/)).toBeNull()
   })
 
@@ -437,6 +464,31 @@ describe("PolicyEditorDialog create", () => {
     const alert = await screen.findByRole("alert")
     expect(alert.textContent).toBe("an internal error occurred")
     expect(screen.getByRole("dialog").contains(alert)).toBe(true)
+  })
+
+  it("shows no earlier failure when it is opened again", async () => {
+    const base = standard()
+    const client = {
+      ...base.client,
+      command: async () => {
+        throw new ContractError("CONFLICT", "a policy with this name already exists")
+      },
+    } as ScopedClient
+    mount(client)
+    await screen.findByRole("dialog")
+    fill("Name", "Standard")
+    fireEvent.click(submitButton())
+    await screen.findByRole("alert")
+
+    fireEvent.click(
+      within(screen.getByRole("dialog")).getByRole("button", { name: "Cancel" }),
+    )
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull())
+    fireEvent.click(screen.getByRole("button", { name: "Open editor" }))
+    const d = await screen.findByRole("dialog", { name: "Create policy" })
+    expect(within(d).queryByRole("alert")).toBeNull()
+    expect(screen.queryByText("a policy with this name already exists")).toBeNull()
+    expect(value("Name")).toBe("")
   })
 
   it("sends one command however often the form is submitted while pending", async () => {
@@ -675,5 +727,68 @@ describe("PolicyEditorDialog edit", () => {
     expect(alert.textContent).toBe("a policy with this name already exists")
     expect(screen.getByRole("dialog").contains(alert)).toBe(true)
     expect(closed).not.toHaveBeenCalled()
+  })
+})
+
+/**
+ * scopes.list answers SCOPES first and then whatever `later` says, so a test
+ * can tick a scope and then have the list refetch under the open form.
+ */
+function refetchingScopes(later: () => Promise<ScopesList>) {
+  const base = standard()
+  let reads = 0
+  const client = {
+    ...base.client,
+    query: (intent: string, params?: Record<string, unknown>) => {
+      if (intent !== "scopes.list") return base.client.query(intent, params)
+      reads += 1
+      return reads === 1 ? Promise.resolve(SCOPES) : later()
+    },
+  } as ScopedClient
+  return { client, sent: base.sent }
+}
+
+describe("PolicyEditorDialog allowed scopes through a refetch", () => {
+  it("keeps a ticked scope when scopes.list refetches and fails", async () => {
+    const { client, sent } = refetchingScopes(() =>
+      Promise.reject(new ContractError("INTERNAL", "an internal error occurred")),
+    )
+    mount(client)
+    fireEvent.click(await screen.findByRole("checkbox", { name: "billing:write" }))
+    fill("Name", "Partner")
+
+    // The store drops a query's data when its refetch fails.
+    act(() => queryStore.invalidate("keysmith", ["scopes.list"]))
+    await screen.findByText(/Scopes could not be loaded/)
+    expect(checked("billing:write")).toBe(true)
+
+    fireEvent.click(submitButton())
+    await waitFor(() => expect(sent).toHaveLength(1))
+    expect((sent[0].payload as { allowedScopes: string[] }).allowedScopes).toEqual(
+      ["billing:write"],
+    )
+  })
+
+  it("keeps a ticked scope the refetched list no longer has, and labels it", async () => {
+    const { client, sent } = refetchingScopes(() =>
+      Promise.resolve({
+        hasMore: false,
+        scopes: SCOPES.scopes.filter((s) => s.name !== "billing:write"),
+      }),
+    )
+    mount(client, { policy: STORED })
+    fireEvent.click(await screen.findByRole("checkbox", { name: "billing:write" }))
+
+    act(() => queryStore.invalidate("keysmith", ["scopes.list"]))
+    const gone = await screen.findByRole("checkbox", {
+      name: "billing:write (no longer exists)",
+    })
+    expect(gone.getAttribute("aria-checked")).toBe("true")
+
+    fireEvent.click(submitButton())
+    await waitFor(() => expect(sent).toHaveLength(1))
+    expect(
+      [...(sent[0].payload as { allowedScopes: string[] }).allowedScopes].sort(),
+    ).toEqual(["billing:read", "billing:write"])
   })
 })

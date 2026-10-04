@@ -13,6 +13,7 @@ import {
 import { TagList } from "@forge-go/dashboard-kit/components/tag-list"
 import { PolicyEditorDialog } from "../components/policy-editor-dialog"
 import { formatDuration, policyPath } from "../format"
+import { useLastKnown } from "../last-known"
 import type { PoliciesList, PolicySummary } from "../types"
 
 // policies.list has no total, so the page asks for as many as the pickers do
@@ -65,9 +66,10 @@ const columns: Column<PolicySummary>[] = [
 export const PoliciesPage: ComponentType<PluginPageProps> = () => {
   const list = useQuery<PoliciesList>("policies.list", LIST_PARAMS)
   const [creating, setCreating] = useState(false)
-  // The editor has to say whether a rate limit is enforced here, and only
-  // the list knows. Until it has answered, there is nothing honest to say.
-  const rateLimiterConfigured = list.data?.rateLimiterConfigured
+  // The editor says whether a rate limit is enforced here, and only the list
+  // knows. A refetch that fails drops the list's data, so the page keeps the
+  // last answer it saw. Before any answer, the editor says it does not know.
+  const rateLimiterConfigured = useLastKnown(list.data?.rateLimiterConfigured)
 
   return (
     <section className="flex flex-col gap-4">
@@ -75,12 +77,7 @@ export const PoliciesPage: ComponentType<PluginPageProps> = () => {
         title="Policies"
         description="Rules attached to keys. Each field says whether Keysmith enforces it."
         actions={
-          <Button
-            disabled={rateLimiterConfigured === undefined}
-            onClick={() => setCreating(true)}
-          >
-            Create policy
-          </Button>
+          <Button onClick={() => setCreating(true)}>Create policy</Button>
         }
       />
 
@@ -114,7 +111,7 @@ export const PoliciesPage: ComponentType<PluginPageProps> = () => {
       <PolicyEditorDialog
         open={creating}
         onOpenChange={setCreating}
-        rateLimiterConfigured={rateLimiterConfigured ?? false}
+        rateLimiterConfigured={rateLimiterConfigured}
       />
     </section>
   )
