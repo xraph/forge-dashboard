@@ -274,6 +274,11 @@ describe("the finished plugin", () => {
     expect(groups).toEqual(["Identity", "Configuration", "Security", "System"])
   })
 
+  it("labels the roles entry App roles", () => {
+    const roles = authsomePlugin.nav.find((n) => n.to === "/roles")
+    expect(roles?.label).toBe("App roles")
+  })
+
   it("declares the app and environment dimensions with their own payload builders", () => {
     const ids = authsomePlugin.context.map((d) => d.id)
     expect(ids).toEqual(["app", "environment"])

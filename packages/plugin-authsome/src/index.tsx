@@ -229,7 +229,7 @@ export const authsomePlugin = definePlugin({
     { label: "Users", to: "/users", priority: 10, icon: <UsersIcon />, group: "Identity" },
     { label: "Sessions", to: "/sessions", priority: 20, icon: <ClockIcon />, group: "Identity" },
     { label: "Devices", to: "/devices", priority: 30, icon: <SmartphoneIcon />, group: "Identity" },
-    { label: "Roles", to: "/roles", priority: 40, icon: <UserCogIcon />, group: "Identity" },
+    { label: "App roles", to: "/roles", priority: 40, icon: <UserCogIcon />, group: "Identity" },
     // Configuration
     { label: "Apps", to: "/apps", priority: 10, icon: <AppWindowIcon />, group: "Configuration" },
     {

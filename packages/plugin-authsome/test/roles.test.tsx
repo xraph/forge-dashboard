@@ -21,6 +21,21 @@ describe("AuthRolesPage", () => {
     expect(screen.getByText("admin")).toBeTruthy()
   })
 
+  it("calls itself App roles and names Warden's page without linking to it", async () => {
+    const { client } = stubClient({ "roles.list": rolesAnswer })
+    renderPage(AuthRolesPage, client)
+    await waitFor(() => expect(screen.getByText("Admin")).toBeTruthy())
+    expect(screen.getByRole("heading", { level: 1, name: "App roles" })).toBeTruthy()
+    expect(
+      screen.getByText(
+        "Authsome keeps these roles in Warden, scoped to this app. Where Warden's dashboard is installed, its Roles page edits the same roles with every field, including namespace, inherited roles, the system and default flags, and member limits."
+      )
+    ).toBeTruthy()
+    // Without the warden extension the shell mounts no /@warden routes, so a
+    // link would open an empty page.
+    expect(screen.queryByRole("link", { name: /warden/i })).toBeNull()
+  })
+
   it("labels a role with no description instead of a bare unlabelled dash", async () => {
     const { client } = stubClient({
       "roles.list": {
