@@ -6,12 +6,14 @@ import {
   DropdownMenuGroup,
   DropdownMenuItem,
   DropdownMenuLabel,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@forge-go/dashboard-kit/components/dropdown-menu"
 import {
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
+  useSidebar,
 } from "@forge-go/dashboard-kit/components/sidebar"
 import { ChevronsUpDownIcon, CheckIcon } from "lucide-react"
 
@@ -30,6 +32,9 @@ export interface ScopeSwitcherProps {
   scopes: ScopeOption[]
   activeId?: string
   onSelect: (id: string) => void
+  /** Optional root destination, separate from extension scopes. */
+  home?: { label: string; icon?: ReactNode; onSelect: () => void }
+  menuSide?: "bottom" | "right"
   /**
    * Shown before capabilities resolve, when there is no scope to name. Also
    * the steady-state label on every root-plugin page: the root is the
@@ -70,8 +75,11 @@ export function ScopeSwitcher({
   scopes,
   activeId,
   onSelect,
+  home,
+  menuSide = "bottom",
   fallbackLabel = "Dashboard",
 }: ScopeSwitcherProps) {
+  const { isMobile } = useSidebar()
   const active = scopes.find((s) => s.id === activeId)
 
   return (
@@ -86,24 +94,50 @@ export function ScopeSwitcher({
           */}
           <DropdownMenuTrigger
             render={
-              <SidebarMenuButton size="lg" disabled={scopes.length === 0} />
+              <SidebarMenuButton
+                size="lg"
+                disabled={scopes.length === 0 && !home}
+              />
             }
           >
-            <ScopeGlyph icon={active?.icon} />
+            <ScopeGlyph icon={active ? active.icon : home?.icon} />
             <div className="grid flex-1 text-left leading-tight">
               <span className="truncate font-semibold">
-                {active?.label ?? fallbackLabel}
+                {active?.label ?? home?.label ?? fallbackLabel}
               </span>
               {active ? (
                 <span className="truncate text-xs text-muted-foreground">
                   @{active.namespace}
+                </span>
+              ) : home ? (
+                <span className="truncate text-xs text-muted-foreground">
+                  Application dashboard
                 </span>
               ) : null}
             </div>
             <ChevronsUpDownIcon className="ml-auto size-4" />
           </DropdownMenuTrigger>
           {/* No Radix trigger-width var: this kit is @base-ui and defines none. */}
-          <DropdownMenuContent className="min-w-56" align="start">
+          <DropdownMenuContent
+            className="min-w-56"
+            align="start"
+            side={isMobile ? "bottom" : menuSide}
+          >
+            {home ? (
+              <>
+                <DropdownMenuItem
+                  onClick={home.onSelect}
+                  aria-current={!active ? "true" : undefined}
+                >
+                  <ScopeGlyph icon={home.icon} />
+                  <span className="flex-1">{home.label}</span>
+                  {!active ? (
+                    <CheckIcon className="size-4" aria-hidden="true" />
+                  ) : null}
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+              </>
+            ) : null}
             {/*
               base-ui's GroupLabel throws "MenuGroupContext is missing"
               without a <Menu.Group> ancestor, same as nav-user.tsx's label.
