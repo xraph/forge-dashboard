@@ -227,35 +227,23 @@ export function StreamingRoomsPage() {
         open={pendingDelete !== null}
         onOpenChange={(open) => !open && setPendingDelete(null)}
         title={`Delete “${pendingDelete?.name ?? ""}”?`}
-        description={
-          <>
-            <span>
-              Everyone in the room is disconnected from it. This cannot be undone.
-            </span>
-            {/*
-              A failed delete keeps this dialog open (see confirmDelete above),
-              specifically so the error stays in front of the operator who
-              caused it. Base UI marks the rest of the page `aria-hidden` and
-              inert while the dialog is open, so a `CommandAlert` rendered on
-              the page body - the brief's original placement - would fail
-              that goal silently: correct-looking markup nobody, and no
-              assistive tech, can reach. It has to render inside the dialog
-              itself. It is a `<span>`, not `CommandAlert`'s `<div>`, because
-              `AlertDialogDescription` renders a `<p>` and a `<div>` is not
-              valid `<p>` content.
-            */}
-            {remove.error && (
-              <span role="alert" className="mt-2 block font-medium text-destructive">
-                Could not delete the room: {remove.error.message} ({remove.error.code})
-              </span>
-            )}
-          </>
-        }
+        description="Everyone in the room is disconnected from it. This cannot be undone."
         confirmLabel="Delete"
         // Required. Without it a double-click deletes twice.
         pending={remove.loading}
         onConfirm={() => void confirmDelete()}
-      />
+      >
+        {/*
+          A failed delete keeps this dialog open (see confirmDelete above),
+          specifically so the error stays in front of the operator who
+          caused it. Base UI marks the rest of the page `aria-hidden` and
+          inert while the dialog is open, so a `CommandAlert` rendered on
+          the page body would fail that goal silently: correct-looking
+          markup nobody, and no assistive tech, can reach. It has to render
+          inside the dialog itself.
+        */}
+        <CommandAlert title="Could not delete the room" error={remove.error} />
+      </ConfirmDialog>
     </section>
   )
 }

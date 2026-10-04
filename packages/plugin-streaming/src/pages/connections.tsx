@@ -149,11 +149,9 @@ export function StreamingConnectionsPage() {
       {/*
         This alert only ever shows once the dialog below has been dismissed:
         while the dialog is open, Base UI marks the rest of the page inert
-        and `aria-hidden`, so a `<div>` out here is invisible to an operator
+        and `aria-hidden`, so an alert out here is invisible to an operator
         even though the DOM still holds it. A failure surfaced while the
-        dialog is open renders inside the dialog's own description instead,
-        as a `<span role="alert">` rather than this component's `<div>`,
-        because the dialog's description is a `<p>` and cannot host one.
+        dialog is open renders as the dialog's own children instead.
       */}
       <CommandAlert error={kick.error} title="Could not disconnect" />
       <ConfirmDialog
@@ -166,26 +164,11 @@ export function StreamingConnectionsPage() {
         }}
         title={`Disconnect ${pendingKick?.userID ?? ""}?`}
         description={
-          <span className="flex flex-col gap-2">
-            <span>
-              Closes the {pendingKick?.transport} connection{" "}
-              <span className="font-mono text-xs">{pendingKick?.connID}</span>.
-              They can reconnect immediately.
-            </span>
-            {kick.error && (
-              <span role="alert" className="text-destructive">
-                Could not disconnect: {kick.error.message}
-              </span>
-            )}
-            <span className="flex flex-col gap-1.5">
-              <Label htmlFor="kick-reason">Reason</Label>
-              <Input
-                id="kick-reason"
-                value={reason}
-                onChange={(e) => setReason(e.target.value)}
-              />
-            </span>
-          </span>
+          <>
+            Closes the {pendingKick?.transport} connection{" "}
+            <span className="font-mono text-xs">{pendingKick?.connID}</span>.
+            They can reconnect immediately.
+          </>
         }
         confirmLabel="Disconnect"
         pending={kick.loading}
@@ -195,7 +178,17 @@ export function StreamingConnectionsPage() {
         // anything, it is still missing something it needs before it can.
         confirmDisabled={reason.trim() === ""}
         onConfirm={() => void confirmKick()}
-      />
+      >
+        <CommandAlert title="Could not disconnect" error={kick.error} />
+        <div className="flex flex-col gap-1.5">
+          <Label htmlFor="kick-reason">Reason</Label>
+          <Input
+            id="kick-reason"
+            value={reason}
+            onChange={(e) => setReason(e.target.value)}
+          />
+        </div>
+      </ConfirmDialog>
     </section>
   )
 }
