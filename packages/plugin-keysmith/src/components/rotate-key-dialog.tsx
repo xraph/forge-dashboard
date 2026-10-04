@@ -177,11 +177,15 @@ function RotateKeyForm({
   // The one copy of the raw key outside OneTimeKey's props. It is cleared by
   // Done, and by the whole form unmounting.
   const [revealed, setRevealed] = useState<Rotation | null>(null)
+  // Done was pressed. The content stays mounted through the dialog's exit
+  // animation, and without this it would show the form again for those
+  // frames. From here on only the title renders.
+  const [finished, setFinished] = useState(false)
   // Set synchronously, so a second Enter in the same tick cannot slip past a
   // button that has not re-rendered as disabled yet.
   const sending = useRef(false)
 
-  const locked = rotate.loading || revealed !== null
+  const locked = rotate.loading || revealed !== null || finished
   useEffect(() => {
     onLockedChange(locked)
   }, [locked, onLockedChange])
@@ -231,6 +235,8 @@ function RotateKeyForm({
     // command settles, and by then `summary` is the rotated key.
     const previousHint = summary.hint
     const urgent = reason === "compromise" || graceSeconds === 0
+    // null means omitted, and the server's own default is never zero.
+    const openedWindow = graceSeconds !== 0
 
     sending.current = true
     let result: KeyRotated | undefined
@@ -247,13 +253,22 @@ function RotateKeyForm({
     }
     if (!result) return
     // Copy first, then drop the hook's own copy of the answer.
-    setRevealed({ result, previousHint, urgent })
+    setRevealed({ result, previousHint, urgent, openedWindow })
     rotate.reset()
   }
 
   function done() {
+    setFinished(true)
     setRevealed(null)
     onClose()
+  }
+
+  if (finished) {
+    return (
+      <DialogHeader>
+        <DialogTitle>Save your new key</DialogTitle>
+      </DialogHeader>
+    )
   }
 
   if (revealed) {

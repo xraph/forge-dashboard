@@ -686,6 +686,38 @@ describe("CreateKeyDialog reveal", () => {
     expect(JSON.stringify([...records.values()])).not.toContain(RAW_KEY)
   })
 
+  it("shows only its title while it closes after Done, never the form or the key", async () => {
+    // The dialog stays mounted through its exit animation. Holding `open`
+    // true after Done freezes that moment, which jsdom would otherwise skip.
+    const { client } = standard()
+    const onOpenChange = vi.fn()
+    const navigate = vi.fn()
+    render(
+      <PluginProvider client={client}>
+        <NavigationProvider
+          value={{
+            navigate,
+            Link: ({ to, children }) => <a href={to}>{children}</a>,
+          }}
+        >
+          <CreateKeyDialog open onOpenChange={onOpenChange} />
+        </NavigationProvider>
+      </PluginProvider>
+    )
+    await submitNamed()
+    await screen.findByText("This is the only time Keysmith will show it.")
+    fireEvent.click(screen.getByRole("checkbox"))
+    fireEvent.click(screen.getByRole("button", { name: "Done" }))
+
+    expect(onOpenChange).toHaveBeenCalledWith(false)
+    expect(navigate).toHaveBeenCalledWith(keyPath("akey_new"))
+    const d = screen.getByRole("dialog", { name: "Save your new key" })
+    expect(d.textContent).not.toContain(RAW_KEY)
+    expect(within(d).queryByRole("textbox")).toBeNull()
+    expect(within(d).queryByLabelText("Name")).toBeNull()
+    expect(within(d).queryByRole("button")).toBeNull()
+  })
+
   it("clears the form when it is closed before sending", async () => {
     const { client, sent } = standard()
     mount(client)

@@ -20,6 +20,12 @@ export interface Rotation {
   previousHint: string
   /** The operator said compromise, or asked for no grace at all. */
   urgent: boolean
+  /**
+   * The grace this rotation ran with was not zero, so it opened a window.
+   * An omitted grace counts as one: the server then uses the policy's grace
+   * or 24 hours, and neither is zero.
+   */
+  openedWindow: boolean
 }
 
 export interface RotateKeyRevealProps {
@@ -34,17 +40,19 @@ export interface RotateKeyRevealProps {
  * was true when it was sent, never from the page's live copy of the key.
  */
 export function RotateKeyReveal({ rotation, onDone }: RotateKeyRevealProps) {
-  const { result, previousHint, urgent } = rotation
+  const { result, previousHint, urgent, openedWindow } = rotation
   const [windowsEnded, setWindowsEnded] = useState(false)
   const [ending, setEnding] = useState(false)
 
   const windows = windowsEnded ? [] : result.previousKeys
-  // This rotation opened at most one window, and it carries the hint the key
-  // had when Rotate was pressed. Any window beyond that one was already open.
-  // Which of two same-hint windows is "this one" does not matter (the hint is
-  // only four characters): either way one of them is earlier, so nothing
-  // here compares times.
-  const openedOne = windows.some((p) => p.hint === previousHint)
+  // This rotation opened at most one window, none with a zero grace, and it
+  // carries the hint the key had when Rotate was pressed. Any window beyond
+  // that one was already open. Which of two same-hint windows is "this one"
+  // does not matter (the hint is only four characters): either way one of
+  // them is earlier, so nothing here compares times.
+  const openedOne =
+    openedWindow && windows.some((p) => p.hint === previousHint)
+  const state = result.key.effectiveState
   const earlierOpen = windows.length > (openedOne ? 1 : 0)
   const maskedOf = (p: PreviousKey) =>
     maskedKey({
@@ -74,11 +82,14 @@ export function RotateKeyReveal({ rotation, onDone }: RotateKeyRevealProps) {
           ) : (
             <>
               <ul className="flex flex-col gap-2">
-                {windows.map((p) => (
+                {windows.map((p, i) => (
                   <PreviousKeyRow
-                    key={p.rotationId}
+                    // rotationId is "" on the window the server worked out
+                    // when it could not read the windows back.
+                    key={p.rotationId || `window-${i}`}
                     masked={maskedOf(p)}
                     graceEnds={p.graceEnds}
+                    state={state}
                     onEnd={() => setEnding(true)}
                   />
                 ))}
@@ -91,6 +102,13 @@ export function RotateKeyReveal({ rotation, onDone }: RotateKeyRevealProps) {
                 </p>
               )}
             </>
+          )}
+          {state === "suspended" && (
+            <p className="text-sm text-muted-foreground">
+              {windows.length > 0
+                ? "This key is suspended. Neither the new key nor a previous key works until you reactivate it."
+                : "This key is suspended. The new key works only after you reactivate it."}
+            </p>
           )}
         </div>
       </OneTimeKey>

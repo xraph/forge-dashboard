@@ -317,9 +317,11 @@ function ValiditySection({
           <ul className="flex flex-col gap-2">
             {previous.map((p, i) => (
               <PreviousKeyRow
-                key={p.rotationId}
+                // rotationId is "" on a window the server could not read back.
+                key={p.rotationId || `window-${i}`}
                 masked={masked[i]}
                 graceEnds={p.graceEnds}
+                state={key.effectiveState}
                 onEnd={onEnd}
               />
             ))}

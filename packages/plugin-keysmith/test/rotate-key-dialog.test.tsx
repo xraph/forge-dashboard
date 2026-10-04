@@ -1,5 +1,5 @@
 import { useState } from "react"
-import { afterEach, describe, expect, it } from "vitest"
+import { afterEach, describe, expect, it, vi } from "vitest"
 import {
   cleanup,
   fireEvent,
@@ -501,6 +501,63 @@ describe("RotateKeyDialog reveal", () => {
     expect(within(d).getByText("An earlier previous key is still accepted.")).toBeTruthy()
   })
 
+  it("calls a same-hint window earlier when a zero grace opened none", async () => {
+    // Suspected compromise sends 0, so this rotation opened no window, and a
+    // window carrying the pre-rotation hint must be an older one.
+    const sameHint: PreviousKey = { ...EARLIER_WINDOW, hint: "a3f8" }
+    mount(standard(rotated([sameHint])).client)
+    await dialog()
+    fireEvent.click(screen.getByRole("radio", { name: "Suspected compromise" }))
+    fireEvent.click(rotateButton())
+    await screen.findByText("This is the only time Keysmith will show it.")
+    expect(
+      within(screen.getByRole("dialog")).getByText(
+        "An earlier previous key is still accepted. End it now if it may also be compromised."
+      )
+    ).toBeTruthy()
+  })
+
+  it("calls a same-hint window earlier for a routine rotation with 0 hours typed", async () => {
+    const sameHint: PreviousKey = { ...EARLIER_WINDOW, hint: "a3f8" }
+    mount(standard(rotated([sameHint])).client)
+    await dialog()
+    fireEvent.change(graceInput(), { target: { value: "0" } })
+    fireEvent.click(rotateButton())
+    await screen.findByText("This is the only time Keysmith will show it.")
+    expect(
+      within(screen.getByRole("dialog")).getByText(
+        "An earlier previous key is still accepted. End it now if it may also be compromised."
+      )
+    ).toBeTruthy()
+  })
+
+  it("says a suspended key's windows only end, and that nothing works until it is reactivated", async () => {
+    const suspended = { ...KEY, state: "suspended", effectiveState: "suspended" as const }
+    const answer: KeyRotated = {
+      key: { ...NEW_KEY, state: "suspended", effectiveState: "suspended" },
+      rawKey: RAW_KEY,
+      previousKeys: [THIS_WINDOW],
+    }
+    mount(standard(answer).client, { summary: suspended })
+    await dialog()
+    fireEvent.click(rotateButton())
+    await screen.findByText("This is the only time Keysmith will show it.")
+    const d = screen.getByRole("dialog")
+    const item = within(d).getByText("sk_live_…a3f8").closest("li")
+    expect(item?.textContent).toContain("window ends")
+    expect(item?.textContent).not.toContain("keeps working until")
+    expect(
+      within(d).getByText(
+        "This key is suspended. Neither the new key nor a previous key works until you reactivate it."
+      )
+    ).toBeTruthy()
+  })
+
+  it("says nothing about suspension for an active key", async () => {
+    await reveal()
+    expect(within(screen.getByRole("dialog")).queryByText(/suspended/)).toBeNull()
+  })
+
   it("forgets the key after Done: not in the page, not in the store", async () => {
     await reveal()
     fireEvent.click(screen.getByRole("checkbox"))
@@ -519,6 +576,36 @@ describe("RotateKeyDialog reveal", () => {
     await dialog()
     expect(document.body.textContent).not.toContain(RAW_KEY)
     expect(graceInput().value).toBe("24")
+  })
+})
+
+describe("RotateKeyDialog closing after Done", () => {
+  it("shows only its title while it closes, never the form or the key", async () => {
+    // The dialog stays mounted through its exit animation. Holding `open`
+    // true after Done freezes that moment, which jsdom would otherwise skip.
+    const onOpenChange = vi.fn()
+    render(
+      <PluginProvider client={standard().client}>
+        <RotateKeyDialog
+          open
+          onOpenChange={onOpenChange}
+          summary={KEY}
+          policy={NO_POLICY_GRACE}
+        />
+      </PluginProvider>
+    )
+    await dialog()
+    fireEvent.click(rotateButton())
+    await screen.findByText("This is the only time Keysmith will show it.")
+    fireEvent.click(screen.getByRole("checkbox"))
+    fireEvent.click(screen.getByRole("button", { name: "Done" }))
+
+    expect(onOpenChange).toHaveBeenCalledWith(false)
+    const d = screen.getByRole("dialog", { name: "Save your new key" })
+    expect(d.textContent).not.toContain(RAW_KEY)
+    expect(within(d).queryByLabelText("Grace period")).toBeNull()
+    expect(within(d).queryByRole("radio")).toBeNull()
+    expect(within(d).queryByRole("button")).toBeNull()
   })
 })
 

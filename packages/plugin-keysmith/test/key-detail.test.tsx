@@ -169,6 +169,16 @@ describe("KeyDetailPage validity", () => {
     },
   )
 
+  it.each(["suspended", "expired", "revoked"] as const)(
+    "says the window ends on a key that is %s, not that the previous key keeps working",
+    async (state) => {
+      await render(detail({ key: key({ state, effectiveState: state }) }))
+      const item = within(section("Validity")).getByText("sk_live_…7c1e").closest("li")
+      expect(item?.textContent).toContain("window ends")
+      expect(item?.textContent).not.toContain("keeps working until")
+    },
+  )
+
   it("uses the current key's prefix and environment for the previous key", async () => {
     await render(
       detail({

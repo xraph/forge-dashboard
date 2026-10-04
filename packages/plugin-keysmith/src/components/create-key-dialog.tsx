@@ -174,11 +174,15 @@ function CreateKeyForm({
   // The one copy of the raw key outside OneTimeKey's props. It is cleared by
   // Done, and by the whole form unmounting.
   const [revealed, setRevealed] = useState<KeyWithSecret | null>(null)
+  // Done was pressed. The content stays mounted through the dialog's exit
+  // animation, and without this it would show the filled form again for
+  // those frames. From here on only the title renders.
+  const [finished, setFinished] = useState(false)
   // Set synchronously, so a second Enter in the same tick cannot slip past a
   // button that has not re-rendered as disabled yet.
   const sending = useRef(false)
 
-  const locked = create.loading || revealed !== null
+  const locked = create.loading || revealed !== null || finished
   useEffect(() => {
     onLockedChange(locked)
   }, [locked, onLockedChange])
@@ -261,9 +265,18 @@ function CreateKeyForm({
   function done() {
     if (!revealed) return
     const id = revealed.key.id
+    setFinished(true)
     setRevealed(null)
     onClose()
     navigate(keyPath(id))
+  }
+
+  if (finished) {
+    return (
+      <DialogHeader>
+        <DialogTitle>Save your new key</DialogTitle>
+      </DialogHeader>
+    )
   }
 
   if (revealed) {
