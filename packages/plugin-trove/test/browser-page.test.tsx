@@ -47,8 +47,10 @@ describe("BrowserPage header and path bar", () => {
     window.history.replaceState(null, "", "/@trove/buckets/reports")
     renderPage(BrowserPage, stubClient(LIST), { bucket: "reports" })
     const input = screen.getByRole("textbox", { name: "Continue the prefix" }) as HTMLInputElement
-    expect(input.placeholder).toBe("filter this prefix, then Enter")
-    // w-48 clips that placeholder at text-xs in the mono face; w-64 holds it.
+    expect(input.placeholder).toBe("filter, then Enter")
+    // The kit's Input is text-sm from md up, so the mono placeholder runs at
+    // 14px there. "filter this prefix, then Enter" measured 253px against
+    // w-64's 234px of text room; this one measures 152px.
     expect(input.className.split(/\s+/)).toContain("w-64")
     expect(input.className.split(/\s+/)).not.toContain("w-48")
   })

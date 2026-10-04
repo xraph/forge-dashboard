@@ -39,7 +39,7 @@ export function PathBar({ bucket, store, prefix }: { bucket: string; store: stri
       })}
       <Input
         aria-label="Continue the prefix"
-        placeholder="filter this prefix, then Enter"
+        placeholder="filter, then Enter"
         autoComplete="off"
         spellCheck={false}
         value={draft}
