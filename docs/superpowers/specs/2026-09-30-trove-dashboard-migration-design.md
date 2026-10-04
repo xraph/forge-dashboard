@@ -895,7 +895,7 @@ The browser reads `store`, `prefix` and `key` from the URL, never from the store
 
 ### Image previews use a download ticket
 
-A preview ticket stops at 256 KiB, and a cut image doesn't render, so images are fetched with a download ticket instead and capped at 4 MiB as stored. They still never come inline from the content route: the page fetches the bytes into a Blob and shows them through an object URL in an `<img>`, where an SVG's script can't run. We checked that with an SVG that carries a script. Text and JSON go through preview tickets into a read-only CodeMirror view.
+A preview ticket stops at 256 KiB, and a cut image doesn't render, so images are fetched with a download ticket instead and capped at 4 MiB as stored. They still never come inline from the content route. Raster types (PNG, JPEG, GIF, WebP, AVIF, BMP, ICO) are fetched into a Blob and shown through an object URL in an `<img>`. SVG is different: a `blob:` URL has the dashboard's origin, so an operator who opened the image in a new tab would run its script with their session. So SVG goes through a `data:` URL instead, which has an opaque origin and which browsers refuse to open as a top-level page. Any other `image/*` type gets no preview. We checked it with an SVG that carries a script. Text and JSON go through preview tickets into a read-only CodeMirror view.
 
 ### Uploads
 
