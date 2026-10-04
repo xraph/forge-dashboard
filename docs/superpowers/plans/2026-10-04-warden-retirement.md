@@ -103,6 +103,37 @@ Document shape: a short opening paragraph saying what the file is and that `ward
 
 ---
 
+### Task 1b: Close the inventory's gaps
+
+Added during execution (ledger rulings of 2026-10-04). Task 1 found ten things the templ pages did that the React pages do not, though the contract already serves all but one. The spec's success line admits only reachable, dropped or blocked, so they are built here, before the deletion.
+
+**Files:**
+- Modify: `/Users/rexraphael/Work/xraph/forgery/warden/extension/contract/handlers_config.go` (add `Plugins []string \`json:"plugins"\`` to `ConfigDetail`, filled from `eng.Plugins().Plugins()` names, sorted; correct the comment at lines 4-5, which claims the templ settings panel had disabled fields when it had no inputs at all) and its test
+- Modify: `packages/fixture-server/warden-fixtures.mjs` (mirror `plugins` on `config.detail`; mirror any list filter below that it does not already honour)
+- Modify: `packages/plugin-warden/src/pages/config.tsx`, `permissions.tsx`, `assignments.tsx`, `roles.tsx`, `role-detail.tsx`, and the plugin's types
+- Test: the matching files under `packages/plugin-warden/test/`
+- Modify: `/Users/rexraphael/Work/xraph/forgery/warden/MIGRATION.md` (flip each closed row to migrated with its Where-now; record the check-log `before` bound as dropped because templ never offered a control for it; the Enabled Plugins card stops being blocked; the check-log Deny row adds that React still offers a plain `deny` option, which matches nothing because the engine never writes it)
+
+The gaps, with the templ source each one must match:
+
+| Gap | Templ source | Contract field |
+|---|---|---|
+| Role created time on the list and detail | `dashboard/pages/roles.templ:58`, `role_detail.templ:85-86`, `:182` | `RoleSummary.createdAt` |
+| Permission resource filter | `permissions.templ:47-60` | `PermissionsListInput.resource` |
+| Permission action filter | `permissions.templ:61-74` | `PermissionsListInput.action` |
+| Assignment subject kind, subject id and role filters | `assignments.templ:35-77` | `AssignmentsListInput.subjectKind`, `subjectId`, `roleId` |
+| Assignment Granted By and Created columns | `assignments.templ:93-94` | `AssignmentSummary.grantedBy`, `createdAt` |
+| Enabled plugins | `dashboard/settings/config.templ:50-71` | new `ConfigDetail.plugins` |
+
+- [ ] **Step 1: Write the failing tests.** For each page, a test that renders it against the fixture or the file's existing mock, sets the new filter, and asserts the query carries the param (follow how the page's existing namespace filter is tested). For each column or field, a test asserting it renders the value and the page's existing empty mark when absent (a missing `grantedBy` must not render the string "undefined"). For config, a test that lists plugin names and one asserting what shows when `plugins` is empty; templ hid the card then, and the React page says "No authorization plugins are registered." For Go, a `handlers_config` test with an engine built with one plugin, asserting `plugins` equals its name, and one with none, asserting an empty array (not null).
+- [ ] **Step 2: Run them and watch them fail.**
+- [ ] **Step 3: Implement.** Filters reset paging to the first page when they change, the way the namespace filter already does. Filter values go into the URL search params where the page's other filters already live.
+- [ ] **Step 4: Run** the plugin's `test`, `typecheck` and `lint` scripts, `go test ./extension/contract/...`, and the fixture differential if the plan-5b one still exists (`packages/fixture-server/verify.mjs` warden section). Expected: all pass.
+- [ ] **Step 5: Update `MIGRATION.md`** as listed above, keeping the coverage and dash checks from Task 1 clean.
+- [ ] **Step 6: Commit** by explicit path, one commit per repo: `feat(contract): report registered plugins on config.detail` (warden, code plus MIGRATION.md as a separate `docs:` commit) and `feat(warden): filter permissions and assignments the way the templ pages did, and show the fields they showed` (forge-dashboard).
+
+---
+
 ### Task 2: Retitle authsome's roles page to "App roles"
 
 **Files:**
