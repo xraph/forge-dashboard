@@ -882,3 +882,34 @@ In dev, the first visit to each page shows "Loading dashboard capabilities…" f
 ### Copy to correct
 
 The Overview's capability lines say what a driver does ("Copies stay inside the backend") when they should say what it can do. Trove's copy never calls `ServerCopy`, so that line is false even when the flag is set. The slice 3 fix wave rewords them with "can". The presign line also leaves out that GCS and Azure need signing credentials.
+
+## What slice 4 found that slice 5 must know
+
+Slice 4 landed in forge-dashboard between 94ffea3 (the plan) and 4de4ffa (the bundle numbers), with other sessions' commits in between. The browser lives at `/@trove/buckets/:bucket` as one lazy route: listing, inspector, previews, share, copy, delete and uploads. The fixture server serves bytes through ticketed content routes. We clicked every flow through in the shell against the fixture server. Real drag and drop is the one thing we couldn't drive from automation, and unit tests cover it.
+
+### Links inside the browser are absolute
+
+The host's link resolver appends the current query string to every scope-relative link, so `/buckets/x?prefix=a` from a page at `?prefix=b` would come out as `?prefix=a?prefix=b`. The spec's fallback was a splat route, but the host keys every page on its pathname, so a splat route would remount the browser on every folder click and throw away loaded pages and in-flight uploads. So `browserHref()` builds absolute `/@trove/...` paths, which the resolver passes through untouched. A test pins `TROVE_MOUNT` against the platform's own `mountPath`. If trove ever gains a routed context dimension, that constant has to go.
+
+The browser reads `store`, `prefix` and `key` from the URL, never from the store picker, so a copied link opens the same store. Back and forward move the listing.
+
+### Image previews use a download ticket
+
+A preview ticket stops at 256 KiB, and a cut image doesn't render, so images are fetched with a download ticket instead and capped at 4 MiB as stored. They still never come inline from the content route: the page fetches the bytes into a Blob and shows them through an object URL in an `<img>`, where an SVG's script can't run. We checked that with an SVG that carries a script. Text and JSON go through preview tickets into a read-only CodeMirror view.
+
+### Uploads
+
+Uploads live in a module-level queue, two at a time, and survive in-app navigation, though not a full reload. A drop anywhere on the page while the browser is mounted is caught, so a stray drop can't open the file in the tab and kill the queue. The CAS bucket refuses uploads and deletes up front, before a command is sent.
+
+### The fixture's content routes
+
+`handleTroveContent` in `trove-fixtures.mjs` checks tickets by shape, not by HMAC. It still enforces the operation, the expiry, the `X-Trove-Ticket` header for PUT, `?t=` refused on PUT, and the declared size. Every PUT refusal drains the body before answering, so the browser sees the status and never a reset. Any key containing `eicar` gets a 422, standing in for a scan provider. Seeded objects without a body serve deterministic filler of their stored size, and the seeded `storedSize` doesn't match the served length for objects that have a body. That's realistic with compress registered, but don't assert the two are equal.
+
+### For MIGRATION.md
+
+- The content routes don't work behind the Next.js proxy in `packages/next`, which reads bodies as text with a 1 MiB cap. Test them in the Vite shell or behind the Go server.
+- In a fresh dev server, the first visit to a bucket can hit Vite re-bundling `react-resizable-panels`, the first plugin dependency on it. React then logs "Invalid hook call", the plugin error boundary shows, and a reload fixes it. Production builds can't hit this. The fix is `optimizeDeps.include` in `apps/shell/vite.config.ts`, which is not trove's file.
+
+### Bundle
+
+The browser chunk is 86.27 KB raw and 26.99 KB gzip, and trove adds no CodeMirror bytes, since the code view reuses the shared chunks. BASELINE.md has the full table and the entry string counts.
