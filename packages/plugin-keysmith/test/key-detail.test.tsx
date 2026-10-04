@@ -526,21 +526,127 @@ describe("KeyDetailPage End now", () => {
   })
 })
 
+describe("KeyDetailPage state actions", () => {
+  const SUSPENDED = detail({
+    key: key({ state: "suspended", effectiveState: "suspended" }),
+    previousKeys: [],
+  })
+
+  function headerButtons(): string[] {
+    const header = screen.getByRole("heading", { level: 1 }).closest("[data-slot=page-header]")
+    if (!header) throw new Error("no header")
+    return within(header as HTMLElement)
+      .queryAllByRole("button")
+      .map((b) => b.textContent ?? "")
+  }
+
+  it("offers Rotate, Suspend and Revoke on an active key", async () => {
+    await render()
+    expect(headerButtons()).toEqual(["Rotate key", "Suspend", "Revoke"])
+  })
+
+  it("offers Rotate, Reactivate and Revoke on a suspended key", async () => {
+    await render(SUSPENDED)
+    expect(headerButtons()).toEqual(["Rotate key", "Reactivate", "Revoke"])
+  })
+
+  it("offers nothing on a revoked key", async () => {
+    await render(
+      detail({
+        key: key({ state: "revoked", effectiveState: "revoked", revokedAt: "2026-09-20T10:00:00Z" }),
+        previousKeys: [],
+      }),
+    )
+    expect(headerButtons()).toEqual([])
+  })
+
+  it("offers only Revoke on an expired key that is not yet marked, beside the explanation", async () => {
+    await render(
+      detail({
+        key: key({ effectiveState: "expired", expiryPending: true, expiresAt: "2026-09-01T00:00:00Z" }),
+        previousKeys: [],
+      }),
+    )
+    expect(headerButtons()).toEqual(["Revoke"])
+    expect(screen.getByText(/^Expired on .*Keysmith marks expiry when the key is next used/)).toBeTruthy()
+  })
+
+  it("asks before suspending, naming the key, and sends keys.suspend with the id", async () => {
+    const { client, sent } = recordingCommandClient(
+      { "keys.detail": DETAIL },
+      { "keys.suspend": { key: SUSPENDED.key } },
+    )
+    renderPage(KeyDetailPage, client, { id: "akey_billing" })
+    await screen.findByRole("heading", { level: 1 })
+    fireEvent.click(screen.getByRole("button", { name: "Suspend" }))
+    const d = await screen.findByRole("alertdialog", { name: "Suspend sk_live_…a3f8?" })
+    fireEvent.click(within(d).getByRole("button", { name: "Suspend" }))
+    await waitFor(() => expect(screen.queryByRole("alertdialog")).toBeNull())
+    expect(sent).toEqual([{ intent: "keys.suspend", payload: { id: "akey_billing" } }])
+  })
+
+  it("asks before revoking, naming the key", async () => {
+    await render()
+    fireEvent.click(screen.getByRole("button", { name: "Revoke" }))
+    expect(
+      await screen.findByRole("alertdialog", { name: "Revoke sk_live_…a3f8?" }),
+    ).toBeTruthy()
+  })
+
+  it("reactivates straight from the button, once on a double click", async () => {
+    const { client, sent } = recordingCommandClient(
+      { "keys.detail": SUSPENDED },
+      { "keys.reactivate": { key: DETAIL.key } },
+    )
+    renderPage(KeyDetailPage, client, { id: "akey_billing" })
+    await screen.findByRole("heading", { level: 1 })
+    const go = screen.getByRole("button", { name: "Reactivate" })
+    fireEvent.click(go)
+    fireEvent.click(go)
+    await waitFor(() => expect(sent).toHaveLength(1))
+    expect(screen.queryByRole("alertdialog")).toBeNull()
+    expect(sent).toEqual([{ intent: "keys.reactivate", payload: { id: "akey_billing" } }])
+  })
+
+  it("shows a refused reactivate on the page", async () => {
+    const client = {
+      extension: "keysmith",
+      query: stubClient({ "keys.detail": SUSPENDED }).query,
+      command: async () => {
+        throw new ContractError("CONFLICT", "only a suspended key can be reactivated")
+      },
+    } as unknown as ScopedClient
+    renderPage(KeyDetailPage, client, { id: "akey_billing" })
+    await screen.findByRole("heading", { level: 1 })
+    fireEvent.click(screen.getByRole("button", { name: "Reactivate" }))
+    // No `hidden`: nothing is open, so a person can see it.
+    const alert = await screen.findByRole("alert")
+    expect(alert.textContent).toBe("only a suspended key can be reactivated")
+  })
+})
+
 /**
  * A client that answers like the host: a command's `invalidates` reaches
  * `queryStore.invalidate` for this extension before the command's answer
  * comes back (PluginHost's meta listener runs inside the client's send).
- * Each keys.detail read after the first waits for the test to release it, so
- * the test can look at the page while the refetch is in flight.
+ * A refusal throws and invalidates nothing, as the client only reports meta
+ * on success. Each keys.detail read after the first waits for the test to
+ * release it, so the test can look at the page while the refetch is in
+ * flight, and a `held` command waits the same way for `releaseCommands`.
+ *
+ * An intent can be given a list of outcomes, used one per call in order.
  */
-function hostLikeClient(
-  first: KeyDetail,
-  commands: Record<string, { answer: unknown; invalidates: string[]; next: KeyDetail }>
-) {
+type HostOutcome = { held?: boolean } & (
+  | { answer: unknown; invalidates: string[]; next: KeyDetail }
+  | { error: ContractError }
+)
+
+function hostLikeClient(first: KeyDetail, commands: Record<string, HostOutcome | HostOutcome[]>) {
   let current = first
   let reads = 0
   const sent: { intent: string; payload: unknown }[] = []
   const held: (() => void)[] = []
+  const heldCommands: (() => void)[] = []
   const client = {
     extension: "keysmith",
     query: (intent: string) => {
@@ -554,8 +660,11 @@ function hostLikeClient(
     },
     command: async (intent: string, payload?: unknown) => {
       sent.push({ intent, payload })
-      const c = commands[intent]
+      const plan = commands[intent]
+      const c = Array.isArray(plan) ? plan.shift() : plan
       if (!c) throw new ContractError("NOT_FOUND", `no handler for command "${intent}"`)
+      if (c.held) await new Promise<void>((resolve) => heldCommands.push(resolve))
+      if ("error" in c) throw c.error
       current = c.next
       queryStore.invalidate("keysmith", c.invalidates)
       return c.answer
@@ -566,6 +675,9 @@ function hostLikeClient(
     sent,
     releaseReads: () => {
       for (const release of held.splice(0)) release()
+    },
+    releaseCommands: () => {
+      for (const release of heldCommands.splice(0)) release()
     },
   }
 }
@@ -665,5 +777,123 @@ describe("KeyDetailPage rotate through the refetch", () => {
       ).toBeTruthy(),
     )
     expect(host.sent).toEqual([{ intent: "keys.endGrace", payload: { id: "akey_billing" } }])
+  })
+})
+
+describe("KeyDetailPage revoke and scopes through the refetch", () => {
+  const SUSPENDED = detail({
+    key: key({ state: "suspended", effectiveState: "suspended" }),
+    previousKeys: [],
+  })
+  const ACTIVE = detail({ previousKeys: [] })
+  const REVOKED_KEY = key({
+    state: "revoked",
+    effectiveState: "revoked",
+    revokedAt: "2026-10-02T10:00:00Z",
+    updatedAt: "2026-10-02T10:00:00Z",
+  })
+  const REVOKED = detail({ key: REVOKED_KEY, previousKeys: [] })
+  const STATE_INVALIDATES = ["keys.list", "keys.detail", "overview"]
+  const REVOKE_INVALIDATES = ["keys.list", "keys.detail", "rotations.list", "overview"]
+
+  function loading() {
+    return screen.queryByRole("status", { name: "Loading Key", hidden: true })
+  }
+
+  // Reactivate has no dialog, so its refetch can start while the revoke
+  // dialog is already open. That is the page refetching under a dialog with
+  // nothing faked: a real host does exactly this.
+  it("keeps the revoke dialog, its reason and a later attempt's error through a refetch, then closes on success", async () => {
+    const host = hostLikeClient(SUSPENDED, {
+      "keys.reactivate": {
+        answer: { key: ACTIVE.key },
+        invalidates: STATE_INVALIDATES,
+        next: ACTIVE,
+        held: true,
+      },
+      "keys.revoke": [
+        { error: new ContractError("TRANSPORT", "contract request failed with HTTP 502") },
+        { answer: { key: REVOKED_KEY }, invalidates: REVOKE_INVALIDATES, next: REVOKED },
+      ],
+    })
+    renderPage(KeyDetailPage, host.client, { id: "akey_billing" })
+    await screen.findByRole("heading", { level: 1, name: "Billing service" })
+
+    fireEvent.click(screen.getByRole("button", { name: "Reactivate" }))
+    fireEvent.click(screen.getByRole("button", { name: "Revoke" }))
+    const d = await screen.findByRole("alertdialog", { name: "Revoke sk_live_…a3f8?" })
+    fireEvent.change(within(d).getByLabelText("Reason"), {
+      target: { value: "Leaked in a support ticket" },
+    })
+
+    // Reactivate lands and the page refetches under the open dialog.
+    host.releaseCommands()
+    await waitFor(() => expect(loading()).not.toBeNull())
+    const during = screen.getByRole("alertdialog", { name: "Revoke sk_live_…a3f8?" })
+    expect((within(during).getByLabelText("Reason") as HTMLTextAreaElement).value).toBe(
+      "Leaked in a support ticket",
+    )
+
+    // The revoke is refused while the refetch is still out.
+    fireEvent.click(within(during).getByRole("button", { name: "Revoke" }))
+    expect((await within(during).findByRole("alert")).textContent).toBe(
+      "contract request failed with HTTP 502",
+    )
+
+    // The refetch settles, and the error is still where the person is looking.
+    host.releaseReads()
+    await waitFor(() => expect(loading()).toBeNull())
+    const after = screen.getByRole("alertdialog", { name: "Revoke sk_live_…a3f8?" })
+    expect(within(after).getByRole("alert").textContent).toBe(
+      "contract request failed with HTTP 502",
+    )
+
+    // A retry succeeds, the dialog closes, and the page shows the key revoked.
+    fireEvent.click(within(after).getByRole("button", { name: "Revoke" }))
+    await waitFor(() => expect(screen.queryByRole("alertdialog")).toBeNull())
+    host.releaseReads()
+    await waitFor(() => expect(loading()).toBeNull())
+    const page = screen.getByRole("heading", { level: 1 }).closest("section") as HTMLElement
+    expect(within(page).getByText("Revoked", { selector: "[data-slot=badge]" })).toBeTruthy()
+    expect(screen.queryByRole("button", { name: "Revoke" })).toBeNull()
+    expect(within(section("Scopes")).getByText("A revoked key's scopes cannot be changed.")).toBeTruthy()
+
+    const reason = "Leaked in a support ticket"
+    expect(host.sent).toEqual([
+      { intent: "keys.reactivate", payload: { id: "akey_billing" } },
+      { intent: "keys.revoke", payload: { id: "akey_billing", reason } },
+      { intent: "keys.revoke", payload: { id: "akey_billing", reason } },
+    ])
+  })
+
+  it("keeps a refused scope change on screen through another action's refetch", async () => {
+    const host = hostLikeClient(SUSPENDED, {
+      "keys.reactivate": {
+        answer: { key: ACTIVE.key },
+        invalidates: STATE_INVALIDATES,
+        next: ACTIVE,
+        held: true,
+      },
+      "keys.scopes.remove": {
+        error: new ContractError("TRANSPORT", "contract request failed with HTTP 502"),
+      },
+    })
+    renderPage(KeyDetailPage, host.client, { id: "akey_billing" })
+    await screen.findByRole("heading", { level: 1, name: "Billing service" })
+
+    fireEvent.click(screen.getByRole("button", { name: "Reactivate" }))
+    fireEvent.click(screen.getByRole("button", { name: "Remove billing:read" }))
+    expect((await within(section("Scopes")).findByRole("alert")).textContent).toBe(
+      "contract request failed with HTTP 502",
+    )
+
+    host.releaseCommands()
+    await waitFor(() => expect(loading()).not.toBeNull())
+    host.releaseReads()
+    await waitFor(() => expect(loading()).toBeNull())
+    expect(screen.getByRole("button", { name: "Suspend" })).toBeTruthy()
+    expect(within(section("Scopes")).getByRole("alert").textContent).toBe(
+      "contract request failed with HTTP 502",
+    )
   })
 })

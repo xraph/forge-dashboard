@@ -14,23 +14,34 @@ import { EmptyState } from "@forge-go/dashboard-kit/components/empty-state"
 import { NoneCell } from "@forge-go/dashboard-kit/components/none-cell"
 import { PageHeader } from "@forge-go/dashboard-kit/components/page-header"
 import { QueryBoundary } from "@forge-go/dashboard-kit/components/query-boundary"
-import { TagList } from "@forge-go/dashboard-kit/components/tag-list"
 import { Timestamp } from "@forge-go/dashboard-kit/components/timestamp"
 import { formatTimestamp } from "@forge-go/dashboard-kit/lib/format"
 import { KeyStateBadge } from "../badges"
 import { formatDuration, maskedKey } from "../format"
 import { EndGraceDialog } from "../components/end-grace-dialog"
+import {
+  KeyStateActions,
+  RevokeKeyDialog,
+  SuspendKeyDialog,
+  stateActionsFor,
+  useReactivateKey,
+} from "../components/key-actions"
+import type { ReactivateKey } from "../components/key-actions"
 import { PreviousKeyRow } from "../components/previous-key-row"
 import { RotateKeyDialog } from "../components/rotate-key-dialog"
+import { ScopesEditor, useScopeEditing } from "../components/scopes-editor"
+import type { ScopeEditing } from "../components/scopes-editor"
 import type { KeyDetail, KeyState } from "../types"
 
 /**
  * The detail page for one key: what it is, which previous keys still work,
- * and the two actions on its keys, Rotate and End now.
+ * and what can be done to it: rotate, end a grace window, suspend,
+ * reactivate, revoke, and change its scopes.
  *
  * `params.id` is split off so a missing id renders a status line before the
  * body's hook runs: a query with no id would ask the server about a key
- * called "".
+ * called "". The body is keyed by the id, so moving to another key starts
+ * with no dialog open and no earlier key's refusal on screen.
  */
 export const KeyDetailPage: ComponentType<PluginPageProps> = ({ params }) => {
   const id = params.id
@@ -41,26 +52,40 @@ export const KeyDetailPage: ComponentType<PluginPageProps> = ({ params }) => {
       </p>
     )
   }
-  return <KeyDetailBody id={id} />
+  return <KeyDetailBody key={id} id={id} />
 }
 
 function KeyDetailBody({ id }: { id: string }) {
   const detail = useQuery<KeyDetail>("keys.detail", { id })
   const latest = useLatestDetail(detail.data, id)
 
-  // The dialogs sit outside the QueryBoundary, as on the keys list. Rotate and
-  // End now both invalidate keys.detail, the boundary shows its skeleton while
-  // that refetches, and anything inside it unmounts: for Rotate that is the
-  // only copy of the new key. Their open state lives here for the same reason.
+  // The dialogs sit outside the QueryBoundary, as on the keys list. Every
+  // command on this page invalidates keys.detail, the boundary shows its
+  // skeleton while that refetches, and anything inside it unmounts: for Rotate
+  // that is the only copy of the new key, for the others their pending state
+  // and their error. Their open state lives here for the same reason, and so
+  // do the hooks for the two actions that have no dialog, Reactivate and the
+  // scope changes.
   const [rotating, setRotating] = useState(false)
   const [ending, setEnding] = useState(false)
+  const [suspending, setSuspending] = useState(false)
+  const [revoking, setRevoking] = useState(false)
   // Named when End now is pressed and kept through the close, so the
   // confirmation does not change its wording as the refetch empties the list.
   const [endingMasked, setEndingMasked] = useState<string[]>([])
+  // The key as named when Suspend or Revoke was pressed, for the same reason.
+  const [actionMasked, setActionMasked] = useState("")
+  const reactivate = useReactivateKey(id)
+  const scopeEditing = useScopeEditing(id)
 
   function startEnding(data: KeyDetail) {
     setEndingMasked(previousMasked(data))
     setEnding(true)
+  }
+
+  function startAction(data: KeyDetail, open: (open: boolean) => void) {
+    setActionMasked(maskedKey(data.key))
+    open(true)
   }
 
   // Matched on the message as well as the code: a wrong intent name is also
@@ -90,6 +115,10 @@ function KeyDetailBody({ id }: { id: string }) {
             data={data}
             onRotate={() => setRotating(true)}
             onEnd={() => startEnding(data)}
+            onSuspend={() => startAction(data, setSuspending)}
+            onRevoke={() => startAction(data, setRevoking)}
+            reactivate={reactivate}
+            scopeEditing={scopeEditing}
           />
         )}
       </QueryBoundary>
@@ -111,6 +140,18 @@ function KeyDetailBody({ id }: { id: string }) {
             onOpenChange={setEnding}
             keyId={latest.key.id}
             masked={endingMasked}
+          />
+          <SuspendKeyDialog
+            open={suspending}
+            onOpenChange={setSuspending}
+            keyId={latest.key.id}
+            masked={actionMasked}
+          />
+          <RevokeKeyDialog
+            open={revoking}
+            onOpenChange={setRevoking}
+            keyId={latest.key.id}
+            masked={actionMasked}
           />
         </>
       )}
@@ -162,16 +203,26 @@ function KeyDetailView({
   data,
   onRotate,
   onEnd,
+  onSuspend,
+  onRevoke,
+  reactivate,
+  scopeEditing,
 }: {
   data: KeyDetail
   onRotate: () => void
   onEnd: () => void
+  onSuspend: () => void
+  onRevoke: () => void
+  reactivate: ReactivateKey
+  scopeEditing: ScopeEditing
 }) {
   const { key } = data
   const expiredUnmarked = key.effectiveState === "expired" && key.expiryPending
   // Matches the server: a revoked or expired key answers CONFLICT.
   const rotatable =
     key.effectiveState === "active" || key.effectiveState === "suspended"
+  const offer = stateActionsFor(key)
+  const anyAction = rotatable || offer.suspend || offer.reactivate || offer.revoke
 
   return (
     <section className="flex flex-col gap-6">
@@ -180,11 +231,25 @@ function KeyDetailView({
           title={key.name}
           description={key.description}
           actions={
-            rotatable ? (
-              <Button onClick={onRotate}>Rotate key</Button>
+            anyAction ? (
+              <>
+                {rotatable && <Button onClick={onRotate}>Rotate key</Button>}
+                <KeyStateActions
+                  summary={key}
+                  onSuspend={onSuspend}
+                  onRevoke={onRevoke}
+                  onReactivate={reactivate.reactivate}
+                  reactivating={reactivate.loading}
+                />
+              </>
             ) : undefined
           }
         />
+        {reactivate.error && (
+          <p role="alert" className="text-sm text-destructive">
+            {reactivate.error.message}
+          </p>
+        )}
         {!rotatable && (
           <p className="text-sm text-muted-foreground">
             A revoked or expired key cannot be rotated.
@@ -208,7 +273,7 @@ function KeyDetailView({
             <ValiditySection data={data} onEnd={onEnd} />
             <DetailsSection data={data} />
             <Section title="Scopes">
-              <TagList values={key.scopes ?? []} label="scopes" />
+              <ScopesEditor summary={key} editing={scopeEditing} />
             </Section>
             <MetadataSection metadata={data.metadata} />
           </>
