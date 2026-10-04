@@ -1225,42 +1225,80 @@ function resumeOf(sub, prevStretch, nowMs) {
 }
 
 /**
- * As the engine's periodBelongsTo and walkBack in invoice_period.go: whether
- * want is a period the subscription had before its current one, walking back
- * from the current period. A resume stretches a period, which breaks the
- * cadence: periods after a stretched one renew on its new end's day, and the
- * ones before it on the day that led to its original end. Only the most
- * recent stretch is remembered, and the walk stops at its floor, the end of an
- * older stretch. What it cannot prove is refused, never guessed.
+ * As the engine's periodBelongsTo in invoice_period.go: whether want is a
+ * period the subscription had before its current one. A resume stretches a
+ * period, which breaks the cadence: the periods after a stretched one follow
+ * the clock's anchor from its new end (whatever nextPeriod gives), and the
+ * ones before it ran on the cadence that led to its original end. Only the
+ * most recent stretch is remembered. The periods after it are rebuilt
+ * forwards with nextPeriod, exactly as the clock built them, because a walk
+ * back from a later period can land beside the real one when an anchor was
+ * lost (a yearly stretch ending on 29 February settles on the 28th). The
+ * periods before it walk back on the old cadence, or, when an older stretch's
+ * end is the floor, are rebuilt forwards from there. Below the floor nothing
+ * can be proved. What it cannot prove is refused, never guessed.
  */
 function periodBelongsTo(sub, period, want, stretch) {
   const months = period === "yearly" ? 12 : 1
-  let start = Date.parse(sub.current_period_start)
-  const end = Date.parse(sub.current_period_end)
-  if (!stretch) return walkBack(sub, months, want, start, end, true)
+  const current = [Date.parse(sub.current_period_start), Date.parse(sub.current_period_end)]
+  if (!stretch) return walkBack(sub, months, want, current[0], current[1], true)
 
-  const { start: stStart, end: stEnd } = stretch
-  if (start === stStart && end === stEnd) {
-    // The current period is the stretched one.
-  } else if (start >= stEnd) {
-    // On the cadence after the stretch: walk back to the stretched end, then step over the stretched period in one go.
-    const day = anchorDay(start, end)
-    for (let i = 0; i < 1200; i++) {
-      if (start === want.endMs) {
-        if (start === stEnd) return want.startMs === stStart
-        return shiftMonths(start, -months, day) === want.startMs
-      }
-      if (start < want.endMs || start === stEnd) break
-      const prev = shiftMonths(start, -months, day)
-      if (prev < stEnd) return false // the cadence does not meet the stretched end: prove nothing
-      start = prev
-    }
-    if (start !== stEnd) return false
-  } else {
-    return false // the stretch does not line up with the current period
+  // The stretched period and every one the clock built after it, up to the
+  // current one. If they do not lead there, the record does not describe this
+  // subscription, and nothing is proved.
+  const after = forwardTo([stretch.start, stretch.end], current, months)
+  if (!after) return false
+  if (after.some((p) => isPeriod(p, want))) return true
+  if (want.endMs > stretch.start) return false
+
+  const before = [stretch.start, stretch.originalEnd]
+  if (stretch.floor === null) return walkBack(sub, months, want, before[0], before[1], true)
+  if (want.startMs < stretch.floor) return false
+  return onFloorCadence(stretch.floor, before, months, want)
+}
+
+const isPeriod = (p, want) => p[0] === want.startMs && p[1] === want.endMs
+
+/** As the engine's nextPeriod: the period after [start, end) starts at end and runs one period on, to the anchor day. */
+function nextPeriod([start, end], months) {
+  return [end, shiftMonths(end, months, anchorDay(start, end))]
+}
+
+/** As the engine's forwardTo: the periods the clock builds from first, with nextPeriod, up to and including target; undefined unless it reaches target exactly. */
+function forwardTo(first, target, months) {
+  const out = []
+  let p = first
+  for (let i = 0; i < 1200; i++) {
+    out.push(p)
+    if (!(p[0] < target[0])) return p[0] === target[0] && p[1] === target[1] ? out : undefined
+    p = nextPeriod(p, months)
   }
-  if (stretch.floor !== null && want.startMs < stretch.floor) return false
-  return walkBack(sub, months, want, stStart, stretch.originalEnd, stretch.floor === null)
+  return undefined
+}
+
+/**
+ * As the engine's onFloorCadence: whether want is one of the periods from
+ * floor up to next, the period the cadence led to. That cadence began at floor,
+ * the end of an older stretch, on an anchor day the engine did not keep:
+ * floor's own day, or, when floor is a month's last day, any later day the
+ * older stretch's start could have had. Each candidate is rebuilt forwards as
+ * the clock would have, and want counts only if every candidate that reaches
+ * next exactly contains it.
+ */
+function onFloorCadence(floor, next, months, want) {
+  const f = new Date(floor)
+  const days = [f.getUTCDate()]
+  if (f.getUTCDate() === daysIn(f.getUTCFullYear(), f.getUTCMonth())) {
+    for (let d = f.getUTCDate() + 1; d <= 31; d++) days.push(d)
+  }
+  let reached = 0
+  for (const day of days) {
+    const chain = forwardTo([floor, shiftMonths(floor, months, day)], next, months)
+    if (!chain) continue
+    reached++
+    if (!chain.some((p) => isPeriod(p, want))) return false
+  }
+  return reached > 0
 }
 
 /** The periods before [start, end) on that period's own cadence. fromCreation: the cadence runs back to creation, where the 29 February rule applies. */
