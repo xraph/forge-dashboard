@@ -7,6 +7,13 @@ import { setActiveStore } from "../src/store"
 import { recordingCommandClient, recordingQueryClient, renderPage, stubClient } from "./harness"
 
 const SINGLE = { mode: "single", stores: [{ name: "default", driver: "local", isDefault: true }] }
+const MULTI = {
+  mode: "multi",
+  stores: [
+    { name: "primary", driver: "local", isDefault: true },
+    { name: "archive", driver: "s3", isDefault: false },
+  ],
+}
 const LIST = {
   buckets: [
     { name: "assets", createdAt: "2026-09-20T10:00:00Z" },
@@ -22,7 +29,7 @@ function rowFor(text: string): HTMLElement {
 describe("BucketsPage", () => {
   it("lists buckets with a live count, mono names and the right date header", async () => {
     renderPage(BucketsPage, stubClient({ "buckets.list": LIST, "stores.list": SINGLE }))
-    expect((await screen.findByText("reports")).className).toContain("font-mono")
+    expect((await screen.findByText("reports")).closest("td")?.className).toContain("font-mono")
     expect(screen.getByText("2 buckets")).toBeTruthy()
     expect(screen.getByRole("columnheader", { name: "Last modified" })).toBeTruthy()
     expect(within(rowFor("reports")).getByLabelText("no modified time")).toBeTruthy()
@@ -109,5 +116,18 @@ describe("BucketsPage", () => {
     fireEvent.click(within(await screen.findByRole("alertdialog")).getByRole("button", { name: "Delete" }))
     await waitFor(() => expect(sent).toEqual([{ intent: "buckets.delete", payload: { name: "assets" } }]))
     await waitFor(() => expect(screen.queryByRole("alertdialog")).toBeNull())
+  })
+
+  it("links each bucket into the browser", async () => {
+    renderPage(BucketsPage, stubClient({ "buckets.list": LIST, "stores.list": SINGLE }))
+    const link = await screen.findByRole("link", { name: "reports" })
+    expect(link.getAttribute("href")).toBe("/@trove/buckets/reports")
+  })
+
+  it("carries a picked store into the browser link", async () => {
+    act(() => setActiveStore("archive"))
+    renderPage(BucketsPage, stubClient({ "buckets.list": LIST, "stores.list": MULTI }))
+    const link = await screen.findByRole("link", { name: "reports" })
+    expect(link.getAttribute("href")).toBe("/@trove/buckets/reports?store=archive")
   })
 })

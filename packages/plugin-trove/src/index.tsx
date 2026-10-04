@@ -1,3 +1,4 @@
+import { lazy } from "react"
 import { definePlugin } from "@forge-go/dashboard-plugin"
 import { ArrowLeftRightIcon, DatabaseIcon, FingerprintIcon, HouseIcon, LayersIcon } from "@forge-go/dashboard-kit/icons"
 import { BucketsPage } from "./pages/buckets"
@@ -7,6 +8,13 @@ import { OverviewPage } from "./pages/overview"
 import { TransfersPage } from "./pages/transfers"
 
 export { BucketsPage, CasPage, MiddlewarePage, OverviewPage, TransfersPage }
+
+/**
+ * The object browser. Lazy, so its virtualiser and, behind a second boundary,
+ * CodeMirror never reach the shell's entry chunk. PluginHost wraps every page
+ * in Suspense, which is what makes a lazy route legal.
+ */
+const BrowserPage = lazy(() => import("./pages/browser"))
 
 /**
  * The first-party UI for the `trove` extension.
@@ -34,6 +42,7 @@ export const trovePlugin = definePlugin({
   routes: [
     { path: "/", element: OverviewPage },
     { path: "/buckets", element: BucketsPage },
+    { path: "/buckets/:bucket", element: BrowserPage },
     { path: "/middleware", element: MiddlewarePage },
     { path: "/cas", element: CasPage },
     { path: "/transfers", element: TransfersPage },

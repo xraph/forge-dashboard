@@ -65,4 +65,11 @@ describe("trovePlugin", () => {
     expect(transfers?.group).toBe("Storage")
     expect(trovePlugin.routes.map((r) => r.path)).toContain("/transfers")
   })
+
+  it("serves the browser at /buckets/:bucket as a lazy route with no nav entry", () => {
+    const route = trovePlugin.routes.find((r) => r.path === "/buckets/:bucket")
+    expect(route).toBeDefined()
+    expect((route!.element as unknown as { $$typeof?: symbol }).$$typeof).toBe(Symbol.for("react.lazy"))
+    expect(trovePlugin.nav.some((n) => n.to.startsWith("/buckets/"))).toBe(false)
+  })
 })

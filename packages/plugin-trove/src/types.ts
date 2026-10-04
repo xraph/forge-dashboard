@@ -129,3 +129,56 @@ export interface StreamsList {
   active: number
   max: number
 }
+
+/** One object row as `objects.list`, `objects.copy` and `objects.completeUpload` return it. */
+export interface ObjectRow {
+  key: string
+  /** Bytes as stored, after any write middleware. Not the logical size. */
+  storedSize: number
+  etag: string | null
+  lastModified: string | null
+  contentType: string | null
+  storageClass: string | null
+}
+
+export interface ObjectsList {
+  objects: ObjectRow[]
+  /** Common prefixes, sorted. `null` only on a flat listing. */
+  prefixes: string[] | null
+  nextCursor: string | null
+  foldersSupported: boolean
+  /** True when the store routes some keys to another backend. */
+  routed: boolean
+}
+
+export interface ObjectDetail extends ObjectRow {
+  versionId: string | null
+  metadata: Record<string, string> | null
+}
+
+export interface HeadMiddleware {
+  name: string
+  direction: string
+  scope: string
+  priority: number
+}
+
+export interface ObjectHead {
+  object: ObjectDetail
+  /** Middleware whose scope matches this key in the current config. */
+  middleware: HeadMiddleware[]
+  presign: { available: boolean; reason: string | null }
+}
+
+/** `objects.contentUrl` and `objects.presign`. */
+export interface ContentLink {
+  url: string
+  expiresAt: string
+}
+
+/** `objects.beginUpload`: PUT the body to `url` with `ticket` in X-Trove-Ticket. */
+export interface UploadTicket {
+  url: string
+  ticket: string
+  expiresAt: string
+}

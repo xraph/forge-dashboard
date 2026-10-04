@@ -1,6 +1,6 @@
 import { useState } from "react"
 import type { ComponentType, FormEvent } from "react"
-import { useCommand, useQuery } from "@forge-go/dashboard-plugin"
+import { PluginLink, useCommand, useQuery } from "@forge-go/dashboard-plugin"
 import type { PluginPageProps } from "@forge-go/dashboard-plugin"
 import { Button } from "@forge-go/dashboard-kit/components/button"
 import { ConfirmDialog } from "@forge-go/dashboard-kit/components/confirm-dialog"
@@ -18,6 +18,7 @@ import { PageHeader } from "@forge-go/dashboard-kit/components/page-header"
 import { CommandAlert } from "@forge-go/dashboard-kit/components/query-boundary"
 import { ResourceTable, type Column } from "@forge-go/dashboard-kit/components/resource-table"
 import { Timestamp } from "@forge-go/dashboard-kit/components/timestamp"
+import { browserHref } from "../browser-location"
 import { SettledBoundary } from "../components/settled-boundary"
 import { StorePicker } from "../components/store-picker"
 import { useActiveStore, withStore } from "../store"
@@ -27,10 +28,19 @@ function bucketCaption(n: number): string {
   return `${n} ${n === 1 ? "bucket" : "buckets"}`
 }
 
-function columnsFor(meaning: BucketsList["createdAtMeaning"]): Column<BucketRow>[] {
+function columnsFor(meaning: BucketsList["createdAtMeaning"], store: string): Column<BucketRow>[] {
   const created = meaning === "created"
   return [
-    { id: "name", header: "Name", className: "font-mono text-xs font-medium", cell: (b) => b.name },
+    {
+      id: "name",
+      header: "Name",
+      className: "font-mono text-xs font-medium",
+      cell: (b) => (
+        <PluginLink to={browserHref(b.name, { store })} className="hover:underline">
+          {b.name}
+        </PluginLink>
+      ),
+    },
     {
       id: "time",
       header: created ? "Created" : "Last modified",
@@ -81,7 +91,7 @@ export const BucketsPage: ComponentType<PluginPageProps> = () => {
       <SettledBoundary title="Buckets" query={list} skeletonRows={5}>
         {(data) => (
           <ResourceTable<BucketRow>
-            columns={columnsFor(data.createdAtMeaning)}
+            columns={columnsFor(data.createdAtMeaning, store)}
             rows={data.buckets}
             rowKey={(b) => b.name}
             caption={bucketCaption(data.buckets.length)}
