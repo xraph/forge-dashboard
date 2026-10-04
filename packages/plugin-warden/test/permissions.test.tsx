@@ -234,9 +234,9 @@ describe("WardenPermissionsPage", () => {
     })
   })
 
-  it("drops the resource and action filters on Clear", async () => {
+  it("drops the resource and action filters on Clear, back on page one", async () => {
     const { client: c, sent } = recordingQueryClient({
-      "permissions.list": PERMS,
+      "permissions.list": { ...PERMS, total: 60, limit: 25, offset: 0 },
       "namespaces.list": NAMESPACES,
     })
     renderPage(WardenPermissionsPage, c)
@@ -246,6 +246,15 @@ describe("WardenPermissionsPage", () => {
     await waitFor(() =>
       expect(sent.filter((q) => q.intent === "permissions.list").at(-1)?.params).toMatchObject({
         resource: "document",
+        offset: 0,
+      })
+    )
+    // Page two of the filtered set, so Clear has a page to reset.
+    fireEvent.click(screen.getByRole("button", { name: /next page/i }))
+    await waitFor(() =>
+      expect(sent.filter((q) => q.intent === "permissions.list").at(-1)?.params).toMatchObject({
+        resource: "document",
+        offset: 25,
       })
     )
     fireEvent.click(screen.getByRole("button", { name: /^clear$/i }))

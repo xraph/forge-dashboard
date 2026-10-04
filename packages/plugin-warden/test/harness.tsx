@@ -184,4 +184,4 @@ export function describedAs(term: string): HTMLElement {
  * What NoneCell draws for "none". Written as an escape so this source holds
  * no dash character, only the code point the kit renders.
  */
-export const EMPTY_MARK = "–"
+export const EMPTY_MARK = "\u2013"
