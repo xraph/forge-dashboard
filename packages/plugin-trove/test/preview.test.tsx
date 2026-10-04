@@ -43,7 +43,11 @@ describe("previewKind", () => {
     expect(previewKind("text/csv")).toBe("text")
     expect(previewKind("application/x-yaml")).toBe("text")
     expect(previewKind("image/png")).toBe("image")
-    expect(previewKind("image/svg+xml")).toBe("image")
+    expect(previewKind("image/avif")).toBe("image")
+    expect(previewKind("image/vnd.microsoft.icon")).toBe("image")
+    expect(previewKind("image/svg+xml")).toBe("svg")
+    expect(previewKind("IMAGE/SVG+XML; charset=utf-8")).toBe("svg")
+    expect(previewKind("image/x-foo")).toBe("none")
     expect(previewKind("application/pdf")).toBe("none")
     expect(previewKind(null)).toBe("none")
   })
@@ -67,10 +71,17 @@ describe("Preview", () => {
   })
 
   it("says when it shows only the first 256 KiB, and does not reformat a cut JSON", async () => {
-    vi.stubGlobal("fetch", respond("x".repeat(PREVIEW_LIMIT)))
+    // Valid JSON of exactly PREVIEW_LIMIT bytes, so only the cut decides
+    // whether it is reformatted. Pretty-printing would add newlines.
+    const json = `{"a":"${"x".repeat(PREVIEW_LIMIT - 8)}"}`
+    expect(json.length).toBe(PREVIEW_LIMIT)
+    expect(() => JSON.parse(json)).not.toThrow()
+    vi.stubGlobal("fetch", respond(json))
     renderPreview(headWith("application/json", 900_000))
     expect(await screen.findByText("Showing the first 256 KiB.")).toBeTruthy()
-    expect((await screen.findByTestId("code-view")).textContent?.length).toBe(PREVIEW_LIMIT)
+    const shown = (await screen.findByTestId("code-view")).textContent ?? ""
+    expect(shown.includes("\n")).toBe(false)
+    expect(shown).toBe(json)
   })
 
   it("shows an image from a Blob behind an object URL", async () => {
@@ -79,6 +90,38 @@ describe("Preview", () => {
     const img = (await screen.findByRole("img", { name: `Preview of ${HEAD.object.key}` })) as HTMLImageElement
     expect(img.getAttribute("src")).toBe("blob:preview")
     expect(sent[0].params).toEqual({ bucket: "reports", key: HEAD.object.key, purpose: "download" })
+  })
+
+  it("shows an SVG through a data URL, never a same-origin object URL", async () => {
+    const svg = '<svg xmlns="http://www.w3.org/2000/svg"><script>alert(1)</script></svg>'
+    vi.stubGlobal("fetch", respond(svg))
+    const sent = renderPreview(headWith("image/svg+xml", svg.length))
+    const img = (await screen.findByRole("img", { name: `Preview of ${HEAD.object.key}` })) as HTMLImageElement
+    const src = img.getAttribute("src") ?? ""
+    expect(src.startsWith("data:image/svg+xml;base64,")).toBe(true)
+    expect(atob(src.slice("data:image/svg+xml;base64,".length))).toBe(svg)
+    expect(URL.createObjectURL).not.toHaveBeenCalled()
+    expect(sent[0].params).toEqual({ bucket: "reports", key: HEAD.object.key, purpose: "download" })
+  })
+
+  it("does not fetch an SVG over 4 MiB", async () => {
+    const fetchSpy = respond("")
+    vi.stubGlobal("fetch", fetchSpy)
+    const sent = renderPreview(headWith("image/svg+xml", 5 * 1024 * 1024))
+    expect(await screen.findByText(/over 4 MiB as stored/)).toBeTruthy()
+    expect(sent).toEqual([])
+    expect(fetchSpy).not.toHaveBeenCalled()
+  })
+
+  it("has no preview for an image type it does not know, and fetches nothing", () => {
+    const fetchSpy = respond("")
+    vi.stubGlobal("fetch", fetchSpy)
+    const sent = renderPreview(headWith("image/x-foo"))
+    expect(screen.getByText("No preview for this content type.")).toBeTruthy()
+    expect(screen.queryByRole("img")).toBeNull()
+    expect(sent).toEqual([])
+    expect(fetchSpy).not.toHaveBeenCalled()
+    expect(URL.createObjectURL).not.toHaveBeenCalled()
   })
 
   it("does not fetch an image over 4 MiB", async () => {

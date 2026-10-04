@@ -1,7 +1,7 @@
 import { Suspense, lazy, useEffect, useState } from "react"
 import { usePluginClient } from "@forge-go/dashboard-plugin"
 import { Spinner } from "@forge-go/dashboard-kit/components/spinner"
-import { ContentRouteError, IMAGE_PREVIEW_MAX, PREVIEW_LIMIT, fetchContent, previewKind } from "../content"
+import { ContentRouteError, IMAGE_PREVIEW_MAX, PREVIEW_LIMIT, fetchContent, previewKind, svgDataUrl } from "../content"
 import { withStore } from "../store"
 import type { ContentLink, ObjectHead } from "../types"
 
@@ -22,13 +22,17 @@ function messageOf(error: unknown): string {
 /**
  * A look at the object's bytes. Text through a preview ticket, capped at
  * 256 KiB by the route, rendered by CodeMirror. Images through a download
- * ticket into a Blob, shown by object URL in an <img>, where an SVG's script
- * cannot run. Nothing is ever shown inline from the content route. The parent
- * keys this by ETag, so a replaced object is fetched again.
+ * ticket, shown in an <img>: a raster type from a Blob behind an object URL,
+ * an SVG through a `data:` URL. An SVG never gets an object URL, because a
+ * `blob:` URL opened in its own tab is a document on the dashboard's origin
+ * and its script would run as the operator. Nothing is ever shown inline from
+ * the content route. The parent keys this by ETag, so a replaced object is
+ * fetched again.
  */
 export function Preview({ store, bucket, head }: { store: string; bucket: string; head: ObjectHead }) {
   const kind = previewKind(head.object.contentType)
-  const tooBig = kind === "image" && head.object.storedSize > IMAGE_PREVIEW_MAX
+  const picture = kind === "image" || kind === "svg"
+  const tooBig = picture && head.object.storedSize > IMAGE_PREVIEW_MAX
   const fetches = kind !== "none" && !tooBig
   const client = usePluginClient()
   const [state, setState] = useState<State>({ status: "loading" })
@@ -40,10 +44,14 @@ export function Preview({ store, bucket, head }: { store: string; bucket: string
     let objectUrl: string | null = null
     void (async () => {
       try {
-        const purpose = kind === "image" ? "download" : "preview"
+        const purpose = picture ? "download" : "preview"
         const link = await client.query<ContentLink>("objects.contentUrl", withStore(store, { bucket, key, purpose }))
         const bytes = await fetchContent(link.url)
         if (cancelled) return
+        if (kind === "svg") {
+          setState({ status: "image", url: svgDataUrl(bytes) })
+          return
+        }
         if (kind === "image") {
           objectUrl = URL.createObjectURL(new Blob([bytes], { type: head.object.contentType ?? "application/octet-stream" }))
           setState({ status: "image", url: objectUrl })
@@ -67,7 +75,7 @@ export function Preview({ store, bucket, head }: { store: string; bucket: string
       cancelled = true
       if (objectUrl !== null) URL.revokeObjectURL(objectUrl)
     }
-  }, [fetches, kind, client, store, bucket, key, head.object.contentType])
+  }, [fetches, kind, picture, client, store, bucket, key, head.object.contentType])
 
   let body
   if (kind === "none") {
