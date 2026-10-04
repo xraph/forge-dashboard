@@ -29,6 +29,9 @@
 //                          mirrors relay/extension/contract; endpoints here,
 //                          the rest in relay-fixtures.mjs
 //   - bastion             (packages/plugin-bastion)          9 queries
+//   - sentinel            (packages/plugin-sentinel)         18 queries, 14 commands
+//                          mirrors sentinel/extension/contract; see
+//                          sentinel-fixtures.mjs
 
 import { createServer } from "node:http"
 import { randomBytes } from "node:crypto"
@@ -39,6 +42,7 @@ import { createLedgerHandlers, resetLedger } from "./ledger-fixtures.mjs"
 import { createChronicleHandlers, resetChronicle } from "./chronicle-fixtures.mjs"
 import { createBastionHandlers, resetBastion } from "./bastion-fixtures.mjs"
 import { createKeysmithHandlers, resetKeysmith } from "./keysmith-fixtures.mjs"
+import { createSentinelHandlers, resetSentinel } from "./sentinel-fixtures.mjs"
 
 // ---------------------------------------------------------------------------
 // Config
@@ -2843,6 +2847,7 @@ const CONTRIBUTORS = [
   { name: "chronicle", envPrefix: "CHRONICLE", handlers: createChronicleHandlers(FixtureError) },
   { name: "keysmith", envPrefix: "KEYSMITH", handlers: createKeysmithHandlers(FixtureError) },
   { name: "bastion", envPrefix: "BASTION", handlers: createBastionHandlers(FixtureError) },
+  { name: "sentinel", envPrefix: "SENTINEL", handlers: createSentinelHandlers(FixtureError) },
   ...SETTINGS_ONLY_EXTENSIONS.map((extension) => ({
     name: extension,
     envPrefix: extension.toUpperCase(),
@@ -3114,6 +3119,7 @@ function handleReset(res) {
   resetChronicle()
   resetKeysmith()
   resetBastion()
+  resetSentinel()
   csrfTokens.clear()
   idempotencyStore.clear()
   return sendJSON(res, 200, { ok: true })
