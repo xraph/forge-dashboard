@@ -89,7 +89,7 @@ export function UploadDropZone({ store, bucket, folder, maxBytes, disabled, chil
 
   return (
     <div
-      className="relative flex flex-col gap-3"
+      className="relative flex h-full min-h-0 flex-col gap-3"
       onDragEnter={onDragOver}
       onDragOver={onDragOver}
       onDragLeave={(e) => {

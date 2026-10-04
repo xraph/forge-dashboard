@@ -1,4 +1,5 @@
 import { useRef } from "react"
+import type { RefObject } from "react"
 import { observeElementRect, useVirtualizer } from "@tanstack/react-virtual"
 import { PluginLink } from "@forge-go/dashboard-plugin"
 import { Alert, AlertDescription, AlertTitle } from "@forge-go/dashboard-kit/components/alert"
@@ -39,10 +40,18 @@ export function ObjectListing({
   selectedKey: string
 }) {
   const listing = useListing({ store, bucket, prefix })
+  // The one scroller. It fills whatever bounds it (the browser's left panel),
+  // and the virtualiser reads this element, so a long listing has one
+  // scrollbar and crossing the virtualising threshold keeps the scroll place.
+  const scroller = useRef<HTMLDivElement>(null)
   return (
-    <SettledBoundary title="Could not list this bucket" query={listing.first} skeletonRows={6}>
-      {(first) => <ListingBody listing={listing} routed={first.routed} store={store} bucket={bucket} prefix={prefix} selectedKey={selectedKey} />}
-    </SettledBoundary>
+    <div ref={scroller} className="min-h-0 flex-1 overflow-auto">
+      <SettledBoundary title="Could not list this bucket" query={listing.first} skeletonRows={6}>
+        {(first) => (
+          <ListingBody listing={listing} routed={first.routed} store={store} bucket={bucket} prefix={prefix} selectedKey={selectedKey} scroller={scroller} />
+        )}
+      </SettledBoundary>
+    </div>
   )
 }
 
@@ -53,6 +62,7 @@ function ListingBody({
   bucket,
   prefix,
   selectedKey,
+  scroller,
 }: {
   listing: ReturnType<typeof useListing>
   routed: boolean
@@ -60,10 +70,10 @@ function ListingBody({
   bucket: string
   prefix: string
   selectedKey: string
+  scroller: RefObject<HTMLDivElement | null>
 }) {
   const { rows, nextCursor, loadMore, loadingMore, moreError } = listing
   const folder = folderOf(prefix)
-  const scroller = useRef<HTMLDivElement>(null)
   const virtual = rows.length > VIRTUAL_THRESHOLD
   // The React Compiler skips memoising this component, which is what it should do with this hook.
   // eslint-disable-next-line react-hooks/incompatible-library
@@ -76,7 +86,8 @@ function ListingBody({
     // initialRect only counts until the scroller mounts. Then the virtualiser
     // reads the element's own height, and jsdom answers 0, which leaves it
     // with no window and no rows. A height of 0 is never a real viewport here
-    // (the scroller is 60vh), so keep the starting size in that case.
+    // (the scroller fills a panel at least 24rem tall), so keep the starting
+    // size in that case.
     observeElementRect: (instance, cb) =>
       observeElementRect(instance, (rect) => cb(rect.height > 0 ? rect : INITIAL_RECT)),
   })
@@ -133,64 +144,62 @@ function ListingBody({
   return (
     <div className="flex flex-col gap-3">
       {routedNote}
-      <div ref={scroller} className="overflow-auto" style={virtual ? { height: "60vh" } : undefined}>
-        <Table>
-          <TableCaption>{listingCaption(objects, folders, more)}</TableCaption>
-          <TableHeader>
-            <TableRow>
-              <TableHead>Name</TableHead>
-              <TableHead>Stored size</TableHead>
-              <TableHead>Last modified</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {padTop > 0 ? (
-              <tr aria-hidden="true" style={{ height: padTop }} />
-            ) : null}
-            {visible.map(({ row, index }) =>
-              row.kind === "folder" ? (
-                <TableRow key={`f:${row.key}`} data-index={index}>
-                  <TableCell className="font-mono text-xs font-medium">
-                    <PluginLink to={browserHref(bucket, { store, prefix: row.key })} className="hover:underline">
+      <Table>
+        <TableCaption>{listingCaption(objects, folders, more)}</TableCaption>
+        <TableHeader>
+          <TableRow>
+            <TableHead>Name</TableHead>
+            <TableHead>Stored size</TableHead>
+            <TableHead>Last modified</TableHead>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          {padTop > 0 ? (
+            <tr aria-hidden="true" style={{ height: padTop }} />
+          ) : null}
+          {visible.map(({ row, index }) =>
+            row.kind === "folder" ? (
+              <TableRow key={`f:${row.key}`} data-index={index}>
+                <TableCell className="font-mono text-xs font-medium">
+                  <PluginLink to={browserHref(bucket, { store, prefix: row.key })} className="hover:underline">
+                    {displayName(row.key, folder)}
+                  </PluginLink>
+                </TableCell>
+                <TableCell>
+                  <NoneCell label="size" />
+                </TableCell>
+                <TableCell>
+                  <NoneCell label="last modified" />
+                </TableCell>
+              </TableRow>
+            ) : (
+              <TableRow
+                key={`o:${row.key}`}
+                data-index={index}
+                data-state={row.key === selectedKey ? "selected" : undefined}
+                aria-selected={row.key === selectedKey}
+              >
+                <TableCell className="font-mono text-xs font-medium">
+                  <PluginLink to={browserHref(bucket, { store, prefix, key: row.key })} className="hover:underline">
+                    <span className="block max-w-sm truncate" title={row.key}>
                       {displayName(row.key, folder)}
-                    </PluginLink>
-                  </TableCell>
-                  <TableCell>
-                    <NoneCell label="size" />
-                  </TableCell>
-                  <TableCell>
-                    <NoneCell label="last modified" />
-                  </TableCell>
-                </TableRow>
-              ) : (
-                <TableRow
-                  key={`o:${row.key}`}
-                  data-index={index}
-                  data-state={row.key === selectedKey ? "selected" : undefined}
-                  aria-selected={row.key === selectedKey}
-                >
-                  <TableCell className="font-mono text-xs font-medium">
-                    <PluginLink to={browserHref(bucket, { store, prefix, key: row.key })} className="hover:underline">
-                      <span className="block max-w-sm truncate" title={row.key}>
-                        {displayName(row.key, folder)}
-                      </span>
-                    </PluginLink>
-                  </TableCell>
-                  <TableCell>
-                    <Bytes value={row.object.storedSize} />
-                  </TableCell>
-                  <TableCell>
-                    <Timestamp value={row.object.lastModified ?? undefined} label="last modified" />
-                  </TableCell>
-                </TableRow>
-              ),
-            )}
-            {padBottom > 0 ? (
-              <tr aria-hidden="true" style={{ height: padBottom }} />
-            ) : null}
-          </TableBody>
-        </Table>
-      </div>
+                    </span>
+                  </PluginLink>
+                </TableCell>
+                <TableCell>
+                  <Bytes value={row.object.storedSize} />
+                </TableCell>
+                <TableCell>
+                  <Timestamp value={row.object.lastModified ?? undefined} label="last modified" />
+                </TableCell>
+              </TableRow>
+            ),
+          )}
+          {padBottom > 0 ? (
+            <tr aria-hidden="true" style={{ height: padBottom }} />
+          ) : null}
+        </TableBody>
+      </Table>
       {loadMoreControls}
     </div>
   )

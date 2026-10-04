@@ -1,4 +1,4 @@
-import { screen } from "@testing-library/react"
+import { fireEvent, screen, within } from "@testing-library/react"
 import { afterEach, describe, expect, it } from "vitest"
 import BrowserPage from "../src/pages/browser"
 import { HEAD } from "./fixtures"
@@ -91,5 +91,67 @@ describe("BrowserPage header and path bar", () => {
     renderPage(BrowserPage, stubClient({ ...LIST, "cas.status": cas }), { bucket: "reports" })
     expect(await screen.findByText("CAS manages this bucket. Its objects are written through CAS, not uploaded here.")).toBeTruthy()
     expect((screen.getByRole("button", { name: "Upload files" }) as HTMLButtonElement).disabled).toBe(true)
+  })
+})
+
+describe("BrowserPage layout", () => {
+  function many(n: number) {
+    return Array.from({ length: n }, (_, i) => ({
+      key: `k${String(i).padStart(3, "0")}`,
+      storedSize: 10,
+      etag: null,
+      lastModified: null,
+      contentType: null,
+      storageClass: null,
+    }))
+  }
+
+  function leftScroller(container: HTMLElement) {
+    const group = container.querySelector<HTMLElement>('[data-slot="resizable-panel-group"]')
+    const left = container.querySelectorAll<HTMLElement>('[data-slot="resizable-panel"]')[0]
+    // The kit's table container is overflow-x-auto. The listing's own
+    // scroller is the only element in the left panel that is overflow-auto.
+    const scrollers = Array.from(left.querySelectorAll<HTMLElement>("*")).filter((el) => el.className.split(/\s+/).includes("overflow-auto"))
+    return { group, left, scrollers }
+  }
+
+  it("bounds the panel group's height, so the inspector stays in view", () => {
+    window.history.replaceState(null, "", "/@trove/buckets/reports")
+    const { container } = renderPage(BrowserPage, stubClient(LIST), { bucket: "reports" })
+    const { group } = leftScroller(container)
+    expect(group?.style.height).toBe("calc(100vh - 16rem)")
+    expect(group?.style.minHeight).toBe("24rem")
+  })
+
+  it("scrolls the listing in one container that fills the left panel", async () => {
+    window.history.replaceState(null, "", "/@trove/buckets/reports")
+    const list = { objects: many(100), prefixes: [], nextCursor: "n1", foldersSupported: true, routed: false }
+    const { container } = renderPage(BrowserPage, stubClient({ ...LIST, "objects.list": list }), { bucket: "reports" })
+    expect(await screen.findByText("100 shown, more under this prefix")).toBeTruthy()
+    const { scrollers } = leftScroller(container)
+    expect(scrollers).toHaveLength(1)
+    const [scroller] = scrollers
+    expect(scroller.className.split(/\s+/)).toEqual(expect.arrayContaining(["min-h-0", "flex-1"]))
+    expect(scroller.style.height).toBe("")
+    expect(scroller.contains(screen.getByRole("table"))).toBe(true)
+    expect(scroller.contains(screen.getByRole("button", { name: "Load more" }))).toBe(true)
+  })
+
+  it("drives the virtualised table from the left panel's scroll container", async () => {
+    window.history.replaceState(null, "", "/@trove/buckets/reports")
+    const list = { objects: many(250), prefixes: [], nextCursor: null, foldersSupported: true, routed: false }
+    const { container } = renderPage(BrowserPage, stubClient({ ...LIST, "objects.list": list }), { bucket: "reports" })
+    expect(await screen.findByText("250 objects")).toBeTruthy()
+    const { scrollers } = leftScroller(container)
+    expect(scrollers).toHaveLength(1)
+    const [scroller] = scrollers
+    expect(scroller.style.height).toBe("")
+    const table = screen.getByRole("table")
+    expect(within(table).getByText("k000")).toBeTruthy()
+    expect(within(table).queryByText("k180")).toBeNull()
+    scroller.scrollTop = 37 * 170
+    fireEvent.scroll(scroller)
+    expect(await within(table).findByText("k180")).toBeTruthy()
+    expect(within(table).queryByText("k000")).toBeNull()
   })
 })

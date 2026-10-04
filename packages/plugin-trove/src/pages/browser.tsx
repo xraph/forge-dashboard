@@ -52,9 +52,14 @@ const BrowserPage: ComponentType<PluginPageProps> = ({ params }) => {
         </p>
       ) : null}
       <PathBar key={prefix} bucket={bucket} store={store} prefix={prefix} />
-      <ResizablePanelGroup orientation="horizontal" className="rounded-md border" style={{ minHeight: "24rem" }}>
+      {/*
+        A fixed height, so each panel scrolls on its own. Unbounded, the group
+        grows to the listing's height and the inspector sits at its top, off
+        screen once the operator scrolls down to a row.
+      */}
+      <ResizablePanelGroup orientation="horizontal" className="rounded-md border" style={{ height: "calc(100vh - 16rem)", minHeight: "24rem" }}>
         <ResizablePanel defaultSize="62" minSize="35">
-          <div className="flex h-full flex-col gap-3 p-3">
+          <div className="h-full p-3">
             <UploadDropZone store={store} bucket={bucket} folder={folder} maxBytes={maxBytes} disabled={uploadsRefused}>
               <ObjectListing key={`${store}\n${bucket}\n${prefix}`} store={store} bucket={bucket} prefix={prefix} selectedKey={key} />
               <UploadTray />
