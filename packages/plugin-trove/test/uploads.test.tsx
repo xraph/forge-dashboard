@@ -321,4 +321,31 @@ describe("the drop zone", () => {
       expect(event.defaultPrevented).toBe(false)
     }
   })
+
+  it("leaves the effect alone on a dragover the zone already handled", () => {
+    const { client: c } = client(() => TICKET)
+    zoneFor(c)
+    // A cancelled dragover with effect "none" tells the browser the drop is
+    // not allowed, so it would never send `drop`.
+    const handled = dropEvent("dragover", { types: ["Files"], dropEffect: "copy" })
+    handled.preventDefault()
+    window.dispatchEvent(handled)
+    expect((handled as unknown as { dataTransfer: { dropEffect: string } }).dataTransfer.dropEffect).toBe("copy")
+    const stray = dropEvent("dragover", { types: ["Files"], dropEffect: "copy" })
+    window.dispatchEvent(stray)
+    expect(stray.defaultPrevented).toBe(true)
+    expect((stray as unknown as { dataTransfer: { dropEffect: string } }).dataTransfer.dropEffect).toBe("none")
+  })
+
+  it("keeps an enabled zone's dragover effect and still takes the drop while the window guard is mounted", async () => {
+    const { client: c, sent } = client((intent) => (intent === "objects.beginUpload" ? TICKET : ROW))
+    zoneFor(c)
+    const zone = screen.getByText("listing").parentElement!
+    const dataTransfer = { types: ["Files"], dropEffect: "copy", items: [{ kind: "file", webkitGetAsEntry: () => ({ isDirectory: false }), getAsFile: () => file("a.csv") }], files: [] }
+    expect(fireEvent.dragOver(zone, { dataTransfer })).toBe(false)
+    expect(dataTransfer.dropEffect).toBe("copy")
+    expect(fireEvent.drop(zone, { dataTransfer })).toBe(false)
+    await waitFor(() => expect(FakeXHR.instances).toHaveLength(1))
+    expect(sent[0].intent).toBe("objects.beginUpload")
+  })
 })

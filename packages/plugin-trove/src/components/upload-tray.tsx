@@ -40,7 +40,10 @@ export function UploadDropZone({ store, bucket, folder, maxBytes, disabled, chil
   // while the zone is mounted, a stray file drag is swallowed at the window.
   useEffect(() => {
     function guard(event: globalThis.DragEvent) {
-      if (!hasFiles(event)) return
+      // A zone that already handled this event owns its effect. Setting "none"
+      // on a cancelled dragover tells the browser the drop is not allowed, so
+      // it would never send `drop`.
+      if (event.defaultPrevented || !hasFiles(event)) return
       event.preventDefault()
       if (event.type === "dragover" && event.dataTransfer) event.dataTransfer.dropEffect = "none"
     }
