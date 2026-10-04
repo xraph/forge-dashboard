@@ -4,7 +4,8 @@
 //
 // Mirrors forgery/keysmith/extension/contract (tenant.go, project.go, load.go,
 // handlers_keys.go, handlers_pickers.go, handlers_key_create.go,
-// handlers_key_rotate.go, handlers_key_state.go, handlers_key_scopes.go and
+// handlers_key_rotate.go, handlers_key_state.go, handlers_key_scopes.go,
+// handlers_policies.go, handlers_policy_write.go, handlers_scope_write.go and
 // manifest.yaml). Field names are the Go JSON tags, and every rule below is
 // the Go handler's rule, in the Go handler's order, so a refusal here is a
 // refusal there. Every write changes the state the next read answers from.
@@ -29,8 +30,12 @@
 //     a rotation record.
 //   - Times in the seed are relative to module load, and resetKeysmith()
 //     recomputes them.
+//   - There is no rate limiter either. FIXTURE_KEYSMITH_RATE_LIMITER=1 stands
+//     in for an engine built with one (rateLimiterConfigured); the default is
+//     none, so a policy's rate limit reads as stored but not enforced.
 
 import { randomBytes } from "node:crypto"
+import { isIP } from "node:net"
 
 // Stands in for the signed-in user (see above).
 const FIXTURE_OPERATOR = "usr_fixture"
@@ -55,6 +60,24 @@ const RFC3339 = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d+)?(Z|[+-]\d{2}:\d{2})
 // An active key counts as expiring soon inside this window.
 const EXPIRES_SOON_WINDOW_MS = 7 * 24 * 3600_000
 
+// handlers_policy_write.go. Durations are capped in seconds.
+const MAX_POLICY_NAME_LENGTH = 200
+const MAX_POLICY_DESCRIPTION_LENGTH = 1000
+const MAX_POLICY_LIST_ENTRIES = 100
+// 10 years of 365 days: maxKeyLifetimeSeconds and rotationPeriodSeconds.
+const MAX_POLICY_LIFETIME_SECONDS = 10 * 365 * 24 * 3600
+const MAX_POLICY_GRACE_SECONDS = 90 * 24 * 3600
+const MAX_POLICY_WINDOW_SECONDS = 31 * 24 * 3600
+// rateLimit and burstLimit.
+const MAX_POLICY_RATE = 1_000_000_000
+const POLICY_METHODS = ["GET", "HEAD", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"]
+
+// handlers_scope_write.go.
+const MAX_SCOPE_NAME_LENGTH = 100
+const MAX_SCOPE_DESCRIPTION_LENGTH = 1000
+// The most children a refused scope delete counts by number.
+const MAX_SCOPE_CHILD_COUNT = 200
+
 const ENVIRONMENTS = ["live", "test", "staging"]
 // The engine never assigns "rotated", so it is not a filter.
 const STATES = ["active", "suspended", "revoked", "expired"]
@@ -62,6 +85,54 @@ const STATES = ["active", "suspended", "revoked", "expired"]
 /** RFC3339 in UTC, without fractional seconds, like the Go projection. */
 function iso(date) {
   return new Date(date).toISOString().replace(/\.\d{3}Z$/, "Z")
+}
+
+// Go's string rules, for the policy and scope writes. JavaScript's own differ
+// at the edges: trim() strips U+FEFF and keeps U+0085, sort() compares UTF-16
+// code units, and JSON.stringify leaves control and format characters such as
+// U+00A0 and U+2028 unescaped.
+
+// unicode.IsSpace: the Latin-1 spaces plus the White_Space property.
+const GO_SPACE = "\\t\\n\\v\\f\\r \\u0085\\u00a0\\u1680\\u2000-\\u200a\\u2028\\u2029\\u202f\\u205f\\u3000"
+const GO_TRIM = new RegExp(`^[${GO_SPACE}]+|[${GO_SPACE}]+$`, "g")
+const GO_HAS_SPACE = new RegExp(`[${GO_SPACE}]`)
+
+/** strings.TrimSpace. */
+const goTrimSpace = (s) => s.replace(GO_TRIM, "")
+
+/** utf8.RuneCountInString. */
+const runeCount = (s) => [...s].length
+
+/** Go's string order: byte order of the UTF-8 encoding. */
+const byteCompare = (a, b) => Buffer.compare(Buffer.from(a, "utf8"), Buffer.from(b, "utf8"))
+
+/** strings.ToUpper: a simple per-rune mapping, so "ß" stays one rune. */
+function goToUpper(s) {
+  let out = ""
+  for (const ch of s) {
+    const up = ch.toUpperCase()
+    out += [...up].length === 1 ? up : ch
+  }
+  return out
+}
+
+// strconv.IsPrint: letters, marks, numbers, punctuation, symbols and the ASCII space.
+const GO_PRINTABLE = /^[\p{L}\p{M}\p{N}\p{P}\p{S} ]$/u
+const GO_ESCAPES = { "\x07": "\\a", "\b": "\\b", "\f": "\\f", "\n": "\\n", "\r": "\\r", "\t": "\\t", "\v": "\\v" }
+
+/** strconv.Quote. */
+function goQuote(s) {
+  let out = '"'
+  for (const ch of s) {
+    const cp = ch.codePointAt(0)
+    if (ch === '"' || ch === "\\") out += `\\${ch}`
+    else if (GO_PRINTABLE.test(ch)) out += ch
+    else if (GO_ESCAPES[ch]) out += GO_ESCAPES[ch]
+    else if (cp < 0x20 || cp === 0x7f) out += `\\x${cp.toString(16).padStart(2, "0")}`
+    else if (cp < 0x10000) out += `\\u${cp.toString(16).padStart(4, "0")}`
+    else out += `\\U${cp.toString(16).padStart(8, "0")}`
+  }
+  return `${out}"`
 }
 
 // ---------------------------------------------------------------------------
@@ -81,16 +152,22 @@ export const KEYSMITH_IDS = {
   standardPolicy: "kpol_01j9k4m1zza0b1c2d3e4f5g6h7",
   // sets neither a grace period nor a max lifetime
   openPolicy: "kpol_01j9k4m1zxc2d3e4f5g6h7j8k9",
+  // used only by the revoked "Old mobile app" key, so its delete succeeds
+  retiredPolicy: "kpol_01j9k4m1zwd3e4f5g6h7j8k9m0",
   // globex: must never reach acme
   globexKey: "akey_01j9k4m2eck3h8s0x1a5b6d7ef",
   globexPolicy: "kpol_01j9k4m1zyb1c2d3e4f5g6h7j8",
-  // the scope store: acme's five, globex's one
+  // the scope store: acme's seven, globex's one
   scopeBillingRead: "kscp_01j9k4m1yaa1b2c3d4e5f6g7h8",
   scopeBillingWrite: "kscp_01j9k4m1yab2c3d4e5f6g7h8j9",
   scopeReportsRead: "kscp_01j9k4m1yac3d4e5f6g7h8j9k0",
   scopeCatalogRead: "kscp_01j9k4m1yad4e5f6g7h8j9k0m1",
   scopeAdminAll: "kscp_01j9k4m1yae5f6g7h8j9k0m1n2",
   scopeGlobexInternal: "kscp_01j9k4m1yaf6g7h8j9k0m1n2p3",
+  // the parent of billing:read and billing:write, so its delete refuses
+  scopeBilling: "kscp_01j9k4m1yag7h8j9k0m1n2p3q4",
+  // held by no key and allowed by no policy, so its delete succeeds
+  scopeLegacyRead: "kscp_01j9k4m1yah8j9k0m1n2p3q4r5",
   // billingKey's rotations: one open window, one whose grace has ended
   openRotation: "krot_01j9k4m3aac2d3e4f5g6h7j8k9",
   closedRotation: "krot_01j9k4m3abd3e4f5g6h7j8k9m0",
@@ -101,46 +178,96 @@ function seedKeysmithState() {
   const hour = 3600_000
   const day = 24 * hour
 
-  const policies = new Map()
-  policies.set(KEYSMITH_IDS.standardPolicy, {
-    id: KEYSMITH_IDS.standardPolicy,
-    tenantId: "acme",
-    name: "Standard",
-    description: "Ninety day keys with a day to roll over",
-    maxKeyLifetime: 90 * day,
-    gracePeriod: day,
-    // A key under this policy may not hold admin:all.
-    allowedScopes: ["billing:read", "billing:write", "reports:read", "catalog:read"],
-  })
-  // 0 is "not set" to the engine: no maximum lifetime, and rotation falls back
-  // to a 24 hour grace. The contract sends both as null.
-  policies.set(KEYSMITH_IDS.openPolicy, {
-    id: KEYSMITH_IDS.openPolicy,
-    tenantId: "acme",
-    name: "Open",
+  // A policy row. Durations are milliseconds and 0 is "not set" to the
+  // engine, as are counts of 0; lists are empty when unset.
+  const policyRow = (fields) => ({
+    description: "",
     maxKeyLifetime: 0,
     gracePeriod: 0,
-    // An empty list means the policy does not restrict scopes.
     allowedScopes: [],
+    rateLimit: 0,
+    rateLimitWindow: 0,
+    burstLimit: 0,
+    allowedIps: [],
+    allowedOrigins: [],
+    allowedMethods: [],
+    allowedPaths: [],
+    rotationPeriod: 0,
+    dailyQuota: 0,
+    monthlyQuota: 0,
+    ...fields,
+    updatedAt: fields.updatedAt ?? fields.createdAt,
   })
-  policies.set(KEYSMITH_IDS.globexPolicy, {
-    id: KEYSMITH_IDS.globexPolicy,
-    tenantId: "globex",
-    name: "Globex standard",
-    maxKeyLifetime: 30 * day,
-    gracePeriod: 2 * hour,
-    allowedScopes: ["internal:all"],
-  })
+
+  const policies = new Map()
+  policies.set(
+    KEYSMITH_IDS.standardPolicy,
+    policyRow({
+      id: KEYSMITH_IDS.standardPolicy,
+      tenantId: "acme",
+      name: "Standard",
+      description: "Ninety day keys with a day to roll over",
+      maxKeyLifetime: 90 * day,
+      gracePeriod: day,
+      // A key under this policy may not hold admin:all.
+      allowedScopes: ["billing:read", "billing:write", "reports:read", "catalog:read"],
+      // Stored only: the fixture has no rate limiter unless
+      // FIXTURE_KEYSMITH_RATE_LIMITER=1, and nothing enforces the rest.
+      rateLimit: 100,
+      rateLimitWindow: 60_000,
+      burstLimit: 20,
+      allowedMethods: ["GET", "POST"],
+      dailyQuota: 10_000,
+      createdAt: now - 120 * day,
+      updatedAt: now - 30 * day,
+    }),
+  )
+  // 0 is "not set" to the engine: no maximum lifetime, and rotation falls back
+  // to a 24 hour grace. The contract sends both as null. An empty
+  // allowedScopes means the policy does not restrict scopes.
+  policies.set(
+    KEYSMITH_IDS.openPolicy,
+    policyRow({ id: KEYSMITH_IDS.openPolicy, tenantId: "acme", name: "Open", createdAt: now - 60 * day }),
+  )
+  // Only the revoked mobile key uses it, so nothing blocks its delete. It
+  // still allows devices:read, a name the scope store no longer has: an edit
+  // keeps a stored name like that and refuses only names it adds.
+  policies.set(
+    KEYSMITH_IDS.retiredPolicy,
+    policyRow({
+      id: KEYSMITH_IDS.retiredPolicy,
+      tenantId: "acme",
+      name: "Retired",
+      description: "The first mobile app's keys",
+      maxKeyLifetime: 365 * day,
+      allowedScopes: ["devices:read"],
+      createdAt: now - 300 * day,
+    }),
+  )
+  policies.set(
+    KEYSMITH_IDS.globexPolicy,
+    policyRow({
+      id: KEYSMITH_IDS.globexPolicy,
+      tenantId: "globex",
+      name: "Globex standard",
+      maxKeyLifetime: 30 * day,
+      gracePeriod: 2 * hour,
+      allowedScopes: ["internal:all"],
+      createdAt: now - 90 * day,
+    }),
+  )
 
   // The scope store. A key's own scopes live on its row below, as a stand-in
   // for the key-scope join; some seed keys hold names that are not in here,
   // as they can in Go (the join stores names).
   const scopes = [
-    { id: KEYSMITH_IDS.scopeBillingRead, tenantId: "acme", name: "billing:read", description: "Read invoices and charges" },
-    { id: KEYSMITH_IDS.scopeBillingWrite, tenantId: "acme", name: "billing:write", description: "Create charges and refunds" },
+    { id: KEYSMITH_IDS.scopeBillingRead, tenantId: "acme", name: "billing:read", parent: "billing", description: "Read invoices and charges" },
+    { id: KEYSMITH_IDS.scopeBillingWrite, tenantId: "acme", name: "billing:write", parent: "billing", description: "Create charges and refunds" },
     { id: KEYSMITH_IDS.scopeReportsRead, tenantId: "acme", name: "reports:read", description: "Read and export reports" },
     { id: KEYSMITH_IDS.scopeCatalogRead, tenantId: "acme", name: "catalog:read", description: "Read the product catalog" },
     { id: KEYSMITH_IDS.scopeAdminAll, tenantId: "acme", name: "admin:all", description: "Everything. Policies that list allowed scopes refuse it." },
+    { id: KEYSMITH_IDS.scopeBilling, tenantId: "acme", name: "billing", description: "Groups the billing scopes" },
+    { id: KEYSMITH_IDS.scopeLegacyRead, tenantId: "acme", name: "legacy:read", description: "Read the old v1 API" },
     { id: KEYSMITH_IDS.scopeGlobexInternal, tenantId: "globex", name: "internal:all", description: "Globex internal services" },
   ]
 
@@ -235,7 +362,9 @@ function seedKeysmithState() {
       hint: "b7f8",
       environment: "live",
       state: "revoked",
-      policyId: null,
+      // A revoked key does not hold its policy: the Retired policy deletes,
+      // and this key keeps the policyId.
+      policyId: KEYSMITH_IDS.retiredPolicy,
       scopes: ["devices:read"],
       createdBy: "usr_1",
       expiresAt: null,
@@ -465,6 +594,176 @@ function projectPolicySummary(p) {
   }
 }
 
+/** sortedUnique: a sorted copy without duplicates, [] when empty, never null. */
+function sortedUnique(list) {
+  return [...(list ?? [])].sort(byteCompare).filter((s, i, all) => i === 0 || s !== all[i - 1])
+}
+
+/** countOrNil: a zero count is unset to the engine, like a zero duration. */
+function countOrNull(n) {
+  return n === 0 ? null : n
+}
+
+/**
+ * projectPolicyDetail: every field, in the Go struct's order. Counts and
+ * durations are null when unset, lists are sorted and never null, and
+ * durations go out as whole seconds.
+ */
+function projectPolicyDetail(p) {
+  return {
+    id: p.id,
+    name: p.name,
+    ...(p.description ? { description: p.description } : {}),
+    maxKeyLifetimeSeconds: secondsOrNull(p.maxKeyLifetime),
+    graceSeconds: secondsOrNull(p.gracePeriod),
+    allowedScopes: sortedUnique(p.allowedScopes),
+    rateLimit: countOrNull(p.rateLimit),
+    rateLimitWindowSeconds: secondsOrNull(p.rateLimitWindow),
+    burstLimit: countOrNull(p.burstLimit),
+    allowedIps: sortedUnique(p.allowedIps),
+    allowedOrigins: sortedUnique(p.allowedOrigins),
+    allowedMethods: sortedUnique(p.allowedMethods),
+    allowedPaths: sortedUnique(p.allowedPaths),
+    rotationPeriodSeconds: secondsOrNull(p.rotationPeriod),
+    dailyQuota: countOrNull(p.dailyQuota),
+    monthlyQuota: countOrNull(p.monthlyQuota),
+    createdAt: iso(p.createdAt),
+    updatedAt: iso(p.updatedAt),
+  }
+}
+
+/** projectScopeSummary: parent and description are left out when empty. */
+function projectScopeSummary(sc) {
+  return {
+    id: sc.id,
+    name: sc.name,
+    ...(sc.parent ? { parent: sc.parent } : {}),
+    ...(sc.description ? { description: sc.description } : {}),
+  }
+}
+
+/**
+ * policyKeyCounts (handlers_policies.go): the tenant's keys that use the
+ * policy, and the ones that block its delete (neither stored revoked nor
+ * carrying a revokedAt). Keys of another tenant naming it are skipped.
+ */
+function policyKeyCounts(tenantId, policyId) {
+  let using = 0
+  let blocking = 0
+  for (const k of keysmith.keys) {
+    if (k.policyId !== policyId || k.tenantId !== tenantId) continue
+    using++
+    if (k.state !== "revoked" && k.revokedAt === null) blocking++
+  }
+  return { using, blocking }
+}
+
+/** Policies().List order: created_at desc, then id desc. */
+function policyStoreOrder(a, b) {
+  return b.createdAt - a.createdAt || byteCompare(b.id, a.id)
+}
+
+/** Scopes().List order: name asc, then id asc. */
+function scopeStoreOrder(a, b) {
+  return byteCompare(a.name, b.name) || byteCompare(a.id, b.id)
+}
+
+/** The rate limiter stand-in (see the header). */
+const rateLimiterConfigured = () => process.env.FIXTURE_KEYSMITH_RATE_LIMITER === "1"
+
+// ---------------------------------------------------------------------------
+// Policy list checks (handlers_policy_write.go)
+// ---------------------------------------------------------------------------
+
+/**
+ * normaliseList: trims every entry, drops blanks, upper-cases when asked, and
+ * answers a new sorted list without duplicates. It never changes its input.
+ */
+function normaliseList(list, upper) {
+  const out = []
+  for (const raw of list ?? []) {
+    let s = goTrimSpace(raw)
+    if (s === "") continue
+    if (upper) s = goToUpper(s)
+    out.push(s)
+  }
+  return out.sort(byteCompare).filter((s, i, all) => i === 0 || s !== all[i - 1])
+}
+
+/** net.ParseIP: what Node's isIP accepts, less a zone, which Go refuses. */
+function goParseIP(s) {
+  return s.includes("%") ? 0 : isIP(s)
+}
+
+/** net.ParseIP, else net.ParseCIDR. A CIDR length is decimal digits up to the address's bit length. */
+function isIPOrCIDR(s) {
+  if (goParseIP(s) !== 0) return true
+  const slash = s.indexOf("/")
+  if (slash === -1) return false
+  const family = goParseIP(s.slice(0, slash))
+  const bits = s.slice(slash + 1)
+  if (family === 0 || !/^\d+$/.test(bits)) return false
+  return Number(bits) <= (family === 4 ? 32 : 128)
+}
+
+// The ASCII a host may hold as is (url.shouldEscape in encodeHost mode).
+const HOST_CHAR = /^[A-Za-z0-9\-._~!$&'()*+,;=:[\]<>"]$/
+
+/** url.Parse's parseHost and unescape(host, encodeHost): a port of digits only, escapes only above ASCII. */
+function validHost(host) {
+  const close = host.startsWith("[") ? host.lastIndexOf("]") : -1
+  if (host.startsWith("[") && close === -1) return false
+  const colon = host.lastIndexOf(":")
+  // Only a bracketed IPv6 literal may hold more than one colon.
+  if (close === -1 && colon !== host.indexOf(":")) return false
+  const port = close !== -1 ? host.slice(close + 1) : colon !== -1 ? host.slice(colon) : ""
+  if (!/^(:\d*)?$/.test(port)) return false
+  for (let i = 0; i < host.length; i++) {
+    const ch = host[i]
+    if (ch === "%") {
+      const hex = host.slice(i + 1, i + 3)
+      if (!/^[0-9A-Fa-f]{2}$/.test(hex) || (Number.parseInt(hex[0], 16) < 8 && hex !== "25")) return false
+      i += 2
+    } else if (ch.charCodeAt(0) < 0x80 && !HOST_CHAR.test(ch)) {
+      return false
+    }
+  }
+  return true
+}
+
+/**
+ * isOrigin: an http or https URL with a host and nothing after it. No path
+ * (not even a trailing slash), no query, not even a bare "?", no fragment, no
+ * userinfo. Like url.Parse, the scheme's case does not matter, and a "#" with
+ * nothing after it leaves the fragment empty.
+ */
+function isOrigin(s) {
+  // url.Parse refuses ASCII control characters anywhere.
+  if (/[\x00-\x1f\x7f]/.test(s)) return false
+  const hash = s.indexOf("#")
+  if (hash !== -1 && hash !== s.length - 1) return false
+  const rest = hash === -1 ? s : s.slice(0, hash)
+  if (rest.includes("?")) return false
+  const m = /^([A-Za-z][A-Za-z0-9+.-]*):\/\/(.*)$/s.exec(rest)
+  if (!m) return false
+  const scheme = m[1].toLowerCase()
+  const authority = m[2]
+  if (scheme !== "http" && scheme !== "https") return false
+  if (authority === "" || authority.includes("/") || authority.includes("@")) return false
+  return validHost(authority)
+}
+
+// The request's policyFields, by wire name. Seconds become milliseconds on the row.
+const POLICY_TEXT_FIELDS = ["name", "description"]
+const POLICY_SECONDS_FIELDS = {
+  maxKeyLifetimeSeconds: "maxKeyLifetime",
+  graceSeconds: "gracePeriod",
+  rateLimitWindowSeconds: "rateLimitWindow",
+  rotationPeriodSeconds: "rotationPeriod",
+}
+const POLICY_COUNT_FIELDS = ["rateLimit", "burstLimit", "dailyQuota", "monthlyQuota"]
+const POLICY_LIST_FIELDS = ["allowedScopes", "allowedIps", "allowedOrigins", "allowedMethods", "allowedPaths"]
+
 // ---------------------------------------------------------------------------
 // Handlers
 // ---------------------------------------------------------------------------
@@ -589,6 +888,258 @@ export function createKeysmithHandlers(FixtureError) {
     return names
   }
 
+  /** requirePolicyID (load.go): trimmed; empty is "id is required", a malformed one "id is not a policy id". */
+  function requirePolicyID(raw) {
+    const id = goTrimSpace(str(raw))
+    if (id === "") throw badRequest("id is required")
+    if (!parseTypeID(id, "kpol")) throw badRequest("id is not a policy id")
+    return id
+  }
+
+  /** loadPolicyForTenant (load.go): a missing policy and another tenant's answer the same NOT_FOUND. */
+  function loadPolicyForTenant(tenantId, rawId) {
+    const id = requirePolicyID(rawId)
+    const pol = keysmith.policies.get(id)
+    if (!pol || pol.tenantId !== tenantId) throw new FixtureError(404, "NOT_FOUND", "policy not found")
+    return pol
+  }
+
+  /** requireScopeID (load.go): trimmed; empty is "id is required", a malformed one "id is not a scope id". */
+  function requireScopeID(raw) {
+    const id = goTrimSpace(str(raw))
+    if (id === "") throw badRequest("id is required")
+    if (!parseTypeID(id, "kscp")) throw badRequest("id is not a scope id")
+    return id
+  }
+
+  /** loadScopeForTenant (load.go): a missing scope and another tenant's answer the same NOT_FOUND. */
+  function loadScopeForTenant(tenantId, rawId) {
+    const id = requireScopeID(rawId)
+    const sc = keysmith.scopes.find((row) => row.id === id)
+    if (!sc || sc.tenantId !== tenantId) throw new FixtureError(404, "NOT_FOUND", "scope not found")
+    return sc
+  }
+
+  /**
+   * The dispatcher's JSON decode of policyFields, before the handler runs. A
+   * field that is null or left out is not set. A value of the wrong type fails
+   * the decode in Go with BAD_REQUEST; the message here is the fixture's own.
+   */
+  function decodePolicyFields(params) {
+    const fields = {}
+    for (const [field, value] of Object.entries(params ?? {})) {
+      if (value === null || value === undefined) continue
+      if (POLICY_TEXT_FIELDS.includes(field)) {
+        if (typeof value !== "string") throw badRequest(`${field} must be a string`)
+      } else if (field in POLICY_SECONDS_FIELDS || POLICY_COUNT_FIELDS.includes(field)) {
+        if (!Number.isInteger(value)) throw badRequest(`${field} must be a whole number`)
+      } else if (POLICY_LIST_FIELDS.includes(field)) {
+        if (!Array.isArray(value) || value.some((s) => typeof s !== "string")) {
+          throw badRequest(`${field} must be a list of strings`)
+        }
+      } else {
+        continue
+      }
+      fields[field] = value
+    }
+    return fields
+  }
+
+  /** The same decode for scopes.create: three strings, "" when null or left out. */
+  function decodeScopeFields(params) {
+    const fields = { name: "", parent: "", description: "" }
+    for (const [field, value] of Object.entries(params ?? {})) {
+      if (!(field in fields) || value === null || value === undefined) continue
+      if (typeof value !== "string") throw badRequest(`${field} must be a string`)
+      fields[field] = value
+    }
+    return fields
+  }
+
+  /** A policy row as CreatePolicy starts from: everything unset. */
+  function blankPolicy() {
+    return {
+      name: "",
+      description: "",
+      maxKeyLifetime: 0,
+      gracePeriod: 0,
+      allowedScopes: [],
+      rateLimit: 0,
+      rateLimitWindow: 0,
+      burstLimit: 0,
+      allowedIps: [],
+      allowedOrigins: [],
+      allowedMethods: [],
+      allowedPaths: [],
+      rotationPeriod: 0,
+      dailyQuota: 0,
+      monthlyQuota: 0,
+    }
+  }
+
+  /** A copy to edit, so a refused update leaves the stored row alone. */
+  function clonePolicy(p) {
+    const out = { ...p }
+    for (const field of POLICY_LIST_FIELDS) out[field] = [...p[field]]
+    return out
+  }
+
+  /**
+   * applyPolicyFields: copies the decoded fields onto the row. Lists are
+   * copied. Seconds are stored as milliseconds; a number too large for Go's
+   * clamp still lands past the cap, so validatePolicy answers the same.
+   */
+  function applyPolicyFields(p, fields) {
+    for (const [field, value] of Object.entries(fields)) {
+      if (field in POLICY_SECONDS_FIELDS) p[POLICY_SECONDS_FIELDS[field]] = value * 1000
+      else if (POLICY_LIST_FIELDS.includes(field)) p[field] = [...value]
+      else p[field] = value
+    }
+  }
+
+  /**
+   * validatePolicy (handlers_policy_write.go): normalises p in place and checks
+   * it. The first failure wins, in this order: name, description, negative
+   * numbers, caps (both in field order), the rate limit pairings, then each
+   * list (normalised, counted, then every entry in sorted order). stored is
+   * the row's allowedScopes before the edit (null on create): only names not
+   * in it are looked up, so a policy naming a scope that has since gone stays
+   * editable.
+   */
+  function validatePolicy(tenantId, p, stored) {
+    p.name = goTrimSpace(p.name)
+    if (p.name === "") throw badRequest("name is required")
+    if (runeCount(p.name) > MAX_POLICY_NAME_LENGTH) throw badRequest("name is too long")
+    p.description = goTrimSpace(p.description)
+    if (runeCount(p.description) > MAX_POLICY_DESCRIPTION_LENGTH) throw badRequest("description is too long")
+
+    const kept = normaliseList(stored, false)
+
+    // [field, value, limit, cap message]; the row holds durations in ms.
+    const numbers = [
+      ["maxKeyLifetimeSeconds", p.maxKeyLifetime, MAX_POLICY_LIFETIME_SECONDS * 1000, "is at most 10 years"],
+      ["graceSeconds", p.gracePeriod, MAX_POLICY_GRACE_SECONDS * 1000, "is at most 90 days"],
+      ["rateLimit", p.rateLimit, MAX_POLICY_RATE, "is too large"],
+      ["rateLimitWindowSeconds", p.rateLimitWindow, MAX_POLICY_WINDOW_SECONDS * 1000, "is at most 31 days"],
+      ["burstLimit", p.burstLimit, MAX_POLICY_RATE, "is too large"],
+      ["rotationPeriodSeconds", p.rotationPeriod, MAX_POLICY_LIFETIME_SECONDS * 1000, "is at most 10 years"],
+      ["dailyQuota", p.dailyQuota, 0, ""],
+      ["monthlyQuota", p.monthlyQuota, 0, ""],
+    ]
+    for (const [field, value] of numbers) {
+      if (value < 0) throw badRequest(`${field} cannot be negative`)
+    }
+    for (const [field, value, limit, capMsg] of numbers) {
+      if (limit > 0 && value > limit) throw badRequest(`${field} ${capMsg}`)
+    }
+
+    if (p.rateLimit > 0 && p.rateLimitWindow === 0) throw badRequest("a rate limit needs a window")
+    if (p.burstLimit > 0 && p.rateLimit === 0) throw badRequest("a burst limit needs a rate limit")
+
+    const lists = [
+      [
+        "allowedScopes",
+        false,
+        (name) => {
+          if (kept.includes(name)) return
+          if (!keysmith.scopes.some((sc) => sc.tenantId === tenantId && sc.name === name)) {
+            throw badRequest(`scope ${goQuote(name)} does not exist in this tenant`)
+          }
+        },
+      ],
+      [
+        "allowedIps",
+        false,
+        (s) => {
+          if (!isIPOrCIDR(s)) throw badRequest(`allowedIps: ${goQuote(s)} is not an IP address or CIDR range`)
+        },
+      ],
+      [
+        "allowedOrigins",
+        false,
+        (s) => {
+          if (s !== "*" && !isOrigin(s)) {
+            throw badRequest(`allowedOrigins: ${goQuote(s)} is not an origin like https://example.com`)
+          }
+        },
+      ],
+      [
+        "allowedMethods",
+        true,
+        (s) => {
+          if (!POLICY_METHODS.includes(s)) throw badRequest(`allowedMethods: ${goQuote(s)} is not an HTTP method`)
+        },
+      ],
+      [
+        "allowedPaths",
+        false,
+        (s) => {
+          if (!s.startsWith("/")) throw badRequest(`allowedPaths: ${goQuote(s)} must start with /`)
+        },
+      ],
+    ]
+    for (const [field, upper, check] of lists) {
+      p[field] = normaliseList(p[field], upper)
+      if (p[field].length > MAX_POLICY_LIST_ENTRIES) throw badRequest(`${field} has more than 100 entries`)
+      for (const entry of p[field]) check(entry)
+    }
+  }
+
+  /**
+   * The engine's checkPolicyName: another policy in the tenant with this name
+   * refuses. self is the policy being updated, which may keep its own name.
+   */
+  function checkPolicyName(tenantId, name, self) {
+    for (const p of keysmith.policies.values()) {
+      if (p.tenantId === tenantId && p.name === name && p.id !== self) {
+        throw conflict("a policy with this name already exists")
+      }
+    }
+  }
+
+  /** policyInUse: this tenant's blocking count; 0 names no number. */
+  function policyInUse(blocking) {
+    if (blocking === 1) return conflict("1 key that is not revoked uses this policy")
+    if (blocking > 1) return conflict(`${blocking} keys that are not revoked use this policy`)
+    return conflict("keys that are not revoked use this policy")
+  }
+
+  /**
+   * validateScope (handlers_scope_write.go): trims and checks, first failure
+   * wins: name, description, the parent's length, the parent being the scope
+   * itself, the parent existing in this tenant.
+   */
+  function validateScope(tenantId, in_) {
+    in_.name = goTrimSpace(in_.name)
+    if (in_.name === "") throw badRequest("name is required")
+    if (runeCount(in_.name) > MAX_SCOPE_NAME_LENGTH) throw badRequest("name is too long")
+    if (GO_HAS_SPACE.test(in_.name)) throw badRequest("name cannot contain spaces")
+    in_.description = goTrimSpace(in_.description)
+    if (runeCount(in_.description) > MAX_SCOPE_DESCRIPTION_LENGTH) throw badRequest("description is too long")
+    in_.parent = goTrimSpace(in_.parent)
+    if (in_.parent === "") return
+    if (runeCount(in_.parent) > MAX_SCOPE_NAME_LENGTH) throw badRequest("parent is too long")
+    if (in_.parent === in_.name) throw badRequest("a scope cannot be its own parent")
+    if (!keysmith.scopes.some((sc) => sc.tenantId === tenantId && sc.name === in_.parent)) {
+      throw badRequest(`parent scope ${goQuote(in_.parent)} does not exist in this tenant`)
+    }
+  }
+
+  /** scopeHasChildren: n is read with one row past the cap; 0 names no number. */
+  function scopeHasChildren(n) {
+    if (n > MAX_SCOPE_CHILD_COUNT) return conflict(`more than ${MAX_SCOPE_CHILD_COUNT} scopes name this scope as their parent`)
+    if (n === 1) return conflict("1 scope names this scope as its parent")
+    if (n > 1) return conflict(`${n} scopes name this scope as their parent`)
+    return conflict("scopes name this scope as their parent")
+  }
+
+  /** scopeAllowedByPolicy: n is this tenant's count; 0 names no number. */
+  function scopeAllowedByPolicy(n) {
+    if (n === 1) return conflict("1 policy allows this scope")
+    if (n > 1) return conflict(`${n} policies allow this scope`)
+    return conflict("policies allow this scope")
+  }
+
   return {
     "keys.list": {
       kind: "query",
@@ -662,14 +1213,30 @@ export function createKeysmithHandlers(FixtureError) {
         const tenantId = tenant()
         const { limit, offset } = pickerPage(params)
         // One extra row tells whether another page exists. The page is cut in
-        // store order and only then sorted, as in Go.
+        // store order (newest first) and only then sorted by name, as in Go.
         const rows = [...keysmith.policies.values()]
           .filter((p) => p.tenantId === tenantId)
+          .sort(policyStoreOrder)
           .slice(offset, offset + limit + 1)
         const hasMore = rows.length > limit
         if (hasMore) rows.length = limit
         rows.sort((a, b) => (a.name < b.name ? -1 : a.name > b.name ? 1 : 0))
-        return { policies: rows.map(projectPolicySummary), hasMore }
+        return { policies: rows.map(projectPolicySummary), hasMore, rateLimiterConfigured: rateLimiterConfigured() }
+      },
+    },
+
+    "policies.detail": {
+      kind: "query",
+      handler: (params) => {
+        const tenantId = tenant()
+        const pol = loadPolicyForTenant(tenantId, params?.id)
+        const { using, blocking } = policyKeyCounts(tenantId, pol.id)
+        return {
+          policy: projectPolicyDetail(pol),
+          keysUsing: using,
+          keysBlockingDelete: blocking,
+          rateLimiterConfigured: rateLimiterConfigured(),
+        }
       },
     },
 
@@ -678,19 +1245,15 @@ export function createKeysmithHandlers(FixtureError) {
       handler: (params) => {
         const tenantId = tenant()
         const { limit, offset } = pickerPage(params)
-        const rows = keysmith.scopes.filter((sc) => sc.tenantId === tenantId).slice(offset, offset + limit + 1)
+        // Store order is name, then id.
+        const rows = keysmith.scopes
+          .filter((sc) => sc.tenantId === tenantId)
+          .sort(scopeStoreOrder)
+          .slice(offset, offset + limit + 1)
         const hasMore = rows.length > limit
         if (hasMore) rows.length = limit
         rows.sort((a, b) => (a.name < b.name ? -1 : a.name > b.name ? 1 : 0))
-        return {
-          scopes: rows.map((sc) => ({
-            id: sc.id,
-            name: sc.name,
-            ...(sc.parent ? { parent: sc.parent } : {}),
-            ...(sc.description ? { description: sc.description } : {}),
-          })),
-          hasMore,
-        }
+        return { scopes: rows.map(projectScopeSummary), hasMore }
       },
     },
 
@@ -851,9 +1414,10 @@ export function createKeysmithHandlers(FixtureError) {
       },
     },
 
+    // A revoke stops a key blocking its policy's delete, so the policy page refreshes.
     "keys.revoke": {
       kind: "command",
-      invalidates: ["keys.list", "keys.detail", "rotations.list", "overview"],
+      invalidates: ["keys.list", "keys.detail", "rotations.list", "overview", "policies.detail"],
       handler: (params) => {
         const reason = str(params?.reason).trim()
         return keyStateChange({
@@ -954,6 +1518,113 @@ export function createKeysmithHandlers(FixtureError) {
             k.scopes = k.scopes.filter((n) => !names.includes(n))
           },
         })
+      },
+    },
+
+    "policies.create": {
+      kind: "command",
+      invalidates: ["policies.list", "overview"],
+      handler: (params) => {
+        const fields = decodePolicyFields(params)
+        const tenantId = tenant()
+        const pol = blankPolicy()
+        applyPolicyFields(pol, fields)
+        validatePolicy(tenantId, pol, null)
+        // CreatePolicy: the name check, then the tenant and times are stamped.
+        checkPolicyName(tenantId, pol.name, null)
+        const now = Date.now()
+        pol.id = newTypeID("kpol")
+        pol.tenantId = tenantId
+        pol.createdAt = now
+        pol.updatedAt = now
+        keysmith.policies.set(pol.id, pol)
+        return { policy: projectPolicyDetail(pol) }
+      },
+    },
+
+    // An edit changes the policy a key's detail shows.
+    "policies.update": {
+      kind: "command",
+      invalidates: ["policies.list", "policies.detail", "keys.detail"],
+      handler: (params) => {
+        const fields = decodePolicyFields(params)
+        const tenantId = tenant()
+        const stored = loadPolicyForTenant(tenantId, params?.id)
+        // Edit a copy of the loaded row, and write it back whole only once it passes.
+        const pol = clonePolicy(stored)
+        applyPolicyFields(pol, fields)
+        validatePolicy(tenantId, pol, stored.allowedScopes)
+        checkPolicyName(tenantId, pol.name, pol.id)
+        pol.updatedAt = Date.now()
+        keysmith.policies.set(pol.id, pol)
+        return { policy: projectPolicyDetail(pol) }
+      },
+    },
+
+    // Refuses while a key that is not revoked uses the policy. A revoked key
+    // keeps its policyId, and its detail then reads the policy as none.
+    "policies.delete": {
+      kind: "command",
+      invalidates: ["policies.list", "policies.detail", "overview", "keys.detail"],
+      handler: (params) => {
+        const tenantId = tenant()
+        const pol = loadPolicyForTenant(tenantId, params?.id)
+        // The engine's DeletePolicy checks keys in every tenant. The message
+        // counts only this tenant's, so it never names another tenant's keys.
+        if (keysmith.keys.some((k) => k.policyId === pol.id && k.state !== "revoked" && k.revokedAt === null)) {
+          throw policyInUse(policyKeyCounts(tenantId, pol.id).blocking)
+        }
+        keysmith.policies.delete(pol.id)
+        return { id: pol.id }
+      },
+    },
+
+    "scopes.create": {
+      kind: "command",
+      invalidates: ["scopes.list", "overview"],
+      handler: (params) => {
+        const in_ = decodeScopeFields(params)
+        const tenantId = tenant()
+        validateScope(tenantId, in_)
+        // CreateScope: the name check, then the tenant is stamped.
+        if (keysmith.scopes.some((sc) => sc.tenantId === tenantId && sc.name === in_.name)) {
+          throw conflict("a scope with this name already exists")
+        }
+        const sc = {
+          id: newTypeID("kscp"),
+          tenantId,
+          name: in_.name,
+          ...(in_.parent !== "" ? { parent: in_.parent } : {}),
+          ...(in_.description !== "" ? { description: in_.description } : {}),
+        }
+        keysmith.scopes.push(sc)
+        return { scope: projectScopeSummary(sc) }
+      },
+    },
+
+    // Takes the scope off every key that holds it. Refuses while other scopes
+    // name it as their parent, then while a policy lists it in allowedScopes.
+    "scopes.delete": {
+      kind: "command",
+      invalidates: ["scopes.list", "keys.list", "keys.detail", "overview"],
+      handler: (params) => {
+        const tenantId = tenant()
+        const sc = loadScopeForTenant(tenantId, params?.id)
+        // The count reads one row past the cap, like countScopeChildren.
+        const children = keysmith.scopes.filter((s) => s.tenantId === sc.tenantId && s.parent === sc.name)
+        if (children.length > 0) throw scopeHasChildren(Math.min(children.length, MAX_SCOPE_CHILD_COUNT + 1))
+        // An exact name match, the rule the engine's check and countAllowingPolicies use.
+        let allowing = 0
+        for (const p of keysmith.policies.values()) {
+          if (p.tenantId === sc.tenantId && p.allowedScopes.includes(sc.name)) allowing++
+        }
+        if (allowing > 0) throw scopeAllowedByPolicy(allowing)
+        keysmith.scopes = keysmith.scopes.filter((s) => s.id !== sc.id)
+        // The join goes with the scope, for this tenant's keys only.
+        for (const k of keysmith.keys) {
+          if (k.tenantId === sc.tenantId) k.scopes = k.scopes.filter((n) => n !== sc.name)
+        }
+        return { id: sc.id }
       },
     },
   }
