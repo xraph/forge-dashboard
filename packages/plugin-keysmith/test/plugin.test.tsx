@@ -5,6 +5,7 @@ import keysmithPlugin, {
   keysmithPlugin as named,
   PoliciesPage,
   PolicyDetailPage,
+  ScopesPage,
 } from "../src/index"
 
 function capabilities(
@@ -78,6 +79,21 @@ describe("keysmithPlugin", () => {
     expect((keysmithPlugin.nav ?? []).map((n) => n.to)).not.toContain(
       "/policies/:id",
     )
+  })
+
+  it("puts Scopes after Policies at /scopes, in the same group", () => {
+    const nav = keysmithPlugin.nav ?? []
+    const scopes = nav.find((n) => n.label === "Scopes")
+    expect(scopes?.to).toBe("/scopes")
+    expect(scopes?.group).toBe("API keys")
+    expect(scopes?.priority).toBe(2)
+    expect(scopes?.icon).toBeTruthy()
+  })
+
+  it("mounts the Scopes page at the route its nav entry points at", () => {
+    const route = keysmithPlugin.routes.find((r) => r.path === "/scopes")
+    expect(ScopesPage).toBeTypeOf("function")
+    expect(route?.element).toBe(ScopesPage)
   })
 
   it("gives every nav entry an icon", () => {

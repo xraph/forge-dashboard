@@ -1,11 +1,16 @@
 import { definePlugin } from "@forge-go/dashboard-plugin"
-import { KeyRoundIcon, ShieldCheckIcon } from "@forge-go/dashboard-kit/icons"
+import {
+  KeyRoundIcon,
+  ShieldCheckIcon,
+  TagsIcon,
+} from "@forge-go/dashboard-kit/icons"
 import { KeyDetailPage } from "./pages/key-detail"
 import { KeysPage } from "./pages/keys"
 import { PoliciesPage } from "./pages/policies"
 import { PolicyDetailPage } from "./pages/policy-detail"
+import { ScopesPage } from "./pages/scopes"
 
-export { KeyDetailPage, KeysPage, PoliciesPage, PolicyDetailPage }
+export { KeyDetailPage, KeysPage, PoliciesPage, PolicyDetailPage, ScopesPage }
 export { KeyStateBadge } from "./badges"
 export {
   ENVIRONMENTS,
@@ -32,6 +37,8 @@ export type {
   PolicyRef,
   PolicySummary,
   PreviousKey,
+  ScopesList,
+  ScopeSummary,
 } from "./types"
 
 /**
@@ -65,6 +72,13 @@ export const keysmithPlugin = definePlugin({
       icon: <ShieldCheckIcon />,
       group: "API keys",
     },
+    {
+      label: "Scopes",
+      to: "/scopes",
+      priority: 2,
+      icon: <TagsIcon />,
+      group: "API keys",
+    },
   ],
   routes: [
     { path: "/keys", element: KeysPage },
@@ -75,6 +89,7 @@ export const keysmithPlugin = definePlugin({
     // No nav entry, like a key: reached from the policies list and from the
     // policy names on the key list.
     { path: "/policies/:id", element: PolicyDetailPage },
+    { path: "/scopes", element: ScopesPage },
   ],
 })
 
