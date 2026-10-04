@@ -77,7 +77,7 @@ export function AuthRoutes({
 // keeping the field here means PluginHost does not need a special case for
 // this one screen.
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
-export function SignedInRedirect({ basename }: { basename: string }) {
+export function SignedInRedirect(_props: { basename: string }) {
   const [params] = useSearchParams()
   return <Navigate replace to={safeNext(params.get("next"), "/")} />
 }
