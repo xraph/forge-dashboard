@@ -8,6 +8,7 @@ import { Inspector } from "../components/inspector"
 import { ObjectActions } from "../components/object-actions"
 import { ObjectListing } from "../components/object-listing"
 import { PathBar } from "../components/path-bar"
+import { Preview } from "../components/preview"
 import { withStore } from "../store"
 import type { CasStatus } from "../types"
 
@@ -50,7 +51,12 @@ const BrowserPage: ComponentType<PluginPageProps> = ({ params }) => {
           <div className="h-full overflow-auto p-3">
             {key !== "" ? (
               <Inspector key={`${store}\n${bucket}\n${key}`} store={store} bucket={bucket} objectKey={key}>
-                {(head) => <ObjectActions store={store} bucket={bucket} prefix={prefix} head={head} casBucket={casBucket} />}
+                {(head) => (
+                  <>
+                    <ObjectActions store={store} bucket={bucket} prefix={prefix} head={head} casBucket={casBucket} />
+                    <Preview key={`${head.object.key}\n${head.object.etag ?? ""}\n${head.object.lastModified ?? ""}`} store={store} bucket={bucket} head={head} />
+                  </>
+                )}
               </Inspector>
             ) : (
               <p className="text-sm text-muted-foreground">Select an object to see it here.</p>

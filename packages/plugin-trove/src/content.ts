@@ -28,3 +28,61 @@ export async function downloadObject(client: ScopedClient, store: string, bucket
   anchor.click()
   anchor.remove()
 }
+
+/** The most a preview ticket returns. The route stops there. */
+export const PREVIEW_LIMIT = 256 * 1024
+/** Images larger than this as stored are not fetched for a preview. */
+export const IMAGE_PREVIEW_MAX = 4 * 1024 * 1024
+
+const TEXT_TYPES = new Set([
+  "application/xml",
+  "application/javascript",
+  "application/x-yaml",
+  "application/yaml",
+  "application/toml",
+  "application/x-ndjson",
+  "application/sql",
+])
+
+export type PreviewKind = "json" | "text" | "image" | "none"
+
+/** What the inspector can show for a content type. */
+export function previewKind(contentType: string | null): PreviewKind {
+  if (!contentType) return "none"
+  const type = contentType.split(";")[0].trim().toLowerCase()
+  if (type === "application/json" || type.endsWith("+json")) return "json"
+  // Images first: image/svg+xml also ends in +xml, and must stay in an <img>.
+  if (type.startsWith("image/")) return "image"
+  if (type.startsWith("text/") || TEXT_TYPES.has(type) || type.endsWith("+xml")) return "text"
+  return "none"
+}
+
+/**
+ * Fetches bytes from the content route. The route answers JSON
+ * `{"error": "..."}` on refusal, which becomes the message. A body that
+ * breaks off after the status line arrives as a rejected read, which is a
+ * failure, never a short file.
+ */
+export async function fetchContent(url: string): Promise<ArrayBuffer> {
+  let res: Response
+  try {
+    res = await fetch(url, { credentials: "same-origin", cache: "no-store" })
+  } catch {
+    throw new ContentRouteError(0, "The content route did not answer.")
+  }
+  if (!res.ok) {
+    let message = `The content route answered ${res.status}.`
+    try {
+      const body = (await res.json()) as { error?: unknown }
+      if (typeof body.error === "string" && body.error !== "") message = body.error
+    } catch {
+      // Not JSON: keep the status line.
+    }
+    throw new ContentRouteError(res.status, message)
+  }
+  try {
+    return await res.arrayBuffer()
+  } catch {
+    throw new ContentRouteError(res.status, "The download broke off before it finished.")
+  }
+}

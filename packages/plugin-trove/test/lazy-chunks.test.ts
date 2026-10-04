@@ -52,7 +52,16 @@ describe("the browser's heavy code stays out of the entry", () => {
     expect(importers).toEqual(["../src/pages/browser.tsx"])
   })
 
-  it("names CodeMirror in no file yet", () => {
-    expect(namingFiles("@codemirror")).toEqual([])
+  it("names CodeMirror only in the code view", () => {
+    expect(namingFiles("@codemirror")).toEqual(["../src/components/code-view.tsx"])
+  })
+
+  it("reaches the code view from the preview through lazy(), and from nowhere else", () => {
+    const preview = sourceOf(modules["../src/components/preview.tsx"])
+    expect(preview).toMatch(/lazy\(\(\)\s*=>\s*import\("\.\/code-view"\)\)/)
+    const staticImporters = Object.entries(modules)
+      .filter(([, mod]) => /^import (?!type)[^\n]*code-view["']/m.test(sourceOf(mod)))
+      .map(([path]) => path)
+    expect(staticImporters).toEqual([])
   })
 })
