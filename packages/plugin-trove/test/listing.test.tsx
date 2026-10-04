@@ -149,6 +149,84 @@ describe("ObjectListing", () => {
     expect(screen.getByText("a.txt")).toBeTruthy()
   })
 
+  it("drops a Load more that was still loading when the listing was invalidated", async () => {
+    const pages: Record<string, ObjectsList> = {
+      "": page([o("a.txt")], [], "c1"),
+      c1: page([o("b.txt")], [], "c2"),
+    }
+    let releaseStale: () => void = () => {}
+    const stale = page([o("stale.txt")], [], null)
+    const client = {
+      extension: "trove",
+      query: async (_intent: string, params?: Record<string, unknown>) => {
+        const cursor = typeof params?.cursor === "string" ? params.cursor : ""
+        if (cursor === "c2") {
+          await new Promise<void>((resolve) => {
+            releaseStale = resolve
+          })
+          return stale
+        }
+        return pages[cursor]
+      },
+      command: async () => {
+        throw new ContractError("NOT_FOUND", "no commands here")
+      },
+    } as ScopedClient
+    renderListing(client)
+    fireEvent.click(await screen.findByRole("button", { name: "Load more" }))
+    await screen.findByText("b.txt")
+    // The second Load more starts and is left pending.
+    fireEvent.click(screen.getByRole("button", { name: "Load more" }))
+    await waitFor(() => expect(screen.getByRole("button", { name: "Loading…" })).toBeTruthy())
+
+    pages[""] = page([o("a.txt")], [], "n1")
+    pages.n1 = page([o("c.txt")], [], null)
+    act(() => queryStore.invalidate("trove", ["objects.list"]))
+    expect(await screen.findByText("c.txt")).toBeTruthy()
+    await waitFor(() => expect(screen.queryByText("b.txt")).toBeNull())
+
+    await act(async () => {
+      releaseStale()
+    })
+    expect(screen.queryByText("stale.txt")).toBeNull()
+    const table = screen.getByRole("table")
+    expect(within(table).getAllByRole("link").map((l) => l.textContent)).toEqual(["a.txt", "c.txt"])
+    expect(screen.getByText("2 objects")).toBeTruthy()
+    expect(screen.queryByRole("button", { name: "Load more" })).toBeNull()
+  })
+
+  it("drops a first Load more that was still loading when the listing was invalidated", async () => {
+    const pages: Record<string, ObjectsList> = { "": page([o("a.txt")], [], "c1") }
+    let releaseStale: () => void = () => {}
+    const client = {
+      extension: "trove",
+      query: async (_intent: string, params?: Record<string, unknown>) => {
+        if (params?.cursor === "c1") {
+          await new Promise<void>((resolve) => {
+            releaseStale = resolve
+          })
+          return page([o("stale.txt")], [], null)
+        }
+        return pages[typeof params?.cursor === "string" ? params.cursor : ""]
+      },
+      command: async () => {
+        throw new ContractError("NOT_FOUND", "no commands here")
+      },
+    } as ScopedClient
+    renderListing(client)
+    fireEvent.click(await screen.findByRole("button", { name: "Load more" }))
+    await waitFor(() => expect(screen.getByRole("button", { name: "Loading…" })).toBeTruthy())
+    pages[""] = page([o("a2.txt")], [], "n1")
+    act(() => queryStore.invalidate("trove", ["objects.list"]))
+    await screen.findByText("a2.txt")
+    await act(async () => {
+      releaseStale()
+    })
+    expect(screen.queryByText("stale.txt")).toBeNull()
+    expect(screen.getByText("1 shown, more under this prefix")).toBeTruthy()
+    expect(screen.getByRole("button", { name: "Load more" })).toBeTruthy()
+  })
+
   it("renders a window of rows, not every row, past the threshold", async () => {
     const many = Array.from({ length: 250 }, (_, i) => o(`k${String(i).padStart(3, "0")}`))
     const { client } = listClient({ "": page(many, []) })

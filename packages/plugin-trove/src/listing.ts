@@ -55,9 +55,14 @@ export function useListing({ store, bucket, prefix }: { store: string; bucket: s
   const first = useQuery<ObjectsList>("objects.list", listParams(store, bucket, prefix))
   const [more, setMore] = useState<ObjectsList[]>([])
   const [loadingMore, setLoadingMore] = useState(false)
+  const [rereading, setRereading] = useState(false)
   const [moreError, setMoreError] = useState<ContractError | undefined>()
   const loadedCount = useRef(0)
   const seenFirst = useRef<ObjectsList | undefined>(undefined)
+  // Bumped whenever the first page changes. A Load more or a re-read that
+  // started under an older generation read from a cursor that no longer
+  // belongs to the listing, so its result, or its failure, is dropped.
+  const generation = useRef(0)
 
   useEffect(() => {
     loadedCount.current = more.length
@@ -68,48 +73,62 @@ export function useListing({ store, bucket, prefix }: { store: string; bucket: s
     if (data === undefined || data === seenFirst.current) return
     const previous = seenFirst.current
     seenFirst.current = data
+    if (previous === undefined) return
+    const mine = ++generation.current
+    // Any Load more still in flight read from the old cursor. It is dropped,
+    // so it can no longer clear its own flag.
+    setLoadingMore(false)
     const count = loadedCount.current
-    if (previous === undefined || count === 0) return
-    let cancelled = false
+    if (count === 0) {
+      setRereading(false)
+      return
+    }
+    setRereading(true)
     void (async () => {
       const pages: ObjectsList[] = []
       let cursor = data.nextCursor
+      let failure: ContractError | undefined
       try {
         for (let i = 0; i < count && cursor !== null; i++) {
           const next = await client.query<ObjectsList>("objects.list", listParams(store, bucket, prefix, cursor))
+          if (mine !== generation.current) return
           pages.push(next)
           cursor = next.nextCursor
         }
-        if (!cancelled) {
-          setMore(pages)
-          setMoreError(undefined)
-        }
       } catch (error) {
-        if (!cancelled) {
-          setMore(pages)
-          setMoreError(error as ContractError)
-        }
+        failure = error as ContractError
       }
+      if (mine !== generation.current) return
+      setMore(pages)
+      setMoreError(failure)
+      setRereading(false)
     })()
-    return () => {
-      cancelled = true
-    }
   }, [first.data, client, store, bucket, prefix])
 
   const last = more.length > 0 ? more[more.length - 1] : first.data
   const nextCursor = last?.nextCursor ?? null
   const rows = first.data ? [first.data, ...more].flatMap(mergePage) : []
+  // Load more waits for a re-read: the re-read replaces the pages, and a page
+  // read from the old cursor in the meantime would land on the wrong rows.
+  const busy = loadingMore || rereading
 
   function loadMore() {
-    if (nextCursor === null || loadingMore) return
+    if (nextCursor === null || busy) return
+    const mine = generation.current
     setLoadingMore(true)
     setMoreError(undefined)
     client
       .query<ObjectsList>("objects.list", listParams(store, bucket, prefix, nextCursor))
-      .then((next) => setMore((pages) => [...pages, next]))
-      .catch((error: ContractError) => setMoreError(error))
-      .finally(() => setLoadingMore(false))
+      .then((next) => {
+        if (mine === generation.current) setMore((pages) => [...pages, next])
+      })
+      .catch((error: ContractError) => {
+        if (mine === generation.current) setMoreError(error)
+      })
+      .finally(() => {
+        if (mine === generation.current) setLoadingMore(false)
+      })
   }
 
-  return { first, rows, nextCursor, loadMore, loadingMore, moreError }
+  return { first, rows, nextCursor, loadMore, loadingMore: busy, moreError }
 }
