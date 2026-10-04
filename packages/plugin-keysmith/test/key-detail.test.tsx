@@ -1,8 +1,9 @@
 import { describe, expect, it } from "vitest"
 import { cleanup, fireEvent, screen, waitFor, within } from "@testing-library/react"
-import { ContractError } from "@forge-go/dashboard-plugin"
+import { ContractError, queryStore } from "@forge-go/dashboard-plugin"
+import type { ScopedClient } from "@forge-go/dashboard-plugin"
 import { KeyDetailPage } from "../src/pages/key-detail"
-import type { KeyDetail, KeySummary, PolicyRef } from "../src/types"
+import type { KeyDetail, KeyRotated, KeySummary, PolicyRef } from "../src/types"
 import {
   failingClient,
   recordingCommandClient,
@@ -120,7 +121,7 @@ describe("KeyDetailPage validity", () => {
     const s = section("Validity")
     const prev = within(s).getByText("sk_live_…7c1e")
     expect(prev.className).toContain("font-mono")
-    expect(within(s).getByText(/valid until/)).toBeTruthy()
+    expect(within(s).getByText(/keeps working until/)).toBeTruthy()
     expect(
       within(s).getByText(
         "Both the current key and this previous key are accepted until then.",
@@ -181,7 +182,7 @@ describe("KeyDetailPage validity", () => {
     await render(detail({ previousKeys: [] }))
     const s = section("Validity")
     expect(within(s).getByText("No previous key is still accepted.")).toBeTruthy()
-    expect(within(s).queryByText(/valid until/)).toBeNull()
+    expect(within(s).queryByText(/keeps working until/)).toBeNull()
   })
 })
 
@@ -522,5 +523,147 @@ describe("KeyDetailPage End now", () => {
   it("has no End now when no previous key is accepted", async () => {
     await render(detail({ previousKeys: [] }))
     expect(screen.queryByRole("button", { name: "End now" })).toBeNull()
+  })
+})
+
+/**
+ * A client that answers like the host: a command's `invalidates` reaches
+ * `queryStore.invalidate` for this extension before the command's answer
+ * comes back (PluginHost's meta listener runs inside the client's send).
+ * Each keys.detail read after the first waits for the test to release it, so
+ * the test can look at the page while the refetch is in flight.
+ */
+function hostLikeClient(
+  first: KeyDetail,
+  commands: Record<string, { answer: unknown; invalidates: string[]; next: KeyDetail }>
+) {
+  let current = first
+  let reads = 0
+  const sent: { intent: string; payload: unknown }[] = []
+  const held: (() => void)[] = []
+  const client = {
+    extension: "keysmith",
+    query: (intent: string) => {
+      if (intent !== "keys.detail") {
+        return Promise.reject(new ContractError("NOT_FOUND", `no handler for intent "${intent}"`))
+      }
+      reads += 1
+      const answer = current
+      if (reads === 1) return Promise.resolve(answer)
+      return new Promise((resolve) => held.push(() => resolve(answer)))
+    },
+    command: async (intent: string, payload?: unknown) => {
+      sent.push({ intent, payload })
+      const c = commands[intent]
+      if (!c) throw new ContractError("NOT_FOUND", `no handler for command "${intent}"`)
+      current = c.next
+      queryStore.invalidate("keysmith", c.invalidates)
+      return c.answer
+    },
+  } as unknown as ScopedClient
+  return {
+    client,
+    sent,
+    releaseReads: () => {
+      for (const release of held.splice(0)) release()
+    },
+  }
+}
+
+describe("KeyDetailPage rotate through the refetch", () => {
+  // Obviously fake. A realistic-looking key never goes in a test.
+  const RAW_KEY = `sk_live_${"fedcba9876543210".repeat(2)}b7d2`
+  const ROTATED_AT = "2026-10-02T10:00:00Z"
+  const THIS_WINDOW = {
+    rotationId: "krot_now",
+    hint: "a3f8",
+    reason: "manual",
+    rotatedAt: ROTATED_AT,
+    graceEnds: "2026-10-03T10:00:00Z",
+  }
+  const ROTATED_KEY = key({ hint: "b7d2", rotatedAt: ROTATED_AT, updatedAt: ROTATED_AT })
+  const ROTATED: KeyRotated = {
+    key: ROTATED_KEY,
+    rawKey: RAW_KEY,
+    previousKeys: [THIS_WINDOW],
+  }
+  const AFTER = detail({ key: ROTATED_KEY, previousKeys: [THIS_WINDOW] })
+
+  function storeText(): string {
+    // Reaches into a private field on purpose: the query store has no public
+    // listing, and "the raw key is in no cache" is the property that matters.
+    const records = (queryStore as unknown as { records: Map<string, unknown> }).records
+    return JSON.stringify([...records.values()])
+  }
+
+  it("keeps the new key on screen while keys.detail refetches, and forgets it after Done", async () => {
+    const host = hostLikeClient(detail({ previousKeys: [] }), {
+      "keys.rotate": {
+        answer: ROTATED,
+        invalidates: ["keys.list", "keys.detail", "rotations.list", "overview"],
+        next: AFTER,
+      },
+    })
+    renderPage(KeyDetailPage, host.client, { id: "akey_billing" })
+    await screen.findByRole("heading", { level: 1, name: "Billing service" })
+
+    fireEvent.click(screen.getByRole("button", { name: "Rotate key" }))
+    const form = await screen.findByRole("dialog", { name: "Rotate key" })
+    fireEvent.click(within(form).getByRole("button", { name: "Rotate key" }))
+
+    // The refetch is out: the page is a skeleton, and the key is still up.
+    // The open dialog hides the page from the accessibility tree, hence
+    // `hidden` for anything outside it.
+    await screen.findByRole("status", { name: "Loading Key", hidden: true })
+    const shown = await screen.findByRole("dialog", { name: "Save your new key" })
+    expect(shown.textContent).toContain(RAW_KEY)
+    expect(host.sent.map((s) => s.intent)).toEqual(["keys.rotate"])
+
+    // And after it settles, with the page now showing the rotated key.
+    host.releaseReads()
+    await waitFor(() =>
+      expect(screen.queryByRole("status", { name: "Loading Key", hidden: true })).toBeNull(),
+    )
+    const page = screen.getByRole("heading", { level: 1, hidden: true }).closest("section")
+    expect(page?.textContent).toContain("sk_live_…b7d2")
+    const after = screen.getByRole("dialog", { name: "Save your new key" })
+    expect(after.textContent).toContain(RAW_KEY)
+    // A routine rotation with its one window: nothing earlier is open, even
+    // though the page's key now carries the new hint.
+    expect(within(after).getByText("sk_live_…a3f8")).toBeTruthy()
+    expect(within(after).queryByText(/An earlier previous key/)).toBeNull()
+
+    fireEvent.click(within(after).getByRole("checkbox"))
+    fireEvent.click(within(after).getByRole("button", { name: "Done" }))
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull())
+    expect(document.body.textContent).not.toContain(RAW_KEY)
+    expect(storeText()).not.toContain(RAW_KEY)
+  })
+
+  it("closes End now cleanly through its refetch and shows the window gone", async () => {
+    const host = hostLikeClient(DETAIL, {
+      "keys.endGrace": {
+        answer: { key: DETAIL.key, closed: 1 },
+        invalidates: ["keys.detail", "rotations.list", "overview"],
+        next: detail({ previousKeys: [] }),
+      },
+    })
+    renderPage(KeyDetailPage, host.client, { id: "akey_billing" })
+    await screen.findByRole("heading", { level: 1, name: "Billing service" })
+
+    fireEvent.click(within(section("Validity")).getByRole("button", { name: "End now" }))
+    const confirm = await screen.findByRole("alertdialog", {
+      name: "Stop accepting sk_live_…7c1e?",
+    })
+    fireEvent.click(within(confirm).getByRole("button", { name: "End now" }))
+    await waitFor(() => expect(screen.queryByRole("alertdialog")).toBeNull())
+
+    host.releaseReads()
+    await waitFor(() =>
+      expect(
+        within(section("Validity")).getByText("No previous key is still accepted."),
+      ).toBeTruthy(),
+    )
+    expect(host.sent).toEqual([{ intent: "keys.endGrace", payload: { id: "akey_billing" } }])
   })
 })

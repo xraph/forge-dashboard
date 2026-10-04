@@ -22,7 +22,7 @@ import type {
   PolicyRef,
   PreviousKey,
 } from "../src/types"
-import { recordingCommandClient } from "./harness"
+import { failingClient, recordingCommandClient } from "./harness"
 
 // Obviously fake. A realistic-looking key never goes in a test.
 const RAW_KEY = `sk_live_${"fedcba9876543210".repeat(2)}b7d2`
@@ -336,19 +336,11 @@ describe("RotateKeyDialog submit", () => {
   })
 
   it("shows a server error inside the dialog and keeps the form", async () => {
-    const client = {
-      extension: "keysmith",
-      query: async () => {
-        throw new Error("no queries")
-      },
-      command: async () => {
-        throw new ContractError(
-          "CONFLICT",
-          "a revoked or expired key cannot be rotated"
-        )
-      },
-    } as unknown as ScopedClient
-    mount(client)
+    mount(
+      failingClient(
+        new ContractError("CONFLICT", "a revoked or expired key cannot be rotated")
+      )
+    )
     await dialog()
     fireEvent.click(rotateButton())
     const alert = await screen.findByRole("alert")
@@ -438,7 +430,11 @@ describe("RotateKeyDialog reveal", () => {
   })
 
   it("shows an earlier window a zero-grace rotation left open, and says so", async () => {
-    await reveal(rotated([EARLIER_WINDOW]))
+    mount(standard(rotated([EARLIER_WINDOW])).client)
+    await dialog()
+    fireEvent.click(screen.getByRole("radio", { name: "Suspected compromise" }))
+    fireEvent.click(rotateButton())
+    await screen.findByText("This is the only time Keysmith will show it.")
     const d = screen.getByRole("dialog")
     expect(within(d).getByText("sk_live_…7c1e")).toBeTruthy()
     expect(
@@ -453,12 +449,56 @@ describe("RotateKeyDialog reveal", () => {
     ).toBeNull()
   })
 
-  it("lists this rotation's window and the earlier one together", async () => {
+  it("says to end an earlier window for a compromise even with some grace", async () => {
+    mount(standard(rotated([THIS_WINDOW, EARLIER_WINDOW])).client)
+    await dialog()
+    fireEvent.click(screen.getByRole("radio", { name: "Suspected compromise" }))
+    fireEvent.change(graceInput(), { target: { value: "1" } })
+    fireEvent.click(rotateButton())
+    await screen.findByText("This is the only time Keysmith will show it.")
+    expect(
+      within(screen.getByRole("dialog")).getByText(
+        "An earlier previous key is still accepted. End it now if it may also be compromised."
+      )
+    ).toBeTruthy()
+  })
+
+  it("lists this rotation's window and the earlier one together, neutrally on a routine rotation", async () => {
     await reveal(rotated([THIS_WINDOW, EARLIER_WINDOW]))
     const d = screen.getByRole("dialog")
     expect(within(d).getByText("sk_live_…a3f8")).toBeTruthy()
     expect(within(d).getByText("sk_live_…7c1e")).toBeTruthy()
-    expect(within(d).getByText(/An earlier previous key is still accepted/)).toBeTruthy()
+    expect(
+      within(d).getByText("An earlier previous key is still accepted.")
+    ).toBeTruthy()
+    expect(within(d).queryByText(/may also be compromised/)).toBeNull()
+  })
+
+  it("finds this rotation's window by the hint it had when sent, not the page's new one", async () => {
+    const { client } = standard(rotated([THIS_WINDOW]))
+    const view = mount(client)
+    await dialog()
+    fireEvent.click(rotateButton())
+    await screen.findByText("This is the only time Keysmith will show it.")
+
+    // The page refetches and hands the dialog the rotated key.
+    view.rerender(
+      <PluginProvider client={client}>
+        <Host summary={NEW_KEY} keyPolicy={NO_POLICY_GRACE} />
+      </PluginProvider>
+    )
+    const d = screen.getByRole("dialog")
+    expect(d.textContent).toContain(RAW_KEY)
+    expect(within(d).getByText("sk_live_…a3f8")).toBeTruthy()
+    expect(within(d).queryByText(/An earlier previous key/)).toBeNull()
+  })
+
+  it("counts an earlier window that happens to share the old hint", async () => {
+    const sameHint: PreviousKey = { ...EARLIER_WINDOW, hint: "a3f8" }
+    await reveal(rotated([sameHint, THIS_WINDOW]))
+    const d = screen.getByRole("dialog")
+    expect(within(d).getAllByText("sk_live_…a3f8")).toHaveLength(2)
+    expect(within(d).getByText("An earlier previous key is still accepted.")).toBeTruthy()
   })
 
   it("forgets the key after Done: not in the page, not in the store", async () => {

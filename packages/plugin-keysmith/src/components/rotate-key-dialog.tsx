@@ -28,17 +28,15 @@ import {
   RadioGroup,
   RadioGroupItem,
 } from "@forge-go/dashboard-kit/components/radio-group"
-import { Timestamp } from "@forge-go/dashboard-kit/components/timestamp"
 import { maskedKey } from "../format"
 import type {
   KeyRotated,
   KeySummary,
   PolicyRef,
-  PreviousKey,
   RotationReason,
 } from "../types"
-import { EndGraceDialog } from "./end-grace-dialog"
-import { OneTimeKey } from "./one-time-key"
+import { RotateKeyReveal } from "./rotate-key-reveal"
+import type { Rotation } from "./rotate-key-reveal"
 
 /** The longest window the server accepts: 90 days. */
 const MAX_GRACE_SECONDS = 7776000
@@ -92,7 +90,11 @@ function parseGrace(value: string, unit: Unit): number | null {
 export interface RotateKeyDialogProps {
   open: boolean
   onOpenChange: (open: boolean) => void
-  /** The key as the page last read it. */
+  /**
+   * The key as the page last read it. It changes under an open dialog: the
+   * rotation itself makes the page refetch, so the reveal reads nothing from
+   * it.
+   */
   summary: KeySummary
   /** Its policy, for the grace preset. */
   policy: PolicyRef | null
@@ -105,6 +107,11 @@ export interface RotateKeyDialogProps {
  * content, which Base UI mounts only while the dialog is open, so closing
  * forgets both. Two moments refuse a close for the same reasons as there:
  * while the command is out, and while the new key is up.
+ *
+ * Render it outside the page's QueryBoundary. A rotation invalidates the
+ * key's detail, the boundary shows its skeleton while that refetches, and a
+ * dialog inside it would unmount and take the only copy of the new key with
+ * it.
  */
 export function RotateKeyDialog({
   open,
@@ -169,9 +176,7 @@ function RotateKeyForm({
   const [problem, setProblem] = useState<string | null>(null)
   // The one copy of the raw key outside OneTimeKey's props. It is cleared by
   // Done, and by the whole form unmounting.
-  const [revealed, setRevealed] = useState<KeyRotated | null>(null)
-  const [windowsEnded, setWindowsEnded] = useState(false)
-  const [ending, setEnding] = useState(false)
+  const [revealed, setRevealed] = useState<Rotation | null>(null)
   // Set synchronously, so a second Enter in the same tick cannot slip past a
   // button that has not re-rendered as disabled yet.
   const sending = useRef(false)
@@ -222,6 +227,11 @@ function RotateKeyForm({
     }
     setProblem(null)
 
+    // Read now, not after the answer: the page refetches the key as the
+    // command settles, and by then `summary` is the rotated key.
+    const previousHint = summary.hint
+    const urgent = reason === "compromise" || graceSeconds === 0
+
     sending.current = true
     let result: KeyRotated | undefined
     try {
@@ -237,7 +247,7 @@ function RotateKeyForm({
     }
     if (!result) return
     // Copy first, then drop the hook's own copy of the answer.
-    setRevealed(result)
+    setRevealed({ result, previousHint, urgent })
     rotate.reset()
   }
 
@@ -247,85 +257,7 @@ function RotateKeyForm({
   }
 
   if (revealed) {
-    const windows = windowsEnded ? [] : revealed.previousKeys
-    // The window this rotation opened carries the hint the key had until now.
-    // Anything else is a window that was already open.
-    const thisRotation = windows
-      .filter((p) => p.hint === summary.hint)
-      .reduce<PreviousKey | undefined>(
-        (latest, p) =>
-          latest === undefined || p.rotatedAt > latest.rotatedAt ? p : latest,
-        undefined
-      )
-    const earlierOpen = windows.some((p) => p !== thisRotation)
-    const maskedOf = (p: PreviousKey) =>
-      maskedKey({
-        prefix: revealed.key.prefix,
-        environment: revealed.key.environment,
-        hint: p.hint,
-      })
-
-    return (
-      <>
-        <DialogHeader>
-          <DialogTitle>Save your new key</DialogTitle>
-        </DialogHeader>
-        <OneTimeKey
-          rawKey={revealed.rawKey}
-          summary={revealed.key}
-          onDone={done}
-          showHeading={false}
-        >
-          <div className="flex flex-col gap-2">
-            {windows.length === 0 ? (
-              <p className="text-sm text-muted-foreground">
-                {windowsEnded
-                  ? "Every previous key has been stopped."
-                  : "Your previous key stopped working when you rotated."}
-              </p>
-            ) : (
-              <>
-                <ul className="flex flex-col gap-2">
-                  {windows.map((p) => (
-                    <li
-                      key={p.rotationId}
-                      className="flex flex-wrap items-center gap-x-3 gap-y-1 rounded-md border px-3 py-2 text-sm"
-                    >
-                      <span className="font-mono text-xs">{maskedOf(p)}</span>
-                      <span className="text-muted-foreground">
-                        keeps working until
-                      </span>
-                      <Timestamp value={p.graceEnds} label="cutoff" />
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        className="ml-auto"
-                        onClick={() => setEnding(true)}
-                      >
-                        End now
-                      </Button>
-                    </li>
-                  ))}
-                </ul>
-                {earlierOpen && (
-                  <p className="text-sm text-muted-foreground">
-                    An earlier previous key is still accepted. End it now if it
-                    may also be compromised.
-                  </p>
-                )}
-              </>
-            )}
-          </div>
-        </OneTimeKey>
-        <EndGraceDialog
-          open={ending}
-          onOpenChange={setEnding}
-          keyId={summary.id}
-          masked={windows.map(maskedOf)}
-          onEnded={() => setWindowsEnded(true)}
-        />
-      </>
-    )
+    return <RotateKeyReveal rotation={revealed} onDone={done} />
   }
 
   return (

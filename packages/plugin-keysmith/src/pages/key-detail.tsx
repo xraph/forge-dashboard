@@ -20,6 +20,7 @@ import { formatTimestamp } from "@forge-go/dashboard-kit/lib/format"
 import { KeyStateBadge } from "../badges"
 import { formatDuration, maskedKey } from "../format"
 import { EndGraceDialog } from "../components/end-grace-dialog"
+import { PreviousKeyRow } from "../components/previous-key-row"
 import { RotateKeyDialog } from "../components/rotate-key-dialog"
 import type { KeyDetail, KeyState } from "../types"
 
@@ -45,6 +46,22 @@ export const KeyDetailPage: ComponentType<PluginPageProps> = ({ params }) => {
 
 function KeyDetailBody({ id }: { id: string }) {
   const detail = useQuery<KeyDetail>("keys.detail", { id })
+  const latest = useLatestDetail(detail.data, id)
+
+  // The dialogs sit outside the QueryBoundary, as on the keys list. Rotate and
+  // End now both invalidate keys.detail, the boundary shows its skeleton while
+  // that refetches, and anything inside it unmounts: for Rotate that is the
+  // only copy of the new key. Their open state lives here for the same reason.
+  const [rotating, setRotating] = useState(false)
+  const [ending, setEnding] = useState(false)
+  // Named when End now is pressed and kept through the close, so the
+  // confirmation does not change its wording as the refetch empties the list.
+  const [endingMasked, setEndingMasked] = useState<string[]>([])
+
+  function startEnding(data: KeyDetail) {
+    setEndingMasked(previousMasked(data))
+    setEnding(true)
+  }
 
   // Matched on the message as well as the code: a wrong intent name is also
   // NOT_FOUND, and telling an operator "no key with this id" about a typo in
@@ -52,8 +69,8 @@ function KeyDetailBody({ id }: { id: string }) {
   // not a key id at all (a mangled address) answers BAD_REQUEST, and no key
   // has that id either. Once there is data the page stays up, so this only
   // runs for a read that failed.
-  if (detail.data === undefined && isNoSuchKey(detail.error)) {
-    return (
+  const body =
+    detail.data === undefined && isNoSuchKey(detail.error) ? (
       <EmptyState
         title="No key with this id."
         description="It may have been deleted, or the address may be mistyped."
@@ -66,13 +83,60 @@ function KeyDetailBody({ id }: { id: string }) {
           </PluginLink>
         }
       />
+    ) : (
+      <QueryBoundary title="Key" query={detail} skeletonRows={4}>
+        {(data) => (
+          <KeyDetailView
+            data={data}
+            onRotate={() => setRotating(true)}
+            onEnd={() => startEnding(data)}
+          />
+        )}
+      </QueryBoundary>
     )
-  }
 
   return (
-    <QueryBoundary title="Key" query={detail} skeletonRows={4}>
-      {(data) => <KeyDetailView data={data} />}
-    </QueryBoundary>
+    <>
+      {body}
+      {latest && (
+        <>
+          <RotateKeyDialog
+            open={rotating}
+            onOpenChange={setRotating}
+            summary={latest.key}
+            policy={latest.policy}
+          />
+          <EndGraceDialog
+            open={ending}
+            onOpenChange={setEnding}
+            keyId={latest.key.id}
+            masked={endingMasked}
+          />
+        </>
+      )}
+    </>
+  )
+}
+
+/**
+ * The last detail that arrived for this id. A refetch keeps the previous data
+ * beside `loading`, but a refetch that fails drops it, and an open dialog
+ * must not unmount because a read after the command went wrong.
+ */
+function useLatestDetail(
+  data: KeyDetail | undefined,
+  id: string
+): KeyDetail | undefined {
+  const [latest, setLatest] = useState(data)
+  if (data !== undefined && data !== latest) setLatest(data)
+  const current = data ?? latest
+  return current?.key.id === id ? current : undefined
+}
+
+function previousMasked(data: KeyDetail): string[] {
+  const { key } = data
+  return (data.previousKeys ?? []).map((p) =>
+    maskedKey({ prefix: key.prefix, environment: key.environment, hint: p.hint })
   )
 }
 
@@ -94,13 +158,20 @@ function Section({ title, children }: { title: string; children: ReactNode }) {
   )
 }
 
-function KeyDetailView({ data }: { data: KeyDetail }) {
+function KeyDetailView({
+  data,
+  onRotate,
+  onEnd,
+}: {
+  data: KeyDetail
+  onRotate: () => void
+  onEnd: () => void
+}) {
   const { key } = data
   const expiredUnmarked = key.effectiveState === "expired" && key.expiryPending
   // Matches the server: a revoked or expired key answers CONFLICT.
   const rotatable =
     key.effectiveState === "active" || key.effectiveState === "suspended"
-  const [rotating, setRotating] = useState(false)
 
   return (
     <section className="flex flex-col gap-6">
@@ -110,7 +181,7 @@ function KeyDetailView({ data }: { data: KeyDetail }) {
           description={key.description}
           actions={
             rotatable ? (
-              <Button onClick={() => setRotating(true)}>Rotate key</Button>
+              <Button onClick={onRotate}>Rotate key</Button>
             ) : undefined
           }
         />
@@ -134,7 +205,7 @@ function KeyDetailView({ data }: { data: KeyDetail }) {
       <DetailLayout
         main={
           <>
-            <ValiditySection data={data} />
+            <ValiditySection data={data} onEnd={onEnd} />
             <DetailsSection data={data} />
             <Section title="Scopes">
               <TagList values={key.scopes ?? []} label="scopes" />
@@ -156,24 +227,20 @@ function KeyDetailView({ data }: { data: KeyDetail }) {
           </>
         }
       />
-      {rotatable && (
-        <RotateKeyDialog
-          open={rotating}
-          onOpenChange={setRotating}
-          summary={key}
-          policy={data.policy}
-        />
-      )}
     </section>
   )
 }
 
-function ValiditySection({ data }: { data: KeyDetail }) {
+function ValiditySection({
+  data,
+  onEnd,
+}: {
+  data: KeyDetail
+  onEnd: () => void
+}) {
   const { key } = data
   const previous = data.previousKeys ?? []
-  const [ending, setEnding] = useState(false)
-  const maskedOf = (hint: string) =>
-    maskedKey({ prefix: key.prefix, environment: key.environment, hint })
+  const masked = previousMasked(data)
   return (
     <Section title="Validity">
       {previous.length === 0 ? (
@@ -183,34 +250,18 @@ function ValiditySection({ data }: { data: KeyDetail }) {
       ) : (
         <>
           <ul className="flex flex-col gap-2">
-            {previous.map((p) => (
-              <li
+            {previous.map((p, i) => (
+              <PreviousKeyRow
                 key={p.rotationId}
-                className="flex flex-wrap items-center gap-x-3 gap-y-1 rounded-md border px-3 py-2 text-sm"
-              >
-                <span className="font-mono text-xs">{maskedOf(p.hint)}</span>
-                <span className="text-muted-foreground">valid until</span>
-                <Timestamp value={p.graceEnds} label="cutoff" />
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="ml-auto"
-                  onClick={() => setEnding(true)}
-                >
-                  End now
-                </Button>
-              </li>
+                masked={masked[i]}
+                graceEnds={p.graceEnds}
+                onEnd={onEnd}
+              />
             ))}
           </ul>
           <p className="text-sm text-muted-foreground">
             {validitySentence(key.effectiveState, previous.length)}
           </p>
-          <EndGraceDialog
-            open={ending}
-            onOpenChange={setEnding}
-            keyId={key.id}
-            masked={previous.map((p) => maskedOf(p.hint))}
-          />
         </>
       )}
     </Section>
