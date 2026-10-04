@@ -34,6 +34,7 @@ export async function verifySentinel({ dispatch, getCSRF, failures }) {
   const q = (intent, input = {}) => dispatch("sentinel", intent, "query", input, csrf)
   const c = (intent, input = {}) => dispatch("sentinel", intent, "command", input, csrf)
   const check = (name, ok, detail) => {
+    ok = Boolean(ok)
     console.log(`  sentinel ${name}: ${ok}`)
     if (!ok) failures.push({ key: `spot-check::sentinel ${name}`, reason: typeof detail === "string" ? detail : JSON.stringify(detail) })
   }
@@ -46,6 +47,7 @@ export async function verifySentinel({ dispatch, getCSRF, failures }) {
     message: (r) => r.body?.error?.message,
     invalidates: (r) => (r.body?.meta?.invalidates ?? []).join(","),
   }
+  check("every seeded id these checks name exists", Object.values(I).length === 32 && Object.values(I).every(Boolean), Object.keys(I).filter((k) => !I[k]))
   for (const run of CHECKS) await run(ctx)
 }
 
@@ -53,7 +55,7 @@ export async function verifySentinel({ dispatch, getCSRF, failures }) {
 CHECKS.push(async ({ q, check, data, code, message }) => {
   const config = data(await q("config.get"))
   const names = config?.scorers?.map((s) => s.name) ?? []
-  check("config.get lists the scorers sorted by name", names.join(",") === [...names].sort().join(",") && names.length === 11, names)
+  check("config.get lists the scorers sorted by name", names.join(",") === [...names].sort().join(",") && names.length === 12, names)
   const needsConfig = config?.scorers?.filter((s) => s.requiresConfig).map((s) => s.name).join(",")
   check("requiresConfig is true for exactly cost, latency, length and regex", needsConfig === "cost,latency,length,regex", needsConfig)
   check("a scorer says usesLlm, spelled that way", config?.scorers?.every((s) => typeof s.usesLlm === "boolean" && !("usesLLM" in s)) === true, config?.scorers?.[0])
@@ -239,13 +241,20 @@ CHECKS.push(async ({ q, c, check, data, code, message, invalidates }) => {
     reg?.state === "compared" && reg.hasRegression === true && reg.baseline?.id === I.supportBaseline && reg.thresholdSource === "run" && reg.threshold === 0.05,
     reg,
   )
-  check("a dimension the run stopped measuring is listed and regresses", JSON.stringify(reg?.missingDimensions) === '["tone"]', reg?.missingDimensions)
+  check("a dimension the run stopped measuring is listed and regresses", JSON.stringify(reg?.missingDimensions) === '["trait"]', reg?.missingDimensions)
   check("worstDelta is never above zero and passRateDelta is the drop", reg?.worstDelta <= 0 && reg?.passRateDelta < -0.05 && reg?.regressedCases?.length > 0, reg)
   check("runs.detail carries lastProgressAt, in whole seconds", /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$/.test(detail?.run?.lastProgressAt ?? ""), detail?.run?.lastProgressAt)
+  check("no seeded time is in the future", Date.parse(detail?.run?.completedAt) <= Date.now() && Date.parse(detail?.run?.lastProgressAt) <= Date.now(), [detail?.run?.completedAt, detail?.run?.lastProgressAt])
   const listed = data(await q("runs.list", { suiteId: I.supportSuite }))?.items ?? []
   check("runs.list never sends lastProgressAt", listed.length > 0 && listed.every((r) => !("lastProgressAt" in r)), listed[0])
   const noBaseline = data(await q("runs.detail", { runId: I.billingRun }))?.regression
   check("a suite with no baseline answers noBaseline with empty collections", noBaseline?.state === "noBaseline" && Array.isArray(noBaseline.regressedCases) && JSON.stringify(noBaseline.dimensionDeltas) === "{}", noBaseline)
+  const failedRun = data(await q("runs.detail", { runId: I.failedRun }))
+  check(
+    "a failed run says why and is notComparable runFailed",
+    failedRun?.run?.state === "failed" && failedRun.run.error === "1 of 4 results could not be stored" && failedRun.regression?.state === "notComparable" && failedRun.regression.reason === "runFailed",
+    failedRun && { run: failedRun.run.error, regression: failedRun.regression },
+  )
   const cancelled = data(await q("runs.detail", { runId: I.cancelledRun }))
   check("a cancelled run is notComparable runCancelled", cancelled?.regression?.state === "notComparable" && cancelled.regression.reason === "runCancelled" && cancelled.run.completedCases < cancelled.run.totalCases, cancelled?.regression)
 
@@ -289,7 +298,9 @@ CHECKS.push(async ({ q, c, check, data, code, message, invalidates }) => {
   check("runs.trend with limit 3 keeps the newest three", three.length === 3 && three[2]?.runId === I.supportRegressedRun, three.map((p) => p.runId))
   const cmp = data(await q("runs.compare", { runId: I.supportBaselineRun, otherRunId: I.supportRegressedRun }))
   check("runs.compare answers four deltas in order", cmp?.deltas?.map((d) => d.metric).join(",") === "pass_rate,avg_score,avg_latency_ms,total_cost" && cmp.deltas.every((d) => Math.abs(d.b - d.a - d.delta) < 1e-12), cmp?.deltas)
-  check("runs.compare lists a dimension only one run measured", JSON.stringify(cmp?.dimensionsOnlyIn) === '{"a":["tone"],"b":[]}' && "persona" in cmp.dimensionDeltas, cmp?.dimensionsOnlyIn)
+  check("runs.compare lists a dimension only one run measured", JSON.stringify(cmp?.dimensionsOnlyIn) === '{"a":["trait"],"b":[]}' && "persona" in cmp.dimensionDeltas && "communication" in cmp.dimensionDeltas, cmp?.dimensionsOnlyIn)
+  const latestDims = Object.keys(data(await q("runs.trend", { suiteId: I.supportSuite }))?.points?.[0]?.dimensionScores ?? {}).sort()
+  check("the support runs measure three of the canonical dimensions", latestDims.join(",") === "communication,persona,trait", latestDims)
   check("runs.compare pairs every case", cmp?.cases?.length === 8 && cmp.cases.every((p) => p.a && p.b), cmp?.cases?.length)
   const across = await q("runs.compare", { runId: I.supportRegressedRun, otherRunId: I.billingRun })
   check("comparing runs of two suites is BAD_REQUEST", message(across) === "runs from different suites have no cases in common to compare", across.body)
@@ -369,14 +380,23 @@ CHECKS.push(async ({ q, c, check, data, code, message, invalidates }) => {
     started,
   )
   check("runs.start declares the manifest's invalidates", invalidates(startRes) === "runs.list,suites.detail,prompts.list,prompts.detail,overview.stats", invalidates(startRes))
+  // The fixture advances a started run at most once a second, so poll the way a page does.
   const seen = []
   let last
-  for (let i = 0; i < 10; i++) {
+  for (let i = 0; i < 20; i++) {
+    await new Promise((resolve) => setTimeout(resolve, 1100))
     last = data(await q("runs.detail", { runId: started?.id }))
     seen.push(last?.run?.completedCases)
     if (last?.run?.state === "completed") break
   }
-  check("a polled run advances and completes", last?.run?.state === "completed" && last.run.completedCases === 8 && seen.every((n, i) => i === 0 || n >= seen[i - 1]), seen)
+  check(
+    "a polled run passes through partial counts and completes",
+    last?.run?.state === "completed" && last.run.completedCases === 8 && seen.every((n, i) => i === 0 || n >= seen[i - 1]) && seen.some((n) => n > 0 && n < 8),
+    seen,
+  )
+  const stalled = data(await q("runs.detail", { runId: I.stalledRun }))?.run
+  // The walk cancels it, and the trove checks' reset brings it back: either way it never advances.
+  check("the seeded stalled run never advances", ["running", "cancelled"].includes(stalled?.state) && stalled.completedCases === 2 && stalled.totalCases === 4, stalled && [stalled.state, stalled.completedCases, stalled.totalCases])
   check("a completed run has completedAt and lastProgressAt", typeof last?.run?.completedAt === "string" && typeof last?.run?.lastProgressAt === "string", last?.run)
   const lateCancel = await c("runs.cancel", { runId: started?.id })
   check("cancelling a finished run is CONFLICT with the engine's words", code(lateCancel) === "CONFLICT" && message(lateCancel) === `sentinel: invalid state transition: run ${started?.id} is not running`, lateCancel.body)
@@ -416,6 +436,8 @@ CHECKS.push(async ({ q, c, check, data, code, message, invalidates }) => {
   }
   const unknownType = await c("redteam.generate", { suiteId: I.guardSuite, attackTypes: ["jailbreak", "phishing"], count: 1 })
   check("an unknown attack type is named", message(unknownType) === 'sentinel: invalid input: unknown attack type "phishing"', unknownType.body)
+  const protoType = await c("redteam.generate", { suiteId: I.guardSuite, attackTypes: ["constructor"], count: 1 })
+  check("an attack type named after an object property is unknown too", message(protoType) === 'sentinel: invalid input: unknown attack type "constructor"', protoType.body)
   const casesBefore = data(await q("suites.detail", { suiteId: empty?.id }))?.caseCount
   const promptless = await c("redteam.generate", { suiteId: empty?.id, attackTypes: ["jailbreak", "leakage"], count: 2 })
   check(

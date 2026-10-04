@@ -28,14 +28,18 @@
 //     tenant's ids can be probed: they must answer exactly like missing ids.
 //   - Targets and scorers. The real engine has the targets and scorers the
 //     application registers. Here two targets are registered ("echo" and
-//     "support-bot") plus the nine built-in scorers and two LLM-judge
-//     stand-ins ("judge", dimension persona; "tone_judge", dimension tone).
+//     "support-bot") plus the nine built-in scorers and three LLM-judge
+//     stand-ins ("judge", dimension persona; "trait_judge", trait;
+//     "comms_judge", communication).
+//   - Regex. A regex scorer's pattern is checked with JavaScript's RegExp,
+//     which accepts lookaheads and backreferences that Go's RE2 refuses.
 //     FIXTURE_SENTINEL_NO_TARGETS=1 registers no target, which is what a
 //     deployment that never called WithTarget looks like.
 //   - Runs. runs.start answers a running run at once, like Go, and the run
-//     then advances CASES_PER_TICK cases every time any sentinel query is
-//     read, until it completes, so a page polling it can be watched filling
-//     in. The seeded running run never advances: it stands for a stalled run.
+//     then advances CASES_PER_TICK cases when a sentinel query is read, at
+//     most once every TICK_MS, until it completes, so a page polling it can be
+//     watched filling in. The seeded running run never advances: it stands
+//     for a stalled run.
 //     A cancel finalises the run's counters at once, where Go leaves them at
 //     zero until its runner notices.
 //   - Outputs. The targets are deterministic stand-ins: the same run seed and
@@ -73,8 +77,11 @@ const REGRESSION_LOOKBACK_RUNS = 20
 const MAX_IMPORT_BYTES = 1 << 20
 const MAX_PER_TYPE = 5
 const REGRESSION_EPSILON = 1e-9
-// The fixture's own: how far a started run gets per query read.
-const CASES_PER_TICK = 2
+// The fixture's own: a started run scores CASES_PER_TICK cases when a query
+// is read, and at most once every TICK_MS, so an eight-case run takes about
+// eight seconds to watch.
+const CASES_PER_TICK = 1
+const TICK_MS = 1000
 
 const SCENARIO_TYPES = [
   "standard",
@@ -199,6 +206,7 @@ function registeredTargets() {
  * two LLM-judge stand-ins an application would register itself.
  */
 const SCORERS = [
+  { name: "comms_judge", description: "LLM judge for communication style.", dimension: "communication", usesLlm: true, requiresConfig: false },
   { name: "contains", description: "Passes when the output contains a substring (config: substring, case_insensitive).", usesLlm: false, requiresConfig: false },
   { name: "cost", description: "Passes when the target reported a cost at or below max_cost.", usesLlm: false, requiresConfig: true },
   { name: "exact", description: "Passes when the output equals the expected value.", usesLlm: false, requiresConfig: false },
@@ -209,7 +217,7 @@ const SCORERS = [
   { name: "length", description: "Passes when the output's word count is within min and max.", usesLlm: false, requiresConfig: true },
   { name: "not_contains", description: "Passes when the output does not contain a substring (config: substring, case_insensitive).", usesLlm: false, requiresConfig: false },
   { name: "regex", description: "Passes when the output matches a regular expression (config: pattern).", usesLlm: false, requiresConfig: true },
-  { name: "tone_judge", description: "LLM judge for tone.", dimension: "tone", usesLlm: true, requiresConfig: false },
+  { name: "trait_judge", description: "LLM judge for trait consistency.", dimension: "trait", usesLlm: true, requiresConfig: false },
 ]
 
 const isNumber = (v) => typeof v === "number" && Number.isFinite(v)
@@ -283,12 +291,13 @@ function score(name, config, ev) {
       return { score: ok ? 1 : 0, passed: ok, reason: `cost: $${ev.cost.toFixed(4)} (max=$${max.toFixed(4)})`, details: { cost: ev.cost } }
     }
     case "judge":
-    case "tone_judge": {
+    case "trait_judge":
+    case "comms_judge": {
       // A stand-in judge: a score near the run's quality, in hundredths.
       const spread = (hash(`${ev.seed}:${ev.caseId}:${name}`) % 31) - 15
       const s = Math.max(0, Math.min(100, ev.quality + spread)) / 100
       const ok = s >= 0.7
-      const dimension = name === "judge" ? "persona" : "tone"
+      const dimension = SCORERS.find((x) => x.name === name).dimension
       return { score: s, passed: ok, reason: `${name}: ${ok ? "consistent" : "drifted"} (${s.toFixed(2)})`, dimension }
     }
     default:
@@ -474,8 +483,9 @@ function suiteCases(suiteId) {
 function planRun(suite, { target, scorers, model, quality, leakRate, createdAt, id }) {
   const current = state.versions.find((v) => v.suiteId === suite.id && v.isCurrent)
   const cases = suiteCases(suite.id)
+  const runId = id ?? newId("erun")
   const run = {
-    id: id ?? newId("erun"),
+    id: runId,
     suiteId: suite.id,
     appId: suite.appId,
     model: model || suite.model || CONFIG.defaultModel,
@@ -502,10 +512,13 @@ function planRun(suite, { target, scorers, model, quality, leakRate, createdAt, 
     error: "",
     createdAt,
     completedAt: null,
-    // The fixture's own bookkeeping, never on the wire.
+    // The fixture's own bookkeeping, never on the wire. Pending cases are
+    // copies taken at plan time: Go's runner evaluates the cases it loaded
+    // when the run started, so a case deleted mid-run is still scored.
     simulated: false,
-    pending: cases.map((c) => c.id),
-    seed: id ?? String(createdAt),
+    pending: cases.map((c) => structuredClone(c)),
+    lastTickAt: createdAt,
+    seed: runId,
     quality,
     leakRate,
     prompt: effectivePrompt(suite),
@@ -517,7 +530,8 @@ function planRun(suite, { target, scorers, model, quality, leakRate, createdAt, 
 /**
  * Seeds a run that has already happened: every case evaluated at once, one
  * result every `stepMs`, then finalised. `stopAfter` leaves a run partway:
- * "running" (stalled) or "cancelled".
+ * "running" (stalled), "cancelled", or "failed" (a store fault, with the
+ * run-level error Go's runner writes).
  */
 function seedRun(suite, opts) {
   const run = planRun(suite, opts)
@@ -526,9 +540,13 @@ function seedRun(suite, opts) {
   cases.slice(0, upto).forEach((tc, i) => {
     state.results.push(evaluateCase(run, tc, opts.createdAt + (i + 1) * opts.stepMs, opts.resultIds?.[i]))
   })
-  run.pending = cases.slice(upto).map((c) => c.id)
+  run.pending = cases.slice(upto).map((c) => structuredClone(c))
   if (opts.end === "running") return run
   if (opts.end === "cancelled") run.state = "cancelled"
+  if (opts.end === "failed") {
+    run.state = "failed"
+    run.error = `${cases.length - upto} of ${cases.length} results could not be stored`
+  }
   finalizeRun(run, opts.createdAt + (upto + 1) * opts.stepMs)
   return run
 }
@@ -713,12 +731,13 @@ function seedSentinelState() {
     const latest = i === qualities.length - 1
     const r = run(latest ? "supportRegressedRun" : i === 6 ? "supportBaselineRun" : i === 3 ? "supportOldBaselineRun" : "", support, {
       target: "support-bot",
-      // The latest run drops tone_judge, so the baseline's tone dimension goes missing.
-      scorers: latest ? ["contains", "judge"] : ["contains", "judge", "tone_judge"],
+      // The latest run drops trait_judge, so the baseline's trait dimension goes missing.
+      scorers: latest ? ["contains", "judge", "comms_judge"] : ["contains", "judge", "trait_judge", "comms_judge"],
       model: "",
       quality,
       leakRate: 0,
-      createdAt: now - (14 - i * 2) * day,
+      // An hour back, so even the newest run's last result is in the past.
+      createdAt: now - (14 - i * 2) * day - hour,
       stepMs: 20_000,
     })
     if (i === 3) ids.supportOldBaseline = saveBaseline(r, "Release 1.2", r.completedAt + minute, next("base")).id
@@ -740,6 +759,7 @@ function seedSentinelState() {
   ]
   billingCases.forEach(([name, input, expected], i) => addCase(i === 0 ? "billingCase" : "", billing, { name, input, expected, tags: ["billing"] }, now - 20 * day + (i + 1) * minute))
   run("billingRun", billing, { target: "support-bot", scorers: ["contains"], model: "", quality: 80, leakRate: 0, createdAt: now - 3 * day, stepMs: 15_000 })
+  run("failedRun", billing, { target: "support-bot", scorers: ["contains"], model: "", quality: 80, leakRate: 0, createdAt: now - 2 * day, stepMs: 15_000, stopAfter: 3, end: "failed" })
   run("stalledRun", billing, { target: "support-bot", scorers: ["contains"], model: "fast", quality: 80, leakRate: 0, createdAt: now - 50 * minute, stepMs: 5 * minute, stopAfter: 2, end: "running" })
 
   // --- app_demo: "Guardrails", red-team cases, a run that leaked, and a cancelled run.
@@ -795,19 +815,18 @@ seedSentinelState()
 // ---------------------------------------------------------------------------
 
 /**
- * Advances every run runs.start began by CASES_PER_TICK cases, and finalises
- * a run whose last case has been stored. Called before every sentinel query.
- * A case deleted mid-run is skipped, as Go's runner skips a case it can no
- * longer load.
+ * Advances every run runs.start began by CASES_PER_TICK cases, at most once
+ * every TICK_MS, and finalises a run whose last case has been stored. Called
+ * before every sentinel query, so a page that stops polling stops the run.
  */
 function tick() {
+  const now = Date.now()
   for (const run of state.runs) {
     if (run.state !== "running" || !run.simulated) continue
-    for (const caseId of run.pending.splice(0, CASES_PER_TICK)) {
-      const tc = state.cases.find((c) => c.id === caseId)
-      if (tc) state.results.push(evaluateCase(run, tc, Date.now()))
-    }
-    if (run.pending.length === 0) finalizeRun(run, Date.now())
+    if (now - run.lastTickAt < TICK_MS) continue
+    run.lastTickAt = now
+    for (const tc of run.pending.splice(0, CASES_PER_TICK)) state.results.push(evaluateCase(run, tc, now))
+    if (run.pending.length === 0) finalizeRun(run, now)
   }
 }
 
@@ -1611,7 +1630,8 @@ function parseImport(format, data) {
   const rows = parseCSV(data)
   if (rows.length === 0) throw new Error("testcase: import csv header: EOF")
   const header = rows[0].map((h) => h.trim().toLowerCase())
-  const col = (name) => header.indexOf(name)
+  // A repeated header name means its last column, as Go's column map does.
+  const col = (name) => header.lastIndexOf(name)
   return rows.slice(1).map((r) => {
     if (r.length !== header.length) throw new Error(`testcase: import csv row: record on line ${r.line}: wrong number of fields`)
     const cell = (name) => (col(name) >= 0 ? r[col(name)] : "")
@@ -1938,7 +1958,7 @@ define("redteam.generate", "command", ["cases.list", "suites.list", "suites.deta
   const types = [...new Set(optStrList(input, "attackTypes") ?? [])]
   if (types.length === 0) throw badRequest("sentinel: invalid input: choose at least one attack type")
   for (const t of types) {
-    if (!REDTEAM_TEMPLATES[t]) throw badRequest(`sentinel: invalid input: unknown attack type "${t}"`)
+    if (!Object.hasOwn(REDTEAM_TEMPLATES, t)) throw badRequest(`sentinel: invalid input: unknown attack type "${t}"`)
     if ((t === "leakage" || t === "injection") && !effectivePrompt(s).trim()) {
       throw badRequest(`sentinel: invalid input: ${t} attacks need a system prompt to look for, and this suite has none`)
     }
