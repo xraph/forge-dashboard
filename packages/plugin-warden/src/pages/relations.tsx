@@ -223,6 +223,20 @@ function GraphPicker() {
           Showing the first 500 resource types.
         </p>
       )}
+      {/* A failed or forbidden read leaves the lists empty, which would
+          otherwise read as "there are none". */}
+      {graph.error && (
+        <p className="text-sm text-muted-foreground">
+          Could not read the resource types, so no object types can be
+          offered: {graph.error.message}
+        </p>
+      )}
+      {namespaces.error && (
+        <p className="text-sm text-muted-foreground">
+          Could not read the namespaces, so only the tenant root can be
+          chosen: {namespaces.error.message}
+        </p>
+      )}
       <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
         <span className="flex flex-col gap-1.5">
           <Label htmlFor="graph-object-type">Object type</Label>

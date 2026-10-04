@@ -726,6 +726,75 @@ describe("WardenRelationsPage: the graph", () => {
       )
     })
 
+    /** Answers like `client`, except that `intent` is refused with `error`. */
+    function refusing(intent: string, error: ContractError): ScopedClient {
+      const inner = client({ "resourceTypes.graph": GRAPH })
+      return {
+        ...inner,
+        query: async (asked: string, params?: Record<string, unknown>) => {
+          if (asked === intent) throw error
+          return inner.query(asked, params)
+        },
+      } as ScopedClient
+    }
+
+    async function openWith(c: ScopedClient) {
+      renderPage(WardenRelationsPage, c)
+      await screen.findByText(PLAIN)
+      const details = screen.getByText("Draw a relation graph").closest("details")!
+      details.open = true
+      fireEvent(details, new Event("toggle"))
+      return within(details)
+    }
+
+    it("says the resource types could not be read when that read is refused", async () => {
+      const form = await openWith(
+        refusing(
+          "resourceTypes.graph",
+          new ContractError("PERMISSION_DENIED", "read warden:resourcetype is required")
+        )
+      )
+      const line = await form.findByText(
+        "Could not read the resource types, so no object types can be offered: read warden:resourcetype is required"
+      )
+      expect(line.className).toContain("text-muted-foreground")
+      const types = form.getByLabelText("Object type") as HTMLSelectElement
+      expect(Array.from(types.options).map((o) => o.textContent)).toEqual(["Choose a type"])
+      expect(form.queryByText(/Could not read the namespaces/)).toBeNull()
+    })
+
+    it("says the namespaces could not be read when that read fails", async () => {
+      const form = await openWith(
+        refusing("namespaces.list", new ContractError("UNAVAILABLE", "the store is down"))
+      )
+      const line = await form.findByText(
+        "Could not read the namespaces, so only the tenant root can be chosen: the store is down"
+      )
+      expect(line.className).toContain("text-muted-foreground")
+      const ns = form.getByLabelText("Namespace") as HTMLSelectElement
+      expect(Array.from(ns.options).map((o) => o.textContent)).toEqual(["Tenant root"])
+      // The types still came back, so they are still offered.
+      const types = form.getByLabelText("Object type") as HTMLSelectElement
+      await waitFor(() =>
+        expect(Array.from(types.options).map((o) => o.textContent)).toEqual([
+          "Choose a type",
+          "document",
+          "folder",
+        ])
+      )
+      expect(form.queryByText(/Could not read the resource types/)).toBeNull()
+    })
+
+    it("says nothing could not be read when both reads succeed", async () => {
+      const form = await open()
+      await waitFor(() =>
+        expect(
+          Array.from((form.getByLabelText("Object type") as HTMLSelectElement).options).length
+        ).toBe(3)
+      )
+      expect(form.queryByText(/Could not read/)).toBeNull()
+    })
+
     it("drops the relation when the type changes to one that does not declare it", async () => {
       const form = await open()
       await waitFor(() => expect(form.getByLabelText("Object type")).toBeTruthy())

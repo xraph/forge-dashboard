@@ -25,9 +25,10 @@ const ROOT = "document:readme#editor"
 
 // The fixture's userset chain, trimmed to what each assertion needs:
 // readme's editors include the set group:eng#member, which holds erin and the
-// set group:platform#member, which holds the set group:oncall#member. The set
-// oncall has not been walked, as after a depth stop, and erin is a single
-// subject, which is never walked.
+// set group:platform#member, which holds the set group:oncall#member. The walk
+// completed, so every set was walked (oncall holds nothing), and erin is a
+// single subject, which is never walked. A complete walk drains its queue, so
+// a set it did not walk can only appear beside another stop: see FRONTIER.
 const EXPANSION = {
   nodes: [
     {
@@ -71,7 +72,7 @@ const EXPANSION = {
       id: "oncall",
       relation: "member",
       depth: 3,
-      walked: false,
+      walked: true,
       capped: false,
     },
   ],
@@ -94,6 +95,16 @@ const EXPANSION = {
   exactWalk: true,
   truncatedNodes: 0,
   path: [] as string[],
+}
+
+// The same chain after a depth stop at 2: every set at depth 2 or less was
+// walked, and oncall, at depth 3, is the frontier the walk did not expand.
+const FRONTIER = {
+  stop: "depth",
+  limit: 2,
+  nodes: EXPANSION.nodes.map((n) =>
+    n.key === "group:oncall#member" ? { ...n, walked: false } : n
+  ),
 }
 
 const NAMESPACES = { namespaces: ["", "eng/platform"] }
@@ -178,7 +189,7 @@ describe("the relation graph page", () => {
   })
 
   it("marks a set that was not walked, and never a single subject", async () => {
-    const { container } = setup()
+    const { container } = setup(FRONTIER)
     await drawn()
     expect(
       within(nodeOf(container, "group:oncall#member")).getByText("not expanded")
@@ -248,9 +259,12 @@ describe("the relation graph page", () => {
     })
 
     it("reads not expanded when the cap cut nothing, whatever edges are drawn", async () => {
+      // An unwalked set the cap did not touch needs a stop other than
+      // complete, so this is the depth-stopped chain.
       const { container } = setup({
+        ...FRONTIER,
         nodes: [
-          ...EXPANSION.nodes,
+          ...FRONTIER.nodes,
           { ...CUT, walked: false, capped: false },
           DANA,
         ],
@@ -314,7 +328,7 @@ describe("the relation graph page", () => {
     })
 
     it("names the depth limit", async () => {
-      setup({ stop: "depth", limit: 2 })
+      setup(FRONTIER)
       await drawn()
       expect(
         screen.getByText(
@@ -325,7 +339,8 @@ describe("the relation graph page", () => {
     })
 
     it("names the visited limit", async () => {
-      setup({ stop: "visited", limit: 3 })
+      // Root, eng and platform were walked; oncall would have been the fourth.
+      setup({ ...FRONTIER, stop: "visited", limit: 3 })
       await drawn()
       expect(
         screen.getByText(
@@ -335,7 +350,7 @@ describe("the relation graph page", () => {
     })
 
     it("names the fanout limit", async () => {
-      setup({ stop: "fanout", limit: 2 })
+      setup({ ...FRONTIER, stop: "fanout", limit: 2 })
       await drawn()
       expect(
         screen.getByText(
@@ -351,13 +366,24 @@ describe("the relation graph page", () => {
     })
 
     it("counts the nodes it left out past the cap", async () => {
-      setup({ stop: "depth", limit: 2, truncatedNodes: 2 })
+      setup({ ...FRONTIER, truncatedNodes: 2 })
       await drawn()
       expect(
         screen.getByText(
           "Showing 5 of 7 nodes. 2 more were reached but are not drawn."
         )
       ).toBeTruthy()
+    })
+
+    it("counts one node left out past the cap in the singular", async () => {
+      setup({ ...FRONTIER, truncatedNodes: 1 })
+      await drawn()
+      expect(
+        screen.getByText(
+          "Showing 5 of 6 nodes. 1 more was reached but is not drawn."
+        )
+      ).toBeTruthy()
+      expect(screen.queryByText(/more were reached/)).toBeNull()
     })
 
     it("does not say every tuple is shown when it completed but left nodes out", async () => {
@@ -377,9 +403,7 @@ describe("the relation graph page", () => {
     it("says nothing about the cap when no node was left out", async () => {
       setup()
       await drawn()
-      expect(
-        screen.queryByText(/more were reached but are not drawn/)
-      ).toBeNull()
+      expect(screen.queryByText(/reached but (are|is) not drawn/)).toBeNull()
       expect(screen.queryByText(/The walk reached every tuple/)).toBeNull()
     })
   })
@@ -398,6 +422,41 @@ describe("the relation graph page", () => {
       setup()
       await drawn()
       expect(screen.queryByText(NOTE)).toBeNull()
+    })
+
+    // The fallback walker that ran this expansion is built from Warden's
+    // config, and a check uses the installed walker, whose limits are unknown.
+    it("names the depth limit as the config's, not the engine's", async () => {
+      setup({ ...FRONTIER, exactWalk: false })
+      await drawn()
+      expect(
+        screen.getByText(
+          "Stopped at depth 2, the limit set in Warden's config. Relations beyond it are not shown."
+        )
+      ).toBeTruthy()
+      expect(screen.queryByText(/the engine's limit/)).toBeNull()
+    })
+
+    it("names the visited limit as the config's, not the engine's", async () => {
+      setup({ ...FRONTIER, stop: "visited", limit: 3, exactWalk: false })
+      await drawn()
+      expect(
+        screen.getByText(
+          "Stopped after walking 3 object relations, the limit set in Warden's config. More may be reachable."
+        )
+      ).toBeTruthy()
+      expect(screen.queryByText(/the engine's limit/)).toBeNull()
+    })
+
+    it("names the fanout limit as the config's, not the engine's", async () => {
+      setup({ ...FRONTIER, stop: "fanout", limit: 2, exactWalk: false })
+      await drawn()
+      expect(
+        screen.getByText(
+          "Stopped where one relation has 2 or more tuples, the limit set in Warden's config. The walk ends there, so what it had not yet reached is not shown."
+        )
+      ).toBeTruthy()
+      expect(screen.queryByText(/the engine's limit/)).toBeNull()
     })
   })
 

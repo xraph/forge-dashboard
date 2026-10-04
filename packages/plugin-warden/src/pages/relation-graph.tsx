@@ -20,6 +20,13 @@ const OWN_WALKER =
 
 /** The sentence for why the walk ended, which is also what is missing. */
 function stopSentence(expansion: RelationExpansion, root: string): string {
+  // When the deployment installs its own walker, the engine runs this
+  // expansion with a fallback walker built from Warden's config, while a check
+  // walks with the installed one, whose limits the response does not know. So
+  // the limit named is the config's, never "the engine's".
+  const whose = expansion.exactWalk
+    ? "the engine's limit"
+    : "the limit set in Warden's config"
   switch (expansion.stop) {
     case "complete":
       // A complete walk reached every tuple, but the cap can leave some of
@@ -28,13 +35,13 @@ function stopSentence(expansion: RelationExpansion, root: string): string {
         ? `The walk reached every tuple from ${root}.`
         : `Every tuple reachable from ${root} is shown.`
     case "depth":
-      return `Stopped at depth ${expansion.limit}, the engine's limit. Relations beyond it are not shown.`
+      return `Stopped at depth ${expansion.limit}, ${whose}. Relations beyond it are not shown.`
     case "visited":
       // The walker counts the object relations it walks (type:id#relation), not
       // every node it draws, so "nodes" would be the wrong unit.
-      return `Stopped after walking ${expansion.limit} object relations, the engine's limit. More may be reachable.`
+      return `Stopped after walking ${expansion.limit} object relations, ${whose}. More may be reachable.`
     case "fanout":
-      return `Stopped where one relation has ${expansion.limit} or more tuples, the engine's limit. The walk ends there, so what it had not yet reached is not shown.`
+      return `Stopped where one relation has ${expansion.limit} or more tuples, ${whose}. The walk ends there, so what it had not yet reached is not shown.`
   }
   return ""
 }
@@ -63,7 +70,11 @@ function View({
         <p>{ALWAYS}</p>
         {expansion.truncatedNodes > 0 && (
           <p>
-            {`Showing ${expansion.nodes.length} of ${expansion.nodes.length + expansion.truncatedNodes} nodes. ${expansion.truncatedNodes} more were reached but are not drawn.`}
+            {`Showing ${expansion.nodes.length} of ${expansion.nodes.length + expansion.truncatedNodes} nodes. ${
+              expansion.truncatedNodes === 1
+                ? "1 more was reached but is not drawn."
+                : `${expansion.truncatedNodes} more were reached but are not drawn.`
+            }`}
           </p>
         )}
         {!expansion.exactWalk && <p>{OWN_WALKER}</p>}
