@@ -2,7 +2,9 @@ import type { ComponentType } from "react"
 import { PluginLink } from "@forge-go/dashboard-plugin"
 import type { PluginPageProps } from "@forge-go/dashboard-plugin"
 import { PageHeader } from "@forge-go/dashboard-kit/components/page-header"
+import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from "@forge-go/dashboard-kit/components/resizable"
 import { TROVE_MOUNT, useBrowserLocation } from "../browser-location"
+import { Inspector } from "../components/inspector"
 import { ObjectListing } from "../components/object-listing"
 import { PathBar } from "../components/path-bar"
 
@@ -32,7 +34,23 @@ const BrowserPage: ComponentType<PluginPageProps> = ({ params }) => {
         </p>
       ) : null}
       <PathBar key={prefix} bucket={bucket} store={store} prefix={prefix} />
-      <ObjectListing key={`${store}\n${bucket}\n${prefix}`} store={store} bucket={bucket} prefix={prefix} selectedKey={key} />
+      <ResizablePanelGroup orientation="horizontal" className="rounded-md border" style={{ minHeight: "24rem" }}>
+        <ResizablePanel defaultSize="62" minSize="35">
+          <div className="flex h-full flex-col gap-3 p-3">
+            <ObjectListing key={`${store}\n${bucket}\n${prefix}`} store={store} bucket={bucket} prefix={prefix} selectedKey={key} />
+          </div>
+        </ResizablePanel>
+        <ResizableHandle withHandle />
+        <ResizablePanel defaultSize="38" minSize="25">
+          <div className="h-full overflow-auto p-3">
+            {key !== "" ? (
+              <Inspector key={`${store}\n${bucket}\n${key}`} store={store} bucket={bucket} objectKey={key} />
+            ) : (
+              <p className="text-sm text-muted-foreground">Select an object to see it here.</p>
+            )}
+          </div>
+        </ResizablePanel>
+      </ResizablePanelGroup>
     </section>
   )
 }
