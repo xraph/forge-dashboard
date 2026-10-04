@@ -216,3 +216,116 @@ CHECKS.push(async ({ q, c, check, data, code, message, invalidates }) => {
     invalidates(deleted),
   )
 })
+
+// --- runs, results, regression, trend, compare and baselines (task 3)
+Object.assign(SENTINEL_INPUT, {
+  "sentinel::runs.detail": { runId: I.supportRegressedRun },
+  "sentinel::runs.results": { runId: I.supportRegressedRun },
+  "sentinel::results.detail": { runId: I.supportRegressedRun, resultId: I.supportRegressedResult },
+  "sentinel::runs.regression": { runId: I.supportRegressedRun },
+  "sentinel::runs.trend": { suiteId: I.supportSuite },
+  "sentinel::runs.compare": { runId: I.supportBaselineRun, otherRunId: I.supportRegressedRun },
+  "sentinel::baselines.detail": { baselineId: I.supportBaseline },
+  "sentinel::baselines.save": { runId: I.tourRun, name: "Verify baseline" },
+  "sentinel::baselines.delete": { baselineId: I.tourBaseline },
+})
+
+CHECKS.push(async ({ q, c, check, data, code, message, invalidates }) => {
+  // The regressed run: compared against the current baseline, named reasons.
+  const detail = data(await q("runs.detail", { runId: I.supportRegressedRun }))
+  const reg = detail?.regression
+  check(
+    "the regressed run is compared against Release 1.4 and regressed",
+    reg?.state === "compared" && reg.hasRegression === true && reg.baseline?.id === I.supportBaseline && reg.thresholdSource === "run" && reg.threshold === 0.05,
+    reg,
+  )
+  check("a dimension the run stopped measuring is listed and regresses", JSON.stringify(reg?.missingDimensions) === '["tone"]', reg?.missingDimensions)
+  check("worstDelta is never above zero and passRateDelta is the drop", reg?.worstDelta <= 0 && reg?.passRateDelta < -0.05 && reg?.regressedCases?.length > 0, reg)
+  check("runs.detail carries lastProgressAt, in whole seconds", /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$/.test(detail?.run?.lastProgressAt ?? ""), detail?.run?.lastProgressAt)
+  const listed = data(await q("runs.list", { suiteId: I.supportSuite }))?.items ?? []
+  check("runs.list never sends lastProgressAt", listed.length > 0 && listed.every((r) => !("lastProgressAt" in r)), listed[0])
+  const noBaseline = data(await q("runs.detail", { runId: I.billingRun }))?.regression
+  check("a suite with no baseline answers noBaseline with empty collections", noBaseline?.state === "noBaseline" && Array.isArray(noBaseline.regressedCases) && JSON.stringify(noBaseline.dimensionDeltas) === "{}", noBaseline)
+  const cancelled = data(await q("runs.detail", { runId: I.cancelledRun }))
+  check("a cancelled run is notComparable runCancelled", cancelled?.regression?.state === "notComparable" && cancelled.regression.reason === "runCancelled" && cancelled.run.completedCases < cancelled.run.totalCases, cancelled?.regression)
+
+  const override = data(await q("runs.regression", { runId: I.supportRegressedRun, threshold: 1 }))
+  check("a threshold override names its source", override?.thresholdSource === "override" && override.threshold === 1, override)
+  const tooHigh = await q("runs.regression", { runId: I.supportRegressedRun, threshold: 1.5 })
+  check("a threshold over 1 is BAD_REQUEST", message(tooHigh) === "threshold must be between 0 and 1", tooHigh.body)
+  const otherSuite = data(await q("runs.regression", { runId: I.billingRun, baselineId: I.supportBaseline }))
+  check("a baseline from another suite is notComparable otherSuite", otherSuite?.state === "notComparable" && otherSuite.reason === "otherSuite", otherSuite)
+  const otherApp = await q("runs.regression", { runId: I.supportRegressedRun, baselineId: I.otherBaseline })
+  check("another app's baseline is NOT_FOUND baseline not found", code(otherApp) === "NOT_FOUND" && message(otherApp) === "baseline not found", otherApp.body)
+
+  // Results.
+  const all = data(await q("runs.results", { runId: I.supportRegressedRun }))
+  const failed = data(await q("runs.results", { runId: I.supportRegressedRun, status: "fail" }))
+  check(
+    "runs.results filters items but counts every result",
+    failed?.items?.every((r) => r.status === "fail") && JSON.stringify(failed.counts) === JSON.stringify(all?.counts) && all.items.length === 8,
+    [all?.counts, failed?.items?.length],
+  )
+  check("a result row carries no output", all?.items?.every((r) => !("output" in r)) === true, all?.items?.[0])
+  const badStatus = await q("runs.results", { runId: "not-a-run", status: "maybe" })
+  check("an unknown status is BAD_REQUEST before the run is looked up", message(badStatus) === 'unknown result status "maybe"', badStatus.body)
+  const leaked = data(await q("results.detail", { runId: I.guardRun, resultId: I.guardLeakedResult }))
+  check(
+    "a leaked result's output repeats the prompt and says what it is",
+    leaked?.status === "fail" && leaked.redTeam?.attackType === "leakage" && leaked.output.includes("AURORA-7") && leaked.outputLength === [...leaked.output].length,
+    leaked && { status: leaked.status, redTeam: leaked.redTeam, outputLength: leaked.outputLength },
+  )
+  const strayResult = await q("results.detail", { runId: I.supportRegressedRun, resultId: I.otherResult })
+  check("a result from another run is NOT_FOUND result not found", code(strayResult) === "NOT_FOUND" && message(strayResult) === "result not found", strayResult.body)
+  const otherRun = await q("runs.detail", { runId: I.otherRun })
+  check("another app's run is NOT_FOUND run not found", code(otherRun) === "NOT_FOUND" && message(otherRun) === "run not found", otherRun.body)
+
+  // Trend and compare.
+  const trend = data(await q("runs.trend", { suiteId: I.supportSuite }))
+  const times = trend?.points?.map((p) => p.createdAt) ?? []
+  check("runs.trend is the completed runs, oldest first", times.length === 8 && times.join() === [...times].sort().join(), times)
+  check("runs.trend names the current baseline and sends no promptVersion key", trend?.baseline?.id === I.supportBaseline && trend.points.every((p) => !("promptVersion" in p) && "settings" in p), trend?.baseline)
+  const three = data(await q("runs.trend", { suiteId: I.supportSuite, limit: 3 }))?.points ?? []
+  check("runs.trend with limit 3 keeps the newest three", three.length === 3 && three[2]?.runId === I.supportRegressedRun, three.map((p) => p.runId))
+  const cmp = data(await q("runs.compare", { runId: I.supportBaselineRun, otherRunId: I.supportRegressedRun }))
+  check("runs.compare answers four deltas in order", cmp?.deltas?.map((d) => d.metric).join(",") === "pass_rate,avg_score,avg_latency_ms,total_cost" && cmp.deltas.every((d) => Math.abs(d.b - d.a - d.delta) < 1e-12), cmp?.deltas)
+  check("runs.compare lists a dimension only one run measured", JSON.stringify(cmp?.dimensionsOnlyIn) === '{"a":["tone"],"b":[]}' && "persona" in cmp.dimensionDeltas, cmp?.dimensionsOnlyIn)
+  check("runs.compare pairs every case", cmp?.cases?.length === 8 && cmp.cases.every((p) => p.a && p.b), cmp?.cases?.length)
+  const across = await q("runs.compare", { runId: I.supportRegressedRun, otherRunId: I.billingRun })
+  check("comparing runs of two suites is BAD_REQUEST", message(across) === "runs from different suites have no cases in common to compare", across.body)
+
+  // Paging.
+  const page = data(await q("runs.list", { limit: 2 }))
+  check("runs.list pages with hasMore and no total", page?.items?.length === 2 && page.hasMore === true && !("total" in page), page && { n: page.items.length, hasMore: page.hasMore })
+  const past = data(await q("runs.list", { offset: 1000 }))
+  check("an offset past the end is an empty page", past?.items?.length === 0 && past.hasMore === false, past)
+  const negative = await q("runs.list", { offset: -1 })
+  check("a negative offset is BAD_REQUEST", message(negative) === "offset cannot be negative", negative.body)
+  const completed = data(await q("runs.list", { state: "completed", limit: 100 }))?.items ?? []
+  check("runs.list filters by state", completed.length > 0 && completed.every((r) => r.state === "completed"), completed.map((r) => r.state))
+
+  // Baselines: only a completed run, and the new one becomes the only current one.
+  const fromCancelled = await c("baselines.save", { runId: I.cancelledRun, name: "Nope" })
+  check("a cancelled run cannot become a baseline", code(fromCancelled) === "CONFLICT" && message(fromCancelled) === "only a completed run can become a baseline", fromCancelled.body)
+  const unnamed = await c("baselines.save", { runId: I.billingRun, name: " " })
+  check("a baseline needs a name", message(unnamed) === "a baseline needs a name", unnamed.body)
+  const savedRes = await c("baselines.save", { runId: I.billingRun, name: "Billing launch" })
+  const saved = data(savedRes)
+  check("baselines.save answers a current baseline with every result", saved?.isCurrent === true && saved.caseCount === 4 && saved.suiteId === I.billingSuite, saved)
+  check(
+    "baselines.save declares the manifest's invalidates",
+    invalidates(savedRes) === "baselines.list,baselines.detail,suites.list,suites.detail,runs.detail,runs.regression,runs.trend,overview.stats",
+    invalidates(savedRes),
+  )
+  const compared = data(await q("runs.detail", { runId: I.billingRun }))?.regression
+  check("the run a baseline came from compares with no regression", compared?.state === "compared" && compared.hasRegression === false && compared.worstDelta === 0, compared)
+  const baselineDetail = data(await q("baselines.detail", { baselineId: saved?.id }))
+  check("baselines.detail carries the per-case results", baselineDetail?.results?.length === 4 && baselineDetail.results.every((r) => "status" in r && "dimensionScores" in r), baselineDetail?.results?.[0])
+  const removed = await c("baselines.delete", { baselineId: saved?.id })
+  const after = data(await q("suites.detail", { suiteId: I.billingSuite }))
+  check("deleting the current baseline leaves none current", data(removed)?.baselineId === saved?.id && after && !("currentBaseline" in after), after)
+  const otherBaseline = await q("baselines.detail", { baselineId: I.otherBaseline })
+  check("another app's baseline detail is NOT_FOUND", code(otherBaseline) === "NOT_FOUND" && message(otherBaseline) === "baseline not found", otherBaseline.body)
+  const baselines = data(await q("baselines.list"))?.items ?? []
+  check("baselines.list never shows another app's baseline", baselines.length > 0 && !baselines.some((b) => b.id === I.otherBaseline), baselines.map((b) => b.name))
+})

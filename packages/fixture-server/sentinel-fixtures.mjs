@@ -1716,3 +1716,174 @@ define("prompts.setCurrent", "command", ["prompts.list", "prompts.detail", "suit
   makeCurrent(pv)
   return versionView(pv, false)
 })
+
+// ---------------------------------------------------------------------------
+// runs (reads), regression, trend, compare
+// ---------------------------------------------------------------------------
+
+/** The app's runs, newest first, as ListRuns orders them. */
+function appRuns(app, { suiteId, state: runState } = {}) {
+  return state.runs
+    .filter((r) => r.appId === app && (!suiteId || r.suiteId === suiteId) && (!runState || r.state === runState))
+    .sort((a, b) => b.createdAt - a.createdAt)
+}
+
+define("runs.list", "query", [], (input) => {
+  const app = resolveApp()
+  const runState = str(input, "state")
+  if (runState !== "" && !RUN_STATES.includes(runState)) throw badRequest(`unknown run state "${runState}"`)
+  let limit = int(input, "limit")
+  if (limit <= 0) limit = RUNS_DEFAULT_LIMIT
+  if (limit > RUNS_MAX_LIMIT) limit = RUNS_MAX_LIMIT
+  const offset = int(input, "offset")
+  if (offset < 0) throw badRequest("offset cannot be negative")
+  const suiteId = str(input, "suiteId")
+  if (suiteId) suiteInApp(app, suiteId)
+  const page = appRuns(app, { suiteId, state: runState }).slice(offset, offset + limit + 1)
+  return { items: page.slice(0, limit).map((r) => runView(r)), hasMore: page.length > limit }
+})
+
+define("runs.detail", "query", [], (input) => {
+  const app = resolveApp()
+  const run = runInApp(app, str(input, "runId"))
+  return { run: runView(run, { lastProgress: true }), regression: regressionFor(app, run, "", undefined) }
+})
+
+define("runs.results", "query", [], (input) => {
+  const app = resolveApp()
+  const status = str(input, "status")
+  if (status !== "" && !RESULT_STATUSES.includes(status)) throw badRequest(`unknown result status "${status}"`)
+  const run = runInApp(app, str(input, "runId"))
+  const all = runResults(run.id)
+  const counts = { pass: 0, fail: 0, error: 0 }
+  for (const r of all) counts[r.status] += 1
+  return { items: all.filter((r) => !status || r.status === status).map(resultRow), counts }
+})
+
+define("results.detail", "query", [], (input) => {
+  const app = resolveApp()
+  const run = runInApp(app, str(input, "runId"))
+  const resultId = str(input, "resultId")
+  const res = runResults(run.id).find((r) => r.id === resultId)
+  if (!res) throw notFound("result")
+  return resultView(res)
+})
+
+define("runs.regression", "query", [], (input) => {
+  const app = resolveApp()
+  const threshold = optNum(input, "threshold")
+  if (threshold !== undefined && (threshold < 0 || threshold > 1)) throw badRequest("threshold must be between 0 and 1")
+  const run = runInApp(app, str(input, "runId"))
+  return regressionFor(app, run, str(input, "baselineId"), threshold)
+})
+
+define("runs.trend", "query", [], (input) => {
+  const app = resolveApp()
+  const s = suiteInApp(app, str(input, "suiteId"))
+  let limit = int(input, "limit")
+  if (limit <= 0) limit = TREND_DEFAULT_LIMIT
+  if (limit > TREND_MAX_LIMIT) limit = TREND_MAX_LIMIT
+  const points = appRuns(app, { suiteId: s.id, state: "completed" })
+    .slice(0, limit)
+    .reverse()
+    .map((r) => ({
+      runId: r.id,
+      createdAt: iso(r.createdAt),
+      passRate: r.passRate,
+      avgScore: r.avgScore,
+      dimensionScores: { ...r.dimensionScores },
+      totalCost: r.totalCost,
+      settings: settingsView(r.config),
+    }))
+  const out = { points }
+  const baseline = currentBaseline(s.id)
+  if (baseline) out.baseline = baselineRef(baseline)
+  return out
+})
+
+define("runs.compare", "query", [], (input) => {
+  const app = resolveApp()
+  const a = runInApp(app, str(input, "runId"))
+  const b = runInApp(app, str(input, "otherRunId"))
+  if (a.suiteId !== b.suiteId) throw badRequest("runs from different suites have no cases in common to compare")
+  const sa = resultStats(a.id)
+  const sb = resultStats(b.id)
+  const metric = (name, x, y) => ({ metric: name, a: x, b: y, delta: y - x })
+  const deltas = [
+    metric("pass_rate", sa.passRate, sb.passRate),
+    metric("avg_score", sa.avgScore, sb.avgScore),
+    metric("avg_latency_ms", sa.avgLatencyMs, sb.avgLatencyMs),
+    metric("total_cost", sa.totalCost, sb.totalCost),
+  ]
+  const dimensionDeltas = {}
+  for (const [dim, v] of Object.entries(sa.dimensionScores)) {
+    if (dim in sb.dimensionScores) dimensionDeltas[dim] = sb.dimensionScores[dim] - v
+  }
+  const only = (x, y) => Object.keys(x.dimensionScores).filter((d) => !(d in y.dimensionScores)).sort()
+  const pairs = []
+  const byCase = new Map()
+  for (const r of runResults(a.id)) {
+    const pair = { caseId: r.caseId, caseName: r.caseName, a: resultRow(r) }
+    pairs.push(pair)
+    byCase.set(r.caseId, pair)
+  }
+  for (const r of runResults(b.id)) {
+    const pair = byCase.get(r.caseId)
+    if (pair) pair.b = resultRow(r)
+    else pairs.push({ caseId: r.caseId, caseName: r.caseName, b: resultRow(r) })
+  }
+  return {
+    a: runView(a),
+    b: runView(b),
+    deltas,
+    dimensionDeltas,
+    dimensionsOnlyIn: { a: only(sa, sb), b: only(sb, sa) },
+    cases: pairs,
+  }
+})
+
+// ---------------------------------------------------------------------------
+// baselines
+// ---------------------------------------------------------------------------
+
+const BASELINE_INVALIDATES = ["baselines.list", "baselines.detail", "suites.list", "suites.detail", "runs.detail", "runs.regression", "runs.trend", "overview.stats"]
+
+define("baselines.list", "query", [], (input) => {
+  const app = resolveApp()
+  const suiteId = str(input, "suiteId")
+  const suites = suiteId ? [suiteInApp(app, suiteId)] : appSuites(app)
+  const items = suites.flatMap((s) =>
+    state.baselines
+      .filter((b) => b.suiteId === s.id)
+      .sort((x, y) => y.createdAt - x.createdAt)
+      .map(baselineView),
+  )
+  // Go sorts on the RFC3339 string, which keeps whole seconds only; the sort is stable.
+  items.sort((x, y) => (x.createdAt < y.createdAt ? 1 : x.createdAt > y.createdAt ? -1 : 0))
+  return { items }
+})
+
+define("baselines.detail", "query", [], (input) => {
+  const app = resolveApp()
+  const b = baselineInApp(app, str(input, "baselineId"))
+  return {
+    ...baselineView(b),
+    results: b.results.map((r) => ({ caseId: r.caseId, caseName: r.caseName, score: r.score, status: r.status, dimensionScores: { ...r.dimensionScores } })),
+  }
+})
+
+define("baselines.save", "command", BASELINE_INVALIDATES, (input) => {
+  const app = resolveApp()
+  const name = str(input, "name").trim()
+  if (!name) throw badRequest("a baseline needs a name")
+  const run = runInApp(app, str(input, "runId"))
+  if (run.state !== "completed") throw conflict("only a completed run can become a baseline")
+  return baselineView(saveBaseline(run, name, Date.now()))
+})
+
+define("baselines.delete", "command", BASELINE_INVALIDATES, (input) => {
+  const app = resolveApp()
+  const b = baselineInApp(app, str(input, "baselineId"))
+  state.baselines = state.baselines.filter((x) => x.id !== b.id)
+  return { baselineId: b.id }
+})
