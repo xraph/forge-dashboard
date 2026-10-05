@@ -38,4 +38,9 @@ jobs:
 
       - run: pnpm test
 
+      # example-next's proxy route needs a forge target to build, and nothing
+      # is listening in CI, so this only has to parse. turbo.json declares it
+      # on the build task, or turbo would strip it before next build runs.
       - run: pnpm build
+        env:
+          FORGE_DASHBOARD_URL: http://localhost:7901/dashboard
