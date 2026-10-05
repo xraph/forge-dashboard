@@ -1,8 +1,10 @@
 import { definePlugin } from "@forge-go/dashboard-plugin"
-import { HouseIcon } from "@forge-go/dashboard-kit/icons"
+import { HouseIcon, ServerIcon } from "@forge-go/dashboard-kit/icons"
 import { OverviewPage } from "./pages/overview"
+import { ProviderDetailPage } from "./pages/provider-detail"
+import { ProvidersPage } from "./pages/providers"
 
-export { OverviewPage }
+export { OverviewPage, ProviderDetailPage, ProvidersPage }
 export { DanglingBadge, DisabledProviderBadge, EnabledBadge, MessageStatusBadge, ProtectionBadge, VersionBadge } from "./badges"
 export { HeraldHeader, useEngineInfo } from "./components/herald-header"
 export type * from "./wire"
@@ -22,8 +24,15 @@ export const heraldPlugin = definePlugin({
   extension: "herald",
   namespace: "herald",
   label: "Herald",
-  nav: [{ label: "Overview", to: "/", priority: -10, icon: <HouseIcon />, group: "Notifications" }],
-  routes: [{ path: "/", element: OverviewPage }],
+  nav: [
+    { label: "Overview", to: "/", priority: -10, icon: <HouseIcon />, group: "Notifications" },
+    { label: "Providers", to: "/providers", priority: 30, icon: <ServerIcon />, group: "Notifications" },
+  ],
+  routes: [
+    { path: "/", element: OverviewPage },
+    { path: "/providers", element: ProvidersPage },
+    { path: "/providers/:id", element: ProviderDetailPage },
+  ],
 })
 
 export default heraldPlugin
