@@ -1,7 +1,7 @@
 import { lazy } from "react"
 import { definePlugin } from "@forge-go/dashboard-plugin"
-import { BellOffIcon, FileTextIcon, HouseIcon, InboxIcon, MailIcon, RouteIcon, ServerIcon } from "@forge-go/dashboard-kit/icons"
-import { inboxPath, messagesPath, newProviderPath, newTemplatePath, preferencesPath, routingPath, templatesPath, templatesWithoutFallbackPath } from "./keys"
+import { BellOffIcon, FileTextIcon, HouseIcon, InboxIcon, MailIcon, RouteIcon, SendIcon, ServerIcon } from "@forge-go/dashboard-kit/icons"
+import { inboxPath, messagesPath, newProviderPath, newTemplatePath, preferencesPath, routingPath, sendTestPath, templatesPath, templatesWithoutFallbackPath } from "./keys"
 import { InboxPage } from "./pages/inbox"
 import { MessageDetailPage } from "./pages/message-detail"
 import { MessagesPage } from "./pages/messages"
@@ -10,6 +10,7 @@ import { PreferencesPage } from "./pages/preferences"
 import { ProviderDetailPage } from "./pages/provider-detail"
 import { ProvidersPage } from "./pages/providers"
 import { RoutingPage } from "./pages/routing"
+import { SendTestPage } from "./pages/send-test"
 import { TemplateCreatePage } from "./pages/template-create"
 import { TemplatesPage, TemplatesWithoutFallbackPage } from "./pages/templates"
 
@@ -20,7 +21,7 @@ import { TemplatesPage, TemplatesWithoutFallbackPage } from "./pages/templates"
 const ProviderCreatePage = lazy(() => import("./pages/provider-create"))
 const ProviderEditPage = lazy(() => import("./pages/provider-edit"))
 
-export { InboxPage, MessageDetailPage, MessagesPage, OverviewPage, PreferencesPage, ProviderDetailPage, ProvidersPage, RoutingPage, TemplateCreatePage, TemplatesPage, TemplatesWithoutFallbackPage }
+export { InboxPage, MessageDetailPage, MessagesPage, OverviewPage, PreferencesPage, ProviderDetailPage, ProvidersPage, RoutingPage, SendTestPage, TemplateCreatePage, TemplatesPage, TemplatesWithoutFallbackPage }
 export { DanglingBadge, DisabledProviderBadge, EnabledBadge, MessageStatusBadge, ProtectionBadge, VersionBadge } from "./badges"
 export { HeraldHeader, useEngineInfo } from "./components/herald-header"
 export type * from "./wire"
@@ -48,6 +49,7 @@ export const heraldPlugin = definePlugin({
     { label: "Inbox", to: inboxPath, priority: 50, icon: <InboxIcon />, group: "Notifications" },
     { label: "Preferences", to: preferencesPath, priority: 60, icon: <BellOffIcon />, group: "Notifications" },
     { label: "Routing", to: routingPath, priority: 40, icon: <RouteIcon />, group: "Notifications" },
+    { label: "Send test", to: sendTestPath, priority: 70, icon: <SendIcon />, group: "Notifications" },
   ],
   routes: [
     { path: "/", element: OverviewPage },
@@ -64,6 +66,10 @@ export const heraldPlugin = definePlugin({
     { path: inboxPath, element: InboxPage },
     { path: preferencesPath, element: PreferencesPage },
     { path: routingPath, element: RoutingPage },
+    { path: sendTestPath, element: SendTestPage },
+    // No nav entries: reached from a provider's and a message's own page.
+    { path: "/providers/:providerId/send-test", element: SendTestPage },
+    { path: "/messages/:messageId/send-test", element: SendTestPage },
   ],
 })
 
