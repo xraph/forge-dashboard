@@ -1,9 +1,10 @@
 import { definePlugin } from "@forge-go/dashboard-plugin"
 import { FlaskConicalIcon, Settings2Icon } from "@forge-go/dashboard-kit/icons"
 import { SetupPage } from "./pages/setup"
+import { SuiteDetailPage } from "./pages/suite-detail"
 import { SuitesPage } from "./pages/suites"
 
-export { SetupPage, SuitesPage }
+export { SetupPage, SuiteDetailPage, SuitesPage }
 export { CurrentBadge, RedTeamBadge, ScenarioBadge } from "./badges"
 export {
   casePath,
@@ -67,6 +68,9 @@ export const sentinelPlugin = definePlugin({
   ],
   routes: [
     { path: "/suites", element: SuitesPage },
+    // No nav entry: a sidebar link to "a suite" with none chosen points
+    // nowhere. It is reached from the list's row links.
+    { path: "/suites/:id", element: SuiteDetailPage },
     { path: "/setup", element: SetupPage },
   ],
 })

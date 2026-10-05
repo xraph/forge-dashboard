@@ -1,0 +1,189 @@
+import { useEffect, useRef, useState } from "react"
+import type { ComponentType } from "react"
+import { PluginLink, useCommand, useNavigateTo, useQuery } from "@forge-go/dashboard-plugin"
+import type { PluginPageProps } from "@forge-go/dashboard-plugin"
+import { Button } from "@forge-go/dashboard-kit/components/button"
+import { ConfirmDialog } from "@forge-go/dashboard-kit/components/confirm-dialog"
+import { DescriptionList } from "@forge-go/dashboard-kit/components/detail-layout"
+import { NoneCell } from "@forge-go/dashboard-kit/components/none-cell"
+import { PageHeader } from "@forge-go/dashboard-kit/components/page-header"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@forge-go/dashboard-kit/components/tabs"
+import { Timestamp } from "@forge-go/dashboard-kit/components/timestamp"
+import { CasesTab } from "../components/cases-tab"
+import { SettledBoundary } from "../components/settled-boundary"
+import { SuiteFormDialog } from "../components/suite-form-dialog"
+import { formatScore, plural, temperatureLabel, versionPath } from "../format"
+import type { Suite } from "../types"
+
+/** /suites/:id. Guards the id, then keys the body on it. */
+export const SuiteDetailPage: ComponentType<PluginPageProps> = ({ params }) => {
+  const id = params.id
+  if (!id) return <p className="text-sm text-muted-foreground">No suite selected.</p>
+  return <SuiteDetailBody key={id} suiteId={id} />
+}
+
+function SuiteDetailBody({ suiteId }: { suiteId: string }) {
+  const suite = useQuery<Suite>("suites.detail", { suiteId })
+  // Dialogs and the tab choice live here, outside the boundary: edits and
+  // case writes invalidate suites.detail, and nothing typed or chosen should
+  // vanish while it refetches.
+  const [editing, setEditing] = useState(false)
+  const [deleting, setDeleting] = useState(false)
+  const [tab, setTab] = useState("cases")
+  // Taken when a dialog opens, so its wording holds through a refetch.
+  const [target, setTarget] = useState<Suite | null>(null)
+  return (
+    <section className="flex flex-col gap-6">
+      <SettledBoundary title="Suite" query={suite} skeletonRows={4}>
+        {(s) => (
+          <div className="flex flex-col gap-4">
+            <PageHeader
+              title={s.name}
+              description={s.description || undefined}
+              actions={
+                <>
+                  <Button
+                    variant="outline"
+                    onClick={() => {
+                      setTarget(s)
+                      setEditing(true)
+                    }}
+                  >
+                    Edit
+                  </Button>
+                  <Button
+                    variant="outline"
+                    onClick={() => {
+                      setTarget(s)
+                      setDeleting(true)
+                    }}
+                  >
+                    Delete
+                  </Button>
+                </>
+              }
+            />
+            <SuiteFacts suite={s} />
+          </div>
+        )}
+      </SettledBoundary>
+      <Tabs value={tab} onValueChange={(value) => setTab(String(value))}>
+        <TabsList variant="line">
+          <TabsTrigger value="cases">Cases</TabsTrigger>
+        </TabsList>
+        <TabsContent value="cases">
+          <CasesTab suiteId={suiteId} />
+        </TabsContent>
+      </Tabs>
+      {target && (
+        <>
+          <SuiteFormDialog open={editing} onOpenChange={setEditing} suite={target} />
+          <DeleteSuiteDialog open={deleting} onOpenChange={setDeleting} suite={target} />
+        </>
+      )}
+    </section>
+  )
+}
+
+function SuiteFacts({ suite }: { suite: Suite }) {
+  return (
+    <DescriptionList
+      items={[
+        {
+          term: "Model",
+          value: suite.model ? (
+            <span className="font-mono text-xs">{suite.model}</span>
+          ) : (
+            <span className="text-muted-foreground">Engine default</span>
+          ),
+        },
+        { term: "Temperature", value: temperatureLabel(suite.temperature) },
+        {
+          term: "Persona",
+          value: suite.personaRef ? (
+            <span className="font-mono text-xs">{suite.personaRef}</span>
+          ) : (
+            <NoneCell label="persona" />
+          ),
+        },
+        {
+          term: "Prompt",
+          value: suite.currentPromptVersion ? (
+            <PluginLink to={versionPath(suite.id, suite.currentPromptVersion.id)}>
+              {`Version ${suite.currentPromptVersion.version}`}
+            </PluginLink>
+          ) : (
+            "The suite's own prompt"
+          ),
+        },
+        {
+          term: "Current baseline",
+          value: suite.currentBaseline ? (
+            `${suite.currentBaseline.name}, pass rate ${formatScore(suite.currentBaseline.passRate)}`
+          ) : (
+            <NoneCell label="current baseline" />
+          ),
+        },
+        { term: "Cases", value: plural(suite.caseCount, "case", "cases") },
+        { term: "Created", value: <Timestamp value={suite.createdAt} label="creation time" /> },
+        { term: "Updated", value: <Timestamp value={suite.updatedAt} label="update" /> },
+      ]}
+    />
+  )
+}
+
+/**
+ * suites.delete takes everything under the suite with it: cases, runs and
+ * their results, baselines and prompt versions. The confirm says so, then
+ * the page leaves for the suite list, since the suite no longer exists.
+ */
+function DeleteSuiteDialog({
+  open,
+  onOpenChange,
+  suite,
+}: {
+  open: boolean
+  onOpenChange: (open: boolean) => void
+  suite: Suite
+}) {
+  const remove = useCommand<{ suiteId: string }>("suites.delete")
+  const { reset } = remove
+  const navigate = useNavigateTo()
+  const sending = useRef(false)
+  useEffect(() => {
+    if (open) reset()
+  }, [open, reset])
+  async function confirm() {
+    if (sending.current || remove.loading) return
+    sending.current = true
+    let result: { suiteId: string } | undefined
+    try {
+      result = await remove.execute({ suiteId: suite.id })
+    } finally {
+      sending.current = false
+    }
+    if (!result) return
+    onOpenChange(false)
+    navigate("/suites")
+  }
+  return (
+    <ConfirmDialog
+      open={open}
+      onOpenChange={(next) => {
+        if (!next && (remove.loading || sending.current)) return
+        onOpenChange(next)
+      }}
+      title={`Delete ${suite.name}?`}
+      description={`Its ${plural(suite.caseCount, "case", "cases")}, every run and its results, its baselines and its prompt versions are deleted with it. This cannot be undone.`}
+      confirmLabel="Delete suite"
+      pending={remove.loading}
+      onConfirm={() => void confirm()}
+    >
+      {remove.error && (
+        <p role="alert" className="text-sm text-destructive">
+          {remove.error.message}
+        </p>
+      )}
+    </ConfirmDialog>
+  )
+}

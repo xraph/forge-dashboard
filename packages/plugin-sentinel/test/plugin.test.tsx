@@ -4,6 +4,7 @@ import type { Capabilities } from "@forge-go/dashboard-plugin"
 import sentinelPlugin, {
   sentinelPlugin as named,
   SetupPage,
+  SuiteDetailPage,
   SuitesPage,
 } from "../src/index"
 
@@ -50,7 +51,15 @@ describe("sentinelPlugin", () => {
   it("mounts each page at its route", () => {
     const element = (path: string) => sentinelPlugin.routes.find((r) => r.path === path)?.element
     expect(element("/suites")).toBe(SuitesPage)
+    expect(element("/suites/:id")).toBe(SuiteDetailPage)
     expect(element("/setup")).toBe(SetupPage)
+  })
+
+  it("gives the detail route no nav entry", () => {
+    const targets = (sentinelPlugin.nav ?? []).map((n) => n.to)
+    for (const path of ["/suites/:id"]) {
+      expect(targets).not.toContain(path)
+    }
   })
 
   it("gives every nav entry an icon and a route", () => {
