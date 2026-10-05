@@ -72,9 +72,14 @@ export interface PolicyValidateResponse {
  * Mirrors the Go `PolicyUpdateInput`. Every part is a pointer there: absent
  * leaves it alone, an empty list clears the list, and `""` on a bound clears
  * that bound. Namespace is not patchable.
+ *
+ * `expectedVersion` is the version the editor loaded. When the stored policy
+ * is at another version the server refuses the update as stale and writes
+ * nothing. Absent, the server skips that check.
  */
 export interface PolicyUpdatePayload {
   id: string
+  expectedVersion?: number
   name?: string
   description?: string
   effect?: string
@@ -99,6 +104,23 @@ export const PRIORITY_NOT_WHOLE = "Priority must be a whole number."
 
 export const CHANGED_MID_CHECK =
   "The draft changed while it was being checked, so nothing was saved. Save again to save it."
+
+/**
+ * Said in place of the server's message when an update is refused as stale:
+ * the stored policy is no longer at the version the editor loaded, so
+ * nothing was written. The draft stays on screen whatever the refusal.
+ */
+export const STALE_EDIT =
+  "This policy changed after you opened it. Your edits are still here; open the policy again to see the current version, then make them there."
+
+/**
+ * Whether a refused update was refused because the policy moved on since it
+ * was loaded. A taken name is CONFLICT too, without this reason, and keeps
+ * the server's own message.
+ */
+export function isStale(error: ContractError | undefined): boolean {
+  return error?.code === "CONFLICT" && error.details?.reason === "stale"
+}
 
 // ---------------------------------------------------------------------------
 // Condition values
@@ -790,7 +812,9 @@ export function PolicyEditor({
   }
 
   async function send(p: PolicyUpdatePayload, key: string): Promise<boolean> {
-    const result = await update.execute(p)
+    // The version from `loaded`, never the prop, so the server judges the
+    // draft against the policy it was made from.
+    const result = await update.execute({ ...p, expectedVersion: loaded.version })
     // execute() resolves undefined only when the command failed, so this is
     // the success check. A refusal keeps the form and everything typed.
     if (result === undefined) {
@@ -907,6 +931,14 @@ export function PolicyEditor({
   const dialogOpen = confirming !== null && confirming.key === draftKey
 
   const saving = update.loading && !dialogOpen
+  // A stale refusal is said in the page's words, with the server's code;
+  // every other refusal in the server's own, wherever it is shown.
+  const saveError = (
+    <CommandAlert
+      error={isStale(update.error) ? { code: "CONFLICT", message: STALE_EDIT } : update.error}
+      title="Could not save the policy"
+    />
+  )
   const isAllow = state.effect === "allow"
   const rows = state.conditions
 
@@ -1262,9 +1294,7 @@ export function PolicyEditor({
       )}
       {/* Errors live in the form that failed. While the dialog is open the
           form is inert, so the dialog carries its own. */}
-      {!dialogOpen && (
-        <CommandAlert error={update.error} title="Could not save the policy" />
-      )}
+      {!dialogOpen && saveError}
       <CommandAlert error={checkError} title="Could not check the draft" />
       {changedMidCheck && (
         <p role="status" className="text-sm text-muted-foreground">
@@ -1303,7 +1333,7 @@ export function PolicyEditor({
         onConfirm={() => void confirmSave()}
         description={confirming?.sentence}
       >
-        <CommandAlert error={update.error} title="Could not save the policy" />
+        {saveError}
       </ConfirmDialog>
     </div>
   )

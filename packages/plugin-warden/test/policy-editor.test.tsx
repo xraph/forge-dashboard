@@ -10,6 +10,7 @@ import {
   CHANGED_MID_CHECK,
   EMPTY_SUBJECT,
   PolicyEditor,
+  STALE_EDIT,
   boundTime,
   saveConfirmation,
   type PolicyDraft,
@@ -135,7 +136,7 @@ function renderEditor(
 ) {
   const { client, queries, commands } = editorClient(opts)
   const navigated: string[] = []
-  const utils = render(
+  const tree = (policy: PolicyDetail) => (
     <PluginProvider client={client}>
       <NavigationProvider
         value={{
@@ -148,14 +149,27 @@ function renderEditor(
           resolve: (to) => `/@warden/acme${to}`,
         }}
       >
-        <PolicyEditor policy={{ ...POLICY, ...over }} evaluationOff={evaluationOff} />
+        <PolicyEditor policy={policy} evaluationOff={evaluationOff} />
       </NavigationProvider>
     </PluginProvider>
   )
+  const utils = render(tree({ ...POLICY, ...over }))
+  /** The editor's parent handing it a refetched policy, as a detail query would. */
+  const refetch = (next: Partial<PolicyDetail>) =>
+    utils.rerender(tree({ ...POLICY, ...over, ...next }))
   const validates = () => queries.filter((q) => q.intent === "policies.validate")
-  const updates = () =>
+  const wire = () =>
     commands.filter((c) => c.intent === "policies.update").map((c) => c.payload as PolicyUpdatePayload)
-  return { ...utils, navigated, validates, updates, commands }
+  // The patch each update carried. Every update also carries the version
+  // the editor loaded, which "the version it loaded" pins on the whole wire
+  // body; leaving it out here keeps each patch test about its patch.
+  const updates = () =>
+    wire().map((sent) => {
+      const patch = { ...sent }
+      delete patch.expectedVersion
+      return patch
+    })
+  return { ...utils, navigated, validates, updates, wire, refetch, commands }
 }
 
 /** Lets the debounce fire and the validate answer land. */
@@ -693,6 +707,116 @@ describe("PolicyEditor", () => {
         (screen.getByRole("combobox", { name: "Condition 2 operator" }) as HTMLSelectElement).value
       ).toBe("time_after")
       expect(input("Condition 2 value").value).toBe("tomorrow")
+    })
+  })
+
+  describe("a save someone else got to first", () => {
+    const stale = new ContractError(
+      "CONFLICT",
+      "policy pol_01 changed since it was read (version 3 is no longer current)",
+      { reason: "stale" }
+    )
+
+    it("says it in these words", () => {
+      expect(STALE_EDIT).toBe(
+        "This policy changed after you opened it. Your edits are still here; open the policy again to see the current version, then make them there."
+      )
+    })
+
+    it("sends the version it loaded with the patch", async () => {
+      const { wire } = renderEditor()
+      change(labelled("Description"), "x")
+      await save()
+      expect(wire()).toEqual([{ id: "pol_01", description: "x", expectedVersion: 3 }])
+      expect(Object.keys(wire()[0]).sort()).toEqual(["description", "expectedVersion", "id"])
+    })
+
+    it("sends the version it loaded, not one a refetch brings in under the draft", async () => {
+      const { wire, refetch } = renderEditor()
+      change(labelled("Description"), "x")
+      refetch({ version: 4, description: "Someone else's words." })
+      await save()
+      expect(wire()).toEqual([{ id: "pol_01", description: "x", expectedVersion: 3 }])
+    })
+
+    it("sends the version it loaded through the save confirmation too", async () => {
+      const { wire } = renderEditor({}, { validate: () => EVERYTHING })
+      change(labelled("Description"), "x")
+      await settle()
+      await save()
+      await screen.findByRole("alertdialog")
+      fireEvent.click(dialog().getByRole("button", { name: "Save changes" }))
+      await act(async () => {})
+      expect(wire()).toEqual([{ id: "pol_01", description: "x", expectedVersion: 3 }])
+    })
+
+    it("explains a stale refusal, keeps the draft on screen and stays put", async () => {
+      const { navigated, wire } = renderEditor({}, { update: stale })
+      change(labelled("Description"), "typed description")
+      change(input("Condition 2 field"), "subject.otp")
+      await save()
+      expect(wire()).toHaveLength(1)
+      expect(navigated).toEqual([])
+      const alert = screen.getByRole("alert")
+      expect(alert.textContent).toContain("Could not save the policy")
+      expect(alert.textContent).toContain(STALE_EDIT)
+      expect(alert.textContent).not.toContain("is no longer current")
+      expect(screen.getByRole("region", { name: "Rule editor" })).toBeTruthy()
+      expect(labelled("Description").value).toBe("typed description")
+      expect(input("Condition 2 field").value).toBe("subject.otp")
+      expect(document.querySelectorAll("[data-issue]")).toHaveLength(0)
+    })
+
+    it("leaves Save pressable after a stale refusal, and a second press is refused the same way", async () => {
+      const { navigated, wire } = renderEditor({}, { update: stale })
+      change(labelled("Description"), "x")
+      await save()
+      const button = screen.getByRole("button", { name: "Save changes" }) as HTMLButtonElement
+      expect(button.disabled).toBe(false)
+      await save()
+      expect(wire()).toEqual([
+        { id: "pol_01", description: "x", expectedVersion: 3 },
+        { id: "pol_01", description: "x", expectedVersion: 3 },
+      ])
+      expect(navigated).toEqual([])
+      expect(screen.getByRole("alert").textContent).toContain(STALE_EDIT)
+    })
+
+    it("explains a stale refusal inside the save confirmation, which stays open", async () => {
+      const { navigated } = renderEditor({}, { validate: () => EVERYTHING, update: stale })
+      change(labelled("Description"), "x")
+      await settle()
+      await save()
+      await screen.findByRole("alertdialog")
+      fireEvent.click(dialog().getByRole("button", { name: "Save changes" }))
+      const alert = await dialog().findByRole("alert")
+      expect(alert.textContent).toContain(STALE_EDIT)
+      expect(alert.textContent).not.toContain("is no longer current")
+      expect(navigated).toEqual([])
+      expect(labelled("Description").value).toBe("x")
+    })
+
+    it("shows the server's own message for a CONFLICT that is a taken name", async () => {
+      const taken = new ContractError("CONFLICT", 'policy "office-hours" already exists')
+      const { navigated } = renderEditor({}, { update: taken })
+      change(labelled("Name"), "office-hours")
+      await save()
+      expect(navigated).toEqual([])
+      const alert = screen.getByRole("alert")
+      expect(alert.textContent).toContain("Could not save the policy")
+      expect(alert.textContent).toContain('policy "office-hours" already exists')
+      expect(alert.textContent).toContain("CONFLICT")
+      expect(alert.textContent).not.toContain(STALE_EDIT)
+    })
+
+    it("shows the server's own message for a CONFLICT with some other reason", async () => {
+      const other = new ContractError("CONFLICT", "something else collided", { reason: "other" })
+      renderEditor({}, { update: other })
+      change(labelled("Description"), "x")
+      await save()
+      const alert = screen.getByRole("alert")
+      expect(alert.textContent).toContain("something else collided")
+      expect(alert.textContent).not.toContain(STALE_EDIT)
     })
   })
 
