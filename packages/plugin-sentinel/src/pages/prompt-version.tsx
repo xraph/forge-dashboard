@@ -22,12 +22,15 @@ export default function PromptVersionPage({ params }: PluginPageProps) {
   const suiteId = params.id
   const versionId = params.versionId
   if (!suiteId || !versionId) return <p className="text-sm text-muted-foreground">No version selected.</p>
-  return <PromptVersionBody key={versionId} suiteId={suiteId} versionId={versionId} />
+  return <PromptVersionBody key={versionId} versionId={versionId} />
 }
 
-function PromptVersionBody({ suiteId, versionId }: { suiteId: string; versionId: string }) {
+function PromptVersionBody({ versionId }: { versionId: string }) {
   const detail = useQuery<PromptVersionDetail>("prompts.detail", { versionId })
-  const suite = useQuery<Suite>("suites.detail", { suiteId })
+  // The suite is the one the version names, not the one in the URL, so it is
+  // asked for once the version has answered.
+  const ownSuiteId = detail.data?.suiteId
+  const suite = useQuery<Suite>("suites.detail", { suiteId: ownSuiteId }, { enabled: ownSuiteId !== undefined })
   const [making, setMaking] = useState(false)
   const [target, setTarget] = useState<PromptVersion | null>(null)
   return (
@@ -63,7 +66,7 @@ function PromptVersionBody({ suiteId, versionId }: { suiteId: string; versionId:
                 {
                   term: "Suite",
                   value: (
-                    <PluginLink to={suitePath(suiteId)}>{suite.data?.name ?? "Back to the suite"}</PluginLink>
+                    <PluginLink to={suitePath(v.suiteId)}>{suite.data?.name ?? "Back to the suite"}</PluginLink>
                   ),
                 },
                 { term: "Changelog", value: v.changelog || <NoneCell label="changelog" /> },

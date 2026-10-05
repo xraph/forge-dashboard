@@ -39,7 +39,12 @@ export interface SuitesList {
   items: Suite[]
 }
 
-/** A scorer config value the server withheld: the leakage check's substring. */
+/**
+ * A scorer config value the server withheld: a not_contains substring. The
+ * server withholds every not_contains substring on a case whose context has an
+ * attack_type (leakage and injection cases alike), never keyed on the
+ * "redteam" tag, which an operator can edit.
+ */
 export interface Redaction {
   key: string
   /** Characters, counted as Go counts runes. */
@@ -48,7 +53,10 @@ export interface Redaction {
 
 export interface ScorerConfig {
   name: string
-  /** Never null. A redacted key is missing from here. */
+  /**
+   * Never null. A redacted key is missing from here. On a case whose context
+   * has an attack_type, every not_contains substring is redacted.
+   */
   config: Record<string, unknown>
   redacted?: Redaction
 }

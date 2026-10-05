@@ -143,4 +143,20 @@ describe("SuiteDetailPage", () => {
     renderNavPage(SuiteDetailPage, client, { id: "suite_01j9se99999999999999999999" })
     expect((await screen.findByText("NOT_FOUND: suite not found")).getAttribute("role")).toBe("alert")
   })
+
+  it("keeps the delete confirm open while its command is pending", async () => {
+    const client: ScopedClient = {
+      ...stubClient(answers()),
+      command: () => new Promise(() => {}),
+    } as ScopedClient
+    renderNavPage(SuiteDetailPage, client, { id: SUITE_ID })
+    await screen.findByRole("heading", { level: 1, name: "Support assistant" })
+    fireEvent.click(screen.getByRole("button", { name: "Delete" }))
+    const dialog = screen.getByRole("alertdialog")
+    fireEvent.click(within(dialog).getByRole("button", { name: "Delete suite" }))
+    await waitFor(() => expect((within(dialog).getByRole("button", { name: "Working…" }) as HTMLButtonElement).disabled).toBe(true))
+    fireEvent.keyDown(document.activeElement ?? document.body, { key: "Escape" })
+    await new Promise((resolve) => setTimeout(resolve, 50))
+    expect(screen.getByRole("alertdialog")).toBeTruthy()
+  })
 })

@@ -1,7 +1,6 @@
 import type { ComponentType } from "react"
 import { useQuery } from "@forge-go/dashboard-plugin"
 import type { PluginPageProps } from "@forge-go/dashboard-plugin"
-import { Badge } from "@forge-go/dashboard-kit/components/badge"
 import { DescriptionList } from "@forge-go/dashboard-kit/components/detail-layout"
 import { NoneCell } from "@forge-go/dashboard-kit/components/none-cell"
 import { PageHeader } from "@forge-go/dashboard-kit/components/page-header"
@@ -10,6 +9,7 @@ import {
   ResourceTable,
   type Column,
 } from "@forge-go/dashboard-kit/components/resource-table"
+import { LlmBadge, NeedsConfigBadge } from "../badges"
 import { formatScore, plural } from "../format"
 import type { ScorerInfo, SentinelConfig, TargetInfo } from "../types"
 
@@ -48,11 +48,9 @@ const scorerColumns: Column<ScorerInfo>[] = [
   {
     id: "llm",
     header: "Calls an LLM",
-    // Few scorers call a model, and those are the ones that cost money a run
-    // does not meter, so only they get a badge.
     cell: (s) =>
       s.usesLlm ? (
-        <Badge variant="default">Calls an LLM</Badge>
+        <LlmBadge />
       ) : (
         <span className="text-muted-foreground">No</span>
       ),
@@ -62,7 +60,7 @@ const scorerColumns: Column<ScorerInfo>[] = [
     header: "Needs config",
     cell: (s) =>
       s.requiresConfig ? (
-        <Badge variant="secondary">Needs config</Badge>
+        <NeedsConfigBadge />
       ) : (
         <span className="text-muted-foreground">No</span>
       ),

@@ -29,6 +29,7 @@ import type { ImportResult } from "../types"
 const MAX_IMPORT_BYTES = 1 << 20
 const TOO_LARGE = `import data is larger than ${MAX_IMPORT_BYTES} bytes`
 const NOTHING = "Paste the cases, or choose a file."
+const UNREADABLE = "The file could not be read."
 
 type Format = "json" | "jsonl" | "csv"
 
@@ -70,7 +71,7 @@ export function ImportCasesDialog({ open, onOpenChange, suiteId, onImported }: I
       }}
       disablePointerDismissal={locked}
     >
-      <DialogContent showCloseButton={!locked} className="sm:max-w-2xl">
+      <DialogContent showCloseButton={!locked} className="max-h-[calc(100vh-2rem)] overflow-y-auto sm:max-w-2xl">
         <ImportForm
           command={command}
           suiteId={suiteId}
@@ -108,7 +109,15 @@ function ImportForm({
     if (lower.endsWith(".csv")) setFormat("csv")
     else if (lower.endsWith(".jsonl")) setFormat("jsonl")
     else if (lower.endsWith(".json")) setFormat("json")
-    setData(await file.text())
+    setProblem(null)
+    // The file's own size is known before reading it, so a huge one is
+    // refused without loading it into the page.
+    if (file.size > MAX_IMPORT_BYTES) return setProblem(TOO_LARGE)
+    try {
+      setData(await file.text())
+    } catch {
+      setProblem(UNREADABLE)
+    }
   }
 
   async function submit(event: FormEvent) {

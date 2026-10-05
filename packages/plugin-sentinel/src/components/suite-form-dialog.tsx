@@ -81,7 +81,7 @@ export function SuiteFormDialog({ open, onOpenChange, suite, onSaved }: SuiteFor
       }}
       disablePointerDismissal={locked}
     >
-      <DialogContent showCloseButton={!locked} className="sm:max-w-xl">
+      <DialogContent showCloseButton={!locked} className="max-h-[calc(100vh-2rem)] overflow-y-auto sm:max-w-xl">
         <SuiteForm
           command={command}
           suite={suite}

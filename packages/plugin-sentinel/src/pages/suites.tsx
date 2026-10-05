@@ -5,12 +5,12 @@ import type { PluginPageProps } from "@forge-go/dashboard-plugin"
 import { Button } from "@forge-go/dashboard-kit/components/button"
 import { NoneCell } from "@forge-go/dashboard-kit/components/none-cell"
 import { PageHeader } from "@forge-go/dashboard-kit/components/page-header"
-import { QueryBoundary } from "@forge-go/dashboard-kit/components/query-boundary"
 import {
   ResourceTable,
   type Column,
 } from "@forge-go/dashboard-kit/components/resource-table"
 import { Timestamp } from "@forge-go/dashboard-kit/components/timestamp"
+import { SettledBoundary } from "../components/settled-boundary"
 import { SuiteFormDialog } from "../components/suite-form-dialog"
 import { plural, suitePath } from "../format"
 import type { Suite, SuitesList } from "../types"
@@ -26,7 +26,8 @@ const columns: Column<Suite>[] = [
     id: "model",
     header: "Model",
     className: "font-mono text-xs",
-    cell: (s) => s.model || <NoneCell label="model" />,
+    // Empty means the engine's model decides, said as the detail page says it.
+    cell: (s) => s.model || <span className="font-sans text-sm text-muted-foreground">Engine default</span>,
   },
   {
     id: "cases",
@@ -39,7 +40,7 @@ const columns: Column<Suite>[] = [
     id: "prompt",
     header: "Prompt",
     cell: (s) =>
-      s.currentPromptVersion ? `Version ${s.currentPromptVersion.version}` : "Suite prompt",
+      s.currentPromptVersion ? `Version ${s.currentPromptVersion.version}` : "The suite's own prompt",
   },
   {
     id: "baseline",
@@ -57,8 +58,9 @@ const columns: Column<Suite>[] = [
 export const SuitesPage: ComponentType<PluginPageProps> = () => {
   const list = useQuery<SuitesList>("suites.list")
   const navigate = useNavigateTo()
-  // Outside the QueryBoundary: the create invalidates suites.list, and the
-  // boundary unmounts its children while that refetches.
+  // Outside the boundary: the create invalidates suites.list, and the dialog
+  // must stay up while that refetches. SettledBoundary keeps the table on
+  // screen through the refetch as well.
   const [creating, setCreating] = useState(false)
   const create = <Button onClick={() => setCreating(true)}>Create suite</Button>
   return (
@@ -68,7 +70,7 @@ export const SuitesPage: ComponentType<PluginPageProps> = () => {
         description="A suite is a set of test cases, run against a target and scored."
         actions={create}
       />
-      <QueryBoundary title="Suites" query={list} skeletonRows={5}>
+      <SettledBoundary title="Suites" query={list} skeletonRows={5}>
         {(data) => (
           <ResourceTable<Suite>
             columns={columns}
@@ -79,7 +81,7 @@ export const SuitesPage: ComponentType<PluginPageProps> = () => {
             emptyAction={create}
           />
         )}
-      </QueryBoundary>
+      </SettledBoundary>
       <SuiteFormDialog
         open={creating}
         onOpenChange={setCreating}

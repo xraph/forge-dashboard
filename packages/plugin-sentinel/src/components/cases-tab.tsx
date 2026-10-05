@@ -34,7 +34,9 @@ function columns(suiteId: string): Column<TestCase>[] {
     {
       id: "scorers",
       header: "Own scorers",
-      cell: (c) => <TagList values={c.scorers.map((s) => s.name)} label="scorers of its own" />,
+      // A case may hold the same scorer twice with different config; the
+      // column names it once.
+      cell: (c) => <TagList values={[...new Set(c.scorers.map((s) => s.name))]} label="scorers of its own" />,
     },
     {
       id: "redteam",

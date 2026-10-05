@@ -56,7 +56,7 @@ export function PromptVersionDialog({ open, onOpenChange, suiteId, initialPrompt
       }}
       disablePointerDismissal={locked}
     >
-      <DialogContent showCloseButton={!locked} className="sm:max-w-2xl">
+      <DialogContent showCloseButton={!locked} className="max-h-[calc(100vh-2rem)] overflow-y-auto sm:max-w-2xl">
         <PromptVersionForm
           command={command}
           suiteId={suiteId}

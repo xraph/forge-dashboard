@@ -23,7 +23,7 @@ import {
   NativeSelectOption,
 } from "@forge-go/dashboard-kit/components/native-select"
 import { Textarea } from "@forge-go/dashboard-kit/components/textarea"
-import { SCENARIO_TYPES, scenarioLabel } from "../format"
+import { plural, SCENARIO_TYPES, scenarioLabel } from "../format"
 import type { Redaction, SentinelConfig, TestCase } from "../types"
 
 // The server's words (handlers_cases.go). The create and update refusals for a
@@ -136,7 +136,7 @@ export function CaseFormDialog({ open, onOpenChange, suiteId, testCase }: CaseFo
       }}
       disablePointerDismissal={locked}
     >
-      <DialogContent showCloseButton={!locked} className="sm:max-w-2xl">
+      <DialogContent showCloseButton={!locked} className="max-h-[calc(100vh-2rem)] overflow-y-auto sm:max-w-2xl">
         <CaseForm
           command={command}
           suiteId={suiteId}
@@ -166,7 +166,11 @@ function CaseForm({
   const [input, setInput] = useState(testCase?.input ?? "")
   const [expected, setExpected] = useState(testCase?.expected ?? "")
   const [scenario, setScenario] = useState(testCase?.scenarioType ?? "standard")
-  const [tags, setTags] = useState((testCase?.tags ?? []).join(", "))
+  // The tags as the field first showed them. While the field still reads this,
+  // the case's own tags go back exactly: an imported tag may hold a comma, and
+  // splitting the joined text would turn one tag into two.
+  const [initialTags] = useState(() => (testCase?.tags ?? []).join(", "))
+  const [tags, setTags] = useState(initialTags)
   const [scorers, setScorers] = useState<ScorerRow[]>(() => rowsFrom(testCase))
   const [problem, setProblem] = useState<string | null>(null)
   const sending = useRef(false)
@@ -202,7 +206,7 @@ function CaseForm({
       input,
       expected,
       scenarioType: scenario,
-      tags: parseTags(tags),
+      tags: testCase && tags === initialTags ? testCase.tags : parseTags(tags),
       scorers: built,
     }
     sending.current = true
@@ -305,6 +309,10 @@ function CaseForm({
                       id={id(`scorer-${row.key}`)}
                       className="w-full font-mono"
                       value={row.name}
+                      // The server matches a withheld value to its row by
+                      // position among the same scorer's rows, so a hidden
+                      // check keeps its name and its place.
+                      disabled={row.redacted !== undefined}
                       onChange={(e) => updateRow(row.key, { name: e.target.value })}
                     >
                       {options.map((n) => (
@@ -319,6 +327,7 @@ function CaseForm({
                     variant="outline"
                     size="sm"
                     aria-label={`Remove scorer ${i + 1}`}
+                    disabled={row.redacted !== undefined}
                     onClick={() => setScorers((rows) => rows.filter((r) => r.key !== row.key))}
                   >
                     Remove
@@ -337,7 +346,7 @@ function CaseForm({
                   />
                   {row.redacted && (
                     <FieldDescription>
-                      {`The ${row.redacted.key} (${row.redacted.length} characters) is hidden, because it is the system prompt this case guards. It is kept unless you add a "${row.redacted.key}" key here.`}
+                      {`The ${row.redacted.key} (${plural(row.redacted.length, "character", "characters")}) is hidden, because it is the system prompt this case guards. It is kept unless you add a "${row.redacted.key}" key here. A hidden check cannot be removed or changed to another scorer here.`}
                     </FieldDescription>
                   )}
                 </Field>

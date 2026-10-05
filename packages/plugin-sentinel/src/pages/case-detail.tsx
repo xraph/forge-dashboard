@@ -31,6 +31,15 @@ function Text({ value, label }: { value: string; label: string }) {
   )
 }
 
+/**
+ * Keys a scorer row by its place in the list. A case may hold the same scorer
+ * twice, even with the same config, so neither name nor config is unique.
+ */
+function indexKey(rows: ScorerConfig[]): (row: ScorerConfig) => string {
+  const place = new Map(rows.map((row, i) => [row, i]))
+  return (row) => String(place.get(row))
+}
+
 const scorerColumns: Column<ScorerConfig>[] = [
   { id: "name", header: "Scorer", className: "font-mono text-xs font-medium", cell: (s) => s.name },
   {
@@ -57,17 +66,24 @@ const scorerColumns: Column<ScorerConfig>[] = [
   },
 ]
 
-/** /suites/:id/cases/:caseId. Guards the ids, then keys the body on them. */
+/**
+ * /suites/:id/cases/:caseId. Guards the ids, then keys the body on the case.
+ * The suite the page links to is the one the case record names, not the one in
+ * the URL, so a case reached through a stale or mistyped suite id still links
+ * to its own.
+ */
 export const CaseDetailPage: ComponentType<PluginPageProps> = ({ params }) => {
   const suiteId = params.id
   const caseId = params.caseId
   if (!suiteId || !caseId) return <p className="text-sm text-muted-foreground">No case selected.</p>
-  return <CaseDetailBody key={caseId} suiteId={suiteId} caseId={caseId} />
+  return <CaseDetailBody key={caseId} caseId={caseId} />
 }
 
-function CaseDetailBody({ suiteId, caseId }: { suiteId: string; caseId: string }) {
+function CaseDetailBody({ caseId }: { caseId: string }) {
   const testCase = useQuery<TestCase>("cases.detail", { caseId })
-  const suite = useQuery<Suite>("suites.detail", { suiteId })
+  // Asked for once the case has answered, because the case says which suite.
+  const ownSuiteId = testCase.data?.suiteId
+  const suite = useQuery<Suite>("suites.detail", { suiteId: ownSuiteId }, { enabled: ownSuiteId !== undefined })
   const [editing, setEditing] = useState(false)
   const [deleting, setDeleting] = useState(false)
   const [target, setTarget] = useState<TestCase | null>(null)
@@ -111,7 +127,7 @@ function CaseDetailBody({ suiteId, caseId }: { suiteId: string; caseId: string }
               items={[
                 {
                   term: "Suite",
-                  value: <PluginLink to={suitePath(suiteId)}>{suite.data?.name ?? "Back to the suite"}</PluginLink>,
+                  value: <PluginLink to={suitePath(c.suiteId)}>{suite.data?.name ?? "Back to the suite"}</PluginLink>,
                 },
                 { term: "Tags", value: <TagList values={c.tags} label="tags" /> },
                 { term: "Created", value: <Timestamp value={c.createdAt} label="creation time" /> },
@@ -137,7 +153,7 @@ function CaseDetailBody({ suiteId, caseId }: { suiteId: string; caseId: string }
               <ResourceTable<ScorerConfig>
                 columns={scorerColumns}
                 rows={c.scorers}
-                rowKey={(s) => `${s.name}-${JSON.stringify(s.config)}`}
+                rowKey={indexKey(c.scorers)}
                 caption={plural(c.scorers.length, "scorer", "scorers")}
                 emptyMessage="No scorers of its own. The run's scorers judge it."
               />
@@ -160,7 +176,7 @@ function CaseDetailBody({ suiteId, caseId }: { suiteId: string; caseId: string }
       </SettledBoundary>
       {target && (
         <>
-          <CaseFormDialog open={editing} onOpenChange={setEditing} suiteId={suiteId} testCase={target} />
+          <CaseFormDialog open={editing} onOpenChange={setEditing} suiteId={target.suiteId} testCase={target} />
           <DeleteCaseDialog open={deleting} onOpenChange={setDeleting} testCase={target} />
         </>
       )}

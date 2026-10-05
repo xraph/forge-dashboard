@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest"
+import { describe, expect, it, vi } from "vitest"
 import { fireEvent, screen, waitFor, within } from "@testing-library/react"
 import { ContractError, PluginProvider } from "@forge-go/dashboard-plugin"
 import type { ScopedClient } from "@forge-go/dashboard-plugin"
@@ -30,6 +30,13 @@ describe("CasesTab, adding a case", () => {
   it("says so when the suite has no cases", async () => {
     renderTab(stubClient({ "cases.list": { items: [] }, "config.get": config() }))
     expect(await screen.findByText("No cases yet.")).toBeTruthy()
+  })
+
+  it("scrolls inside a short window", async () => {
+    renderTab(stubClient(ANSWERS))
+    await screen.findByText("1 case")
+    fireEvent.click(screen.getByRole("button", { name: "Add case" }))
+    expect(screen.getByRole("dialog").className).toContain("overflow-y-auto")
   })
 
   it("refuses a missing name or input with the server's words, before sending", async () => {
@@ -137,6 +144,44 @@ describe("CasesTab, importing", () => {
     ])
   })
 
+  it("scrolls inside a short window", async () => {
+    renderTab(stubClient(ANSWERS))
+    await screen.findByText("1 case")
+    fireEvent.click(screen.getByRole("button", { name: "Import cases" }))
+    expect(screen.getByRole("dialog").className).toContain("overflow-y-auto")
+  })
+
+  it("refuses a file over 1 MiB by its size, before reading it", async () => {
+    renderTab(stubClient(ANSWERS))
+    await screen.findByText("1 case")
+    fireEvent.click(screen.getByRole("button", { name: "Import cases" }))
+    const dialog = screen.getByRole("dialog")
+    const file = new File([new Uint8Array(1_048_577)], "big.json")
+    // jsdom's File has no text(), so the reader is stood in for.
+    const read = vi.fn().mockResolvedValue("[]")
+    Object.defineProperty(file, "text", { value: read })
+    fireEvent.change(within(dialog).getByLabelText("File"), { target: { files: [file] } })
+    expect((await within(dialog).findByRole("alert")).textContent).toBe("import data is larger than 1048576 bytes")
+    expect(read).not.toHaveBeenCalled()
+    expect((within(dialog).getByLabelText("Cases") as HTMLTextAreaElement).value).toBe("")
+  })
+
+  it("says a file could not be read, and clears that when another file is chosen", async () => {
+    renderTab(stubClient(ANSWERS))
+    await screen.findByText("1 case")
+    fireEvent.click(screen.getByRole("button", { name: "Import cases" }))
+    const dialog = screen.getByRole("dialog")
+    const broken = new File(["x"], "broken.json")
+    Object.defineProperty(broken, "text", { value: vi.fn().mockRejectedValue(new Error("denied")) })
+    fireEvent.change(within(dialog).getByLabelText("File"), { target: { files: [broken] } })
+    expect((await within(dialog).findByRole("alert")).textContent).toBe("The file could not be read.")
+    const good = new File(["unused"], "good.json")
+    Object.defineProperty(good, "text", { value: vi.fn().mockResolvedValue('[{"name":"a","input":"b"}]') })
+    fireEvent.change(within(dialog).getByLabelText("File"), { target: { files: [good] } })
+    await waitFor(() => expect((within(dialog).getByLabelText("Cases") as HTMLTextAreaElement).value).toBe('[{"name":"a","input":"b"}]'))
+    expect(within(dialog).queryByRole("alert")).toBeNull()
+  })
+
   it("asks for the cases before sending an empty import", async () => {
     const { client, sent } = recordingCommandClient(ANSWERS)
     renderTab(client)
@@ -168,5 +213,25 @@ describe("CasesTab, importing", () => {
     fireEvent.change(within(dialog).getByLabelText("Cases"), { target: { value: "[]" } })
     fireEvent.click(within(dialog).getByRole("button", { name: "Import" }))
     expect((await within(dialog).findByRole("alert")).textContent).toBe("sentinel: invalid input: row 2 has no input")
+  })
+})
+
+describe("CasesTab, the list", () => {
+  it("names a scorer once however many times a case has it", async () => {
+    const twice = { name: "contains", config: { substring: "a" } }
+    const spy = vi.spyOn(console, "error").mockImplementation(() => {})
+    try {
+      renderTab(
+        stubClient({
+          "cases.list": { items: [testCase({ scorers: [twice, { name: "contains", config: { substring: "b" } }] })] },
+          "config.get": config(),
+        }),
+      )
+      const table = await screen.findByRole("region", { name: "1 case" })
+      expect(within(table).getAllByText("contains").length).toBe(1)
+      expect(spy.mock.calls.map((args) => String(args[0])).filter((m) => m.includes("same key"))).toEqual([])
+    } finally {
+      spy.mockRestore()
+    }
   })
 })

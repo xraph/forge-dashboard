@@ -1493,18 +1493,22 @@ define(
     if (scorers !== undefined) {
       if (hide) {
         // The client never saw the substring, so it cannot send it back: keep
-        // the stored one unless a new non-empty one is given.
-        let stored = ""
-        for (const sc of tc.scorers) {
-          if (sc.name === "not_contains" && typeof sc.config?.substring === "string") stored = sc.config.substring
-        }
+        // the stored one unless a new non-empty one is given. Rows pair by
+        // position among the not_contains scorers, like the Go handler: the
+        // k-th submitted row takes the k-th stored one, and a row with no
+        // stored partner stays as submitted.
+        const stored = tc.scorers
+          .filter((sc) => sc.name === "not_contains")
+          .map((sc) => (typeof sc.config?.substring === "string" ? sc.config.substring : ""))
+        let k = 0
         for (const sc of scorers) {
           if (sc.name !== "not_contains") continue
+          const pos = k++
           const sub = sc.config?.substring
           if (typeof sub === "string") {
             if (sub === "") throw badRequest("a not_contains scorer needs a non-empty substring")
-          } else if (stored !== "") {
-            sc.config = { ...(sc.config ?? {}), substring: stored }
+          } else if (pos < stored.length && stored[pos] !== "") {
+            sc.config = { ...(sc.config ?? {}), substring: stored[pos] }
           }
         }
       }

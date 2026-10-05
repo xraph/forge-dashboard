@@ -5,7 +5,7 @@ import type { ScopedClient } from "@forge-go/dashboard-plugin"
 import { PromptsTab } from "../src/components/prompts-tab"
 import PromptVersionPage from "../src/pages/prompt-version"
 import { suite, SUITE_ID, version, VERSION_1, VERSION_2, versionDetail } from "./fixtures"
-import { recordingCommandClient, renderNavPage, stubClient } from "./harness"
+import { recordingCommandClient, recordingQueryClient, renderNavPage, stubClient } from "./harness"
 
 /** Answers like stubClient, except that every command is refused. */
 function refusing(answers: Record<string, unknown>, code: string, message: string): ScopedClient {
@@ -90,6 +90,12 @@ describe("PromptsTab", () => {
       intent: "prompts.create",
       payload: { suiteId: SUITE_ID, systemPrompt: "You are Nimbus. Be brief.", changelog: "Shorter", makeCurrent: true },
     })
+  })
+
+  it("scrolls inside a short window", async () => {
+    renderTab(stubClient({ "prompts.list": { items: [v1, version()] }, "suites.detail": suite() }))
+    fireEvent.click(await screen.findByRole("button", { name: "New version" }))
+    expect(screen.getByRole("dialog").className).toContain("overflow-y-auto")
   })
 
   it("can create a version without making it current", async () => {
@@ -206,6 +212,19 @@ describe("PromptVersionPage", () => {
     expect(within(diff).getByTestId("diff-was").textContent).toBe("You are Nimbus.")
     expect(within(diff).getByTestId("diff-now").textContent).toBe("You are Nimbus. Ask for the account email first.")
     expect(screen.queryByRole("button", { name: "Make current" })).toBeNull()
+  })
+
+  it("links to the suite the version belongs to, not the one in the URL", async () => {
+    const own = "suite_01j9se00000000000000000099"
+    const { client, sent } = recordingQueryClient({
+      "prompts.detail": versionDetail({ suiteId: own }),
+      "suites.detail": suite({ id: own, name: "Billing FAQ" }),
+    })
+    renderNavPage(PromptVersionPage, client, { id: SUITE_ID, versionId: VERSION_2 })
+    const link = await screen.findByRole("link", { name: "Billing FAQ" })
+    expect(link.getAttribute("href")).toBe(`/suites/${own}`)
+    const reads = sent.filter((q) => q.intent === "suites.detail").map((q) => q.params)
+    expect(reads).toEqual([{ suiteId: own }])
   })
 
   it("says there is nothing to compare for the first version", async () => {

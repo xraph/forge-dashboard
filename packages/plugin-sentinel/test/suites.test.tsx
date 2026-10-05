@@ -32,15 +32,46 @@ describe("SuitesPage", () => {
     expect(within(rows[1]).getByText("smart").closest("td")?.className).toContain("font-mono")
     expect(within(rows[1]).getByText("Version 2")).toBeTruthy()
     expect(within(rows[1]).getByText("Release 1.4")).toBeTruthy()
-    expect(within(rows[2]).getByText("Suite prompt")).toBeTruthy()
+    expect(within(rows[2]).getByText("The suite's own prompt")).toBeTruthy()
     expect(within(rows[2]).getByLabelText("no current baseline")).toBeTruthy()
-    expect(within(rows[2]).getByLabelText("no model")).toBeTruthy()
+    expect(within(rows[2]).getByText("Engine default").className).toContain("text-muted-foreground")
   })
 
   it("says so when there are no suites, with the create button", async () => {
     renderPage(SuitesPage, stubClient({ "suites.list": { items: [] } }))
     expect(await screen.findByText("No suites yet.")).toBeTruthy()
+    expect(screen.getByText("0 suites")).toBeTruthy()
     expect(screen.getAllByRole("button", { name: "Create suite" }).length).toBe(2)
+  })
+
+  it("scrolls inside a short window", async () => {
+    renderPage(SuitesPage, stubClient({ "suites.list": { items: [] } }))
+    await screen.findByText("No suites yet.")
+    expect(openCreate().className).toContain("overflow-y-auto")
+  })
+
+  it("closes on Escape when nothing is pending", async () => {
+    renderPage(SuitesPage, stubClient({ "suites.list": { items: [] } }))
+    await screen.findByText("No suites yet.")
+    openCreate()
+    fireEvent.keyDown(document.activeElement ?? document.body, { key: "Escape" })
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull())
+  })
+
+  it("refuses to close on Escape while its command is pending", async () => {
+    const client: ScopedClient = {
+      ...stubClient({ "suites.list": { items: [] } }),
+      command: () => new Promise(() => {}),
+    } as ScopedClient
+    renderPage(SuitesPage, client)
+    await screen.findByText("No suites yet.")
+    const dialog = openCreate()
+    fireEvent.change(within(dialog).getByLabelText("Name"), { target: { value: "Slow" } })
+    fireEvent.click(within(dialog).getByRole("button", { name: "Create suite" }))
+    await waitFor(() => expect((within(dialog).getByRole("button", { name: "Create suite" }) as HTMLButtonElement).disabled).toBe(true))
+    fireEvent.keyDown(document.activeElement ?? document.body, { key: "Escape" })
+    await new Promise((resolve) => setTimeout(resolve, 50))
+    expect(screen.getByRole("dialog")).toBeTruthy()
   })
 
   it("refuses a blank name before sending anything", async () => {

@@ -1,10 +1,10 @@
-import { describe, expect, it } from "vitest"
+import { describe, expect, it, vi } from "vitest"
 import { fireEvent, screen, waitFor, within } from "@testing-library/react"
 import { ContractError } from "@forge-go/dashboard-plugin"
 import type { ScopedClient } from "@forge-go/dashboard-plugin"
 import { CaseDetailPage } from "../src/pages/case-detail"
 import { CASE_ID, config, leakageCase, suite, SUITE_ID, testCase } from "./fixtures"
-import { recordingCommandClient, renderNavPage, stubClient } from "./harness"
+import { recordingCommandClient, recordingQueryClient, renderNavPage, stubClient } from "./harness"
 
 const HOSTILE = `<img src=x onerror="alert('pwned')"> **bold** [click](javascript:alert(1))`
 
@@ -139,5 +139,86 @@ describe("CaseDetailPage", () => {
     expect((await within(dialog).findByRole("alert")).textContent).toBe('unknown scenario type "dance"')
     expect(within(dialog).getByLabelText("Scenario type").getAttribute("aria-invalid")).toBe("true")
     expect(screen.getByRole("dialog")).toBeTruthy()
+  })
+  it("cannot rename or remove a hidden check in the edit form, because the server pairs withheld values by position", async () => {
+    const c = leakageCase()
+    renderNavPage(CaseDetailPage, stubClient(answers(c)), { id: SUITE_ID, caseId: c.id })
+    await screen.findByRole("heading", { level: 1, name: "leakage_direct_request" })
+    fireEvent.click(screen.getByRole("button", { name: "Edit" }))
+    const dialog = screen.getByRole("dialog")
+    expect((within(dialog).getByLabelText("Scorer 1") as HTMLSelectElement).disabled).toBe(true)
+    expect((within(dialog).getByRole("button", { name: "Remove scorer 1" }) as HTMLButtonElement).disabled).toBe(true)
+    expect(
+      within(dialog).getByText(
+        'The substring (93 characters) is hidden, because it is the system prompt this case guards. It is kept unless you add a "substring" key here. A hidden check cannot be removed or changed to another scorer here.',
+      ),
+    ).toBeTruthy()
+  })
+
+  it("lets an ordinary scorer row be renamed or removed, with no hidden-check note", async () => {
+    renderNavPage(CaseDetailPage, stubClient(answers()), { id: SUITE_ID, caseId: CASE_ID })
+    await screen.findByRole("heading", { level: 1, name: "Reset password" })
+    fireEvent.click(screen.getByRole("button", { name: "Edit" }))
+    const dialog = screen.getByRole("dialog")
+    expect((within(dialog).getByLabelText("Scorer 1") as HTMLSelectElement).disabled).toBe(false)
+    expect((within(dialog).getByRole("button", { name: "Remove scorer 1" }) as HTMLButtonElement).disabled).toBe(false)
+    expect(within(dialog).queryByText(/is hidden, because/)).toBeNull()
+  })
+
+  it("sends tags back exactly when the tags field is untouched, even one with a comma in it", async () => {
+    const c = testCase({ tags: ["billing, urgent"] })
+    const { client, sent } = recordingCommandClient(answers(c), { "cases.update": c })
+    renderNavPage(CaseDetailPage, client, { id: SUITE_ID, caseId: CASE_ID })
+    await screen.findByRole("heading", { level: 1, name: "Reset password" })
+    fireEvent.click(screen.getByRole("button", { name: "Edit" }))
+    const dialog = screen.getByRole("dialog")
+    fireEvent.change(within(dialog).getByLabelText("Name"), { target: { value: "Renamed" } })
+    fireEvent.click(within(dialog).getByRole("button", { name: "Save case" }))
+    await waitFor(() => expect(sent.length).toBe(1))
+    expect((sent[0].payload as { tags: string[] }).tags).toEqual(["billing, urgent"])
+  })
+
+  it("parses the tags field once it has been edited", async () => {
+    const c = testCase({ tags: ["billing, urgent"] })
+    const { client, sent } = recordingCommandClient(answers(c), { "cases.update": c })
+    renderNavPage(CaseDetailPage, client, { id: SUITE_ID, caseId: CASE_ID })
+    await screen.findByRole("heading", { level: 1, name: "Reset password" })
+    fireEvent.click(screen.getByRole("button", { name: "Edit" }))
+    const dialog = screen.getByRole("dialog")
+    fireEvent.change(within(dialog).getByLabelText("Tags"), { target: { value: "billing, urgent, vip" } })
+    fireEvent.click(within(dialog).getByRole("button", { name: "Save case" }))
+    await waitFor(() => expect(sent.length).toBe(1))
+    expect((sent[0].payload as { tags: string[] }).tags).toEqual(["billing", "urgent", "vip"])
+  })
+
+  it("links to the suite the case belongs to, not the one in the URL", async () => {
+    const own = "suite_01j9se00000000000000000099"
+    const c = testCase({ suiteId: own })
+    const { client, sent } = recordingQueryClient({
+      "cases.detail": c,
+      "suites.detail": suite({ id: own, name: "Billing FAQ" }),
+      "config.get": config(),
+    })
+    renderNavPage(CaseDetailPage, client, { id: SUITE_ID, caseId: CASE_ID })
+    const link = await screen.findByRole("link", { name: "Billing FAQ" })
+    expect(link.getAttribute("href")).toBe(`/suites/${own}`)
+    const reads = sent.filter((q) => q.intent === "suites.detail").map((q) => q.params)
+    expect(reads).toEqual([{ suiteId: own }])
+  })
+
+  it("shows two identical scorers as two rows, with no duplicate-key warning", async () => {
+    const twice = { name: "contains", config: { substring: "Forgot password" } }
+    const spy = vi.spyOn(console, "error").mockImplementation(() => {})
+    try {
+      renderNavPage(CaseDetailPage, stubClient(answers(testCase({ scorers: [twice, { ...twice }] }))), {
+        id: SUITE_ID,
+        caseId: CASE_ID,
+      })
+      const scorers = await screen.findByRole("region", { name: "2 scorers" })
+      expect(within(scorers).getAllByRole("row").length).toBe(3)
+      expect(spy.mock.calls.map((args) => String(args[0])).filter((m) => m.includes("same key"))).toEqual([])
+    } finally {
+      spy.mockRestore()
+    }
   })
 })

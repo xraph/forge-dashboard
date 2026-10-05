@@ -44,6 +44,7 @@ describe("SetupPage", () => {
     expect(note.textContent).toContain("No target is registered, so no run can start.")
     expect(note.textContent).toContain("WithTarget(name, description, target)")
     expect(screen.getByText("No targets registered.")).toBeTruthy()
+    expect(screen.getByText("0 targets")).toBeTruthy()
   })
 
   it("has no notice when a target is registered", async () => {

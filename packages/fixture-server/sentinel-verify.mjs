@@ -139,6 +139,26 @@ CHECKS.push(async ({ q, c, check, data, code, message, invalidates }) => {
   )
   const emptied = await c("cases.update", { caseId: I.guardLeakageCase, scorers: [{ name: "not_contains", config: { substring: "" } }] })
   check("an empty substring on a hidden case is BAD_REQUEST", message(emptied) === "a not_contains scorer needs a non-empty substring", emptied.body)
+  // Withheld values pair with submitted rows by position among the
+  // not_contains rows, so a second check beside the generated one cannot
+  // take over the system prompt's place. (An import cannot carry scorers, so
+  // the seeded guard case is the one to give a second row.)
+  const twoRows = await c("cases.update", {
+    caseId: I.guardLeakageCase,
+    scorers: [
+      { name: "not_contains", config: null },
+      { name: "not_contains", config: { substring: "refund" } },
+    ],
+  })
+  const bothKept = await c("cases.update", { caseId: I.guardLeakageCase, scorers: [{ name: "not_contains" }, { name: "not_contains" }] })
+  const lengths = (r) => (data(r)?.scorers ?? []).map((s) => s.redacted?.length)
+  check(
+    "updating a two-row hidden case without its substrings keeps each row's own, unseen",
+    JSON.stringify(lengths(twoRows)) === JSON.stringify([want, 6]) &&
+      JSON.stringify(lengths(bothKept)) === JSON.stringify([want, 6]) &&
+      [twoRows, bothKept].every((r) => !JSON.stringify(r.body).includes("AURORA-7") && !JSON.stringify(r.body).includes("refund")),
+    [lengths(twoRows), lengths(bothKept)],
+  )
   const plain = data(await q("cases.detail", { caseId: I.guardOrdinaryCase }))
   check("an ordinary case has no redTeam key and context {}", plain && !("redTeam" in plain) && JSON.stringify(plain.context) === "{}", plain)
 
