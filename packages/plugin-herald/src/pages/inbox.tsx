@@ -24,7 +24,7 @@ const PAGE_SIZE = 25
  * actionable, so its controls and its delete dialog fall back to the ID.
  */
 const columns: Column<NotificationWire>[] = [
-  { id: "title", header: "Title", className: "font-medium", cell: (n) => (n.title === "" ? <NoneCell label="untitled" /> : n.title) },
+  { id: "title", header: "Title", className: "font-medium", cell: (n) => (n.title === "" ? <NoneCell label="title" /> : n.title) },
   { id: "type", header: "Type", className: "font-mono text-xs", cell: (n) => (n.type === "" ? <NoneCell label="type" /> : n.type) },
   { id: "read", header: "Read", cell: (n) => (n.read ? <Timestamp value={n.readAt} label="read time" /> : "Unread") },
   { id: "created", header: "Created", cell: (n) => <Timestamp value={n.createdAt} label="creation time" /> },

@@ -235,8 +235,8 @@ describe("InboxPage", () => {
     )
     renderPage(InboxPage, c.client)
     await typeUser("usr_ada")
-    const row = (await screen.findAllByRole("row")).find((r) => within(r).queryByLabelText("no untitled"))!
-    expect(within(row).getByLabelText("no untitled")).toBeTruthy()
+    const row = (await screen.findAllByRole("row")).find((r) => within(r).queryByLabelText("no title"))!
+    expect(within(row).getByLabelText("no title")).toBeTruthy()
     expect(within(row).getByLabelText("no type")).toBeTruthy()
     // The controls name the row by its ID, never "Mark  read".
     expect(screen.queryByRole("button", { name: "Mark  read" })).toBeNull()
