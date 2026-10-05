@@ -518,8 +518,10 @@ The eager set is 1,491.76 KB raw and 414.86 KB gzip, against 1,418.68 KB and
 397.91 KB in the trove section: 73.08 KB raw and 16.95 KB gzip more. The
 `checkbox` chunk is gone from the eager set and six small ones joined it
 (`react-dom`, `useTransitionStatus`, `createBaseUIEventDetails`, `badge`,
-`useValueChanged`, `visuallyHidden`), but nearly all of the growth is the entry
-itself. Neither sentinel chunk is part of it, because both are lazy.
+`useValueChanged`, `visuallyHidden`). The entry itself grew by 78.36 KB raw
+(1,241.99 to 1,320.35), which is more than the 73.08 KB the whole set grew by,
+so the other eager chunks shrank a little between the two builds. Neither
+sentinel chunk is part of the growth, because both are lazy.
 
 ### What the diff carries
 
@@ -533,16 +535,20 @@ one whose prompt matches the version before it, never loads the diff.
 ### CodeMirror
 
 Sentinel adds one CodeMirror wrapper and no CodeMirror bytes of its own.
-`prompt-diff` is 0.95 KB and imports two chunks: `dist-C1o7dCB9` (the core,
-288.56 KB raw and 93.24 KB gzip, the same hash as the trove and warden
-sections) and `dist-v479ndfu` (19.50 KB raw and 7.29 KB gzip). The second is
-the chunk with `@codemirror/merge` in it. Vault's `json-diff` and
-`config-detail` import it too, so the two diffs share it. The earlier sections
-did not name it. The first time you open a version whose prompt changed, you load about
-312.27 KB raw and 102.47 KB gzip (the page, the diff and those two chunks), or
-4.21 KB raw and 1.94 KB gzip if a vault diff or another editor already loaded
-the shared two. The other two `dist-*` chunks (`dist-yY4JzDLC`, `dist-BTo3Thc2`)
-are not imported by `prompt-diff`.
+`prompt-diff` is 0.95 KB and imports three chunks: two CodeMirror chunks and
+`jsx-runtime`, which the entry already loads. The CodeMirror ones are
+`dist-C1o7dCB9` (the core, 288.56 KB raw and 93.24 KB gzip, the same hash as the
+trove and warden sections) and `dist-v479ndfu` (19.50 KB raw and 7.29 KB gzip).
+The second is the chunk with `@codemirror/merge` in it. Of vault's pages, only
+`json-diff` imports it statically. `config-detail` reaches it lazily. Either
+way, a vault diff and a prompt diff share the one chunk. The earlier sections
+did not name it.
+
+The first time you open a version whose prompt changed, you load about 312.27 KB
+raw and 102.47 KB gzip (the page, the diff and those two chunks), or 4.21 KB raw
+and 1.94 KB gzip if a vault diff or another editor already loaded the shared
+two. The other two `dist-*` chunks (`dist-yY4JzDLC`, `dist-BTo3Thc2`) are not
+imported by `prompt-diff`.
 
 ### The entry does not carry any of it
 
@@ -559,5 +565,8 @@ The entry names `prompt-version-BvyayMiz.js` twice, once in `__vite__mapDeps`
 and once in the `import()` the route's `lazy()` compiles to, and never in a
 `from"./..."` clause. It does not name `prompt-diff` at all. That chunk is named
 only inside `prompt-version`, in its own `__vite__mapDeps` and its `import()`.
-Neither sentinel chunk is in `index.html`'s `modulepreload` list (count 0). The CSS is 274.43 KB (41.07 KB gzip), 0.49 KB more than in the
-trove section.
+Neither sentinel chunk is in `index.html`'s `modulepreload` list (count 0). The
+CSS is 274.43 KB (41.07 KB gzip), 0.49 KB more than in the trove section.
+
+The chunk hashes named in this section are from this build. Any edit to the
+entry changes them, so search by chunk name if you repeat the counts.
