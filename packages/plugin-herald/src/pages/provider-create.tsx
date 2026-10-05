@@ -11,7 +11,7 @@ import { CommandAlert, QueryBoundary } from "@forge-go/dashboard-kit/components/
 import { Switch } from "@forge-go/dashboard-kit/components/switch"
 import { HeraldHeader, useEngineInfo } from "../components/herald-header"
 import { SecretInput, useSecretFields } from "../components/secret-fields"
-import { providerPath } from "../keys"
+import { providerPath, providersPath } from "../keys"
 import type { EngineInfoResponse, FieldInfo, ProviderResponse, ProvidersCreateRequest } from "../wire"
 
 interface FreeRow {
@@ -247,7 +247,7 @@ function CreateForm({ engine }: { engine: EngineInfoResponse }) {
         <Button type="submit" disabled={!canSubmit}>
           {create.loading ? "Creating…" : "Create provider"}
         </Button>
-        <PluginLink to="/providers" className="text-sm underline">
+        <PluginLink to={providersPath} className="text-sm underline">
           Cancel
         </PluginLink>
       </div>

@@ -192,4 +192,41 @@ describe("ProviderEditPage", () => {
     expect(screen.getByRole("heading", { level: 1, name: "Edit provider" })).toBeTruthy()
     expect(await screen.findByText("app_demo")).toBeTruthy()
   })
+
+  it("counts the stored credentials in the table caption", async () => {
+    setup()
+    expect(await screen.findByRole("table", { name: "2 stored credentials" })).toBeTruthy()
+  })
+
+  it("holds Save for a driver with no schema until every stored credential is entered again or removed", async () => {
+    const legacy = providerDetail({
+      id: "hpvd_01j00000000000000000000005",
+      name: "Legacy gateway",
+      channel: "sms",
+      driver: "legacy-sms",
+      credentials: [
+        { key: "token", protection: "aes-256-gcm", keyId: "k1" },
+        { key: "user", protection: "plaintext" },
+      ],
+      settings: [{ key: "base_url", secret: true }],
+    })
+    const c = scriptedClient({ "engine.info": engine(), "providers.detail": { provider: legacy } }, { "providers.update": () => ({ provider: providerSummary() }) })
+    renderWithNavigate(ProviderEditPage, c.client, { id: legacy.id })
+    // base_url is stored as a hidden value here: replacing it moves where credentials go.
+    fireEvent.click(await screen.findByRole("button", { name: "Replace base_url" }))
+    fireEvent.change(screen.getByLabelText("New value for base_url"), { target: { value: "https://elsewhere.test" } })
+    const save = screen.getByRole("button", { name: "Save changes" }) as HTMLButtonElement
+    expect(save.disabled).toBe(true)
+    expect(screen.getByText(/Changing base_url sends credentials to a new server/)).toBeTruthy()
+    expect(screen.getByText(/enter token, user again/)).toBeTruthy()
+    fireEvent.click(screen.getByRole("button", { name: "Replace token" }))
+    fireEvent.change(screen.getByLabelText("New value for token"), { target: { value: CANARY } })
+    expect(save.disabled).toBe(true)
+    expect(screen.getByText(/enter user again/)).toBeTruthy()
+    fireEvent.click(screen.getByRole("button", { name: "Remove user" }))
+    expect(save.disabled).toBe(false)
+    fireEvent.click(save)
+    await waitFor(() => expect(c.sent).toHaveLength(1))
+    expect(c.sent[0]?.payload).toEqual({ id: legacy.id, setSettings: { base_url: "https://elsewhere.test" }, setCredentials: { token: CANARY }, removeCredentials: ["user"] })
+  })
 })

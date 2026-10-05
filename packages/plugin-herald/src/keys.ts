@@ -5,6 +5,7 @@
  */
 const seg = encodeURIComponent
 
+export const providersPath = "/providers"
 export const newProviderPath = "/new-provider"
 export const providerPath = (id: string) => `/providers/${seg(id)}`
 export const providerEditPath = (id: string) => `/providers/${seg(id)}/edit`

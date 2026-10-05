@@ -10,6 +10,7 @@ import { Switch } from "@forge-go/dashboard-kit/components/switch"
 import { ProtectionBadge } from "../badges"
 import { HeraldHeader, useEngineInfo } from "../components/herald-header"
 import { SecretInput, useSecretFields } from "../components/secret-fields"
+import { plural } from "../format"
 import { providerPath } from "../keys"
 import type { EngineInfoResponse, FieldInfo, ProviderDetail, ProviderResponse, ProvidersDetailResponse, ProvidersUpdateRequest } from "../wire"
 
@@ -20,7 +21,9 @@ function EditForm({ provider, engine }: { provider: ProviderDetail; engine: Engi
   const navigateTo = useNavigateTo()
   const secrets = useSecretFields()
   const schema = engine.drivers.find((d) => d.name === provider.driver)?.fields ?? null
-  const schemaless = schema === null || schema.length === 0
+  // Only a missing schema means "any stored credential could be a secret". An
+  // empty one (inapp) is a driver that needs nothing, as the server's Describe reads it.
+  const schemaless = schema === null
   const fieldOf = (key: string): FieldInfo | undefined => schema?.find((f) => f.key === key)
 
   const storedSettings = provider.settings
@@ -198,7 +201,8 @@ function EditForm({ provider, engine }: { provider: ProviderDetail; engine: Engi
         <legend className="mb-1 text-sm font-medium">Credentials</legend>
         <p className="text-xs text-muted-foreground">Write-only. Replace or remove a credential; its value is never shown.</p>
         {provider.credentials.length > 0 && (
-          <table className="w-full text-sm" aria-label="Stored credentials">
+          <table className="w-full text-sm">
+            <caption className="pb-1 text-left text-xs text-muted-foreground">{plural(provider.credentials.length, "stored credential")}</caption>
             <tbody>
               {provider.credentials.map((c) => (
                 <tr key={c.key} className="border-b last:border-0">
