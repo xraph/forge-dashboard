@@ -74,8 +74,9 @@ export interface PolicyValidateResponse {
  * that bound. Namespace is not patchable.
  *
  * `expectedVersion` is the version the editor loaded. When the stored policy
- * is at another version the server refuses the update as stale and writes
- * nothing. Absent, the server skips that check.
+ * is at a newer version the server refuses the update as stale and writes
+ * nothing. A version above the stored one, or below 1, was never stored, so
+ * the server refuses it as bad input. Absent, the server skips that check.
  */
 export interface PolicyUpdatePayload {
   id: string
