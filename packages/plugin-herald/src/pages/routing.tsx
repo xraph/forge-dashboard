@@ -12,20 +12,11 @@ import { NoneCell } from "@forge-go/dashboard-kit/components/none-cell"
 import { CommandAlert, QueryBoundary } from "@forge-go/dashboard-kit/components/query-boundary"
 import { DanglingBadge, DisabledProviderBadge } from "../badges"
 import { HeraldHeader, useEngineInfo } from "../components/herald-header"
+import { ResolvedProvider } from "../components/resolved-provider"
 import { ROUTED_CHANNELS } from "../format"
 import { providerPath } from "../keys"
 import { useDebounced } from "../use-debounced"
-import type { DeleteResponse, ProviderSummary, ProvidersListResponse, ResolveVia, RoutedChannel, ScopeRule, ScopeType, ScopesListResponse, ScopesSetRequest, ScopesSetResponse, SendResolveResponse } from "../wire"
-
-/** Why send.resolve picked what it picked, each a sentence of its own. */
-export const VIA_TEXT: Record<ResolveVia, string> = {
-  user: "The user's routing rule names it.",
-  org: "The org's routing rule names it.",
-  app: "The app's routing rule names it.",
-  fallback: "No rule names one, so Herald takes the first enabled provider for the channel by priority.",
-  chosen: "It was chosen explicitly.",
-  none: "No provider would send it.",
-}
+import type { DeleteResponse, ProviderSummary, ProvidersListResponse, RoutedChannel, ScopeRule, ScopeType, ScopesListResponse, ScopesSetRequest, ScopesSetResponse, SendResolveResponse } from "../wire"
 
 type SlotKey = "emailProviderId" | "smsProviderId" | "pushProviderId" | "webhookProviderId" | "chatProviderId"
 const slotKey = (ch: RoutedChannel): SlotKey => `${ch}ProviderId` as SlotKey
@@ -75,28 +66,7 @@ function WhoSends({ channels }: { channels: string[] }) {
       </div>
       {channel !== "" && (
         <QueryBoundary title="Who sends" query={resolve} skeletonRows={1}>
-          {(r) =>
-            r.provider === null ? (
-              <p className="text-sm">Nothing would send it: no rule names a provider for {channel}, and no enabled provider handles it.</p>
-            ) : (
-              <div className="flex flex-col gap-1 text-sm">
-                <p className="flex flex-wrap items-center gap-2">
-                  <PluginLink to={providerPath(r.provider.id)} className="font-medium underline">
-                    {r.provider.name || r.provider.id}
-                  </PluginLink>
-                  {r.provider.driver && <span className="font-mono text-xs">{r.provider.driver}</span>}
-                  {r.provider.enabled === false && <DisabledProviderBadge />}
-                </p>
-                <p>{VIA_TEXT[r.via]}</p>
-                {(r.from.email || r.from.name || r.from.phone) && (
-                  <p>
-                    From {r.from.name ? `${r.from.name} ` : ""}
-                    <span className="font-mono text-xs">{r.from.email ?? r.from.phone}</span>
-                  </p>
-                )}
-              </div>
-            )
-          }
+          {(r) => <ResolvedProvider answer={r} channel={channel} link from />}
         </QueryBoundary>
       )}
     </section>
@@ -137,7 +107,12 @@ function RuleCard({ rule, providers, onEdit, onDelete }: { rule: ScopeRule; prov
                     <PluginLink to={providerPath(p.id)} className="underline">
                       {p.name}
                     </PluginLink>
-                    {providers.some((q) => q.id === p.id && !q.enabled) && <DisabledProviderBadge />}
+                    {providers.some((q) => q.id === p.id && !q.enabled) && (
+                      <>
+                        <DisabledProviderBadge />
+                        <span className="text-xs text-muted-foreground">Provider disabled: this rule is skipped for {ch} until it's enabled.</span>
+                      </>
+                    )}
                   </span>
                 )}
               </dd>

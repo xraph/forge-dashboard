@@ -196,6 +196,18 @@ describe("SendTestPage", () => {
     expect(screen.getByRole("link", { name: "Open it under Messages" }).getAttribute("href")).toBe("/messages/hmsg_01j00000000000000000000150")
   })
 
+  it("holds the result in a live region that is mounted before the send and holds the result after", async () => {
+    const { container } = renderPage(SendTestPage, setup().client)
+    await fillTemplateSend()
+    const region = container.querySelector("form [aria-live=polite]")
+    expect(region).not.toBeNull()
+    expect(region!.textContent).toBe("")
+    await sendAndConfirm()
+    await screen.findByText(/Accepted by Primary SMTP/)
+    expect(container.querySelector("form [aria-live=polite]")).toBe(region)
+    expect(region!.textContent).toMatch(/Accepted by Primary SMTP/)
+  })
+
   it("shows a provider failure as a result with the provider's own words, not an error banner", async () => {
     renderPage(SendTestPage, setup({ messageId: "hmsg_01j00000000000000000000151", status: "failed", provider: { id: SMTP.id, name: "Primary SMTP", driver: "smtp" }, error: "smtp: 535 authentication failed", logged: true }).client)
     await fillTemplateSend()
@@ -278,7 +290,7 @@ describe("SendTestPage", () => {
   it("holds Send when nothing would send it", async () => {
     renderPage(SendTestPage, setup().client)
     fireEvent.change(await screen.findByLabelText("Channel"), { target: { value: "push" } })
-    expect(await screen.findByText(/Nothing would send it/)).toBeTruthy()
+    expect((await screen.findByText(/Nothing would send it/)).textContent).toBe("Nothing would send it: no rule names a usable provider for push, and no enabled provider handles it.")
     fireEvent.change(screen.getByLabelText("Recipient"), { target: { value: "device-token" } })
     fireEvent.change(screen.getByLabelText("Content"), { target: { value: "raw" } })
     fireEvent.change(screen.getByLabelText("Body"), { target: { value: "Hi" } })

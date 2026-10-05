@@ -12,7 +12,7 @@ import { Timestamp } from "@forge-go/dashboard-kit/components/timestamp"
 import { EnabledBadge, ProtectionBadge } from "../badges"
 import { HeraldHeader } from "../components/herald-header"
 import { plural } from "../format"
-import { providerEditPath, providerSendTestPath } from "../keys"
+import { providerEditPath, providerSendTestPath, providersPath } from "../keys"
 import type { CredentialStatus, DeleteResponse, ProviderDetail, ProvidersDetailResponse, RouteUse, SettingEntry } from "../wire"
 
 const settingColumns: Column<SettingEntry>[] = [
@@ -35,24 +35,33 @@ function describeUse(u: RouteUse): string {
   return u.scopeId === "" ? `default ${u.scope} (${u.channel})` : `${u.scope} ${u.scopeId} (${u.channel})`
 }
 
-function UsedBy({ uses }: { uses: RouteUse[] }) {
+function UsedBy({ uses, enabled }: { uses: RouteUse[]; enabled: boolean }) {
   if (uses.length === 0) {
-    return <p className="text-sm text-muted-foreground">No routing rule names this provider. Herald picks it by channel and priority when no rule applies.</p>
+    return (
+      <p className="text-sm text-muted-foreground">
+        {enabled
+          ? "No routing rule names this provider. Herald picks it by channel and priority when no rule applies."
+          : "No routing rule names this provider, and it is disabled, so it is not picked by routing or fallback. It sends only when chosen explicitly in Send test."}
+      </p>
+    )
   }
   return (
-    <ul className="flex flex-col gap-1 text-sm">
-      {uses.map((u) => (
-        <li key={`${u.scope}|${u.scopeId}|${u.channel}`}>
-          {u.scopeId === "" ? (
-            `${u.channel}, default ${u.scope} rule`
-          ) : (
-            <>
-              {u.channel} for the {u.scope} rule <span className="font-mono text-xs">{u.scopeId}</span>
-            </>
-          )}
-        </li>
-      ))}
-    </ul>
+    <div className="flex flex-col gap-2">
+      <ul className="flex flex-col gap-1 text-sm">
+        {uses.map((u) => (
+          <li key={`${u.scope}|${u.scopeId}|${u.channel}`}>
+            {u.scopeId === "" ? (
+              `${u.channel}, default ${u.scope} rule`
+            ) : (
+              <>
+                {u.channel} for the {u.scope} rule <span className="font-mono text-xs">{u.scopeId}</span>
+              </>
+            )}
+          </li>
+        ))}
+      </ul>
+      {!enabled && <p className="text-sm text-muted-foreground">Routing skips these rules while it is disabled.</p>}
+    </div>
   )
 }
 
@@ -90,7 +99,7 @@ function ProviderBody({ id }: { id: string }) {
     const result = await remove.execute({ id })
     if (result === undefined) return
     setDeleting(false)
-    navigateTo("/providers")
+    navigateTo(providersPath)
   }
 
   return (
@@ -147,7 +156,7 @@ function ProviderBody({ id }: { id: string }) {
             aside={
               <section className="flex flex-col gap-2">
                 <h2 className="text-sm font-medium">Used by routing rules</h2>
-                <UsedBy uses={p.usedBy} />
+                <UsedBy uses={p.usedBy} enabled={p.enabled} />
               </section>
             }
           />

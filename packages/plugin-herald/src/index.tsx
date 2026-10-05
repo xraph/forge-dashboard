@@ -1,7 +1,7 @@
 import { lazy } from "react"
 import { definePlugin } from "@forge-go/dashboard-plugin"
 import { BellOffIcon, FileTextIcon, HouseIcon, InboxIcon, MailIcon, RouteIcon, SendIcon, ServerIcon } from "@forge-go/dashboard-kit/icons"
-import { inboxPath, messagesPath, newProviderPath, newTemplatePath, preferencesPath, routingPath, sendTestPath, templatesPath, templatesWithoutFallbackPath } from "./keys"
+import { inboxPath, messagesPath, newProviderPath, newTemplatePath, preferencesPath, providersPath, routingPath, sendTestPath, templatesPath, templatesWithoutFallbackPath } from "./keys"
 import { InboxPage } from "./pages/inbox"
 import { MessageDetailPage } from "./pages/message-detail"
 import { MessagesPage } from "./pages/messages"
@@ -43,7 +43,7 @@ export const heraldPlugin = definePlugin({
   label: "Herald",
   nav: [
     { label: "Overview", to: "/", priority: -10, icon: <HouseIcon />, group: "Notifications" },
-    { label: "Providers", to: "/providers", priority: 30, icon: <ServerIcon />, group: "Notifications" },
+    { label: "Providers", to: providersPath, priority: 30, icon: <ServerIcon />, group: "Notifications" },
     { label: "Templates", to: templatesPath, priority: 10, icon: <FileTextIcon />, group: "Notifications" },
     { label: "Messages", to: messagesPath, priority: 20, icon: <MailIcon />, group: "Notifications" },
     { label: "Inbox", to: inboxPath, priority: 50, icon: <InboxIcon />, group: "Notifications" },
@@ -53,7 +53,7 @@ export const heraldPlugin = definePlugin({
   ],
   routes: [
     { path: "/", element: OverviewPage },
-    { path: "/providers", element: ProvidersPage },
+    { path: providersPath, element: ProvidersPage },
     { path: "/providers/:id", element: ProviderDetailPage },
     // No nav entries: reached from buttons. Create lives at /new-provider so no ID can collide with it.
     { path: newProviderPath, element: ProviderCreatePage },

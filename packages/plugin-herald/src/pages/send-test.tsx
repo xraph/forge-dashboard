@@ -9,14 +9,13 @@ import { Label } from "@forge-go/dashboard-kit/components/label"
 import { NativeSelect, NativeSelectOption } from "@forge-go/dashboard-kit/components/native-select"
 import { CommandAlert, QueryBoundary } from "@forge-go/dashboard-kit/components/query-boundary"
 import { Textarea } from "@forge-go/dashboard-kit/components/textarea"
-import { DisabledProviderBadge } from "../badges"
 import { HeraldHeader, useEngineInfo } from "../components/herald-header"
 import { DiagnosticsList, RenderedPreview } from "../components/preview/rendered-preview"
 import { useRenderPreview } from "../components/preview/use-render-preview"
+import { ProviderLabel, ResolvedProvider } from "../components/resolved-provider"
 import { NO_RECEIPTS, statusLabel } from "../format"
 import { messagePath } from "../keys"
 import { useDebounced } from "../use-debounced"
-import { VIA_TEXT } from "./routing"
 import type {
   EngineInfoResponse,
   MessagesDetailResponse,
@@ -56,11 +55,6 @@ const NO_SNAPSHOT: Snapshot = { channel: "", recipient: "", providerId: "", prov
 
 function describeTarget(s: Snapshot): string {
   return `${s.provider}${s.driver ? ` (${s.driver})` : ""}${s.disabled ? ", which is disabled" : ""}`
-}
-
-/** The provider's name, or its ID as an identifier when it has no name. */
-function ProviderLabel({ id, name }: { id: string; name: string }) {
-  return name ? <>{name}</> : <span className="font-mono text-xs">{id}</span>
 }
 
 function ResultCard({ r, sent }: { r: SendTestResponse; sent: Snapshot }) {
@@ -251,17 +245,8 @@ function SendForm({ engine, initial }: { engine: EngineInfoResponse; initial: In
               </p>
             ) : !who.data || settledUser !== user ? (
               <p className="text-muted-foreground">Asking who would send…</p>
-            ) : target === null ? (
-              <p>Nothing would send it: no rule names a provider for {channel}, and no enabled provider handles it.</p>
             ) : (
-              <p className="flex flex-wrap items-center gap-x-2 gap-y-1">
-                <span>
-                  Sends through <span className="font-medium">{target.name || <span className="font-mono text-xs">{target.id}</span>}</span>
-                  {target.driver && <span className="font-mono text-xs"> {target.driver}</span>}.
-                </span>
-                <span>{VIA_TEXT[who.data.via]}</span>
-                {target.enabled === false && <DisabledProviderBadge />}
-              </p>
+              <ResolvedProvider answer={who.data} channel={channel} lead="Sends through" />
             )}
           </div>
         )}
@@ -345,7 +330,10 @@ function SendForm({ engine, initial }: { engine: EngineInfoResponse; initial: In
             Send test
           </Button>
         </div>
-        {send.data && <ResultCard r={send.data} sent={snapshot} />}
+        {/* Mounted before the send, so the result is announced when it arrives. */}
+        <div aria-live="polite" className="empty:sr-only">
+          {send.data && <ResultCard r={send.data} sent={snapshot} />}
+        </div>
       </form>
 
       {mode === "template" && template && (

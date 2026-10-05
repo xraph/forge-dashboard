@@ -47,7 +47,22 @@ describe("ProviderDetailPage", () => {
 
   it("explains fallback use when no rule names it", async () => {
     renderPage(ProviderDetailPage, client(providerDetail({ usedBy: [] })).client, { id: ID })
-    expect(await screen.findByText(/No routing rule names this provider/)).toBeTruthy()
+    const note = await screen.findByText(/No routing rule names this provider/)
+    expect(note.textContent).toMatch(/Herald picks it by channel and priority when no rule applies/)
+  })
+
+  it("says a disabled provider is not picked by routing or fallback, only when chosen in Send test", async () => {
+    renderPage(ProviderDetailPage, client(providerDetail({ enabled: false, usedBy: [] })).client, { id: ID })
+    const note = await screen.findByText(/No routing rule names this provider/)
+    expect(note.textContent).not.toMatch(/Herald picks it/)
+    expect(note.textContent).toMatch(/disabled/)
+    expect(note.textContent).toMatch(/not picked by routing or fallback/)
+    expect(note.textContent).toMatch(/Send test/)
+  })
+
+  it("tells you a disabled provider's rules are skipped", async () => {
+    renderPage(ProviderDetailPage, client(providerDetail({ enabled: false })).client, { id: ID })
+    expect(await screen.findByText(/Routing skips these rules while it is disabled/)).toBeTruthy()
   })
 
   it("links to edit and to a test send pinned to this provider", async () => {

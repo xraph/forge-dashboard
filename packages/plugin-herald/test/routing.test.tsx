@@ -1,7 +1,8 @@
 import { describe, expect, it } from "vitest"
 import { fireEvent, screen, waitFor, within } from "@testing-library/react"
 import { ContractError } from "@forge-go/dashboard-plugin"
-import { RoutingPage, VIA_TEXT } from "../src/pages/routing"
+import { VIA_TEXT } from "../src/components/resolved-provider"
+import { RoutingPage } from "../src/pages/routing"
 import { engine, providerSummary, scopeRule } from "./data"
 import { invalidatingClient, renderPage, scriptedClient } from "./harness"
 
@@ -112,10 +113,44 @@ describe("RoutingPage", () => {
     expect(c.queried.some((q) => q.intent === "send.resolve")).toBe(false)
   })
 
-  it("says plainly when nothing would send", async () => {
+  it("says plainly when nothing would send, and that rules naming a disabled or deleted provider don't count", async () => {
     renderPage(RoutingPage, setup().client)
     fireEvent.change(await screen.findByLabelText("Channel to test"), { target: { value: "push" } })
-    expect(await screen.findByText(/Nothing would send it/)).toBeTruthy()
+    expect((await screen.findByText(/Nothing would send it/)).textContent).toBe("Nothing would send it: no rule names a usable provider for push, and no enabled provider handles it.")
+  })
+
+  it("names a provider that has no name by its ID, in mono, and links it", async () => {
+    const answer = { provider: { id: SMTP.id, name: "", driver: "smtp", enabled: true }, via: "app", from: {} }
+    renderPage(RoutingPage, scriptedClient({ "engine.info": engine(), "scopes.list": RULES, "providers.list": { providers: [SMTP, TWILIO] }, "send.resolve": answer }).client)
+    fireEvent.change(await screen.findByLabelText("Channel to test"), { target: { value: "email" } })
+    await screen.findByText(VIA_TEXT.app)
+    const section = screen.getByRole("heading", { name: "Who sends?" }).closest("section")!
+    const link = within(section).getByRole("link", { name: SMTP.id })
+    expect(link.getAttribute("href")).toBe(`/providers/${SMTP.id}`)
+    expect(within(link).getByText(SMTP.id).className).toMatch(/font-mono text-xs/)
+  })
+
+  it("words the sender by what came back: a name alone has no address after it", async () => {
+    const answer = (from: Record<string, string>) => ({ provider: { id: SMTP.id, name: "Primary SMTP", driver: "smtp", enabled: true }, via: "app", from })
+    const view = renderPage(RoutingPage, scriptedClient({ "engine.info": engine(), "scopes.list": RULES, "providers.list": { providers: [SMTP, TWILIO] }, "send.resolve": () => answer({ name: "Acme" }) }).client)
+    fireEvent.change(await screen.findByLabelText("Channel to test"), { target: { value: "email" } })
+    const from = (await screen.findByText(/^From Acme/)).closest("p")!
+    expect(from.textContent).toBe("From Acme")
+    expect(from.querySelector(".font-mono")).toBeNull()
+    view.unmount()
+    renderPage(RoutingPage, scriptedClient({ "engine.info": engine(), "scopes.list": RULES, "providers.list": { providers: [SMTP, TWILIO] }, "send.resolve": () => answer({ name: "Acme", email: "hi@acme.test" }) }).client)
+    fireEvent.change(await screen.findByLabelText("Channel to test"), { target: { value: "email" } })
+    const both = (await screen.findByText("hi@acme.test")).closest("p")!
+    expect(both.textContent).toBe("From Acme hi@acme.test")
+  })
+
+  it("says on a rule's card that a disabled provider makes the rule skipped for that channel", async () => {
+    const off = providerSummary({ id: "hpvd_01j00000000000000000000009", name: "Old SMTP", enabled: false })
+    const rules = { rules: [scopeRule({ providers: { email: { id: off.id, name: "Old SMTP", dangling: false }, sms: { id: TWILIO.id, name: "Twilio", dangling: false } } })] }
+    renderPage(RoutingPage, scriptedClient({ "engine.info": engine(), "scopes.list": rules, "providers.list": { providers: [SMTP, TWILIO, off] } }).client)
+    const card = (await screen.findByRole("link", { name: "Old SMTP" })).closest("article")!
+    expect(within(card).getByText("Provider disabled: this rule is skipped for email until it's enabled.")).toBeTruthy()
+    expect(within(card).getAllByText(/skipped for/)).toHaveLength(1)
   })
 
   it("adds an org rule with only the fields you set", async () => {
