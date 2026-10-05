@@ -1,0 +1,160 @@
+import { useState } from "react"
+import type { ComponentType } from "react"
+import { useCommand, useQuery } from "@forge-go/dashboard-plugin"
+import type { PluginPageProps } from "@forge-go/dashboard-plugin"
+import { Button } from "@forge-go/dashboard-kit/components/button"
+import { ConfirmDialog } from "@forge-go/dashboard-kit/components/confirm-dialog"
+import { Input } from "@forge-go/dashboard-kit/components/input"
+import { Label } from "@forge-go/dashboard-kit/components/label"
+import { CommandAlert, QueryBoundary } from "@forge-go/dashboard-kit/components/query-boundary"
+import { ResourceTable, type Column } from "@forge-go/dashboard-kit/components/resource-table"
+import { Timestamp } from "@forge-go/dashboard-kit/components/timestamp"
+import { CursorPager, useCursorStack } from "../components/cursor-pager"
+import { HeraldHeader } from "../components/herald-header"
+import { plural } from "../format"
+import { useDebounced } from "../use-debounced"
+import type { DeleteResponse, InboxListResponse, InboxOKResponse, NotificationWire } from "../wire"
+
+const PAGE_SIZE = 25
+
+const columns: Column<NotificationWire>[] = [
+  { id: "title", header: "Title", className: "font-medium", cell: (n) => n.title },
+  { id: "type", header: "Type", className: "font-mono text-xs", cell: (n) => n.type },
+  { id: "read", header: "Read", cell: (n) => (n.read ? <Timestamp value={n.readAt} label="read time" /> : "Unread") },
+  { id: "created", header: "Created", cell: (n) => <Timestamp value={n.createdAt} label="creation time" /> },
+  { id: "expires", header: "Expires", cell: (n) => <Timestamp value={n.expiresAt} label="expiry" /> },
+]
+
+export const InboxPage: ComponentType<PluginPageProps> = () => {
+  const [typed, setTyped] = useState("")
+  const userId = useDebounced(typed.trim(), 300)
+  const pager = useCursorStack()
+  const markRead = useCommand<InboxOKResponse>("inbox.markRead")
+  const markAll = useCommand<InboxOKResponse>("inbox.markAllRead")
+  const remove = useCommand<DeleteResponse>("inbox.delete")
+  /*
+   * Every command here invalidates inbox.list, and the boundary swaps its
+   * children for a skeleton while that refetches (and drops its data if the
+   * refetch fails). So the commands, both dialogs and what the dialogs talk
+   * about all live out here. Each dialog reads a snapshot taken when it
+   * opened, and the snapshot stays after close so the dialog keeps its words
+   * while it animates out.
+   */
+  const [target, setTarget] = useState<NotificationWire | null>(null)
+  const [deleting, setDeleting] = useState(false)
+  const [markAllFor, setMarkAllFor] = useState<{ userId: string; unread: number } | null>(null)
+  const [markingAll, setMarkingAll] = useState(false)
+
+  /*
+   * A cursor belongs to the user who was read when it was issued. Going back
+   * to the first page happens when the settled user changes, not on every
+   * keystroke, so the page stays put while you type. The guard on `cursor`
+   * covers the one render between the user changing and the reset landing.
+   */
+  const [pagedFor, setPagedFor] = useState(userId)
+  if (pagedFor !== userId) {
+    setPagedFor(userId)
+    pager.reset()
+  }
+  const cursor = pagedFor === userId ? pager.cursor : undefined
+
+  // Absent, never "": params are the query's cache key.
+  const params: Record<string, unknown> = { userId, limit: PAGE_SIZE }
+  if (cursor) params.cursor = cursor
+  const list = useQuery<InboxListResponse>("inbox.list", params, { enabled: userId !== "" })
+
+  function openDelete(n: NotificationWire) {
+    remove.reset()
+    setTarget(n)
+    setDeleting(true)
+  }
+
+  async function confirmDelete() {
+    if (!target) return
+    const result = await remove.execute({ id: target.id })
+    if (result === undefined) return
+    setDeleting(false)
+  }
+
+  function openMarkAll(forUser: string, unread: number) {
+    markAll.reset()
+    setMarkAllFor({ userId: forUser, unread })
+    setMarkingAll(true)
+  }
+
+  async function confirmMarkAll() {
+    if (!markAllFor) return
+    const result = await markAll.execute({ userId: markAllFor.userId })
+    if (result === undefined) return
+    setMarkingAll(false)
+  }
+
+  return (
+    <section className="flex flex-col gap-4">
+      <HeraldHeader title="Inbox" description="One user's in-app notifications in this app." />
+      <div className="flex max-w-sm flex-col gap-1.5">
+        <Label htmlFor="inbox-user">User ID</Label>
+        <Input id="inbox-user" className="font-mono" autoComplete="off" spellCheck={false} value={typed} onChange={(e) => setTyped(e.target.value)} />
+      </div>
+      <CommandAlert error={markRead.error} title="Could not mark the notification read" />
+      {userId === "" ? (
+        <p className="text-sm text-muted-foreground">Enter a user ID to see their in-app notifications.</p>
+      ) : (
+        <QueryBoundary title="Inbox" query={list} skeletonRows={6}>
+          {(data) => (
+            <div className="flex flex-col gap-3">
+              <div className="flex items-center justify-end">
+                <Button variant="outline" size="sm" disabled={data.unread === 0} onClick={() => openMarkAll(userId, data.unread)}>
+                  Mark all read
+                </Button>
+              </div>
+              <ResourceTable<NotificationWire>
+                columns={columns}
+                rows={data.notifications}
+                rowKey={(n) => n.id}
+                caption={`${plural(data.notifications.length, "notification")} on this page, ${data.unread} unread in total`}
+                emptyMessage={pager.canGoBack ? "Nothing further." : `No notifications for ${userId} in this app.`}
+                rowActions={(n) => (
+                  <>
+                    {!n.read && (
+                      <Button size="xs" variant="outline" disabled={markRead.loading} aria-label={`Mark ${n.title} read`} onClick={() => void markRead.execute({ id: n.id })}>
+                        Mark read
+                      </Button>
+                    )}
+                    <Button size="xs" variant="ghost" aria-label={`Delete ${n.title}`} onClick={() => openDelete(n)}>
+                      Delete
+                    </Button>
+                  </>
+                )}
+              />
+              <CursorPager shown={data.notifications.length} nextCursor={data.nextCursor} onNext={pager.next} onPrevious={pager.previous} canGoBack={pager.canGoBack} />
+            </div>
+          )}
+        </QueryBoundary>
+      )}
+      <ConfirmDialog
+        open={markingAll}
+        onOpenChange={(open) => !open && !markAll.loading && setMarkingAll(false)}
+        title={`Mark all of ${markAllFor?.userId ?? ""}'s notifications read?`}
+        description={`This marks ${plural(markAllFor?.unread ?? 0, "unread notification")} read for ${markAllFor?.userId ?? ""}. It can't be undone from here.`}
+        confirmLabel="Mark all read"
+        destructive={false}
+        pending={markAll.loading}
+        onConfirm={() => void confirmMarkAll()}
+      >
+        <CommandAlert error={markAll.error} title="Could not mark them read" />
+      </ConfirmDialog>
+      <ConfirmDialog
+        open={deleting}
+        onOpenChange={(open) => !open && !remove.loading && setDeleting(false)}
+        title={`Delete "${target?.title ?? ""}"?`}
+        description={`This removes the notification from ${target?.userId ?? ""}'s inbox. It cannot be undone.`}
+        confirmLabel="Delete"
+        pending={remove.loading}
+        onConfirm={() => void confirmDelete()}
+      >
+        <CommandAlert error={remove.error} title="Could not delete the notification" />
+      </ConfirmDialog>
+    </section>
+  )
+}
