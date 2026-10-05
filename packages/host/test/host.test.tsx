@@ -2000,3 +2000,63 @@ describe("PluginHost hidden-plugin diagnostics", () => {
     }
   })
 })
+
+describe("a path no route answers", () => {
+  function renderStreaming(path: string) {
+    const fetchImpl = capabilitiesFetch([{ name: "streaming", envelopes: ["v1"], configured: true }])
+    return render(
+      <ForgeDashboardProvider config={config}>
+        <MemoryRouter initialEntries={[path]}>
+          <SessionProvider fetchImpl={fetchImpl}>
+            <PluginHost
+              plugins={[
+                definePlugin({
+                  extension: "streaming",
+                  label: "Streaming",
+                  nav: [
+                    { label: "Overview", to: "/" },
+                    { label: "Rooms", to: "/rooms" },
+                  ],
+                  routes: [
+                    { path: "/", element: () => <p>streaming home</p> },
+                    { path: "/rooms", element: () => <p>rooms page</p> },
+                    { path: "/rooms/:id", element: () => <p>one room</p> },
+                    { path: "/new-room", element: () => <p>new room form</p> },
+                  ],
+                }),
+              ]}
+              fetchImpl={fetchImpl}
+            />
+          </SessionProvider>
+        </MemoryRouter>
+      </ForgeDashboardProvider>,
+    )
+  }
+
+  it("says so inside a plugin's scope instead of rendering a blank page, and links to the plugin's home", async () => {
+    renderStreaming("/@streaming/not-a-page")
+    expect(await screen.findByText(/Streaming has no page at this address/)).toBeTruthy()
+    expect(within(dashboardMain()).getByRole("link", { name: "Go to Streaming" }).getAttribute("href")).toBe("/@streaming")
+  })
+
+  it("keeps the real pages, including a parameterised one, ahead of the catch-all", async () => {
+    renderStreaming("/@streaming/rooms/room_1")
+    expect(await screen.findByText("one room")).toBeTruthy()
+    expect(within(dashboardMain()).queryByText(/has no page at this address/)).toBeNull()
+  })
+
+  it("does not title a page the nav never lists after the scope's overview", async () => {
+    renderStreaming("/@streaming/new-room")
+    expect(await screen.findByText("new room form")).toBeTruthy()
+    const crumbs = screen.getByRole("navigation", { name: "Breadcrumb" })
+    expect(within(crumbs).queryByText("Overview")).toBeNull()
+    // The scope already names it, so the title doesn't repeat it.
+    expect(within(crumbs).getAllByText("Streaming")).toHaveLength(1)
+  })
+
+  it("still titles the overview itself and a page under a listed one", async () => {
+    renderStreaming("/@streaming")
+    expect(await screen.findByText("streaming home")).toBeTruthy()
+    expect(within(screen.getByRole("navigation", { name: "Breadcrumb" })).getByText("Overview")).toBeTruthy()
+  })
+})

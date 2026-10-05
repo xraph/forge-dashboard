@@ -52,6 +52,7 @@ import { DashboardShell } from "@forge-go/dashboard-kit/components/dashboard-she
 import { NavigationSearch } from "./NavigationSearch"
 import { ContextControl } from "./ContextControl"
 import { RoutedPage, RoutedPicker, routeSegmentPattern } from "./RoutedScope"
+import { NotFoundPanel } from "./NotFoundPanel"
 import { AuthRoutes, SignedInRedirect } from "../auth/AuthRoutes"
 import { isAuthPath } from "../auth/routes"
 import type { AuthScreens } from "../auth/routes"
@@ -960,12 +961,25 @@ export function PluginHost({
   // when the pathname
   // matches nothing in either (its own root, or a route the plugin never
   // listed).
+  //
+  // The scope's own root is no prefix, just as "/" isn't: a scoped plugin's
+  // "Overview" is mounted at "/@ns", which every page in the scope starts
+  // with, so a page the nav doesn't list (a create form, a filtered view)
+  // used to be titled "Overview". And when the fallback would only repeat the
+  // scope the breadcrumb already names, there is no title.
   const pageTitle: string | undefined = (() => {
+    const scopeRoot = navOwner ? mountPath(navOwner.plugin, "/", ownerSegment) : "/"
     const destinations = allGroups.flatMap((group) => group.items.flatMap((item) => [item, ...(item.children ?? [])]))
     const match = destinations
-      .filter((item) => item.href === pathname || (item.href !== "/" && pathname.startsWith(`${item.href}/`)))
+      .filter(
+        (item) =>
+          item.href === pathname ||
+          (item.href !== "/" && item.href !== scopeRoot && pathname.startsWith(`${item.href}/`)),
+      )
       .sort((a, b) => b.href.length - a.href.length)[0]
-    return match?.label ?? (activeScope ?? root)?.label
+    if (match) return match.label
+    const fallback = (activeScope ?? root)?.label
+    return fallback === navOwner?.label ? undefined : fallback
   })()
 
   // Sign-out is the provider's command, sent through the provider's own
@@ -1435,6 +1449,38 @@ export function PluginHost({
                 })
               )
             })}
+            {/*
+              A path inside a plugin's namespace that none of its routes (or
+              its sub-plugins') answer used to match nothing, and the pane
+              rendered blank. The splat ranks below every real route, so it
+              only catches what they leave. The root plugin gets none: its
+              "/*" would also catch the bare namespace roots of scopes that
+              aren't ready, where the setup panel above is the answer.
+            */}
+            {ready
+              .filter(({ plugin }) => !plugin.root)
+              .map(({ plugin }) => {
+                const dimension = routedPathDimension(plugin)
+                const pattern = dimension ? routeSegmentPattern(dimension) : undefined
+                const panel = <NotFoundPanel label={plugin.label ?? plugin.extension} home={homePathFor(plugin)} />
+                return (
+                  <Route
+                    key={`${plugin.extension}:not-found`}
+                    path={mountPath(plugin, "/*", pattern)}
+                    element={
+                      dimension ? (
+                        <PluginProvider client={clients.get(plugin.extension)!}>
+                          <RoutedPage plugin={plugin} dimension={dimension}>
+                            {panel}
+                          </RoutedPage>
+                        </PluginProvider>
+                      ) : (
+                        panel
+                      )
+                    }
+                  />
+                )
+              })}
             {/*
             home === "/" is reachable now that a root plugin's own paths pass
             through mountPath untouched: a root plugin whose priority-first
