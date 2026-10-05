@@ -21,6 +21,7 @@
 //   node packages/fixture-server/verify.mjs http://localhost:8099
 
 import { SENTINEL_INPUT, verifySentinel } from "./sentinel-verify.mjs"
+import { HERALD_INPUT, verifyHerald } from "./herald-verify.mjs"
 
 const base = (process.argv[2] ?? "http://localhost:8099") + "/dashboard/api/dashboard/v1"
 
@@ -297,6 +298,7 @@ const INPUT = {
   "trove::cas.pin": { hash: `sha256:${"a1".repeat(32)}` },
   "trove::cas.unpin": { hash: `sha256:${"b2".repeat(32)}` },
   ...SENTINEL_INPUT,
+  ...HERALD_INPUT,
 }
 
 /**
@@ -2655,6 +2657,7 @@ async function main() {
   }
 
   await verifySentinel({ dispatch, getCSRF, failures })
+  await verifyHerald({ dispatch, getCSRF, failures })
 
   console.log(`\nFinal: ${passed + (failures.length === 0 ? 0 : 0)} handler calls verified, ${failures.length} total failures (including spot checks).`)
 
