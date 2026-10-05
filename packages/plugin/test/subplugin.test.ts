@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest"
 import { defineSubPlugin } from "../src/subplugin"
+import type { SubPluginInput } from "../src/types"
 
 const Noop = () => null
 
@@ -36,7 +37,8 @@ describe("defineSubPlugin", () => {
   // Left out, the host used to fall back to the first nav item's label,
   // which names a page ("Organizations") rather than the extension.
   it("labels itself after its extension when no label is given", () => {
-    const { label: _, ...unlabelled } = valid()
+    const unlabelled: SubPluginInput = valid()
+    delete unlabelled.label
     expect(defineSubPlugin(unlabelled).label).toBe("Organization")
     expect(defineSubPlugin({ ...unlabelled, extension: "audit-hook" }).label).toBe("Audit hook")
   })
