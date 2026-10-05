@@ -264,6 +264,14 @@ const INPUT = {
   "keysmith::keys.reactivate": { id: "akey_01j9k4m2edm4j9t1y2b6c7e8fg" },
   "keysmith::keys.scopes.assign": { id: "akey_01j9k4m2e7t8x3q5r6v0w1y2za", scopes: ["catalog:read"] },
   "keysmith::keys.scopes.remove": { id: "akey_01j9k4m2e7t8x3q5r6v0w1y2za", scopes: ["catalog:read"] },
+  // The Standard policy, a new policy and scope, the Retired policy (only a revoked key uses it)
+  // and legacy:read (no key holds it, no policy allows it), so both deletes succeed.
+  "keysmith::policies.detail": { id: "kpol_01j9k4m1zza0b1c2d3e4f5g6h7" },
+  "keysmith::policies.create": { name: "Verify policy" },
+  "keysmith::policies.update": { id: "kpol_01j9k4m1zza0b1c2d3e4f5g6h7", description: "Edited by verify.mjs" },
+  "keysmith::policies.delete": { id: "kpol_01j9k4m1zwd3e4f5g6h7j8k9m0" },
+  "keysmith::scopes.create": { name: "verify:read" },
+  "keysmith::scopes.delete": { id: "kscp_01j9k4m1yah8j9k0m1n2p3q4r5" },
 
   "streaming-contract::rooms.detail": { id: "room_1" },
   "streaming-contract::rooms.create": { name: "Verify room", description: "d", owner: "usr_1", private: false },
