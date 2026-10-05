@@ -10,6 +10,7 @@ import { PageHeader } from "@forge-go/dashboard-kit/components/page-header"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@forge-go/dashboard-kit/components/tabs"
 import { Timestamp } from "@forge-go/dashboard-kit/components/timestamp"
 import { CasesTab } from "../components/cases-tab"
+import { PromptsTab } from "../components/prompts-tab"
 import { SettledBoundary } from "../components/settled-boundary"
 import { SuiteFormDialog } from "../components/suite-form-dialog"
 import { formatScore, plural, temperatureLabel, versionPath } from "../format"
@@ -70,9 +71,13 @@ function SuiteDetailBody({ suiteId }: { suiteId: string }) {
       <Tabs value={tab} onValueChange={(value) => setTab(String(value))}>
         <TabsList variant="line">
           <TabsTrigger value="cases">Cases</TabsTrigger>
+          <TabsTrigger value="prompts">Prompts</TabsTrigger>
         </TabsList>
         <TabsContent value="cases">
           <CasesTab suiteId={suiteId} />
+        </TabsContent>
+        <TabsContent value="prompts">
+          <PromptsTab suiteId={suiteId} />
         </TabsContent>
       </Tabs>
       {target && (

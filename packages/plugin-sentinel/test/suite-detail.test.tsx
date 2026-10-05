@@ -3,13 +3,14 @@ import { fireEvent, screen, waitFor, within } from "@testing-library/react"
 import { ContractError } from "@forge-go/dashboard-plugin"
 import type { ScopedClient } from "@forge-go/dashboard-plugin"
 import { SuiteDetailPage } from "../src/pages/suite-detail"
-import { config, leakageCase, suite, SUITE_ID, testCase, VERSION_2 } from "./fixtures"
+import { config, leakageCase, suite, SUITE_ID, testCase, version, VERSION_2 } from "./fixtures"
 import { recordingCommandClient, renderNavPage, stubClient } from "./harness"
 
 function answers(overrides: Record<string, unknown> = {}) {
   return {
     "suites.detail": suite(),
     "cases.list": { items: [testCase(), leakageCase()] },
+    "prompts.list": { items: [version()] },
     "config.get": config(),
     ...overrides,
   }
@@ -55,6 +56,15 @@ describe("SuiteDetailPage", () => {
     expect(within(rows[1]).getByLabelText("no attack type")).toBeTruthy()
     expect(within(rows[2]).getByText("Red team")).toBeTruthy()
     expect(within(rows[2]).getByText("· leakage")).toBeTruthy()
+  })
+
+  it("shows the prompt versions on the Prompts tab", async () => {
+    renderNavPage(SuiteDetailPage, stubClient(answers()), { id: SUITE_ID })
+    await screen.findByRole("region", { name: "2 cases" })
+    fireEvent.click(screen.getByRole("tab", { name: "Prompts" }))
+    const versions = await screen.findByRole("region", { name: "1 version" })
+    expect(within(versions).getByRole("link", { name: "Version 2" })).toBeTruthy()
+    expect(within(versions).getByText("Current")).toBeTruthy()
   })
 
   it("edits the suite, sending every field so nothing untouched changes", async () => {

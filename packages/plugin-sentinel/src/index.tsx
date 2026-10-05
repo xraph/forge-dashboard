@@ -1,3 +1,4 @@
+import { lazy } from "react"
 import { definePlugin } from "@forge-go/dashboard-plugin"
 import { FlaskConicalIcon, Settings2Icon } from "@forge-go/dashboard-kit/icons"
 import { CaseDetailPage } from "./pages/case-detail"
@@ -36,6 +37,13 @@ export type {
   VersionRef,
 } from "./types"
 
+/**
+ * The prompt version page carries the diff view, and the diff carries
+ * CodeMirror, so the page is its own chunk and reaches the diff through a
+ * second lazy import. The shell's entry chunk holds none of it. `PluginHost`
+ * wraps every page in `Suspense`, so a lazy route is legal.
+ */
+const PromptVersionPage = lazy(() => import("./pages/prompt-version"))
 
 /**
  * The first-party UI for the `sentinel` extension: evaluation suites, their
@@ -69,10 +77,11 @@ export const sentinelPlugin = definePlugin({
   ],
   routes: [
     { path: "/suites", element: SuitesPage },
-    // No nav entries for the next two: a sidebar link to "a suite" with none
+    // No nav entries for the next three: a sidebar link to "a suite" with none
     // chosen points nowhere. They are reached from row links.
     { path: "/suites/:id", element: SuiteDetailPage },
     { path: "/suites/:id/cases/:caseId", element: CaseDetailPage },
+    { path: "/suites/:id/prompts/:versionId", element: PromptVersionPage },
     { path: "/setup", element: SetupPage },
   ],
 })

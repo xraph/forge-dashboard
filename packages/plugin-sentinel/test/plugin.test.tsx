@@ -55,11 +55,12 @@ describe("sentinelPlugin", () => {
     expect(element("/suites/:id")).toBe(SuiteDetailPage)
     expect(element("/suites/:id/cases/:caseId")).toBe(CaseDetailPage)
     expect(element("/setup")).toBe(SetupPage)
+    expect(element("/suites/:id/prompts/:versionId")).toBeTruthy()
   })
 
   it("gives the detail routes no nav entry", () => {
     const targets = (sentinelPlugin.nav ?? []).map((n) => n.to)
-    for (const path of ["/suites/:id", "/suites/:id/cases/:caseId"]) {
+    for (const path of ["/suites/:id", "/suites/:id/cases/:caseId", "/suites/:id/prompts/:versionId"]) {
       expect(targets).not.toContain(path)
     }
   })
