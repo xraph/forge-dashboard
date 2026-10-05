@@ -2700,14 +2700,15 @@ function policyStale() {
 }
 
 // checkExpectedVersion: an expectedVersion below the stored one is stale,
-// one above it or below 1 was never stored and is bad input, and none at all
-// is not checked.
+// one above it or a negative one was never stored and is bad input, and none
+// at all is not checked. Equality is tested first, as in Go: a policy stored
+// without a version sits at 0, and its editor sends 0.
 function checkExpectedVersion(before, expected) {
   if (expected === undefined) return
-  if (expected < 1) {
-    throw badRequest(`expectedVersion ${expected} is not a version: policies are stored from version 1`)
-  }
   if (expected === before.version) return
+  if (expected < 0) {
+    throw badRequest(`expectedVersion ${expected} is not a version: versions are never negative`)
+  }
   if (expected > before.version) {
     throw badRequest(`expectedVersion ${expected} is ahead of the stored version ${before.version}`)
   }
