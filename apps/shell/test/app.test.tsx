@@ -1,5 +1,5 @@
 import { afterEach, beforeAll, describe, expect, it, vi } from "vitest"
-import { render, screen, waitFor, within } from "@testing-library/react"
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react"
 import type {
   Capabilities,
   ContributorCapability,
@@ -189,22 +189,12 @@ describe("App at a non-default mount", () => {
 
     window.history.replaceState({}, "", `${SHELL_BASE}/@streaming`)
     const streaming = render(<App />)
-    // Scoped to the active scope's own nav group (SidebarContent), not the
-    // whole page. core's pinned nav lives in SidebarHeader and stays visible
-    // in every scope -- including this one, whose own nav happens to declare
-    // an item also labelled "Overview" -- so an unscoped query here would
-    // find two "Overview" links (ambiguous) and the link list below would
-    // pick up the pinned entry this part of the test is not about.
-    // The session resolves before the shell is built, so the sidebar does not
-    // exist on the first frame: the host renders a bare spinner until
-    // /principal answers. Querying synchronously here hands `within` a null
-    // container. Wait for the chrome, then scope to it.
-    const streamingNav = await waitFor(() => {
-      const nav = streaming.container.querySelector(
-        '[data-slot="sidebar-content"]'
-      )
-      if (!nav) throw new Error("sidebar-content not rendered yet")
-      return nav as HTMLElement
+    // Scoped to the rail, where the active scope lists its own pages. The
+    // session resolves before the shell is built, so the rail does not exist
+    // on the first frame: the host renders a bare spinner until /principal
+    // answers. findByRole waits for it.
+    const streamingNav = await screen.findByRole("navigation", {
+      name: "Scope navigation",
     })
     await within(streamingNav).findByRole("link", { name: "Overview" })
     let links = within(streamingNav).getAllByRole("link")
@@ -228,15 +218,22 @@ describe("App at a non-default mount", () => {
       "/dashboard/ui/@streaming/config",
     ])
 
-    // core's pinned nav stays visible while inside this scope, against the
-    // real plugin set App.tsx wires -- not just the synthetic plugins
-    // host.test.tsx builds.
-    const streamingHeader = streaming.container.querySelector(
-      '[data-slot="sidebar-header"]'
-    ) as HTMLElement
-    expect(
-      within(streamingHeader).getByRole("link", { name: "Overview" })
-    ).toBeTruthy()
+    // The way out of a scope is the switcher at the top of the rail. Its menu
+    // offers the root first, then every scope the capabilities document
+    // reports, against the real plugin set App.tsx wires, not just the
+    // synthetic plugins host.test.tsx builds. The root's label is core's to
+    // choose, so only its place is pinned here.
+    fireEvent.click(
+      within(streamingNav).getByRole("button", { name: /^Streaming/ })
+    )
+    const scopeItems = (await screen.findAllByRole("menuitem")).map(
+      (m) => m.textContent
+    )
+    expect(scopeItems).toHaveLength(3)
+    expect(scopeItems.slice(1)).toEqual([
+      "Streaming@streaming",
+      "Authsome@authsome",
+    ])
 
     streaming.unmount()
 
@@ -250,14 +247,12 @@ describe("App at a non-default mount", () => {
     // dropped it from both nav and routes.
     window.history.replaceState({}, "", `${SHELL_BASE}/@authsome/platform/users`)
     const auth = render(<App />)
-    const authNav = await waitFor(() => {
-      const nav = auth.container.querySelector('[data-slot="sidebar-content"]')
-      if (!nav) throw new Error("sidebar-content not rendered yet")
-      return nav as HTMLElement
+    const authNav = await screen.findByRole("navigation", {
+      name: "Scope navigation",
     })
     await within(authNav).findByRole("link", { name: "Users" })
     links = within(authNav).getAllByRole("link")
-    // Every auth nav entry, in the order the sidebar groups them. The list is
+    // Every auth nav entry, in the order the rail groups them. The list is
     // long and it is written out anyway: the point of this assertion is that
     // a page appearing or vanishing fails here, and a subset check would let
     // either through.
@@ -265,7 +260,7 @@ describe("App at a non-default mount", () => {
       "Users",
       "Sessions",
       "Devices",
-      "Roles",
+      "App roles",
       "Apps",
       "Environments",
       "Webhooks",
@@ -292,16 +287,15 @@ describe("App at a non-default mount", () => {
       "/dashboard/ui/@authsome/platform/plugins",
     ])
 
-    // The way out of a scope is a single back row above the switcher, which
-    // replaced the root plugin's pinned nav. It carries the root's first nav
-    // item, so it is still labelled "Overview" and it still lives in the
-    // header, but it is one row rather than a whole nav tree.
-    const authHeader = auth.container.querySelector(
-      '[data-slot="sidebar-header"]'
-    ) as HTMLElement
+    // One labelled list per group of authsome's nav, so a screen reader hears
+    // which group a page belongs to.
     expect(
-      within(authHeader).getByRole("link", { name: "Overview" })
-    ).toBeTruthy()
+      Array.from(
+        authNav.querySelectorAll('[data-slot="rail-entries"]'),
+        (ul) => ul.getAttribute("aria-label")
+      )
+    ).toEqual(["Identity", "Configuration", "Security", "System"])
+    auth.unmount()
   })
 })
 
@@ -350,20 +344,26 @@ describe("relay in the shell", () => {
     // Wrapped here because App reads useTheme. The older tests in this file
     // render App bare and fail on main for that reason; this one should not
     // depend on how that gets fixed.
-    const relay = render(
+    render(
       <ThemeProvider>
         <App />
       </ThemeProvider>
     )
-    const nav = await waitFor(() => {
-      const el = relay.container.querySelector('[data-slot="sidebar-content"]')
-      if (!el) throw new Error("sidebar-content not rendered yet")
-      return el as HTMLElement
+    const nav = await screen.findByRole("navigation", {
+      name: "Scope navigation",
     })
     await within(nav).findByRole("link", { name: "Endpoints" })
+    // Relay's whole nav, in the rail's group order, so a page appearing or
+    // vanishing fails here.
     const links = within(nav).getAllByRole("link")
     expect(links.map((a) => a.getAttribute("href"))).toEqual([
+      "/dashboard/ui/@relay",
+      "/dashboard/ui/@relay/deliveries",
+      "/dashboard/ui/@relay/events",
+      "/dashboard/ui/@relay/dlq",
       "/dashboard/ui/@relay/endpoints",
+      "/dashboard/ui/@relay/event-types",
+      "/dashboard/ui/@relay/settings",
     ])
     // The row's link goes to the detail page inside the same scope.
     const row = await screen.findByRole("link", {
@@ -478,12 +478,10 @@ describe("authsome's routed app segment", () => {
       { name: "authsome", envelopes: ["v1"], configured: true },
     ]))
     window.history.replaceState({}, "", `${SHELL_BASE}/@authsome/acme/users`)
-    const { container } = render(<App />)
+    render(<App />)
 
-    const nav = await waitFor(() => {
-      const el = container.querySelector('[data-slot="sidebar-content"]')
-      if (!el) throw new Error("sidebar-content not rendered yet")
-      return el as HTMLElement
+    const nav = await screen.findByRole("navigation", {
+      name: "Scope navigation",
     })
     await within(nav).findByRole("link", { name: "Users" })
 
@@ -500,10 +498,14 @@ describe("authsome's routed app segment", () => {
       { name: "authsome", envelopes: ["v1"], configured: true },
     ]))
     window.history.replaceState({}, "", `${SHELL_BASE}/@authsome`)
-    const { container } = render(<App />)
-    await waitFor(() => expect(screen.getAllByRole("link").length).toBeGreaterThan(0))
+    render(<App />)
 
-    const nav = container.querySelector('[data-slot="sidebar-content"]') as HTMLElement
+    const nav = await screen.findByRole("navigation", {
+      name: "Scope navigation",
+    })
+    // Authsome's own control proves the rail is authsome's and fully built,
+    // so the absences below are real rather than a rail still loading.
+    await within(nav).findByRole("button", { name: "App / Environment" })
     // Thirty-seven links that would each answer about an app nobody picked
     // is worse than none.
     expect(within(nav).queryByRole("link", { name: "Users" })).toBeNull()
