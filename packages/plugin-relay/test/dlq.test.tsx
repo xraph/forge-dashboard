@@ -231,11 +231,14 @@ describe("RelayDLQPage purge", () => {
     const before = Date.now()
     fireEvent.click(within(dialog).getByRole("button", { name: "Delete" }))
     await waitFor(() => expect(sent).toHaveLength(1))
+    const after = Date.now()
     const cutoff = Date.parse(
       String((sent[0].payload as { before: string }).before)
     )
-    expect(before - cutoff).toBeGreaterThanOrEqual(30 * 86_400_000 - 50)
-    expect(before - cutoff).toBeLessThan(30 * 86_400_000 + 5_000)
+    // The page reads the clock when the click lands, somewhere between these
+    // two readings. Bracketing it needs no slack, so a slow run cannot fail it.
+    expect(cutoff).toBeGreaterThanOrEqual(before - 30 * 86_400_000)
+    expect(cutoff).toBeLessThanOrEqual(after - 30 * 86_400_000)
     expect(await screen.findByText("Deleted 4 entries.")).toBeDefined()
   })
 })
