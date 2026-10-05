@@ -115,10 +115,33 @@ describe("ProviderDetailPage", () => {
     renderPage(ProviderDetailPage, scriptedClient({ "engine.info": engine(), "providers.detail": () => new ContractError("NOT_FOUND", "provider not found") }).client, { id: ID })
     expect(await screen.findByText(/Provider unavailable/)).toBeTruthy()
     expect(screen.getByText(/provider not found/)).toBeTruthy()
+    // The error card is where the app matters most: it says which app said no.
+    expect((await screen.findByText("app_demo")).className).toMatch(/font-mono text-xs/)
   })
 
   it("says there is nothing to show without an id", () => {
     renderPage(ProviderDetailPage, scriptedClient({}).client, {})
     expect(screen.getByRole("status").textContent).toMatch(/No provider ID/)
+  })
+
+  it("still names the app when there is no id", async () => {
+    renderPage(ProviderDetailPage, scriptedClient({ "engine.info": engine() }).client, {})
+    expect(screen.getByRole("status").textContent).toBe("No provider ID in the address, so there is nothing to show.")
+    expect(await screen.findByText("app_demo")).toBeTruthy()
+  })
+
+  it("names the app while the provider is still loading", async () => {
+    renderPage(ProviderDetailPage, scriptedClient({ "engine.info": engine(), "providers.detail": () => new Promise(() => {}) }).client, { id: ID })
+    expect(screen.getByRole("status", { name: /Loading Provider/ })).toBeTruthy()
+    expect(await screen.findByText("app_demo")).toBeTruthy()
+  })
+
+  it("words a default-app rule without repeating itself", async () => {
+    const detail = providerDetail({ usedBy: [{ scope: "app", scopeId: "", channel: "email" }] })
+    renderWithNavigate(ProviderDetailPage, client(detail).client, { id: ID })
+    expect(await screen.findByText("email, default app rule")).toBeTruthy()
+    fireEvent.click(screen.getByRole("button", { name: "Delete" }))
+    const dialog = await screen.findByRole("alertdialog")
+    expect(dialog.textContent).toMatch(/1 routing rule names this provider: default app \(email\)/)
   })
 })

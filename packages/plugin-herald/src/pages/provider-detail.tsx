@@ -32,7 +32,7 @@ const credentialColumns: Column<CredentialStatus>[] = [
 
 /** "app app_demo (email)", for the delete confirm, which takes plain text. */
 function describeUse(u: RouteUse): string {
-  return `${u.scope} ${u.scopeId === "" ? "(default app)" : u.scopeId} (${u.channel})`
+  return u.scopeId === "" ? `default ${u.scope} (${u.channel})` : `${u.scope} ${u.scopeId} (${u.channel})`
 }
 
 function UsedBy({ uses }: { uses: RouteUse[] }) {
@@ -43,8 +43,13 @@ function UsedBy({ uses }: { uses: RouteUse[] }) {
     <ul className="flex flex-col gap-1 text-sm">
       {uses.map((u) => (
         <li key={`${u.scope}|${u.scopeId}|${u.channel}`}>
-          {u.channel} for the {u.scope} rule{" "}
-          {u.scopeId === "" ? "for the default app" : <span className="font-mono text-xs">{u.scopeId}</span>}
+          {u.scopeId === "" ? (
+            `${u.channel}, default ${u.scope} rule`
+          ) : (
+            <>
+              {u.channel} for the {u.scope} rule <span className="font-mono text-xs">{u.scopeId}</span>
+            </>
+          )}
         </li>
       ))}
     </ul>
@@ -68,84 +73,89 @@ function ProviderBody({ id }: { id: string }) {
    * children for a skeleton, then for the error card when the refetch finds
    * the provider gone. Anything held inside would unmount mid-delete. The
    * dialog reads a snapshot taken when it opened, so it also survives the
-   * query's data being cleared.
+   * query's data being cleared. The snapshot stays after close, so the dialog
+   * keeps its words while it animates out.
    */
   const [target, setTarget] = useState<ProviderDetail | null>(null)
+  const [deleting, setDeleting] = useState(false)
+  const loaded = detail.data?.provider
 
   function openDelete(p: ProviderDetail) {
     remove.reset()
     setTarget(p)
+    setDeleting(true)
   }
 
   async function confirmDelete() {
     const result = await remove.execute({ id })
     if (result === undefined) return
-    setTarget(null)
+    setDeleting(false)
     navigateTo("/providers")
   }
 
   return (
-    <>
+    <section className="flex flex-col gap-6">
+      {/* Outside the boundary, so loading, failure and not-found still name the app. */}
+      <HeraldHeader
+        title={loaded?.name ?? "Provider"}
+        actions={
+          loaded && (
+            <div className="flex flex-wrap gap-2">
+              <PluginLink to={providerEditPath(loaded.id)} className={buttonVariants({ variant: "outline" })}>
+                Edit
+              </PluginLink>
+              <PluginLink to={providerSendTestPath(loaded.id)} className={buttonVariants({ variant: "outline" })}>
+                Send a test through this provider
+              </PluginLink>
+              <Button variant="destructive" onClick={() => openDelete(loaded)}>
+                Delete
+              </Button>
+            </div>
+          )
+        }
+      />
       <QueryBoundary title="Provider" query={detail} skeletonRows={5}>
         {({ provider: p }) => (
-          <section className="flex flex-col gap-6">
-            <HeraldHeader
-              title={p.name}
-              actions={
-                <div className="flex flex-wrap gap-2">
-                  <PluginLink to={providerEditPath(p.id)} className={buttonVariants({ variant: "outline" })}>
-                    Edit
-                  </PluginLink>
-                  <PluginLink to={providerSendTestPath(p.id)} className={buttonVariants({ variant: "outline" })}>
-                    Send a test through this provider
-                  </PluginLink>
-                  <Button variant="destructive" onClick={() => openDelete(p)}>
-                    Delete
-                  </Button>
-                </div>
-              }
-            />
-            <DetailLayout
-              main={
-                <div className="flex flex-col gap-6">
-                  <DescriptionList
-                    items={[
-                      { term: "ID", value: <span className="font-mono text-xs">{p.id}</span> },
-                      { term: "Channel", value: p.channel },
-                      { term: "Driver", value: <span className="font-mono text-xs">{p.driver}</span> },
-                      { term: "Priority", value: <span className="font-mono text-xs">{p.priority}</span> },
-                      { term: "Status", value: <EnabledBadge enabled={p.enabled} /> },
-                      { term: "Created", value: <Timestamp value={p.createdAt} label="creation time" /> },
-                      { term: "Updated", value: <Timestamp value={p.updatedAt} label="update time" /> },
-                    ]}
-                  />
-                  <section className="flex flex-col gap-2">
-                    <h2 className="text-sm font-medium">Settings</h2>
-                    <ResourceTable<SettingEntry> columns={settingColumns} rows={p.settings} rowKey={(s) => s.key} caption={plural(p.settings.length, "setting")} emptyMessage="No settings stored." />
-                    {p.settings.some((s) => s.secret) && (
-                      <p className="text-sm text-muted-foreground">Hidden values are secrets, or belong to a driver with no field schema, where any setting could be one.</p>
-                    )}
-                  </section>
-                  <section className="flex flex-col gap-2">
-                    <h2 className="text-sm font-medium">Credentials</h2>
-                    <ResourceTable<CredentialStatus> columns={credentialColumns} rows={p.credentials} rowKey={(c) => c.key} caption={plural(p.credentials.length, "credential")} emptyMessage="No credentials stored." />
-                    <p className="text-sm text-muted-foreground">Credential values are write-only. Replace one from Edit.</p>
-                  </section>
-                </div>
-              }
-              aside={
+          <DetailLayout
+            main={
+              <div className="flex flex-col gap-6">
+                <DescriptionList
+                  items={[
+                    { term: "ID", value: <span className="font-mono text-xs">{p.id}</span> },
+                    { term: "Channel", value: p.channel },
+                    { term: "Driver", value: <span className="font-mono text-xs">{p.driver}</span> },
+                    { term: "Priority", value: <span className="font-mono text-xs">{p.priority}</span> },
+                    { term: "Status", value: <EnabledBadge enabled={p.enabled} /> },
+                    { term: "Created", value: <Timestamp value={p.createdAt} label="creation time" /> },
+                    { term: "Updated", value: <Timestamp value={p.updatedAt} label="update time" /> },
+                  ]}
+                />
                 <section className="flex flex-col gap-2">
-                  <h2 className="text-sm font-medium">Used by routing rules</h2>
-                  <UsedBy uses={p.usedBy} />
+                  <h2 className="text-sm font-medium">Settings</h2>
+                  <ResourceTable<SettingEntry> columns={settingColumns} rows={p.settings} rowKey={(s) => s.key} caption={plural(p.settings.length, "setting")} emptyMessage="No settings stored." />
+                  {p.settings.some((s) => s.secret) && (
+                    <p className="text-sm text-muted-foreground">Hidden values are secrets, or belong to a driver with no field schema, where any setting could be one.</p>
+                  )}
                 </section>
-              }
-            />
-          </section>
+                <section className="flex flex-col gap-2">
+                  <h2 className="text-sm font-medium">Credentials</h2>
+                  <ResourceTable<CredentialStatus> columns={credentialColumns} rows={p.credentials} rowKey={(c) => c.key} caption={plural(p.credentials.length, "credential")} emptyMessage="No credentials stored." />
+                  <p className="text-sm text-muted-foreground">Credential values are write-only. Replace one from Edit.</p>
+                </section>
+              </div>
+            }
+            aside={
+              <section className="flex flex-col gap-2">
+                <h2 className="text-sm font-medium">Used by routing rules</h2>
+                <UsedBy uses={p.usedBy} />
+              </section>
+            }
+          />
         )}
       </QueryBoundary>
       <ConfirmDialog
-        open={target !== null}
-        onOpenChange={(open) => !open && !remove.loading && setTarget(null)}
+        open={deleting}
+        onOpenChange={(open) => !open && !remove.loading && setDeleting(false)}
         title={`Delete ${target?.name ?? "provider"}?`}
         description={target ? deleteText(target) : undefined}
         confirmLabel="Delete"
@@ -154,7 +164,7 @@ function ProviderBody({ id }: { id: string }) {
       >
         <CommandAlert error={remove.error} title="Could not delete the provider" />
       </ConfirmDialog>
-    </>
+    </section>
   )
 }
 
@@ -166,9 +176,12 @@ export const ProviderDetailPage: ComponentType<PluginPageProps> = ({ params }) =
   const id = params.id
   if (!id) {
     return (
-      <p role="status" className="text-sm text-muted-foreground">
-        No provider ID in the address, so there is nothing to show.
-      </p>
+      <section className="flex flex-col gap-6">
+        <HeraldHeader title="Provider" />
+        <p role="status" className="text-sm text-muted-foreground">
+          No provider ID in the address, so there is nothing to show.
+        </p>
+      </section>
     )
   }
   return <ProviderBody id={id} />

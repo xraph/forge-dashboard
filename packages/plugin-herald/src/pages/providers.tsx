@@ -9,12 +9,12 @@ import { ResourceTable, type Column } from "@forge-go/dashboard-kit/components/r
 import { EnabledBadge } from "../badges"
 import { HeraldHeader, useEngineInfo } from "../components/herald-header"
 import { credentialSummary, plural } from "../format"
-import { providerPath } from "../keys"
+import { newProviderPath, providerPath } from "../keys"
 import type { ProviderSummary, ProvidersListResponse } from "../wire"
 
 function NewProviderLink() {
   return (
-    <PluginLink to="/new-provider" className={buttonVariants()}>
+    <PluginLink to={newProviderPath} className={buttonVariants()}>
       New provider
     </PluginLink>
   )
