@@ -227,6 +227,27 @@ describe("InboxPage", () => {
     expect(await screen.findByText(/notification not found/)).toBeTruthy()
   })
 
+  it("shows a raw send's notification, which has no title and no type, as a row that says so and can still be acted on", async () => {
+    const raw = notification({ id: "hinb_01j00000000000000000002050", title: "", type: "" })
+    const c = scriptedClient(
+      { "engine.info": engine(), "inbox.list": { notifications: [raw], unread: 1 } },
+      { "inbox.markRead": { ok: true, id: "x" }, "inbox.delete": { ok: true, id: "x" } },
+    )
+    renderPage(InboxPage, c.client)
+    await typeUser("usr_ada")
+    const row = (await screen.findAllByRole("row")).find((r) => within(r).queryByLabelText("no untitled"))!
+    expect(within(row).getByLabelText("no untitled")).toBeTruthy()
+    expect(within(row).getByLabelText("no type")).toBeTruthy()
+    // The controls name the row by its ID, never "Mark  read".
+    expect(screen.queryByRole("button", { name: "Mark  read" })).toBeNull()
+    fireEvent.click(screen.getByRole("button", { name: `Mark ${raw.id} read` }))
+    await waitFor(() => expect(c.sent).toEqual([{ intent: "inbox.markRead", payload: { id: raw.id } }]))
+    fireEvent.click(screen.getByRole("button", { name: `Delete ${raw.id}` }))
+    const dialog = await screen.findByRole("alertdialog")
+    expect(within(dialog).getByRole("heading").textContent).toBe(`Delete notification ${raw.id}?`)
+    expect(dialog.textContent).not.toMatch(/Delete ""/)
+  })
+
   it("says the user has nothing in this app, rather than nothing at all", async () => {
     renderPage(InboxPage, scriptedClient({ "engine.info": engine(), "inbox.list": { notifications: [], unread: 0 } }).client)
     await typeUser("usr_nobody")

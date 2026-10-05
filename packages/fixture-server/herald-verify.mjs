@@ -58,8 +58,18 @@ export async function verifyHerald({ dispatch, getCSRF, failures }) {
   sameAsAbsent("message", await q("messages.detail", { id: I.otherMessage }), await q("messages.detail", { id: absent("hmsg") }))
   sameAsAbsent("notification", await c("inbox.markRead", { id: I.otherNotification }), await c("inbox.markRead", { id: absent("hinb") }))
 
+  // Go's applyFrom reads the provider's "from" setting for sms, never from_number, so a twilio route with no rule phone has no sender.
   const smsRoute = await q("send.resolve", { channel: "sms" })
-  check("the sms route takes Twilio's from phone from its from_number setting", data(smsRoute)?.provider?.driver === "twilio" && data(smsRoute)?.from?.phone === "+15550100", smsRoute.body)
+  check("the sms route has no sender: the app rule sets no phone and Twilio's from_number is not read", data(smsRoute)?.provider?.driver === "twilio" && data(smsRoute)?.via === "app" && !("phone" in (data(smsRoute)?.from ?? {})), smsRoute.body)
+  // The chosen path takes From from the app rule, which the provider's own (empty) settings can't supply.
+  const chosen = await q("send.resolve", { channel: "email", providerId: I.resendBackup })
+  check("a chosen provider takes From from the app rule", data(chosen)?.via === "chosen" && data(chosen)?.from?.email === "hello@example.com" && data(chosen)?.from?.name === "Example", chosen.body)
+
+  // A rule naming a disabled provider is skipped, as in Go's tryScope: the user rule below must not answer.
+  const named = await c("scopes.set", { scope: "user", scopeId: "usr_disabled", emailProviderId: I.resendBackup })
+  const skipped = await q("send.resolve", { channel: "email", userId: "usr_disabled" })
+  check("a rule naming a disabled provider does not resolve via that rule", named.body?.ok === true && data(skipped)?.via === "app" && data(skipped)?.provider?.id === I.smtp, skipped.body)
+  await c("scopes.delete", { scope: "user", scopeId: "usr_disabled" })
 
   const created = await c("providers.create", { name: "Canary SMTP", channel: "email", driver: "smtp", enabled: true, credentials: { password: CANARY }, settings: { host: "smtp.canary.test", port: "587" } })
   const id = data(created)?.provider?.id
@@ -71,6 +81,10 @@ export async function verifyHerald({ dispatch, getCSRF, failures }) {
 
   const failed = await c("send.test", { channel: "email", recipient: "fail@example.com", body: "Hi" })
   check("a provider failure is a normal response with status failed", failed.body?.ok === true && data(failed)?.status === "failed" && Boolean(data(failed)?.error), failed.body)
+  // Go writes type = the template slug and title = the rendered title, so a raw send leaves both empty.
+  const rawInapp = await c("send.test", { channel: "inapp", recipient: "usr_raw", userId: "usr_raw", body: "Write it here" })
+  const rawInbox = await q("inbox.list", { userId: "usr_raw" })
+  check("a raw in-app send lands in the inbox with an empty title and type", data(rawInapp)?.status === "sent" && data(rawInbox)?.notifications?.length === 1 && data(rawInbox).notifications[0].title === "" && data(rawInbox).notifications[0].type === "", rawInbox.body)
   const both = await c("send.test", { channel: "email", recipient: "ada@example.com", template: "auth.welcome", body: "Hi" })
   check("a template plus a body is refused", code(both) === "BAD_REQUEST" && /not both/.test(both.body?.error?.message ?? ""), both.body)
 

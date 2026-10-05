@@ -21,9 +21,17 @@
 // - engine.info lists a "legacy-sms" driver with no field schema
 //   (fields:null) beside the five the extension registers, so the key/value
 //   fallback form has something to render.
-// - A chosen provider in send.resolve and send.test takes its sender from its
-//   own settings, and a fallback provider from the app rule. Herald's
-//   resolver is subtler; the page only displays what comes back.
+// - The sender mirrors herald.go. A chosen provider takes From from the app
+//   rule, with its own "from" and "from_name" settings filling what the rule
+//   leaves empty. A provider the resolver falls back to has no rule config, so
+//   its settings alone. A provider a user, org or app rule names uses that
+//   rule. For sms the setting is "from", as in Go: a twilio provider's
+//   from_number is not read there, so an sms route with no rule phone shows no
+//   sender. That gap is Go's, kept so the page shows what a send would do.
+// - A rule that names a disabled provider is skipped in send.resolve, as in
+//   the resolver. Only a chosen provider can resolve to a disabled one.
+// - send.test writes an in-app notification with type = the template slug and
+//   title = the rendered title, empty for a raw-body send, as Go does.
 // - send.test contacts nothing. A recipient containing "fail" takes the
 //   provider-failure path, and a user opted out of the template on that
 //   channel is "suppressed".
@@ -284,6 +292,7 @@ export function resetHerald() {
 export const HERALD_IDS = {
   smtp: tid("hpvd", 1),
   twilio: tid("hpvd", 2),
+  resendBackup: tid("hpvd", 3),
   legacy: tid("hpvd", 5),
   deletedProvider: tid("hpvd", 7),
   otherProvider: tid("hpvd", 9),
@@ -569,28 +578,32 @@ export function createHeraldHandlers(FixtureError) {
       if (!p) throw notFound("provider not found")
       if (p.channel !== channel) throw bad(`herald: invalid channel type: provider ${p.id} sends ${p.channel}, not ${channel}`)
       if (!driverOf(p.driver)) throw bad(`herald: driver not found: driver=${p.driver}`)
-      return { p, via: "chosen", rule: null }
+      // Go's chosen path loads the app rule for the sender (herald.go resolveForSend); a missing one leaves provider settings to supply it.
+      return { p, via: "chosen", rule: ruleFor(app, "app", app) ?? null }
     }
     for (const [scope, scopeId] of [["user", userId], ["org", orgId], ["app", app]]) {
       if (scope !== "app" && !scopeId) continue
       const r = ruleFor(app, scope, scopeId)
       const id = r?.[`${channel}ProviderId`]
       if (!id) continue
-      const p = state.providers.find((x) => x.id === id && x.appId === app && x.channel === channel)
+      // A rule naming a disabled provider is skipped, like one naming a deleted provider or another channel's (resolver.go tryScope).
+      const p = state.providers.find((x) => x.id === id && x.appId === app && x.channel === channel && x.enabled)
       if (p) return { p, via: scope, rule: r }
     }
     const candidates = state.providers
       .filter((x) => x.appId === app && x.channel === channel && x.enabled)
       .sort((a, b) => a.priority - b.priority || a.createdAt.localeCompare(b.createdAt))
     if (candidates.length === 0) return null
-    return { p: candidates[0], via: "fallback", rule: ruleFor(app, "app", app) ?? null }
+    // The resolver's fallback carries no rule config, so the sender comes from the provider's own settings.
+    return { p: candidates[0], via: "fallback", rule: null }
   }
 
+  // Mirrors herald.go applyFrom: the rule's fields first, then the provider's "from" and "from_name" settings. For sms the setting is "from", as for email.
   function senderFor(channel, res) {
     const r = res.rule
     const s = res.p.settings
     if (channel === "sms") {
-      const phone = r?.fromPhone || s.from_number || s.from
+      const phone = r?.fromPhone || s.from
       return phone ? { phone } : {}
     }
     const from = {}
@@ -1007,6 +1020,8 @@ export function createHeraldHandlers(FixtureError) {
         const userId = str(f.userId)
         let subject = raw(f.subject)
         let text = body
+        // Go writes the notification's type as the template slug and its title as the rendered title, so a raw send leaves both empty.
+        let title = ""
         const record = (fields) => {
           const now = stamp()
           const m = { id: next("hmsg"), appId: app, channel, recipient, templateSlug: slug, metadata: { source: "dashboard.send.test" }, attempts: 1, async: false, subject, body: text.slice(0, 4096), createdAt: now, ...fields }
@@ -1026,6 +1041,7 @@ export function createHeraldHandlers(FixtureError) {
           }
           subject = substitute(ver.subject || ver.title, values)
           text = substitute(ver.text, values)
+          title = substitute(ver.title, values)
           if (userId && optedOut(app, userId, slug, channel)) {
             const m = record({ status: "suppressed", providerId: "", error: "user opted out" })
             return { messageId: m.id, status: "suppressed", provider: null, error: "user opted out", logged: true }
@@ -1039,7 +1055,7 @@ export function createHeraldHandlers(FixtureError) {
           ? record({ status: "failed", providerId: res.p.id, error: `${res.p.driver}: 401 unauthorized: the provider refused the credentials` })
           : record({ status: "sent", providerId: res.p.id, sentAt: now, ...(res.p.driver === "inapp" ? {} : { providerMessageId: res.p.driver === "twilio" ? `SM${"0".repeat(31)}1` : `test@${res.p.driver}.example.com` }) })
         if (channel === "inapp" && userId && !failed) {
-          state.inbox.push({ id: next("hinb"), appId: app, userId, type: slug || "dashboard.test", title: subject || "Test notification", body: text, read: false, metadata: {}, createdAt: now })
+          state.inbox.push({ id: next("hinb"), appId: app, userId, type: slug, title, body: text, read: false, metadata: {}, createdAt: now })
         }
         const out = { messageId: m.id, status: m.status, provider: { id: res.p.id, name: res.p.name, driver: res.p.driver }, logged: true }
         if (m.providerMessageId) out.providerMessageId = m.providerMessageId

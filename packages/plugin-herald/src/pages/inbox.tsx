@@ -6,6 +6,7 @@ import { Button } from "@forge-go/dashboard-kit/components/button"
 import { ConfirmDialog } from "@forge-go/dashboard-kit/components/confirm-dialog"
 import { Input } from "@forge-go/dashboard-kit/components/input"
 import { Label } from "@forge-go/dashboard-kit/components/label"
+import { NoneCell } from "@forge-go/dashboard-kit/components/none-cell"
 import { CommandAlert, QueryBoundary } from "@forge-go/dashboard-kit/components/query-boundary"
 import { ResourceTable, type Column } from "@forge-go/dashboard-kit/components/resource-table"
 import { Timestamp } from "@forge-go/dashboard-kit/components/timestamp"
@@ -17,13 +18,21 @@ import type { DeleteResponse, InboxListResponse, InboxOKResponse, NotificationWi
 
 const PAGE_SIZE = 25
 
+/*
+ * Herald writes type = the template slug and title = the rendered title, so a
+ * raw-body send leaves both empty. The row still has to be readable and
+ * actionable, so its controls and its delete dialog fall back to the ID.
+ */
 const columns: Column<NotificationWire>[] = [
-  { id: "title", header: "Title", className: "font-medium", cell: (n) => n.title },
-  { id: "type", header: "Type", className: "font-mono text-xs", cell: (n) => n.type },
+  { id: "title", header: "Title", className: "font-medium", cell: (n) => (n.title === "" ? <NoneCell label="untitled" /> : n.title) },
+  { id: "type", header: "Type", className: "font-mono text-xs", cell: (n) => (n.type === "" ? <NoneCell label="type" /> : n.type) },
   { id: "read", header: "Read", cell: (n) => (n.read ? <Timestamp value={n.readAt} label="read time" /> : "Unread") },
   { id: "created", header: "Created", cell: (n) => <Timestamp value={n.createdAt} label="creation time" /> },
   { id: "expires", header: "Expires", cell: (n) => <Timestamp value={n.expiresAt} label="expiry" /> },
 ]
+
+/** What a notification is called in a control's label or a dialog title: its title, else its ID. */
+const nameOf = (n: NotificationWire) => (n.title === "" ? n.id : n.title)
 
 export const InboxPage: ComponentType<PluginPageProps> = () => {
   const [typed, setTyped] = useState("")
@@ -118,14 +127,14 @@ export const InboxPage: ComponentType<PluginPageProps> = () => {
                 rowActions={(n) => (
                   <>
                     {!n.read && (
-                      <Button size="xs" variant="outline" disabled={markRead.loading} aria-label={`Mark ${n.title} read`} onClick={() => {
+                      <Button size="xs" variant="outline" disabled={markRead.loading} aria-label={`Mark ${nameOf(n)} read`} onClick={() => {
                           markRead.reset()
                           void markRead.execute({ id: n.id })
                         }}>
                         Mark read
                       </Button>
                     )}
-                    <Button size="xs" variant="ghost" aria-label={`Delete ${n.title}`} onClick={() => openDelete(n)}>
+                    <Button size="xs" variant="ghost" aria-label={`Delete ${nameOf(n)}`} onClick={() => openDelete(n)}>
                       Delete
                     </Button>
                   </>
@@ -151,7 +160,7 @@ export const InboxPage: ComponentType<PluginPageProps> = () => {
       <ConfirmDialog
         open={deleting}
         onOpenChange={(open) => !open && !remove.loading && setDeleting(false)}
-        title={`Delete "${target?.title ?? ""}"?`}
+        title={target === null ? "Delete the notification?" : target.title === "" ? `Delete notification ${target.id}?` : `Delete "${target.title}"?`}
         description={`This removes the notification from ${target?.userId ?? ""}'s inbox. It cannot be undone.`}
         confirmLabel="Delete"
         pending={remove.loading}
