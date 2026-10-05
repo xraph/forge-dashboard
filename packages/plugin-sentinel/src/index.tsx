@@ -1,8 +1,9 @@
 import { definePlugin } from "@forge-go/dashboard-plugin"
-import { Settings2Icon } from "@forge-go/dashboard-kit/icons"
+import { FlaskConicalIcon, Settings2Icon } from "@forge-go/dashboard-kit/icons"
 import { SetupPage } from "./pages/setup"
+import { SuitesPage } from "./pages/suites"
 
-export { SetupPage }
+export { SetupPage, SuitesPage }
 export { CurrentBadge, RedTeamBadge, ScenarioBadge } from "./badges"
 export {
   casePath,
@@ -35,8 +36,8 @@ export type {
 
 
 /**
- * The first-party UI for the `sentinel` extension. This first cut has the
- * engine's setup; suites, runs and baselines arrive with later pages.
+ * The first-party UI for the `sentinel` extension: evaluation suites, their
+ * cases and prompt versions, and the engine's setup.
  *
  * `extension` is "sentinel", the Go contributor name from the sentinel
  * contract manifest. It is the join key the host looks up in the capabilities
@@ -50,6 +51,13 @@ export const sentinelPlugin = definePlugin({
   label: "Sentinel",
   nav: [
     {
+      label: "Suites",
+      to: "/suites",
+      priority: 0,
+      icon: <FlaskConicalIcon />,
+      group: "Evaluation",
+    },
+    {
       label: "Setup",
       to: "/setup",
       priority: 10,
@@ -57,7 +65,10 @@ export const sentinelPlugin = definePlugin({
       group: "Evaluation",
     },
   ],
-  routes: [{ path: "/setup", element: SetupPage }],
+  routes: [
+    { path: "/suites", element: SuitesPage },
+    { path: "/setup", element: SetupPage },
+  ],
 })
 
 export default sentinelPlugin

@@ -4,6 +4,7 @@ import type { Capabilities } from "@forge-go/dashboard-plugin"
 import sentinelPlugin, {
   sentinelPlugin as named,
   SetupPage,
+  SuitesPage,
 } from "../src/index"
 
 function capabilities(...contributors: { name: string; configured?: boolean }[]): Capabilities {
@@ -35,11 +36,21 @@ describe("sentinelPlugin", () => {
     expect(resolvePluginState(sentinelPlugin, capabilities({ name: "vault" })).kind).toBe("hidden")
   })
 
-  it("puts Setup in the Evaluation group at /setup", () => {
-    const setup = (sentinelPlugin.nav ?? []).find((n) => n.label === "Setup")
+  it("puts Suites and Setup in the Evaluation group, Suites first", () => {
+    const nav = sentinelPlugin.nav ?? []
+    const suites = nav.find((n) => n.label === "Suites")
+    const setup = nav.find((n) => n.label === "Setup")
+    expect(suites?.to).toBe("/suites")
     expect(setup?.to).toBe("/setup")
+    expect(suites?.group).toBe("Evaluation")
     expect(setup?.group).toBe("Evaluation")
-    expect(sentinelPlugin.routes.find((r) => r.path === "/setup")?.element).toBe(SetupPage)
+    expect((suites?.priority ?? 0) < (setup?.priority ?? 0)).toBe(true)
+  })
+
+  it("mounts each page at its route", () => {
+    const element = (path: string) => sentinelPlugin.routes.find((r) => r.path === path)?.element
+    expect(element("/suites")).toBe(SuitesPage)
+    expect(element("/setup")).toBe(SetupPage)
   })
 
   it("gives every nav entry an icon and a route", () => {
