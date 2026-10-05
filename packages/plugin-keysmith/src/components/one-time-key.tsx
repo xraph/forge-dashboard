@@ -161,10 +161,12 @@ export function OneTimeKey({
           {copied ? "Copied" : copyFailed ? "Select and copy" : "Copy"}
         </Button>
         {/* A toggle keeps one label and says its state with aria-pressed. A
-            label that flipped to "Show" would read as "Show, pressed". */}
+            label that flipped to "Show" would read as "Show, pressed". The
+            kit Button has no pressed style, so the class shows it too. */}
         <Button
           variant="outline"
           size="sm"
+          className="aria-pressed:bg-muted aria-pressed:text-foreground"
           aria-pressed={hidden}
           onClick={() => setHidden((h) => !h)}
         >

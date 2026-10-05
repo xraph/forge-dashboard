@@ -366,6 +366,15 @@ describe("OneTimeKey hide", () => {
     expect(part(container, "key")?.textContent).toBe(STANDARD)
   })
 
+  it("looks pressed while the key is hidden, not only says so", () => {
+    renderKey()
+    const toggle = screen.getByRole("button", { name: "Hide key" })
+    // The kit Button has no pressed style of its own, so the toggle brings one.
+    expect(toggle.className.split(/\s+/)).toContain("aria-pressed:bg-muted")
+    fireEvent.click(toggle)
+    expect(toggle.getAttribute("aria-pressed")).toBe("true")
+  })
+
   it("still copies the real key while hidden", async () => {
     renderKey()
     fireEvent.click(screen.getByRole("button", { name: "Hide key" }))

@@ -1,8 +1,9 @@
 import { describe, expect, it } from "vitest"
-import { cleanup, fireEvent, screen, waitFor, within } from "@testing-library/react"
+import { act, cleanup, fireEvent, screen, waitFor, within } from "@testing-library/react"
 import { ContractError, queryStore } from "@forge-go/dashboard-plugin"
 import type { ScopedClient } from "@forge-go/dashboard-plugin"
 import { KeyDetailPage } from "../src/pages/key-detail"
+import { policyPath } from "../src/format"
 import type { KeyDetail, KeyRotated, KeySummary, PolicyRef } from "../src/types"
 import {
   failingClient,
@@ -259,6 +260,12 @@ describe("KeyDetailPage policy", () => {
     expect(within(s).getByText("Standard")).toBeTruthy()
     expect(within(s).getByText("90 days")).toBeTruthy()
     expect(within(s).getByText("36 hours")).toBeTruthy()
+  })
+
+  it("links the policy's name to the policy's page", async () => {
+    await render()
+    const link = within(section("Policy")).getByRole("link", { name: "Standard" })
+    expect(link.getAttribute("href")).toBe(policyPath("kpol_standard"))
   })
 
   it("reads a null max lifetime as no maximum", async () => {
@@ -1036,6 +1043,30 @@ describe("KeyDetailPage revoke and scopes through the refetch", () => {
       { intent: "keys.suspend", payload: { id: "akey_billing" } },
       { intent: "keys.suspend", payload: { id: "akey_billing" } },
     ])
+  })
+
+  it("keeps a reactivate's refusal that lands after Rotate starts", async () => {
+    const REFUSED = "only a suspended key can be reactivated"
+    const host = hostLikeClient(SUSPENDED, {
+      "keys.reactivate": { error: new ContractError("CONFLICT", REFUSED), held: true },
+    })
+    renderPage(KeyDetailPage, host.client, { id: "akey_billing" })
+    await screen.findByRole("heading", { level: 1, name: "Billing service" })
+
+    fireEvent.click(screen.getByRole("button", { name: "Reactivate" }))
+    fireEvent.click(screen.getByRole("button", { name: "Rotate key" }))
+    await screen.findByRole("dialog", { name: "Rotate key" })
+    // Still out, so its button still waits. The open dialog hides the page
+    // from the accessibility tree, hence `hidden`.
+    const reactivate = screen.getByRole("button", { name: "Reactivate", hidden: true })
+    expect((reactivate as HTMLButtonElement).disabled).toBe(true)
+
+    // The refusal lands while the rotate dialog is open, and is not dropped.
+    act(() => host.releaseCommands())
+    await waitFor(() =>
+      expect(screen.getByText(REFUSED).getAttribute("role")).toBe("alert"),
+    )
+    expect(host.sent).toEqual([{ intent: "keys.reactivate", payload: { id: "akey_billing" } }])
   })
 
   it("keeps a refused scope change on screen through another action's refetch", async () => {

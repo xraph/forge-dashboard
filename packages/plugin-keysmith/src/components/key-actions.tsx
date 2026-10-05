@@ -75,7 +75,11 @@ export interface ReactivateKey {
   reactivate: () => void
   loading: boolean
   error?: ContractError
-  /** Drops a refusal, for when another action starts and it no longer applies. */
+  /**
+   * Drops a refusal, for when another action starts and it no longer applies.
+   * Does nothing while a reactivate is out: resetting then would throw away
+   * its answer when it lands, and free the button before it settles.
+   */
   reset: () => void
 }
 
@@ -97,7 +101,13 @@ export function useReactivateKey(keyId: string): ReactivateKey {
     })
   }, [execute, keyId])
 
-  return { reactivate, loading, error, reset }
+  // Checked against the ref, not `loading`, so a reset in the same tick as
+  // the click still sees the command as out.
+  const resetSettled = useCallback(() => {
+    if (!sending.current) reset()
+  }, [reset])
+
+  return { reactivate, loading, error, reset: resetSettled }
 }
 
 export interface KeyStateDialogProps {

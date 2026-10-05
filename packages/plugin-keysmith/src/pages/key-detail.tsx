@@ -17,7 +17,7 @@ import { QueryBoundary } from "@forge-go/dashboard-kit/components/query-boundary
 import { Timestamp } from "@forge-go/dashboard-kit/components/timestamp"
 import { formatTimestamp } from "@forge-go/dashboard-kit/lib/format"
 import { KeyStateBadge } from "../badges"
-import { formatDuration, maskedKey } from "../format"
+import { formatDuration, maskedKey, policyPath } from "../format"
 import { EndGraceDialog } from "../components/end-grace-dialog"
 import {
   KeyStateActions,
@@ -79,7 +79,9 @@ function KeyDetailBody({ id }: { id: string }) {
   const scopeEditing = useScopeEditing(id)
 
   // A refused Reactivate says why on the page, and stays until something else
-  // is tried: by then it describes an attempt nobody is looking at.
+  // is tried: by then it describes an attempt nobody is looking at. One still
+  // out is left alone (the hook's reset does nothing then), so its answer
+  // still lands.
   const { reset: resetReactivate } = reactivate
 
   function startRotating() {
@@ -423,7 +425,10 @@ function PolicySection({
       ) : (
         <DescriptionList
           items={[
-            { term: "Name", value: policy.name },
+            {
+              term: "Name",
+              value: <PluginLink to={policyPath(policy.id)}>{policy.name}</PluginLink>,
+            },
             {
               term: "Max lifetime",
               value:
