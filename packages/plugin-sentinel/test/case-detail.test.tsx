@@ -1,5 +1,7 @@
 import { describe, expect, it } from "vitest"
 import { fireEvent, screen, waitFor, within } from "@testing-library/react"
+import { ContractError } from "@forge-go/dashboard-plugin"
+import type { ScopedClient } from "@forge-go/dashboard-plugin"
 import { CaseDetailPage } from "../src/pages/case-detail"
 import { CASE_ID, config, leakageCase, suite, SUITE_ID, testCase } from "./fixtures"
 import { recordingCommandClient, renderNavPage, stubClient } from "./harness"
@@ -100,5 +102,42 @@ describe("CaseDetailPage", () => {
     fireEvent.click(within(dialog).getByRole("button", { name: "Delete case" }))
     await waitFor(() => expect(navigate).toHaveBeenCalledWith(`/suites/${SUITE_ID}`))
     expect(sent).toEqual([{ intent: "cases.delete", payload: { caseId: CASE_ID } }])
+  })
+
+  it("shows a refused delete inside the dialog, stays on the page and sends it once", async () => {
+    let calls = 0
+    const client: ScopedClient = {
+      ...stubClient(answers()),
+      command: async () => {
+        calls += 1
+        throw new ContractError("INTERNAL", "an internal error occurred")
+      },
+    } as ScopedClient
+    const { navigate } = renderNavPage(CaseDetailPage, client, { id: SUITE_ID, caseId: CASE_ID })
+    await screen.findByRole("heading", { level: 1, name: "Reset password" })
+    fireEvent.click(screen.getByRole("button", { name: "Delete" }))
+    const dialog = screen.getByRole("alertdialog")
+    fireEvent.click(within(dialog).getByRole("button", { name: "Delete case" }))
+    expect((await within(dialog).findByRole("alert")).textContent).toBe("an internal error occurred")
+    expect(screen.getByRole("alertdialog")).toBeTruthy()
+    expect(navigate).not.toHaveBeenCalled()
+    expect(calls).toBe(1)
+  })
+
+  it("shows a refused edit inside the form and keeps it open", async () => {
+    const client: ScopedClient = {
+      ...stubClient(answers()),
+      command: async () => {
+        throw new ContractError("BAD_REQUEST", 'unknown scenario type "dance"')
+      },
+    } as ScopedClient
+    renderNavPage(CaseDetailPage, client, { id: SUITE_ID, caseId: CASE_ID })
+    await screen.findByRole("heading", { level: 1, name: "Reset password" })
+    fireEvent.click(screen.getByRole("button", { name: "Edit" }))
+    const dialog = screen.getByRole("dialog")
+    fireEvent.click(within(dialog).getByRole("button", { name: "Save case" }))
+    expect((await within(dialog).findByRole("alert")).textContent).toBe('unknown scenario type "dance"')
+    expect(within(dialog).getByLabelText("Scenario type").getAttribute("aria-invalid")).toBe("true")
+    expect(screen.getByRole("dialog")).toBeTruthy()
   })
 })
