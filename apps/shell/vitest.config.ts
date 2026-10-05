@@ -8,6 +8,9 @@ export default defineConfig({
     // once, and tests that take under a second alone have gone past 5s
     // under that load.
     testTimeout: 20_000,
+    // The app test's beforeAll imports the whole shell, every plugin through
+    // vite's transform. Cold, that now runs past the 10s hook default.
+    hookTimeout: 60_000,
     globals: true,
     environment: "jsdom",
     include: ["test/**/*.test.{ts,tsx}"],
