@@ -1,3 +1,10 @@
+import { configure } from "@testing-library/react"
+
+// findBy* and waitFor give up after 1s by default. `pnpm test` runs every
+// package's suite at once, and under that load a page that renders well
+// inside a second alone has taken longer.
+configure({ asyncUtilTimeout: 5_000 })
+
 // jsdom has no ResizeObserver, and Recharts' ResponsiveContainer measures
 // through one. This reports a fixed 640 by 240 box as soon as something is
 // observed, so charts lay out and nothing warns about a zero-size container.
