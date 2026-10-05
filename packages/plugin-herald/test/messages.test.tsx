@@ -58,6 +58,16 @@ describe("MessagesPage", () => {
     expect(within(suppressed).getByText("Suppressed", { selector: '[data-slot="badge"]' })).toBeTruthy()
   })
 
+  it("says a deleted provider no longer exists, but not for a suppressed send", async () => {
+    const c = recordingQueryClient({ "engine.info": engine(), "messages.list": { messages: [messageSummary({ provider: null, status: "sent" }), messageSummary({ id: "hmsg_01j00000000000000000001008", provider: null, status: "suppressed" })] } })
+    renderPage(MessagesPage, c.client)
+    const sent = (await screen.findAllByRole("row")).find((r) => within(r).queryByText("hmsg_01j00000000000000000001000"))!
+    expect(within(sent).getByText("(no longer exists)")).toBeTruthy()
+    const suppressed = screen.getAllByRole("row").find((r) => within(r).queryByText("hmsg_01j00000000000000000001008"))!
+    expect(within(suppressed).queryByText("(no longer exists)")).toBeNull()
+    expect(within(suppressed).getByLabelText("no provider")).toBeTruthy()
+  })
+
   it("offers only the statuses Herald writes, and says why", async () => {
     renderPage(MessagesPage, client().client)
     const status = (await screen.findByLabelText("Status")) as HTMLSelectElement

@@ -16,13 +16,24 @@ import type { MessageSummary, MessagesListResponse } from "../wire"
 
 const PAGE_SIZE = 25
 
+/** A send always records its provider, so none on anything but a suppressed message means it was deleted. */
+function ProviderCell({ m }: { m: MessageSummary }) {
+  if (m.provider) return <>{m.provider.name || <span className="font-mono text-xs">{m.provider.id}</span>}</>
+  if (m.status === "suppressed") return <NoneCell label="provider" />
+  return (
+    <span>
+      <NoneCell label="provider" /> <span className="text-muted-foreground">(no longer exists)</span>
+    </span>
+  )
+}
+
 const columns: Column<MessageSummary>[] = [
   { id: "id", header: "ID", className: "font-mono text-xs", cell: (m) => <PluginLink to={messagePath(m.id)}>{m.id}</PluginLink> },
   { id: "recipient", header: "Recipient", className: "font-medium", cell: (m) => m.recipient },
   { id: "channel", header: "Channel", cell: (m) => m.channel },
   { id: "status", header: "Status", cell: (m) => <MessageStatusBadge status={m.status} /> },
   { id: "template", header: "Template", cell: (m) => (m.templateSlug ? <span className="font-mono text-xs">{m.templateSlug}</span> : <NoneCell label="template" />) },
-  { id: "provider", header: "Provider", cell: (m) => (m.provider ? m.provider.name || <span className="font-mono text-xs">{m.provider.id}</span> : <NoneCell label="provider" />) },
+  { id: "provider", header: "Provider", cell: (m) => <ProviderCell m={m} /> },
   { id: "created", header: "Created", cell: (m) => <Timestamp value={m.createdAt} label="creation time" /> },
 ]
 

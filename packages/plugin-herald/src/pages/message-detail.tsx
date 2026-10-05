@@ -37,6 +37,26 @@ function TemplateValue({ m }: { m: MessageDetail }) {
   return <NoneCell label="template" />
 }
 
+/** A send always records its provider, so none on anything but a suppressed message means the provider was deleted. */
+function ProviderValue({ m }: { m: MessageDetail }) {
+  if (m.provider) {
+    return (
+      <span>
+        <PluginLink to={providerPath(m.provider.id)} className="underline">
+          {m.provider.name || <span className="font-mono text-xs">{m.provider.id}</span>}
+        </PluginLink>
+        {m.provider.driver && <span className="font-mono text-xs"> {m.provider.driver}</span>}
+      </span>
+    )
+  }
+  if (m.status === "suppressed") return <NoneCell label="provider" />
+  return (
+    <span>
+      <NoneCell label="provider" /> <span className="text-muted-foreground">(no longer exists)</span>
+    </span>
+  )
+}
+
 function MessageBody({ id }: { id: string }) {
   const info = useEngineInfo()
   const detail = useQuery<MessagesDetailResponse>("messages.detail", { id })
@@ -59,10 +79,14 @@ function MessageBody({ id }: { id: string }) {
         {({ message: m }) => (
           <div className="flex flex-col gap-6">
             <Outcome m={m} />
-            {m.error && (
+            {(m.error || m.status === "failed") && (
               <section className="flex flex-col gap-1.5">
                 <h2 className="text-sm font-medium">Error</h2>
-                <pre className="overflow-x-auto rounded-md border p-3 font-mono text-xs whitespace-pre-wrap">{m.error}</pre>
+                {m.error ? (
+                  <pre className="overflow-x-auto rounded-md border p-3 font-mono text-xs whitespace-pre-wrap">{m.error}</pre>
+                ) : (
+                  <p className="text-sm text-muted-foreground">No error was recorded.</p>
+                )}
               </section>
             )}
             <DescriptionList
@@ -72,19 +96,7 @@ function MessageBody({ id }: { id: string }) {
                 { term: "Channel", value: m.channel },
                 { term: "Status", value: <MessageStatusBadge status={m.status} /> },
                 { term: "Template", value: <TemplateValue m={m} /> },
-                {
-                  term: "Provider",
-                  value: m.provider ? (
-                    <span>
-                      <PluginLink to={providerPath(m.provider.id)} className="underline">
-                        {m.provider.name || m.provider.id}
-                      </PluginLink>
-                      {m.provider.driver && <span className="font-mono text-xs"> {m.provider.driver}</span>}
-                    </span>
-                  ) : (
-                    <NoneCell label="provider" />
-                  ),
-                },
+                { term: "Provider", value: <ProviderValue m={m} /> },
                 { term: "Vendor message ID", value: m.providerMessageId ? <span className="font-mono text-xs">{m.providerMessageId}</span> : <NoneCell label="vendor message ID" /> },
                 { term: "Attempts", value: <span className="font-mono text-xs">{m.attempts}</span> },
                 { term: "Sent asynchronously", value: m.async ? "Yes" : "No" },
@@ -96,7 +108,11 @@ function MessageBody({ id }: { id: string }) {
             <section className="flex flex-col gap-1.5">
               <h2 className="text-sm font-medium">Body</h2>
               {m.subject && <p className="text-sm">Subject: {m.subject}</p>}
-              <pre className="overflow-x-auto rounded-md border p-3 font-mono text-xs whitespace-pre-wrap">{m.body}</pre>
+              {m.body ? (
+                <pre className="overflow-x-auto rounded-md border p-3 font-mono text-xs whitespace-pre-wrap">{m.body}</pre>
+              ) : (
+                <p className="text-sm text-muted-foreground">No body recorded.</p>
+              )}
               <p className="text-xs text-muted-foreground">
                 This is the text part only. HTML bodies aren't logged, and bodies are cut at {limit === undefined ? "the engine's limit" : `${limit} bytes`} with no marker.
               </p>

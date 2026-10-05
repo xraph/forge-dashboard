@@ -41,6 +41,26 @@ describe("MessageDetailPage", () => {
     expect(screen.getByText(/opted out/)).toBeTruthy()
   })
 
+  it("says a deleted provider no longer exists, without saying delivered", async () => {
+    const { container } = show(messageDetail({ provider: null, status: "sent" }))
+    expect(await screen.findByLabelText("no provider")).toBeTruthy()
+    expect(screen.getByText("(no longer exists)")).toBeTruthy()
+    expect(container.textContent).not.toMatch(/delivered/i)
+  })
+
+  it("gives a provider with no name its id in mono", async () => {
+    show(messageDetail({ provider: { id: "hpvd_01j00000000000000000000001", name: "", driver: "smtp" } }))
+    const link = await screen.findByRole("link", { name: "hpvd_01j00000000000000000000001" })
+    expect(link.querySelector("span")?.className).toMatch(/font-mono text-xs/)
+  })
+
+  it("says so when a failure recorded no error, and when the body is empty", async () => {
+    show(messageDetail({ status: "failed", error: undefined, body: "", providerMessageId: undefined, sentAt: undefined }))
+    expect(await screen.findByText("No error was recorded.")).toBeTruthy()
+    expect(screen.getByText("No body recorded.")).toBeTruthy()
+    expect(document.querySelector("pre")).toBeNull()
+  })
+
   it("shows a failure verbatim in a pre", async () => {
     show(messageDetail({ status: "failed", error: "smtp: 550 5.1.1 mailbox unavailable", providerMessageId: undefined, sentAt: undefined }))
     const pre = await screen.findByText("smtp: 550 5.1.1 mailbox unavailable")
