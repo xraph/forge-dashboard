@@ -111,7 +111,7 @@ export const CHANGED_MID_CHECK =
  * nothing was written. The draft stays on screen whatever the refusal.
  */
 export const STALE_EDIT =
-  "This policy changed after you opened it. Your edits are still here; open the policy again to see the current version, then make them there."
+  "This policy was saved again after the copy you are editing was loaded, so your changes were not saved. Your edits are still on screen. Reload the page to get the current version, then make your edits there."
 
 /**
  * Whether a refused update was refused because the policy moved on since it
