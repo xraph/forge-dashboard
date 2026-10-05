@@ -11,10 +11,10 @@ function capabilities(...contributors: { name: string; configured?: boolean }[])
 }
 
 /** Every route, scope-relative. Each task that adds a page adds it here. */
-const ROUTES = ["/", "/providers", "/providers/:id", "/new-provider", "/providers/:id/edit"]
+const ROUTES = ["/", "/providers", "/providers/:id", "/new-provider", "/providers/:id/edit", "/templates", "/templates-without-fallback", "/new-template"]
 
 /** Every nav entry's target. */
-const NAV = ["/", "/providers"]
+const NAV = ["/", "/providers", "/templates"]
 
 describe("heraldPlugin", () => {
   it("is the default export as well as a named one", () => {

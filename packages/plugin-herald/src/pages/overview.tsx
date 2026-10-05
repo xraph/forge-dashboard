@@ -9,6 +9,7 @@ import { CommandAlert, QueryBoundary } from "@forge-go/dashboard-kit/components/
 import { ResourceTable, type Column } from "@forge-go/dashboard-kit/components/resource-table"
 import { HeraldHeader, useEngineInfo } from "../components/herald-header"
 import { NO_RECEIPTS, plural, STATUS_ORDER, statusLabel } from "../format"
+import { templatesWithoutFallbackPath } from "../keys"
 import type { EngineInfoResponse, MessageCount, OverviewStatsResponse, OverviewWindow, ProvidersEncryptStoredResponse } from "../wire"
 
 const WINDOWS: { value: OverviewWindow; label: string }[] = [
@@ -123,7 +124,7 @@ function Posture({ info, data, encrypt }: { info: EngineInfoResponse; data: Over
               {plural(missing, "template")} {missing === 1 ? "has" : "have"} no fallback version. A request in any locale {missing === 1 ? "it doesn't" : "they don't"} list fails instead of falling back.
             </p>
             <p>
-              <PluginLink to="/templates-without-fallback" className="underline">
+              <PluginLink to={templatesWithoutFallbackPath} className="underline">
                 Show them
               </PluginLink>
             </p>
