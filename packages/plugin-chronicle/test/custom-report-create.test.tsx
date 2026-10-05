@@ -105,7 +105,9 @@ describe("CustomReportCreatePage", () => {
     fireEvent.click(screen.getByRole("button", { name: "Remove section 20" }))
     expect(screen.getByText("19 of 20 sections.")).toBeTruthy()
     expect(add().disabled).toBe(false)
-  })
+    // Twenty full re-renders of the form. Under 1s alone, but past the 5s
+    // default when `pnpm test` runs every package's suite at once.
+  }, 20_000)
 
   it("keeps what was typed in the sections that stay when one is removed", () => {
     renderCreate(scriptedClient({}).client)
