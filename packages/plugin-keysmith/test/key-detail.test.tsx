@@ -303,6 +303,30 @@ describe("KeyDetailPage policy", () => {
       within(s).getByText("kpol_01j9k4m1zyb1c2d3e4f5g6h7j8").className,
     ).toContain("font-mono")
     expect(within(s).queryByLabelText("no policy")).toBeNull()
+    expect(within(s).queryByText(/no longer exists/)).toBeNull()
+  })
+
+  it("says a revoked key's missing policy no longer exists, not that the key validates", async () => {
+    await render(
+      detail({
+        key: key({
+          state: "revoked",
+          effectiveState: "revoked",
+          revokedAt: "2026-09-20T10:00:00Z",
+          policyId: "kpol_01j9k4m1zyb1c2d3e4f5g6h7j8",
+        }),
+        policy: null,
+      }),
+    )
+    const s = section("Policy")
+    expect(
+      within(s).getByText(/^The policy this key used no longer exists\.$/),
+    ).toBeTruthy()
+    expect(within(s).queryByText(/validates/)).toBeNull()
+    const id = within(s).getByText("kpol_01j9k4m1zyb1c2d3e4f5g6h7j8")
+    expect(id.className).toContain("font-mono")
+    expect(id.className).toContain("text-xs")
+    expect(within(s).queryByLabelText("no policy")).toBeNull()
   })
 
   it("names the warden subject for the key in mono, with nothing after it", async () => {

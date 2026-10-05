@@ -305,7 +305,11 @@ function KeyDetailView({
         }
         aside={
           <>
-            <PolicySection policyId={key.policyId} policy={data.policy} />
+            <PolicySection
+              policyId={key.policyId}
+              policy={data.policy}
+              revoked={key.effectiveState === "revoked"}
+            />
             <Section title="Warden">
               <p className="text-sm text-muted-foreground">
                 If the Warden hook is installed, it grants this key&apos;s
@@ -407,22 +411,26 @@ function DetailsSection({ data }: { data: KeyDetail }) {
 /**
  * A key can point at a policy the server does not return: one that was
  * deleted, or one from another tenant, which is never shown. The engine then
- * validates the key without a policy, so the page says that.
+ * validates the key without a policy, so the page says that. A revoked key
+ * never validates, so for one of those the page only says the policy is gone.
  */
 function PolicySection({
   policyId,
   policy,
+  revoked,
 }: {
   policyId: string | undefined
   policy: KeyDetail["policy"]
+  revoked: boolean
 }) {
   return (
     <Section title="Policy">
       {policy === null && policyId ? (
         <div className="flex flex-col gap-1">
           <p className="text-sm text-muted-foreground">
-            The policy this key points at could not be found, so the key
-            validates without one.
+            {revoked
+              ? "The policy this key used no longer exists."
+              : "The policy this key points at could not be found, so the key validates without one."}
           </p>
           <span className="font-mono text-xs">{policyId}</span>
         </div>
