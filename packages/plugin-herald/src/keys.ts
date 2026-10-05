@@ -19,3 +19,4 @@ export const inboxPath = "/inbox"
 export const messagePath = (id: string) => `/messages/${seg(id)}`
 export const messageSendTestPath = (id: string) => `/messages/${seg(id)}/send-test`
 export const preferencesPath = "/preferences"
+export const routingPath = "/routing"
