@@ -2694,16 +2694,20 @@ function policyStale() {
   return new WardenFixtureError(
     409,
     "CONFLICT",
-    "this policy changed after it was opened, so nothing was saved. Reload it to see the current version, then make the change again.",
+    "this policy changed after it was opened, so nothing was saved. Reload the page to see the current version, then make the change again.",
     { reason: "stale" }
   )
 }
 
 // checkExpectedVersion: an expectedVersion below the stored one is stale,
-// one above it was never stored and is bad input, and none at all is not
-// checked.
+// one above it or below 1 was never stored and is bad input, and none at all
+// is not checked.
 function checkExpectedVersion(before, expected) {
-  if (expected === undefined || expected === before.version) return
+  if (expected === undefined) return
+  if (expected < 1) {
+    throw badRequest(`expectedVersion ${expected} is not a version: policies are stored from version 1`)
+  }
+  if (expected === before.version) return
   if (expected > before.version) {
     throw badRequest(`expectedVersion ${expected} is ahead of the stored version ${before.version}`)
   }
