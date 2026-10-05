@@ -479,3 +479,85 @@ The entry names `browser-Bn9Tqny5.js` twice, once in `__vite__mapDeps` and once
 in the `import()` the route's `lazy()` compiles to, and never in a
 `from"./..."` clause. Neither trove chunk is in `index.html`'s `modulepreload`
 list. The CSS is unchanged at 273.94 KB (40.99 KB gzip).
+
+## Sentinel's prompt diff, and where it lands (2026-10-05)
+
+Measured with `vite build` in `apps/shell` on 2026-10-05, written to a scratch
+directory with `--outDir`, the same way as the trove section: `tsc -b` skipped,
+sizes in Vite's own kB. The shell bundles every registered plugin, so the eager
+figures carry other sessions' work as well as sentinel's, and this section does
+not try to split the two.
+
+Forty-four JS chunks are emitted, eleven more than in the trove section. Two
+are sentinel's: the prompt version page and the diff it opens.
+
+| chunk | raw | gzip | loaded |
+|---|---|---|---|
+| `index` (entry) | 1,320.35 KB | 352.41 KB | eager |
+| `page-header` | 59.92 KB | 22.19 KB | eager, static from the entry |
+| `confirm-dialog` | 53.10 KB | 17.75 KB | eager, static from the entry |
+| `utils` | 27.26 KB | 8.69 KB | eager, static from the entry |
+| `jsx-runtime` | 8.55 KB | 3.26 KB | eager, static from the entry |
+| `react-dom` | 3.55 KB | 1.34 KB | eager, static from the entry |
+| `useTransitionStatus` | 2.94 KB | 1.27 KB | eager, static from the entry |
+| `label` | 2.82 KB | 1.34 KB | eager, static from the entry |
+| `empty-state` | 2.68 KB | 1.03 KB | eager, static from the entry |
+| `input` | 2.40 KB | 1.25 KB | eager, static from the entry |
+| `with-selector` | 1.63 KB | 0.72 KB | eager, static from the entry |
+| `createBaseUIEventDetails` | 1.57 KB | 0.85 KB | eager, static from the entry |
+| `badge` | 1.45 KB | 0.67 KB | eager, static from the entry |
+| `createLucideIcon` | 1.38 KB | 0.77 KB | eager, static from the entry |
+| `detail-layout` | 1.03 KB | 0.51 KB | eager, static from the entry |
+| `useValueChanged` | 0.70 KB | 0.44 KB | eager, static from the entry |
+| `none-cell` | 0.24 KB | 0.21 KB | eager, static from the entry |
+| `visuallyHidden` | 0.19 KB | 0.16 KB | eager, static from the entry |
+| `prompt-version` (sentinel's version page) | 3.26 KB | 1.34 KB | lazy, when you open a prompt version |
+| `prompt-diff` (sentinel's diff) | 0.95 KB | 0.60 KB | lazy, the first time a version's prompt differs from the one before |
+
+The eager set is 1,491.76 KB raw and 414.86 KB gzip, against 1,418.68 KB and
+397.91 KB in the trove section: 73.08 KB raw and 16.95 KB gzip more. The
+`checkbox` chunk is gone from the eager set and six small ones joined it
+(`react-dom`, `useTransitionStatus`, `createBaseUIEventDetails`, `badge`,
+`useValueChanged`, `visuallyHidden`), but nearly all of the growth is the entry
+itself. Neither sentinel chunk is part of it, because both are lazy.
+
+### What the diff carries
+
+`prompt-version` is the version page: the details, the prompt as text and the
+"Changes from" section. It imports the entry and four small chunks the entry
+already loaded (`page-header`, `detail-layout`, `none-cell`, `jsx-runtime`), and
+it reaches `prompt-diff` only through `import()`. Nothing in it is heavy, so
+opening a prompt version costs 3.26 KB raw and 1.34 KB gzip. A first version, or
+one whose prompt matches the version before it, never loads the diff.
+
+### CodeMirror
+
+Sentinel adds one CodeMirror wrapper and no CodeMirror bytes of its own.
+`prompt-diff` is 0.95 KB and imports two chunks: `dist-C1o7dCB9` (the core,
+288.56 KB raw and 93.24 KB gzip, the same hash as the trove and warden
+sections) and `dist-v479ndfu` (19.50 KB raw and 7.29 KB gzip). The second is
+the chunk with `@codemirror/merge` in it. Vault's `json-diff` and
+`config-detail` import it too, so the two diffs share it. The earlier sections
+did not name it. The first time you open a version whose prompt changed, you load about
+312.27 KB raw and 102.47 KB gzip (the page, the diff and those two chunks), or
+4.21 KB raw and 1.94 KB gzip if a vault diff or another editor already loaded
+the shared two. The other two `dist-*` chunks (`dist-yY4JzDLC`, `dist-BTo3Thc2`)
+are not imported by `prompt-diff`.
+
+### The entry does not carry any of it
+
+Counts in the built entry chunk (`index-DHEp2CI5.js`):
+
+| string | matches |
+|---|---|
+| `EditorView` | 0 |
+| `@codemirror` | 0 |
+| `cm-editor` | 0 |
+| `unifiedMergeView` | 0 |
+
+The entry names `prompt-version-BvyayMiz.js` twice, once in `__vite__mapDeps`
+and once in the `import()` the route's `lazy()` compiles to, and never in a
+`from"./..."` clause. It does not name `prompt-diff` at all. That chunk is named
+only inside `prompt-version`, in its own `__vite__mapDeps` and its `import()`.
+Neither sentinel chunk is in `index.html`'s `modulepreload` list (count 0). The CSS is 274.43 KB (41.07 KB gzip), 0.49 KB more than in the
+trove section.
