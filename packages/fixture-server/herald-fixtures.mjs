@@ -312,6 +312,7 @@ function stringMap(value) {
   for (const [key, val] of Object.entries(obj(value))) if (typeof val === "string") out[key] = val
   return out
 }
+const withoutEmpty = (map) => Object.fromEntries(Object.entries(map).filter(([, val]) => val !== ""))
 const stringList = (value) => (Array.isArray(value) ? value.filter((x) => typeof x === "string") : [])
 
 function escapeHtml(text) {
@@ -589,7 +590,7 @@ export function createHeraldHandlers(FixtureError) {
     const r = res.rule
     const s = res.p.settings
     if (channel === "sms") {
-      const phone = r?.fromPhone || s.from
+      const phone = r?.fromPhone || s.from_number || s.from
       return phone ? { phone } : {}
     }
     const from = {}
@@ -823,7 +824,7 @@ export function createHeraldHandlers(FixtureError) {
         const d = driverOf(driver)
         if (!d) throw bad(`herald: driver not found: ${driver}`)
         if (d.channel !== channel) throw bad(`herald: invalid channel type: driver ${driver} sends ${d.channel}, not ${channel}`)
-        const credentials = stringMap(f.credentials)
+        const credentials = withoutEmpty(stringMap(f.credentials))
         const settings = stringMap(f.settings)
         checkPlacement(d, credentials, settings)
         checkRequired(d, new Set([...Object.keys(credentials), ...Object.keys(settings)].filter((k) => (credentials[k] ?? settings[k]) !== "")))
@@ -841,7 +842,8 @@ export function createHeraldHandlers(FixtureError) {
         const p = ownedProvider(app, f.id)
         const d = driverOf(p.driver)
         if (f.name !== undefined && f.name !== null && !str(f.name)) throw bad("herald: invalid provider: name is required")
-        const setCredentials = stringMap(f.setCredentials)
+        // An empty value means "not entered", so it is never recorded as a stored key.
+        const setCredentials = withoutEmpty(stringMap(f.setCredentials))
         const removeCredentials = stringList(f.removeCredentials)
         const setSettings = stringMap(f.setSettings)
         const removeSettings = stringList(f.removeSettings)

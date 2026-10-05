@@ -51,6 +51,16 @@ export async function verifyHerald({ dispatch, getCSRF, failures }) {
   check("unknown provider is NOT_FOUND", code(missing) === "NOT_FOUND", missing.body)
   check("another app's provider is NOT_FOUND, same message", code(foreign) === "NOT_FOUND" && foreign.body?.error?.message === missing.body?.error?.message, foreign.body)
 
+  const absent = (prefix) => `${prefix}_01j00000000000000000099999`
+  const sameAsAbsent = (name, foreignResult, absentResult) =>
+    check(`another app's ${name} is NOT_FOUND, same message`, code(foreignResult) === "NOT_FOUND" && foreignResult.body?.error?.message === absentResult.body?.error?.message, foreignResult.body)
+  sameAsAbsent("template", await q("templates.detail", { id: I.otherTemplate }), await q("templates.detail", { id: absent("htpl") }))
+  sameAsAbsent("message", await q("messages.detail", { id: I.otherMessage }), await q("messages.detail", { id: absent("hmsg") }))
+  sameAsAbsent("notification", await c("inbox.markRead", { id: I.otherNotification }), await c("inbox.markRead", { id: absent("hinb") }))
+
+  const smsRoute = await q("send.resolve", { channel: "sms" })
+  check("the sms route takes Twilio's from phone from its from_number setting", data(smsRoute)?.provider?.driver === "twilio" && data(smsRoute)?.from?.phone === "+15550100", smsRoute.body)
+
   const created = await c("providers.create", { name: "Canary SMTP", channel: "email", driver: "smtp", enabled: true, credentials: { password: CANARY }, settings: { host: "smtp.canary.test", port: "587" } })
   const id = data(created)?.provider?.id
   const detail = await q("providers.detail", { id })
@@ -74,10 +84,24 @@ export async function verifyHerald({ dispatch, getCSRF, failures }) {
   const first = await q("messages.list", { limit: 25 })
   const second = await q("messages.list", { limit: 25, cursor: data(first)?.nextCursor })
   const firstIds = new Set((data(first)?.messages ?? []).map((m) => m.id))
-  check("messages page with a cursor and never repeat", Boolean(data(first)?.nextCursor) && (data(second)?.messages ?? []).every((m) => !firstIds.has(m.id)), second.body)
+  const secondRows = data(second)?.messages ?? []
+  check("messages page with a cursor and never repeat", Boolean(data(first)?.nextCursor) && secondRows.length > 0 && secondRows.every((m) => !firstIds.has(m.id)), second.body)
 
+  const acme = (r) => data(r)?.rules?.find((x) => x.scope === "org" && x.scopeId === "org_acme")
+  const ruleBefore = acme(await q("scopes.list"))
   const dangling = await c("scopes.set", { scope: "org", scopeId: "org_acme", fromName: "Acme Inc" })
   check("a rule naming a deleted provider can't be saved as it is", code(dangling) === "BAD_REQUEST" && /email_provider_id/.test(dangling.body?.error?.message ?? ""), dangling.body)
+  const ruleAfterRefusal = acme(await q("scopes.list"))
+  check("the refused save left the rule unchanged", Boolean(ruleBefore?.providers?.email?.dangling) && JSON.stringify(ruleAfterRefusal) === JSON.stringify(ruleBefore), { ruleBefore, ruleAfterRefusal })
   const cleared = await c("scopes.set", { scope: "org", scopeId: "org_acme", emailProviderId: "", fromName: "Acme Inc" })
   check("clearing the dangling slot saves the rule", cleared.body?.ok === true && !data(cleared)?.rule?.providers?.email, cleared.body)
+  const ruleAfterClear = acme(await q("scopes.list"))
+  check("the cleared rule reads back without its email slot and keeps the new name", Boolean(ruleAfterClear) && !ruleAfterClear.providers?.email && ruleAfterClear.fromName === "Acme Inc", ruleAfterClear)
+
+  const blank = await c("providers.update", { id: I.twilio, setCredentials: { auth_token: "" } })
+  const blankDetail = await q("providers.detail", { id: I.twilio })
+  check("an empty credential value on update is ignored, not stored", blank.body?.ok === true && data(blankDetail)?.provider?.credentials?.map((x) => x.key).join() === "account_sid,auth_token", blankDetail.body)
+  const blankNew = await c("providers.update", { id: I.twilio, setCredentials: { extra_token: "" } })
+  const blankNewDetail = await q("providers.detail", { id: I.twilio })
+  check("an empty value for a new key does not create it", blankNew.body?.ok === true && !data(blankNewDetail)?.provider?.credentials?.some((x) => x.key === "extra_token"), blankNewDetail.body)
 }
