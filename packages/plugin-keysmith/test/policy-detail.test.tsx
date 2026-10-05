@@ -114,10 +114,9 @@ const KEYS: KeysList = {
 
 const SCOPES = { scopes: [], hasMore: false }
 
-/** `id` null renders the page with no id in its params. */
-function mount(client: ScopedClient, id: string | null = ID) {
-  const navigate = vi.fn()
-  const view = render(
+/** The page as the host mounts it. `id` null gives it no id in its params. */
+function tree(client: ScopedClient, id: string | null, navigate: () => void) {
+  return (
     <PluginProvider client={client}>
       <NavigationProvider
         value={{
@@ -131,8 +130,14 @@ function mount(client: ScopedClient, id: string | null = ID) {
       >
         <PolicyDetailPage params={id === null ? {} : { id }} />
       </NavigationProvider>
-    </PluginProvider>,
+    </PluginProvider>
   )
+}
+
+/** `id` null renders the page with no id in its params. */
+function mount(client: ScopedClient, id: string | null = ID) {
+  const navigate = vi.fn()
+  const view = render(tree(client, id, navigate))
   return { ...view, navigate }
 }
 
@@ -512,16 +517,26 @@ type HostOutcome =
 function hostLikeClient(
   first: PolicyDetailResponse,
   commands: Record<string, HostOutcome | HostOutcome[]>,
-  options: { refetchError?: ContractError } = {},
+  options: {
+    refetchError?: ContractError
+    /** keys.list's answer for the params it was sent. KEYS by default. */
+    keys?: (params: { offset: number }) => KeysList
+  } = {},
 ) {
   let current = first
   let reads = 0
   const sent: { intent: string; payload: unknown }[] = []
+  const queries: { intent: string; params: unknown }[] = []
   const held: (() => void)[] = []
   const client = {
     extension: "keysmith",
-    query: (intent: string) => {
-      if (intent === "keys.list") return Promise.resolve(KEYS)
+    query: (intent: string, params?: Record<string, unknown>) => {
+      queries.push({ intent, params })
+      if (intent === "keys.list") {
+        return Promise.resolve(
+          options.keys ? options.keys(params as { offset: number }) : KEYS,
+        )
+      }
       if (intent === "scopes.list") return Promise.resolve(SCOPES)
       if (intent !== "policies.detail") {
         return Promise.reject(
@@ -550,6 +565,9 @@ function hostLikeClient(
   return {
     client,
     sent,
+    /** The params of every keys.list read, in order. */
+    keysParams: () =>
+      queries.filter((q) => q.intent === "keys.list").map((q) => q.params),
     releaseReads: () => {
       for (const release of held.splice(0)) release()
     },
@@ -688,5 +706,134 @@ describe("PolicyDetailPage dialogs through a refetch", () => {
       ),
     ).toBeTruthy()
     expect(within(d).queryByText(/not known/)).toBeNull()
+  })
+})
+
+describe("PolicyDetailPage keys through a refetch", () => {
+  const MANY = response({ keysUsing: 30, keysBlockingDelete: 30 })
+  const LATE = key({ id: "akey_late", name: "Late reporter", hint: "77aa" })
+
+  function last<T>(list: T[]): T | undefined {
+    return list[list.length - 1]
+  }
+
+  it("stays on the page of keys it was on while the policy refetches", async () => {
+    const host = hostLikeClient(MANY, {}, {
+      keys: ({ offset }) =>
+        offset === 0 ? { ...KEYS, total: 30 } : { keys: [LATE], total: 30 },
+    })
+    mount(host.client)
+    await screen.findByRole("heading", { level: 1, name: "Standard" })
+    fireEvent.click(await screen.findByRole("button", { name: "Next page" }))
+    expect(await screen.findByRole("link", { name: "Late reporter" })).toBeTruthy()
+
+    // The policy refetches: the page is a skeleton, and comes back on page 2.
+    act(() => queryStore.invalidate("keysmith", ["policies.detail"]))
+    await waitFor(() => expect(loading()).not.toBeNull())
+    act(() => host.releaseReads())
+    await waitFor(() => expect(loading()).toBeNull())
+
+    expect(await screen.findByRole("link", { name: "Late reporter" })).toBeTruthy()
+    expect(screen.getByText("Page 2 of 2, 30 total")).toBeTruthy()
+    expect(last(host.keysParams())).toEqual({ policyId: ID, limit: 25, offset: 25 })
+  })
+
+  it("steps back a page when keys leave the page it was on", async () => {
+    let total = 30
+    const host = hostLikeClient(MANY, {}, {
+      keys: ({ offset }) =>
+        offset === 0
+          ? { ...KEYS, total }
+          : { keys: total > 25 ? [LATE] : [], total },
+    })
+    mount(host.client)
+    await screen.findByRole("heading", { level: 1, name: "Standard" })
+    fireEvent.click(await screen.findByRole("button", { name: "Next page" }))
+    expect(await screen.findByRole("link", { name: "Late reporter" })).toBeTruthy()
+
+    // Ten keys are revoked elsewhere, and page 2 now has nothing on it.
+    total = 20
+    act(() => queryStore.invalidate("keysmith", ["policies.detail", "keys.list"]))
+    act(() => host.releaseReads())
+
+    expect(await screen.findByRole("link", { name: "Billing service" })).toBeTruthy()
+    expect(screen.queryByRole("link", { name: "Late reporter" })).toBeNull()
+    expect(screen.queryByRole("navigation", { name: "Pagination" })).toBeNull()
+    expect(last(host.keysParams())).toEqual({ policyId: ID, limit: 25, offset: 0 })
+  })
+})
+
+describe("PolicyDetailPage moving to another policy", () => {
+  const PARTNER_ID = "kpol_partner"
+  const PARTNER = response({ policy: { ...STANDARD, id: PARTNER_ID, name: "Partner" } })
+
+  /** Answers the first policy at once and holds the second until released. */
+  function twoPolicies(second: PolicyDetailResponse | ContractError) {
+    const held: (() => void)[] = []
+    const client = {
+      extension: "keysmith",
+      query: (intent: string, params?: Record<string, unknown>) => {
+        if (intent === "keys.list") return Promise.resolve(KEYS)
+        if (intent === "scopes.list") return Promise.resolve(SCOPES)
+        if (intent !== "policies.detail") {
+          return Promise.reject(
+            new ContractError("NOT_FOUND", `no handler for intent "${intent}"`),
+          )
+        }
+        if (params?.id === ID) return Promise.resolve(response())
+        return new Promise((resolve, reject) =>
+          held.push(() =>
+            second instanceof ContractError ? reject(second) : resolve(second),
+          ),
+        )
+      },
+      command: async (intent: string) => {
+        throw new ContractError("NOT_FOUND", `no handler for command "${intent}"`)
+      },
+    } as unknown as ScopedClient
+    return {
+      client,
+      release: () => {
+        for (const r of held.splice(0)) r()
+      },
+    }
+  }
+
+  it("starts the next policy with no dialog open and no earlier name", async () => {
+    const two = twoPolicies(PARTNER)
+    const { rerender, navigate } = mount(two.client)
+    await screen.findByRole("heading", { level: 1, name: "Standard" })
+    fireEvent.click(screen.getByRole("button", { name: "Delete" }))
+    await screen.findByRole("alertdialog", { name: "Delete Standard?" })
+
+    rerender(tree(two.client, PARTNER_ID, navigate))
+    // While the next policy loads, nothing of the first is on screen.
+    await waitFor(() => expect(loading()).not.toBeNull())
+    expect(screen.queryByRole("alertdialog", { hidden: true })).toBeNull()
+    expect(screen.queryByText("Delete Standard?")).toBeNull()
+
+    act(() => two.release())
+    expect(await screen.findByRole("heading", { level: 1, name: "Partner" })).toBeTruthy()
+    expect(screen.queryByRole("alertdialog", { hidden: true })).toBeNull()
+
+    // Delete now asks about the policy on screen.
+    fireEvent.click(screen.getByRole("button", { name: "Delete" }))
+    expect(await screen.findByRole("alertdialog", { name: "Delete Partner?" })).toBeTruthy()
+  })
+
+  it("does not bring back the first policy's editor when the next one fails to load", async () => {
+    const two = twoPolicies(
+      new ContractError("TRANSPORT", "contract request failed with HTTP 502"),
+    )
+    const { rerender, navigate } = mount(two.client)
+    await screen.findByRole("heading", { level: 1, name: "Standard" })
+    fireEvent.click(screen.getByRole("button", { name: "Edit" }))
+    await screen.findByRole("dialog", { name: "Edit Standard" })
+
+    rerender(tree(two.client, PARTNER_ID, navigate))
+    act(() => two.release())
+    expect(await screen.findByText(/contract request failed with HTTP 502/)).toBeTruthy()
+    expect(screen.queryByRole("dialog", { hidden: true })).toBeNull()
+    expect(screen.queryByText("Edit Standard")).toBeNull()
   })
 })

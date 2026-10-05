@@ -277,6 +277,96 @@ describe("ScopesPage create", () => {
   })
 })
 
+describe("ScopesPage create while scopes cannot be loaded", () => {
+  it("opens, says so, and still sends a scope with no parent", async () => {
+    const sent: { intent: string; payload: unknown }[] = []
+    const client = {
+      ...failingClient(new ContractError("INTERNAL", "scope store is down")),
+      command: async (intent: string, payload?: unknown) => {
+        sent.push({ intent, payload })
+        return { scope: { id: "kscp_new", name: "write" } }
+      },
+    } as ScopedClient
+    renderPage(ScopesPage, client)
+    await screen.findByText(/scope store is down/)
+    fireEvent.click(screen.getByRole("button", { name: "Create scope" }))
+    const d = await screen.findByRole("dialog", { name: "Create scope" })
+    expect(await within(d).findByText("Scopes could not be loaded right now.")).toBeTruthy()
+    const parent = within(d).getByLabelText("Parent") as HTMLSelectElement
+    expect(Array.from(parent.options).map((o) => o.value)).toEqual([""])
+
+    fireEvent.change(field(d, "Name"), { target: { value: "write" } })
+    fireEvent.click(within(d).getByRole("button", { name: "Create scope" }))
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull())
+    expect(sent).toEqual([
+      { intent: "scopes.create", payload: { name: "write", parent: "", description: "" } },
+    ])
+  })
+})
+
+/** Reads from `answers`; every command waits until `release` is called. */
+function holdingClient(answers: Record<string, unknown>) {
+  const sent: { intent: string; payload: unknown }[] = []
+  let release: (answer: unknown) => void = () => {}
+  const client = {
+    ...stubClient(answers),
+    command: (intent: string, payload?: unknown) => {
+      sent.push({ intent, payload })
+      return new Promise<unknown>((resolve) => {
+        release = resolve
+      })
+    },
+  } as ScopedClient
+  return { client, sent, release: (answer: unknown) => release(answer) }
+}
+
+/** Lets anything a dismissal set going (state, a close) run before looking. */
+async function settle() {
+  await act(async () => {
+    await new Promise((r) => setTimeout(r, 50))
+  })
+}
+
+describe("ScopesPage dialogs while a command is out", () => {
+  it("keeps Create scope open on Escape and Cancel until the create lands", async () => {
+    const held = holdingClient({ "scopes.list": LIST })
+    renderPage(ScopesPage, held.client)
+    const d = await openCreate()
+    fireEvent.change(field(d, "Name"), { target: { value: "write" } })
+    fireEvent.click(within(d).getByRole("button", { name: "Create scope" }))
+    await waitFor(() => expect(held.sent).toHaveLength(1))
+
+    fireEvent.keyDown(document.body, { key: "Escape" })
+    fireEvent.click(within(d).getByRole("button", { name: "Cancel" }))
+    await settle()
+    expect(screen.getByRole("dialog", { name: "Create scope" })).toBe(d)
+    expect(d.hasAttribute("data-closed")).toBe(false)
+    expect(field(d, "Name").value).toBe("write")
+
+    act(() => held.release({ scope: { id: "kscp_new", name: "write" } }))
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull())
+    expect(held.sent).toHaveLength(1)
+  })
+
+  it("keeps Delete open on Escape and Cancel until the delete lands", async () => {
+    const held = holdingClient({ "scopes.list": LIST })
+    renderPage(ScopesPage, held.client)
+    const d = await openDelete("read")
+    fireEvent.click(within(d).getByRole("button", { name: "Delete" }))
+    await waitFor(() => expect(held.sent).toHaveLength(1))
+
+    fireEvent.keyDown(document.body, { key: "Escape" })
+    fireEvent.click(within(d).getByRole("button", { name: "Cancel" }))
+    await settle()
+    expect(screen.getByRole("alertdialog", { name: "Delete read?" })).toBe(d)
+    expect(d.hasAttribute("data-closed")).toBe(false)
+
+    act(() => held.release({ id: READ.id }))
+    await waitFor(() => expect(screen.queryByRole("alertdialog")).toBeNull())
+    expect(held.sent).toEqual([{ intent: "scopes.delete", payload: { id: READ.id } }])
+  })
+})
+
 describe("ScopesPage delete", () => {
   const DESCRIPTION = "Every key that holds it loses it. This cannot be undone."
 
