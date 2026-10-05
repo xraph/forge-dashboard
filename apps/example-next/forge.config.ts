@@ -1,6 +1,7 @@
 import { defineForgeDashboard } from "@forge-go/dashboard-next"
 import authsomePlugin from "@forge-go/dashboard-plugin-authsome"
 import corePlugin from "@forge-go/dashboard-plugin-core"
+import sentinelPlugin from "@forge-go/dashboard-plugin-sentinel"
 import streamingPlugin from "@forge-go/dashboard-plugin-streaming"
 import trovePlugin from "@forge-go/dashboard-plugin-trove"
 
@@ -11,5 +12,5 @@ import trovePlugin from "@forge-go/dashboard-plugin-trove"
  */
 export const forge = defineForgeDashboard({
   mountPath: "/admin",
-  plugins: [corePlugin, streamingPlugin, authsomePlugin, trovePlugin],
+  plugins: [corePlugin, streamingPlugin, authsomePlugin, trovePlugin, sentinelPlugin],
 })

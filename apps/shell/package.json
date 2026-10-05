@@ -24,6 +24,7 @@
     "@forge-go/dashboard-plugin-keysmith": "workspace:*",
     "@forge-go/dashboard-plugin-ledger": "workspace:*",
     "@forge-go/dashboard-plugin-relay": "workspace:*",
+    "@forge-go/dashboard-plugin-sentinel": "workspace:*",
     "@forge-go/dashboard-plugin-streaming": "workspace:*",
     "@forge-go/dashboard-plugin-trove": "workspace:*",
     "@forge-go/dashboard-plugin-vault": "workspace:*",
