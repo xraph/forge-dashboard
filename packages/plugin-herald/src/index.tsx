@@ -1,8 +1,17 @@
+import { lazy } from "react"
 import { definePlugin } from "@forge-go/dashboard-plugin"
 import { HouseIcon, ServerIcon } from "@forge-go/dashboard-kit/icons"
+import { newProviderPath } from "./keys"
 import { OverviewPage } from "./pages/overview"
 import { ProviderDetailPage } from "./pages/provider-detail"
 import { ProvidersPage } from "./pages/providers"
+
+/**
+ * The provider forms are their own chunks: only an operator adding or
+ * changing a provider pays for them. PluginHost wraps every page in Suspense.
+ */
+const ProviderCreatePage = lazy(() => import("./pages/provider-create"))
+const ProviderEditPage = lazy(() => import("./pages/provider-edit"))
 
 export { OverviewPage, ProviderDetailPage, ProvidersPage }
 export { DanglingBadge, DisabledProviderBadge, EnabledBadge, MessageStatusBadge, ProtectionBadge, VersionBadge } from "./badges"
@@ -32,6 +41,9 @@ export const heraldPlugin = definePlugin({
     { path: "/", element: OverviewPage },
     { path: "/providers", element: ProvidersPage },
     { path: "/providers/:id", element: ProviderDetailPage },
+    // No nav entries: reached from buttons. Create lives at /new-provider so no ID can collide with it.
+    { path: newProviderPath, element: ProviderCreatePage },
+    { path: "/providers/:id/edit", element: ProviderEditPage },
   ],
 })
 
