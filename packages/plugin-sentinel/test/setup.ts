@@ -11,9 +11,9 @@ if (typeof window.PointerEvent === "undefined") {
   })
 }
 
-// CodeMirror measures layout jsdom does not have. Pages are tested against
-// what they show, so the lazy diff renders both texts in labelled <pre>s.
-// The diff itself is checked in the browser.
+// Page tests check what a page shows around the diff, so the lazy diff
+// renders both texts in labelled <pre>s here. test/prompt-diff.test.tsx
+// unmocks it and runs the real merge view, which jsdom can mount.
 vi.mock("../src/components/prompt-diff", () => ({
   default: ({ was, now, label }: { was: string; now: string; label: string }) =>
     createElement(

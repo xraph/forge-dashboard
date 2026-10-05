@@ -58,7 +58,15 @@ export function PromptsTab({ suiteId }: { suiteId: string }) {
 
   const current = versions.data?.items.find((v) => v.isCurrent)
   const initialPrompt = current?.systemPrompt ?? suite.data?.systemPrompt ?? ""
-  const create = <Button onClick={() => setCreating(true)}>New version</Button>
+  // A new version starts from the prompt runs use today, which is only known
+  // once both reads have answered. Until then the form would start from the
+  // wrong text, and making it current is ticked by default.
+  const ready = versions.data !== undefined && suite.data !== undefined
+  const create = (
+    <Button disabled={!ready} onClick={() => setCreating(true)}>
+      New version
+    </Button>
+  )
 
   return (
     <div className="flex flex-col gap-3">

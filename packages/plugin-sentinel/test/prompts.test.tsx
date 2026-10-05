@@ -7,6 +7,16 @@ import PromptVersionPage from "../src/pages/prompt-version"
 import { suite, SUITE_ID, version, VERSION_1, VERSION_2, versionDetail } from "./fixtures"
 import { recordingCommandClient, renderNavPage, stubClient } from "./harness"
 
+/** Answers like stubClient, except that every command is refused. */
+function refusing(answers: Record<string, unknown>, code: string, message: string): ScopedClient {
+  return {
+    ...stubClient(answers),
+    command: async () => {
+      throw new ContractError(code, message)
+    },
+  } as ScopedClient
+}
+
 const v1 = version({
   id: VERSION_1,
   version: 1,
@@ -95,6 +105,79 @@ describe("PromptsTab", () => {
     fireEvent.click(within(dialog).getByRole("button", { name: "Create version" }))
     await waitFor(() => expect(sent.length).toBe(1))
     expect((sent[0].payload as { makeCurrent: boolean }).makeCurrent).toBe(false)
+  })
+
+  it("keeps New version off until the versions and the suite have both answered", async () => {
+    const client: ScopedClient = {
+      ...stubClient({ "suites.detail": suite() }),
+      query: (intent: string) =>
+        intent === "prompts.list" ? new Promise<never>(() => {}) : Promise.resolve(suite()),
+    } as ScopedClient
+    renderTab(client)
+    const button = await screen.findByRole("button", { name: "New version" })
+    expect((button as HTMLButtonElement).disabled).toBe(true)
+  })
+
+  it("shows a refused version inside the dialog and keeps it open", async () => {
+    renderTab(
+      refusing(
+        { "prompts.list": { items: [version()] }, "suites.detail": suite() },
+        "CONFLICT",
+        "another prompt version was created at the same moment; try again",
+      ),
+    )
+    fireEvent.click(await screen.findByRole("button", { name: "New version" }))
+    const dialog = screen.getByRole("dialog")
+    fireEvent.click(within(dialog).getByRole("button", { name: "Create version" }))
+    expect((await within(dialog).findByRole("alert")).textContent).toBe(
+      "another prompt version was created at the same moment; try again",
+    )
+    expect(screen.getByRole("dialog")).toBeTruthy()
+  })
+
+  it("sends one version for a double submit", async () => {
+    let calls = 0
+    const client: ScopedClient = {
+      ...stubClient({ "prompts.list": { items: [version()] }, "suites.detail": suite() }),
+      command: () => {
+        calls += 1
+        return new Promise(() => {})
+      },
+    } as ScopedClient
+    renderTab(client)
+    fireEvent.click(await screen.findByRole("button", { name: "New version" }))
+    const form = within(screen.getByRole("dialog")).getByRole("button", { name: "Create version" }).closest("form") as HTMLFormElement
+    fireEvent.submit(form)
+    fireEvent.submit(form)
+    expect(calls).toBe(1)
+  })
+
+  it("shows a refused make-current inside the dialog and keeps it open", async () => {
+    renderTab(
+      refusing({ "prompts.list": { items: [v1, version()] }, "suites.detail": suite() }, "NOT_FOUND", "prompt version not found"),
+    )
+    fireEvent.click(await screen.findByRole("button", { name: "Make version 1 current" }))
+    const dialog = screen.getByRole("alertdialog")
+    fireEvent.click(within(dialog).getByRole("button", { name: "Make current" }))
+    expect((await within(dialog).findByRole("alert")).textContent).toBe("prompt version not found")
+    expect(screen.getByRole("alertdialog")).toBeTruthy()
+  })
+
+  it("sends one make-current for a double click", async () => {
+    let calls = 0
+    const client: ScopedClient = {
+      ...stubClient({ "prompts.list": { items: [v1, version()] }, "suites.detail": suite() }),
+      command: () => {
+        calls += 1
+        return new Promise(() => {})
+      },
+    } as ScopedClient
+    renderTab(client)
+    fireEvent.click(await screen.findByRole("button", { name: "Make version 1 current" }))
+    const confirm = within(screen.getByRole("alertdialog")).getByRole("button", { name: "Make current" })
+    fireEvent.click(confirm)
+    fireEvent.click(confirm)
+    expect(calls).toBe(1)
   })
 
   it("refuses an empty prompt before sending", async () => {
