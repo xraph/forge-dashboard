@@ -88,7 +88,7 @@ function SmsPreview({ result, from }: { result?: PreviewResult; from?: { phone?:
       )}
       <pre className="overflow-x-auto rounded-md border p-3 font-mono text-xs whitespace-pre-wrap">{text || "(empty)"}</pre>
       <p className="text-muted-foreground">
-        {plural(count.segments, "segment")}, {count.encoding}, {plural(count.units, "character")} ({count.perSegment} per segment)
+        {plural(count.segments, "segment")}, {count.encoding}, {plural(count.units, "unit")} (up to {count.perSegment} per segment)
       </p>
     </div>
   )

@@ -4,7 +4,10 @@ import { useDebounced } from "../../use-debounced"
 import type { PreviewResult, TemplatesRenderRequest } from "../../wire"
 
 interface Settled {
+  /** The request the last attempt was for, answered or failed. */
   key: string
+  /** The request the shown result answers. */
+  resultKey?: string
   result?: PreviewResult
   error?: ContractError
 }
@@ -17,7 +20,9 @@ interface Settled {
  * store entry per settled edit. The last answer stays on screen, marked stale
  * while a newer request is waiting or in flight, so nobody reads a preview of
  * text they have already changed without being told. An answer that arrives
- * after a newer request was sent is dropped.
+ * after a newer request was sent is dropped. After a failed render the old
+ * result stays, still marked stale, next to the error. A null request shows
+ * nothing.
  */
 export function useRenderPreview(request: TemplatesRenderRequest | null, delayMs = 400) {
   const client = usePluginClient()
@@ -33,14 +38,16 @@ export function useRenderPreview(request: TemplatesRenderRequest | null, delayMs
     client
       .query<PreviewResult>("templates.render", params)
       .then((result) => {
-        if (latest.current === settledKey) setSettled({ key: settledKey, result })
+        if (latest.current === settledKey) setSettled({ key: settledKey, resultKey: settledKey, result })
       })
       .catch((err: unknown) => {
         if (latest.current !== settledKey) return
         const error = err instanceof ContractError ? err : new ContractError("TRANSPORT", String(err))
-        setSettled((prev) => ({ key: settledKey, result: prev.result, error }))
+        setSettled((prev) => ({ key: settledKey, resultKey: prev.resultKey, result: prev.result, error }))
       })
   }, [client, settledKey])
 
-  return { result: settled.result, error: key === settled.key ? settled.error : undefined, stale: key !== settled.key }
+  // Nothing is rendering for a null request, so nothing is shown or marked stale.
+  if (request === null) return { result: undefined, error: undefined, stale: false }
+  return { result: settled.result, error: key === settled.key ? settled.error : undefined, stale: key !== settled.resultKey }
 }

@@ -16,24 +16,39 @@ export interface SmsCount {
   perSegment: number
 }
 
-function segments(units: number, single: number, multi: number): { segments: number; perSegment: number } {
+/**
+ * Greedy packing: a two-unit item (an escape pair or a surrogate pair) is never
+ * split across parts, so it moves whole to the next one when it does not fit.
+ */
+function segmentsFor(costs: number[], single: number, multi: number): { segments: number; perSegment: number } {
+  const units = costs.reduce((n, c) => n + c, 0)
   if (units === 0) return { segments: 0, perSegment: single }
-  return units <= single ? { segments: 1, perSegment: single } : { segments: Math.ceil(units / multi), perSegment: multi }
+  if (units <= single) return { segments: 1, perSegment: single }
+  let segments = 1
+  let used = 0
+  for (const cost of costs) {
+    if (used + cost > multi) {
+      segments += 1
+      used = 0
+    }
+    used += cost
+  }
+  return { segments, perSegment: multi }
 }
 
 export function countSms(text: string): SmsCount {
-  let units = 0
+  const gsmCosts: number[] = []
   let gsm = true
   for (const ch of text) {
-    if (BASIC.has(ch)) units += 1
-    else if (EXTENSION.has(ch)) units += 2
+    if (BASIC.has(ch)) gsmCosts.push(1)
+    else if (EXTENSION.has(ch)) gsmCosts.push(2)
     else {
       gsm = false
       break
     }
   }
-  if (gsm) return { encoding: "GSM-7", units, ...segments(units, 160, 153) }
+  if (gsm) return { encoding: "GSM-7", units: gsmCosts.reduce((n, c) => n + c, 0), ...segmentsFor(gsmCosts, 160, 153) }
   // UCS-2 counts UTF-16 code units: a character outside the basic plane is two.
-  const ucs = [...text].reduce((n, ch) => n + ((ch.codePointAt(0) ?? 0) > 0xffff ? 2 : 1), 0)
-  return { encoding: "UCS-2", units: ucs, ...segments(ucs, 70, 67) }
+  const ucsCosts = [...text].map((ch) => ((ch.codePointAt(0) ?? 0) > 0xffff ? 2 : 1))
+  return { encoding: "UCS-2", units: ucsCosts.reduce((n, c) => n + c, 0), ...segmentsFor(ucsCosts, 70, 67) }
 }

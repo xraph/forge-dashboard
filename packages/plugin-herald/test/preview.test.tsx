@@ -33,6 +33,24 @@ describe("countSms", () => {
     expect(countSms("👋").units).toBe(2)
   })
 
+  it("never splits a two-unit item across segments", () => {
+    // 152 + 2 fills 154 > 153, so the euro moves to the second segment.
+    expect(countSms("a".repeat(152) + "€" + "a".repeat(152))).toEqual({ encoding: "GSM-7", units: 306, segments: 3, perSegment: 153 })
+    // 66 + 2 fills 68 > 67, so the surrogate pair moves to the second segment.
+    expect(countSms("ł".repeat(66) + "👋" + "ł".repeat(66))).toEqual({ encoding: "UCS-2", units: 134, segments: 3, perSegment: 67 })
+  })
+
+  it("packs exact multiples without a spare segment", () => {
+    expect(countSms("a".repeat(306)).segments).toBe(2)
+    expect(countSms("a".repeat(307)).segments).toBe(3)
+    expect(countSms("ł".repeat(134)).segments).toBe(2)
+    expect(countSms("ł".repeat(135)).segments).toBe(3)
+    expect(countSms("a".repeat(158) + "€").segments).toBe(1)
+    expect(countSms("a".repeat(159) + "€").segments).toBe(2)
+    expect(countSms("€".repeat(80)).segments).toBe(1)
+    expect(countSms("€".repeat(81)).segments).toBe(2)
+  })
+
   it("is zero segments for nothing", () => {
     expect(countSms("").segments).toBe(0)
   })
@@ -69,7 +87,7 @@ describe("RenderedPreview", () => {
 
   it("counts SMS segments under the text", () => {
     render(<RenderedPreview channel="sms" result={result({ text: "a".repeat(161) })} stale={false} />)
-    expect(screen.getByText("2 segments, GSM-7, 161 characters (153 per segment)")).toBeTruthy()
+    expect(screen.getByText("2 segments, GSM-7, 161 units (up to 153 per segment)")).toBeTruthy()
   })
 
   it("marks an out-of-date preview instead of passing it off as current", () => {
@@ -137,10 +155,31 @@ describe("useRenderPreview", () => {
 })
 
 describe("buildSrcdoc with hostile markup", () => {
+  const parse = (doc: string) => new DOMParser().parseFromString(doc, "text/html")
+
   it("keeps the CSP first even when the template closes the head and opens its own", () => {
     const doc = buildSrcdoc('</head><meta http-equiv="Content-Security-Policy" content="default-src *"><script>alert(1)</script>', false)
     expect(doc.startsWith('<!doctype html><html><head><meta http-equiv="Content-Security-Policy"')).toBe(true)
-    expect(doc.indexOf("Content-Security-Policy")).toBeLessThan(doc.indexOf("</head><meta"))
+    const first = parse(doc).head.firstElementChild
+    expect(first?.tagName).toBe("META")
+    expect(first?.getAttribute("content")).toContain("default-src 'none'")
+  })
+
+  it("drops link elements, which the CSP does not cover (preconnect, dns-prefetch)", () => {
+    const doc = buildSrcdoc(
+      '<link rel="preconnect" href="https://tracker.test"><link rel="dns-prefetch" href="//tracker.test"><link rel="stylesheet" href="https://tracker.test/a.css"><p>Hi</p>',
+      false
+    )
+    expect(doc).not.toMatch(/<link/i)
+    expect(doc).not.toContain("tracker.test")
+    expect(parse(doc).body.textContent).toContain("Hi")
+  })
+
+  it("keeps a head-level style block", () => {
+    const doc = buildSrcdoc("<html><head><style>p { color: red }</style></head><body><p>Hi</p></body></html>", false)
+    expect(doc).toContain("p { color: red }")
+    expect(doc).toContain("<p>Hi</p>")
+    expect(parse(doc).head.firstElementChild?.tagName).toBe("META")
   })
 })
 
@@ -230,6 +269,26 @@ describe("useRenderPreview ordering and failure", () => {
     await act(async () => {
       vi.advanceTimersByTime(50)
     })
-    await waitFor(() => expect(screen.getByText("one|fresh|template does not parse")).toBeTruthy())
+    await waitFor(() => expect(screen.getByText("one|stale|template does not parse")).toBeTruthy())
+  })
+
+  it("shows nothing once the request goes back to null", async () => {
+    const client = {
+      extension: "herald",
+      query: async () => result({ text: "one" }),
+      command: async () => undefined,
+    } as unknown as ScopedClient
+    const view = render(
+      <PluginProvider client={client}>
+        <Probe request={req("one")} />
+      </PluginProvider>
+    )
+    await waitFor(() => expect(screen.getByText("one|fresh|ok")).toBeTruthy())
+    view.rerender(
+      <PluginProvider client={client}>
+        <Probe request={null} />
+      </PluginProvider>
+    )
+    expect(screen.getByText("none|fresh|ok")).toBeTruthy()
   })
 })
