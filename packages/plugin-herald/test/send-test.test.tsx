@@ -202,7 +202,8 @@ describe("SendTestPage", () => {
     await sendAndConfirm()
     const pre = await screen.findByText("smtp: 535 authentication failed")
     expect(pre.tagName).toBe("PRE")
-    expect(screen.getByText(/The provider refused it/)).toBeTruthy()
+    expect(screen.getByText(/It failed \(Primary SMTP\)\. The error Herald recorded:/)).toBeTruthy()
+    expect(screen.queryByText(/refused it|Its own words/)).toBeNull()
     expect(screen.queryByRole("alert")).toBeNull()
     expect(screen.queryByRole("alertdialog")).toBeNull()
   })
@@ -212,10 +213,59 @@ describe("SendTestPage", () => {
     await fillTemplateSend()
     fireEvent.change(screen.getByLabelText("User ID (optional)"), { target: { value: "usr_ada" } })
     await sendAndConfirm()
-    expect(await screen.findByText(/usr_ada opted out of billing.receipt on email/)).toBeTruthy()
+    const note = await screen.findByText((_, el) => el?.tagName === "P" && /^Not sent: usr_ada opted out of billing.receipt on email\.$/.test(el.textContent ?? ""))
+    expect(within(note).getByText("usr_ada").className).toMatch(/font-mono text-xs/)
+    expect(within(note).getByText("billing.receipt").className).toMatch(/font-mono text-xs/)
     expect(screen.getByText(/won't appear under Messages/)).toBeTruthy()
     expect(screen.queryByText(/Accepted by/)).toBeNull()
     expect(screen.queryByRole("link", { name: "Open it under Messages" })).toBeNull()
+  })
+
+  it("says so when Herald sent through a different provider than the confirm named", async () => {
+    renderPage(SendTestPage, setup({ ...ACCEPTED, provider: { id: TWILIO.id, name: "Backup SMTP", driver: "smtp" } }).client)
+    await fillTemplateSend()
+    await sendAndConfirm()
+    const note = await screen.findByText(/Routing changed between the check and the send\./)
+    expect(note.textContent).toMatch(/Herald sent it through Backup SMTP \(smtp\), not Primary SMTP as the confirm said\./)
+    expect(screen.getByText(/Accepted by Backup SMTP/)).toBeTruthy()
+  })
+
+  it("does not call it a mismatch when the same provider sent it", async () => {
+    renderPage(SendTestPage, setup().client)
+    await fillTemplateSend()
+    await sendAndConfirm()
+    await screen.findByText(/Accepted by Primary SMTP/)
+    expect(screen.queryByText(/Routing changed/)).toBeNull()
+  })
+
+  it("holds Send while a revisited resolve answer is refetching", async () => {
+    let release: () => void = () => {}
+    const gate = new Promise<void>((resolve) => {
+      release = resolve
+    })
+    let emailAsks = 0
+    const base = queries()
+    const c = scriptedClient(
+      {
+        ...base,
+        "send.resolve": async (p: Record<string, unknown>) => {
+          if (p.channel === "email" && ++emailAsks === 2) await gate
+          return base["send.resolve"](p)
+        },
+      },
+      { "send.test": ACCEPTED },
+    )
+    renderPage(SendTestPage, c.client)
+    await rawEmail()
+    await waitFor(() => expect((screen.getByRole("button", { name: "Send test" }) as HTMLButtonElement).disabled).toBe(false))
+    fireEvent.change(screen.getByLabelText("Channel"), { target: { value: "sms" } })
+    await screen.findByText(/Sends through/)
+    fireEvent.change(screen.getByLabelText("Channel"), { target: { value: "email" } })
+    // The cached answer for email is back on screen while it reloads; Send must not trust it.
+    await waitFor(() => expect(emailAsks).toBe(2))
+    expect((screen.getByRole("button", { name: "Send test" }) as HTMLButtonElement).disabled).toBe(true)
+    release()
+    await waitFor(() => expect((screen.getByRole("button", { name: "Send test" }) as HTMLButtonElement).disabled).toBe(false))
   })
 
   it("keeps a refusal that never reached a provider inside the dialog", async () => {

@@ -44,6 +44,7 @@ interface Snapshot {
   channel: string
   recipient: string
   /** Who send.resolve said would send it. */
+  providerId: string
   provider: string
   driver: string
   disabled: boolean
@@ -51,22 +52,34 @@ interface Snapshot {
   userId: string
 }
 
-const NO_SNAPSHOT: Snapshot = { channel: "", recipient: "", provider: "", driver: "", disabled: false, templateSlug: "", userId: "" }
+const NO_SNAPSHOT: Snapshot = { channel: "", recipient: "", providerId: "", provider: "", driver: "", disabled: false, templateSlug: "", userId: "" }
 
 function describeTarget(s: Snapshot): string {
   return `${s.provider}${s.driver ? ` (${s.driver})` : ""}${s.disabled ? ", which is disabled" : ""}`
 }
 
+/** The provider's name, or its ID as an identifier when it has no name. */
+function ProviderLabel({ id, name }: { id: string; name: string }) {
+  return name ? <>{name}</> : <span className="font-mono text-xs">{id}</span>
+}
+
 function ResultCard({ r, sent }: { r: SendTestResponse; sent: Snapshot }) {
-  const name = r.provider ? r.provider.name || r.provider.id : ""
+  const who = r.provider ? <ProviderLabel id={r.provider.id} name={r.provider.name} /> : null
+  const rerouted = r.provider !== null && sent.providerId !== "" && r.provider.id !== sent.providerId
   return (
     <section aria-labelledby="send-result" className="flex flex-col gap-2 rounded-lg border p-4 text-sm">
       <h2 id="send-result" className="font-medium">
         Result
       </h2>
+      {rerouted && r.provider && (
+        <p>
+          Herald sent it through {who}
+          {r.provider.driver ? ` (${r.provider.driver})` : ""}, not <ProviderLabel id={sent.providerId} name={sent.provider === sent.providerId ? "" : sent.provider} /> as the confirm said. Routing changed between the check and the send.
+        </p>
+      )}
       {r.status === "sent" && (
         <p>
-          Accepted by {name || "the provider"}
+          Accepted by {who ?? "the provider"}
           {r.providerMessageId && (
             <>
               {" "}
@@ -78,19 +91,23 @@ function ResultCard({ r, sent }: { r: SendTestResponse; sent: Snapshot }) {
       )}
       {r.status === "failed" && (
         <>
-          <p>The provider refused it{name ? ` (${name})` : ""}. Its own words:</p>
+          <p>
+            It failed{who && <> ({who})</>}. The error Herald recorded:
+          </p>
           <pre className="overflow-x-auto rounded-md border p-3 font-mono text-xs whitespace-pre-wrap">{r.error || "(no error text)"}</pre>
         </>
       )}
       {r.status === "suppressed" && (
         <>
           <p>
-            Not sent: {sent.userId || "the user"} opted out of {sent.templateSlug || "this template"} on {sent.channel}.
+            Not sent:{" "}
+            {sent.userId ? <span className="font-mono text-xs">{sent.userId}</span> : "the user"} opted out of{" "}
+            {sent.templateSlug ? <span className="font-mono text-xs">{sent.templateSlug}</span> : "this template"} on {sent.channel}.
           </p>
           {r.error && <p className="text-muted-foreground">Herald's reason: {r.error}</p>}
         </>
       )}
-      {r.status === "sending" && <p>Handed to {name || "the provider"}, and not settled yet.</p>}
+      {r.status === "sending" && <p>Handed to {who ?? "the provider"}, and not settled yet.</p>}
       {r.status !== "sent" && r.status !== "failed" && r.status !== "suppressed" && r.status !== "sending" && <p>Herald recorded it as {statusLabel(r.status)}.</p>}
       {!r.logged && <p>The message log couldn't be written, so this send won't appear under Messages.</p>}
       {r.messageId && r.logged && (
@@ -150,7 +167,7 @@ function SendForm({ engine, initial }: { engine: EngineInfoResponse; initial: In
 
   // Send is offered only when send.resolve has answered for what is on screen now and named a provider.
   const target = who.data?.provider ?? null
-  const answered = who.data !== undefined && !who.error && settledUser === user
+  const answered = who.data !== undefined && !who.error && !who.loading && settledUser === user
   const ready = mode === "template" ? template !== undefined : body.trim() !== ""
   const canSend = !send.loading && channel !== "" && recipient.trim() !== "" && ready && answered && target !== null
 
@@ -168,6 +185,7 @@ function SendForm({ engine, initial }: { engine: EngineInfoResponse; initial: In
     setSnapshot({
       channel,
       recipient: recipient.trim(),
+      providerId: target.id,
       provider: target.name || target.id,
       driver: target.driver ?? "",
       disabled: target.enabled === false,
@@ -238,7 +256,7 @@ function SendForm({ engine, initial }: { engine: EngineInfoResponse; initial: In
             ) : (
               <p className="flex flex-wrap items-center gap-x-2 gap-y-1">
                 <span>
-                  Sends through <span className="font-medium">{target.name || target.id}</span>
+                  Sends through <span className="font-medium">{target.name || <span className="font-mono text-xs">{target.id}</span>}</span>
                   {target.driver && <span className="font-mono text-xs"> {target.driver}</span>}.
                 </span>
                 <span>{VIA_TEXT[who.data.via]}</span>
