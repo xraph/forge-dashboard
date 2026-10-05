@@ -23,12 +23,17 @@ const PAGE_SIZE = 25
  * raw-body send leaves both empty. The row still has to be readable and
  * actionable, so its controls and its delete dialog fall back to the ID.
  */
+/*
+ * Three full timestamps on one line each pushed the row actions past the right
+ * edge at laptop widths, where the table scrolls sideways and Mark read and
+ * Delete were out of sight. Titles and times wrap instead.
+ */
 const columns: Column<NotificationWire>[] = [
-  { id: "title", header: "Title", className: "font-medium", cell: (n) => (n.title === "" ? <NoneCell label="title" /> : n.title) },
+  { id: "title", header: "Title", className: "font-medium whitespace-normal", cell: (n) => (n.title === "" ? <NoneCell label="title" /> : n.title) },
   { id: "type", header: "Type", className: "font-mono text-xs", cell: (n) => (n.type === "" ? <NoneCell label="type" /> : n.type) },
-  { id: "read", header: "Read", cell: (n) => (n.read ? <Timestamp value={n.readAt} label="read time" /> : "Unread") },
-  { id: "created", header: "Created", cell: (n) => <Timestamp value={n.createdAt} label="creation time" /> },
-  { id: "expires", header: "Expires", cell: (n) => <Timestamp value={n.expiresAt} label="expiry" /> },
+  { id: "read", header: "Read", className: "whitespace-normal", cell: (n) => (n.read ? <Timestamp value={n.readAt} label="read time" /> : "Unread") },
+  { id: "created", header: "Created", className: "whitespace-normal", cell: (n) => <Timestamp value={n.createdAt} label="creation time" /> },
+  { id: "expires", header: "Expires", className: "whitespace-normal", cell: (n) => <Timestamp value={n.expiresAt} label="expiry" /> },
 ]
 
 /** What a notification is called in a control's label or a dialog title: its title, else its ID. */
