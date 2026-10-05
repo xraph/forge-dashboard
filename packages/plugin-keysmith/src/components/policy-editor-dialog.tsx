@@ -62,7 +62,59 @@ type DurationKey =
   | "rateLimitWindow"
   | "rotationPeriod"
 type CountKey = "rateLimit" | "burstLimit" | "dailyQuota" | "monthlyQuota"
-type ProblemField = "name" | DurationKey | CountKey
+type ListKey = "ips" | "origins" | "paths"
+type GroupKey = "scopes" | "methods"
+type ProblemField = "name" | DurationKey | CountKey | ListKey | GroupKey
+
+/** A message the form shows, and the field it is about, if any. */
+interface Problem {
+  field?: ProblemField
+  message: string
+}
+
+/*
+ * The server names a field by its wire name at the start of a refusal, such
+ * as "graceSeconds is at most 90 days" or "allowedIps: ...". The form shows
+ * its own label there instead, and marks that field.
+ */
+const SERVER_FIELDS: [wire: string, label: string, field: ProblemField][] = [
+  ["maxKeyLifetimeSeconds", "Max key lifetime", "maxKeyLifetime"],
+  ["graceSeconds", "Grace on rotation", "grace"],
+  ["rateLimit", "Rate limit", "rateLimit"],
+  ["rateLimitWindowSeconds", "Window", "rateLimitWindow"],
+  ["burstLimit", "Burst limit", "burstLimit"],
+  ["rotationPeriodSeconds", "Rotation period", "rotationPeriod"],
+  ["dailyQuota", "Daily quota", "dailyQuota"],
+  ["monthlyQuota", "Monthly quota", "monthlyQuota"],
+  ["allowedScopes", "Allowed scopes", "scopes"],
+  ["allowedIps", "Allowed IPs", "ips"],
+  ["allowedOrigins", "Allowed origins", "origins"],
+  ["allowedMethods", "Allowed methods", "methods"],
+  ["allowedPaths", "Allowed paths", "paths"],
+]
+
+// The allowed scopes check names the scope, not the field.
+const MISSING_SCOPE = /^scope ".*" does not exist in this tenant$/
+
+/**
+ * The server's refusal as the form shows it. A message that starts with a
+ * wire name, then a space or a colon, gets the label in its place. Anything
+ * else is shown as it came.
+ */
+function readRefusal(message: string | undefined): Problem | undefined {
+  if (message === undefined) return undefined
+  if (message === NAME_REQUIRED || message === NAME_TOO_LONG) {
+    return { field: "name", message }
+  }
+  if (MISSING_SCOPE.test(message)) return { field: "scopes", message }
+  for (const [wire, label, field] of SERVER_FIELDS) {
+    const next = message.charAt(wire.length)
+    if (message.startsWith(wire) && (next === " " || next === ":")) {
+      return { field, message: label + message.slice(wire.length) }
+    }
+  }
+  return { message }
+}
 
 interface Duration {
   value: string
@@ -239,28 +291,30 @@ function PolicyForm({
     ...METHODS,
     ...(policy?.allowedMethods ?? []).filter((m) => !METHODS.includes(m)),
   ])
-  const [problem, setProblem] = useState<{
-    field: ProblemField
-    message: string
-  } | null>(null)
+  const [problem, setProblem] = useState<Problem | null>(null)
   // Set synchronously, so a second submit in the same tick cannot slip past a
   // button that has not re-rendered as disabled yet.
   const sending = useRef(false)
 
-  // The message sits at the foot of a long form, so a field the form refused
-  // takes the focus: it scrolls into view and is read out with the message.
-  useEffect(() => {
-    if (problem) document.getElementById(`${base}-${problem.field}`)?.focus()
-  }, [problem, base])
+  // The form's own check goes first; a server refusal shows until the next
+  // submit.
+  const shown = problem ?? readRefusal(command.error?.message)
+  const message = shown?.message
+  const refusedField = shown?.field
 
-  const message = problem?.message ?? command.error?.message
-  const invalid = (field: ProblemField) =>
-    problem
-      ? problem.field === field
-      : field === "name" &&
-        (message === NAME_REQUIRED || message === NAME_TOO_LONG)
+  // The message sits at the foot of a long form, so a refused input or
+  // textarea takes the focus: it scrolls into view and is read out with the
+  // message. Each new refusal focuses it again.
+  useEffect(() => {
+    if (!refusedField) return
+    const el = document.getElementById(`${base}-${refusedField}`)
+    if (el instanceof HTMLInputElement || el instanceof HTMLTextAreaElement) {
+      el.focus()
+    }
+  }, [problem, command.error, refusedField, base])
+
   const invalidProps = (field: ProblemField) =>
-    invalid(field)
+    refusedField === field
       ? { "aria-invalid": true as const, "aria-describedby": id("error") }
       : {}
 
@@ -390,7 +444,7 @@ function PolicyForm({
   )
 
   const listField = (
-    key: string,
+    key: ListKey,
     label: string,
     text: string,
     set: (v: string) => void,
@@ -404,6 +458,7 @@ function PolicyForm({
         spellCheck={false}
         className="font-mono text-xs"
         value={text}
+        {...invalidProps(key)}
         onChange={(e) => set(e.target.value)}
       />
       <FieldDescription>One per line, such as {example}.</FieldDescription>
@@ -462,6 +517,7 @@ function PolicyForm({
               stored={storedScopes}
               picked={pickedScopes}
               onChange={setPickedScopes}
+              {...invalidProps("scopes")}
             />
           </FieldGroup>
         </FieldSet>
@@ -519,7 +575,7 @@ function PolicyForm({
               setPaths,
               <span className="font-mono">/v1/billing</span>,
             )}
-            <FieldSet>
+            <FieldSet {...invalidProps("methods")}>
               <FieldLegend variant="label">Allowed methods</FieldLegend>
               <div className="flex flex-wrap gap-x-4 gap-y-2">
                 {methods.map((m) => (

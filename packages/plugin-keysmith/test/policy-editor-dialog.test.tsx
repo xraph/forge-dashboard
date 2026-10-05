@@ -523,6 +523,100 @@ describe("PolicyEditorDialog create", () => {
   })
 })
 
+/** The standard client, but every command throws the server's refusal. */
+function refusing(code: string, message: string): ScopedClient {
+  return {
+    ...standard().client,
+    command: async () => {
+      throw new ContractError(code, message)
+    },
+  } as ScopedClient
+}
+
+async function submitRefused(code: string, message: string): Promise<HTMLElement> {
+  mount(refusing(code, message))
+  await screen.findByRole("dialog")
+  fill("Name", "Partner")
+  fireEvent.click(submitButton())
+  return screen.findByRole("alert")
+}
+
+function invalidIn(dialog: HTMLElement): Element[] {
+  return [...dialog.querySelectorAll("[aria-invalid='true']")]
+}
+
+describe("PolicyEditorDialog server refusals", () => {
+  it("names the field instead of its wire name, and marks and focuses it", async () => {
+    const alert = await submitRefused(
+      "BAD_REQUEST",
+      "maxKeyLifetimeSeconds is at most 10 years",
+    )
+    expect(alert.textContent).toBe("Max key lifetime is at most 10 years")
+    const field = screen.getByLabelText("Max key lifetime")
+    expect(field.getAttribute("aria-invalid")).toBe("true")
+    expect(field.getAttribute("aria-describedby")).toBe(alert.id)
+    expect(invalidIn(screen.getByRole("dialog"))).toEqual([field])
+    await waitFor(() => expect(document.activeElement).toBe(field))
+  })
+
+  it("names a list field in an entry refusal, and marks and focuses its textarea", async () => {
+    const alert = await submitRefused(
+      "BAD_REQUEST",
+      'allowedOrigins: "x" is not an origin like https://example.com',
+    )
+    expect(alert.textContent).toBe(
+      'Allowed origins: "x" is not an origin like https://example.com',
+    )
+    const field = screen.getByLabelText("Allowed origins")
+    expect(field.tagName).toBe("TEXTAREA")
+    expect(field.getAttribute("aria-invalid")).toBe("true")
+    expect(field.getAttribute("aria-describedby")).toBe(alert.id)
+    expect(invalidIn(screen.getByRole("dialog"))).toEqual([field])
+    await waitFor(() => expect(document.activeElement).toBe(field))
+  })
+
+  it("matches the whole wire name, so the window is not read as the rate limit", async () => {
+    const alert = await submitRefused(
+      "BAD_REQUEST",
+      "rateLimitWindowSeconds is at most 31 days",
+    )
+    expect(alert.textContent).toBe("Window is at most 31 days")
+    const field = screen.getByLabelText("Window")
+    expect(invalidIn(screen.getByRole("dialog"))).toEqual([field])
+  })
+
+  it("marks the allowed scopes group for a scope the tenant does not have, keeping the message", async () => {
+    const message = 'scope "billing:admin" does not exist in this tenant'
+    const alert = await submitRefused("BAD_REQUEST", message)
+    expect(alert.textContent).toBe(message)
+    const group = screen.getByRole("group", { name: "Allowed scopes" })
+    expect(group.getAttribute("aria-invalid")).toBe("true")
+    expect(group.getAttribute("aria-describedby")).toBe(alert.id)
+    expect(invalidIn(screen.getByRole("dialog"))).toEqual([group])
+  })
+
+  it("marks the allowed methods group for a method refusal", async () => {
+    const alert = await submitRefused(
+      "BAD_REQUEST",
+      'allowedMethods: "FETCH" is not an HTTP method',
+    )
+    expect(alert.textContent).toBe('Allowed methods: "FETCH" is not an HTTP method')
+    const group = screen.getByRole("group", { name: "Allowed methods" })
+    expect(group.getAttribute("aria-describedby")).toBe(alert.id)
+    expect(invalidIn(screen.getByRole("dialog"))).toEqual([group])
+  })
+
+  it.each([
+    ["CONFLICT", "a policy with this name already exists"],
+    ["BAD_REQUEST", "a rate limit needs a window"],
+    ["BAD_REQUEST", "rateLimiter is not a field"],
+  ])("shows any other message as it came, marking nothing (%s %s)", async (code, message) => {
+    const alert = await submitRefused(code, message)
+    expect(alert.textContent).toBe(message)
+    expect(invalidIn(screen.getByRole("dialog"))).toEqual([])
+  })
+})
+
 describe("PolicyEditorDialog edit", () => {
   it("prefills every field from the policy", async () => {
     mount(standard().client, { policy: STORED })

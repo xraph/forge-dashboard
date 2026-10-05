@@ -19,6 +19,9 @@ export interface AllowedScopesFieldProps {
   /** The ticked names. This is exactly what the form sends. */
   picked: string[]
   onChange: (picked: string[]) => void
+  /** Set by the form when its error message is about this field. */
+  "aria-invalid"?: true
+  "aria-describedby"?: string
 }
 
 /**
@@ -34,12 +37,13 @@ export function AllowedScopesField({
   stored,
   picked,
   onChange,
+  ...invalid
 }: AllowedScopesFieldProps) {
   const scopes = useQuery<ScopesList>("scopes.list", PICKER_PARAMS)
   const rows = allowedRows(scopes.data, stored, picked)
 
   return (
-    <FieldSet>
+    <FieldSet {...invalid}>
       <FieldLegend variant="label">Allowed scopes</FieldLegend>
       {scopes.error && (
         <FieldDescription>
