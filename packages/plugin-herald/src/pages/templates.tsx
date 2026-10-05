@@ -52,6 +52,7 @@ function TemplatesView({ startWithoutFallback }: { startWithoutFallback: boolean
   if (fallback === "missing") params.noFallback = true
   const list = useQuery<TemplatesListResponse>("templates.list", params)
   const filtered = channel !== "" || category !== "" || fallback !== ""
+  const onlyMissingFallback = fallback === "missing" && channel === "" && category === ""
 
   function openReset() {
     reset.reset()
@@ -101,7 +102,7 @@ function TemplatesView({ startWithoutFallback }: { startWithoutFallback: boolean
             rows={data.templates}
             rowKey={(t) => t.id}
             caption={plural(data.templates.length, "template")}
-            emptyMessage={filtered ? "No templates match these filters." : "No templates yet. Create one, or reset the system templates to get Herald's defaults."}
+            emptyMessage={onlyMissingFallback ? "Every template has a fallback version." : filtered ? "No templates match these filters." : "No templates yet. Create one, or reset the system templates to get Herald's defaults."}
             emptyAction={filtered ? undefined : <NewTemplateLink />}
           />
         )}

@@ -60,4 +60,24 @@ describe("TemplateCreatePage", () => {
     await screen.findByLabelText("Name")
     expect(screen.getByText("app_demo")).toBeTruthy()
   })
+
+  it("does not mistake the default locale for the empty fallback", async () => {
+    setup()
+    const input = (await screen.findByLabelText("First version's locale")) as HTMLInputElement
+    expect(input.placeholder).toBe("")
+    expect(screen.getByText(/default locale is en\./)).toBeTruthy()
+  })
+
+  it("drops the duplicate-slug alert once you edit the slug or the channel", async () => {
+    setup(() => new ContractError("CONFLICT", "a template with this slug already exists on this channel"))
+    await fill()
+    fireEvent.click(screen.getByRole("button", { name: "Create template" }))
+    await screen.findByRole("alert")
+    fireEvent.change(screen.getByLabelText("Slug"), { target: { value: "billing.dunning2" } })
+    await waitFor(() => expect(screen.queryByRole("alert")).toBeNull())
+    fireEvent.click(screen.getByRole("button", { name: "Create template" }))
+    await screen.findByRole("alert")
+    fireEvent.change(screen.getByLabelText("Channel"), { target: { value: "sms" } })
+    await waitFor(() => expect(screen.queryByRole("alert")).toBeNull())
+  })
 })

@@ -58,7 +58,10 @@ function CreateForm({ engine }: { engine: EngineInfoResponse }) {
       </div>
       <div className="flex flex-col gap-1.5">
         <Label htmlFor="template-slug">Slug</Label>
-        <Input id="template-slug" className="font-mono" autoComplete="off" spellCheck={false} value={slug} aria-invalid={slugBad || undefined} onChange={(e) => setSlug(e.target.value)} />
+        <Input id="template-slug" className="font-mono" autoComplete="off" spellCheck={false} value={slug} aria-invalid={slugBad || undefined} onChange={(e) => {
+            create.reset()
+            setSlug(e.target.value)
+          }} />
         <p className={slugBad ? "text-xs text-destructive" : "text-xs text-muted-foreground"}>
           What callers send to pick this template. Use lower-case letters, digits, dots, dashes or underscores. It can't change later.
         </p>
@@ -66,7 +69,10 @@ function CreateForm({ engine }: { engine: EngineInfoResponse }) {
       <div className="grid gap-4 sm:grid-cols-2">
         <div className="flex flex-col gap-1.5">
           <Label htmlFor="template-channel">Channel</Label>
-          <NativeSelect id="template-channel" value={channel} onChange={(e) => setChannel(e.target.value)}>
+          <NativeSelect id="template-channel" value={channel} onChange={(e) => {
+              create.reset()
+              setChannel(e.target.value)
+            }}>
             <NativeSelectOption value="">Choose a channel</NativeSelectOption>
             {engine.channels.map((c) => (
               <NativeSelectOption key={c} value={c}>
@@ -88,9 +94,9 @@ function CreateForm({ engine }: { engine: EngineInfoResponse }) {
       </div>
       <div className="flex flex-col gap-1.5">
         <Label htmlFor="template-locale">First version's locale</Label>
-        <Input id="template-locale" className="font-mono" placeholder={engine.defaultLocale} autoComplete="off" spellCheck={false} value={locale} aria-invalid={localeBad || undefined} onChange={(e) => setLocale(e.target.value)} />
+        <Input id="template-locale" className="font-mono" autoComplete="off" spellCheck={false} value={locale} aria-invalid={localeBad || undefined} onChange={(e) => setLocale(e.target.value)} />
         <p className={localeBad ? "text-xs text-destructive" : "text-xs text-muted-foreground"}>
-          Empty starts with the fallback version, which answers any locale the template doesn't list. A tag like en or pt-BR starts with that translation instead.
+          Empty starts with the fallback version, which answers any locale the template doesn't list. A tag like pt-BR starts with that translation instead. This app's default locale is {engine.defaultLocale}.
         </p>
       </div>
       <div className="flex items-center gap-3">

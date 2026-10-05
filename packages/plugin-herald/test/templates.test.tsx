@@ -91,4 +91,12 @@ describe("TemplatesWithoutFallbackPage", () => {
     expect(await screen.findByText(/fails for any locale it doesn't list/)).toBeTruthy()
     expect(sent.find((s) => s.intent === "templates.list")?.params).toEqual({ noFallback: true })
   })
+
+  it("says every template has a fallback, not that a search failed, when none is missing one", async () => {
+    renderPage(TemplatesWithoutFallbackPage, recordingQueryClient({ "engine.info": engine(), "templates.list": { templates: [] } }).client)
+    expect(await screen.findByText("Every template has a fallback version.")).toBeTruthy()
+    expect(screen.queryByText("No templates match these filters.")).toBeNull()
+    fireEvent.change(screen.getByLabelText("Channel"), { target: { value: "sms" } })
+    expect(await screen.findByText("No templates match these filters.")).toBeTruthy()
+  })
 })
