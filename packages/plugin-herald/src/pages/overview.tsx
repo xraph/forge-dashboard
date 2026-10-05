@@ -52,22 +52,20 @@ function CountsTable({ data }: { data: OverviewStatsResponse }) {
   )
 }
 
-function Posture({ info, data }: { info: EngineInfoResponse; data: OverviewStatsResponse }) {
-  const encrypt = useCommand<ProvidersEncryptStoredResponse>("providers.encryptStored")
-  const [confirming, setConfirming] = useState(false)
+interface EncryptControl {
+  open: () => void
+}
+
+/**
+ * Pure display. The encrypt command, its dialog and its success message live
+ * in OverviewPage: encryptStored invalidates overview.stats, and the kit's
+ * QueryBoundary shows its skeleton for the whole refetch, so anything held in
+ * here would unmount mid-command.
+ */
+function Posture({ info, data, encrypt }: { info: EngineInfoResponse; data: OverviewStatsResponse; encrypt: EncryptControl }) {
   const { plaintext, encrypted } = data.credentials
   const missing = data.templatesWithoutFallback.length
-
-  function openConfirm() {
-    encrypt.reset()
-    setConfirming(true)
-  }
-
-  async function confirm() {
-    const result = await encrypt.execute({})
-    if (result === undefined) return
-    setConfirming(false)
-  }
+  const keyName = info.encryption.keyId
 
   return (
     <div className="flex flex-col gap-5 text-sm">
@@ -78,11 +76,18 @@ function Posture({ info, data }: { info: EngineInfoResponse; data: OverviewStats
         ) : info.encryption.configured ? (
           <>
             <p>
-              Credential key <span className="font-mono text-xs">{info.encryption.keyId}</span> is configured. {plaintext > 0 ? `${plural(plaintext, "credential value")} ${plaintext === 1 ? "is" : "are"} stored in plaintext; ${encrypted} encrypted.` : `All ${plural(encrypted, "stored value")} carry the encryption marker.`}
+              {keyName ? (
+                <>
+                  Credential key <span className="font-mono text-xs">{keyName}</span> is configured.
+                </>
+              ) : (
+                "A credential key is configured."
+              )}{" "}
+              {plaintext > 0 ? `${plural(plaintext, "credential value")} ${plaintext === 1 ? "is" : "are"} stored in plaintext; ${encrypted} encrypted.` : `All ${plural(encrypted, "stored value")} carry the encryption marker.`}
             </p>
             {plaintext > 0 && (
               <div>
-                <Button size="sm" variant="outline" onClick={openConfirm}>
+                <Button size="sm" variant="outline" onClick={encrypt.open}>
                   Encrypt stored credentials
                 </Button>
               </div>
@@ -90,12 +95,11 @@ function Posture({ info, data }: { info: EngineInfoResponse; data: OverviewStats
           </>
         ) : (
           <p>
-            No credential key is configured, so provider credentials are stored in plaintext ({plural(plaintext, "value")}). Set <span className="font-mono text-xs">credentials_key</span> in the herald extension config to encrypt new values, then encrypt the stored ones here.
-          </p>
-        )}
-        {encrypt.data && (
-          <p role="status">
-            Encrypted {plural(encrypt.data.valuesEncrypted, "value")} across {plural(encrypt.data.providers, "provider")}.
+            No credential key is configured.{" "}
+            {encrypted > 0
+              ? `${plaintext} ${plaintext === 1 ? "value is" : "values are"} stored in plaintext and ${encrypted} ${encrypted === 1 ? "is" : "are"} encrypted under a key this server no longer has.`
+              : `${plural(plaintext, "credential value")} ${plaintext === 1 ? "is" : "are"} stored in plaintext.`}{" "}
+            Set <span className="font-mono text-xs">credentials_key</span> in the herald extension config to encrypt new values, then encrypt the stored ones here.
           </p>
         )}
       </section>
@@ -133,19 +137,6 @@ function Posture({ info, data }: { info: EngineInfoResponse; data: OverviewStats
           {data.providers.enabled} of {plural(data.providers.total, "provider")} enabled.
         </p>
       </section>
-
-      <ConfirmDialog
-        open={confirming}
-        onOpenChange={(open) => !open && !encrypt.loading && setConfirming(false)}
-        title="Encrypt stored credentials?"
-        description={`This re-stores ${plural(plaintext, "plaintext value")} encrypted under key ${info.encryption.keyId ?? ""}. Values already encrypted are left alone.`}
-        confirmLabel="Encrypt"
-        destructive={false}
-        pending={encrypt.loading}
-        onConfirm={() => void confirm()}
-      >
-        <CommandAlert error={encrypt.error} title="Could not encrypt the stored credentials" />
-      </ConfirmDialog>
     </div>
   )
 }
@@ -154,6 +145,22 @@ export const OverviewPage: ComponentType<PluginPageProps> = () => {
   const [range, setRange] = useState<OverviewWindow>("7d")
   const info = useEngineInfo()
   const stats = useQuery<OverviewStatsResponse>("overview.stats", { window: range })
+  const encrypt = useCommand<ProvidersEncryptStoredResponse>("providers.encryptStored")
+  const [confirming, setConfirming] = useState(false)
+
+  function openConfirm() {
+    encrypt.reset()
+    setConfirming(true)
+  }
+
+  async function confirm() {
+    const result = await encrypt.execute({})
+    if (result === undefined) return
+    setConfirming(false)
+  }
+
+  const plaintext = stats.data?.credentials.plaintext ?? 0
+  const keyId = info.data?.encryption.keyId
 
   return (
     <section className="flex flex-col gap-6">
@@ -181,15 +188,32 @@ export const OverviewPage: ComponentType<PluginPageProps> = () => {
           <h2 id="posture-heading" className="text-sm font-medium">
             Posture
           </h2>
+          {encrypt.data && (
+            <p role="status" className="text-sm">
+              Encrypted {plural(encrypt.data.valuesEncrypted, "value")} across {plural(encrypt.data.providers, "provider")}.
+            </p>
+          )}
           <QueryBoundary title="Engine" query={info} skeletonRows={3}>
             {(engineInfo) => (
               <QueryBoundary title="Posture" query={stats} skeletonRows={3}>
-                {(data) => <Posture info={engineInfo} data={data} />}
+                {(data) => <Posture info={engineInfo} data={data} encrypt={{ open: openConfirm }} />}
               </QueryBoundary>
             )}
           </QueryBoundary>
         </section>
       </div>
+      <ConfirmDialog
+        open={confirming}
+        onOpenChange={(open) => !open && !encrypt.loading && setConfirming(false)}
+        title="Encrypt stored credentials?"
+        description={`This re-stores ${plural(plaintext, "plaintext value")} encrypted${keyId ? ` under key ${keyId}` : ""}. Values already encrypted are left alone.`}
+        confirmLabel="Encrypt"
+        destructive={false}
+        pending={encrypt.loading}
+        onConfirm={() => void confirm()}
+      >
+        <CommandAlert error={encrypt.error} title="Could not encrypt the stored credentials" />
+      </ConfirmDialog>
     </section>
   )
 }

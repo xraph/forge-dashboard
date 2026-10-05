@@ -4,7 +4,7 @@ import { ContractError } from "@forge-go/dashboard-plugin"
 import { OverviewPage } from "../src/pages/overview"
 import type { OverviewStatsResponse } from "../src/wire"
 import { engine } from "./data"
-import { recordingQueryClient, renderPage, scriptedClient, stubClient } from "./harness"
+import { invalidatingClient, recordingQueryClient, renderPage, scriptedClient, stubClient } from "./harness"
 
 function stats(over: Partial<OverviewStatsResponse> = {}): OverviewStatsResponse {
   return {
@@ -63,11 +63,50 @@ describe("OverviewPage", () => {
     expect(await screen.findByText("Encrypted 3 values across 2 providers.")).toBeTruthy()
   })
 
+  it("keeps the success message and shows the new posture when the refetch lands", async () => {
+    const { client, queried } = invalidatingClient(
+      {
+        "engine.info": engine(),
+        "overview.stats": (_input, call) => (call === 0 ? stats() : stats({ credentials: { plaintext: 0, encrypted: 7 } })),
+      },
+      {
+        "providers.encryptStored": {
+          answer: { providers: 2, valuesEncrypted: 3, alreadyEncrypted: 4 },
+          invalidates: ["providers.list", "providers.detail", "overview.stats"],
+        },
+      },
+    )
+    renderPage(OverviewPage, client)
+    fireEvent.click(await screen.findByRole("button", { name: "Encrypt stored credentials" }))
+    const dialog = await screen.findByRole("alertdialog")
+    fireEvent.click(within(dialog).getByRole("button", { name: "Encrypt" }))
+    expect(await screen.findByText("Encrypted 3 values across 2 providers.")).toBeTruthy()
+    await waitFor(() => expect(queried.filter((q) => q.intent === "overview.stats").length).toBeGreaterThan(1))
+    expect(await screen.findByText(/All 7 stored values carry the encryption marker/)).toBeTruthy()
+    expect(screen.getByText("Encrypted 3 values across 2 providers.")).toBeTruthy()
+    expect(screen.queryByRole("alertdialog")).toBeNull()
+  })
+
   it("explains how to set a key when none is configured, and offers no button", async () => {
     renderPage(OverviewPage, stubClient({ "engine.info": engine({ encryption: { configured: false } }), "overview.stats": stats() }))
     expect(await screen.findByText(/No credential key is configured/)).toBeTruthy()
     expect(screen.getByText(/credentials_key/)).toBeTruthy()
     expect(screen.queryByRole("button", { name: "Encrypt stored credentials" })).toBeNull()
+  })
+
+  it("says how many are plaintext and that the rest are under a key this server lacks", async () => {
+    renderPage(OverviewPage, stubClient({ "engine.info": engine({ encryption: { configured: false } }), "overview.stats": stats() }))
+    expect(await screen.findByText(/3 values are stored in plaintext and 4 are encrypted under a key this server no longer has/)).toBeTruthy()
+    expect(document.body.textContent).not.toMatch(/plaintext \(3 values\)/)
+  })
+
+  it("leaves out the key clause when no key ID is reported", async () => {
+    renderPage(OverviewPage, stubClient({ "engine.info": engine({ encryption: { configured: true } }), "overview.stats": stats() }))
+    fireEvent.click(await screen.findByRole("button", { name: "Encrypt stored credentials" }))
+    const dialog = await screen.findByRole("alertdialog")
+    expect(dialog.textContent).toContain("3 plaintext values")
+    expect(dialog.textContent).not.toMatch(/under key/)
+    expect(screen.getByText("A credential key is configured.", { exact: false })).toBeTruthy()
   })
 
   it("does not call an install with no credentials encrypted", async () => {

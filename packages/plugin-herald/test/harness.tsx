@@ -125,6 +125,52 @@ export function scriptedClient(queries: Record<string, Answer>, commands: Record
   }
 }
 
+type InvalidatingAnswer = Answer | ((input: Record<string, unknown>, call: number) => unknown)
+type CommandAnswer = InvalidatingAnswer | { answer: unknown; invalidates: string[] }
+
+/**
+ * As scriptedClient, but answering like the host. A command given as
+ * `{ answer, invalidates }` reaches `queryStore.invalidate("herald", ...)` on
+ * success, before its answer returns, which is what PluginHost's meta listener
+ * does. A throw invalidates nothing. A query function also gets how many times
+ * that intent was asked before (0 for the first), so a re-answer can differ.
+ * Use it to pin what a page does while its own data refetches.
+ */
+export function invalidatingClient(queries: Record<string, InvalidatingAnswer>, commands: Record<string, CommandAnswer> = {}) {
+  const queried: { intent: string; params: Record<string, unknown> }[] = []
+  const sent: { intent: string; payload: unknown }[] = []
+  const run = (a: unknown, input: Record<string, unknown>, call: number) => {
+    const out = typeof a === "function" ? (a as (i: Record<string, unknown>, c: number) => unknown)(input, call) : a
+    if (out instanceof ContractError) throw out
+    return out
+  }
+  return {
+    queried,
+    sent,
+    client: {
+      extension: "herald",
+      query: async (intent: string, params?: Record<string, unknown>) => {
+        if (!(intent in queries)) throw new ContractError("NOT_FOUND", `no handler for "${intent}"`)
+        const call = queried.filter((q) => q.intent === intent).length
+        queried.push({ intent, params: params ?? {} })
+        return run(queries[intent], params ?? {}, call)
+      },
+      command: async (intent: string, payload?: unknown) => {
+        sent.push({ intent, payload })
+        if (!(intent in commands)) throw new ContractError("NOT_FOUND", `no handler for "${intent}"`)
+        const a = commands[intent]
+        const input = (payload ?? {}) as Record<string, unknown>
+        if (typeof a === "object" && a !== null && "invalidates" in a && "answer" in a) {
+          const out = run(a.answer, input, 0)
+          queryStore.invalidate("herald", a.invalidates)
+          return out
+        }
+        return run(a, input, 0)
+      },
+    } as ScopedClient,
+  }
+}
+
 /** Renders one page the way the host does: inside a PluginProvider. */
 export function renderPage(Page: ComponentType<PluginPageProps>, client: ScopedClient, params: PluginPageProps["params"] = {}) {
   return render(
