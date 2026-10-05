@@ -1,11 +1,12 @@
 import { lazy } from "react"
 import { definePlugin } from "@forge-go/dashboard-plugin"
-import { FileTextIcon, HouseIcon, InboxIcon, MailIcon, ServerIcon } from "@forge-go/dashboard-kit/icons"
-import { inboxPath, messagesPath, newProviderPath, newTemplatePath, templatesPath, templatesWithoutFallbackPath } from "./keys"
+import { BellOffIcon, FileTextIcon, HouseIcon, InboxIcon, MailIcon, ServerIcon } from "@forge-go/dashboard-kit/icons"
+import { inboxPath, messagesPath, newProviderPath, newTemplatePath, preferencesPath, templatesPath, templatesWithoutFallbackPath } from "./keys"
 import { InboxPage } from "./pages/inbox"
 import { MessageDetailPage } from "./pages/message-detail"
 import { MessagesPage } from "./pages/messages"
 import { OverviewPage } from "./pages/overview"
+import { PreferencesPage } from "./pages/preferences"
 import { ProviderDetailPage } from "./pages/provider-detail"
 import { ProvidersPage } from "./pages/providers"
 import { TemplateCreatePage } from "./pages/template-create"
@@ -18,7 +19,7 @@ import { TemplatesPage, TemplatesWithoutFallbackPage } from "./pages/templates"
 const ProviderCreatePage = lazy(() => import("./pages/provider-create"))
 const ProviderEditPage = lazy(() => import("./pages/provider-edit"))
 
-export { InboxPage, MessageDetailPage, MessagesPage, OverviewPage, ProviderDetailPage, ProvidersPage, TemplateCreatePage, TemplatesPage, TemplatesWithoutFallbackPage }
+export { InboxPage, MessageDetailPage, MessagesPage, OverviewPage, PreferencesPage, ProviderDetailPage, ProvidersPage, TemplateCreatePage, TemplatesPage, TemplatesWithoutFallbackPage }
 export { DanglingBadge, DisabledProviderBadge, EnabledBadge, MessageStatusBadge, ProtectionBadge, VersionBadge } from "./badges"
 export { HeraldHeader, useEngineInfo } from "./components/herald-header"
 export type * from "./wire"
@@ -44,6 +45,7 @@ export const heraldPlugin = definePlugin({
     { label: "Templates", to: templatesPath, priority: 10, icon: <FileTextIcon />, group: "Notifications" },
     { label: "Messages", to: messagesPath, priority: 20, icon: <MailIcon />, group: "Notifications" },
     { label: "Inbox", to: inboxPath, priority: 50, icon: <InboxIcon />, group: "Notifications" },
+    { label: "Preferences", to: preferencesPath, priority: 60, icon: <BellOffIcon />, group: "Notifications" },
   ],
   routes: [
     { path: "/", element: OverviewPage },
@@ -58,6 +60,7 @@ export const heraldPlugin = definePlugin({
     { path: messagesPath, element: MessagesPage },
     { path: "/messages/:id", element: MessageDetailPage },
     { path: inboxPath, element: InboxPage },
+    { path: preferencesPath, element: PreferencesPage },
   ],
 })
 
