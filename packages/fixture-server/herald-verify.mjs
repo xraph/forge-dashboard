@@ -58,9 +58,9 @@ export async function verifyHerald({ dispatch, getCSRF, failures }) {
   sameAsAbsent("message", await q("messages.detail", { id: I.otherMessage }), await q("messages.detail", { id: absent("hmsg") }))
   sameAsAbsent("notification", await c("inbox.markRead", { id: I.otherNotification }), await c("inbox.markRead", { id: absent("hinb") }))
 
-  // Go's applyFrom reads the provider's "from" setting for sms, never from_number, so a twilio route with no rule phone has no sender.
+  // Go's applyFrom falls back to the sms driver's own sender key when no rule sets a phone: twilio's from_number.
   const smsRoute = await q("send.resolve", { channel: "sms" })
-  check("the sms route has no sender: the app rule sets no phone and Twilio's from_number is not read", data(smsRoute)?.provider?.driver === "twilio" && data(smsRoute)?.via === "app" && !("phone" in (data(smsRoute)?.from ?? {})), smsRoute.body)
+  check("the sms route sends from Twilio's from_number: the app rule sets no phone", data(smsRoute)?.provider?.driver === "twilio" && data(smsRoute)?.via === "app" && data(smsRoute)?.from?.phone === "+15550100", smsRoute.body)
   // The chosen path takes From from the app rule, which the provider's own (empty) settings can't supply.
   const chosen = await q("send.resolve", { channel: "email", providerId: I.resendBackup })
   check("a chosen provider takes From from the app rule", data(chosen)?.via === "chosen" && data(chosen)?.from?.email === "hello@example.com" && data(chosen)?.from?.name === "Example", chosen.body)

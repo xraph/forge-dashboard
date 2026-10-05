@@ -25,9 +25,8 @@
 //   rule, with its own "from" and "from_name" settings filling what the rule
 //   leaves empty. A provider the resolver falls back to has no rule config, so
 //   its settings alone. A provider a user, org or app rule names uses that
-//   rule. For sms the setting is "from", as in Go: a twilio provider's
-//   from_number is not read there, so an sms route with no rule phone shows no
-//   sender. That gap is Go's, kept so the page shows what a send would do.
+//   rule. For sms with no rule phone it is the driver's own sender setting,
+//   from_number (twilio, vonage) or originator (messagebird), then "from".
 // - A rule that names a disabled provider is skipped in send.resolve, as in
 //   the resolver. Only a chosen provider can resolve to a disabled one.
 // - send.test writes an in-app notification with type = the template slug and
@@ -598,12 +597,12 @@ export function createHeraldHandlers(FixtureError) {
     return { p: candidates[0], via: "fallback", rule: null }
   }
 
-  // Mirrors herald.go applyFrom: the rule's fields first, then the provider's "from" and "from_name" settings. For sms the setting is "from", as for email.
+  // Mirrors herald.go applyFrom: the rule's fields first, then the provider's settings. For sms that is the driver's own sender key (smsSender), then "from".
   function senderFor(channel, res) {
     const r = res.rule
     const s = res.p.settings
     if (channel === "sms") {
-      const phone = r?.fromPhone || s.from
+      const phone = r?.fromPhone || s.from_number || s.originator || s.from
       return phone ? { phone } : {}
     }
     const from = {}
