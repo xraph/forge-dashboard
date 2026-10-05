@@ -4,8 +4,8 @@ go 1.26.0
 
 require (
 	github.com/xraph/authsome v0.0.0-00010101000000-000000000000
-	github.com/xraph/forge v1.11.0
-	github.com/xraph/forge/extensions/streaming v0.0.0-00010101000000-000000000000
+	github.com/xraph/forge v1.12.0
+	github.com/xraph/forge/extensions/streaming v1.12.0
 	github.com/xraph/go-utils v1.3.0
 	github.com/xraph/warden v1.6.0
 )
