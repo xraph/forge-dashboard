@@ -32,6 +32,9 @@
 //   - sentinel            (packages/plugin-sentinel)         18 queries, 14 commands
 //                          mirrors sentinel/extension/contract; see
 //                          sentinel-fixtures.mjs
+//   - herald              (packages/plugin-herald)           14 queries, 18 commands
+//                          mirrors herald/extension/contract; see
+//                          herald-fixtures.mjs
 
 import { createServer } from "node:http"
 import { randomBytes } from "node:crypto"
@@ -43,6 +46,7 @@ import { createChronicleHandlers, resetChronicle } from "./chronicle-fixtures.mj
 import { createBastionHandlers, resetBastion } from "./bastion-fixtures.mjs"
 import { createKeysmithHandlers, resetKeysmith } from "./keysmith-fixtures.mjs"
 import { createSentinelHandlers, resetSentinel } from "./sentinel-fixtures.mjs"
+import { createHeraldHandlers, resetHerald } from "./herald-fixtures.mjs"
 
 // ---------------------------------------------------------------------------
 // Config
@@ -2848,6 +2852,7 @@ const CONTRIBUTORS = [
   { name: "keysmith", envPrefix: "KEYSMITH", handlers: createKeysmithHandlers(FixtureError) },
   { name: "bastion", envPrefix: "BASTION", handlers: createBastionHandlers(FixtureError) },
   { name: "sentinel", envPrefix: "SENTINEL", handlers: createSentinelHandlers(FixtureError) },
+  { name: "herald", envPrefix: "HERALD", handlers: createHeraldHandlers(FixtureError) },
   ...SETTINGS_ONLY_EXTENSIONS.map((extension) => ({
     name: extension,
     envPrefix: extension.toUpperCase(),
@@ -3120,6 +3125,7 @@ function handleReset(res) {
   resetKeysmith()
   resetBastion()
   resetSentinel()
+  resetHerald()
   csrfTokens.clear()
   idempotencyStore.clear()
   return sendJSON(res, 200, { ok: true })
