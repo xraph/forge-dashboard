@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest"
 import { resolvePluginState } from "@forge-go/dashboard-plugin"
 import type { Capabilities } from "@forge-go/dashboard-plugin"
 import sentinelPlugin, {
+  CaseDetailPage,
   sentinelPlugin as named,
   SetupPage,
   SuiteDetailPage,
@@ -52,12 +53,13 @@ describe("sentinelPlugin", () => {
     const element = (path: string) => sentinelPlugin.routes.find((r) => r.path === path)?.element
     expect(element("/suites")).toBe(SuitesPage)
     expect(element("/suites/:id")).toBe(SuiteDetailPage)
+    expect(element("/suites/:id/cases/:caseId")).toBe(CaseDetailPage)
     expect(element("/setup")).toBe(SetupPage)
   })
 
-  it("gives the detail route no nav entry", () => {
+  it("gives the detail routes no nav entry", () => {
     const targets = (sentinelPlugin.nav ?? []).map((n) => n.to)
-    for (const path of ["/suites/:id"]) {
+    for (const path of ["/suites/:id", "/suites/:id/cases/:caseId"]) {
       expect(targets).not.toContain(path)
     }
   })
