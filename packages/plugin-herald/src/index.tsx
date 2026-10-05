@@ -1,7 +1,9 @@
 import { lazy } from "react"
 import { definePlugin } from "@forge-go/dashboard-plugin"
-import { FileTextIcon, HouseIcon, ServerIcon } from "@forge-go/dashboard-kit/icons"
-import { newProviderPath, newTemplatePath, templatesPath, templatesWithoutFallbackPath } from "./keys"
+import { FileTextIcon, HouseIcon, MailIcon, ServerIcon } from "@forge-go/dashboard-kit/icons"
+import { messagesPath, newProviderPath, newTemplatePath, templatesPath, templatesWithoutFallbackPath } from "./keys"
+import { MessageDetailPage } from "./pages/message-detail"
+import { MessagesPage } from "./pages/messages"
 import { OverviewPage } from "./pages/overview"
 import { ProviderDetailPage } from "./pages/provider-detail"
 import { ProvidersPage } from "./pages/providers"
@@ -15,7 +17,7 @@ import { TemplatesPage, TemplatesWithoutFallbackPage } from "./pages/templates"
 const ProviderCreatePage = lazy(() => import("./pages/provider-create"))
 const ProviderEditPage = lazy(() => import("./pages/provider-edit"))
 
-export { OverviewPage, ProviderDetailPage, ProvidersPage, TemplateCreatePage, TemplatesPage, TemplatesWithoutFallbackPage }
+export { MessageDetailPage, MessagesPage, OverviewPage, ProviderDetailPage, ProvidersPage, TemplateCreatePage, TemplatesPage, TemplatesWithoutFallbackPage }
 export { DanglingBadge, DisabledProviderBadge, EnabledBadge, MessageStatusBadge, ProtectionBadge, VersionBadge } from "./badges"
 export { HeraldHeader, useEngineInfo } from "./components/herald-header"
 export type * from "./wire"
@@ -39,6 +41,7 @@ export const heraldPlugin = definePlugin({
     { label: "Overview", to: "/", priority: -10, icon: <HouseIcon />, group: "Notifications" },
     { label: "Providers", to: "/providers", priority: 30, icon: <ServerIcon />, group: "Notifications" },
     { label: "Templates", to: templatesPath, priority: 10, icon: <FileTextIcon />, group: "Notifications" },
+    { label: "Messages", to: messagesPath, priority: 20, icon: <MailIcon />, group: "Notifications" },
   ],
   routes: [
     { path: "/", element: OverviewPage },
@@ -50,6 +53,8 @@ export const heraldPlugin = definePlugin({
     { path: templatesPath, element: TemplatesPage },
     { path: templatesWithoutFallbackPath, element: TemplatesWithoutFallbackPage },
     { path: newTemplatePath, element: TemplateCreatePage },
+    { path: messagesPath, element: MessagesPage },
+    { path: "/messages/:id", element: MessageDetailPage },
   ],
 })
 
