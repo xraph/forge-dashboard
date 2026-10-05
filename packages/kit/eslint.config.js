@@ -28,4 +28,18 @@ export default defineConfig([
       'react-refresh/only-export-components': 'off',
     },
   },
+  {
+    // The shadcn carousel and the reui data grid, as their registries ship
+    // them. These are the rules they break, and only these: fixing them by
+    // hand would make the next registry update a merge instead of a copy.
+    // Our own components under src/components stay on the full rule set.
+    files: ['src/components/carousel.tsx', 'src/components/reui/**'],
+    rules: {
+      '@typescript-eslint/no-unused-vars': 'off',
+      'no-useless-assignment': 'off',
+      'react-hooks/refs': 'off',
+      'react-hooks/set-state-in-effect': 'off',
+      'react-hooks/use-memo': 'off',
+    },
+  },
 ])
