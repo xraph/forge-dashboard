@@ -934,9 +934,12 @@ export function createKeysmithHandlers(FixtureError) {
       } else if (field in POLICY_SECONDS_FIELDS || POLICY_COUNT_FIELDS.includes(field)) {
         if (!Number.isInteger(value)) throw badRequest(`${field} must be a whole number`)
       } else if (POLICY_LIST_FIELDS.includes(field)) {
-        if (!Array.isArray(value) || value.some((s) => typeof s !== "string")) {
+        // Go decodes a null entry of a []string as "", which normaliseList drops.
+        if (!Array.isArray(value) || value.some((s) => s !== null && typeof s !== "string")) {
           throw badRequest(`${field} must be a list of strings`)
         }
+        fields[field] = value.map((s) => s ?? "")
+        continue
       } else {
         continue
       }
@@ -1220,7 +1223,7 @@ export function createKeysmithHandlers(FixtureError) {
           .slice(offset, offset + limit + 1)
         const hasMore = rows.length > limit
         if (hasMore) rows.length = limit
-        rows.sort((a, b) => (a.name < b.name ? -1 : a.name > b.name ? 1 : 0))
+        rows.sort((a, b) => byteCompare(a.name, b.name))
         return { policies: rows.map(projectPolicySummary), hasMore, rateLimiterConfigured: rateLimiterConfigured() }
       },
     },
@@ -1252,7 +1255,7 @@ export function createKeysmithHandlers(FixtureError) {
           .slice(offset, offset + limit + 1)
         const hasMore = rows.length > limit
         if (hasMore) rows.length = limit
-        rows.sort((a, b) => (a.name < b.name ? -1 : a.name > b.name ? 1 : 0))
+        rows.sort((a, b) => byteCompare(a.name, b.name))
         return { scopes: rows.map(projectScopeSummary), hasMore }
       },
     },
