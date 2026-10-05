@@ -95,6 +95,16 @@ describe("RenderedPreview", () => {
     expect(screen.getByRole("status").textContent).toMatch(/Out of date/)
   })
 
+  it("keeps the out-of-date note mounted and empty while current, so it is announced when it appears", () => {
+    const { container, rerender } = render(<RenderedPreview channel="sms" result={result({ text: "old" })} stale={false} />)
+    const note = container.querySelector('p[role="status"]')
+    expect(note).not.toBeNull()
+    expect(note!.textContent).toBe("")
+    rerender(<RenderedPreview channel="sms" result={result({ text: "old" })} stale />)
+    expect(container.querySelector('p[role="status"]')).toBe(note)
+    expect(note!.textContent).toMatch(/Out of date/)
+  })
+
   it("lists problems with their field and position", () => {
     render(<DiagnosticsList diagnostics={[{ field: "html", line: 12, column: 5, severity: "error", kind: "parse", message: 'function "nosuch" not defined' }, { field: "", line: 0, column: 0, severity: "warning", kind: "unprovided", message: '"code" has no sample value' }]} />)
     expect(screen.getByText(/html 12:5/)).toBeTruthy()

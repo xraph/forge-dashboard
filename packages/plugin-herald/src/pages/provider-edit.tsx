@@ -191,11 +191,10 @@ function EditForm({ provider, engine }: { provider: ProviderDetail; engine: Engi
         {storedSettings.length === 0 && newSettingFields.length === 0 && <p className="text-sm text-muted-foreground">No settings.</p>}
       </fieldset>
 
-      {blockedByMove && (
-        <p role="status" className="rounded-md border px-3 py-2 text-sm">
-          Changing {moved.join(" and ")} sends credentials to a new server, so enter {mustReenter.join(", ")} again in this update, or remove {mustReenter.length === 1 ? "it" : "them"}.
-        </p>
-      )}
+      {/* Always mounted, text set later: a live region announces what changes inside it, not what arrives with it. */}
+      <p role="status" className={blockedByMove ? "rounded-md border px-3 py-2 text-sm" : "sr-only"}>
+        {blockedByMove && `Changing ${moved.join(" and ")} sends credentials to a new server, so enter ${mustReenter.join(", ")} again in this update, or remove ${mustReenter.length === 1 ? "it" : "them"}.`}
+      </p>
 
       <fieldset className="flex flex-col gap-3">
         <legend className="mb-1 text-sm font-medium">Credentials</legend>

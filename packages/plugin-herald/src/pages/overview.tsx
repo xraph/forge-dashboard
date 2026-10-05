@@ -10,7 +10,7 @@ import { ResourceTable, type Column } from "@forge-go/dashboard-kit/components/r
 import { HeraldHeader, useEngineInfo } from "../components/herald-header"
 import { NO_RECEIPTS, plural, STATUS_ORDER, statusLabel } from "../format"
 import { templatesWithoutFallbackPath } from "../keys"
-import type { EngineInfoResponse, MessageCount, OverviewStatsResponse, OverviewWindow, ProvidersEncryptStoredResponse } from "../wire"
+import type { EngineInfoResponse, MessageCount, OverviewStatsResponse, OverviewWindow, ProvidersEncryptStoredResponse, TemplatesListResponse } from "../wire"
 
 const WINDOWS: { value: OverviewWindow; label: string }[] = [
   { value: "24h", label: "24 hours" },
@@ -63,7 +63,7 @@ interface EncryptControl {
  * QueryBoundary shows its skeleton for the whole refetch, so anything held in
  * here would unmount mid-command.
  */
-function Posture({ info, data, encrypt }: { info: EngineInfoResponse; data: OverviewStatsResponse; encrypt: EncryptControl }) {
+function Posture({ info, data, encrypt, templateCount }: { info: EngineInfoResponse; data: OverviewStatsResponse; encrypt: EncryptControl; templateCount: number | undefined }) {
   const { plaintext, encrypted } = data.credentials
   const missing = data.templatesWithoutFallback.length
   const keyName = info.encryption.keyId
@@ -117,7 +117,7 @@ function Posture({ info, data, encrypt }: { info: EngineInfoResponse; data: Over
       <section className="flex flex-col gap-1.5">
         <h3 className="font-medium">Fallback coverage</h3>
         {missing === 0 ? (
-          <p>Every template has a fallback version.</p>
+          <p>{templateCount === undefined ? "No template is missing a fallback version." : templateCount === 0 ? "This app has no templates yet." : "Every template has a fallback version."}</p>
         ) : (
           <>
             <p>
@@ -137,6 +137,7 @@ function Posture({ info, data, encrypt }: { info: EngineInfoResponse; data: Over
         <p>
           {data.providers.enabled} of {plural(data.providers.total, "provider")} enabled.
         </p>
+        {data.providers.enabled === 0 && <p className="font-medium">{data.providers.total === 0 ? "Nothing can send until you add one." : "Nothing can send until you enable one."}</p>}
       </section>
     </div>
   )
@@ -146,6 +147,8 @@ export const OverviewPage: ComponentType<PluginPageProps> = () => {
   const [range, setRange] = useState<OverviewWindow>("7d")
   const info = useEngineInfo()
   const stats = useQuery<OverviewStatsResponse>("overview.stats", { window: range })
+  // overview.stats counts the templates lacking a fallback, not the templates, so "none missing" can't say whether there are any.
+  const templates = useQuery<TemplatesListResponse>("templates.list", {})
   const encrypt = useCommand<ProvidersEncryptStoredResponse>("providers.encryptStored")
   const [confirming, setConfirming] = useState(false)
 
@@ -189,15 +192,14 @@ export const OverviewPage: ComponentType<PluginPageProps> = () => {
           <h2 id="posture-heading" className="text-sm font-medium">
             Posture
           </h2>
-          {encrypt.data && (
-            <p role="status" className="text-sm">
-              Encrypted {plural(encrypt.data.valuesEncrypted, "value")} across {plural(encrypt.data.providers, "provider")}.
-            </p>
-          )}
+          {/* Always mounted, text set later: a live region announces what changes inside it, not what arrives with it. */}
+          <p role="status" className="text-sm empty:sr-only">
+            {encrypt.data && `Encrypted ${plural(encrypt.data.valuesEncrypted, "value")} across ${plural(encrypt.data.providers, "provider")}.`}
+          </p>
           <QueryBoundary title="Engine" query={info} skeletonRows={3}>
             {(engineInfo) => (
               <QueryBoundary title="Posture" query={stats} skeletonRows={3}>
-                {(data) => <Posture info={engineInfo} data={data} encrypt={{ open: openConfirm }} />}
+                {(data) => <Posture info={engineInfo} data={data} encrypt={{ open: openConfirm }} templateCount={templates.data?.templates.length} />}
               </QueryBoundary>
             )}
           </QueryBoundary>

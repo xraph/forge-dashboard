@@ -75,6 +75,17 @@ describe("ProviderEditPage", () => {
     expect(sent[0]?.payload).toEqual({ id: ID, setSettings: { port: "465" }, removeSettings: ["from"] })
   })
 
+  it("keeps the moved-host note mounted and empty until a host moves, so it is announced when it appears", async () => {
+    setup()
+    await screen.findByLabelText("Host")
+    const note = document.querySelector('form p[role="status"]')
+    expect(note).not.toBeNull()
+    expect(note!.textContent).toBe("")
+    fireEvent.change(screen.getByLabelText("Host"), { target: { value: "smtp.elsewhere.test" } })
+    expect(document.querySelector('form p[role="status"]')).toBe(note)
+    expect(note!.textContent).toMatch(/Changing host sends credentials to a new server/)
+  })
+
   it("asks for the secrets again before moving the host, then sends both", async () => {
     const { sent } = setup()
     fireEvent.change(await screen.findByLabelText("Host"), { target: { value: "smtp.elsewhere.test" } })

@@ -3,7 +3,7 @@ import { fireEvent, screen, waitFor, within } from "@testing-library/react"
 import { ContractError } from "@forge-go/dashboard-plugin"
 import { OverviewPage } from "../src/pages/overview"
 import type { OverviewStatsResponse } from "../src/wire"
-import { engine } from "./data"
+import { engine, templateSummary } from "./data"
 import { invalidatingClient, recordingQueryClient, renderPage, scriptedClient, stubClient } from "./harness"
 
 function stats(over: Partial<OverviewStatsResponse> = {}): OverviewStatsResponse {
@@ -87,6 +87,18 @@ describe("OverviewPage", () => {
     expect(screen.queryByRole("alertdialog")).toBeNull()
   })
 
+  it("keeps the success note mounted and empty until the encrypt lands, so a screen reader announces it", async () => {
+    const { client } = scriptedClient({ "engine.info": engine(), "overview.stats": stats() }, { "providers.encryptStored": { providers: 2, valuesEncrypted: 3, alreadyEncrypted: 4 } })
+    const { container } = renderPage(OverviewPage, client)
+    fireEvent.click(await screen.findByRole("button", { name: "Encrypt stored credentials" }))
+    const note = container.querySelector('p[role="status"]')
+    expect(note).not.toBeNull()
+    expect(note!.textContent).toBe("")
+    fireEvent.click(within(await screen.findByRole("alertdialog")).getByRole("button", { name: "Encrypt" }))
+    await screen.findByText("Encrypted 3 values across 2 providers.")
+    expect(container.querySelector('p[role="status"]')).toBe(note)
+  })
+
   it("explains how to set a key when none is configured, and offers no button", async () => {
     renderPage(OverviewPage, stubClient({ "engine.info": engine({ encryption: { configured: false } }), "overview.stats": stats() }))
     expect(await screen.findByText(/No credential key is configured/)).toBeTruthy()
@@ -124,6 +136,37 @@ describe("OverviewPage", () => {
     renderPage(OverviewPage, stubClient({ "engine.info": engine(), "overview.stats": stats() }))
     expect(await screen.findByText(/1 template has no fallback version/)).toBeTruthy()
     expect(screen.getByRole("link", { name: "Show them" }).getAttribute("href")).toBe("/templates-without-fallback")
+  })
+
+  it("says an app with no templates has none, rather than that every one has a fallback", async () => {
+    renderPage(OverviewPage, stubClient({ "engine.info": engine(), "overview.stats": stats({ templatesWithoutFallback: [] }), "templates.list": { templates: [] } }))
+    expect(await screen.findByText("This app has no templates yet.")).toBeTruthy()
+    expect(screen.queryByText("Every template has a fallback version.")).toBeNull()
+  })
+
+  it("says every template has a fallback when there are templates and none is missing one", async () => {
+    renderPage(OverviewPage, stubClient({ "engine.info": engine(), "overview.stats": stats({ templatesWithoutFallback: [] }), "templates.list": { templates: [templateSummary()] } }))
+    expect(await screen.findByText("Every template has a fallback version.")).toBeTruthy()
+  })
+
+  it("claims nothing about coverage it could not count", async () => {
+    renderPage(OverviewPage, stubClient({ "engine.info": engine(), "overview.stats": stats({ templatesWithoutFallback: [] }) }))
+    expect(await screen.findByText("No template is missing a fallback version.")).toBeTruthy()
+  })
+
+  it("says plainly that nothing can send when no provider is enabled", async () => {
+    renderPage(OverviewPage, stubClient({ "engine.info": engine(), "overview.stats": stats({ providers: { total: 2, enabled: 0 } }) }))
+    expect(await screen.findByText("0 of 2 providers enabled.")).toBeTruthy()
+    expect(screen.getByText("Nothing can send until you enable one.")).toBeTruthy()
+  })
+
+  it("says to add a provider when there are none, and leaves the warning out when one is enabled", async () => {
+    const view = renderPage(OverviewPage, stubClient({ "engine.info": engine(), "overview.stats": stats({ providers: { total: 0, enabled: 0 } }) }))
+    expect(await screen.findByText("Nothing can send until you add one.")).toBeTruthy()
+    view.unmount()
+    renderPage(OverviewPage, stubClient({ "engine.info": engine(), "overview.stats": stats() }))
+    expect(await screen.findByText("4 of 5 providers enabled.")).toBeTruthy()
+    expect(screen.queryByText(/Nothing can send/)).toBeNull()
   })
 
   it("shows the error card when the stats fail, not an empty table", async () => {

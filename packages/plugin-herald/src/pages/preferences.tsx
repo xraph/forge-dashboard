@@ -108,11 +108,10 @@ export const PreferencesPage: ComponentType<PluginPageProps> = () => {
       <p className="text-sm text-muted-foreground">
         Opt-outs can't be undone here. A user with no record gets every notification, so reversing an opt-out has to come from the user, through your own application.
       </p>
-      {done && (
-        <p role="status" className="text-sm">
-          {done.userId} is now opted out of {done.type} by {done.channel}.
-        </p>
-      )}
+      {/* Always mounted, text set later: a live region announces what changes inside it, not what arrives with it. */}
+      <p role="status" className="text-sm empty:sr-only">
+        {done && `${done.userId} is now opted out of ${done.type} by ${done.channel}.`}
+      </p>
       {userId === "" ? (
         <p className="text-sm text-muted-foreground">Enter a user ID to see their preferences.</p>
       ) : (

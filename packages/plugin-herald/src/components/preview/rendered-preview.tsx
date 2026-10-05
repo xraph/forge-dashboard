@@ -121,11 +121,10 @@ function PlainPreview({ result }: { result?: PreviewResult }) {
 export function RenderedPreview({ channel, result, from, stale }: { channel: string; result?: PreviewResult; from?: { email?: string; name?: string; phone?: string }; stale: boolean }) {
   return (
     <div className="relative flex flex-col gap-2">
-      {stale && (
-        <p role="status" className="text-xs text-muted-foreground">
-          Out of date: rendering your latest change…
-        </p>
-      )}
+      {/* Always mounted, text set later: a live region announces what changes inside it, not what arrives with it. */}
+      <p role="status" className="text-xs text-muted-foreground empty:sr-only">
+        {stale && "Out of date: rendering your latest change…"}
+      </p>
       <div className={stale ? "opacity-60" : undefined}>
         {channel === "email" ? (
           <EmailPreview result={result} from={from} />

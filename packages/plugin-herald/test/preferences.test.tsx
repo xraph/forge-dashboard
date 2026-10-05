@@ -224,6 +224,18 @@ describe("PreferencesPage", () => {
     expect(screen.getByText("usr_ada is now opted out of auth.password-reset by sms.")).toBeTruthy()
   })
 
+  it("keeps the success note mounted and empty until the opt-out lands, so a screen reader announces it", async () => {
+    const { container } = renderPage(PreferencesPage, setup().client)
+    await typeUser("usr_ada")
+    fireEvent.click(await screen.findByRole("button", { name: "Opt usr_ada out of auth.welcome by email" }))
+    const note = container.querySelector('p[role="status"]')
+    expect(note).not.toBeNull()
+    expect(note!.textContent).toBe("")
+    fireEvent.click(within(await screen.findByRole("alertdialog")).getByRole("button", { name: "Opt out" }))
+    await screen.findByText("usr_ada is now opted out of auth.welcome by email.")
+    expect(container.querySelector('p[role="status"]')).toBe(note)
+  })
+
   it("drops the success note when the user changes", async () => {
     renderPage(PreferencesPage, setup().client)
     await typeUser("usr_ada")

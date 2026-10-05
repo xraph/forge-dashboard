@@ -53,6 +53,10 @@ function TemplatesView({ startWithoutFallback }: { startWithoutFallback: boolean
   const list = useQuery<TemplatesListResponse>("templates.list", params)
   const filtered = channel !== "" || category !== "" || fallback !== ""
   const onlyMissingFallback = fallback === "missing" && channel === "" && category === ""
+  const withoutFallback = fallback === "missing"
+  // An empty answer to "which have no fallback" can't tell "all have one" from "there are none". Ask for all of them, only in that case.
+  const everything = useQuery<TemplatesListResponse>("templates.list", {}, { enabled: onlyMissingFallback && list.data?.templates.length === 0 })
+  const noneAtAll = everything.data?.templates.length === 0
 
   function openReset() {
     reset.reset()
@@ -68,9 +72,9 @@ function TemplatesView({ startWithoutFallback }: { startWithoutFallback: boolean
   return (
     <section className="flex flex-col gap-4">
       <HeraldHeader
-        title={startWithoutFallback ? "Templates without a fallback" : "Templates"}
+        title={withoutFallback ? "Templates without a fallback" : "Templates"}
         description={
-          startWithoutFallback
+          withoutFallback
             ? "A template with no live fallback version fails for any locale it doesn't list. Add a version with an empty locale to give it one."
             : "What Herald renders for each channel. A template answers a locale with its own version, its language, or the fallback version."
         }
@@ -90,11 +94,10 @@ function TemplatesView({ startWithoutFallback }: { startWithoutFallback: boolean
           { id: "fallback", label: "Fallback", value: fallback, onChange: setFallback, options: [{ label: "Any", value: "" }, { label: "Without a fallback version", value: "missing" }] },
         ]}
       />
-      {reset.data && (
-        <p role="status" className="text-sm">
-          Removed {plural(reset.data.deleted, "system template")} and seeded {reset.data.seeded}.
-        </p>
-      )}
+      {/* Always mounted, text set later: a live region announces what changes inside it, not what arrives with it. */}
+      <p role="status" className="text-sm empty:sr-only">
+        {reset.data && `Removed ${plural(reset.data.deleted, "system template")} and seeded ${reset.data.seeded}.`}
+      </p>
       <QueryBoundary title="Templates" query={list} skeletonRows={6}>
         {(data) => (
           <ResourceTable<TemplateSummary>
@@ -102,7 +105,7 @@ function TemplatesView({ startWithoutFallback }: { startWithoutFallback: boolean
             rows={data.templates}
             rowKey={(t) => t.id}
             caption={plural(data.templates.length, "template")}
-            emptyMessage={onlyMissingFallback ? "Every template has a fallback version." : filtered ? "No templates match these filters." : "No templates yet. Create one, or reset the system templates to get Herald's defaults."}
+            emptyMessage={onlyMissingFallback ? (noneAtAll ? "This app has no templates yet." : everything.data ? "Every template has a fallback version." : "No template is missing a fallback version.") : filtered ? "No templates match these filters." : "No templates yet. Create one, or reset the system templates to get Herald's defaults."}
             emptyAction={filtered ? undefined : <NewTemplateLink />}
           />
         )}
