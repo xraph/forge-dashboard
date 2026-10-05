@@ -98,6 +98,8 @@ export interface RotateKeyDialogProps {
   summary: KeySummary
   /** Its policy, for the grace preset. */
   policy: PolicyRef | null
+  /** Runs once the rotation succeeded, as the new key is revealed. */
+  onRotated?: () => void
 }
 
 /**
@@ -118,6 +120,7 @@ export function RotateKeyDialog({
   onOpenChange,
   summary,
   policy,
+  onRotated,
 }: RotateKeyDialogProps) {
   const [locked, setLocked] = useState(false)
 
@@ -142,6 +145,7 @@ export function RotateKeyDialog({
           policy={policy}
           onClose={() => onOpenChange(false)}
           onLockedChange={setLocked}
+          onRotated={onRotated}
         />
       </DialogContent>
     </Dialog>
@@ -153,11 +157,13 @@ function RotateKeyForm({
   policy,
   onClose,
   onLockedChange,
+  onRotated,
 }: {
   summary: KeySummary
   policy: PolicyRef | null
   onClose: () => void
   onLockedChange: (locked: boolean) => void
+  onRotated?: () => void
 }) {
   const ids = {
     grace: useId(),
@@ -255,6 +261,7 @@ function RotateKeyForm({
     // Copy first, then drop the hook's own copy of the answer.
     setRevealed({ result, previousHint, urgent, openedWindow })
     rotate.reset()
+    onRotated?.()
   }
 
   function done() {

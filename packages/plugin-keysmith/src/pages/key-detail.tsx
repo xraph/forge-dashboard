@@ -81,7 +81,9 @@ function KeyDetailBody({ id }: { id: string }) {
   // A refused Reactivate says why on the page, and stays until something else
   // is tried: by then it describes an attempt nobody is looking at. One still
   // out is left alone (the hook's reset does nothing then), so its answer
-  // still lands.
+  // still lands. Each action resets again when it succeeds, which clears a
+  // refusal that landed while its dialog was open: a revoked key offers
+  // nothing else that would.
   const { reset: resetReactivate } = reactivate
 
   function startRotating() {
@@ -147,24 +149,28 @@ function KeyDetailBody({ id }: { id: string }) {
             onOpenChange={setRotating}
             summary={latest.key}
             policy={latest.policy}
+            onRotated={resetReactivate}
           />
           <EndGraceDialog
             open={ending}
             onOpenChange={setEnding}
             keyId={latest.key.id}
             masked={endingMasked}
+            onEnded={resetReactivate}
           />
           <SuspendKeyDialog
             open={suspending}
             onOpenChange={setSuspending}
             keyId={latest.key.id}
             masked={actionMasked}
+            onDone={resetReactivate}
           />
           <RevokeKeyDialog
             open={revoking}
             onOpenChange={setRevoking}
             keyId={latest.key.id}
             masked={actionMasked}
+            onDone={resetReactivate}
           />
         </>
       )}

@@ -809,6 +809,9 @@ describe("PolicyDetailPage moving to another policy", () => {
     rerender(tree(two.client, PARTNER_ID, navigate))
     // While the next policy loads, nothing of the first is on screen.
     await waitFor(() => expect(loading()).not.toBeNull())
+    expect(
+      screen.queryByRole("heading", { level: 1, name: "Standard", hidden: true }),
+    ).toBeNull()
     expect(screen.queryByRole("alertdialog", { hidden: true })).toBeNull()
     expect(screen.queryByText("Delete Standard?")).toBeNull()
 

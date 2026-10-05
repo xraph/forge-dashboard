@@ -119,6 +119,8 @@ export interface KeyStateDialogProps {
    * refetches under the dialog, so the title is not read from live data.
    */
   masked: string
+  /** Runs once the command succeeded, before the dialog closes. */
+  onDone?: () => void
 }
 
 /**
@@ -127,7 +129,13 @@ export interface KeyStateDialogProps {
  * hands it to its revoke hooks); the engine does not store it on the key, so
  * the key's page never shows it.
  */
-export function RevokeKeyDialog({ open, onOpenChange, keyId, masked }: KeyStateDialogProps) {
+export function RevokeKeyDialog({
+  open,
+  onOpenChange,
+  keyId,
+  masked,
+  onDone,
+}: KeyStateDialogProps) {
   const revoke = useCommand<KeyOnly>("keys.revoke")
   const { reset } = revoke
   const reasonId = useId()
@@ -157,7 +165,9 @@ export function RevokeKeyDialog({ open, onOpenChange, keyId, masked }: KeyStateD
     } finally {
       sending.current = false
     }
-    if (result) onOpenChange(false)
+    if (!result) return
+    onDone?.()
+    onOpenChange(false)
   }
 
   return (
@@ -194,7 +204,13 @@ export function RevokeKeyDialog({ open, onOpenChange, keyId, masked }: KeyStateD
 }
 
 /** The confirmation for keys.suspend. Suspending can be undone, so it is not painted destructive. */
-export function SuspendKeyDialog({ open, onOpenChange, keyId, masked }: KeyStateDialogProps) {
+export function SuspendKeyDialog({
+  open,
+  onOpenChange,
+  keyId,
+  masked,
+  onDone,
+}: KeyStateDialogProps) {
   const suspend = useCommand<KeyOnly>("keys.suspend")
   const { reset } = suspend
   const sending = useRef(false)
@@ -212,7 +228,9 @@ export function SuspendKeyDialog({ open, onOpenChange, keyId, masked }: KeyState
     } finally {
       sending.current = false
     }
-    if (result) onOpenChange(false)
+    if (!result) return
+    onDone?.()
+    onOpenChange(false)
   }
 
   return (

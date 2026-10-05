@@ -162,11 +162,13 @@ export function OneTimeKey({
         </Button>
         {/* A toggle keeps one label and says its state with aria-pressed. A
             label that flipped to "Show" would read as "Show, pressed". The
-            kit Button has no pressed style, so the class shows it too. */}
+            kit Button has no pressed style, so the class shows it too. The
+            dark one is named as well: outline's dark:bg-input/30 is as
+            specific as aria-pressed:bg-muted and comes later in the CSS. */}
         <Button
           variant="outline"
           size="sm"
-          className="aria-pressed:bg-muted aria-pressed:text-foreground"
+          className="aria-pressed:bg-muted aria-pressed:text-foreground dark:aria-pressed:bg-muted"
           aria-pressed={hidden}
           onClick={() => setHidden((h) => !h)}
         >

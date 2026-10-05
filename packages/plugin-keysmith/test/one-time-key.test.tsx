@@ -370,7 +370,11 @@ describe("OneTimeKey hide", () => {
     renderKey()
     const toggle = screen.getByRole("button", { name: "Hide key" })
     // The kit Button has no pressed style of its own, so the toggle brings one.
-    expect(toggle.className.split(/\s+/)).toContain("aria-pressed:bg-muted")
+    // In dark mode outline's dark:bg-input/30 is as specific as the light
+    // class and comes later in the CSS, so the dark one has to be named too.
+    const classes = toggle.className.split(/\s+/)
+    expect(classes).toContain("aria-pressed:bg-muted")
+    expect(classes).toContain("dark:aria-pressed:bg-muted")
     fireEvent.click(toggle)
     expect(toggle.getAttribute("aria-pressed")).toBe("true")
   })

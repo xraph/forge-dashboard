@@ -1069,6 +1069,39 @@ describe("KeyDetailPage revoke and scopes through the refetch", () => {
     expect(host.sent).toEqual([{ intent: "keys.reactivate", payload: { id: "akey_billing" } }])
   })
 
+  it("drops a late reactivate refusal once the revoke started beside it succeeds", async () => {
+    const REFUSED = "only a suspended key can be reactivated"
+    const host = hostLikeClient(SUSPENDED, {
+      "keys.reactivate": { error: new ContractError("CONFLICT", REFUSED), held: true },
+      "keys.revoke": { answer: { key: REVOKED_KEY }, invalidates: REVOKE_INVALIDATES, next: REVOKED },
+    })
+    renderPage(KeyDetailPage, host.client, { id: "akey_billing" })
+    await screen.findByRole("heading", { level: 1, name: "Billing service" })
+
+    fireEvent.click(screen.getByRole("button", { name: "Reactivate" }))
+    fireEvent.click(screen.getByRole("button", { name: "Revoke" }))
+    const d = await screen.findByRole("alertdialog", { name: "Revoke sk_live_…a3f8?" })
+    fireEvent.change(within(d).getByLabelText("Reason"), {
+      target: { value: "Leaked in a support ticket" },
+    })
+
+    // The refusal lands under the open dialog, and shows.
+    act(() => host.releaseCommands())
+    await waitFor(() =>
+      expect(screen.getByText(REFUSED).getAttribute("role")).toBe("alert"),
+    )
+
+    // The revoke succeeds: the refusal is about an attempt nobody is looking
+    // at any more, and a revoked key offers nothing that would clear it later.
+    fireEvent.click(within(d).getByRole("button", { name: "Revoke" }))
+    await waitFor(() => expect(screen.queryByRole("alertdialog")).toBeNull())
+    host.releaseReads()
+    await waitFor(() => expect(loading()).toBeNull())
+    const page = screen.getByRole("heading", { level: 1 }).closest("section") as HTMLElement
+    expect(within(page).getByText("Revoked", { selector: "[data-slot=badge]" })).toBeTruthy()
+    expect(screen.queryByText(REFUSED)).toBeNull()
+  })
+
   it("keeps a refused scope change on screen through another action's refetch", async () => {
     const host = hostLikeClient(SUSPENDED, {
       "keys.reactivate": {
