@@ -55,6 +55,7 @@ export const InboxPage: ComponentType<PluginPageProps> = () => {
   if (pagedFor !== userId) {
     setPagedFor(userId)
     pager.reset()
+    markRead.reset()
   }
   const cursor = pagedFor === userId ? pager.cursor : undefined
 
@@ -94,7 +95,7 @@ export const InboxPage: ComponentType<PluginPageProps> = () => {
       <HeraldHeader title="Inbox" description="One user's in-app notifications in this app." />
       <div className="flex max-w-sm flex-col gap-1.5">
         <Label htmlFor="inbox-user">User ID</Label>
-        <Input id="inbox-user" className="font-mono" autoComplete="off" spellCheck={false} value={typed} onChange={(e) => setTyped(e.target.value)} />
+        <Input id="inbox-user" className="font-mono text-xs" autoComplete="off" spellCheck={false} value={typed} onChange={(e) => setTyped(e.target.value)} />
       </div>
       <CommandAlert error={markRead.error} title="Could not mark the notification read" />
       {userId === "" ? (
@@ -117,7 +118,10 @@ export const InboxPage: ComponentType<PluginPageProps> = () => {
                 rowActions={(n) => (
                   <>
                     {!n.read && (
-                      <Button size="xs" variant="outline" disabled={markRead.loading} aria-label={`Mark ${n.title} read`} onClick={() => void markRead.execute({ id: n.id })}>
+                      <Button size="xs" variant="outline" disabled={markRead.loading} aria-label={`Mark ${n.title} read`} onClick={() => {
+                          markRead.reset()
+                          void markRead.execute({ id: n.id })
+                        }}>
                         Mark read
                       </Button>
                     )}

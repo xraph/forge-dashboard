@@ -65,13 +65,18 @@ describe("InboxPage", () => {
     expect(within(unread).getByLabelText("no expiry")).toBeTruthy()
   })
 
-  it("marks one read straight from its row", async () => {
-    const c = setup()
+  it("marks one read straight from its row, and the row stops offering it once the list refetches", async () => {
+    const c = invalidatingClient(
+      { "engine.info": engine(), "inbox.list": (_input, call) => ({ notifications: [notification({ read: call > 0, readAt: call > 0 ? "2026-09-23T12:00:00Z" : undefined })], unread: call === 0 ? 1 : 0 }) },
+      { "inbox.markRead": { answer: { ok: true, id: "x" }, invalidates: ["inbox.list"] } },
+    )
     renderPage(InboxPage, c.client)
     await typeUser("usr_ada")
     fireEvent.click(await screen.findByRole("button", { name: "Mark Welcome to Example read" }))
     await waitFor(() => expect(c.sent).toEqual([{ intent: "inbox.markRead", payload: { id: "hinb_01j00000000000000000002000" } }]))
-    expect(screen.queryByRole("button", { name: "Mark New sign-in read" })).toBeNull()
+    await waitFor(() => expect(c.queried.filter((q) => q.intent === "inbox.list")).toHaveLength(2))
+    await screen.findByText("0 unread in total", { exact: false })
+    expect(screen.queryByRole("button", { name: "Mark Welcome to Example read" })).toBeNull()
   })
 
   it("deletes one behind a confirm", async () => {
@@ -195,6 +200,23 @@ describe("InboxPage", () => {
     expect(screen.getByRole("alertdialog").textContent).toMatch(/New sign-in/)
     release()
     await waitFor(() => expect(screen.queryByRole("alertdialog")).toBeNull())
+  })
+
+  it("drops a mark-read failure when the user changes, and when the next try starts", async () => {
+    let fail = true
+    const c = scriptedClient({ "engine.info": engine(), "inbox.list": PAGE }, { "inbox.markRead": () => (fail ? new ContractError("NOT_FOUND", "notification not found") : { ok: true }) })
+    renderPage(InboxPage, c.client)
+    await typeUser("usr_ada")
+    fireEvent.click(await screen.findByRole("button", { name: "Mark Welcome to Example read" }))
+    expect(await screen.findByText(/notification not found/)).toBeTruthy()
+    await typeUser("usr_bo")
+    await waitFor(() => expect(screen.queryByText(/notification not found/)).toBeNull())
+    await typeUser("usr_ada")
+    fireEvent.click(await screen.findByRole("button", { name: "Mark Welcome to Example read" }))
+    expect(await screen.findByText(/notification not found/)).toBeTruthy()
+    fail = false
+    fireEvent.click(screen.getByRole("button", { name: "Mark Welcome to Example read" }))
+    await waitFor(() => expect(screen.queryByText(/notification not found/)).toBeNull())
   })
 
   it("says why a mark-read failed, outside the list", async () => {
