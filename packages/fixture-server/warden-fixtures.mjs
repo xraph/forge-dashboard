@@ -713,7 +713,8 @@ class WardenFixtureError extends Error {
     this.code = code
     // Mirrors contract.Error.Details. resourceTypes.create and update set it
     // (the expression diagnostics), and so do the policy writes ({ fields,
-    // conditions } for a rejected draft). It does not reach the wire, for
+    // conditions } for a rejected draft, { reason: "stale" } for an update
+    // made from an old version). It does not reach the wire, for
     // the reason in the comment above: server.mjs sends err.details only
     // for its own FixtureError.
     this.details = details
@@ -2648,6 +2649,7 @@ function decodePatch(p) {
   const S = "PolicyUpdateInput"
   return {
     id: decodeString(p?.id, S, "id"),
+    expectedVersion: present(p?.expectedVersion) ? decodeInt(p.expectedVersion, S, "expectedVersion") : undefined,
     name: present(p?.name) ? decodeString(p.name, S, "name") : undefined,
     description: present(p?.description) ? decodeString(p.description, S, "description") : undefined,
     effect: present(p?.effect) ? decodeString(p.effect, S, "effect") : undefined,
@@ -2683,6 +2685,29 @@ function policyDuplicate(name, namespacePath) {
     "CONFLICT",
     `policy ${goQuote(name)} in tenant ${goQuote(WARDEN_TENANT)} ns ${goQuote(namespacePath)}: warden: policy already exists in this scope: warden: already exists`
   )
+}
+
+// mapWardenError's answer to ErrPolicyVersionConflict, message verbatim.
+// details.reason is what tells it apart from a taken name, which is CONFLICT
+// too and carries no reason.
+function policyStale() {
+  return new WardenFixtureError(
+    409,
+    "CONFLICT",
+    "this policy changed after it was opened, so nothing was saved. Reload it to see the current version, then make the change again.",
+    { reason: "stale" }
+  )
+}
+
+// checkExpectedVersion: an expectedVersion below the stored one is stale,
+// one above it was never stored and is bad input, and none at all is not
+// checked.
+function checkExpectedVersion(before, expected) {
+  if (expected === undefined || expected === before.version) return
+  if (expected > before.version) {
+    throw badRequest(`expectedVersion ${expected} is ahead of the stored version ${before.version}`)
+  }
+  throw policyStale()
 }
 
 function renameDuplicate(name, namespacePath) {
@@ -6822,6 +6847,11 @@ export const wardenHandlers = {
       const i = warden.policies.findIndex((x) => x.id === patch.id)
       if (i === -1) throw policyNotFound(patch.id)
       const before = warden.policies[i]
+      // Before validation, as in Go: an edit made from a stale copy is refused
+      // as stale even when it is also invalid. Go also makes the write itself
+      // conditional on before.version; here nothing can land between this read
+      // and the write below, so the check above is the whole guard.
+      checkExpectedVersion(before, patch.expectedVersion)
       // Only what the patch changes is validated, so a policy stored with a bad
       // condition before this validation existed can still have its
       // description edited. The window is judged as the merged pair, so a new
