@@ -17,14 +17,14 @@ import { providerPath } from "../keys"
 import { useDebounced } from "../use-debounced"
 import type { DeleteResponse, ProviderSummary, ProvidersListResponse, ResolveVia, RoutedChannel, ScopeRule, ScopeType, ScopesListResponse, ScopesSetRequest, ScopesSetResponse, SendResolveResponse } from "../wire"
 
-/** Why send.resolve picked what it picked, in words. */
+/** Why send.resolve picked what it picked, each a sentence of its own. */
 export const VIA_TEXT: Record<ResolveVia, string> = {
-  user: "the user's routing rule",
-  org: "the org's routing rule",
-  app: "the app's routing rule",
-  fallback: "no rule names one, so the first enabled provider for the channel by priority",
-  chosen: "it was chosen explicitly",
-  none: "nothing",
+  user: "The user's routing rule names it.",
+  org: "The org's routing rule names it.",
+  app: "The app's routing rule names it.",
+  fallback: "No rule names one, so Herald takes the first enabled provider for the channel by priority.",
+  chosen: "It was chosen explicitly.",
+  none: "No provider would send it.",
 }
 
 type SlotKey = "emailProviderId" | "smsProviderId" | "pushProviderId" | "webhookProviderId" | "chatProviderId"
@@ -87,7 +87,7 @@ function WhoSends({ channels }: { channels: string[] }) {
                   {r.provider.driver && <span className="font-mono text-xs">{r.provider.driver}</span>}
                   {r.provider.enabled === false && <DisabledProviderBadge />}
                 </p>
-                <p>Picked by {VIA_TEXT[r.via]}.</p>
+                <p>{VIA_TEXT[r.via]}</p>
                 {(r.from.email || r.from.name || r.from.phone) && (
                   <p>
                     From {r.from.name ? `${r.from.name} ` : ""}
@@ -103,7 +103,7 @@ function WhoSends({ channels }: { channels: string[] }) {
   )
 }
 
-function RuleCard({ rule, onEdit, onDelete }: { rule: ScopeRule; onEdit: () => void; onDelete: () => void }) {
+function RuleCard({ rule, providers, onEdit, onDelete }: { rule: ScopeRule; providers: ProviderSummary[]; onEdit: () => void; onDelete: () => void }) {
   const who = rule.scope === "app" ? "the app rule" : `the ${rule.scope} rule for ${rule.scopeId}`
   return (
     <article className="flex flex-col gap-3 rounded-lg border p-4">
@@ -133,9 +133,12 @@ function RuleCard({ rule, onEdit, onDelete }: { rule: ScopeRule; onEdit: () => v
                     <span className="font-mono text-xs">{p.id}</span>
                   </span>
                 ) : (
-                  <PluginLink to={providerPath(p.id)} className="underline">
-                    {p.name}
-                  </PluginLink>
+                  <span className="flex flex-wrap items-center gap-2">
+                    <PluginLink to={providerPath(p.id)} className="underline">
+                      {p.name}
+                    </PluginLink>
+                    {providers.some((q) => q.id === p.id && !q.enabled) && <DisabledProviderBadge />}
+                  </span>
                 )}
               </dd>
             </div>
@@ -267,11 +270,11 @@ function RuleDialog({ open, rule, providers, onClose }: { open: boolean; rule: S
                   {missing && <NativeSelectOption value={current}>{rule?.providers[ch]?.name || current}</NativeSelectOption>}
                   {options.map((p) => (
                     <NativeSelectOption key={p.id} value={p.id}>
-                      {p.name}
+                      {p.enabled ? p.name : `${p.name} (disabled)`}
                     </NativeSelectOption>
                   ))}
                 </NativeSelect>
-                {danglingSlots.includes(ch) && <p className="text-xs text-muted-foreground">The provider this pointed at was deleted. Saving clears it.</p>}
+                {danglingSlots.includes(ch) && current === "" && <p className="text-xs text-muted-foreground">The provider this pointed at was deleted. Saving clears it.</p>}
               </div>
             )
           })}
@@ -359,7 +362,7 @@ export const RoutingPage: ComponentType<PluginPageProps> = () => {
                   {level.length === 0 ? (
                     <p className="text-sm text-muted-foreground">{scope === "app" ? "No app rule. Each channel falls back to its first enabled provider." : `No ${scope} rules.`}</p>
                   ) : (
-                    level.map((rule) => <RuleCard key={rule.id} rule={rule} onEdit={() => openRule(rule)} onDelete={() => openDelete(rule)} />)
+                    level.map((rule) => <RuleCard key={rule.id} rule={rule} providers={providers.data?.providers ?? []} onEdit={() => openRule(rule)} onDelete={() => openDelete(rule)} />)
                   )}
                 </section>
               )

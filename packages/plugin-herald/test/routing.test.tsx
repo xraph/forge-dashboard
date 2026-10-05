@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest"
 import { fireEvent, screen, waitFor, within } from "@testing-library/react"
 import { ContractError } from "@forge-go/dashboard-plugin"
-import { RoutingPage } from "../src/pages/routing"
+import { RoutingPage, VIA_TEXT } from "../src/pages/routing"
 import { engine, providerSummary, scopeRule } from "./data"
 import { invalidatingClient, renderPage, scriptedClient } from "./harness"
 
@@ -79,16 +79,29 @@ describe("RoutingPage", () => {
     renderPage(RoutingPage, c.client)
     fireEvent.change(await screen.findByLabelText("Channel to test"), { target: { value: "email" } })
     fireEvent.change(screen.getByLabelText("Org ID (optional)"), { target: { value: "org_acme" } })
-    expect(await screen.findByText(/the org's routing rule/)).toBeTruthy()
+    expect(await screen.findByText(VIA_TEXT.org)).toBeTruthy()
     expect(c.queried.filter((q) => q.intent === "send.resolve").map((q) => q.params)).toContainEqual({ channel: "email", orgId: "org_acme" })
     expect(screen.getByText("Provider disabled", { selector: '[data-slot="badge"]' })).toBeTruthy()
+  })
+
+  it("gives each reason as a sentence of its own, and the fallback one when no rule names a provider", async () => {
+    const c = scriptedClient(
+      { "engine.info": engine(), "scopes.list": RULES, "providers.list": { providers: [SMTP, TWILIO] }, "send.resolve": () => ({ provider: { id: SMTP.id, name: "Primary SMTP", driver: "smtp", enabled: true }, via: "fallback", from: {} }) },
+      {},
+    )
+    renderPage(RoutingPage, c.client)
+    fireEvent.change(await screen.findByLabelText("Channel to test"), { target: { value: "email" } })
+    expect(await screen.findByText(VIA_TEXT.fallback)).toBeTruthy()
+    expect(screen.queryByText(/Picked by/)).toBeNull()
+    expect(VIA_TEXT.fallback).toBe("No rule names one, so Herald takes the first enabled provider for the channel by priority.")
+    for (const sentence of Object.values(VIA_TEXT)) expect(sentence).toMatch(/^[A-Z].*\.$/)
   })
 
   it("leaves an empty org and user out of the question rather than sending them blank", async () => {
     const c = setup()
     renderPage(RoutingPage, c.client)
     fireEvent.change(await screen.findByLabelText("Channel to test"), { target: { value: "email" } })
-    await screen.findByText(/the app's routing rule/)
+    await screen.findByText(VIA_TEXT.app)
     expect(c.queried.filter((q) => q.intent === "send.resolve").map((q) => q.params)).toEqual([{ channel: "email" }])
   })
 
@@ -140,6 +153,49 @@ describe("RoutingPage", () => {
     fireEvent.click(within(dialog).getByRole("button", { name: "Save rule" }))
     await waitFor(() => expect(c.sent).toHaveLength(1))
     expect(c.sent[0]?.payload).toEqual({ scope: "org", scopeId: "org_acme", emailProviderId: "", fromName: "Acme Inc" })
+  })
+
+  it("stops saying saving clears the slot once you pick a replacement", async () => {
+    renderPage(RoutingPage, setup().client)
+    fireEvent.click(await screen.findByRole("button", { name: "Edit the org rule for org_acme" }))
+    const dialog = await screen.findByRole("dialog")
+    expect(within(dialog).getByText(/Saving clears it/)).toBeTruthy()
+    fireEvent.change(within(dialog).getByLabelText("email provider"), { target: { value: SMTP.id } })
+    expect(within(dialog).queryByText(/Saving clears it/)).toBeNull()
+  })
+
+  it("flags a rule's provider that is disabled, on the card and in the dialog's options", async () => {
+    const off = providerSummary({ id: "hpvd_01j00000000000000000000009", name: "Old SMTP", enabled: false })
+    const rules = { rules: [scopeRule({ providers: { email: { id: off.id, name: "Old SMTP", dangling: false }, sms: { id: TWILIO.id, name: "Twilio", dangling: false } } })] }
+    const c = scriptedClient({ "engine.info": engine(), "scopes.list": rules, "providers.list": { providers: [SMTP, TWILIO, off] } })
+    renderPage(RoutingPage, c.client)
+    const link = await screen.findByRole("link", { name: "Old SMTP" })
+    expect(within(link.parentElement!).getByText("Provider disabled", { selector: '[data-slot="badge"]' })).toBeTruthy()
+    expect(within(screen.getByRole("link", { name: "Twilio" }).parentElement!).queryByText("Provider disabled")).toBeNull()
+    fireEvent.click(screen.getByRole("button", { name: "Edit the app rule" }))
+    const dialog = await screen.findByRole("dialog")
+    const options = Array.from((within(dialog).getByLabelText("email provider") as HTMLSelectElement).options).map((o) => o.textContent)
+    expect(options).toContain("Old SMTP (disabled)")
+    expect(options).toContain("Primary SMTP")
+  })
+
+  it("still shows a stored provider when the provider list failed, and leaves it out of a save that does not touch it", async () => {
+    const rules = { rules: [scopeRule({ providers: { sms: { id: TWILIO.id, name: "Twilio", dangling: false } } })] }
+    const c = scriptedClient(
+      { "engine.info": engine(), "scopes.list": rules, "providers.list": () => new ContractError("INTERNAL", "providers down"), "send.resolve": resolve },
+      { "scopes.set": () => ({ rule: scopeRule() }) },
+    )
+    renderPage(RoutingPage, c.client)
+    fireEvent.click(await screen.findByRole("button", { name: "Edit the app rule" }))
+    const dialog = await screen.findByRole("dialog")
+    const sms = within(dialog).getByLabelText("sms provider") as HTMLSelectElement
+    expect(sms.value).toBe(TWILIO.id)
+    expect(sms.options[sms.selectedIndex]?.textContent).toBe("Twilio")
+    expect(within(dialog).getByText(/providers down/)).toBeTruthy()
+    fireEvent.change(within(dialog).getByLabelText("From name"), { target: { value: "Changed" } })
+    fireEvent.click(within(dialog).getByRole("button", { name: "Save rule" }))
+    await waitFor(() => expect(c.sent).toHaveLength(1))
+    expect(c.sent[0]?.payload).toEqual({ scope: "app", fromName: "Changed" })
   })
 
   it("saves a deleted-provider rule the way the server accepts it: no slot left naming the deleted provider", async () => {
