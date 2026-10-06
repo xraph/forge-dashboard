@@ -2,10 +2,12 @@ import { afterEach, describe, expect, it, vi } from "vitest"
 import { act, cleanup, render, screen } from "@testing-library/react"
 import { EditorState } from "@codemirror/state"
 import { EditorView } from "@codemirror/view"
+import { undo } from "@codemirror/commands"
 import { CompletionContext } from "@codemirror/autocomplete"
 import type { CompletionResult } from "@codemirror/autocomplete"
 import { forEachDiagnostic } from "@codemirror/lint"
 import CodeEditor, { actionCompletions, templateActions } from "../src/components/editor/code-editor"
+import FieldDiff from "../src/components/editor/field-diff"
 import type { CodeEditorProps } from "../src/components/editor/types"
 
 afterEach(cleanup)
@@ -47,9 +49,10 @@ describe("CodeEditor", () => {
     expect(marked(view)).toEqual(["{{.name}}", "{{ upper .x }}", "{{.y}}"])
   })
 
-  it("underlines a server diagnostic at the character Herald named, after a non-ASCII one", () => {
-    const { view, rerender, props } = mount({ initial: "line one\né {{ nosuch }}", language: "text" })
-    rerender(<CodeEditor {...props} diagnostics={[{ line: 2, column: 6, severity: "error", message: 'function "nosuch" not defined' }]} />)
+  it("underlines a server diagnostic at the character Herald named, after an emoji and an accent", () => {
+    // 👋 is two UTF-16 units but one character: "nosuch" is the 8th character of line 2.
+    const { view, rerender, props } = mount({ initial: "line one\n👋 é {{ nosuch }}", language: "text" })
+    rerender(<CodeEditor {...props} diagnostics={[{ line: 2, column: 8, severity: "error", message: 'function "nosuch" not defined' }]} />)
     expect(lintRanges(view)).toEqual([{ text: "nosuch", severity: "error", message: 'function "nosuch" not defined' }])
   })
 
@@ -67,17 +70,74 @@ describe("CodeEditor", () => {
   })
 
   it("moves the cursor to a requested position, counted in characters", () => {
-    const { view, rerender, props } = mount({ initial: "line one\né {{ nosuch }}", language: "text" })
-    rerender(<CodeEditor {...props} focus={{ line: 2, column: 6, seq: 1 }} />)
-    // "line one\n" is 9 units; é, space, {, {, space are 5 more.
-    expect(view.state.selection.main.head).toBe(14)
+    const { view, rerender, props } = mount({ initial: "line one\n👋 é {{ nosuch }}", language: "text" })
+    rerender(<CodeEditor {...props} focus={{ line: 2, column: 8, seq: 1 }} />)
+    // "line one\n" is 9 units; 👋 is 2, then space, é, space, {, {, space are 6 more.
+    expect(view.state.selection.main.head).toBe(17)
   })
 
-  it("keeps a single-line field on one line", () => {
-    const { view, onChange } = mount({ initial: "Your receipt", language: "text", singleLine: true, label: "Subject (en)" })
-    act(() => view.dispatch({ changes: { from: view.state.doc.length, insert: "\nsecond line" } }))
-    expect(view.state.doc.toString()).toBe("Your receipt")
-    expect(onChange).not.toHaveBeenCalled()
+  it("keeps its marks when a new label rebuilds the editor", () => {
+    const diagnostics = [{ line: 1, column: 6, severity: "error" as const, message: "bad" }]
+    const { view, rerender, props } = mount({ initial: "a {{ x }}", language: "text", diagnostics })
+    expect(lintRanges(view)).toHaveLength(1)
+    rerender(<CodeEditor {...props} diagnostics={diagnostics} label="HTML (fr)" />)
+    const rebuilt = EditorView.findFromDOM(document.querySelector(".cm-editor") as HTMLElement) as EditorView
+    expect(rebuilt).not.toBe(view)
+    expect(screen.getByLabelText("HTML (fr)")).toBeTruthy()
+    expect(lintRanges(rebuilt)).toEqual([{ text: "x", severity: "error", message: "bad" }])
+  })
+
+  describe("a single-line field", () => {
+    const single = () => mount({ initial: "Your receipt", language: "text", singleLine: true, label: "Subject (en)" })
+
+    it("ignores Enter", () => {
+      const { view, onChange } = single()
+      act(() => view.dispatch({ changes: { from: view.state.doc.length, insert: "\n" }, userEvent: "input" }))
+      expect(view.state.doc.toString()).toBe("Your receipt")
+      expect(onChange).not.toHaveBeenCalled()
+    })
+
+    it("takes a plain insert and reports it", () => {
+      const { view, onChange } = single()
+      act(() => view.dispatch({ changes: { from: view.state.doc.length, insert: " 42" }, userEvent: "input.type" }))
+      expect(view.state.doc.toString()).toBe("Your receipt 42")
+      expect(onChange).toHaveBeenLastCalledWith("Your receipt 42")
+    })
+
+    it("flattens a pasted newline to a space and leaves the cursor after the paste", () => {
+      const { view, onChange } = single()
+      const end = view.state.doc.length
+      act(() => view.dispatch({ changes: { from: end, insert: " a\nb\nc" }, selection: { anchor: end + 6 }, userEvent: "input.paste" }))
+      expect(view.state.doc.toString()).toBe("Your receipt a b c")
+      expect(onChange).toHaveBeenLastCalledWith("Your receipt a b c")
+      expect(view.state.selection.main.head).toBe(view.state.doc.length)
+    })
+
+    it("undoes an insert", () => {
+      const { view } = single()
+      act(() => view.dispatch({ changes: { from: view.state.doc.length, insert: " 42" }, userEvent: "input.type" }))
+      act(() => {
+        undo(view)
+      })
+      expect(view.state.doc.toString()).toBe("Your receipt")
+    })
+
+    it("says it is not multiline and draws no line numbers", () => {
+      const { container } = single()
+      const content = container.querySelector(".cm-content") as HTMLElement
+      expect(content.getAttribute("aria-multiline")).toBe("false")
+      expect(container.querySelector(".cm-gutters")).toBeNull()
+    })
+  })
+})
+
+describe("FieldDiff", () => {
+  it("shows the draft read-only under its label", () => {
+    const { container } = render(<FieldDiff was={"one\ntwo"} now={"one\n2"} label="HTML changes (en)" language="html" />)
+    const view = EditorView.findFromDOM(container.querySelector(".cm-editor") as HTMLElement) as EditorView
+    expect(screen.getByLabelText("HTML changes (en)")).toBeTruthy()
+    expect(view.state.doc.toString()).toBe("one\n2")
+    expect(view.contentDOM.getAttribute("contenteditable")).toBe("false")
   })
 })
 

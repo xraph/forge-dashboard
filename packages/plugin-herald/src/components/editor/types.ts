@@ -21,12 +21,16 @@ export interface FocusRequest {
 }
 
 export interface CodeEditorProps {
-  /** Names the editing area for a screen reader, and for tests. */
+  /**
+   * Names the editing area for a screen reader, and for tests. Changing
+   * `label`, `language` or `singleLine` builds a new editor from `initial`, so
+   * a caller that changes one of them also changes the component's `key`.
+   */
   label: string
-  /** Read once, at mount. Change the component's key to start over. */
+  /** Read once, when an editor is built. Change the component's key to start over. */
   initial: string
   language: EditorLanguage
-  /** Subject and title: no line numbers, and a typed or pasted newline is dropped. */
+  /** Subject and title: no line numbers, Enter does nothing, and a pasted newline becomes a space. */
   singleLine?: boolean
   diagnostics?: EditorDiagnostic[]
   /** Declared variable names, offered as `.name` inside an action. */

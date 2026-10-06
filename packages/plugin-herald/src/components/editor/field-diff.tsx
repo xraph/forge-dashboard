@@ -8,10 +8,28 @@ import { html } from "@codemirror/lang-html"
 import { json } from "@codemirror/lang-json"
 import type { FieldDiffProps } from "./types"
 
+const ADDED = "color-mix(in oklab, var(--info) 14%, transparent)"
+const REMOVED = "color-mix(in oklab, var(--destructive) 12%, transparent)"
+
+// @codemirror/merge paints what the draft added green: the b side's changed
+// line and changed text, and its changed-line gutter, in both light and dark.
+// The no-green rule is the kit's (--success is green), so added takes the info
+// tint, as an action does in the editor, and removed takes destructive. Each
+// selector has at least the specificity of the merge theme's own and this
+// theme loads after it, so it wins a tie. The merge theme's own class names
+// are the ones overridden: cm-changedLine, cm-inlineChangedLine, cm-changedText,
+// cm-changedLineGutter, cm-inlineChangedLineGutter (purple), cm-deletedChunk,
+// cm-deletedText and cm-deletedLineGutter.
 const theme = EditorView.theme({
   "&": { fontSize: "12px", backgroundColor: "transparent", color: "var(--foreground)" },
   ".cm-scroller": { fontFamily: "var(--font-mono, ui-monospace, monospace)", lineHeight: "1.55" },
   ".cm-gutters": { backgroundColor: "transparent", color: "var(--muted-foreground)", borderRight: "1px solid var(--border)" },
+  "&.cm-merge-b .cm-changedLine, .cm-inlineChangedLine": { backgroundColor: ADDED },
+  "&.cm-merge-b .cm-changedText": { background: ADDED },
+  "&.cm-merge-b .cm-changedLineGutter, .cm-inlineChangedLineGutter": { background: "var(--info)" },
+  ".cm-deletedChunk": { backgroundColor: REMOVED },
+  "&.cm-merge-b .cm-deletedText, &.cm-merge-b .cm-deletedChunk .cm-deletedText": { background: REMOVED },
+  ".cm-deletedLineGutter": { background: "var(--destructive)" },
 })
 
 /**

@@ -1,6 +1,6 @@
 import { useEffect, useRef } from "react"
-import { EditorState, RangeSetBuilder } from "@codemirror/state"
-import type { Extension } from "@codemirror/state"
+import { ChangeSet, EditorSelection, EditorState, RangeSetBuilder, Transaction } from "@codemirror/state"
+import type { Extension, TransactionSpec } from "@codemirror/state"
 import { Decoration, EditorView, ViewPlugin, keymap, lineNumbers } from "@codemirror/view"
 import type { DecorationSet, ViewUpdate } from "@codemirror/view"
 import { defaultHighlightStyle, syntaxHighlighting } from "@codemirror/language"
@@ -59,8 +59,32 @@ export function lintDiagnostics(doc: string, items: EditorDiagnostic[]): LintDia
   })
 }
 
-/** A typed or pasted newline is dropped. Text that already had lines keeps them. */
-const oneLine = EditorState.transactionFilter.of((tr) => (tr.docChanged && tr.newDoc.lines > Math.max(1, tr.startState.doc.lines) ? [] : tr))
+/**
+ * Subject and title are one line. Enter inserts exactly a newline and is
+ * dropped. A paste that carries newlines keeps its text with each newline
+ * turned into a space, rather than vanishing. A document that already had
+ * lines keeps them: only a change that adds lines is touched.
+ */
+export const oneLine = EditorState.transactionFilter.of((tr): Transaction | TransactionSpec | readonly TransactionSpec[] => {
+  if (!tr.docChanged || tr.newDoc.lines <= Math.max(1, tr.startState.doc.lines)) return tr
+  const specs: { from: number; to: number; insert: string }[] = []
+  tr.changes.iterChanges((from, to, _fromB, _toB, inserted) => {
+    const text = inserted.toString()
+    if (text === "\n") return
+    specs.push({ from, to, insert: text.replace(/\r?\n/g, " ") })
+  })
+  if (specs.length === 0) return []
+  const changes = ChangeSet.of(specs, tr.startState.doc.length)
+  const last = specs[specs.length - 1]
+  return {
+    changes,
+    // A paste puts the cursor after what it inserted; the original selection was counted against the unflattened text.
+    selection: tr.selection ? EditorSelection.cursor(changes.mapPos(last.to, 1)) : undefined,
+    effects: tr.effects,
+    userEvent: tr.annotation(Transaction.userEvent),
+    scrollIntoView: tr.scrollIntoView,
+  }
+})
 
 // The kit's tokens, so the editor follows light and dark with the shell. An
 // action takes the info tint and nothing else; problems take destructive and
@@ -93,10 +117,11 @@ export default function CodeEditor({ label, initial, language, singleLine = fals
   const host = useRef<HTMLDivElement>(null)
   const view = useRef<EditorView | null>(null)
   // The listeners live as long as the editor, so they read the latest props through a ref.
-  const latest = useRef({ onChange, variables, funcs })
+  // Diagnostics ride along so a rebuilt view (a new label, language or singleLine) starts with them.
+  const latest = useRef({ onChange, variables, funcs, diagnostics })
   useEffect(() => {
-    latest.current = { onChange, variables, funcs }
-  }, [onChange, variables, funcs])
+    latest.current = { onChange, variables, funcs, diagnostics }
+  }, [onChange, variables, funcs, diagnostics])
 
   useEffect(() => {
     if (!host.current) return
@@ -107,8 +132,9 @@ export default function CodeEditor({ label, initial, language, singleLine = fals
       highlightSelectionMatches(),
       autocompletion(),
       EditorState.languageData.of(() => [{ autocomplete: actionCompletions(() => latest.current.variables, () => latest.current.funcs) }]),
-      keymap.of([...defaultKeymap, ...historyKeymap, ...searchKeymap, ...completionKeymap]),
-      EditorView.contentAttributes.of({ "aria-label": label, spellcheck: "false" }),
+      // Search is a panel with its own lines and buttons: a one-line field has no room for it.
+      keymap.of([...defaultKeymap, ...historyKeymap, ...(singleLine ? [] : searchKeymap), ...completionKeymap]),
+      EditorView.contentAttributes.of({ "aria-label": label, spellcheck: "false", ...(singleLine ? { "aria-multiline": "false" } : {}) }),
       EditorView.updateListener.of((update) => {
         if (update.docChanged) latest.current.onChange(update.state.doc.toString())
       }),
@@ -120,6 +146,9 @@ export default function CodeEditor({ label, initial, language, singleLine = fals
     if (language === "json") extensions.push(json())
     const v = new EditorView({ parent: host.current, state: EditorState.create({ doc: initial, extensions }) })
     view.current = v
+    // A rebuilt view has lost its marks, and the diagnostics effect won't run again for the same array.
+    const marks = latest.current.diagnostics
+    if (marks.length > 0) v.dispatch(setDiagnostics(v.state, lintDiagnostics(v.state.doc.toString(), marks)))
     return () => {
       v.destroy()
       view.current = null
