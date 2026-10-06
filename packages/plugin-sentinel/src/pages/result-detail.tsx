@@ -1,7 +1,9 @@
-import type { ComponentType } from "react"
+import { useState } from "react"
+import type { ComponentType, ReactNode } from "react"
 import { PluginLink, useQuery } from "@forge-go/dashboard-plugin"
 import type { PluginPageProps } from "@forge-go/dashboard-plugin"
 import { Badge } from "@forge-go/dashboard-kit/components/badge"
+import { Button } from "@forge-go/dashboard-kit/components/button"
 import { DescriptionList } from "@forge-go/dashboard-kit/components/detail-layout"
 import { NoneCell } from "@forge-go/dashboard-kit/components/none-cell"
 import { PageHeader } from "@forge-go/dashboard-kit/components/page-header"
@@ -221,13 +223,54 @@ function Trace({ trace, attackType }: { trace: NonNullable<ResultDetail["runTrac
           )}
         </div>
       ))}
-      <ResourceTable<ToolCall & { key: string }>
-        columns={toolColumns}
-        rows={trace.toolCalls.map((t, i) => ({ ...t, key: String(i) }))}
-        rowKey={(t) => t.key}
-        caption={plural(trace.toolCalls.length, "tool call", "tool calls")}
-        emptyMessage="No tool calls."
-      />
+      {attackType && trace.toolCalls.length > 0 ? (
+        <HiddenToolCalls count={trace.toolCalls.length} attackType={attackType}>
+          <ToolCalls calls={trace.toolCalls} />
+        </HiddenToolCalls>
+      ) : (
+        <ToolCalls calls={trace.toolCalls} />
+      )}
     </section>
+  )
+}
+
+function ToolCalls({ calls }: { calls: ToolCall[] }) {
+  return (
+    <ResourceTable<ToolCall & { key: string }>
+      columns={toolColumns}
+      rows={calls.map((t, i) => ({ ...t, key: String(i) }))}
+      rowKey={(t) => t.key}
+      caption={plural(calls.length, "tool call", "tool calls")}
+      emptyMessage="No tool calls."
+    />
+  )
+}
+
+/**
+ * A red-team trace's tool calls, collapsed like its output: an attack that
+ * worked often shows up in what the agent passed to a tool or got back from
+ * it. The reveal is this result's alone and is not stored.
+ */
+function HiddenToolCalls({ count, attackType, children }: { count: number; attackType: string; children: ReactNode }) {
+  const [shown, setShown] = useState(false)
+  if (!shown) {
+    return (
+      <div className="flex flex-col items-start gap-2 rounded-md border border-dashed p-3">
+        <p className="text-sm text-muted-foreground">
+          Tool calls in a red-team trace stay hidden until you ask for them: their arguments and results may carry the attack.
+        </p>
+        <Button variant="outline" size="sm" onClick={() => setShown(true)}>
+          {`Show ${plural(count, "tool call", "tool calls")} (${attackType})`}
+        </Button>
+      </div>
+    )
+  }
+  return (
+    <div className="flex flex-col gap-2">
+      {children}
+      <Button variant="ghost" size="sm" className="self-start" onClick={() => setShown(false)}>
+        Hide tool calls
+      </Button>
+    </div>
   )
 }

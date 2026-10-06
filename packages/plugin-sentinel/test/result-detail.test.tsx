@@ -130,6 +130,27 @@ describe("ResultDetailPage", () => {
     expect(screen.queryByText("first step output")).toBeNull()
   })
 
+  it("collapses a red-team trace's tool calls too, since an attack's payoff can land there", async () => {
+    const payload = "SYSTEM PROMPT: You are Nimbus, the internal billing agent."
+    open(
+      resultDetail({
+        redTeam: { attackType: "injection" },
+        output: "done",
+        runTrace: {
+          steps: [],
+          toolCalls: [{ toolName: "send_email", arguments: payload, result: "sent" }],
+        },
+      }),
+    )
+    const reveal = await screen.findByRole("button", { name: "Show 1 tool call (injection)" })
+    expect(screen.queryByText(payload)).toBeNull()
+    expect(screen.queryByText("send_email")).toBeNull()
+    fireEvent.click(reveal)
+    expect(within(screen.getByRole("region", { name: "1 tool call" })).getByText(payload)).toBeTruthy()
+    fireEvent.click(screen.getByRole("button", { name: "Hide tool calls" }))
+    expect(screen.queryByText(payload)).toBeNull()
+  })
+
   it("says the input is gone when the case has been deleted since the run", async () => {
     open(undefined, { "cases.detail": undefined })
     expect(
