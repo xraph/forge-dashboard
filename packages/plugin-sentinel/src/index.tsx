@@ -132,6 +132,8 @@ export const sentinelPlugin = definePlugin({
     // No nav entries for the detail pages: a sidebar link to "a suite" with
     // none chosen points nowhere. They are reached from row links.
     { path: "/suites/:id", element: SuiteDetailPage },
+    // The tab in the address: runs, prompts or baselines.
+    { path: "/suites/:id/:tab", element: SuiteDetailPage },
     { path: "/suites/:id/cases/:caseId", element: CaseDetailPage },
     { path: "/suites/:id/prompts/:versionId", element: PromptVersionPage },
     { path: "/runs", element: RunsPage },

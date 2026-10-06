@@ -11,26 +11,38 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@forge-go/dashboard-ki
 import { Timestamp } from "@forge-go/dashboard-kit/components/timestamp"
 import { CasesTab } from "../components/cases-tab"
 import { PromptsTab } from "../components/prompts-tab"
+import { RunsTab } from "../components/runs-tab"
 import { SettledBoundary } from "../components/settled-boundary"
 import { SuiteFormDialog } from "../components/suite-form-dialog"
-import { formatScore, plural, temperatureLabel, versionPath } from "../format"
+import { baselinePath, formatScore, plural, suiteTabPath, temperatureLabel, versionPath } from "../format"
 import type { Suite } from "../types"
 
-/** /suites/:id. Guards the id, then keys the body on it. */
+const TABS = ["cases", "runs", "prompts"] as const
+type SuiteTab = (typeof TABS)[number]
+
+function isTab(value: string | undefined): value is SuiteTab {
+  return TABS.some((t) => t === value)
+}
+
+/**
+ * /suites/:id and /suites/:id/:tab. The tab lives in the address, so a link
+ * can land on a suite's runs and the back button undoes a tab change. An
+ * unknown tab shows the cases. Guards the id, then keys the body on it.
+ */
 export const SuiteDetailPage: ComponentType<PluginPageProps> = ({ params }) => {
   const id = params.id
   if (!id) return <p className="text-sm text-muted-foreground">No suite selected.</p>
-  return <SuiteDetailBody key={id} suiteId={id} />
+  return <SuiteDetailBody key={id} suiteId={id} tab={isTab(params.tab) ? params.tab : "cases"} />
 }
 
-function SuiteDetailBody({ suiteId }: { suiteId: string }) {
+function SuiteDetailBody({ suiteId, tab }: { suiteId: string; tab: SuiteTab }) {
   const suite = useQuery<Suite>("suites.detail", { suiteId })
-  // Dialogs and the tab choice live here, outside the boundary: edits and
-  // case writes invalidate suites.detail, and nothing typed or chosen should
-  // vanish while it refetches.
+  const navigate = useNavigateTo()
+  // Dialogs live here, outside the boundary: edits and case writes
+  // invalidate suites.detail, and nothing typed should vanish while it
+  // refetches.
   const [editing, setEditing] = useState(false)
   const [deleting, setDeleting] = useState(false)
-  const [tab, setTab] = useState("cases")
   // Taken when a dialog opens, so its wording holds through a refetch.
   const [target, setTarget] = useState<Suite | null>(null)
   return (
@@ -68,18 +80,30 @@ function SuiteDetailBody({ suiteId }: { suiteId: string }) {
           </div>
         )}
       </SettledBoundary>
-      <Tabs value={tab} onValueChange={(value) => setTab(String(value))}>
-        <TabsList variant="line">
-          <TabsTrigger value="cases">Cases</TabsTrigger>
-          <TabsTrigger value="prompts">Prompts</TabsTrigger>
-        </TabsList>
-        <TabsContent value="cases">
-          <CasesTab suiteId={suiteId} />
-        </TabsContent>
-        <TabsContent value="prompts">
-          <PromptsTab suiteId={suiteId} />
-        </TabsContent>
-      </Tabs>
+      {/* A suite that failed to load has no tabs: each would fail the same way. */}
+      {!suite.error && (
+        <Tabs
+          value={tab}
+          onValueChange={(value) => {
+            if (isTab(String(value))) navigate(suiteTabPath(suiteId, String(value) as SuiteTab))
+          }}
+        >
+          <TabsList variant="line">
+            <TabsTrigger value="cases">Cases</TabsTrigger>
+            <TabsTrigger value="runs">Runs</TabsTrigger>
+            <TabsTrigger value="prompts">Prompts</TabsTrigger>
+          </TabsList>
+          <TabsContent value="cases">
+            <CasesTab suiteId={suiteId} />
+          </TabsContent>
+          <TabsContent value="runs">
+            <RunsTab suiteId={suiteId} suite={suite.data} />
+          </TabsContent>
+          <TabsContent value="prompts">
+            <PromptsTab suiteId={suiteId} />
+          </TabsContent>
+        </Tabs>
+      )}
       {target && (
         <>
           <SuiteFormDialog open={editing} onOpenChange={setEditing} suite={target} />
@@ -124,7 +148,10 @@ function SuiteFacts({ suite }: { suite: Suite }) {
         {
           term: "Current baseline",
           value: suite.currentBaseline ? (
-            `${suite.currentBaseline.name}, pass rate ${formatScore(suite.currentBaseline.passRate)}`
+            <>
+              <PluginLink to={baselinePath(suite.currentBaseline.id)}>{suite.currentBaseline.name}</PluginLink>
+              {`, pass rate ${formatScore(suite.currentBaseline.passRate)}`}
+            </>
           ) : (
             <NoneCell label="current baseline" />
           ),

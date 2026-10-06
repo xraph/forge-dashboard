@@ -3,7 +3,7 @@ import { fireEvent, screen, waitFor, within } from "@testing-library/react"
 import { ContractError } from "@forge-go/dashboard-plugin"
 import type { ScopedClient } from "@forge-go/dashboard-plugin"
 import { SuiteDetailPage } from "../src/pages/suite-detail"
-import { config, leakageCase, suite, SUITE_ID, testCase, version, VERSION_2 } from "./fixtures"
+import { BASELINE_ID, config, leakageCase, suite, SUITE_ID, testCase, version, VERSION_2 } from "./fixtures"
 import { recordingCommandClient, renderNavPage, stubClient } from "./harness"
 
 function answers(overrides: Record<string, unknown> = {}) {
@@ -26,7 +26,10 @@ describe("SuiteDetailPage", () => {
     expect(within(facts).getByRole("link", { name: "Version 2" }).getAttribute("href")).toBe(
       `/suites/${SUITE_ID}/prompts/${VERSION_2}`,
     )
-    expect(within(facts).getByText("Release 1.4, pass rate 0.88")).toBeTruthy()
+    expect(within(facts).getByRole("link", { name: "Release 1.4" }).getAttribute("href")).toBe(
+      `/baselines/${BASELINE_ID}`,
+    )
+    expect(within(facts).getByText(", pass rate 0.88")).toBeTruthy()
   })
 
   it("says the engine decides when the suite sets no model or temperature, and none for no persona or baseline", async () => {
@@ -58,10 +61,23 @@ describe("SuiteDetailPage", () => {
     expect(within(rows[2]).getByText("· leakage")).toBeTruthy()
   })
 
-  it("shows the prompt versions on the Prompts tab", async () => {
-    renderNavPage(SuiteDetailPage, stubClient(answers()), { id: SUITE_ID })
+  it("moves to a tab's own address when the tab is chosen", async () => {
+    const { navigate } = renderNavPage(SuiteDetailPage, stubClient(answers()), { id: SUITE_ID })
     await screen.findByRole("region", { name: "2 cases" })
     fireEvent.click(screen.getByRole("tab", { name: "Prompts" }))
+    expect(navigate).toHaveBeenCalledWith(`/suites/${SUITE_ID}/prompts`)
+    fireEvent.click(screen.getByRole("tab", { name: "Runs" }))
+    expect(navigate).toHaveBeenCalledWith(`/suites/${SUITE_ID}/runs`)
+  })
+
+  it("shows the cases for a tab it does not know", async () => {
+    renderNavPage(SuiteDetailPage, stubClient(answers()), { id: SUITE_ID, tab: "nonsense" })
+    expect(await screen.findByRole("region", { name: "2 cases" })).toBeTruthy()
+    expect(screen.getByRole("tab", { name: "Cases", selected: true })).toBeTruthy()
+  })
+
+  it("shows the prompt versions on the Prompts tab", async () => {
+    renderNavPage(SuiteDetailPage, stubClient(answers()), { id: SUITE_ID, tab: "prompts" })
     const versions = await screen.findByRole("region", { name: "1 version" })
     expect(within(versions).getByRole("link", { name: "Version 2" })).toBeTruthy()
     expect(within(versions).getByText("Current")).toBeTruthy()
@@ -132,7 +148,7 @@ describe("SuiteDetailPage", () => {
     expect(navigate).not.toHaveBeenCalled()
   })
 
-  it("shows a missing suite as an error with its code", async () => {
+  it("shows a missing suite as an error with its code, and no tabs", async () => {
     const client: ScopedClient = {
       ...stubClient(answers()),
       query: async (intent: string) => {
@@ -142,6 +158,7 @@ describe("SuiteDetailPage", () => {
     } as ScopedClient
     renderNavPage(SuiteDetailPage, client, { id: "suite_01j9se99999999999999999999" })
     expect((await screen.findByText("NOT_FOUND: suite not found")).getAttribute("role")).toBe("alert")
+    expect(screen.queryByRole("tablist")).toBeNull()
   })
 
   it("keeps the delete confirm open while its command is pending", async () => {
