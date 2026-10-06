@@ -9,6 +9,7 @@ import { NoneCell } from "@forge-go/dashboard-kit/components/none-cell"
 import { PageHeader } from "@forge-go/dashboard-kit/components/page-header"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@forge-go/dashboard-kit/components/tabs"
 import { Timestamp } from "@forge-go/dashboard-kit/components/timestamp"
+import { BaselinesList } from "../components/baselines-list"
 import { CasesTab } from "../components/cases-tab"
 import { PromptsTab } from "../components/prompts-tab"
 import { RunsTab } from "../components/runs-tab"
@@ -17,7 +18,7 @@ import { SuiteFormDialog } from "../components/suite-form-dialog"
 import { baselinePath, formatScore, plural, suiteTabPath, temperatureLabel, versionPath } from "../format"
 import type { Suite } from "../types"
 
-const TABS = ["cases", "runs", "prompts"] as const
+const TABS = ["cases", "runs", "prompts", "baselines"] as const
 type SuiteTab = (typeof TABS)[number]
 
 function isTab(value: string | undefined): value is SuiteTab {
@@ -92,6 +93,7 @@ function SuiteDetailBody({ suiteId, tab }: { suiteId: string; tab: SuiteTab }) {
             <TabsTrigger value="cases">Cases</TabsTrigger>
             <TabsTrigger value="runs">Runs</TabsTrigger>
             <TabsTrigger value="prompts">Prompts</TabsTrigger>
+            <TabsTrigger value="baselines">Baselines</TabsTrigger>
           </TabsList>
           <TabsContent value="cases">
             <CasesTab suiteId={suiteId} />
@@ -101,6 +103,9 @@ function SuiteDetailBody({ suiteId, tab }: { suiteId: string; tab: SuiteTab }) {
           </TabsContent>
           <TabsContent value="prompts">
             <PromptsTab suiteId={suiteId} />
+          </TabsContent>
+          <TabsContent value="baselines">
+            <BaselinesList suiteId={suiteId} />
           </TabsContent>
         </Tabs>
       )}

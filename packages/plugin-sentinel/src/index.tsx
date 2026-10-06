@@ -1,10 +1,13 @@
 import { lazy } from "react"
 import { definePlugin } from "@forge-go/dashboard-plugin"
 import {
+  BookmarkIcon,
   FlaskConicalIcon,
   PlayIcon,
   Settings2Icon,
 } from "@forge-go/dashboard-kit/icons"
+import { BaselineDetailPage } from "./pages/baseline-detail"
+import { BaselinesPage } from "./pages/baselines"
 import { CaseDetailPage } from "./pages/case-detail"
 import { ResultDetailPage } from "./pages/result-detail"
 import { RunDetailPage } from "./pages/run-detail"
@@ -14,6 +17,8 @@ import { SuiteDetailPage } from "./pages/suite-detail"
 import { SuitesPage } from "./pages/suites"
 
 export {
+  BaselineDetailPage,
+  BaselinesPage,
   CaseDetailPage,
   ResultDetailPage,
   RunDetailPage,
@@ -92,7 +97,8 @@ const PromptVersionPage = lazy(() => import("./pages/prompt-version"))
 
 /**
  * The first-party UI for the `sentinel` extension: evaluation suites, their
- * cases and prompt versions, runs and their results, and the engine's setup.
+ * cases and prompt versions, runs and their results, baselines and the
+ * engine's setup.
  *
  * `extension` is "sentinel", the Go contributor name from the sentinel
  * contract manifest. It is the join key the host looks up in the capabilities
@@ -120,6 +126,13 @@ export const sentinelPlugin = definePlugin({
       group: "Evaluation",
     },
     {
+      label: "Baselines",
+      to: "/baselines",
+      priority: 2,
+      icon: <BookmarkIcon />,
+      group: "Evaluation",
+    },
+    {
       label: "Setup",
       to: "/setup",
       priority: 10,
@@ -139,6 +152,8 @@ export const sentinelPlugin = definePlugin({
     { path: "/runs", element: RunsPage },
     { path: "/runs/:id", element: RunDetailPage },
     { path: "/runs/:id/results/:resultId", element: ResultDetailPage },
+    { path: "/baselines", element: BaselinesPage },
+    { path: "/baselines/:id", element: BaselineDetailPage },
     { path: "/setup", element: SetupPage },
   ],
 })
