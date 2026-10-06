@@ -5,6 +5,7 @@ import { PluginProvider, resolvePluginState } from "@forge-go/dashboard-plugin"
 import type { Capabilities } from "@forge-go/dashboard-plugin"
 import keysmithPlugin, {
   keysmithPlugin as named,
+  OverviewPage,
   PoliciesPage,
   PolicyDetailPage,
   RotationsPage,
@@ -46,6 +47,24 @@ describe("keysmithPlugin", () => {
     expect(
       resolvePluginState(keysmithPlugin, capabilities({ name: "vault" })).kind,
     ).toBe("hidden")
+  })
+
+  it("puts Overview first in the nav at /overview, in the API keys group", () => {
+    const nav = keysmithPlugin.nav ?? []
+    const overview = nav.find((n) => n.label === "Overview")
+    expect(overview?.to).toBe("/overview")
+    expect(overview?.group).toBe("API keys")
+    expect(overview?.priority).toBe(-1)
+    expect(overview?.icon).toBeTruthy()
+    const priorities = nav.map((n) => n.priority ?? 0)
+    expect(Math.min(...priorities)).toBe(-1)
+    expect(priorities.filter((p) => p === -1)).toHaveLength(1)
+  })
+
+  it("mounts the Overview page at the route its nav entry points at", () => {
+    const route = keysmithPlugin.routes.find((r) => r.path === "/overview")
+    expect(OverviewPage).toBeTypeOf("function")
+    expect(route?.element).toBe(OverviewPage)
   })
 
   it("puts Keys in the nav at /keys, in the API keys group", () => {

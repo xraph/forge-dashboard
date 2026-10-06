@@ -2,6 +2,7 @@ import { lazy } from "react"
 import { definePlugin } from "@forge-go/dashboard-plugin"
 import {
   ChartColumnIcon,
+  HouseIcon,
   KeyRoundIcon,
   RefreshCwIcon,
   ShieldCheckIcon,
@@ -9,6 +10,7 @@ import {
 } from "@forge-go/dashboard-kit/icons"
 import { KeyDetailPage } from "./pages/key-detail"
 import { KeysPage } from "./pages/keys"
+import { OverviewPage } from "./pages/overview"
 import { PoliciesPage } from "./pages/policies"
 import { PolicyDetailPage } from "./pages/policy-detail"
 import { RotationsPage } from "./pages/rotations"
@@ -22,6 +24,7 @@ const UsagePage = lazy(() => import("./pages/usage"))
 export {
   KeyDetailPage,
   KeysPage,
+  OverviewPage,
   PoliciesPage,
   PolicyDetailPage,
   RotationsPage,
@@ -55,6 +58,8 @@ export type {
   KeysList,
   KeyState,
   KeySummary,
+  Overview,
+  OverviewCounts,
   PoliciesList,
   PolicyDetail,
   PolicyDetailResponse,
@@ -91,6 +96,14 @@ export const keysmithPlugin = definePlugin({
   namespace: "keysmith",
   label: "Keysmith",
   nav: [
+    // First in the group. Which page the plugin opens on is the host's call.
+    {
+      label: "Overview",
+      to: "/overview",
+      priority: -1,
+      icon: <HouseIcon />,
+      group: "API keys",
+    },
     {
       label: "Keys",
       to: "/keys",
@@ -128,6 +141,7 @@ export const keysmithPlugin = definePlugin({
     },
   ],
   routes: [
+    { path: "/overview", element: OverviewPage },
     { path: "/keys", element: KeysPage },
     // No nav entry: a sidebar link to "a key" with none chosen points
     // nowhere. It is reached from the list's row links.

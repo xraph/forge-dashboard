@@ -269,3 +269,35 @@ export interface UsageRecords {
   items: UsageRecordItem[]
   total: number
 }
+
+/**
+ * The tenant's keys by stored state. An active key past its expiry that
+ * nothing has marked yet is still stored active, so it counts as active.
+ */
+export interface OverviewCounts {
+  active: number
+  suspended: number
+  revoked: number
+  expired: number
+}
+
+/** overview. Mirrors contract.overviewResponse. */
+export interface Overview {
+  counts: OverviewCounts
+  /** Counted by the same rule as rotations.list's windowOpen. */
+  openGraceWindows: number
+  /** Active keys that keys.list flags expiresSoon. */
+  expiringWithin7Days: number
+  /**
+   * null when the tenant has never recorded usage, so silence does not read
+   * as a quiet day. 0 when it has, just not in the last 24 hours.
+   */
+  requestsLast24h: number | null
+  /** Newest first, at most 5, projected exactly as keys.list projects them. */
+  recentKeys: KeySummary[]
+  /** Newest first, at most 5, projected exactly as rotations.list projects them. */
+  recentRotations: RotationItem[]
+  /** How many of policyFields this deployment enforces: 3, or 5 with a rate limiter. */
+  enforcedFields: number
+  policyFields: number
+}
