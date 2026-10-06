@@ -25,6 +25,7 @@ const EXPECTED: Record<string, string | RegExp> = {
   "/templates": /No templates yet/,
   "/templates-without-fallback": "Templates without a fallback",
   "/new-template": "New template",
+  "/templates/:id": /No template ID in the address, so there is nothing to show/,
   "/messages": /Nothing has been sent in this app yet/,
   "/messages/:id": /No message ID in the address/,
   "/inbox": /Enter a user ID to see their in-app notifications/,

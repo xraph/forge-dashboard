@@ -11,7 +11,7 @@ function capabilities(...contributors: { name: string; configured?: boolean }[])
 }
 
 /** Every route, scope-relative. Each task that adds a page adds it here. */
-const ROUTES = ["/", "/providers", "/providers/:id", "/new-provider", "/providers/:id/edit", "/templates", "/templates-without-fallback", "/new-template", "/messages", "/messages/:id", "/inbox", "/preferences", "/routing", "/send-test", "/providers/:providerId/send-test", "/messages/:messageId/send-test"]
+const ROUTES = ["/", "/providers", "/providers/:id", "/new-provider", "/providers/:id/edit", "/templates", "/templates-without-fallback", "/new-template", "/templates/:id", "/messages", "/messages/:id", "/inbox", "/preferences", "/routing", "/send-test", "/providers/:providerId/send-test", "/messages/:messageId/send-test"]
 
 /** Every nav entry's target. */
 const NAV = ["/", "/providers", "/templates", "/messages", "/inbox", "/preferences", "/routing", "/send-test"]

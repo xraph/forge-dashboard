@@ -20,6 +20,8 @@ import { TemplatesPage, TemplatesWithoutFallbackPage } from "./pages/templates"
  */
 const ProviderCreatePage = lazy(() => import("./pages/provider-create"))
 const ProviderEditPage = lazy(() => import("./pages/provider-edit"))
+/** The template workspace is its own chunk, and CodeMirror is further chunks below it. */
+const TemplateWorkspacePage = lazy(() => import("./pages/template-workspace"))
 
 export { InboxPage, MessageDetailPage, MessagesPage, OverviewPage, PreferencesPage, ProviderDetailPage, ProvidersPage, RoutingPage, SendTestPage, TemplateCreatePage, TemplatesPage, TemplatesWithoutFallbackPage }
 export { DanglingBadge, DisabledProviderBadge, EnabledBadge, MessageStatusBadge, ProtectionBadge, VersionBadge } from "./badges"
@@ -61,6 +63,7 @@ export const heraldPlugin = definePlugin({
     { path: templatesPath, element: TemplatesPage },
     { path: templatesWithoutFallbackPath, element: TemplatesWithoutFallbackPage },
     { path: newTemplatePath, element: TemplateCreatePage },
+    { path: "/templates/:id", element: TemplateWorkspacePage },
     { path: messagesPath, element: MessagesPage },
     { path: "/messages/:id", element: MessageDetailPage },
     { path: inboxPath, element: InboxPage },

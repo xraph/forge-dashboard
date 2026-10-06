@@ -27,4 +27,11 @@ describe("HeraldHeader", () => {
     expect(await screen.findByText(/App unknown/)).toBeTruthy()
     expect(screen.getByText(/the app on this session can't be read/)).toBeTruthy()
   })
+
+  it("puts a meta row between the title and the app line", async () => {
+    renderPage(() => <HeraldHeader title="Receipt" meta={<span className="font-mono text-xs">billing.receipt</span>} />, stubClient({ "engine.info": engine() }))
+    const slug = await screen.findByText("billing.receipt")
+    const app = await screen.findByText("app_demo")
+    expect(slug.compareDocumentPosition(app) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+  })
 })

@@ -63,6 +63,12 @@ describe("CodeMirror loads only on demand", () => {
     const offenders = files.filter(([path]) => path !== WRAPPER).flatMap(([path, text]) => reachesChunks(text).map((hit) => `${path}: ${hit}`))
     expect(offenders).toEqual([])
   })
+
+  it("reaches the template workspace from the plugin entry through lazy(), and from nowhere else", () => {
+    const entry = source(modules["../src/index.tsx"])
+    expect(entry).toMatch(/lazy\(\(\)\s*=>\s*import\("\.\/pages\/template-workspace"\)\)/)
+    expect(files.filter(([, text]) => /from\s+["'][./]*pages\/template-workspace["']/.test(text)).map(([path]) => path)).toEqual([])
+  })
 })
 
 describe("the matcher that guards the boundary", () => {
