@@ -32,6 +32,11 @@ import {
   PolicyEditorDialog,
   rateLimiterLine,
 } from "../components/policy-editor-dialog"
+import {
+  ApplicationGroupLine,
+  GROUP_HEADING,
+  KEYSMITH_GROUP_LINE,
+} from "../enforcement"
 import { formatDuration, formatRateLimit, keyPath, maskedKey } from "../format"
 import type {
   KeysList,
@@ -265,15 +270,11 @@ function PolicyDetailView({
       <DetailLayout
         main={
           <>
-            <Section title="Enforced by Keysmith">
-              <Line>
-                Keysmith checks these: the lifetime when a key is created,
-                scopes when they are assigned, and the grace when a key is
-                rotated.
-              </Line>
+            <Section title={GROUP_HEADING.keysmith}>
+              <Line>{KEYSMITH_GROUP_LINE}</Line>
               <DescriptionList items={keysmithItems(policy)} />
             </Section>
-            <Section title="Enforced only with a rate limiter">
+            <Section title={GROUP_HEADING.rateLimiter}>
               <Line>{rateLimiterLine(data.rateLimiterConfigured)}</Line>
               <DescriptionList
                 items={[
@@ -286,14 +287,9 @@ function PolicyDetailView({
                 ]}
               />
             </Section>
-            <Section title="Stored for your application">
+            <Section title={GROUP_HEADING.application}>
               <Line>
-                Keysmith does not check these. Your application can read them
-                from{" "}
-                <span className="font-mono text-foreground">
-                  ValidationResult.Policy
-                </span>
-                .
+                <ApplicationGroupLine />
               </Line>
               <DescriptionList items={storedItems(policy)} />
             </Section>

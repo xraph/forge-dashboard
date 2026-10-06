@@ -301,3 +301,41 @@ export interface Overview {
   enforcedFields: number
   policyFields: number
 }
+
+/**
+ * One policy field and whether this deployment enforces it. Mirrors
+ * contract.EnforcementRow. `when` is set exactly when `enforced` is true.
+ */
+export interface EnforcementRow {
+  /** The wire name the policy commands take. */
+  field: string
+  /** The policy editor's label for it. */
+  label: string
+  /**
+   * The editor's group: "keysmith", "rateLimiter" or "application". Typed
+   * loosely so a group this page does not know still renders.
+   */
+  group: string
+  enforced: boolean
+  /** "when a key is created" and the like; "" when not enforced. */
+  when: string
+}
+
+/** settings. Mirrors contract.settingsResponse. Read-only. */
+export interface Settings {
+  /** The hook plugins' names, sorted. [] when none. */
+  plugins: string[]
+  storeHealthy: boolean
+  /** One of two fixed sentences. The driver's error is only in the server log. */
+  storeMessage: string
+  rateLimiterConfigured: boolean
+  /** "claim" when the request carried a tenant_id claim, else "config". */
+  tenantSource: "claim" | "config"
+  tenant: string
+  /** Every policy field, in the editor's order, groups top to bottom. */
+  enforcement: EnforcementRow[]
+  /** 3, or 5 with a rate limiter. */
+  enforcedFields: number
+  /** The grace a rotation gets when neither it nor the key's policy names one. */
+  defaultGraceSeconds: number
+}

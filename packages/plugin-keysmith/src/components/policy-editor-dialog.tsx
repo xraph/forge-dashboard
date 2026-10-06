@@ -27,6 +27,11 @@ import {
   NativeSelectOption,
 } from "@forge-go/dashboard-kit/components/native-select"
 import { Textarea } from "@forge-go/dashboard-kit/components/textarea"
+import {
+  ApplicationGroupLine,
+  GROUP_HEADING,
+  KEYSMITH_GROUP_LINE,
+} from "../enforcement"
 import { policyPath, splitDuration, toSeconds } from "../format"
 import type { DurationUnit } from "../format"
 import type { PolicyDetail, PolicyFields } from "../types"
@@ -497,11 +502,8 @@ function PolicyForm({
         <FieldSeparator />
 
         <FieldSet>
-          <FieldLegend>Enforced by Keysmith</FieldLegend>
-          <FieldDescription>
-            Keysmith checks these: the lifetime when a key is created, scopes
-            when they are assigned, and the grace when a key is rotated.
-          </FieldDescription>
+          <FieldLegend>{GROUP_HEADING.keysmith}</FieldLegend>
+          <FieldDescription>{KEYSMITH_GROUP_LINE}</FieldDescription>
           {policy && (
             <FieldDescription>
               Changes apply from now on. Existing keys keep their expiry and
@@ -525,7 +527,7 @@ function PolicyForm({
         <FieldSeparator />
 
         <FieldSet>
-          <FieldLegend>Enforced only with a rate limiter</FieldLegend>
+          <FieldLegend>{GROUP_HEADING.rateLimiter}</FieldLegend>
           <FieldDescription>{rateLimiterLine(rateLimiterConfigured)}</FieldDescription>
           <div className="grid gap-4 sm:grid-cols-2">
             {countField("rateLimit", "Rate limit", "No limit")}
@@ -539,13 +541,9 @@ function PolicyForm({
         <FieldSeparator />
 
         <FieldSet>
-          <FieldLegend>Stored for your application</FieldLegend>
+          <FieldLegend>{GROUP_HEADING.application}</FieldLegend>
           <FieldDescription>
-            Keysmith does not check these. Your application can read them from{" "}
-            <span className="font-mono text-foreground">
-              ValidationResult.Policy
-            </span>
-            .
+            <ApplicationGroupLine />
           </FieldDescription>
           <FieldGroup>
             <div className="grid gap-4 sm:grid-cols-2">

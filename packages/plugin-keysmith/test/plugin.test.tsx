@@ -10,6 +10,7 @@ import keysmithPlugin, {
   PolicyDetailPage,
   RotationsPage,
   ScopesPage,
+  SettingsPage,
 } from "../src/index"
 import { UsagePage } from "../src/pages/usage"
 import { stubClient } from "./harness"
@@ -179,6 +180,39 @@ describe("keysmithPlugin", () => {
     )
     expect(await screen.findByRole("heading", { name: "Usage" })).toBeTruthy()
     expect(await screen.findByText("No usage recorded yet.")).toBeTruthy()
+  })
+
+  it("puts Settings last at /settings, in the same group", () => {
+    const nav = keysmithPlugin.nav ?? []
+    const settings = nav.find((n) => n.label === "Settings")
+    expect(settings?.to).toBe("/settings")
+    expect(settings?.group).toBe("API keys")
+    expect(settings?.priority).toBe(5)
+    expect(settings?.icon).toBeTruthy()
+    const priorities = nav.map((n) => n.priority ?? 0)
+    expect(Math.max(...priorities)).toBe(5)
+    expect(priorities.filter((p) => p === 5)).toHaveLength(1)
+  })
+
+  it("mounts the Settings page at the route its nav entry points at", () => {
+    const route = keysmithPlugin.routes.find((r) => r.path === "/settings")
+    expect(SettingsPage).toBeTypeOf("function")
+    expect(route?.element).toBe(SettingsPage)
+  })
+
+  it("orders the nav as the spec does", () => {
+    const nav = [...(keysmithPlugin.nav ?? [])].sort(
+      (a, b) => (a.priority ?? 0) - (b.priority ?? 0),
+    )
+    expect(nav.map((n) => n.label)).toEqual([
+      "Overview",
+      "Keys",
+      "Policies",
+      "Scopes",
+      "Rotations",
+      "Usage",
+      "Settings",
+    ])
   })
 
   it("gives every nav entry an icon", () => {

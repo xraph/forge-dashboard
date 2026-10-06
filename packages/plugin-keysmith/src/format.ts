@@ -84,13 +84,20 @@ export const ENVIRONMENTS: { value: Environment; label: string }[] = [
  * A length of time as people say it: the largest unit that divides the
  * seconds exactly, so 90 days stays "90 days" and 25 hours does not become
  * "1 day". Never rounds.
+ *
+ * `largest` caps the unit, for a value people already know by another name:
+ * the default grace is "24 hours" everywhere it is mentioned, not "1 day".
  */
-export function formatDuration(seconds: number): string {
-  const units: [number, string][] = [
+export function formatDuration(
+  seconds: number,
+  largest: "day" | "hour" | "minute" = "day",
+): string {
+  const all: [number, string][] = [
     [86400, "day"],
     [3600, "hour"],
     [60, "minute"],
   ]
+  const units = all.slice(all.findIndex(([, name]) => name === largest))
   for (const [size, name] of units) {
     if (seconds !== 0 && seconds % size === 0) {
       const n = seconds / size

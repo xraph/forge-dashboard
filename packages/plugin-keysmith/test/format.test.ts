@@ -81,6 +81,15 @@ describe("formatDuration", () => {
   it("says 0 seconds for zero", () => {
     expect(formatDuration(0)).toBe("0 seconds")
   })
+
+  it("stops at a largest unit when given one", () => {
+    expect(formatDuration(86400, "hour")).toBe("24 hours")
+    expect(formatDuration(90 * 86400, "hour")).toBe("2160 hours")
+    expect(formatDuration(3600, "hour")).toBe("1 hour")
+    expect(formatDuration(7200, "minute")).toBe("120 minutes")
+    expect(formatDuration(90, "hour")).toBe("90 seconds")
+    expect(formatDuration(0, "hour")).toBe("0 seconds")
+  })
 })
 
 describe("policyPath", () => {

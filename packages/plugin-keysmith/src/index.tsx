@@ -6,6 +6,7 @@ import {
   KeyRoundIcon,
   RefreshCwIcon,
   ShieldCheckIcon,
+  SlidersHorizontalIcon,
   TagsIcon,
 } from "@forge-go/dashboard-kit/icons"
 import { KeyDetailPage } from "./pages/key-detail"
@@ -15,6 +16,7 @@ import { PoliciesPage } from "./pages/policies"
 import { PolicyDetailPage } from "./pages/policy-detail"
 import { RotationsPage } from "./pages/rotations"
 import { ScopesPage } from "./pages/scopes"
+import { SettingsPage } from "./pages/settings"
 
 // Lazy, and exported from nowhere here: Recharts lives in the chunk this
 // loads, the one Ledger's Usage and Chronicle's Activity share. A static
@@ -29,6 +31,7 @@ export {
   PolicyDetailPage,
   RotationsPage,
   ScopesPage,
+  SettingsPage,
 }
 export { KeyStateBadge, RotationReasonBadge } from "./badges"
 export {
@@ -53,6 +56,7 @@ export {
 } from "./format"
 export type { DurationUnit, UsageRange, UsageRangeId } from "./format"
 export type {
+  EnforcementRow,
   Environment,
   KeyDetail,
   KeysList,
@@ -72,6 +76,7 @@ export type {
   RotationsList,
   ScopesList,
   ScopeSummary,
+  Settings,
   UsageBucket,
   UsagePeriod,
   UsageRecordItem,
@@ -139,6 +144,14 @@ export const keysmithPlugin = definePlugin({
       icon: <ChartColumnIcon />,
       group: "API keys",
     },
+    // Last in the group: read-only, and visited least.
+    {
+      label: "Settings",
+      to: "/settings",
+      priority: 5,
+      icon: <SlidersHorizontalIcon />,
+      group: "API keys",
+    },
   ],
   routes: [
     { path: "/overview", element: OverviewPage },
@@ -153,6 +166,7 @@ export const keysmithPlugin = definePlugin({
     { path: "/scopes", element: ScopesPage },
     { path: "/rotations", element: RotationsPage },
     { path: "/usage", element: UsagePage },
+    { path: "/settings", element: SettingsPage },
   ],
 })
 
