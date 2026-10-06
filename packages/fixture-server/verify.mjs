@@ -273,6 +273,11 @@ const INPUT = {
   "keysmith::policies.delete": { id: "kpol_01j9k4m1zwd3e4f5g6h7j8k9m0" },
   "keysmith::scopes.create": { name: "verify:read" },
   "keysmith::scopes.delete": { id: "kscp_01j9k4m1yah8j9k0m1n2p3q4r5" },
+  // The billing key's rotations and usage; usage.series needs a period and both times.
+  // overview and settings take no input.
+  "keysmith::rotations.list": { keyId: "akey_01j9k4m2e7t8x3q5r6v0w1y2za" },
+  "keysmith::usage.series": { period: "daily", after: new Date(Date.now() - 7 * 86_400_000).toISOString(), before: new Date().toISOString() },
+  "keysmith::usage.records": { keyId: "akey_01j9k4m2e7t8x3q5r6v0w1y2za", limit: 25 },
 
   "streaming-contract::rooms.detail": { id: "room_1" },
   "streaming-contract::rooms.create": { name: "Verify room", description: "d", owner: "usr_1", private: false },
