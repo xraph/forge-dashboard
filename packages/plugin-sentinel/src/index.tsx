@@ -6,6 +6,7 @@ import {
   Settings2Icon,
 } from "@forge-go/dashboard-kit/icons"
 import { CaseDetailPage } from "./pages/case-detail"
+import { RunDetailPage } from "./pages/run-detail"
 import { RunsPage } from "./pages/runs"
 import { SetupPage } from "./pages/setup"
 import { SuiteDetailPage } from "./pages/suite-detail"
@@ -13,6 +14,7 @@ import { SuitesPage } from "./pages/suites"
 
 export {
   CaseDetailPage,
+  RunDetailPage,
   RunsPage,
   SetupPage,
   SuiteDetailPage,
@@ -131,6 +133,7 @@ export const sentinelPlugin = definePlugin({
     { path: "/suites/:id/cases/:caseId", element: CaseDetailPage },
     { path: "/suites/:id/prompts/:versionId", element: PromptVersionPage },
     { path: "/runs", element: RunsPage },
+    { path: "/runs/:id", element: RunDetailPage },
     { path: "/setup", element: SetupPage },
   ],
 })
