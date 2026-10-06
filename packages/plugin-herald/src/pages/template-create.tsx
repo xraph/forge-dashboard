@@ -8,13 +8,9 @@ import { Label } from "@forge-go/dashboard-kit/components/label"
 import { NativeSelect, NativeSelectOption } from "@forge-go/dashboard-kit/components/native-select"
 import { CommandAlert, QueryBoundary } from "@forge-go/dashboard-kit/components/query-boundary"
 import { HeraldHeader, useEngineInfo } from "../components/herald-header"
-import { CATEGORIES } from "../format"
+import { CATEGORIES, LOCALE_PATTERN as LOCALE, SLUG_PATTERN as SLUG } from "../format"
 import { templatePath, templatesPath } from "../keys"
 import type { EngineInfoResponse, TemplateResponse, TemplatesCreateRequest } from "../wire"
-
-/** The server's own patterns, so a refusal shows before the round trip. */
-const SLUG = /^[a-z0-9][a-z0-9._-]{0,127}$/
-const LOCALE = /^[A-Za-z]{2,3}(-[A-Za-z0-9]{2,8})*$/
 
 function CreateForm({ engine }: { engine: EngineInfoResponse }) {
   const create = useCommand<TemplateResponse>("templates.create")

@@ -46,3 +46,8 @@ export const NO_RECEIPTS = "Herald doesn't receive delivery receipts, so deliver
 export const PREF_CHANNELS = ["email", "sms", "push", "inapp"] as const
 export const ROUTED_CHANNELS = ["email", "sms", "push", "webhook", "chat"] as const
 export const CATEGORIES = ["auth", "transactional", "marketing", "system"] as const
+
+/** Herald's own patterns (extension/contract/handlers_templates.go), so a refusal shows before the round trip. */
+export const SLUG_PATTERN = /^[a-z0-9][a-z0-9._-]{0,127}$/
+export const LOCALE_PATTERN = /^[A-Za-z]{2,3}(-[A-Za-z0-9]{2,8})*$/
+export const VARIABLE_PATTERN = /^[A-Za-z_][A-Za-z0-9_]{0,63}$/
