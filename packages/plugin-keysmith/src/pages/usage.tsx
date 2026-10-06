@@ -12,12 +12,12 @@ import {
   ResourceTable,
   type Column,
 } from "@forge-go/dashboard-kit/components/resource-table"
-import { Timestamp } from "@forge-go/dashboard-kit/components/timestamp"
 import { UsageChart } from "../components/usage-chart"
 import {
   bucketTitle,
   formatCount,
   formatLatency,
+  formatUtcMinute,
   keyPath,
   rangeBounds,
   USAGE_RANGES,
@@ -97,7 +97,13 @@ const recordColumns: Column<UsageRecordItem>[] = [
   {
     id: "time",
     header: "Time",
-    cell: (r) => <Timestamp value={r.at} label="request time" />,
+    // UTC, like the chart and the bucket table, so a request lines up with
+    // the column it was counted in. The exact instant is in the title.
+    cell: (r) => (
+      <time dateTime={r.at} title={r.at} className="tabular-nums">
+        {formatUtcMinute(r.at)}
+      </time>
+    ),
   },
   {
     id: "key",
@@ -286,9 +292,10 @@ export const UsagePage: ComponentType<PluginPageProps> = () => {
         )}
       </QueryBoundary>
 
-      {/* Hidden only once the series says nothing was ever recorded: the
-          empty state above already says why there are no requests. */}
-      {series.data?.recorded !== false && (
+      {/* Only once the series says usage exists. While it loads, or when it
+          failed, a tenant with no usage would otherwise flash "No requests
+          recorded in this range." before the empty state above says why. */}
+      {series.data?.recorded === true && (
         <section aria-labelledby="usage-records" className="flex flex-col gap-3">
           <h2 id="usage-records" className="text-base font-medium">
             Requests

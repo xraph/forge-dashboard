@@ -2,12 +2,12 @@ import { afterEach, describe, expect, it, vi } from "vitest"
 import { fireEvent, screen, waitFor, within } from "@testing-library/react"
 import { ContractError } from "@forge-go/dashboard-plugin"
 import type { ScopedClient } from "@forge-go/dashboard-plugin"
-import { formatTimestamp } from "@forge-go/dashboard-kit/lib/format"
 import { UsagePage } from "../src/pages/usage"
 import {
   bucketTick,
   bucketTitle,
   formatLatency,
+  formatUtcMinute,
   keyPath,
   rangeBounds,
   USAGE_RANGES,
@@ -147,6 +147,12 @@ describe("bucket labels", () => {
     )
     expect(bucketTitle("2026-10-03T00:00:00Z", "daily")).toBe("3 Oct 2026")
     expect(bucketTitle("2026-01-01T00:00:00Z", "monthly")).toBe("Jan 2026")
+  })
+
+  it("names a request's minute in UTC, whatever the machine's zone", () => {
+    // 14:10Z is 09:10 in Chicago; 03:05Z on the 6th is still the 5th there.
+    expect(formatUtcMinute("2026-10-05T14:10:00Z")).toBe("5 Oct 2026, 14:10 UTC")
+    expect(formatUtcMinute("2026-10-06T03:05:59Z")).toBe("6 Oct 2026, 03:05 UTC")
   })
 
   it("formats latency in whole milliseconds", () => {
@@ -477,9 +483,13 @@ describe("UsagePage", () => {
     expect(within(table).getByText("2 requests")).toBeTruthy()
 
     const row = rowWith(table, "/v1/invoices")
-    expect(cellOf(row, table, "Time").textContent).toBe(
-      formatTimestamp("2026-10-05T14:10:00Z"),
+    // UTC, like the chart's columns, with the exact instant in the title.
+    const time = within(cellOf(row, table, "Time")).getByText(
+      "5 Oct 2026, 14:10 UTC",
     )
+    expect(time.tagName).toBe("TIME")
+    expect(time.getAttribute("datetime")).toBe("2026-10-05T14:10:00Z")
+    expect(time.getAttribute("title")).toBe("2026-10-05T14:10:00Z")
     const link = within(cellOf(row, table, "Key")).getByRole("link", {
       name: "akey_billing",
     })
@@ -566,14 +576,49 @@ describe("UsagePage", () => {
       failingClient(new ContractError("INTERNAL", "an internal error occurred")),
     )
     expect(await screen.findByText("Usage unavailable")).toBeTruthy()
-    expect(screen.getByText("Usage records unavailable")).toBeTruthy()
     expect(
-      screen.getAllByText("INTERNAL: an internal error occurred").length,
-    ).toBeGreaterThanOrEqual(2)
+      screen.getByText("INTERNAL: an internal error occurred"),
+    ).toBeTruthy()
+    // With no series there is no telling whether usage exists, so the
+    // records stay hidden rather than saying the range is empty.
+    expect(screen.queryByRole("heading", { name: "Requests" })).toBeNull()
+    expect(screen.queryByText("Usage records unavailable")).toBeNull()
     // The key filter still offers every key, with no names to add.
     expect(
       within(screen.getByLabelText("Key")).getAllByRole("option").map((o) => o.textContent),
     ).toEqual(["All keys"])
+  })
+
+  it("shows no records while the series is still loading", async () => {
+    const { client, sent } = usageClient({
+      records: () => ({ items: [], total: 0 }),
+    })
+    const pending: ScopedClient = {
+      ...client,
+      query: (intent: string, params?: Record<string, unknown>) =>
+        intent === "usage.series"
+          ? new Promise<never>(() => {})
+          : client.query(intent, params),
+    } as ScopedClient
+    renderPage(UsagePage, pending)
+    await waitFor(() =>
+      expect(paramsOf(sent, "usage.records").length).toBeGreaterThan(0),
+    )
+    await screen.findByText("Partner sandbox", { selector: "option" })
+    expect(screen.getByRole("status", { name: "Loading Usage" })).toBeTruthy()
+    expect(screen.queryByText("No requests recorded in this range.")).toBeNull()
+    expect(screen.queryByRole("heading", { name: "Requests" })).toBeNull()
+  })
+
+  it("never shows the records for a tenant with no usage recorded", async () => {
+    const { client } = usageClient({
+      series: () => ({ period: "hourly", buckets: [], recorded: false }),
+      records: () => ({ items: [], total: 0 }),
+    })
+    renderPage(UsagePage, client)
+    await screen.findByText("No usage recorded yet.")
+    expect(screen.queryByText("No requests recorded in this range.")).toBeNull()
+    expect(screen.queryByRole("heading", { name: "Requests" })).toBeNull()
   })
 
   it("names the page", async () => {

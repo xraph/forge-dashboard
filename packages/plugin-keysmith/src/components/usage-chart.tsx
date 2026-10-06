@@ -95,6 +95,26 @@ export function segmentShape(series: Series) {
 }
 
 /**
+ * Where a series sits in the tooltip: the legend's order, bottom of the stack
+ * first, rather than Recharts' default alphabetical by name.
+ */
+export function tooltipOrder(item: { dataKey?: unknown }): number {
+  return SERIES.indexOf(item.dataKey as Series)
+}
+
+/**
+ * The tooltip's heading: the hovered bucket named in full, in UTC. Null when
+ * the payload carries no bucket start.
+ */
+export function tooltipTitle(
+  payload: readonly { payload?: { start?: unknown } }[] | undefined,
+  period: UsagePeriod,
+): string | null {
+  const start = payload?.[0]?.payload?.start
+  return typeof start === "string" ? bucketTitle(start, period) : null
+}
+
+/**
  * Value-axis ticks for a column whose tallest stack is `max`: whole counts in
  * steps of 1, 2 or 5 times a power of ten, about four of them, from 0 to the
  * first step at or above `max`. An empty range is 0 and 1, so the chart of
@@ -187,17 +207,11 @@ export function UsageChart({
         />
         <ChartTooltip
           cursor={{ fill: "var(--muted)" }}
-          // The legend's order, not Recharts' default alphabetical by name.
-          itemSorter={(item) => SERIES.indexOf(item.dataKey as Series)}
+          itemSorter={tooltipOrder}
           content={
             <ChartTooltipContent
               indicator="line"
-              labelFormatter={(_label, payload) => {
-                const start: unknown = payload?.[0]?.payload?.start
-                return typeof start === "string"
-                  ? bucketTitle(start, period)
-                  : null
-              }}
+              labelFormatter={(_label, payload) => tooltipTitle(payload, period)}
             />
           }
         />

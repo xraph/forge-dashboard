@@ -272,7 +272,19 @@ export function bucketTitle(start: string, period: UsagePeriod): string {
   }
 }
 
-const count = new Intl.NumberFormat()
+/**
+ * A request's time in UTC, to the minute: "5 Oct 2026, 14:10 UTC". The
+ * chart and the bucket table are UTC, so a request listed here lines up with
+ * the column it was counted in.
+ */
+export function formatUtcMinute(at: string): string {
+  const d = new Date(at)
+  return `${d.getUTCDate()} ${MONTHS[d.getUTCMonth()]} ${d.getUTCFullYear()}, ${pad2(d.getUTCHours())}:${pad2(d.getUTCMinutes())} UTC`
+}
+
+// en-US, like the fixed English month names above: the axis, the table and
+// the tooltip read the same whatever the browser's locale.
+const count = new Intl.NumberFormat("en-US")
 
 /** A count with thousands separators: "1,200". */
 export function formatCount(n: number): string {

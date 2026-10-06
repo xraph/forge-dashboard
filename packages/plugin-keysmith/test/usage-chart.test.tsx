@@ -3,6 +3,8 @@ import { render, screen } from "@testing-library/react"
 import {
   countTicks,
   segmentShape,
+  tooltipOrder,
+  tooltipTitle,
   USAGE_CHART_CONFIG,
   UsageChart,
 } from "../src/components/usage-chart"
@@ -203,6 +205,36 @@ describe("UsageChart", () => {
         name: "Requests per hour by outcome, UTC, 2 buckets",
       }),
     ).toBeTruthy()
+  })
+})
+
+describe("the tooltip", () => {
+  it("lists the series in stack order, not alphabetically", () => {
+    // Alphabetical would read clientErrors, serverErrors, succeeded.
+    const items = [
+      { dataKey: "serverErrors" },
+      { dataKey: "succeeded" },
+      { dataKey: "clientErrors" },
+    ]
+    const sorted = [...items].sort((a, b) => tooltipOrder(a) - tooltipOrder(b))
+    expect(sorted.map((i) => i.dataKey)).toEqual([
+      "succeeded",
+      "clientErrors",
+      "serverErrors",
+    ])
+  })
+
+  it("titles the hovered column with its bucket in full, in UTC", () => {
+    const payload = [{ payload: { start: "2026-10-05T03:00:00Z" } }]
+    // 03:00Z is the evening of the 4th in Chicago.
+    expect(tooltipTitle(payload, "hourly")).toBe("5 Oct 2026, 03:00 UTC")
+    expect(tooltipTitle(payload, "daily")).toBe("5 Oct 2026")
+    expect(tooltipTitle(payload, "monthly")).toBe("Oct 2026")
+  })
+
+  it("has no title without a bucket", () => {
+    expect(tooltipTitle(undefined, "hourly")).toBeNull()
+    expect(tooltipTitle([], "hourly")).toBeNull()
   })
 })
 
