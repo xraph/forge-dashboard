@@ -7,10 +7,17 @@ import { Label } from "@forge-go/dashboard-kit/components/label"
 import { NativeSelect, NativeSelectOption } from "@forge-go/dashboard-kit/components/native-select"
 import { CommandAlert } from "@forge-go/dashboard-kit/components/query-boundary"
 import { Switch } from "@forge-go/dashboard-kit/components/switch"
-import { CATEGORIES, plural } from "../format"
+import { CATEGORIES } from "../format"
 import { templatesPath } from "../keys"
 import type { DeleteResponse, TemplateDetail } from "../wire"
 import type { Settings } from "./draft"
+
+/** What happens to the versions, in words that agree with the count. */
+function versionsLine(count: number) {
+  if (count === 0) return "It has no versions"
+  if (count === 1) return "Its one version goes with it"
+  return `Its ${count} versions go with it`
+}
 
 export function SettingsTab({ template, settings, onChange }: { template: TemplateDetail; settings: Settings; onChange: (next: Settings) => void }) {
   const remove = useCommand<DeleteResponse>("templates.delete")
@@ -79,7 +86,7 @@ export function SettingsTab({ template, settings, onChange }: { template: Templa
           setConfirming(next)
         }}
         title={`Delete ${target.name}?`}
-        description={`Sends that name ${target.slug} on ${target.channel} will fail. Its ${plural(target.versions.length, "version")} go with it, and this can't be undone.${target.isSystem ? " Resetting system templates brings it back." : ""}`}
+        description={`Sends that name ${target.slug} on ${target.channel} will fail. ${versionsLine(target.versions.length)}, and this can't be undone.${target.isSystem ? " Resetting system templates brings it back." : ""}`}
         confirmLabel="Delete template"
         pending={remove.loading}
         onConfirm={() => void confirm()}

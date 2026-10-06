@@ -21,7 +21,7 @@ export type TemplatePatch = { name?: string; category?: string; enabled?: boolea
 
 const FIELDS: TemplateField[] = ["subject", "html", "text", "title"]
 
-export const contentOf = (v: Content): Content => ({ subject: v.subject, html: v.html, text: v.text, title: v.title })
+const contentOf = (v: Content): Content => ({ subject: v.subject, html: v.html, text: v.text, title: v.title })
 
 export function draftOf(t: TemplateDetail): Draft {
   return {

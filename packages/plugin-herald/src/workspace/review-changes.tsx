@@ -33,11 +33,22 @@ const variablesText = (draft: Draft["variables"]) => JSON.stringify(normaliseVar
 
 /** One section per change, so the operator reads exactly what Save will write. */
 export function ReviewChanges({ open, onOpenChange, template, saved, draft, changes, saving, canSave, onSave, error, errorTitle }: ReviewChangesProps) {
+  const localeOf = (versionId: string) => template.versions.find((v) => v.id === versionId)?.locale ?? ""
+  /** The plain title, for a diff's label. */
   const titleOf = (c: Change) => {
     if (c.kind === "variables") return "Variables"
     if (c.kind === "setting") return SETTING_LABEL[c.key]
-    const locale = template.versions.find((v) => v.id === c.versionId)?.locale ?? ""
-    return `${FIELD_LABEL[c.field]}, ${versionName(locale)}`
+    return `${FIELD_LABEL[c.field]}, ${versionName(localeOf(c.versionId))}`
+  }
+  /** The same, with the locale as an identifier. */
+  const headingOf = (c: Change) => {
+    if (c.kind !== "field") return titleOf(c)
+    const locale = localeOf(c.versionId)
+    return locale === "" ? titleOf(c) : (
+      <>
+        {FIELD_LABEL[c.field]}, the <span className="font-mono text-xs">{locale}</span> version
+      </>
+    )
   }
 
   return (
@@ -58,7 +69,7 @@ export function ReviewChanges({ open, onOpenChange, template, saved, draft, chan
             const title = titleOf(c)
             return (
               <section key={title} className="flex flex-col gap-1.5">
-                <h3 className="text-sm font-medium">{title}</h3>
+                <h3 className="text-sm font-medium">{headingOf(c)}</h3>
                 {c.kind === "field" ? (
                   <FieldDiff was={saved.versions[c.versionId][c.field]} now={draft.versions[c.versionId][c.field]} label={title} language={FIELD_LANGUAGE[c.field]} />
                 ) : c.kind === "variables" ? (

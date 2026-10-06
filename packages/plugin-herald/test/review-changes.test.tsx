@@ -26,7 +26,8 @@ describe("ReviewChanges", () => {
   it("diffs each changed field against what's saved, named by field and version", async () => {
     setup((d) => ({ ...d, versions: { ...d.versions, [EN]: { ...d.versions[EN], html: "<p>New</p>" } } }))
     const dialog = screen.getByRole("dialog")
-    expect(within(dialog).getByRole("heading", { name: "HTML, the en version" })).toBeTruthy()
+    const heading = within(dialog).getByRole("heading", { name: "HTML, the en version" })
+    expect(within(heading).getByText("en").className).toContain("font-mono")
     expect((await within(dialog).findByLabelText("HTML, the en version")).textContent).toBe("- <p>Thanks {{.customer_name}}</p>\n+ <p>New</p>")
   })
 

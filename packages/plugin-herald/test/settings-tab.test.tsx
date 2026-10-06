@@ -12,18 +12,20 @@ afterEach(cleanup)
 const detail = templateDetail()
 const SETTINGS: Settings = { name: "Receipt", category: "transactional", enabled: true }
 
-function setup(over: { settings?: Settings; isSystem?: boolean; deleteAnswer?: unknown } = {}) {
+function setup(over: { settings?: Settings; isSystem?: boolean; deleteAnswer?: unknown; versions?: number } = {}) {
   const onChange = vi.fn()
   const navigate = vi.fn()
   const { client, sent } = scriptedClient({}, { "templates.delete": over.deleteAnswer ?? { ok: true, id: detail.id } })
-  render(
+  const ui = (template: typeof detail) => (
     <PluginProvider client={client}>
       <NavigationProvider value={{ Link: ({ to, children }: { to: string; children: ReactNode }) => <a href={to}>{children}</a>, navigate }}>
-        <SettingsTab template={{ ...detail, isSystem: over.isSystem ?? false }} settings={over.settings ?? SETTINGS} onChange={onChange} />
+        <SettingsTab template={template} settings={over.settings ?? SETTINGS} onChange={onChange} />
       </NavigationProvider>
     </PluginProvider>
   )
-  return { onChange, navigate, sent }
+  const first = { ...detail, isSystem: over.isSystem ?? false, versions: over.versions === undefined ? detail.versions : detail.versions.slice(0, over.versions) }
+  const { rerender } = render(ui(first))
+  return { onChange, navigate, sent, reload: (next: Partial<typeof detail>) => rerender(ui({ ...first, ...next })) }
 }
 
 describe("SettingsTab", () => {
@@ -65,6 +67,25 @@ describe("SettingsTab", () => {
     fireEvent.click(within(dialog).getByRole("button", { name: "Delete template" }))
     await waitFor(() => expect(sent).toEqual([{ intent: "templates.delete", payload: { id: detail.id } }]))
     await waitFor(() => expect(navigate).toHaveBeenCalledWith("/templates"))
+  })
+
+  it("says it in the singular and for none", () => {
+    setup({ versions: 1 })
+    fireEvent.click(screen.getByRole("button", { name: "Delete template" }))
+    expect(within(screen.getByRole("alertdialog")).getByText("Sends that name billing.receipt on email will fail. Its one version goes with it, and this can't be undone.")).toBeTruthy()
+    cleanup()
+    setup({ versions: 0 })
+    fireEvent.click(screen.getByRole("button", { name: "Delete template" }))
+    expect(within(screen.getByRole("alertdialog")).getByText("Sends that name billing.receipt on email will fail. It has no versions, and this can't be undone.")).toBeTruthy()
+  })
+
+  it("keeps naming the template it was opened for when the template reloads under it", () => {
+    const { reload } = setup()
+    fireEvent.click(screen.getByRole("button", { name: "Delete template" }))
+    reload({ name: "Renamed", slug: "billing.renamed", versions: [] })
+    const dialog = screen.getByRole("alertdialog")
+    expect(within(dialog).getByText("Delete Receipt?")).toBeTruthy()
+    expect(within(dialog).getByText(/^Sends that name billing\.receipt on email will fail\. Its 2 versions go with it/)).toBeTruthy()
   })
 
   it("says a reset brings a system template back", () => {

@@ -14,7 +14,7 @@ const PRIMARY: Record<string, TemplateField[]> = {
   chat: ["subject", "text"],
 }
 
-/** A channel's own fields first; the rest fold under "Other fields" and stay editable. An unknown channel shows them all. */
+/** A channel's own fields first; the fields a channel doesn't send fold away and stay editable. An unknown channel shows them all. */
 export function fieldsFor(channel: string): { primary: TemplateField[]; other: TemplateField[] } {
   const primary = PRIMARY[channel] ?? ALL_FIELDS
   return { primary, other: ALL_FIELDS.filter((f) => !primary.includes(f)) }
