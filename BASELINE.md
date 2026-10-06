@@ -578,7 +578,9 @@ directories with `--outDir`, the same way as the sentinel section: `tsc -b`
 skipped, sizes in Vite's own kB. This time the shell was built twice, with
 Herald and without it (its import and its array entry removed from `App.tsx`
 for the second build, then put back byte for byte), so the difference is
-Herald's own. Both builds carry everyone else's current work.
+Herald's own. Both builds carry everyone else's current work. The section was
+re-measured after the editor theme moved into its own module, so every figure
+and chunk name below is from that second pair of builds.
 
 Fifty-three JS chunks are emitted with Herald, nine more than in the sentinel
 section, and forty without it. Eight of the thirteen Herald adds are its own
@@ -589,7 +591,7 @@ chunks. The other five are the net of six chunks that joined the eager set and o
 
 | chunk | raw | gzip | loaded |
 |---|---|---|---|
-| `index` (entry) | 1,425.01 KB | 376.98 KB | eager |
+| `index` (entry) | 1,425.55 KB | 377.17 KB | eager |
 | `page-header` | 59.92 KB | 22.19 KB | eager, static from the entry |
 | `confirm-dialog` | 53.10 KB | 17.75 KB | eager, static from the entry |
 | `utils` | 27.26 KB | 8.69 KB | eager, static from the entry |
@@ -609,25 +611,25 @@ chunks. The other five are the net of six chunks that joined the eager set and o
 | `useValueChanged` | 0.70 KB | 0.44 KB | eager, static from the entry |
 | `none-cell` | 0.24 KB | 0.21 KB | eager, static from the entry |
 | `visuallyHidden` | 0.19 KB | 0.16 KB | eager, static from the entry |
-| `template-workspace` (herald's workspace page) | 34.61 KB | 10.48 KB | lazy, when you open a template |
-| `dist-DDYkax0Z` (CodeMirror, HTML and completion) | 169.95 KB | 67.59 KB | lazy, with the first editor |
-| `dist-8HqfBbLB` (CodeMirror, lint) | 13.28 KB | 5.19 KB | lazy, with the first editor |
-| `code-editor` (herald's editor) | 5.50 KB | 2.41 KB | lazy, when the workspace draws its first field |
-| `field-diff` (herald's diff) | 1.63 KB | 0.82 KB | lazy, when you open Review changes |
+| `template-workspace` (herald's workspace page) | 35.75 KB | 10.85 KB | lazy, when you open a template |
+| `theme` (herald's theme module, with `lang-html` and `autocomplete` hoisted into it) | 170.63 KB | 67.86 KB | lazy, with the first editor |
+| `dist-BbfPcjfC` (CodeMirror, lint) | 13.28 KB | 5.21 KB | lazy, with the first editor |
+| `code-editor` (herald's editor) | 5.21 KB | 2.33 KB | lazy, when the workspace draws its first field |
+| `field-diff` (herald's diff) | 1.33 KB | 0.71 KB | lazy, when you open Review changes |
 | `provider-edit` | 9.35 KB | 2.86 KB | lazy, when you edit a provider |
 | `provider-create` | 7.34 KB | 2.46 KB | lazy, when you add a provider |
 | `secret-fields` (shared by the two) | 0.93 KB | 0.51 KB | lazy, with either provider form |
 
-The eager set is 1,604.61 KB raw and 442.94 KB gzip with Herald, and 1,536.89 KB
-and 425.27 KB without it. The difference is 67.72 KB raw and 17.67 KB gzip, and
+The eager set is 1,605.15 KB raw and 443.13 KB gzip with Herald, and 1,537.43 KB
+and 425.45 KB without it. The difference is 67.72 KB raw and 17.68 KB gzip, and
 that is what every operator pays for Herald before opening any of its pages:
 its plugin entry and the pages the entry imports statically. The entry accounts
-for most of it (1,358.78 to 1,425.01 KB raw, 66.23 KB more; 360.44 to 376.98 KB
+for most of it (1,359.32 to 1,425.55 KB raw, 66.23 KB more; 360.62 to 377.17 KB
 gzip). Six small chunks joined the eager set (`CompositeRoot`, `react-dom`,
 `useTransitionStatus`, `badge`, `useValueChanged` and `visuallyHidden`) and
 `checkbox` left it, while `confirm-dialog` shrank by 2.81 KB, so the rest of the
 set moved by a net 1.49 KB raw. Against the sentinel section's 1,491.76 KB
-and 414.86 KB the eager set is 112.85 KB raw and 28.08 KB gzip larger, which is
+and 414.86 KB the eager set is 113.39 KB raw and 28.27 KB gzip larger, which is
 Herald plus whatever else other sessions landed in the meantime. Nothing in the
 workspace, the editors or the diff is in that figure, because all of it is lazy.
 
@@ -637,7 +639,7 @@ workspace, the editors or the diff is in that figure, because all of it is lazy.
 problems list, the review dialog and the settings tab. It imports eight chunks
 statically and every one is already in the eager set (the entry, `badge`,
 `confirm-dialog`, `input`, `jsx-runtime`, `native-select`, `page-header` and
-`utils`), so opening a template costs 34.61 KB raw and 10.48 KB gzip before any
+`utils`), so opening a template costs 35.75 KB raw and 10.85 KB gzip before any
 editor loads. It reaches `code-editor` and `field-diff` only through `import()`
 (the two `lazy()` calls in `components/editor/lazy.tsx`), and the page shows the
 field's text in a plain `pre` until the editor arrives.
@@ -645,37 +647,41 @@ field's text in a plain `pre` until the editor arrives.
 ### CodeMirror
 
 None of the earlier sections has a chunk for HTML, completion or linting, so
-Herald adds two CodeMirror chunks of its own: `dist-DDYkax0Z` (169.95 KB raw, 67.59 KB
-gzip, `lang-html` and `autocomplete`) and `dist-8HqfBbLB` (13.28 KB raw, 5.19 KB
-gzip, `lint`). Together they are 183.23 KB raw and 72.78 KB gzip. The editors
-also use three chunks the other plugins already load: the core (`dist-D_l9DpBX`,
-holding `EditorView`), the search chunk (`dist-BsJ3Y5re`) and the lezer parser
-chunk (`dist-BfQp_qkr`). The diff uses the `@codemirror/merge` chunk
-(`dist-B8Iyt-gQ`, 19.50 KB raw and 7.28 KB gzip), the chunk the vault and
-sentinel diffs already load.
+Herald adds two CodeMirror chunks of its own. The first is `theme` (170.63 KB
+raw, 67.86 KB gzip). It is Herald's own theme module, the highlight style and
+editor theme that `code-editor` and `field-diff` share, and Rollup hoisted
+`lang-html` and `autocomplete` into it because it is the one chunk both editors
+import them through, which is why a 170 KB chunk carries a small name. The
+second is `dist-BbfPcjfC` (13.28 KB raw, 5.21 KB gzip, `lint`). Together they
+are 183.91 KB raw and 73.07 KB gzip. The editors also use three chunks the other
+plugins already load: the core (`dist-DTPZDTh4`, holding `EditorView`), the
+search chunk (`dist-BJrTTN7H`) and the lezer parser chunk (`dist-Y1X1QIEL`). The
+diff uses the `@codemirror/merge` chunk (`dist-PNYeBczq`, 19.50 KB raw and 7.30
+KB gzip), the chunk the vault and sentinel diffs already load.
 
 Every `dist-*` hash in this build differs from the earlier sections, and that is
 a consequence of the core's hash changing, not of the other chunks changing.
-The merge chunk and the search chunk are byte for byte the same size as before
-(19.50 and 43.12 KB). The core itself grew from 288.56 to 296.21 KB raw (93.24 to
-95.70 KB gzip), and the lezer chunk from 28.03 to 28.36 KB (9.82 to 9.94 KB
+The merge chunk and the search chunk are the same size in raw KB as before
+(19.50 and 43.12 KB). The core itself grew from 288.56 to 296.22 KB raw (93.24 to
+95.70 KB gzip), and the lezer chunk from 28.03 to 28.35 KB (9.82 to 9.93 KB
 gzip), most likely because Herald uses more of the packages they hold. Which
-modules account for it wasn't traced. The three shared chunks are now 367.69 KB raw and 119.70 KB gzip
+modules account for it wasn't traced. The three shared chunks are now 367.69 KB raw and 119.69 KB gzip
 together, against 359.71 KB and 117.21 KB in the trove section.
 
-The first time you open a template cold, you load about 591.03 KB raw and 205.37
+The first time you open a template cold, you load about 592.56 KB raw and 205.94
 KB gzip: the workspace, the editor and its five chunks. If another plugin's
-editor already loaded the core, search and lezer chunks, it is 223.34 KB raw and
-85.67 KB gzip (the workspace, the editor, `lang-html` and `lint`). Review
-changes loads `field-diff` as well, which is 1.63 KB raw and 0.82 KB gzip once
-the merge chunk and the HTML chunk are in, and 21.13 KB raw and 8.10 KB gzip if
-the merge chunk is not. `code-editor` and `field-diff` import five and four
-`dist-*` chunks respectively, and the workspace's `__vite__mapDeps` lists them
-all, so Vite preloads them in parallel when the editor is first drawn.
+editor already loaded the core, search and lezer chunks, it is 224.87 KB raw and
+86.25 KB gzip (the workspace, the editor, `theme` and `lint`). Review
+changes loads `field-diff` as well, which is 1.33 KB raw and 0.71 KB gzip once
+the merge chunk and `theme` are in, and 20.83 KB raw and 8.01 KB gzip if the
+merge chunk is not. `code-editor` and `field-diff` import five and four
+CodeMirror chunks respectively (`theme` among them), and the workspace's
+`__vite__mapDeps` lists them all, so Vite preloads them in parallel when the
+editor is first drawn.
 
 ### The entry does not carry any of it
 
-Counts in the built entry chunk (`index-BVvP_6Iq.js`):
+Counts in the built entry chunk (`index-ChFckgZ6.js`):
 
 | string | matches |
 |---|---|
@@ -686,14 +692,14 @@ Counts in the built entry chunk (`index-BVvP_6Iq.js`):
 | `unifiedMergeView` | 0 |
 | `htmlLanguage` | 0 |
 
-The entry names `template-workspace-CExJjO_U.js` twice, once in
+The entry names `template-workspace-Tewg7ZOD.js` twice, once in
 `__vite__mapDeps` and once in the `import()` the route's `lazy()` compiles to,
 and never in a `from"./..."` clause. It does not name `code-editor` or
 `field-diff` at all. Those two are named only inside `template-workspace`, in its
 own `__vite__mapDeps` and its two `import()` calls. The workspace chunk is not
 in `index.html` (0 matches), and none of the CodeMirror chunks is in its
 `modulepreload` list, which names 19 chunks with Herald and 14 without. The CSS
-is 276.02 KB (41.32 KB gzip) in both builds, 1.59 KB more than in the sentinel
+is 276.04 KB (41.34 KB gzip) in both builds, 1.61 KB more than in the sentinel
 section. Taking Herald out of `App.tsx` does not change it, because Tailwind
 scans the sources either way.
 
