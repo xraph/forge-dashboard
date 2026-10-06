@@ -137,3 +137,218 @@ export interface SentinelConfig {
 export interface ImportResult {
   imported: number
 }
+
+// Runs, results, regression, baselines and the overview (plan 4b).
+
+/** What a run recorded when it started. A key is absent when it was not recorded. */
+export interface RunSettings {
+  passThreshold?: number
+  regressionThreshold?: number
+  concurrency?: number
+  target?: string
+  /** As requested, order and duplicates kept. */
+  scorers?: string[]
+  model?: string
+  promptVersionId?: string
+}
+
+export type RunState = "running" | "completed" | "failed" | "cancelled"
+
+export interface Run {
+  id: string
+  suiteId: string
+  suiteName: string
+  model: string
+  temperature: number
+  state: RunState
+  /** Cases planned when the run started. */
+  totalCases: number
+  /** Results stored so far. */
+  completedCases: number
+  passed: number
+  failed: number
+  errored: number
+  /** Passed over results stored, so errors and fails both lower it. */
+  passRate: number
+  avgScore: number
+  avgLatencyMs: number
+  totalTokens: number
+  /** What the target reported. LLM-judge calls are not metered. */
+  totalCost: number
+  dimensionScores: Record<string, number>
+  settings: RunSettings
+  /** Set only on a failed run: why it failed. */
+  error?: string
+  createdAt: string
+  completedAt?: string
+  /** runs.detail only: when the newest result was stored. */
+  lastProgressAt?: string
+}
+
+export interface RunsList {
+  items: Run[]
+  hasMore: boolean
+}
+
+export type ResultStatus = "pass" | "fail" | "error"
+
+export interface ResultRow {
+  id: string
+  caseId: string
+  /** The case's name when the run scored it. */
+  caseName: string
+  status: ResultStatus
+  score: number
+  latencyMs: number
+  tokensUsed: number
+  cost: number
+  dimensionScores: Record<string, number>
+  /** From the case as it is now: absent when the case was deleted or is not red team. */
+  redTeam?: RedTeamRef
+  /** The target's or a scorer's error text. */
+  error?: string
+}
+
+export interface ResultCounts {
+  pass: number
+  fail: number
+  error: number
+}
+
+export interface RunResults {
+  items: ResultRow[]
+  /** Every result of the run, whatever the status filter. */
+  counts: ResultCounts
+}
+
+export interface ScorerResult {
+  scorerName: string
+  score: number
+  passed: boolean
+  reason: string
+  dimension?: string
+  details?: Record<string, unknown>
+}
+
+export interface TraceStep {
+  index: number
+  type: string
+  output: string
+  tokensUsed: number
+}
+
+export interface ToolCall {
+  toolName: string
+  arguments: string
+  result: string
+  error?: string
+}
+
+export interface RunTrace {
+  steps: TraceStep[]
+  toolCalls: ToolCall[]
+}
+
+export interface ResultDetail extends ResultRow {
+  output: string
+  /** Characters, counted as Go counts runes. */
+  outputLength: number
+  scorerResults: ScorerResult[]
+  runTrace?: RunTrace
+}
+
+export interface RegressedCase {
+  caseId: string
+  caseName: string
+  oldScore: number
+  newScore: number
+  delta: number
+}
+
+export interface CaseName {
+  caseId: string
+  caseName: string
+}
+
+export type RegressionReason = "runFailed" | "runCancelled" | "otherSuite" | "unknownState"
+
+/**
+ * The regression answer, an explicit state machine. Every state carries the
+ * collections, empty; baseline, threshold, thresholdSource and worstDelta come
+ * only with "compared".
+ */
+export interface Regression {
+  state: "running" | "notComparable" | "noBaseline" | "compared"
+  reason?: RegressionReason
+  baseline?: BaselineRef
+  threshold?: number
+  thresholdSource?: "override" | "run" | "config"
+  hasRegression: boolean
+  /** Never above zero. */
+  worstDelta?: number
+  passRateDelta: number
+  avgScoreDelta: number
+  dimensionDeltas: Record<string, number>
+  regressedCases: RegressedCase[]
+  missingCases: CaseName[]
+  newCases: CaseName[]
+  missingDimensions: string[]
+}
+
+export interface RunDetail {
+  run: Run
+  regression: Regression
+}
+
+export interface Baseline {
+  id: string
+  suiteId: string
+  suiteName: string
+  runId: string
+  name: string
+  passRate: number
+  avgScore: number
+  dimensionScores: Record<string, number>
+  /** Results saved with it, errors included. */
+  caseCount: number
+  isCurrent: boolean
+  createdAt: string
+}
+
+export interface BaselinesList {
+  items: Baseline[]
+}
+
+export interface BaselineResult {
+  caseId: string
+  caseName: string
+  score: number
+  status: ResultStatus
+  dimensionScores: Record<string, number>
+}
+
+export interface BaselineDetail extends Baseline {
+  results: BaselineResult[]
+}
+
+export interface RegressionSummary {
+  runId: string
+  suiteId: string
+  suiteName: string
+  createdAt: string
+  baseline: BaselineRef
+  worstDelta: number
+}
+
+export interface Overview {
+  suiteCount: number
+  caseCount: number
+  runCount: number
+  /** The ten newest runs. */
+  recentRuns: Run[]
+  /** Every running run. */
+  activeRuns: Run[]
+  /** Regressed runs among the twenty newest completed ones, against each suite's current baseline. */
+  recentRegressions: RegressionSummary[]
+  targetsRegistered: boolean
+}

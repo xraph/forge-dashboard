@@ -2,8 +2,16 @@
 // src/types.ts). Each builder takes overrides so a test states only what it
 // is about.
 import type {
+  Baseline,
+  BaselineDetail,
+  Overview,
   PromptVersion,
   PromptVersionDetail,
+  Regression,
+  ResultDetail,
+  ResultRow,
+  Run,
+  RunDetail,
   SentinelConfig,
   Suite,
   TestCase,
@@ -13,6 +21,9 @@ export const SUITE_ID = "suite_01j9se00000000000000000001"
 export const CASE_ID = "tcase_01j9se00000000000000000002"
 export const VERSION_1 = "pver_01j9se00000000000000000010"
 export const VERSION_2 = "pver_01j9se00000000000000000011"
+export const RUN_ID = "run_01j9se00000000000000000050"
+export const RESULT_ID = "result_01j9se00000000000000000060"
+export const BASELINE_ID = "base_01j9se00000000000000000076"
 
 export function suite(overrides: Partial<Suite> = {}): Suite {
   return {
@@ -25,7 +36,7 @@ export function suite(overrides: Partial<Suite> = {}): Suite {
     systemPrompt: "You are Nimbus.",
     promptSource: "version",
     currentPromptVersion: { id: VERSION_2, version: 2 },
-    currentBaseline: { id: "base_01j9se00000000000000000076", name: "Release 1.4", passRate: 0.875 },
+    currentBaseline: { id: BASELINE_ID, name: "Release 1.4", passRate: 0.875 },
     caseCount: 2,
     createdAt: "2026-09-04T20:00:00Z",
     updatedAt: "2026-09-05T20:00:00Z",
@@ -112,6 +123,175 @@ export function config(overrides: Partial<SentinelConfig> = {}): SentinelConfig 
       { name: "not_contains", description: "Passes when the output does not contain a substring.", usesLlm: false, requiresConfig: false },
       { name: "regex", description: "Passes when the output matches a regular expression.", usesLlm: false, requiresConfig: true },
     ],
+    ...overrides,
+  }
+}
+
+/** A completed run of the suite, scored with recorded settings. */
+export function run(overrides: Partial<Run> = {}): Run {
+  return {
+    id: RUN_ID,
+    suiteId: SUITE_ID,
+    suiteName: "Support assistant",
+    model: "smart",
+    temperature: 0.2,
+    state: "completed",
+    totalCases: 4,
+    completedCases: 4,
+    passed: 3,
+    failed: 1,
+    errored: 0,
+    passRate: 0.75,
+    avgScore: 0.8125,
+    avgLatencyMs: 640,
+    totalTokens: 1840,
+    totalCost: 0.0123,
+    dimensionScores: { persona: 0.82 },
+    settings: {
+      passThreshold: 0.7,
+      regressionThreshold: 0.05,
+      concurrency: 4,
+      target: "support-bot",
+      scorers: ["contains", "judge"],
+      model: "smart",
+      promptVersionId: VERSION_2,
+    },
+    createdAt: "2026-09-30T14:02:00Z",
+    completedAt: "2026-09-30T14:06:12Z",
+    ...overrides,
+  }
+}
+
+/** A run that is still going: two of four cases scored. */
+export function runningRun(overrides: Partial<Run> = {}): Run {
+  return run({
+    id: "run_01j9se00000000000000000051",
+    state: "running",
+    completedCases: 2,
+    passed: 2,
+    failed: 0,
+    passRate: 1,
+    completedAt: undefined,
+    lastProgressAt: "2026-09-30T14:03:00Z",
+    ...overrides,
+  })
+}
+
+/** Every collection empty, as each state sends it. */
+function emptyRegression(): Regression {
+  return {
+    state: "noBaseline",
+    hasRegression: false,
+    passRateDelta: 0,
+    avgScoreDelta: 0,
+    dimensionDeltas: {},
+    regressedCases: [],
+    missingCases: [],
+    newCases: [],
+    missingDimensions: [],
+  }
+}
+
+export function regression(overrides: Partial<Regression> = {}): Regression {
+  return { ...emptyRegression(), ...overrides }
+}
+
+/** A comparison that fell past the threshold on one case. */
+export function regressed(overrides: Partial<Regression> = {}): Regression {
+  return regression({
+    state: "compared",
+    baseline: { id: BASELINE_ID, name: "Release 1.4", passRate: 0.875 },
+    threshold: 0.05,
+    thresholdSource: "run",
+    hasRegression: true,
+    worstDelta: -0.4,
+    passRateDelta: -0.125,
+    avgScoreDelta: -0.06,
+    regressedCases: [{ caseId: CASE_ID, caseName: "Reset password", oldScore: 1, newScore: 0.6, delta: -0.4 }],
+    missingDimensions: ["trait"],
+    ...overrides,
+  })
+}
+
+export function runDetail(overrides: Partial<RunDetail> = {}): RunDetail {
+  return { run: run(), regression: regressed(), ...overrides }
+}
+
+export function resultRow(overrides: Partial<ResultRow> = {}): ResultRow {
+  return {
+    id: RESULT_ID,
+    caseId: CASE_ID,
+    caseName: "Reset password",
+    status: "fail",
+    score: 0.6,
+    latencyMs: 820,
+    tokensUsed: 412,
+    cost: 0.0031,
+    dimensionScores: {},
+    ...overrides,
+  }
+}
+
+export function resultDetail(overrides: Partial<ResultDetail> = {}): ResultDetail {
+  return {
+    ...resultRow(),
+    output: "Click Reset on the sign-in page.",
+    outputLength: 32,
+    scorerResults: [
+      { scorerName: "contains", score: 0, passed: false, reason: "output does not contain \"Forgot password\"" },
+      { scorerName: "judge", score: 0.82, passed: true, reason: "Stays in persona.", dimension: "persona" },
+    ],
+    dimensionScores: { persona: 0.82 },
+    ...overrides,
+  }
+}
+
+export function baseline(overrides: Partial<Baseline> = {}): Baseline {
+  return {
+    id: BASELINE_ID,
+    suiteId: SUITE_ID,
+    suiteName: "Support assistant",
+    runId: "run_01j9se00000000000000000040",
+    name: "Release 1.4",
+    passRate: 0.875,
+    avgScore: 0.9,
+    dimensionScores: { persona: 0.88 },
+    caseCount: 4,
+    isCurrent: true,
+    createdAt: "2026-09-20T10:00:00Z",
+    ...overrides,
+  }
+}
+
+export function baselineDetail(overrides: Partial<BaselineDetail> = {}): BaselineDetail {
+  return {
+    ...baseline(),
+    results: [
+      { caseId: CASE_ID, caseName: "Reset password", score: 1, status: "pass", dimensionScores: {} },
+      { caseId: "tcase_01j9se00000000000000000103", caseName: "leakage_direct_request", score: 0.5, status: "fail", dimensionScores: {} },
+    ],
+    ...overrides,
+  }
+}
+
+export function overview(overrides: Partial<Overview> = {}): Overview {
+  return {
+    suiteCount: 3,
+    caseCount: 27,
+    runCount: 9,
+    recentRuns: [run()],
+    activeRuns: [],
+    recentRegressions: [
+      {
+        runId: RUN_ID,
+        suiteId: SUITE_ID,
+        suiteName: "Support assistant",
+        createdAt: "2026-09-30T14:02:00Z",
+        baseline: { id: BASELINE_ID, name: "Release 1.4", passRate: 0.875 },
+        worstDelta: -0.4,
+      },
+    ],
+    targetsRegistered: true,
     ...overrides,
   }
 }

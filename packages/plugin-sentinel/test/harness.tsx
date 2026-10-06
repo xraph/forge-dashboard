@@ -124,6 +124,43 @@ export function recordingQueryClient(answers: Record<string, unknown>): {
   }
 }
 
+/**
+ * Records queries with their params and commands with their payloads, for a
+ * page that reads and writes in one test: the run page polls, filters and
+ * saves, and a test needs to see all three.
+ */
+export function recordingFullClient(
+  answers: Record<string, unknown> | ((intent: string, params?: Record<string, unknown>) => unknown),
+  commands: Record<string, unknown> = {},
+): {
+  client: ScopedClient
+  queries: { intent: string; params?: Record<string, unknown> }[]
+  sent: { intent: string; payload: unknown }[]
+} {
+  const queries: { intent: string; params?: Record<string, unknown> }[] = []
+  const sent: { intent: string; payload: unknown }[] = []
+  const inner = stubClient(typeof answers === "function" ? {} : answers, commands)
+  return {
+    queries,
+    sent,
+    client: {
+      extension: inner.extension,
+      query: async (intent: string, params?: Record<string, unknown>) => {
+        queries.push({ intent, params })
+        if (typeof answers !== "function") return inner.query(intent, params)
+        const answer = answers(intent, params)
+        if (answer instanceof Error) throw answer
+        if (answer === undefined) throw new ContractError("NOT_FOUND", `no handler for intent "${intent}"`)
+        return answer
+      },
+      command: (intent: string, payload?: unknown) => {
+        sent.push({ intent, payload })
+        return inner.command(intent, payload)
+      },
+    } as ScopedClient,
+  }
+}
+
 /** Records every intent a page asks for, in order. */
 export function recordingClient(answers: Record<string, unknown>): {
   client: ScopedClient
