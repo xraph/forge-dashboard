@@ -2,10 +2,10 @@ import { useEffect, useRef } from "react"
 import { EditorState } from "@codemirror/state"
 import type { Extension } from "@codemirror/state"
 import { EditorView, lineNumbers } from "@codemirror/view"
-import { defaultHighlightStyle, syntaxHighlighting } from "@codemirror/language"
 import { unifiedMergeView } from "@codemirror/merge"
 import { html } from "@codemirror/lang-html"
 import { json } from "@codemirror/lang-json"
+import { sharedTheme } from "./theme"
 import type { FieldDiffProps } from "./types"
 
 const ADDED = "color-mix(in oklab, var(--info) 14%, transparent)"
@@ -21,9 +21,6 @@ const REMOVED = "color-mix(in oklab, var(--destructive) 12%, transparent)"
 // cm-changedLineGutter, cm-inlineChangedLineGutter (purple), cm-deletedChunk,
 // cm-deletedText and cm-deletedLineGutter.
 const theme = EditorView.theme({
-  "&": { fontSize: "12px", backgroundColor: "transparent", color: "var(--foreground)" },
-  ".cm-scroller": { fontFamily: "var(--font-mono, ui-monospace, monospace)", lineHeight: "1.55" },
-  ".cm-gutters": { backgroundColor: "transparent", color: "var(--muted-foreground)", borderRight: "1px solid var(--border)" },
   "&.cm-merge-b .cm-changedLine, .cm-inlineChangedLine": { backgroundColor: ADDED },
   "&.cm-merge-b .cm-changedText": { background: ADDED },
   "&.cm-merge-b .cm-changedLineGutter, .cm-inlineChangedLineGutter": { background: "var(--info)" },
@@ -43,7 +40,7 @@ export default function FieldDiff({ was, now, label, language }: FieldDiffProps)
     if (!host.current) return
     const extensions: Extension[] = [
       lineNumbers(),
-      syntaxHighlighting(defaultHighlightStyle),
+      sharedTheme,
       unifiedMergeView({ original: was, mergeControls: false, collapseUnchanged: { margin: 2, minSize: 4 } }),
       EditorState.readOnly.of(true),
       EditorView.editable.of(false),

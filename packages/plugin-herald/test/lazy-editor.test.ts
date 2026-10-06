@@ -1,11 +1,13 @@
 import { describe, expect, it } from "vitest"
 
 /**
- * CodeMirror is heavy, so the shell's entry chunk must not hold it. Only two
- * files may name the editor packages, and every other file reaches them
- * through lazy() in components/editor/lazy.tsx. A static import of either from
- * anywhere the entry can reach would fold CodeMirror into the entry chunk and
- * every page test would still pass.
+ * CodeMirror is heavy, so the shell's entry chunk must not hold it. Only three
+ * files may name the editor packages (@codemirror, and @lezer for the
+ * highlight tags): the editor, the diff, and the theme they share. Every other
+ * file reaches the editor and the diff through lazy() in
+ * components/editor/lazy.tsx, and the theme is imported by those two alone. A
+ * static import of any of them from anywhere the entry can reach would fold
+ * CodeMirror into the entry chunk and every page test would still pass.
  *
  * Read through import.meta.glob, not node:fs: this package's tsconfig has no
  * Node types, so fs passes vitest and fails tsc.
@@ -19,10 +21,12 @@ const source = (mod: { default: string } | string) => (typeof mod === "string" ?
 const files = Object.entries(modules).map(([path, mod]) => [path, source(mod)] as const)
 
 const EDITORS = ["../src/components/editor/code-editor.tsx", "../src/components/editor/field-diff.tsx"]
+const THEME = "../src/components/editor/theme.ts"
 const WRAPPER = "../src/components/editor/lazy.tsx"
 
 // A module specifier that names either chunk, with or without an extension.
-const CHUNK = String.raw`["'][^"']*\/(?:code-editor|field-diff)(?:\.tsx?)?["']`
+// \x60 is a backtick, which a template literal can't hold unescaped here.
+const CHUNK = String.raw`["'\x60][^"'\x60]*\/(?:code-editor|field-diff)(?:\.tsx?)?["'\x60]`
 
 // A type-only import or re-export, anchored to its `from "..."` clause so it
 // cannot swallow the statements after it: `export type Foo = string` has no
@@ -47,19 +51,26 @@ function reachesChunks(text: string): string[] {
 }
 
 describe("CodeMirror loads only on demand", () => {
-  it("found the sources and both editor files", () => {
+  it("found the sources, both editor files and the theme", () => {
     expect(files.length).toBeGreaterThan(30)
-    for (const path of EDITORS) expect(modules[path]).toBeDefined()
+    for (const path of [...EDITORS, THEME]) expect(modules[path]).toBeDefined()
   })
 
-  it("is named by no file except the editor and the diff", () => {
-    expect(files.filter(([, text]) => text.includes("@codemirror")).map(([path]) => path).sort()).toEqual([...EDITORS].sort())
+  it("is named by no file except the editor, the diff and their shared theme", () => {
+    expect(files.filter(([, text]) => text.includes("@codemirror") || text.includes("@lezer")).map(([path]) => path).sort()).toEqual([...EDITORS, THEME].sort())
+  })
+
+  it("reaches the theme from the editor and the diff only", () => {
+    const themeImport = /\bfrom\s*["'][^"']*\/theme(?:\.tsx?)?["']|\bimport\s*\(?\s*["'][^"']*\/theme(?:\.tsx?)?["']/
+    expect(files.filter(([, text]) => themeImport.test(text)).map(([path]) => path).sort()).toEqual([...EDITORS].sort())
   })
 
   it("reaches the editor and the diff only through lazy() in components/editor/lazy.tsx", () => {
     const wrapper = source(modules[WRAPPER])
     expect(wrapper).toMatch(/lazy\(\(\)\s*=>\s*import\("\.\/code-editor"\)\)/)
     expect(wrapper).toMatch(/lazy\(\(\)\s*=>\s*import\("\.\/field-diff"\)\)/)
+    // Exactly the two dynamic imports: a static one added to the wrapper would otherwise pass, since it is exempt from the scan below.
+    expect(reachesChunks(wrapper).sort()).toEqual(['import("./code-editor"', 'import("./field-diff"'])
     const offenders = files.filter(([path]) => path !== WRAPPER).flatMap(([path, text]) => reachesChunks(text).map((hit) => `${path}: ${hit}`))
     expect(offenders).toEqual([])
   })
@@ -91,6 +102,11 @@ describe("the matcher that guards the boundary", () => {
   it("catches a bare import and a dynamic import", () => {
     expect(hits('import "./code-editor"')).toBe(1)
     expect(hits('const m = await import( "./field-diff" )')).toBe(1)
+  })
+
+  it("catches a dynamic import written with a template literal", () => {
+    expect(hits("const m = await import(`./code-editor`)")).toBe(1)
+    expect(hits("lazy(() => import(`../editor/field-diff.tsx`))")).toBe(1)
   })
 
   it("lets a type-only import through, one line or several", () => {

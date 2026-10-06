@@ -3,7 +3,6 @@ import { ChangeSet, EditorSelection, EditorState, RangeSetBuilder, Transaction }
 import type { Extension, TransactionSpec } from "@codemirror/state"
 import { Decoration, EditorView, ViewPlugin, keymap, lineNumbers } from "@codemirror/view"
 import type { DecorationSet, ViewUpdate } from "@codemirror/view"
-import { defaultHighlightStyle, syntaxHighlighting } from "@codemirror/language"
 import { defaultKeymap, history, historyKeymap } from "@codemirror/commands"
 import { highlightSelectionMatches, search, searchKeymap } from "@codemirror/search"
 import { autocompletion, completionKeymap } from "@codemirror/autocomplete"
@@ -14,6 +13,7 @@ import { html } from "@codemirror/lang-html"
 import { json } from "@codemirror/lang-json"
 import { findActions, inAction } from "../../editor/actions"
 import { diagnosticRange, offsetOf } from "../../editor/positions"
+import { sharedTheme } from "./theme"
 import type { CodeEditorProps, EditorDiagnostic } from "./types"
 
 const actionMark = Decoration.mark({ class: "cm-herald-action" })
@@ -87,13 +87,9 @@ export const oneLine = EditorState.transactionFilter.of((tr): Transaction | Tran
   }
 })
 
-// The kit's tokens, so the editor follows light and dark with the shell. An
-// action takes the info tint and nothing else; problems take destructive and
-// warning. Never the success token: it's green.
+// On top of the shared theme: an action takes the info tint and nothing else;
+// problems take destructive and warning. Never the success token: it's green.
 const theme = EditorView.theme({
-  "&": { fontSize: "12px", backgroundColor: "transparent", color: "var(--foreground)" },
-  ".cm-scroller": { fontFamily: "var(--font-mono, ui-monospace, monospace)", lineHeight: "1.55" },
-  ".cm-gutters": { backgroundColor: "transparent", color: "var(--muted-foreground)", borderRight: "1px solid var(--border)" },
   ".cm-activeLineGutter, .cm-activeLine": { backgroundColor: "transparent" },
   "&.cm-focused": { outline: "2px solid var(--ring)", outlineOffset: "2px" },
   ".cm-panels": { backgroundColor: "var(--muted)", color: "var(--foreground)" },
@@ -128,7 +124,7 @@ export default function CodeEditor({ label, initial, language, singleLine = fals
     if (!host.current) return
     const extensions: Extension[] = [
       history(),
-      syntaxHighlighting(defaultHighlightStyle),
+      sharedTheme,
       templateActions,
       highlightSelectionMatches(),
       autocompletion(),
