@@ -1839,7 +1839,7 @@ export function createKeysmithHandlers(FixtureError) {
       },
     },
 
-    // Keys by stored state, open windows, keys expiring within 7 days,
+    // Keys by effective state, open windows, keys expiring within 7 days,
     // requests in the last 24 hours, the newest keys and rotations, and how
     // many policy fields this deployment enforces.
     overview: {
@@ -1850,19 +1850,27 @@ export function createKeysmithHandlers(FixtureError) {
         const limiter = rateLimiterConfigured()
         const mine = keysmith.keys.filter((k) => k.tenantId === tenantId)
 
-        // Stored state: an active key past its expiry still counts as active.
+        // Effective state, as the badges show it. Counts start from the stored
+        // state, then one scan of ListExpired(now + 7 days) (stored active keys
+        // whose expiry is before then, this tenant's only) moves each one that
+        // no longer reads active: past its expiry to expired, a set revokedAt
+        // to revoked. Every passed expiry is inside that window, so this covers
+        // every expiry. The one gap is a race: a stored active key with a
+        // revokedAt and no expiry inside the window still counts as active.
         const counts = { active: 0, suspended: 0, revoked: 0, expired: 0 }
         for (const k of mine) if (Object.hasOwn(counts, k.state)) counts[k.state]++
 
-        // ListExpired(now + 7 days) is stored active keys whose expiry is
-        // before then; of those, this tenant's that still read active.
-        const expiringWithin7Days = mine.filter(
-          (k) =>
-            k.state === "active" &&
-            k.expiresAt !== null &&
-            k.expiresAt < now + EXPIRES_SOON_WINDOW_MS &&
-            effectiveState(k, now).state === "active",
-        ).length
+        // Of the same scan, the keys that still read active are expiring.
+        let expiringWithin7Days = 0
+        for (const k of mine) {
+          if (k.state !== "active" || k.expiresAt === null || k.expiresAt >= now + EXPIRES_SOON_WINDOW_MS) continue
+          const { state } = effectiveState(k, now)
+          if (state === "active") expiringWithin7Days++
+          else if (state === "expired" || state === "revoked") {
+            counts.active--
+            counts[state]++
+          }
+        }
 
         // ListPendingGrace(now), this tenant's with an old hint, counted by
         // rotations.list's own windowOpen so the two pages agree.
