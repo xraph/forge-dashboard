@@ -2,7 +2,7 @@ import { afterEach, describe, expect, it, vi } from "vitest"
 import { act, cleanup, render, screen } from "@testing-library/react"
 import { EditorState } from "@codemirror/state"
 import { EditorView } from "@codemirror/view"
-import { undo } from "@codemirror/commands"
+import { insertNewlineAndIndent, undo } from "@codemirror/commands"
 import { CompletionContext } from "@codemirror/autocomplete"
 import type { CompletionResult } from "@codemirror/autocomplete"
 import { forEachDiagnostic } from "@codemirror/lint"
@@ -94,6 +94,21 @@ describe("CodeEditor", () => {
       const { view, onChange } = single()
       act(() => view.dispatch({ changes: { from: view.state.doc.length, insert: "\n" }, userEvent: "input" }))
       expect(view.state.doc.toString()).toBe("Your receipt")
+      expect(onChange).not.toHaveBeenCalled()
+    })
+
+    it("ignores Enter through the keymap's command, which indents, with and without a selection", () => {
+      const { view, onChange } = mount({ initial: "  Your receipt", language: "text", singleLine: true, label: "Subject (en)" })
+      act(() => view.dispatch({ selection: { anchor: view.state.doc.length } }))
+      act(() => {
+        insertNewlineAndIndent(view)
+      })
+      expect(view.state.doc.toString()).toBe("  Your receipt")
+      act(() => view.dispatch({ selection: { anchor: 2, head: 6 } }))
+      act(() => {
+        insertNewlineAndIndent(view)
+      })
+      expect(view.state.doc.toString()).toBe("  Your receipt")
       expect(onChange).not.toHaveBeenCalled()
     })
 

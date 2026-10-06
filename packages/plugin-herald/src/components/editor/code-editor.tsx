@@ -70,7 +70,8 @@ export const oneLine = EditorState.transactionFilter.of((tr): Transaction | Tran
   const specs: { from: number; to: number; insert: string }[] = []
   tr.changes.iterChanges((from, to, _fromB, _toB, inserted) => {
     const text = inserted.toString()
-    if (text === "\n") return
+    // Enter, as plain insertNewline or as insertNewlineAndIndent, which adds the line's leading whitespace.
+    if (/^\r?\n[ \t]*$/.test(text)) return
     specs.push({ from, to, insert: text.replace(/\r?\n/g, " ") })
   })
   if (specs.length === 0) return []

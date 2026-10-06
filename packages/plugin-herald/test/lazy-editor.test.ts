@@ -24,6 +24,11 @@ const WRAPPER = "../src/components/editor/lazy.tsx"
 // A module specifier that names either chunk, with or without an extension.
 const CHUNK = String.raw`["'][^"']*\/(?:code-editor|field-diff)(?:\.tsx?)?["']`
 
+// A type-only import or re-export, anchored to its `from "..."` clause so it
+// cannot swallow the statements after it: `export type Foo = string` has no
+// `from`, and the pattern does not match it.
+const TYPE_ONLY = /\b(?:import|export)\s+type\s*(?:\{[^}]*\}|\*(?:\s+as\s+\w+)?|\w+(?:\s*,\s*\{[^}]*\})?)\s*from\s*["'][^"']*["']/g
+
 /**
  * What a file does with the two chunk modules, other than reach them through
  * a type-only import: any `from "<chunk>"` (named, default, namespace, or an
@@ -33,14 +38,13 @@ const CHUNK = String.raw`["'][^"']*\/(?:code-editor|field-diff)(?:\.tsx?)?["']`
  * ends at its specifier, not at a `;`.
  */
 function reachesChunks(text: string): string[] {
-  const runtime = text.replace(/\b(?:import|export)\s+type\b[^"']*["'][^"']*["']/g, "")
+  const runtime = text.replace(TYPE_ONLY, "")
   const found: string[] = []
   for (const re of [new RegExp(String.raw`\bfrom\s*${CHUNK}`, "g"), new RegExp(String.raw`\bimport\s*${CHUNK}`, "g"), new RegExp(String.raw`\bimport\s*\(\s*${CHUNK}`, "g")]) {
     for (const m of runtime.matchAll(re)) found.push(m[0].replace(/\s+/g, " "))
   }
   return found
 }
-
 
 describe("CodeMirror loads only on demand", () => {
   it("found the sources and both editor files", () => {
@@ -87,6 +91,11 @@ describe("the matcher that guards the boundary", () => {
     expect(hits('import type { A } from "./code-editor"')).toBe(0)
     expect(hits('import type {\n  A,\n  B,\n} from "../editor/field-diff"\nconst x = 1\n')).toBe(0)
     expect(hits('export type { A } from "./code-editor"')).toBe(0)
+  })
+
+  it("is not fooled by a type alias ahead of a real reach", () => {
+    expect(hits('export type Foo = string\nexport { default } from "./code-editor"')).toBe(1)
+    expect(hits('export type Foo = string\nconst m = import("./field-diff")')).toBe(1)
   })
 
   it("does not trip on a type-only import hiding a real one after it", () => {
