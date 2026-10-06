@@ -1,4 +1,4 @@
-import { useState } from "react"
+import { Suspense, lazy, useMemo, useState } from "react"
 import type { ComponentType, ReactNode } from "react"
 import { PluginLink, useQuery } from "@forge-go/dashboard-plugin"
 import type { PluginPageProps } from "@forge-go/dashboard-plugin"
@@ -14,10 +14,18 @@ import { EmptyState } from "@forge-go/dashboard-kit/components/empty-state"
 import { NoneCell } from "@forge-go/dashboard-kit/components/none-cell"
 import { PageHeader } from "@forge-go/dashboard-kit/components/page-header"
 import { QueryBoundary } from "@forge-go/dashboard-kit/components/query-boundary"
+import { Skeleton } from "@forge-go/dashboard-kit/components/skeleton"
 import { Timestamp } from "@forge-go/dashboard-kit/components/timestamp"
 import { formatTimestamp } from "@forge-go/dashboard-kit/lib/format"
-import { KeyStateBadge } from "../badges"
-import { formatDuration, maskedKey, policyPath } from "../format"
+import { KeyStateBadge, RotationReasonBadge } from "../badges"
+import {
+  formatCount,
+  formatDuration,
+  maskedKey,
+  policyPath,
+  rangeBounds,
+  rotationMasked,
+} from "../format"
 import { EndGraceDialog } from "../components/end-grace-dialog"
 import {
   KeyStateActions,
@@ -31,7 +39,26 @@ import { PreviousKeyRow } from "../components/previous-key-row"
 import { RotateKeyDialog } from "../components/rotate-key-dialog"
 import { ScopesEditor, useScopeEditing } from "../components/scopes-editor"
 import type { ScopeEditing } from "../components/scopes-editor"
-import type { KeyDetail, KeyState } from "../types"
+import type {
+  KeyDetail,
+  KeyState,
+  RotationItem,
+  RotationsList,
+  Settings,
+  UsageSeries,
+} from "../types"
+import { WindowCell } from "./rotations"
+
+// Lazy: the usage chart brings Recharts, and this page is eager, in the
+// shell's entry chunk. A static import of usage-chart from here would put
+// Recharts there too. The chart loads in its own chunk, inside a Suspense,
+// once a key with recorded usage asks for it.
+const UsageChart = lazy(() =>
+  import("../components/usage-chart").then((m) => ({ default: m.UsageChart })),
+)
+
+/** How many rotations the key page lists before pointing at the full list. */
+const HISTORY_LIMIT = 10
 
 /**
  * The detail page for one key: what it is, which previous keys still work,
@@ -213,10 +240,27 @@ function isNoSuchKey(error: { code: string; message: string } | undefined | null
   return false
 }
 
-function Section({ title, children }: { title: string; children: ReactNode }) {
+function Section({
+  title,
+  action,
+  children,
+}: {
+  title: string
+  /** A link beside the heading, to the page that shows all of it. */
+  action?: ReactNode
+  children: ReactNode
+}) {
+  const heading = <h2 className="text-sm font-medium">{title}</h2>
   return (
     <section className="flex flex-col gap-2">
-      <h2 className="text-sm font-medium">{title}</h2>
+      {action ? (
+        <div className="flex items-baseline justify-between gap-4">
+          {heading}
+          {action}
+        </div>
+      ) : (
+        heading
+      )}
       {children}
     </section>
   )
@@ -300,6 +344,7 @@ function KeyDetailView({
             <Section title="Scopes">
               <ScopesEditor summary={key} editing={scopeEditing} />
             </Section>
+            <RotationHistorySection keyId={key.id} />
             <MetadataSection metadata={data.metadata} />
           </>
         }
@@ -310,18 +355,177 @@ function KeyDetailView({
               policy={data.policy}
               revoked={key.effectiveState === "revoked"}
             />
-            <Section title="Warden">
-              <p className="text-sm text-muted-foreground">
-                If the Warden hook is installed, it grants this key&apos;s
-                permissions to this subject:
-              </p>
-              {/* On its own, with nothing after it: it gets copied with the id. */}
-              <span className="font-mono text-xs">api_key:{key.id}</span>
-            </Section>
+            <UsageSection keyId={key.id} />
+            <WardenSection keyId={key.id} />
           </>
         }
       />
     </section>
+  )
+}
+
+/** A heading's link to the full page, styled like the overview's View all. */
+const SECTION_LINK = "text-sm underline underline-offset-4"
+
+/**
+ * The key's newest rotations, newest first, with a link to every rotation.
+ * The Rotations page lists every key's, so the link names that.
+ */
+function RotationHistorySection({ keyId }: { keyId: string }) {
+  const list = useQuery<RotationsList>("rotations.list", {
+    keyId,
+    limit: HISTORY_LIMIT,
+  })
+  return (
+    <Section
+      title="Rotation history"
+      action={
+        <PluginLink to="/rotations" aria-label="View all rotations" className={SECTION_LINK}>
+          View all
+        </PluginLink>
+      }
+    >
+      <QueryBoundary title="Rotation history" query={list} skeletonRows={2}>
+        {(data) => {
+          const items = data.items ?? []
+          if (items.length === 0) {
+            return (
+              <p className="text-sm text-muted-foreground">
+                This key has not been rotated.
+              </p>
+            )
+          }
+          return (
+            <>
+              <ul className="flex flex-col divide-y">
+                {items.map((r) => (
+                  <RotationRow key={r.id} item={r} />
+                ))}
+              </ul>
+              {data.hasMore && (
+                <p className="text-sm text-muted-foreground">
+                  {`Showing the ${HISTORY_LIMIT} newest.`}
+                </p>
+              )}
+            </>
+          )
+        }}
+      </QueryBoundary>
+    </Section>
+  )
+}
+
+/** One rotation: when, why, the old key and the key it became, and its window. */
+function RotationRow({ item }: { item: RotationItem }) {
+  return (
+    <li className="flex flex-wrap items-center gap-x-3 gap-y-1 py-2 text-sm first:pt-0 last:pb-0">
+      <Timestamp value={item.rotatedAt} label="rotation time" />
+      <RotationReasonBadge reason={item.reason} />
+      <span className="flex items-center gap-1.5">
+        <span className="font-mono text-xs">{rotationMasked(item, "old")}</span>
+        <span aria-hidden="true" className="text-muted-foreground">
+          →
+        </span>
+        <span className="sr-only">rotated to</span>
+        <span className="font-mono text-xs">{rotationMasked(item, "new")}</span>
+      </span>
+      <span className="text-muted-foreground">
+        <WindowCell item={item} />
+      </span>
+    </li>
+  )
+}
+
+/**
+ * This key's requests over the last 7 UTC days, as the Usage page's chart in
+ * its compact form. Until the application records usage there is nothing to
+ * draw, and seven empty days would read as a key nobody calls.
+ */
+function UsageSection({ keyId }: { keyId: string }) {
+  // Pinned for the life of the section, so the window does not move under
+  // the read and every render asks for the same thing.
+  const [now] = useState(() => Date.now())
+  const bounds = useMemo(() => rangeBounds("7d", now), [now])
+  const series = useQuery<UsageSeries>("usage.series", { keyId, ...bounds })
+  return (
+    <Section
+      title="Usage"
+      action={
+        <PluginLink to="/usage" className={SECTION_LINK}>
+          Open usage
+        </PluginLink>
+      }
+    >
+      <QueryBoundary title="Usage" query={series} skeletonRows={2}>
+        {(data) => {
+          if (!data.recorded) {
+            return (
+              <p className="text-sm text-muted-foreground">
+                Usage appears once your application calls RecordUsage.
+              </p>
+            )
+          }
+          const buckets = data.buckets ?? []
+          const total = buckets.reduce((sum, b) => sum + b.requests, 0)
+          return (
+            <>
+              <p className="text-sm text-muted-foreground">
+                {`${formatCount(total)} ${total === 1 ? "request" : "requests"} in the last 7 days.`}
+              </p>
+              <Suspense
+                fallback={
+                  <div role="status" aria-label="Loading the usage chart">
+                    <Skeleton className="h-24 w-full" />
+                  </div>
+                }
+              >
+                <UsageChart buckets={buckets} period={data.period} compact />
+              </Suspense>
+            </>
+          )
+        }}
+      </QueryBoundary>
+    </Section>
+  )
+}
+
+/**
+ * The Warden subject this key's permissions are granted to. Named as a link
+ * into Warden only when settings says the warden-hook plugin is installed: a
+ * link into a plugin you have not installed goes nowhere. While settings is
+ * loading, or when it cannot be read, the subject stays text, and the read's
+ * error is not shown here: the subject is right either way.
+ */
+function WardenSection({ keyId }: { keyId: string }) {
+  const settings = useQuery<Settings>("settings")
+  const subject = `api_key:${keyId}`
+  const hooked = settings.data?.plugins?.includes("warden-hook") === true
+  return (
+    <Section title="Warden">
+      {hooked ? (
+        <>
+          <p className="text-sm text-muted-foreground">
+            The Warden hook grants this key&apos;s permissions to this subject:
+          </p>
+          {/* Absolute: the subject lives in Warden's scope, not keysmith's. */}
+          <PluginLink
+            to={`/@warden/subjects/api_key/${encodeURIComponent(keyId)}`}
+            className="font-mono text-xs underline underline-offset-4"
+          >
+            {subject}
+          </PluginLink>
+        </>
+      ) : (
+        <>
+          <p className="text-sm text-muted-foreground">
+            If the Warden hook is installed, it grants this key&apos;s
+            permissions to this subject:
+          </p>
+          {/* On its own, with nothing after it: it gets copied with the id. */}
+          <span className="font-mono text-xs">{subject}</span>
+        </>
+      )}
+    </Section>
   )
 }
 
@@ -335,6 +539,7 @@ function ValiditySection({
   const { key } = data
   const previous = data.previousKeys ?? []
   const masked = previousMasked(data)
+  const sentence = validitySentence(key.effectiveState, previous.length)
   return (
     <Section title="Validity">
       {previous.length === 0 ? (
@@ -355,9 +560,9 @@ function ValiditySection({
               />
             ))}
           </ul>
-          <p className="text-sm text-muted-foreground">
-            {validitySentence(key.effectiveState, previous.length)}
-          </p>
+          {sentence && (
+            <p className="text-sm text-muted-foreground">{sentence}</p>
+          )}
         </>
       )}
     </Section>
@@ -366,14 +571,19 @@ function ValiditySection({
 
 /**
  * What an open window means for this key. ValidateKey checks the key's own
- * state and expiry whichever hash is presented, and suspending a key does not
- * end its windows, so on a key that is not active neither hash is accepted
- * even though the window is still open.
+ * state whichever hash is presented, and suspending a key does not end its
+ * windows, so on a suspended key neither hash is accepted even though the
+ * window is still open: it resumes if the key is reactivated in time.
+ *
+ * The server lists no windows for an expired or revoked key, since neither
+ * can ever be accepted again. Should one arrive anyway, this says nothing
+ * rather than claim a key is accepted.
  */
-function validitySentence(state: KeyState, count: number): string {
-  if (state !== "active") {
-    return `Neither the current key nor a previous key is accepted while this key is ${state}. The window keeps running and ends at the time shown.`
+function validitySentence(state: KeyState, count: number): string | null {
+  if (state === "suspended") {
+    return "Neither the current key nor a previous key is accepted while this key is suspended. The window keeps running and ends at the time shown."
   }
+  if (state !== "active") return null
   return count === 1
     ? "Both the current key and this previous key are accepted until then."
     : "The current key and each previous key are accepted until the time shown next to it."

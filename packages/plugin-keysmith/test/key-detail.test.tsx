@@ -1,10 +1,21 @@
-import { describe, expect, it } from "vitest"
+import { afterEach, describe, expect, it, vi } from "vitest"
 import { act, cleanup, fireEvent, screen, waitFor, within } from "@testing-library/react"
 import { ContractError, queryStore } from "@forge-go/dashboard-plugin"
 import type { ScopedClient } from "@forge-go/dashboard-plugin"
+import { formatTimestamp } from "@forge-go/dashboard-kit/lib/format"
 import { KeyDetailPage } from "../src/pages/key-detail"
-import { policyPath } from "../src/format"
-import type { KeyDetail, KeyRotated, KeySummary, PolicyRef } from "../src/types"
+import { policyPath, rangeBounds } from "../src/format"
+import type {
+  KeyDetail,
+  KeyRotated,
+  KeySummary,
+  PolicyRef,
+  RotationItem,
+  RotationsList,
+  Settings,
+  UsageBucket,
+  UsageSeries,
+} from "../src/types"
 import {
   failingClient,
   recordingCommandClient,
@@ -12,6 +23,20 @@ import {
   renderPage,
   stubClient,
 } from "./harness"
+
+// The key page is eager, in the plugin's entry chunk, and Recharts must stay
+// out of it: this package reaches Recharts only through the kit's chart
+// module. Until a test opts in, loading that module throws, so a static
+// import of the chart anywhere under the key page fails this whole file at
+// import time. The usage tests below opt in before the page's lazy chart
+// asks for it, which is the one way it may arrive.
+const chart = vi.hoisted(() => ({ allowed: false }))
+vi.mock("@forge-go/dashboard-kit/components/chart", async (importOriginal) => {
+  if (!chart.allowed) {
+    throw new Error("the key page must not load the kit chart, and Recharts with it, until it asks")
+  }
+  return importOriginal()
+})
 
 function key(over: Partial<KeySummary> = {}): KeySummary {
   return {
@@ -62,8 +87,96 @@ function detail(over: Partial<KeyDetail> = {}): KeyDetail {
   return { ...DETAIL, ...over }
 }
 
+function rotation(over: Partial<RotationItem> = {}): RotationItem {
+  return {
+    id: "krot_1",
+    keyId: "akey_billing",
+    keyName: "Billing service",
+    prefix: "sk",
+    environment: "live",
+    oldHint: "7c1e",
+    newHint: "a3f8",
+    reason: "scheduled",
+    graceSeconds: 5 * 86400,
+    graceEnds: "2026-09-30T10:00:00Z",
+    windowOpen: true,
+    rotatedBy: "usr_rex",
+    rotatedAt: "2026-09-25T10:00:00Z",
+    ...over,
+  }
+}
+
+const NO_ROTATIONS: RotationsList = { items: [], hasMore: false }
+
+function bucket(start: string, over: Partial<UsageBucket> = {}): UsageBucket {
+  return {
+    start,
+    requests: 0,
+    clientErrors: 0,
+    serverErrors: 0,
+    succeeded: 0,
+    avgLatencyMs: null,
+    ...over,
+  }
+}
+
+const WEEK = [
+  "2026-09-29T00:00:00Z",
+  "2026-09-30T00:00:00Z",
+  "2026-10-01T00:00:00Z",
+  "2026-10-02T00:00:00Z",
+  "2026-10-03T00:00:00Z",
+  "2026-10-04T00:00:00Z",
+  "2026-10-05T00:00:00Z",
+]
+
+const NOT_RECORDED: UsageSeries = {
+  period: "daily",
+  buckets: WEEK.map((s) => bucket(s)),
+  recorded: false,
+}
+
+const RECORDED: UsageSeries = {
+  period: "daily",
+  buckets: WEEK.map((s, i) =>
+    bucket(s, {
+      requests: 100 * i + 3,
+      succeeded: 100 * i,
+      clientErrors: 2,
+      serverErrors: 1,
+      avgLatencyMs: 12,
+    }),
+  ),
+  recorded: true,
+}
+
+function settings(plugins: string[]): Settings {
+  return {
+    plugins,
+    storeHealthy: true,
+    storeMessage: "The store answered.",
+    rateLimiterConfigured: false,
+    tenantSource: "config",
+    tenant: "acme",
+    enforcement: [],
+    enforcedFields: 3,
+    defaultGraceSeconds: 86400,
+  }
+}
+
+/**
+ * What every test answers for the page's other reads unless it says
+ * otherwise: no rotations, no usage recorded (so no chart is asked for), and
+ * no Warden hook.
+ */
+const SIDE = {
+  "rotations.list": NO_ROTATIONS,
+  "usage.series": NOT_RECORDED,
+  settings: settings(["audit-hook"]),
+}
+
 async function render(d: KeyDetail = DETAIL) {
-  renderPage(KeyDetailPage, stubClient({ "keys.detail": d }), {
+  renderPage(KeyDetailPage, stubClient({ ...SIDE, "keys.detail": d }), {
     id: "akey_billing",
   })
   await screen.findByRole("heading", { level: 1, name: d.key.name })
@@ -85,7 +198,7 @@ describe("KeyDetailPage header", () => {
   })
 
   it("sends keys.detail with the route id", async () => {
-    const { client, sent } = recordingQueryClient({ "keys.detail": DETAIL })
+    const { client, sent } = recordingQueryClient({ ...SIDE, "keys.detail": DETAIL })
     renderPage(KeyDetailPage, client, { id: "akey_billing" })
     await screen.findByRole("heading", { level: 1 })
     const first = sent.find((s) => s.intent === "keys.detail")
@@ -155,18 +268,29 @@ describe("KeyDetailPage validity", () => {
     expect(within(s).queryByText(/^Both the current key/)).toBeNull()
   })
 
-  it.each(["suspended", "expired", "revoked"] as const)(
-    "says neither key is accepted while the key is %s",
+  it("says neither key is accepted while the key is suspended", async () => {
+    await render(
+      detail({ key: key({ state: "suspended", effectiveState: "suspended" }) }),
+    )
+    const s = section("Validity")
+    expect(within(s).getByText("sk_live_…7c1e")).toBeTruthy()
+    expect(
+      within(s).getByText(
+        "Neither the current key nor a previous key is accepted while this key is suspended. The window keeps running and ends at the time shown.",
+      ),
+    ).toBeTruthy()
+    expect(within(s).queryByText(/accepted until/)).toBeNull()
+  })
+
+  // The server lists no windows for a finished key. If one arrives anyway,
+  // the page makes no claim about which key is accepted.
+  it.each(["expired", "revoked"] as const)(
+    "claims nothing about acceptance for a stray window on a key that is %s",
     async (state) => {
       await render(detail({ key: key({ state, effectiveState: state }) }))
       const s = section("Validity")
       expect(within(s).getByText("sk_live_…7c1e")).toBeTruthy()
-      expect(
-        within(s).getByText(
-          `Neither the current key nor a previous key is accepted while this key is ${state}. The window keeps running and ends at the time shown.`,
-        ),
-      ).toBeTruthy()
-      expect(within(s).queryByText(/accepted until/)).toBeNull()
+      expect(within(s).queryByText(/accepted/)).toBeNull()
     },
   )
 
@@ -341,6 +465,305 @@ describe("KeyDetailPage policy", () => {
     ).toBeTruthy()
     // The subject gets copied with the id, so no period rides along with it.
     expect(section("Warden").textContent?.trim().endsWith("api_key:akey_billing")).toBe(true)
+  })
+})
+
+const PENDING = Symbol("pending")
+
+/**
+ * Answers keys.detail with `d` and the page's other reads from SIDE, with
+ * `over` in place of any of them. An answer that is a ContractError is
+ * thrown, and PENDING never settles. Every read is recorded with its params,
+ * and `settled` names each read once its answer or its error has landed.
+ */
+function sideClient(
+  over: Partial<Record<keyof typeof SIDE, unknown>>,
+  d: KeyDetail = DETAIL,
+) {
+  const answers: Record<string, unknown> = { ...SIDE, ...over, "keys.detail": d }
+  const sent: { intent: string; params?: unknown }[] = []
+  const settled: string[] = []
+  const client = {
+    extension: "keysmith",
+    query: async (intent: string, params?: Record<string, unknown>) => {
+      sent.push({ intent, params })
+      if (!(intent in answers)) {
+        throw new ContractError("NOT_FOUND", `no handler for intent "${intent}"`)
+      }
+      const answer = answers[intent]
+      if (answer === PENDING) return new Promise<never>(() => {})
+      try {
+        if (answer instanceof ContractError) throw answer
+        return answer
+      } finally {
+        settled.push(intent)
+      }
+    },
+    command: async () => {
+      throw new ContractError("NOT_FOUND", "no commands here")
+    },
+  } as unknown as ScopedClient
+  return { client, sent, settled }
+}
+
+async function renderWith(
+  over: Partial<Record<keyof typeof SIDE, unknown>>,
+  d: KeyDetail = DETAIL,
+) {
+  const c = sideClient(over, d)
+  const view = renderPage(KeyDetailPage, c.client, { id: d.key.id })
+  await screen.findByRole("heading", { level: 1, name: d.key.name })
+  return { ...c, container: view.container }
+}
+
+/** Waits for a read to settle, then lets the page render what it brought. */
+async function settle(settled: string[], intent: string) {
+  await waitFor(() => expect(settled).toContain(intent))
+  await act(async () => {})
+}
+
+describe("KeyDetailPage rotation history", () => {
+  const OPEN = rotation()
+  const CLOSED = rotation({
+    id: "krot_0",
+    oldHint: "19d4",
+    newHint: "7c1e",
+    reason: "compromise",
+    graceSeconds: 0,
+    graceEnds: "2026-09-01T10:00:00Z",
+    windowOpen: false,
+    rotatedAt: "2026-09-01T10:00:00Z",
+  })
+
+  it("asks for this key's ten newest rotations", async () => {
+    const { sent, settled } = await renderWith({
+      "rotations.list": { items: [OPEN], hasMore: false },
+    })
+    await settle(settled, "rotations.list")
+    const asked = sent.filter((s) => s.intent === "rotations.list")
+    expect(asked.length).toBeGreaterThan(0)
+    for (const s of asked) {
+      expect(s.params).toEqual({ keyId: "akey_billing", limit: 10 })
+    }
+  })
+
+  it("lists each rotation with when, reason, the old and new keys masked, and its window", async () => {
+    await renderWith({ "rotations.list": { items: [OPEN, CLOSED], hasMore: false } })
+    const s = section("Rotation history")
+    const rows = await within(s).findAllByRole("listitem")
+    expect(rows).toHaveLength(2)
+    const [open, closed] = rows as [HTMLElement, HTMLElement]
+
+    expect(within(open).getByText(formatTimestamp(OPEN.rotatedAt))).toBeTruthy()
+    expect(within(open).getByText("Scheduled")).toBeTruthy()
+    const old = within(open).getByText("sk_live_…7c1e")
+    const now = within(open).getByText("sk_live_…a3f8")
+    for (const el of [old, now]) {
+      expect(el.className).toContain("font-mono")
+      expect(el.className).toContain("text-xs")
+    }
+    // Old first, then the key it was rotated into.
+    const text = open.textContent ?? ""
+    expect(text.indexOf("…7c1e")).toBeLessThan(text.indexOf("…a3f8"))
+    expect(text).toContain(`Window ends ${formatTimestamp(OPEN.graceEnds)}`)
+
+    expect(within(closed).getByText(formatTimestamp(CLOSED.rotatedAt))).toBeTruthy()
+    expect(within(closed).getByText("Compromise")).toBeTruthy()
+    expect(within(closed).getByText("sk_live_…19d4")).toBeTruthy()
+    expect(within(closed).getByText("Closed")).toBeTruthy()
+    expect(closed.textContent).not.toContain("Window ends")
+  })
+
+  it("says so for a record written before hints existed", async () => {
+    await renderWith({
+      "rotations.list": {
+        items: [rotation({ oldHint: "", newHint: "", windowOpen: false })],
+        hasMore: false,
+      },
+    })
+    const row = await within(section("Rotation history")).findByRole("listitem")
+    expect(within(row).getAllByText("(no hint)")).toHaveLength(2)
+  })
+
+  it("says so when the key has not been rotated", async () => {
+    const { settled } = await renderWith({})
+    await settle(settled, "rotations.list")
+    const s = section("Rotation history")
+    expect(within(s).getByText("This key has not been rotated.")).toBeTruthy()
+    expect(within(s).queryByRole("list")).toBeNull()
+  })
+
+  it("links to every rotation", async () => {
+    await renderWith({})
+    const link = within(section("Rotation history")).getByRole("link", {
+      name: "View all rotations",
+    })
+    expect(link.getAttribute("href")).toBe("/rotations")
+  })
+
+  it("says only the newest ten are shown when there are more", async () => {
+    await renderWith({ "rotations.list": { items: [OPEN], hasMore: true } })
+    expect(
+      await within(section("Rotation history")).findByText("Showing the 10 newest."),
+    ).toBeTruthy()
+  })
+
+  it("has no such line when every rotation is shown", async () => {
+    const { settled } = await renderWith({
+      "rotations.list": { items: [OPEN], hasMore: false },
+    })
+    await settle(settled, "rotations.list")
+    expect(within(section("Rotation history")).queryByText(/newest/)).toBeNull()
+  })
+
+  it("shows its own error card when the history cannot be read, and keeps the page", async () => {
+    await renderWith({
+      "rotations.list": new ContractError("INTERNAL", "an internal error occurred"),
+    })
+    const s = section("Rotation history")
+    expect((await within(s).findByRole("alert")).textContent).toBe(
+      "INTERNAL: an internal error occurred",
+    )
+    expect(within(section("Validity")).getByText("sk_live_…7c1e")).toBeTruthy()
+  })
+})
+
+describe("KeyDetailPage usage", () => {
+  afterEach(() => {
+    vi.useRealTimers()
+  })
+
+  const HINT = "Usage appears once your application calls RecordUsage."
+
+  it("loads without the kit chart until the usage chart asks for it", async () => {
+    // The vi.mock at the top is the assertion: this file would not load if
+    // anything the key page imports statically loaded the kit chart.
+    await renderWith({})
+    expect(await within(section("Usage")).findByText(HINT)).toBeTruthy()
+  })
+
+  it("asks for this key's last 7 UTC days, daily", async () => {
+    // Only Date: the page's reads still settle on real timers.
+    vi.useFakeTimers({ toFake: ["Date"] })
+    vi.setSystemTime(new Date("2026-10-05T14:20:00Z"))
+    const { sent } = await renderWith({})
+    await within(section("Usage")).findByText(HINT)
+    const asked = sent.filter((s) => s.intent === "usage.series")
+    expect(asked.length).toBeGreaterThan(0)
+    for (const s of asked) {
+      expect(s.params).toEqual({
+        keyId: "akey_billing",
+        period: "daily",
+        after: "2026-09-29T00:00:00Z",
+        before: "2026-10-06T00:00:00Z",
+      })
+    }
+    expect(asked[0]?.params).toEqual({
+      keyId: "akey_billing",
+      ...rangeBounds("7d", Date.parse("2026-10-05T14:20:00Z")),
+    })
+  })
+
+  it("says usage appears once RecordUsage is called, and draws no chart", async () => {
+    const { container } = await renderWith({})
+    const s = section("Usage")
+    expect(await within(s).findByText(HINT)).toBeTruthy()
+    expect(container.querySelector("[data-chart]")).toBeNull()
+    expect(within(s).queryByText(/requests in the last 7 days/)).toBeNull()
+  })
+
+  it("links to the Usage page", async () => {
+    await renderWith({})
+    const link = within(section("Usage")).getByRole("link", { name: "Open usage" })
+    expect(link.getAttribute("href")).toBe("/usage")
+  })
+
+  it("draws the small chart for this key once its chunk has loaded", async () => {
+    chart.allowed = true
+    await renderWith({ "usage.series": RECORDED })
+    const s = section("Usage")
+    const group = await within(s).findByRole(
+      "group",
+      { name: "Requests per day by outcome, UTC, 7 buckets" },
+      { timeout: 10_000 },
+    )
+    expect(group.getAttribute("data-chart")).not.toBeNull()
+    // Compact: no legend naming the series.
+    expect(within(s).queryByText("4xx client errors")).toBeNull()
+    expect(within(s).getByText("2,121 requests in the last 7 days.")).toBeTruthy()
+    expect(within(s).queryByText(HINT)).toBeNull()
+    expect(within(s).getByRole("link", { name: "Open usage" })).toBeTruthy()
+  })
+
+  it("shows its own error card when usage cannot be read, and keeps the page", async () => {
+    await renderWith({
+      "usage.series": new ContractError("INTERNAL", "an internal error occurred"),
+    })
+    const s = section("Usage")
+    expect((await within(s).findByRole("alert")).textContent).toBe(
+      "INTERNAL: an internal error occurred",
+    )
+    expect(within(section("Validity")).getByText("sk_live_…7c1e")).toBeTruthy()
+  })
+})
+
+describe("KeyDetailPage Warden", () => {
+  const SUBJECT = "api_key:akey_billing"
+  const TODAY =
+    "If the Warden hook is installed, it grants this key's permissions to this subject:"
+
+  function expectText() {
+    const s = section("Warden")
+    expect(within(s).getByText(TODAY)).toBeTruthy()
+    const subject = within(s).getByText(SUBJECT)
+    expect(subject.tagName).not.toBe("A")
+    expect(subject.className).toContain("font-mono")
+    expect(subject.className).toContain("text-xs")
+    expect(within(s).queryByRole("link")).toBeNull()
+    expect(within(s).queryByRole("alert")).toBeNull()
+  }
+
+  it("links the subject to Warden when the warden-hook plugin is installed", async () => {
+    await renderWith({ settings: settings(["audit-hook", "warden-hook"]) })
+    const s = section("Warden")
+    const link = await within(s).findByRole("link", { name: SUBJECT })
+    // Absolute, so the host does not put it under keysmith's own scope.
+    expect(link.getAttribute("href")).toBe("/@warden/subjects/api_key/akey_billing")
+    expect(link.className).toContain("font-mono")
+    expect(link.className).toContain("text-xs")
+    expect(
+      within(s).getByText("The Warden hook grants this key's permissions to this subject:"),
+    ).toBeTruthy()
+    expect(within(s).queryByText(TODAY)).toBeNull()
+    // Nothing after it, as with the text.
+    expect(s.textContent?.trim().endsWith(SUBJECT)).toBe(true)
+  })
+
+  it("names the subject as text when warden-hook is not installed", async () => {
+    const { settled } = await renderWith({ settings: settings(["audit-hook"]) })
+    await settle(settled, "settings")
+    expectText()
+  })
+
+  it("names the subject as text when no hook plugin is installed", async () => {
+    const { settled } = await renderWith({ settings: settings([]) })
+    await settle(settled, "settings")
+    expectText()
+  })
+
+  it("names the subject as text while settings loads", async () => {
+    const { sent } = await renderWith({ settings: PENDING })
+    await waitFor(() => expect(sent.map((s) => s.intent)).toContain("settings"))
+    expectText()
+  })
+
+  it("names the subject as text, with no error, when settings cannot be read", async () => {
+    const { settled } = await renderWith({
+      settings: new ContractError("INTERNAL", "an internal error occurred"),
+    })
+    await settle(settled, "settings")
+    expectText()
+    expect(screen.queryByText(/an internal error occurred/)).toBeNull()
   })
 })
 
@@ -540,7 +963,7 @@ describe("KeyDetailPage End now", () => {
 
   async function renderWithCommands(d: KeyDetail) {
     const { client, sent } = recordingCommandClient(
-      { "keys.detail": d },
+      { ...SIDE, "keys.detail": d },
       { "keys.endGrace": { key: d.key, closed: d.previousKeys.length } },
     )
     renderPage(KeyDetailPage, client, { id: "akey_billing" })
@@ -641,7 +1064,7 @@ describe("KeyDetailPage state actions", () => {
 
   it("asks before suspending, naming the key, and sends keys.suspend with the id", async () => {
     const { client, sent } = recordingCommandClient(
-      { "keys.detail": DETAIL },
+      { ...SIDE, "keys.detail": DETAIL },
       { "keys.suspend": { key: SUSPENDED.key } },
     )
     renderPage(KeyDetailPage, client, { id: "akey_billing" })
@@ -663,7 +1086,7 @@ describe("KeyDetailPage state actions", () => {
 
   it("reactivates straight from the button, once on a double click", async () => {
     const { client, sent } = recordingCommandClient(
-      { "keys.detail": SUSPENDED },
+      { ...SIDE, "keys.detail": SUSPENDED },
       { "keys.reactivate": { key: DETAIL.key } },
     )
     renderPage(KeyDetailPage, client, { id: "akey_billing" })
@@ -679,7 +1102,7 @@ describe("KeyDetailPage state actions", () => {
   it("shows a refused reactivate on the page", async () => {
     const client = {
       extension: "keysmith",
-      query: stubClient({ "keys.detail": SUSPENDED }).query,
+      query: stubClient({ ...SIDE, "keys.detail": SUSPENDED }).query,
       command: async () => {
         throw new ContractError("CONFLICT", "only a suspended key can be reactivated")
       },
@@ -697,7 +1120,7 @@ describe("KeyDetailPage state actions", () => {
     async (button) => {
       const client = {
         extension: "keysmith",
-        query: stubClient({ "keys.detail": SUSPENDED }).query,
+        query: stubClient({ ...SIDE, "keys.detail": SUSPENDED }).query,
         command: async () => {
           throw new ContractError("CONFLICT", "only a suspended key can be reactivated")
         },
@@ -745,6 +1168,7 @@ function hostLikeClient(
   const client = {
     extension: "keysmith",
     query: (intent: string) => {
+      if (intent in SIDE) return Promise.resolve(SIDE[intent as keyof typeof SIDE])
       if (intent !== "keys.detail") {
         return Promise.reject(new ContractError("NOT_FOUND", `no handler for intent "${intent}"`))
       }
