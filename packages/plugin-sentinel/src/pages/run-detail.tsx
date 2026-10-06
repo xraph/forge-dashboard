@@ -1,5 +1,5 @@
-import { useState } from "react"
-import type { ComponentType } from "react"
+import { Fragment, useState } from "react"
+import type { ComponentType, ReactNode } from "react"
 import { PluginLink, usePoll, useQuery } from "@forge-go/dashboard-plugin"
 import type { PluginPageProps } from "@forge-go/dashboard-plugin"
 import { Button } from "@forge-go/dashboard-kit/components/button"
@@ -12,7 +12,16 @@ import { CancelRunDialog, SaveBaselineDialog } from "../components/run-dialogs"
 import { RUN_POLL_MS } from "../components/runs-list"
 import { SettledBoundary } from "../components/settled-boundary"
 import { VerdictBand } from "../components/verdict-band"
-import { formatCost, formatCount, formatDuration, formatScore, shortRunId, suitePath, versionPath } from "../format"
+import {
+  formatCost,
+  formatCount,
+  formatDuration,
+  formatScore,
+  formatThreshold,
+  shortRunId,
+  suitePath,
+  versionPath,
+} from "../format"
 import type { ResultStatus, Run, RunDetail } from "../types"
 
 /** /runs/:id. Guards the id, then keys the body on it. */
@@ -159,7 +168,8 @@ function stats(run: Run) {
 /** The settings the run recorded, or why the threshold comes from config. */
 function ScoredWith({ run }: { run: Run }) {
   const s = run.settings
-  const recorded = s.passThreshold !== undefined || s.regressionThreshold !== undefined || s.scorers !== undefined
+  const recorded =
+    s.passThreshold !== undefined || s.regressionThreshold !== undefined || (s.scorers !== undefined && s.scorers.length > 0)
   if (!recorded) {
     return (
       <p className="text-sm text-muted-foreground">
@@ -167,25 +177,32 @@ function ScoredWith({ run }: { run: Run }) {
       </p>
     )
   }
-  const parts = [
-    s.passThreshold !== undefined ? `pass threshold ${formatScore(s.passThreshold)}` : null,
-    s.regressionThreshold !== undefined ? `regression threshold ${formatScore(s.regressionThreshold)}` : null,
+  // Each setting is recorded on its own, so any of them may be the only one.
+  const clauses: ReactNode[] = [
+    s.passThreshold !== undefined ? `pass threshold ${formatThreshold(s.passThreshold)}` : null,
+    s.regressionThreshold !== undefined ? `regression threshold ${formatThreshold(s.regressionThreshold)}` : null,
     s.concurrency !== undefined ? `concurrency ${s.concurrency}` : null,
-  ].filter((p): p is string => p !== null)
+    s.scorers && s.scorers.length > 0 ? (
+      <>
+        {"the run's scorers "}
+        {s.scorers.map((name, i) => (
+          <span key={`${name}-${i}`}>
+            {i > 0 && ", "}
+            <span className="font-mono text-xs text-foreground">{name}</span>
+          </span>
+        ))}
+      </>
+    ) : null,
+  ].filter((c) => c !== null)
   return (
     <p className="text-sm text-muted-foreground">
-      {`Scored with ${parts.join(", ")}`}
-      {s.scorers && s.scorers.length > 0 && (
-        <>
-          {", and the run's scorers "}
-          {s.scorers.map((name, i) => (
-            <span key={`${name}-${i}`}>
-              {i > 0 && ", "}
-              <span className="font-mono text-xs text-foreground">{name}</span>
-            </span>
-          ))}
-        </>
-      )}
+      {"Scored with "}
+      {clauses.map((clause, i) => (
+        <Fragment key={i}>
+          {i > 0 && (i === clauses.length - 1 ? ", and " : ", ")}
+          {clause}
+        </Fragment>
+      ))}
       .
     </p>
   )

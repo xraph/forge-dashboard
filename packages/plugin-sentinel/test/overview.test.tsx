@@ -17,6 +17,7 @@ describe("OverviewPage", () => {
     expect(within(row).getByRole("link", { name: "Support assistant" }).getAttribute("href")).toBe(`/suites/${SUITE_ID}`)
     expect(within(row).getByText("Release 1.4")).toBeTruthy()
     expect(within(row).getByText("−0.40")).toBeTruthy()
+    expect(within(regressions).getByRole("columnheader", { name: "Worst drop" })).toBeTruthy()
     expect(screen.getByRole("region", { name: "1 run, newest first" })).toBeTruthy()
     expect(screen.getByRole("link", { name: "Every run" }).getAttribute("href")).toBe("/runs")
     expect(screen.queryByRole("region", { name: "No target" })).toBeNull()

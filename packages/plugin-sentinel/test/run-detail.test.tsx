@@ -131,6 +131,14 @@ describe("RunDetailPage", () => {
     expect(screen.getByText("The suite's own prompt")).toBeTruthy()
   })
 
+  it("reads as a sentence when the run recorded only its scorers", async () => {
+    renderNavPage(RunDetailPage, stubClient(answers(runDetail({ run: run({ settings: { scorers: ["contains"] } }) }))), {
+      id: RUN_ID,
+    })
+    const line = await screen.findByText("Scored with", { exact: false })
+    expect(line.textContent).toBe("Scored with the run's scorers contains.")
+  })
+
   it("labels the cost as what the target reported", async () => {
     renderNavPage(RunDetailPage, stubClient(answers()), { id: RUN_ID })
     expect(await screen.findByText("Cost reported by target")).toBeTruthy()

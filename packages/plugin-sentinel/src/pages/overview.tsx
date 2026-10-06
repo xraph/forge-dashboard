@@ -31,7 +31,9 @@ const regressionColumns: Column<RegressionSummary>[] = [
   { id: "baseline", header: "Against baseline", cell: (r) => r.baseline.name },
   {
     id: "worst",
-    header: "Worst case drop",
+    // The server's worst delta: pass rate, average score, a dimension or a
+    // case, whichever fell furthest. Not only a case's.
+    header: "Worst drop",
     align: "end",
     className: "tabular-nums",
     // The destructive colour comes with the icon and the word, never alone.

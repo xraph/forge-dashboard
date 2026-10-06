@@ -73,6 +73,15 @@ export function suiteTabPath(suiteId: string, tab: "cases" | "prompts" | "runs" 
 }
 
 /**
+ * A threshold as configured: two decimals, or three when it has a third
+ * ("0.05", "0.025"), so a rounded threshold never contradicts a delta.
+ */
+export function formatThreshold(value: number): string {
+  const two = value.toFixed(2)
+  return Number(two) === Number(value.toFixed(3)) ? two : value.toFixed(3)
+}
+
+/**
  * A signed change on the 0 to 1 scale, with a real minus sign: "+0.04",
  * "−0.08", "0.00".
  */

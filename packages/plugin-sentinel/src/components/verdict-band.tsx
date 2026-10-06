@@ -2,7 +2,7 @@ import { useEffect, useState } from "react"
 import type { ReactNode } from "react"
 import { CircleCheckIcon, CircleDashedIcon, TriangleAlertIcon } from "@forge-go/dashboard-kit/icons"
 import { cn } from "@forge-go/dashboard-kit/lib/utils"
-import { ago, formatDelta, formatScore, plural } from "../format"
+import { ago, formatDelta, formatScore, formatThreshold, plural } from "../format"
 import type { Regression, Run } from "../types"
 import { ProgressMeter } from "./progress-meter"
 
@@ -53,13 +53,26 @@ export function VerdictBand({
     const name = regression.baseline.name
     const was = regression.baseline.passRate
     const current = was + regression.passRateDelta
-    const threshold = regression.threshold === undefined ? "" : formatScore(regression.threshold)
+    const threshold = regression.threshold === undefined ? "" : formatThreshold(regression.threshold)
     const source = SOURCE[regression.thresholdSource ?? ""] ?? ""
+    // The server's rule: pass rate, average score, each dimension and each
+    // case regress when they fall more than the threshold below the
+    // baseline. The evidence names whichever did, so "Regressed" is never
+    // shown beside numbers that hold.
+    const t = regression.threshold
+    const fell = (delta: number) => t !== undefined && delta < -t - 1e-9
+    const fallenDimensions = Object.entries(regression.dimensionDeltas)
+      .filter(([, delta]) => fell(delta))
+      .sort(([a], [b]) => a.localeCompare(b))
     const evidence = [
       `Pass rate ${formatScore(was)} to ${formatScore(current)} (${formatDelta(regression.passRateDelta)})`,
-      regressed || regression.regressedCases.length > 0
+      fell(regression.avgScoreDelta) ? `Avg score ${formatDelta(regression.avgScoreDelta)}` : null,
+      ...fallenDimensions.map(([dim, delta]) => `${dim} ${formatDelta(delta)}`),
+      regression.regressedCases.length > 0
         ? `${plural(regression.regressedCases.length, "case", "cases")} regressed`
-        : "No case fell past the threshold",
+        : regressed
+          ? null
+          : "No case fell past the threshold",
       regression.missingDimensions.length > 0 ? `${regression.missingDimensions.join(", ")} not measured` : null,
       regression.missingCases.length > 0 ? `${plural(regression.missingCases.length, "case", "cases")} missing from this run` : null,
       regression.newCases.length > 0 ? `${plural(regression.newCases.length, "new case", "new cases")}` : null,

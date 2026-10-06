@@ -160,6 +160,20 @@ describe("ResultDetailPage", () => {
     expect(screen.getByText(CASE_ID).className).toContain("font-mono")
   })
 
+  it("says the input could not be read, not that the case is gone, when the read fails for another reason", async () => {
+    const inner = stubClient(answers())
+    const client = {
+      ...inner,
+      query: (intent: string, params?: Record<string, unknown>) =>
+        intent === "cases.detail"
+          ? Promise.reject(new ContractError("INTERNAL", "store unavailable"))
+          : inner.query(intent, params),
+    } as typeof inner
+    renderNavPage(ResultDetailPage, client, { id: RUN_ID, resultId: RESULT_ID })
+    expect((await screen.findByText("The input could not be read. store unavailable")).getAttribute("role")).toBe("alert")
+    expect(screen.queryByText("The case has been deleted since this run", { exact: false })).toBeNull()
+  })
+
   it("explains an errored result in its own section", async () => {
     open(resultDetail({ status: "error", error: "target timed out after 30s", output: "" }))
     const heading = await screen.findByRole("heading", { name: "Why it could not be judged" })

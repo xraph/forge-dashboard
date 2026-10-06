@@ -112,9 +112,13 @@ function ResultDetailBody({ runId, resultId }: { runId: string; resultId: string
               </h2>
               {testCase.data ? (
                 <PlainText value={testCase.data.input} label="Input" />
-              ) : testCase.error ? (
+              ) : testCase.error?.code === "NOT_FOUND" ? (
                 <p className="text-sm text-muted-foreground">
                   The case has been deleted since this run, so its input is no longer available.
+                </p>
+              ) : testCase.error ? (
+                <p role="alert" className="text-sm text-destructive">
+                  {`The input could not be read. ${testCase.error.message}`}
                 </p>
               ) : (
                 <p role="status" className="text-sm text-muted-foreground">

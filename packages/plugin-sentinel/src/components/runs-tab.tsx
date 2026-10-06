@@ -49,7 +49,7 @@ export function RunsTab({ suiteId, suite }: { suiteId: string; suite: Suite | un
         </p>
         {start}
       </div>
-      <RunsList suiteId={suiteId} emptyAction={start ?? undefined} />
+      <RunsList suiteId={suiteId} />
       {chosen && (
         <StartRunDialog open={starting} onOpenChange={setStarting} suite={chosen.suite} config={chosen.config} />
       )}

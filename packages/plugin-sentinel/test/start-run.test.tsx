@@ -30,6 +30,15 @@ describe("Runs tab", () => {
     expect(screen.queryByLabelText("Suite")).toBeNull()
   })
 
+  it("offers one start button, in the header, when the suite has no runs yet", async () => {
+    renderNavPage(SuiteDetailPage, stubClient(answers({ "runs.list": { items: [], hasMore: false } })), {
+      id: SUITE_ID,
+      tab: "runs",
+    })
+    expect(await screen.findByText("No runs yet.")).toBeTruthy()
+    expect(screen.getAllByRole("button", { name: "Start run" })).toHaveLength(1)
+  })
+
   it("has no start button without a target, and says where to register one", async () => {
     renderNavPage(SuiteDetailPage, stubClient(answers({ "config.get": config({ targets: [] }) })), { id: SUITE_ID, tab: "runs" })
     const setup = await screen.findByRole("link", { name: "Setup" })

@@ -50,6 +50,38 @@ describe("VerdictBand", () => {
     expect(text).not.toContain("not measured")
   })
 
+  it("names the dimension that fell when nothing else did, and claims no regressed case", () => {
+    render(
+      <VerdictBand
+        run={run()}
+        regression={regressed({
+          regressedCases: [],
+          missingDimensions: [],
+          passRateDelta: 0,
+          avgScoreDelta: -0.02,
+          dimensionDeltas: { persona: -0.15, trait: -0.01 },
+        })}
+      />,
+    )
+    const text = screen.getByRole("region", { name: "Verdict" }).textContent ?? ""
+    expect(text).toContain(`Regressed against "Release 1.4"`)
+    expect(text).toContain("persona −0.15")
+    expect(text).not.toContain("trait")
+    expect(text).not.toContain("Avg score")
+    expect(text).not.toContain("cases regressed")
+    expect(text).not.toContain("No case fell")
+  })
+
+  it("names an average score that fell past the threshold", () => {
+    render(<VerdictBand run={run()} regression={regressed({ regressedCases: [], avgScoreDelta: -0.08 })} />)
+    expect(screen.getByRole("region", { name: "Verdict" }).textContent).toContain("Avg score −0.08")
+  })
+
+  it("keeps a threshold's third decimal", () => {
+    render(<VerdictBand run={run()} regression={regressed({ threshold: 0.025 })} />)
+    expect(screen.getByRole("region", { name: "Verdict" }).textContent).toContain("threshold 0.025 recorded by the run")
+  })
+
   it("names a baseline from another suite as the reason there is no comparison", () => {
     render(<VerdictBand run={run()} regression={regression({ state: "notComparable", reason: "otherSuite" })} />)
     expect(screen.getByText("That baseline belongs to another suite, so it is not compared")).toBeTruthy()
