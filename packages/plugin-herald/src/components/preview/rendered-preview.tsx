@@ -8,6 +8,8 @@ import { countSms } from "./sms"
 import { buildSrcdoc } from "./srcdoc"
 
 const output = (result: PreviewResult | undefined, field: TemplateField) => result?.fields.find((f) => f.field === field)?.output ?? ""
+/** A field that failed to render is not an empty one: say so, rather than reporting an absence. */
+const failed = (result: PreviewResult | undefined, field: TemplateField) => result?.fields.find((f) => f.field === field)?.rendered === false
 
 /** Lengths platforms usually cut at. Typical, not exact. */
 const PUSH_TITLE = 65
@@ -39,13 +41,15 @@ function EmailPreview({ result, from }: { result?: PreviewResult; from?: { email
   const html = output(result, "html")
   const text = output(result, "text")
   const subject = output(result, "subject")
+  const htmlFailed = failed(result, "html")
+  const textFailed = failed(result, "text")
   return (
     <div className="flex flex-col gap-3">
       <dl className="grid grid-cols-[5rem_1fr] gap-x-3 gap-y-1 rounded-md border p-3 text-sm">
         <dt className="text-muted-foreground">From</dt>
         <dd>{from?.email ? `${from.name ? `${from.name} ` : ""}<${from.email}>` : <NoneCell label="sender" />}</dd>
         <dt className="text-muted-foreground">Subject</dt>
-        <dd className="font-medium">{subject || <NoneCell label="subject" />}</dd>
+        <dd className="font-medium">{failed(result, "subject") ? <span className="font-normal text-muted-foreground">The subject didn't render.</span> : subject || <NoneCell label="subject" />}</dd>
       </dl>
       <Tabs defaultValue="rendered">
         <TabsList>
@@ -54,7 +58,9 @@ function EmailPreview({ result, from }: { result?: PreviewResult; from?: { email
           <TabsTrigger value="source">Source</TabsTrigger>
         </TabsList>
         <TabsContent value="rendered" className="flex flex-col gap-2">
-          {html === "" ? (
+          {htmlFailed ? (
+            <p className="text-sm text-muted-foreground">The HTML part didn't render. See the problems listed with this preview.</p>
+          ) : html === "" ? (
             <p className="text-sm text-muted-foreground">No HTML part. Mail clients show the text part.</p>
           ) : (
             <iframe title="Rendered email" sandbox="" srcDoc={buildSrcdoc(html, remote)} className="h-80 w-full rounded-md border bg-white" />
@@ -66,10 +72,10 @@ function EmailPreview({ result, from }: { result?: PreviewResult; from?: { email
           {!remote && <p className="text-xs text-muted-foreground">Remote images are off, so a tracking pixel in the template can't fire from your browser.</p>}
         </TabsContent>
         <TabsContent value="text">
-          <pre className="overflow-x-auto rounded-md border p-3 font-mono text-xs whitespace-pre-wrap">{text || "(no text part)"}</pre>
+          <pre className="overflow-x-auto rounded-md border p-3 font-mono text-xs whitespace-pre-wrap">{textFailed ? "(the text part didn't render)" : text || "(no text part)"}</pre>
         </TabsContent>
         <TabsContent value="source">
-          <pre className="overflow-x-auto rounded-md border p-3 font-mono text-xs whitespace-pre-wrap">{html || "(no HTML part)"}</pre>
+          <pre className="overflow-x-auto rounded-md border p-3 font-mono text-xs whitespace-pre-wrap">{htmlFailed ? "(the HTML part didn't render)" : html || "(no HTML part)"}</pre>
         </TabsContent>
       </Tabs>
     </div>
@@ -86,7 +92,7 @@ function SmsPreview({ result, from }: { result?: PreviewResult; from?: { phone?:
           From <span className="font-mono text-xs">{from.phone}</span>
         </p>
       )}
-      <pre className="overflow-x-auto rounded-md border p-3 font-mono text-xs whitespace-pre-wrap">{text || "(empty)"}</pre>
+      <pre className="overflow-x-auto rounded-md border p-3 font-mono text-xs whitespace-pre-wrap">{failed(result, "text") ? "(the text part didn't render)" : text || "(empty)"}</pre>
       <p className="text-muted-foreground">
         {plural(count.segments, "segment")}, {count.encoding}, {plural(count.units, "unit")} (up to {count.perSegment} per segment)
       </p>
@@ -99,8 +105,8 @@ function ShortPreview({ result }: { result?: PreviewResult }) {
   const text = output(result, "text")
   return (
     <div className="flex flex-col gap-2 rounded-md border p-3 text-sm">
-      <p className="font-medium">{title || <NoneCell label="title" />}</p>
-      <p className="whitespace-pre-wrap">{text || <NoneCell label="body" />}</p>
+      <p className="font-medium">{failed(result, "title") ? <span className="font-normal text-muted-foreground">The title didn't render.</span> : title || <NoneCell label="title" />}</p>
+      <p className="whitespace-pre-wrap">{failed(result, "text") ? <span className="text-muted-foreground">The body didn't render.</span> : text || <NoneCell label="body" />}</p>
       <p className="text-xs text-muted-foreground">
         Title {title.length} / about {PUSH_TITLE}, body {text.length} / about {PUSH_BODY}. Typical cut-offs, not exact ones.
       </p>
@@ -112,8 +118,8 @@ function PlainPreview({ result }: { result?: PreviewResult }) {
   const subject = output(result, "subject")
   return (
     <div className="flex flex-col gap-2 text-sm">
-      {subject && <p className="font-medium">{subject}</p>}
-      <pre className="overflow-x-auto rounded-md border p-3 font-mono text-xs whitespace-pre-wrap">{output(result, "text") || "(empty)"}</pre>
+      {failed(result, "subject") ? <p className="text-muted-foreground">The subject didn't render.</p> : subject && <p className="font-medium">{subject}</p>}
+      <pre className="overflow-x-auto rounded-md border p-3 font-mono text-xs whitespace-pre-wrap">{failed(result, "text") ? "(the text part didn't render)" : output(result, "text") || "(empty)"}</pre>
     </div>
   )
 }

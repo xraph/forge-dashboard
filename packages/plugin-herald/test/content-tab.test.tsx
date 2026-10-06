@@ -216,9 +216,14 @@ describe("ContentTab", () => {
 
   it("says when the sample data doesn't parse, and offers to refill it", async () => {
     const { onSampleRefill } = setup({ sampleError: "Not valid JSON: Unexpected token" })
-    expect(await screen.findByText("Not valid JSON: Unexpected token The preview uses the last sample data that parsed.")).toBeTruthy()
+    expect(await screen.findByText("Not valid JSON: Unexpected token. The preview uses the last sample data that parsed.")).toBeTruthy()
     fireEvent.click(screen.getByRole("button", { name: "Refill from variables" }))
     expect(onSampleRefill).toHaveBeenCalled()
+  })
+
+  it("doesn't double a full stop the sample error already ends with", async () => {
+    setup({ sampleError: "Not valid JSON: Unexpected end of input." })
+    expect(await screen.findByText("Not valid JSON: Unexpected end of input. The preview uses the last sample data that parsed.")).toBeTruthy()
   })
 
   it("says when the preview didn't render", async () => {

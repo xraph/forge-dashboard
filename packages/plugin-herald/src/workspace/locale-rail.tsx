@@ -239,7 +239,9 @@ function AddLocaleDialog({ open, onOpenChange, template, copyFrom, copyName, onC
     onCreated(result.version)
   }
 
-  const hint = bad ? "A locale is a tag like en or pt-BR." : taken ? (value === "" ? "This template already has a fallback version." : `This template already has a ${value} version.`) : hasFallback ? "A tag like fr or pt-BR." : "A tag like fr or pt-BR. Leave it empty to add the fallback version, which answers any locale without one."
+  // Nothing typed and a fallback exists: the button is disabled, but the field isn't wrong yet, so no red until there is a value to blame.
+  const untouchedTaken = taken && value === ""
+  const hint = bad ? "A locale is a tag like en or pt-BR." : untouchedTaken ? "A tag like fr or pt-BR." : taken ? `This template already has a ${value} version.` : hasFallback ? "A tag like fr or pt-BR." : "A tag like fr or pt-BR. Leave it empty to add the fallback version, which answers any locale without one."
 
   return (
     <Dialog
@@ -263,14 +265,14 @@ function AddLocaleDialog({ open, onOpenChange, template, copyFrom, copyName, onC
               autoComplete="off"
               spellCheck={false}
               value={locale}
-              aria-invalid={bad || taken || undefined}
+              aria-invalid={bad || (taken && !untouchedTaken) || undefined}
               aria-describedby="new-locale-hint"
               onChange={(e) => {
                 create.reset()
                 setLocale(e.target.value)
               }}
             />
-            <p id="new-locale-hint" className={bad || taken ? "text-xs text-destructive" : "text-xs text-muted-foreground"}>
+            <p id="new-locale-hint" className={bad || (taken && !untouchedTaken) ? "text-xs text-destructive" : "text-xs text-muted-foreground"}>
               {hint}
             </p>
           </div>

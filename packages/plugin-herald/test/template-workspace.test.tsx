@@ -144,7 +144,7 @@ describe("TemplateWorkspacePage", () => {
   it("keeps rendering with the last sample data that parsed", async () => {
     const { queried } = open()
     fireEvent.change(await screen.findByLabelText("Sample data"), { target: { value: "{nope" } })
-    expect(await screen.findByText(/^Not valid JSON: .* The preview uses the last sample data that parsed\.$/)).toBeTruthy()
+    expect(await screen.findByText(/^Not valid JSON: .*[.!?] The preview uses the last sample data that parsed\.$/)).toBeTruthy()
     fireEvent.change(screen.getByLabelText("Subject (en)"), { target: { value: "Changed" } })
     await waitFor(() => expect((renders(queried).at(-1)?.params.content as { subject: string }).subject).toBe("Changed"))
     expect(renders(queried).at(-1)?.params.data).toEqual({ customer_name: "example customer name", amount: "example amount", invoice_url: "https://example.com/" })

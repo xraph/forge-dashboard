@@ -34,6 +34,20 @@ describe("VariablesTab", () => {
     expect((screen.getByLabelText("Description of invoice_url") as HTMLInputElement).value).toBe("Where the invoice lives")
   })
 
+  it("lays the table out fixed, with widths on the header cells, so typing never moves a column", () => {
+    setup()
+    const table = screen.getByRole("table", { name: "3 variables" })
+    expect(table.className).toContain("table-fixed")
+    const heads = within(table).getAllByRole("columnheader")
+    expect(heads.map((h) => h.textContent)).toEqual(["Name", "Type", "Required", "Default", "Description", "Order and removal"])
+    expect(heads[0]!.className).toContain("w-[28%]")
+    expect(heads[1]!.className).toContain("w-[16%]")
+    expect(heads[2]!.className).toContain("w-[9%]")
+    expect(heads[3]!.className).toContain("w-[18%]")
+    expect(heads[4]!.className).not.toMatch(/\bw-/)
+    expect(heads[5]!.className).toContain("w-44")
+  })
+
   it("counts zero and says what having none means", () => {
     setup([])
     expect(screen.getByRole("table", { name: "0 variables" })).toBeTruthy()

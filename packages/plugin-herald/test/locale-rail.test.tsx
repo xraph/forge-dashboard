@@ -181,8 +181,22 @@ describe("LocaleRail", () => {
     fireEvent.change(within(form).getByLabelText("Locale"), { target: { value: "fr" } })
     expect(within(form).getByText("This template already has a fr version.")).toBeTruthy()
     fireEvent.change(within(form).getByLabelText("Locale"), { target: { value: "" } })
-    expect(within(form).getByText("This template already has a fallback version.")).toBeTruthy()
+    expect(within(form).getByText("A tag like fr or pt-BR.")).toBeTruthy()
+    expect(within(form).queryByText("This template already has a fallback version.")).toBeNull()
+    expect((within(form).getByRole("button", { name: "Add locale" }) as HTMLButtonElement).disabled).toBe(true)
     expect(sent).toEqual([])
+  })
+
+  it("opens with a neutral hint, not a red error, when a fallback exists and nothing is typed", async () => {
+    setup()
+    fireEvent.click(screen.getByRole("button", { name: "Add locale" }))
+    const form = await screen.findByRole("dialog")
+    const input = within(form).getByLabelText("Locale")
+    const hint = within(form).getByText("A tag like fr or pt-BR.")
+    expect(hint.className).not.toContain("text-destructive")
+    expect(input.getAttribute("aria-invalid")).toBeNull()
+    expect(within(form).queryByText(/already has/)).toBeNull()
+    expect((within(form).getByRole("button", { name: "Add locale" }) as HTMLButtonElement).disabled).toBe(true)
   })
 
   it("ties the add locale hint and error to the input", async () => {

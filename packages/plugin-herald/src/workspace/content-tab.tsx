@@ -166,7 +166,7 @@ export function ContentTab(props: ContentTabProps) {
           <CodeEditor key={`sample:${props.sampleKey}`} label="Sample data" initial={props.sampleText} language="json" onChange={props.onSampleChange} />
           {/* Always mounted, text set later: a live region announces what changes inside it. */}
           <p role="status" className="text-xs text-destructive empty:sr-only">
-            {props.sampleError ? `${props.sampleError} The preview uses the last sample data that parsed.` : ""}
+            {props.sampleError ? `${/[.!?]$/.test(props.sampleError) ? props.sampleError : `${props.sampleError}.`} The preview uses the last sample data that parsed.` : ""}
           </p>
         </div>
         <CommandAlert error={preview.error} title="The preview didn't render" />

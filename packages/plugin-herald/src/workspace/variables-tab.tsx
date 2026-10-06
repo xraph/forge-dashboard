@@ -57,16 +57,16 @@ export function VariablesTab({ variables, onChange }: { variables: VariableWire[
 
   return (
     <div ref={root} className="flex flex-col gap-4">
-      <table className="w-full text-sm">
+      <table className="w-full table-fixed text-sm">
         <caption className="mb-2 text-left text-sm text-muted-foreground">{plural(variables.length, "variable")}</caption>
         <thead>
           <tr className="text-left text-muted-foreground">
-            <th className="py-1 pr-2 font-medium">Name</th>
-            <th className="py-1 pr-2 font-medium">Type</th>
-            <th className="py-1 pr-2 font-medium">Required</th>
-            <th className="py-1 pr-2 font-medium">Default</th>
+            <th className="w-[28%] py-1 pr-2 font-medium">Name</th>
+            <th className="w-[16%] py-1 pr-2 font-medium">Type</th>
+            <th className="w-[9%] py-1 pr-2 font-medium">Required</th>
+            <th className="w-[18%] py-1 pr-2 font-medium">Default</th>
             <th className="py-1 pr-2 font-medium">Description</th>
-            <th className="py-1">
+            <th className="w-44 py-1">
               <span className="sr-only">Order and removal</span>
             </th>
           </tr>

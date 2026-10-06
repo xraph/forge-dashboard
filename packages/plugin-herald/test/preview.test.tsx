@@ -85,6 +85,47 @@ describe("RenderedPreview", () => {
     expect(frame.getAttribute("sandbox")).toBe("")
   })
 
+  it("says the HTML part didn't render when it failed, and shows no frame", () => {
+    const failed: PreviewResult = { fields: [{ field: "subject", output: "Hi", rendered: true }, { field: "html", output: "", rendered: false }, { field: "text", output: "Hello", rendered: true }], diagnostics: [] }
+    const { container } = render(<RenderedPreview channel="email" result={failed} stale={false} />)
+    expect(screen.getByText("The HTML part didn't render. See the problems listed with this preview.")).toBeTruthy()
+    expect(screen.queryByText(/No HTML part/)).toBeNull()
+    expect(container.querySelector("iframe")).toBeNull()
+  })
+
+  it("keeps No HTML part for an HTML field that rendered empty", () => {
+    const empty: PreviewResult = { fields: [{ field: "subject", output: "Hi", rendered: true }, { field: "html", output: "", rendered: true }, { field: "text", output: "Hello", rendered: true }], diagnostics: [] }
+    const { container } = render(<RenderedPreview channel="email" result={empty} stale={false} />)
+    expect(screen.getByText("No HTML part. Mail clients show the text part.")).toBeTruthy()
+    expect(screen.queryByText(/didn't render/)).toBeNull()
+    expect(container.querySelector("iframe")).toBeNull()
+  })
+
+  it("says the subject and text parts didn't render, rather than none", () => {
+    const failed: PreviewResult = { fields: [{ field: "subject", output: "", rendered: false }, { field: "html", output: "<p>x</p>", rendered: true }, { field: "text", output: "", rendered: false }], diagnostics: [] }
+    render(<RenderedPreview channel="email" result={failed} stale={false} />)
+    expect(screen.getByText("The subject didn't render.")).toBeTruthy()
+    fireEvent.click(screen.getByRole("tab", { name: "Text" }))
+    expect(screen.getByText("(the text part didn't render)")).toBeTruthy()
+    expect(screen.queryByText("(no text part)")).toBeNull()
+  })
+
+  it("says a failed SMS, push, in-app and plain field didn't render", () => {
+    const failed = (...fields: Array<"subject" | "text" | "title">): PreviewResult => ({ fields: fields.map((field) => ({ field, output: "", rendered: false })), diagnostics: [] })
+    const { rerender } = render(<RenderedPreview channel="sms" result={failed("text")} stale={false} />)
+    expect(screen.getByText("(the text part didn't render)")).toBeTruthy()
+    expect(screen.queryByText("(empty)")).toBeNull()
+    rerender(<RenderedPreview channel="push" result={failed("title", "text")} stale={false} />)
+    expect(screen.getByText("The title didn't render.")).toBeTruthy()
+    expect(screen.getByText("The body didn't render.")).toBeTruthy()
+    rerender(<RenderedPreview channel="inapp" result={failed("title", "text")} stale={false} />)
+    expect(screen.getByText("The title didn't render.")).toBeTruthy()
+    rerender(<RenderedPreview channel="webhook" result={failed("subject", "text")} stale={false} />)
+    expect(screen.getByText("The subject didn't render.")).toBeTruthy()
+    expect(screen.getByText("(the text part didn't render)")).toBeTruthy()
+    expect(screen.queryByText("(empty)")).toBeNull()
+  })
+
   it("counts SMS segments under the text", () => {
     render(<RenderedPreview channel="sms" result={result({ text: "a".repeat(161) })} stale={false} />)
     expect(screen.getByText("2 segments, GSM-7, 161 units (up to 153 per segment)")).toBeTruthy()
