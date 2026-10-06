@@ -102,6 +102,27 @@ describe("TemplateWorkspacePage", () => {
     expect((await screen.findByLabelText("HTML (en)") as HTMLTextAreaElement).value).toBe("<p>Mine</p>")
   })
 
+  it("stays on the version it was showing while a new locale is on its way into the template", async () => {
+    const DE: VersionWire = { ...FR, id: "htpv_new", locale: "de", subject: "Ihre Quittung", active: false }
+    const withDe: TemplatesDetailResponse = { ...DETAIL, template: { ...TEMPLATE, versions: [...TEMPLATE.versions, DE] } }
+    let land: (d: TemplatesDetailResponse) => void = () => {}
+    const later = new Promise<TemplatesDetailResponse>((resolve) => {
+      land = resolve
+    })
+    open((_i, call) => (call === 0 ? DETAIL : later), { "versions.create": { answer: { version: DE }, invalidates: VERSION_WRITE } })
+    fireEvent.click(await within(await screen.findByRole("complementary", { name: "Locales" })).findByRole("button", { name: /^fr/ }))
+    expect(await screen.findByLabelText("Subject (fr)")).toBeTruthy()
+    fireEvent.click(screen.getByRole("button", { name: "Add locale" }))
+    const form = await screen.findByRole("dialog")
+    fireEvent.change(within(form).getByLabelText("Locale"), { target: { value: "de" } })
+    fireEvent.click(within(form).getByRole("button", { name: "Add locale" }))
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull())
+    expect(screen.getByLabelText("Subject (fr)")).toBeTruthy()
+    expect(screen.queryByLabelText("Subject (en)")).toBeNull()
+    await act(async () => land(withDe))
+    expect(await screen.findByLabelText("Subject (de)")).toBeTruthy()
+  })
+
   it("says what was saved when a save stops partway, and keeps the rest unsaved", async () => {
     const saved = { ...EN, html: "<p>New</p>" }
     const { sent } = open((_i, call) => (call === 0 ? DETAIL : withVersion(DETAIL, saved)), {

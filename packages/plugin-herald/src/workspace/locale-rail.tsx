@@ -1,4 +1,4 @@
-import { useState } from "react"
+import { useRef, useState } from "react"
 import type { FormEvent } from "react"
 import { useCommand, useQuery } from "@forge-go/dashboard-plugin"
 import { Button } from "@forge-go/dashboard-kit/components/button"
@@ -89,6 +89,20 @@ function AnswersLine({ answers }: { answers: NonNullable<Answers> }) {
   )
 }
 
+/**
+ * Focuses once the confirm dialog has left the page. While it is open the rest
+ * of the page is inert, and as it closes it hands focus back to the element
+ * that opened it, so an earlier focus() would be lost either way.
+ */
+function focusWhenDialogGone(target: () => HTMLElement | null) {
+  let frames = 0
+  const tick = () => {
+    if (document.querySelector('[role="alertdialog"]') === null || frames++ > 120) target()?.focus()
+    else requestAnimationFrame(tick)
+  }
+  requestAnimationFrame(tick)
+}
+
 /** Everything a dialog words itself from, taken when it opens so a refetch can't reword it. */
 type Pending = { kind: "toggle" | "delete"; version: VersionWire; versions: VersionWire[]; dirty: boolean }
 
@@ -99,6 +113,7 @@ export function LocaleRail({ template, selectedId, onSelect, dirtyIds, copyFrom,
   const [confirming, setConfirming] = useState(false)
   const [adding, setAdding] = useState(false)
   const [addKey, setAddKey] = useState(0)
+  const addButton = useRef<HTMLButtonElement>(null)
   const versions = template.versions
   const cmd = pending?.kind === "delete" ? remove : update
 
@@ -116,6 +131,8 @@ export function LocaleRail({ template, selectedId, onSelect, dirtyIds, copyFrom,
     const result = pending.kind === "toggle" ? await update.execute({ templateId: template.id, versionId: v.id, active: !v.active }) : await remove.execute({ templateId: template.id, versionId: v.id })
     if (result === undefined) return
     setConfirming(false)
+    // The delete button is gone with its version, so focus would fall to the page. Add locale is the next thing a person does here.
+    if (pending.kind === "delete") focusWhenDialogGone(() => addButton.current)
   }
 
   const copy = pending === null ? { title: "", description: "", confirmLabel: "Confirm", destructive: false } : pending.kind === "toggle" ? toggleCopy(pending.version, pending.versions) : deleteCopy(pending.version, pending.versions, pending.dirty)
@@ -157,6 +174,7 @@ export function LocaleRail({ template, selectedId, onSelect, dirtyIds, copyFrom,
           </ul>
         )}
         <Button
+          ref={addButton}
           type="button"
           size="sm"
           variant="outline"
@@ -246,12 +264,15 @@ function AddLocaleDialog({ open, onOpenChange, template, copyFrom, copyName, onC
               spellCheck={false}
               value={locale}
               aria-invalid={bad || taken || undefined}
+              aria-describedby="new-locale-hint"
               onChange={(e) => {
                 create.reset()
                 setLocale(e.target.value)
               }}
             />
-            <p className={bad || taken ? "text-xs text-destructive" : "text-xs text-muted-foreground"}>{hint}</p>
+            <p id="new-locale-hint" className={bad || taken ? "text-xs text-destructive" : "text-xs text-muted-foreground"}>
+              {hint}
+            </p>
           </div>
           {copyFrom && (
             <label className="flex items-center gap-2 text-sm">
@@ -321,14 +342,21 @@ function LocaleTester({ templateId, versions }: { templateId: string; versions: 
   return (
     <div className="flex flex-col gap-2">
       <Label htmlFor="locale-test">Test a locale</Label>
-      <Input id="locale-test" className="font-mono text-xs" placeholder="fr-CA" autoComplete="off" spellCheck={false} value={typed} onChange={(e) => setTyped(e.target.value)} />
-      {locale !== "" && !valid && <p className="text-xs text-destructive">A locale is a tag like en or pt-BR.</p>}
-      {valid && answer.error && (
-        <p className="text-xs text-destructive">
-          {answer.error.code}: {answer.error.message}
+      <Input id="locale-test" className="font-mono text-xs" placeholder="fr-CA" autoComplete="off" spellCheck={false} value={typed} aria-invalid={(locale !== "" && !valid) || undefined} aria-describedby={locale !== "" && !valid ? "locale-test-problem" : undefined} onChange={(e) => setTyped(e.target.value)} />
+      {locale !== "" && !valid && (
+        <p id="locale-test-problem" className="text-xs text-destructive">
+          A locale is a tag like en or pt-BR.
         </p>
       )}
-      {valid && answer.data && <Ladder answer={answer.data} versions={versions} />}
+      {/* Always mounted, content set later: a live region announces what changes inside it. */}
+      <div aria-live="polite">
+        {valid && answer.error && (
+          <p className="text-xs text-destructive">
+            {answer.error.code}: {answer.error.message}
+          </p>
+        )}
+        {valid && answer.data && <Ladder answer={answer.data} versions={versions} />}
+      </div>
     </div>
   )
 }

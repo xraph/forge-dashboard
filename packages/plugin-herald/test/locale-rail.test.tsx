@@ -24,12 +24,13 @@ function setup(over: Partial<LocaleRailProps> = {}, commands: Record<string, obj
     { ...queries },
     { "versions.update": { version: EN }, "versions.delete": { ok: true, id: EN.id }, "versions.create": { version: { ...FR, id: "htpv_new", locale: "de" } }, ...commands },
   )
-  render(
+  const ui = (props: Partial<LocaleRailProps>) => (
     <PluginProvider client={client}>
-      <LocaleRail template={detail} selectedId={EN.id} onSelect={onSelect} dirtyIds={new Set()} copyFrom={{ subject: "S", html: "H", text: "T", title: "" }} copyName="the en version" onCreated={onCreated} {...over} />
+      <LocaleRail template={detail} selectedId={EN.id} onSelect={onSelect} dirtyIds={new Set()} copyFrom={{ subject: "S", html: "H", text: "T", title: "" }} copyName="the en version" onCreated={onCreated} {...over} {...props} />
     </PluginProvider>
   )
-  return { onSelect, onCreated, sent, queried }
+  const { rerender } = render(ui({}))
+  return { onSelect, onCreated, sent, queried, reload: (props: Partial<LocaleRailProps>) => rerender(ui(props)) }
 }
 
 const rail = () => screen.getByRole("complementary", { name: "Locales" })
@@ -110,6 +111,16 @@ describe("LocaleRail", () => {
     expect(within(dialog()).getByRole("button", { name: "Take offline" }).className.split(/\s+/)).toContain("text-destructive")
   })
 
+  it("keeps saying what it said when the template reloads under an open dialog", () => {
+    const { reload } = setup()
+    fireEvent.click(screen.getByRole("switch", { name: "Live: en version" }))
+    const text = "A request for en will then get the fallback version. Requests for en-* with no live version of their own will then get the fallback version."
+    expect(within(dialog()).getByText(text)).toBeTruthy()
+    reload({ template: { ...detail, versions: [FALLBACK, EN, { ...FR, active: true }] } })
+    expect(within(dialog()).getByText("Take en offline?")).toBeTruthy()
+    expect(within(dialog()).getByText(text)).toBeTruthy()
+  })
+
   it("says deleting an inactive version changes nothing for sends", () => {
     setup()
     fireEvent.click(screen.getByRole("button", { name: "Delete fr version" }))
@@ -123,6 +134,14 @@ describe("LocaleRail", () => {
     expect(within(dialog()).getByText("A request for en will then get the fallback version. Requests for en-* with no live version of their own will then get the fallback version. Its content is deleted and can't be brought back. Its unsaved edits go with it.")).toBeTruthy()
     fireEvent.click(within(dialog()).getByRole("button", { name: "Delete version" }))
     await waitFor(() => expect(sent).toEqual([{ intent: "versions.delete", payload: { templateId: detail.id, versionId: EN.id } }]))
+  })
+
+  it("moves focus to Add locale once a delete has gone through", async () => {
+    setup()
+    fireEvent.click(screen.getByRole("button", { name: "Delete fr version" }))
+    fireEvent.click(within(dialog()).getByRole("button", { name: "Delete version" }))
+    await waitFor(() => expect(screen.queryByRole("alertdialog")).toBeNull())
+    await waitFor(() => expect(document.activeElement).toBe(within(rail()).getByRole("button", { name: "Add locale" })))
   })
 
   it("keeps the dialog open with the refusal when a delete fails", async () => {
@@ -164,6 +183,20 @@ describe("LocaleRail", () => {
     fireEvent.change(within(form).getByLabelText("Locale"), { target: { value: "" } })
     expect(within(form).getByText("This template already has a fallback version.")).toBeTruthy()
     expect(sent).toEqual([])
+  })
+
+  it("ties the add locale hint and error to the input", async () => {
+    setup()
+    fireEvent.click(screen.getByRole("button", { name: "Add locale" }))
+    const form = await screen.findByRole("dialog")
+    const input = within(form).getByLabelText("Locale")
+    const hint = () => document.getElementById(input.getAttribute("aria-describedby") ?? "")?.textContent
+    fireEvent.change(input, { target: { value: "de" } })
+    expect(hint()).toBe("A tag like fr or pt-BR.")
+    fireEvent.change(input, { target: { value: "e" } })
+    expect(hint()).toBe("A locale is a tag like en or pt-BR.")
+    fireEvent.change(input, { target: { value: "fr" } })
+    expect(hint()).toBe("This template already has a fr version.")
   })
 
   it("shows the server's refusal inside the add dialog", async () => {
@@ -224,10 +257,28 @@ describe("Test a locale", () => {
     expect(await screen.findByText(/Nothing answers it, so a send in/)).toBeTruthy()
   })
 
+  it("announces the ladder from a live region that is there before the answer", async () => {
+    setup({}, {}, { "templates.resolve": FALLS_BACK })
+    const region = rail().querySelector('[aria-live="polite"]')
+    expect(region).not.toBeNull()
+    expect(region?.textContent).toBe("")
+    fireEvent.change(screen.getByLabelText("Test a locale"), { target: { value: "fr-CA" } })
+    const ladder = await screen.findByRole("list", { name: "How fr-CA resolves" })
+    expect(region?.contains(ladder)).toBe(true)
+  })
+
+  it("announces a refusal from the same live region", async () => {
+    setup({}, {}, { "templates.resolve": new ContractError("UNAVAILABLE", "store is down") })
+    const region = rail().querySelector('[aria-live="polite"]')
+    fireEvent.change(screen.getByLabelText("Test a locale"), { target: { value: "fr-CA" } })
+    await waitFor(() => expect(region?.textContent).toContain("UNAVAILABLE: store is down"))
+  })
+
   it("says a malformed locale is malformed and asks nothing", async () => {
     const { queried } = setup({}, {}, { "templates.resolve": FALLS_BACK })
     fireEvent.change(screen.getByLabelText("Test a locale"), { target: { value: "f" } })
-    expect(await screen.findByText("A locale is a tag like en or pt-BR.")).toBeTruthy()
+    const message = await screen.findByText("A locale is a tag like en or pt-BR.")
+    expect(screen.getByLabelText("Test a locale").getAttribute("aria-describedby")).toBe(message.id)
     expect(queried.filter((q) => q.intent === "templates.resolve")).toEqual([])
   })
 })

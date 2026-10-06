@@ -48,9 +48,13 @@ interface SaveState {
 const NO_FUNCS: string[] = []
 const UNSAVED = "This template has edits that aren't saved. Leave the page and lose them?"
 
-/** The version shown first: the one the default locale gets, else the live fallback, else any live one, else the first. */
-function pick(versions: VersionWire[], selectedId: string | null, defaultLocale: string | undefined): VersionWire | undefined {
-  return versions.find((v) => v.id === selectedId) ?? versions.find((v) => v.active && v.locale === defaultLocale) ?? versions.find((v) => v.active && v.locale === "") ?? versions.find((v) => v.active) ?? versions[0]
+/**
+ * The version to show: the selected one; while that isn't in the list yet (a new
+ * locale on its way in with the refetch), the one already on screen; else the
+ * one the default locale gets, else the live fallback, else any live one, else the first.
+ */
+function pick(versions: VersionWire[], selectedId: string | null, shownId: string | null, defaultLocale: string | undefined): VersionWire | undefined {
+  return versions.find((v) => v.id === selectedId) ?? versions.find((v) => v.id === shownId) ?? versions.find((v) => v.active && v.locale === defaultLocale) ?? versions.find((v) => v.active && v.locale === "") ?? versions.find((v) => v.active) ?? versions[0]
 }
 
 /** The revisions after a rebase: one more for every field whose text the rebase changed under the page. */
@@ -132,7 +136,10 @@ function Editor({ id, snap, setSnap, reloadError, onRetry }: { id: string; snap:
   const canSave = changes.length > 0 && blocked === null && !save.saving
   useUnsavedGuard(changes.length > 0, UNSAVED)
 
-  const current = pick(template.versions, selectedId, engine.data?.defaultLocale)
+  const [shownId, setShownId] = useState<string | null>(null)
+  // Before anything is selected the default pick may still move (engine.info), so only a real selection falls back to what is on screen.
+  const current = pick(template.versions, selectedId, selectedId === null ? null : shownId, engine.data?.defaultLocale)
+  if (current && current.id !== shownId) setShownId(current.id)
   // The default pick depends on engine.info, which can land after the template.
   // Pin the choice once both have settled so a late answer can't move the editor
   // to another version in the middle of an edit.
