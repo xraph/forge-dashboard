@@ -175,4 +175,42 @@ export interface KeyOnly {
   key: KeySummary
 }
 
-export type RotationReason = "manual" | "compromise" | "policy"
+export type RotationReason = "manual" | "compromise" | "policy" | "scheduled"
+
+/**
+ * One rotation as rotations.list answers it. Mirrors contract.RotationItem.
+ * Neither key's hash is carried; the masked forms are built here from the
+ * prefix, environment and hints.
+ */
+export interface RotationItem {
+  id: string
+  keyId: string
+  /** null, with prefix and environment, when the key no longer exists in this tenant. */
+  keyName: string | null
+  prefix: string | null
+  environment: string | null
+  /** "" on records written before hints existed. */
+  oldHint: string
+  /** "" likewise. */
+  newHint: string
+  /** A RotationReason, or a value this page does not know by name. */
+  reason: string
+  /** 0 is a real zero-grace rotation, not unset. */
+  graceSeconds: number
+  graceEnds: string
+  /**
+   * The window is still running: the key exists and is neither expired nor
+   * revoked, the record has an old hint, and graceEnds is ahead. A suspended
+   * key's window counts as open, though its old key is refused until the key
+   * is reactivated. Always false when keyName is null.
+   */
+  windowOpen: boolean
+  rotatedBy?: string
+  rotatedAt: string
+}
+
+/** rotations.list, newest first. No total: hasMore says whether a next page exists. */
+export interface RotationsList {
+  items: RotationItem[]
+  hasMore: boolean
+}

@@ -1,6 +1,7 @@
 import { definePlugin } from "@forge-go/dashboard-plugin"
 import {
   KeyRoundIcon,
+  RefreshCwIcon,
   ShieldCheckIcon,
   TagsIcon,
 } from "@forge-go/dashboard-kit/icons"
@@ -8,16 +9,27 @@ import { KeyDetailPage } from "./pages/key-detail"
 import { KeysPage } from "./pages/keys"
 import { PoliciesPage } from "./pages/policies"
 import { PolicyDetailPage } from "./pages/policy-detail"
+import { RotationsPage } from "./pages/rotations"
 import { ScopesPage } from "./pages/scopes"
 
-export { KeyDetailPage, KeysPage, PoliciesPage, PolicyDetailPage, ScopesPage }
-export { KeyStateBadge } from "./badges"
+export {
+  KeyDetailPage,
+  KeysPage,
+  PoliciesPage,
+  PolicyDetailPage,
+  RotationsPage,
+  ScopesPage,
+}
+export { KeyStateBadge, RotationReasonBadge } from "./badges"
 export {
   ENVIRONMENTS,
   formatRateLimit,
   keyPath,
   maskedKey,
   policyPath,
+  REASON_LABEL,
+  ROTATION_REASONS,
+  rotationMasked,
   splitDuration,
   STATE_LABEL,
   STATES,
@@ -37,6 +49,9 @@ export type {
   PolicyRef,
   PolicySummary,
   PreviousKey,
+  RotationItem,
+  RotationReason,
+  RotationsList,
   ScopesList,
   ScopeSummary,
 } from "./types"
@@ -79,6 +94,13 @@ export const keysmithPlugin = definePlugin({
       icon: <TagsIcon />,
       group: "API keys",
     },
+    {
+      label: "Rotations",
+      to: "/rotations",
+      priority: 3,
+      icon: <RefreshCwIcon />,
+      group: "API keys",
+    },
   ],
   routes: [
     { path: "/keys", element: KeysPage },
@@ -90,6 +112,7 @@ export const keysmithPlugin = definePlugin({
     // policy names on the key list.
     { path: "/policies/:id", element: PolicyDetailPage },
     { path: "/scopes", element: ScopesPage },
+    { path: "/rotations", element: RotationsPage },
   ],
 })
 

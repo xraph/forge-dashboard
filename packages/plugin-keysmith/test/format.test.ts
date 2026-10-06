@@ -5,13 +5,50 @@ import {
   keyPath,
   maskedKey,
   policyPath,
+  rotationMasked,
   splitDuration,
   toSeconds,
 } from "../src/format"
+import type { RotationItem } from "../src/types"
 
 describe("maskedKey", () => {
   it("shows prefix and environment, then only the hint", () => {
     expect(maskedKey({ prefix: "sk", environment: "live", hint: "a3f8" })).toBe("sk_live_…a3f8")
+  })
+})
+
+describe("rotationMasked", () => {
+  const item: RotationItem = {
+    id: "krot_1",
+    keyId: "akey_1",
+    keyName: "Billing service",
+    prefix: "sk",
+    environment: "live",
+    oldHint: "9c1e",
+    newHint: "a3f8",
+    reason: "manual",
+    graceSeconds: 86400,
+    graceEnds: "2026-10-06T00:00:00Z",
+    windowOpen: true,
+    rotatedAt: "2026-10-05T00:00:00Z",
+  }
+
+  it("masks either key the way the key list does", () => {
+    expect(rotationMasked(item, "new")).toBe("sk_live_…a3f8")
+    expect(rotationMasked(item, "old")).toBe("sk_live_…9c1e")
+  })
+
+  it("shows only the hint when the key, and so its prefix, is gone", () => {
+    const gone = { ...item, keyName: null, prefix: null, environment: null }
+    expect(rotationMasked(gone, "new")).toBe("…a3f8")
+    expect(rotationMasked(gone, "old")).toBe("…9c1e")
+  })
+
+  it("says there is no hint on a record written before hints existed", () => {
+    const hintless = { ...item, oldHint: "", newHint: "" }
+    expect(rotationMasked(hintless, "new")).toBe("(no hint)")
+    expect(rotationMasked(hintless, "old")).toBe("(no hint)")
+    expect(rotationMasked({ ...hintless, prefix: null }, "new")).toBe("(no hint)")
   })
 })
 

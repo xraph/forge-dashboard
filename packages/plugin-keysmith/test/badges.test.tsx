@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest"
 import { render } from "@testing-library/react"
-import { KeyStateBadge } from "../src/badges"
+import { KeyStateBadge, RotationReasonBadge } from "../src/badges"
 import type { KeySummary } from "../src/types"
 
 function summary(over: Partial<KeySummary>): KeySummary {
@@ -104,5 +104,37 @@ describe("KeyStateBadge", () => {
       />,
     )
     expect(badge().textContent).toBe("Suspended")
+  })
+})
+
+describe("RotationReasonBadge", () => {
+  it("shows a compromise as destructive, the rotation someone scans for", () => {
+    render(<RotationReasonBadge reason="compromise" />)
+    expect(badge().textContent).toBe("Compromise")
+    expectVariant("destructive")
+  })
+
+  it("shows a policy rotation as secondary", () => {
+    render(<RotationReasonBadge reason="policy" />)
+    expect(badge().textContent).toBe("Policy")
+    expectVariant("secondary")
+  })
+
+  it("shows a manual rotation as an outline", () => {
+    render(<RotationReasonBadge reason="manual" />)
+    expect(badge().textContent).toBe("Manual")
+    expectVariant("outline")
+  })
+
+  it("shows a scheduled rotation as an outline", () => {
+    render(<RotationReasonBadge reason="scheduled" />)
+    expect(badge().textContent).toBe("Scheduled")
+    expectVariant("outline")
+  })
+
+  it("shows a reason it does not know by name as written, in an outline", () => {
+    render(<RotationReasonBadge reason="imported" />)
+    expect(badge().textContent).toBe("imported")
+    expectVariant("outline")
   })
 })

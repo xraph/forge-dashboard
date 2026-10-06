@@ -5,6 +5,7 @@ import keysmithPlugin, {
   keysmithPlugin as named,
   PoliciesPage,
   PolicyDetailPage,
+  RotationsPage,
   ScopesPage,
 } from "../src/index"
 
@@ -94,6 +95,21 @@ describe("keysmithPlugin", () => {
     const route = keysmithPlugin.routes.find((r) => r.path === "/scopes")
     expect(ScopesPage).toBeTypeOf("function")
     expect(route?.element).toBe(ScopesPage)
+  })
+
+  it("puts Rotations after Scopes at /rotations, in the same group", () => {
+    const nav = keysmithPlugin.nav ?? []
+    const rotations = nav.find((n) => n.label === "Rotations")
+    expect(rotations?.to).toBe("/rotations")
+    expect(rotations?.group).toBe("API keys")
+    expect(rotations?.priority).toBe(3)
+    expect(rotations?.icon).toBeTruthy()
+  })
+
+  it("mounts the Rotations page at the route its nav entry points at", () => {
+    const route = keysmithPlugin.routes.find((r) => r.path === "/rotations")
+    expect(RotationsPage).toBeTypeOf("function")
+    expect(route?.element).toBe(RotationsPage)
   })
 
   it("gives every nav entry an icon", () => {

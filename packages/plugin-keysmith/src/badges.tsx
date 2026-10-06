@@ -1,6 +1,6 @@
 import { Badge } from "@forge-go/dashboard-kit/components/badge"
-import { STATE_LABEL } from "./format"
-import type { KeySummary } from "./types"
+import { REASON_LABEL, STATE_LABEL } from "./format"
+import type { KeySummary, RotationReason } from "./types"
 
 /*
  * Badge mapping for key state. Whatever holds most rows is the quietest:
@@ -45,4 +45,32 @@ export function KeyStateBadge({ summary }: { summary: KeySummary }) {
   return (
     <Badge variant="secondary">{STATE_LABEL[state] ?? String(state)}</Badge>
   )
+}
+
+/*
+ * Badge mapping for rotation reason. Manual and scheduled rotations are the
+ * routine ones, and most rows, so they are `outline`. A policy rotation is
+ * notable but not wrong: `secondary`. A compromise is the rotation somebody
+ * scans this list to find: `destructive`. A reason this page does not know
+ * by name shows as written, in an outline, rather than claiming a weight.
+ */
+const REASON_VARIANT: Record<
+  RotationReason,
+  "outline" | "secondary" | "destructive"
+> = {
+  manual: "outline",
+  scheduled: "outline",
+  policy: "secondary",
+  compromise: "destructive",
+}
+
+function isKnownReason(reason: string): reason is RotationReason {
+  return Object.hasOwn(REASON_LABEL, reason)
+}
+
+export function RotationReasonBadge({ reason }: { reason: string }) {
+  if (!isKnownReason(reason)) {
+    return <Badge variant="outline">{reason}</Badge>
+  }
+  return <Badge variant={REASON_VARIANT[reason]}>{REASON_LABEL[reason]}</Badge>
 }

@@ -1,4 +1,10 @@
-import type { Environment, KeyState, PolicyDetail } from "./types"
+import type {
+  Environment,
+  KeyState,
+  PolicyDetail,
+  RotationItem,
+  RotationReason,
+} from "./types"
 
 /**
  * A key as a person may see it: prefix, environment, then only the hint.
@@ -10,6 +16,21 @@ export function maskedKey(k: {
   hint: string
 }): string {
   return `${k.prefix}_${k.environment}_…${k.hint}`
+}
+
+/**
+ * Either key of a rotation, masked like `maskedKey`. A key that no longer
+ * exists has no prefix to show, so only the hint is left. A record written
+ * before hints existed has neither, and says so.
+ */
+export function rotationMasked(
+  item: Pick<RotationItem, "prefix" | "environment" | "oldHint" | "newHint">,
+  which: "old" | "new",
+): string {
+  const hint = which === "old" ? item.oldHint : item.newHint
+  if (hint === "") return "(no hint)"
+  if (item.prefix === null || item.environment === null) return `…${hint}`
+  return maskedKey({ prefix: item.prefix, environment: item.environment, hint })
 }
 
 /** The detail page for one key. The id is encoded so a stray "/" cannot change the route. */
@@ -35,6 +56,21 @@ export const STATES: { value: KeyState; label: string }[] = [
   { value: "suspended", label: STATE_LABEL.suspended },
   { value: "revoked", label: STATE_LABEL.revoked },
   { value: "expired", label: STATE_LABEL.expired },
+]
+
+export const REASON_LABEL: Record<RotationReason, string> = {
+  manual: "Manual",
+  compromise: "Compromise",
+  policy: "Policy",
+  scheduled: "Scheduled",
+}
+
+/** The reasons a rotation list can be filtered on: every one the contract accepts. */
+export const ROTATION_REASONS: { value: RotationReason; label: string }[] = [
+  { value: "manual", label: REASON_LABEL.manual },
+  { value: "compromise", label: REASON_LABEL.compromise },
+  { value: "policy", label: REASON_LABEL.policy },
+  { value: "scheduled", label: REASON_LABEL.scheduled },
 ]
 
 export const ENVIRONMENTS: { value: Environment; label: string }[] = [
