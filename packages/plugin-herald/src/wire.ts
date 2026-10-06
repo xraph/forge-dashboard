@@ -396,3 +396,42 @@ export interface ScopesSetRequest {
 export interface ScopesSetResponse {
   rule: ScopeRule
 }
+
+/** templates.update: pointers in Go, so an absent field is left alone. Slug and channel can't change. */
+export interface TemplatesUpdateRequest {
+  id: string
+  name?: string
+  category?: string
+  enabled?: boolean
+  variables?: VariableWire[]
+}
+export interface TemplatesDeleteRequest {
+  id: string
+}
+/** versions.create. `active` defaults to true on the server, so the workspace always sends it. */
+export interface VersionsCreateRequest {
+  templateId: string
+  locale: string
+  subject: string
+  html: string
+  text: string
+  title: string
+  active?: boolean
+}
+/** versions.update: pointers, so only the changed fields travel. A version's locale can't change. */
+export interface VersionsUpdateRequest {
+  templateId: string
+  versionId: string
+  subject?: string
+  html?: string
+  text?: string
+  title?: string
+  active?: boolean
+}
+export interface VersionsDeleteRequest {
+  templateId: string
+  versionId: string
+}
+export interface VersionResponse {
+  version: VersionWire
+}
