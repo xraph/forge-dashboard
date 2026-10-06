@@ -1,5 +1,7 @@
+import { lazy } from "react"
 import { definePlugin } from "@forge-go/dashboard-plugin"
 import {
+  ChartColumnIcon,
   KeyRoundIcon,
   RefreshCwIcon,
   ShieldCheckIcon,
@@ -12,6 +14,11 @@ import { PolicyDetailPage } from "./pages/policy-detail"
 import { RotationsPage } from "./pages/rotations"
 import { ScopesPage } from "./pages/scopes"
 
+// Lazy, and exported from nowhere here: Recharts lives in the chunk this
+// loads, the one Ledger's Usage and Chronicle's Activity share. A static
+// import from this file would put it in the shell's entry chunk.
+const UsagePage = lazy(() => import("./pages/usage"))
+
 export {
   KeyDetailPage,
   KeysPage,
@@ -22,20 +29,26 @@ export {
 }
 export { KeyStateBadge, RotationReasonBadge } from "./badges"
 export {
+  bucketTick,
+  bucketTitle,
   ENVIRONMENTS,
+  formatCount,
+  formatLatency,
   formatRateLimit,
   keyPath,
   maskedKey,
   policyPath,
   REASON_LABEL,
   ROTATION_REASONS,
+  rangeBounds,
   rotationMasked,
   splitDuration,
   STATE_LABEL,
   STATES,
   toSeconds,
+  USAGE_RANGES,
 } from "./format"
-export type { DurationUnit } from "./format"
+export type { DurationUnit, UsageRange, UsageRangeId } from "./format"
 export type {
   Environment,
   KeyDetail,
@@ -54,6 +67,11 @@ export type {
   RotationsList,
   ScopesList,
   ScopeSummary,
+  UsageBucket,
+  UsagePeriod,
+  UsageRecordItem,
+  UsageRecords,
+  UsageSeries,
 } from "./types"
 
 /**
@@ -101,6 +119,13 @@ export const keysmithPlugin = definePlugin({
       icon: <RefreshCwIcon />,
       group: "API keys",
     },
+    {
+      label: "Usage",
+      to: "/usage",
+      priority: 4,
+      icon: <ChartColumnIcon />,
+      group: "API keys",
+    },
   ],
   routes: [
     { path: "/keys", element: KeysPage },
@@ -113,6 +138,7 @@ export const keysmithPlugin = definePlugin({
     { path: "/policies/:id", element: PolicyDetailPage },
     { path: "/scopes", element: ScopesPage },
     { path: "/rotations", element: RotationsPage },
+    { path: "/usage", element: UsagePage },
   ],
 })
 

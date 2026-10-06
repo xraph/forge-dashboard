@@ -1,5 +1,7 @@
+import { Suspense } from "react"
 import { describe, expect, it } from "vitest"
-import { resolvePluginState } from "@forge-go/dashboard-plugin"
+import { render, screen } from "@testing-library/react"
+import { PluginProvider, resolvePluginState } from "@forge-go/dashboard-plugin"
 import type { Capabilities } from "@forge-go/dashboard-plugin"
 import keysmithPlugin, {
   keysmithPlugin as named,
@@ -8,6 +10,8 @@ import keysmithPlugin, {
   RotationsPage,
   ScopesPage,
 } from "../src/index"
+import { UsagePage } from "../src/pages/usage"
+import { stubClient } from "./harness"
 
 function capabilities(
   ...contributors: { name: string; configured?: boolean }[]
@@ -110,6 +114,52 @@ describe("keysmithPlugin", () => {
     const route = keysmithPlugin.routes.find((r) => r.path === "/rotations")
     expect(RotationsPage).toBeTypeOf("function")
     expect(route?.element).toBe(RotationsPage)
+  })
+
+  it("puts Usage after Rotations at /usage, in the same group", () => {
+    const nav = keysmithPlugin.nav ?? []
+    const usage = nav.find((n) => n.label === "Usage")
+    expect(usage?.to).toBe("/usage")
+    expect(usage?.group).toBe("API keys")
+    expect(usage?.priority).toBe(4)
+    expect(usage?.icon).toBeTruthy()
+  })
+
+  it("loads the Usage page lazily, so Recharts stays out of the entry chunk", () => {
+    const route = keysmithPlugin.routes.find((r) => r.path === "/usage")
+    const element = route?.element as unknown as { $$typeof?: symbol }
+    expect(element?.$$typeof).toBe(Symbol.for("react.lazy"))
+    // Every other route is eager.
+    const lazyPaths = keysmithPlugin.routes
+      .filter(
+        (r) =>
+          (r.element as unknown as { $$typeof?: symbol }).$$typeof ===
+          Symbol.for("react.lazy"),
+      )
+      .map((r) => r.path)
+    expect(lazyPaths).toEqual(["/usage"])
+  })
+
+  it("mounts the Usage page at the route its nav entry points at", async () => {
+    expect(UsagePage).toBeTypeOf("function")
+    const route = keysmithPlugin.routes.find((r) => r.path === "/usage")
+    if (!route) throw new Error("no /usage route")
+    const Page = route.element
+    render(
+      <PluginProvider
+        client={stubClient({
+          "keys.list": { keys: [], total: 0 },
+          "usage.series": { period: "hourly", buckets: [], recorded: false },
+          "usage.records": { items: [], total: 0 },
+        })}
+      >
+        <Suspense fallback={null}>
+          <Page params={{}} />
+        </Suspense>
+      </PluginProvider>,
+    )
+    expect(await screen.findByRole("heading", { name: "Usage" })).toBeTruthy()
+    expect(await screen.findByText("No usage recorded yet.")).toBeTruthy()
   })
 
   it("gives every nav entry an icon", () => {

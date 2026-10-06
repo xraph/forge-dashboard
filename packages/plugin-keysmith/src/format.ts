@@ -4,6 +4,7 @@ import type {
   PolicyDetail,
   RotationItem,
   RotationReason,
+  UsagePeriod,
 } from "./types"
 
 /**
@@ -162,4 +163,123 @@ export function formatRateLimit(
   if (!p.rateLimit) return null
   if (!p.rateLimitWindowSeconds) return `${p.rateLimit} with no window`
   return `${p.rateLimit} per ${formatDuration(p.rateLimitWindowSeconds)}`
+}
+
+/**
+ * The ranges the Usage page offers. Each one ends with the bucket now falls
+ * in, so the current hour, day or month is always the last column.
+ */
+export interface UsageRange {
+  id: string
+  label: string
+  period: UsagePeriod
+  hours?: number
+  days?: number
+  months?: number
+}
+
+export const USAGE_RANGES = [
+  { id: "24h", label: "24 hours", period: "hourly", hours: 24 },
+  { id: "7d", label: "7 days", period: "daily", days: 7 },
+  { id: "30d", label: "30 days", period: "daily", days: 30 },
+  { id: "12m", label: "12 months", period: "monthly", months: 12 },
+] as const satisfies readonly UsageRange[]
+
+export type UsageRangeId = (typeof USAGE_RANGES)[number]["id"]
+
+const HOUR_MS = 3_600_000
+
+/** RFC3339 in UTC with whole seconds, the form the contract echoes back. */
+function rfc3339(ms: number): string {
+  return new Date(ms).toISOString().replace(/\.\d{3}Z$/, "Z")
+}
+
+/**
+ * The usage.series window for a range, in UTC. `before` is the start of the
+ * bucket after the one `now` falls in, so the current bucket is included,
+ * and `after` is whole buckets earlier, so every column is a whole hour, day
+ * or month. UTC because the contract buckets in UTC: a local day would
+ * straddle two columns.
+ */
+export function rangeBounds(
+  id: UsageRangeId,
+  now: number | Date,
+): { after: string; before: string; period: UsagePeriod } {
+  const range: UsageRange =
+    USAGE_RANGES.find((r) => r.id === id) ?? USAGE_RANGES[0]
+  const ms = typeof now === "number" ? now : now.getTime()
+  const d = new Date(ms)
+  const y = d.getUTCFullYear()
+  const m = d.getUTCMonth()
+  const day = d.getUTCDate()
+  let after: number
+  let before: number
+  switch (range.period) {
+    case "hourly":
+      before = Math.floor(ms / HOUR_MS) * HOUR_MS + HOUR_MS
+      after = before - (range.hours ?? 24) * HOUR_MS
+      break
+    case "daily":
+      // Date.UTC carries a day or month past its end into the next one.
+      before = Date.UTC(y, m, day + 1)
+      after = Date.UTC(y, m, day + 1 - (range.days ?? 7))
+      break
+    case "monthly":
+      before = Date.UTC(y, m + 1, 1)
+      after = Date.UTC(y, m + 1 - (range.months ?? 12), 1)
+      break
+  }
+  return { after: rfc3339(after), before: rfc3339(before), period: range.period }
+}
+
+// Fixed English names, not the browser's locale: the axis and the table must
+// say the same thing, and both say UTC.
+const MONTHS = [
+  "Jan", "Feb", "Mar", "Apr", "May", "Jun",
+  "Jul", "Aug", "Sep", "Oct", "Nov", "Dec",
+]
+
+const pad2 = (n: number) => String(n).padStart(2, "0")
+
+/** A bucket's axis label, in UTC: "14:00", "3 Oct" or "Oct 2026". */
+export function bucketTick(start: string, period: UsagePeriod): string {
+  const d = new Date(start)
+  switch (period) {
+    case "hourly":
+      return `${pad2(d.getUTCHours())}:00`
+    case "daily":
+      return `${d.getUTCDate()} ${MONTHS[d.getUTCMonth()]}`
+    case "monthly":
+      return `${MONTHS[d.getUTCMonth()]} ${d.getUTCFullYear()}`
+  }
+}
+
+/**
+ * A bucket named in full, for the tooltip and the table: "3 Oct 2026, 14:00
+ * UTC", "3 Oct 2026" or "Oct 2026". 24 hours spans two dates, so an hour
+ * alone would be ambiguous there.
+ */
+export function bucketTitle(start: string, period: UsagePeriod): string {
+  const d = new Date(start)
+  const date = `${d.getUTCDate()} ${MONTHS[d.getUTCMonth()]} ${d.getUTCFullYear()}`
+  switch (period) {
+    case "hourly":
+      return `${date}, ${pad2(d.getUTCHours())}:00 UTC`
+    case "daily":
+      return date
+    case "monthly":
+      return `${MONTHS[d.getUTCMonth()]} ${d.getUTCFullYear()}`
+  }
+}
+
+const count = new Intl.NumberFormat()
+
+/** A count with thousands separators: "1,200". */
+export function formatCount(n: number): string {
+  return count.format(n)
+}
+
+/** Latency in whole milliseconds, as the contract sends it: "12 ms". */
+export function formatLatency(ms: number): string {
+  return `${count.format(ms)} ms`
 }

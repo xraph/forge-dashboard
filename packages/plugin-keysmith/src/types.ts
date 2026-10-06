@@ -214,3 +214,58 @@ export interface RotationsList {
   items: RotationItem[]
   hasMore: boolean
 }
+
+export type UsagePeriod = "hourly" | "daily" | "monthly"
+
+/**
+ * One UTC bucket of usage.series. Every bucket in the range is present,
+ * empty ones included, so a quiet hour reads as zero and not as missing.
+ */
+export interface UsageBucket {
+  /** RFC3339 UTC: the start of the hour, day or month. */
+  start: string
+  requests: number
+  /** Status 400 to 499. */
+  clientErrors: number
+  /** Status 500 and up. */
+  serverErrors: number
+  /** Status below 400, so a redirect counts as succeeded. */
+  succeeded: number
+  /** The mean rounded down; null for an empty bucket. */
+  avgLatencyMs: number | null
+}
+
+/** usage.series. */
+export interface UsageSeries {
+  /** Echoes the request. */
+  period: UsagePeriod
+  /** Ascending, never null. */
+  buckets: UsageBucket[]
+  /**
+   * False when the tenant has no usage rows at all, at any time, for any
+   * key: the application has never called RecordUsage. Not the same as a
+   * range with no requests in it.
+   */
+  recorded: boolean
+}
+
+/** One recorded request. Mirrors contract.UsageRecordItem. */
+export interface UsageRecordItem {
+  id: string
+  keyId: string
+  method: string
+  endpoint: string
+  statusCode: number
+  /** Whole milliseconds, truncated. */
+  latencyMs: number
+  /** Left out when the application recorded none. */
+  ipAddress?: string
+  /** RFC3339 UTC. */
+  at: string
+}
+
+/** usage.records, newest first. `total` counts every matching row, unpaged. */
+export interface UsageRecords {
+  items: UsageRecordItem[]
+  total: number
+}
