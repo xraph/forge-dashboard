@@ -64,8 +64,8 @@ describe("LocaleRail", () => {
     const { sent } = setup()
     fireEvent.click(screen.getByRole("switch", { name: "Live: en version" }))
     expect(within(dialog()).getByText("Take en offline?")).toBeTruthy()
-    expect(within(dialog()).getByText("A request for en will then get the fallback version.")).toBeTruthy()
-    expect(within(dialog()).getByRole("button", { name: "Take offline" }).className.split(/\s+/)).toContain("text-destructive")
+    expect(within(dialog()).getByText("A request for en will then get the fallback version. Requests for en-* with no live version of their own will then get the fallback version.")).toBeTruthy()
+    expect(within(dialog()).getByRole("button", { name: "Take offline" }).className.split(/\s+/)).not.toContain("text-destructive")
     fireEvent.click(within(dialog()).getByRole("button", { name: "Take offline" }))
     await waitFor(() => expect(sent).toEqual([{ intent: "versions.update", payload: { templateId: detail.id, versionId: EN.id, active: false } }]))
     await waitFor(() => expect(screen.queryByRole("alertdialog")).toBeNull())
@@ -75,7 +75,7 @@ describe("LocaleRail", () => {
     setup()
     fireEvent.click(screen.getByRole("switch", { name: "Live: fr version" }))
     expect(within(dialog()).getByText("Put fr live?")).toBeTruthy()
-    expect(within(dialog()).getByText("A request for fr will then get the fr version.")).toBeTruthy()
+    expect(within(dialog()).getByText("A request for fr will then get the fr version. Requests for fr-* with no live version of their own will then get the fr version.")).toBeTruthy()
     // The kit Button has no data-variant; the destructive variant is its text-destructive class.
     expect(within(dialog()).getByRole("button", { name: "Put live" }).className.split(/\s+/)).not.toContain("text-destructive")
   })
@@ -83,14 +83,44 @@ describe("LocaleRail", () => {
   it("says sends will fail before taking the fallback offline", () => {
     setup()
     fireEvent.click(screen.getByRole("switch", { name: "Live: fallback version" }))
-    expect(within(dialog()).getByText("A send in a locale with no live version of its own will then fail.")).toBeTruthy()
+    expect(within(dialog()).getByText("A send in any locale no other live version takes will then fail.")).toBeTruthy()
+    expect(within(dialog()).getByRole("button", { name: "Take offline" }).className.split(/\s+/)).toContain("text-destructive")
+  })
+
+  it("says what the fallback will answer once it is live", () => {
+    const off = templateDetail({ versions: [{ ...FALLBACK, active: false }, EN] })
+    setup({ template: off })
+    fireEvent.click(screen.getByRole("switch", { name: "Live: fallback version" }))
+    expect(within(dialog()).getByText("A send in any locale no other live version takes will then get the fallback version.")).toBeTruthy()
+    expect(within(dialog()).getByRole("button", { name: "Put live" }).className.split(/\s+/)).not.toContain("text-destructive")
+  })
+
+  it("names the language version a regional tag falls to, and the regions a bare language covers", () => {
+    const PT: VersionWire = { ...FR, id: "htpv_pt", locale: "pt", active: true }
+    const PTBR: VersionWire = { ...FR, id: "htpv_ptbr", locale: "pt-BR", active: true }
+    setup({ template: templateDetail({ versions: [FALLBACK, PT, PTBR] }) })
+    fireEvent.click(screen.getByRole("switch", { name: "Live: pt-BR version" }))
+    expect(within(dialog()).getByText("A request for pt-BR will then get the pt version.")).toBeTruthy()
+  })
+
+  it("is destructive only when taking en offline leaves it with nothing", () => {
+    setup({ template: templateDetail({ versions: [{ ...FALLBACK, active: false }, EN] }) })
+    fireEvent.click(screen.getByRole("switch", { name: "Live: en version" }))
+    expect(within(dialog()).getByText("A request for en will then get nothing, so a send in that locale fails. Requests for en-* with no live version of their own will then get nothing, so a send in that locale fails.")).toBeTruthy()
+    expect(within(dialog()).getByRole("button", { name: "Take offline" }).className.split(/\s+/)).toContain("text-destructive")
+  })
+
+  it("says deleting an inactive version changes nothing for sends", () => {
+    setup()
+    fireEvent.click(screen.getByRole("button", { name: "Delete fr version" }))
+    expect(within(dialog()).getByText("Nothing changes for sends, since it isn't live. Its content is deleted and can't be brought back.")).toBeTruthy()
   })
 
   it("names what answers after a delete and that unsaved edits go too", async () => {
     const { sent } = setup({ dirtyIds: new Set([EN.id]) })
     fireEvent.click(screen.getByRole("button", { name: "Delete en version" }))
     expect(within(dialog()).getByText("Delete the en version?")).toBeTruthy()
-    expect(within(dialog()).getByText("A request for en will then get the fallback version. Its content is deleted and can't be brought back. Its unsaved edits go with it.")).toBeTruthy()
+    expect(within(dialog()).getByText("A request for en will then get the fallback version. Requests for en-* with no live version of their own will then get the fallback version. Its content is deleted and can't be brought back. Its unsaved edits go with it.")).toBeTruthy()
     fireEvent.click(within(dialog()).getByRole("button", { name: "Delete version" }))
     await waitFor(() => expect(sent).toEqual([{ intent: "versions.delete", payload: { templateId: detail.id, versionId: EN.id } }]))
   })
@@ -178,6 +208,14 @@ describe("Test a locale", () => {
       "Tries the fallbackA live version answers.",
       "Answered by the fallback version.",
     ])
+  })
+
+  it("still reads as answered when the answering version is not in the rail's list yet", async () => {
+    setup({}, {}, { "templates.resolve": { ...FALLS_BACK, versionId: "htpv_not_yet_listed" } })
+    fireEvent.change(screen.getByLabelText("Test a locale"), { target: { value: "fr-CA" } })
+    const ladder = await screen.findByRole("list", { name: "How fr-CA resolves" })
+    const steps = within(ladder).getAllByRole("listitem")
+    expect(steps.at(-1)?.textContent).toBe("Answered by the fallback version.")
   })
 
   it("ends in a failure when nothing answers", async () => {

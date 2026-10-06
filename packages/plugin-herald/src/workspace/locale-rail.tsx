@@ -14,7 +14,7 @@ import { VersionBadge } from "../badges"
 import { LOCALE_PATTERN } from "../format"
 import { useDebounced } from "../use-debounced"
 import type { Content, DeleteResponse, TemplateDetail, TemplatesResolveResponse, VersionResponse, VersionsCreateRequest, VersionWire } from "../wire"
-import { answerText, answersFor, versionName, withActive, without } from "./resolve"
+import { answerText, answersFor, explainLocale, versionName, withActive, without } from "./resolve"
 import type { Answers } from "./resolve"
 
 export interface LocaleRailProps {
@@ -34,27 +34,44 @@ export interface LocaleRailProps {
 /** How a version is named in a control's label: "en version", "fallback version". */
 const labelOf = (v: VersionWire) => (v.locale === "" ? "fallback version" : `${v.locale} version`)
 
-const NOWHERE = "A send in a locale with no live version of its own"
+const ANY_OTHER = "A send in any locale no other live version takes"
+
+/** The `L-*` tag a bare language's regional requests stand for: it matches no version, so resolution walks language then fallback. */
+const regionsOf = (locale: string) => (locale === "" || locale.includes("-") ? null : `${locale}-*`)
+
+/** What requests for a version's locale, and for its regions when it's a bare language, get among `after`. */
+function afterText(v: VersionWire, after: VersionWire[]) {
+  const regions = regionsOf(v.locale)
+  const own = `A request for ${v.locale} will then get ${answerText(after, v.locale)}.`
+  return regions === null ? own : `${own} Requests for ${regions} with no live version of their own will then get ${answerText(after, regions)}.`
+}
+
+/** True when the version's own locale, or its regional requests, would be left with nothing to answer them. */
+function leavesNothing(v: VersionWire, after: VersionWire[]) {
+  const regions = regionsOf(v.locale)
+  return explainLocale(after, v.locale).versionId === null || (regions !== null && explainLocale(after, regions).versionId === null)
+}
 
 function toggleCopy(v: VersionWire, versions: VersionWire[]) {
   const goingLive = !v.active
   if (v.locale === "") {
     return goingLive
-      ? { title: "Put the fallback version live?", description: `${NOWHERE} will then get the fallback version.`, confirmLabel: "Put live" }
-      : { title: "Take the fallback version offline?", description: `${NOWHERE} will then fail.`, confirmLabel: "Take offline" }
+      ? { title: "Put the fallback version live?", description: `${ANY_OTHER} will then get the fallback version.`, confirmLabel: "Put live", destructive: false }
+      : { title: "Take the fallback version offline?", description: `${ANY_OTHER} will then fail.`, confirmLabel: "Take offline", destructive: true }
   }
-  const after = answerText(withActive(versions, v.id, goingLive), v.locale)
+  const after = withActive(versions, v.id, goingLive)
   return goingLive
-    ? { title: `Put ${v.locale} live?`, description: `A request for ${v.locale} will then get ${after}.`, confirmLabel: "Put live" }
-    : { title: `Take ${v.locale} offline?`, description: `A request for ${v.locale} will then get ${after}.`, confirmLabel: "Take offline" }
+    ? { title: `Put ${v.locale} live?`, description: afterText(v, after), confirmLabel: "Put live", destructive: false }
+    : { title: `Take ${v.locale} offline?`, description: afterText(v, after), confirmLabel: "Take offline", destructive: leavesNothing(v, after) }
 }
 
 function deleteCopy(v: VersionWire, versions: VersionWire[], dirty: boolean) {
-  const after = v.locale === "" ? `${NOWHERE} will then fail.` : `A request for ${v.locale} will then get ${answerText(without(versions, v.id), v.locale)}.`
+  const effect = !v.active ? "Nothing changes for sends, since it isn't live." : v.locale === "" ? `${ANY_OTHER} will then fail.` : afterText(v, without(versions, v.id))
   return {
     title: v.locale === "" ? "Delete the fallback version?" : `Delete the ${v.locale} version?`,
-    description: `${after} Its content is deleted and can't be brought back.${dirty ? " Its unsaved edits go with it." : ""}`,
+    description: `${effect} Its content is deleted and can't be brought back.${dirty ? " Its unsaved edits go with it." : ""}`,
     confirmLabel: "Delete version",
+    destructive: true,
   }
 }
 
@@ -72,7 +89,8 @@ function AnswersLine({ answers }: { answers: NonNullable<Answers> }) {
   )
 }
 
-type Pending = { kind: "toggle" | "delete"; version: VersionWire; dirty: boolean }
+/** Everything a dialog words itself from, taken when it opens so a refetch can't reword it. */
+type Pending = { kind: "toggle" | "delete"; version: VersionWire; versions: VersionWire[]; dirty: boolean }
 
 export function LocaleRail({ template, selectedId, onSelect, dirtyIds, copyFrom, copyName, onCreated }: LocaleRailProps) {
   const update = useCommand<VersionResponse>("versions.update")
@@ -88,7 +106,7 @@ export function LocaleRail({ template, selectedId, onSelect, dirtyIds, copyFrom,
     update.reset()
     remove.reset()
     // A snapshot: the dialog keeps naming this version while templates.detail refetches.
-    setPending({ kind, version, dirty: dirtyIds.has(version.id) })
+    setPending({ kind, version, versions, dirty: dirtyIds.has(version.id) })
     setConfirming(true)
   }
 
@@ -100,7 +118,7 @@ export function LocaleRail({ template, selectedId, onSelect, dirtyIds, copyFrom,
     setConfirming(false)
   }
 
-  const copy = pending === null ? { title: "", description: "", confirmLabel: "Confirm" } : pending.kind === "toggle" ? toggleCopy(pending.version, versions) : deleteCopy(pending.version, versions, pending.dirty)
+  const copy = pending === null ? { title: "", description: "", confirmLabel: "Confirm", destructive: false } : pending.kind === "toggle" ? toggleCopy(pending.version, pending.versions) : deleteCopy(pending.version, pending.versions, pending.dirty)
 
   return (
     <aside aria-label="Locales" className="flex flex-col gap-5">
@@ -161,7 +179,7 @@ export function LocaleRail({ template, selectedId, onSelect, dirtyIds, copyFrom,
         title={copy.title}
         description={copy.description}
         confirmLabel={copy.confirmLabel}
-        destructive={pending?.kind === "delete" || (pending?.kind === "toggle" && pending.version.active)}
+        destructive={copy.destructive}
         pending={cmd.loading}
         onConfirm={() => void confirm()}
       >
@@ -263,7 +281,10 @@ function AddLocaleDialog({ open, onOpenChange, template, copyFrom, copyName, onC
  * locale fallback is visible, so it's the one bold element on the page.
  */
 function Ladder({ answer, versions }: { answer: TemplatesResolveResponse; versions: VersionWire[] }) {
-  const answered = answer.versionId === null ? undefined : versions.find((v) => v.id === answer.versionId)
+  // The server's answer decides answered or failed. The rail's list only names the version, and may lag a refetch behind.
+  const answered = answer.versionId !== null
+  const hit = answered ? versions.find((v) => v.id === answer.versionId) : undefined
+  const named = hit ? hit.locale : answer.steps.filter((s) => s.found).at(-1)?.try ?? ""
   const node = "absolute top-1 -left-[1.4rem] size-2.5 rounded-full border-2"
   return (
     <ol aria-label={`How ${answer.locale} resolves`} className="ml-1.5 flex flex-col gap-3 border-l pl-4 text-xs">
@@ -280,7 +301,7 @@ function Ladder({ answer, versions }: { answer: TemplatesResolveResponse; versio
       <li className="relative font-medium">
         <span aria-hidden="true" className={cn(node, answered ? "border-foreground bg-foreground" : "border-destructive bg-destructive")} />
         {answered ? (
-          <>Answered by {versionName(answered.locale)}.</>
+          <>Answered by {named === "" ? versionName("") : <>the <span className="font-mono">{named}</span> version</>}.</>
         ) : (
           <span className="text-destructive">
             Nothing answers it, so a send in <span className="font-mono">{answer.locale}</span> fails.
