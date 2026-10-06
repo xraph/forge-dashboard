@@ -86,6 +86,22 @@ describe("TemplateWorkspacePage", () => {
     expect(review().textContent).toBe("Review 1 change")
   })
 
+  it("shows another operator's text in an editor the page hasn't edited, and keeps the page's own edit", async () => {
+    const live = { ...FR, active: true }
+    const theirs = { ...withVersion(DETAIL, live), template: { ...withVersion(DETAIL, live).template, versions: withVersion(DETAIL, live).template.versions.map((v) => (v.id === EN.id ? { ...v, text: "Theirs, via the server" } : v)) } }
+    open((_i, call) => (call === 0 ? DETAIL : theirs), { "versions.update": { answer: { version: live }, invalidates: VERSION_WRITE } })
+    fireEvent.change(await htmlEditor(), { target: { value: "<p>Mine</p>" } })
+    fireEvent.click(within(screen.getByRole("region", { name: "Editor" })).getByRole("tab", { name: "Text" }))
+    expect((await screen.findByLabelText("Text (en)") as HTMLTextAreaElement).value).toBe("Thanks {{.customer_name}}")
+    fireEvent.click(screen.getByRole("switch", { name: "Live: fr version" }))
+    fireEvent.click(within(screen.getByRole("alertdialog")).getByRole("button", { name: "Put live" }))
+    await waitFor(() => expect(within(screen.getByRole("complementary", { name: "Locales" })).getAllByText("Live")).toHaveLength(3))
+    await waitFor(() => expect((screen.getByLabelText("Text (en)") as HTMLTextAreaElement).value).toBe("Theirs, via the server"))
+    expect(review().textContent).toBe("Review 1 change")
+    fireEvent.click(within(screen.getByRole("region", { name: "Editor" })).getByRole("tab", { name: "HTML" }))
+    expect((await screen.findByLabelText("HTML (en)") as HTMLTextAreaElement).value).toBe("<p>Mine</p>")
+  })
+
   it("says what was saved when a save stops partway, and keeps the rest unsaved", async () => {
     const saved = { ...EN, html: "<p>New</p>" }
     const { sent } = open((_i, call) => (call === 0 ? DETAIL : withVersion(DETAIL, saved)), {

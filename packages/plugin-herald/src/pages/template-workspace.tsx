@@ -11,9 +11,10 @@ import { HeraldHeader, useEngineInfo } from "../components/herald-header"
 import { plural } from "../format"
 import { useUnsavedGuard } from "../use-unsaved-guard"
 import type { SendResolveResponse, TemplateResponse, TemplatesDetailResponse, VersionResponse, VersionWire } from "../wire"
-import { ContentTab } from "../workspace/content-tab"
+import { ContentTab, revisionKey } from "../workspace/content-tab"
 import { changesBetween, draftOf, rebase, templatePatch, variableProblems, versionPatch } from "../workspace/draft"
 import type { Draft } from "../workspace/draft"
+import { ALL_FIELDS } from "../workspace/fields"
 import { LocaleRail } from "../workspace/locale-rail"
 import { versionName } from "../workspace/resolve"
 import { ReviewChanges } from "../workspace/review-changes"
@@ -27,6 +28,13 @@ interface Snapshot {
   /** What the server holds, as far as this page knows. */
   saved: Draft
   draft: Draft
+  /**
+   * Per version and field (`versionId:field`), how many times the server's text
+   * replaced a field the page hadn't edited. An editor keyed on it starts over
+   * on that text; without it the open editor would keep the old text and the
+   * next keystroke would send it back.
+   */
+  revisions: Record<string, number>
 }
 
 interface SaveState {
@@ -43,6 +51,17 @@ const UNSAVED = "This template has edits that aren't saved. Leave the page and l
 /** The version shown first: the one the default locale gets, else the live fallback, else any live one, else the first. */
 function pick(versions: VersionWire[], selectedId: string | null, defaultLocale: string | undefined): VersionWire | undefined {
   return versions.find((v) => v.id === selectedId) ?? versions.find((v) => v.active && v.locale === defaultLocale) ?? versions.find((v) => v.active && v.locale === "") ?? versions.find((v) => v.active) ?? versions[0]
+}
+
+/** The revisions after a rebase: one more for every field whose text the rebase changed under the page. */
+function bumpRevisions(revisions: Record<string, number>, before: Draft, after: Draft): Record<string, number> {
+  const out = { ...revisions }
+  for (const [versionId, content] of Object.entries(after.versions)) {
+    const was = before.versions[versionId]
+    if (!was) continue
+    for (const field of ALL_FIELDS) if (content[field] !== was[field]) out[revisionKey(versionId, field)] = (out[revisionKey(versionId, field)] ?? 0) + 1
+  }
+  return out
 }
 
 const listOf = (parts: string[]) => (parts.length <= 1 ? parts.join("") : `${parts.slice(0, -1).join(", ")} and ${parts[parts.length - 1]}`)
@@ -75,7 +94,9 @@ function Workspace({ id }: { id: string }) {
     setAdopted(answer)
     setSnap((prev) => {
       const next = draftOf(answer.template)
-      return prev === null ? { answer, saved: next, draft: next } : { answer, saved: next, draft: rebase(prev.saved, next, prev.draft) }
+      if (prev === null) return { answer, saved: next, draft: next, revisions: {} }
+      const draft = rebase(prev.saved, next, prev.draft)
+      return { answer, saved: next, draft, revisions: bumpRevisions(prev.revisions, prev.draft, draft) }
     })
   }
 
@@ -258,6 +279,7 @@ function Editor({ id, snap, setSnap, reloadError, onRetry }: { id: string; snap:
                 channel={template.channel}
                 version={current}
                 content={draft.versions[current.id]}
+                revisions={snap.revisions}
                 onFieldChange={(field, text) => {
                   // Typing into the shown version fixes the choice, whatever engine.info says later.
                   setSelectedId(current.id)

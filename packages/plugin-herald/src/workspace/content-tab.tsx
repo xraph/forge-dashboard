@@ -18,6 +18,8 @@ export interface ContentTabProps {
   version: VersionWire
   /** Its draft content. */
   content: Content
+  /** How often the server's text replaced each field under the page, by `revisionKey`. An editor starts over on its field's text when this moves. */
+  revisions?: Record<string, number>
   onFieldChange: (field: TemplateField, text: string) => void
   /** The draft's variables. */
   variables: VariableWire[]
@@ -36,6 +38,8 @@ export interface ContentTabProps {
 }
 
 const NO_DIAGNOSTICS: Diagnostic[] = []
+
+export const revisionKey = (versionId: string, field: TemplateField) => `${versionId}:${field}`
 
 /** A field's problems in the editor's terms. A missing or unprovided variable has no field and no line, so it only goes in the list. */
 function byField(diagnostics: Diagnostic[]): Record<TemplateField, EditorDiagnostic[]> {
@@ -94,7 +98,7 @@ export function ContentTab(props: ContentTabProps) {
 
   const editor = (field: TemplateField) => (
     <CodeEditor
-      key={`${props.version.id}:${field}`}
+      key={`${revisionKey(props.version.id, field)}:${props.revisions?.[revisionKey(props.version.id, field)] ?? 0}`}
       label={`${FIELD_LABEL[field]} (${locale})`}
       initial={props.content[field]}
       language={FIELD_LANGUAGE[field]}
