@@ -1,4 +1,4 @@
-import { useState } from "react"
+import { useRef, useState } from "react"
 import type { Dispatch, SetStateAction } from "react"
 import { ContractError, usePluginClient, useQuery } from "@forge-go/dashboard-plugin"
 import type { PluginPageProps } from "@forge-go/dashboard-plugin"
@@ -12,7 +12,7 @@ import { plural } from "../format"
 import { useUnsavedGuard } from "../use-unsaved-guard"
 import type { SendResolveResponse, TemplateResponse, TemplatesDetailResponse, VersionResponse, VersionWire } from "../wire"
 import { ContentTab } from "../workspace/content-tab"
-import { changesBetween, contentOf, draftOf, rebase, templatePatch, variableProblems, versionPatch } from "../workspace/draft"
+import { changesBetween, draftOf, rebase, templatePatch, variableProblems, versionPatch } from "../workspace/draft"
 import type { Draft } from "../workspace/draft"
 import { LocaleRail } from "../workspace/locale-rail"
 import { versionName } from "../workspace/resolve"
@@ -101,19 +101,29 @@ function Editor({ id, snap, setSnap, reloadError, onRetry }: { id: string; snap:
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [reviewing, setReviewing] = useState(false)
   const [save, setSave] = useState<SaveState>({ saving: false, wrote: [], done: false })
+  const inFlight = useRef(false)
   const [sample, setSample] = useState(() => ({ text: sampleTextFor(draft.variables), data: sampleDataFor(draft.variables), error: undefined as string | undefined, key: 0 }))
   const sender = useQuery<SendResolveResponse>("send.resolve", { channel: template.channel })
 
+  const saveTitle = save.wrote.length > 0 ? `Saved ${listOf(save.wrote)}. The rest is still unsaved.` : "Nothing was saved."
   const changes = changesBetween(saved, draft)
   const blocked = variableProblems(draft.variables).size > 0 ? "Fix the variables before saving." : draft.settings.name.trim() === "" ? "A template needs a name before it can be saved." : null
   const canSave = changes.length > 0 && blocked === null && !save.saving
   useUnsavedGuard(changes.length > 0, UNSAVED)
 
   const current = pick(template.versions, selectedId, engine.data?.defaultLocale)
+  // The default pick depends on engine.info, which can land after the template.
+  // Pin the choice once both have settled so a late answer can't move the editor
+  // to another version in the middle of an edit.
+  if (selectedId === null && current && (engine.data || engine.error)) setSelectedId(current.id)
   const dirtyIds = new Set(changes.flatMap((c) => (c.kind === "field" ? [c.versionId] : [])))
   const variablesEdited = changes.some((c) => c.kind === "variables")
   const settingsEdited = changes.some((c) => c.kind === "setting")
-  const setDraft = (update: (d: Draft) => Draft) => setSnap((s) => (s === null ? s : { ...s, draft: update(s.draft) }))
+  const setDraft = (update: (d: Draft) => Draft) => {
+    setSnap((s) => (s === null ? s : { ...s, draft: update(s.draft) }))
+    // "Saved." describes the page as it was; the next edit makes it stale.
+    setSave((s) => (s.done ? { ...s, done: false } : s))
+  }
 
   function changeSample(text: string) {
     const parsed = parseSample(text)
@@ -131,7 +141,8 @@ function Editor({ id, snap, setSnap, reloadError, onRetry }: { id: string; snap:
    * typed while saving stays a change.
    */
   async function saveAll() {
-    if (!canSave) return
+    if (!canSave || inFlight.current) return
+    inFlight.current = true
     const start = snap
     const wrote: string[] = []
     setSave({ saving: true, wrote: [], done: false })
@@ -142,8 +153,9 @@ function Editor({ id, snap, setSnap, reloadError, onRetry }: { id: string; snap:
         if (!was || !now) continue
         const patch = versionPatch(was, now)
         if (!patch) continue
-        const res = await client.command<VersionResponse>("versions.update", { templateId: id, versionId: v.id, ...patch })
-        setSnap((s) => (s === null ? s : { ...s, saved: { ...s.saved, versions: { ...s.saved.versions, [v.id]: contentOf(res.version) } } }))
+        await client.command<VersionResponse>("versions.update", { templateId: id, versionId: v.id, ...patch })
+        // Advance only the fields that were sent: another field may have changed elsewhere, and the refetch brings that through rebase.
+        setSnap((s) => (s === null ? s : { ...s, saved: { ...s.saved, versions: { ...s.saved.versions, [v.id]: { ...s.saved.versions[v.id], ...patch } } } }))
         wrote.push(versionName(v.locale))
       }
       const patch = templatePatch(start.saved, start.draft)
@@ -174,6 +186,8 @@ function Editor({ id, snap, setSnap, reloadError, onRetry }: { id: string; snap:
     } catch (err) {
       const error = err instanceof ContractError ? err : new ContractError("TRANSPORT", String(err))
       setSave({ saving: false, wrote, error, done: false })
+    } finally {
+      inFlight.current = false
     }
   }
 
@@ -205,7 +219,7 @@ function Editor({ id, snap, setSnap, reloadError, onRetry }: { id: string; snap:
       <p role="status" className="text-sm text-muted-foreground empty:sr-only">
         {save.done && changes.length === 0 ? "Saved." : ""}
       </p>
-      <CommandAlert error={save.error} title={save.wrote.length > 0 ? `Saved ${listOf(save.wrote)}. The rest is still unsaved.` : "Nothing was saved."} />
+      {!reviewing && <CommandAlert error={save.error} title={saveTitle} />}
       {reloadError && (
         <div role="alert" className="flex flex-wrap items-center gap-2 rounded-md border border-destructive/50 px-3 py-2 text-sm text-destructive">
           <span>
@@ -244,7 +258,11 @@ function Editor({ id, snap, setSnap, reloadError, onRetry }: { id: string; snap:
                 channel={template.channel}
                 version={current}
                 content={draft.versions[current.id]}
-                onFieldChange={(field, text) => setDraft((d) => ({ ...d, versions: { ...d.versions, [current.id]: { ...d.versions[current.id], [field]: text } } }))}
+                onFieldChange={(field, text) => {
+                  // Typing into the shown version fixes the choice, whatever engine.info says later.
+                  setSelectedId(current.id)
+                  setDraft((d) => ({ ...d, versions: { ...d.versions, [current.id]: { ...d.versions[current.id], [field]: text } } }))
+                }}
                 variables={draft.variables}
                 variablesEdited={variablesEdited}
                 funcs={engine.data?.templateFuncs ?? NO_FUNCS}
@@ -268,7 +286,7 @@ function Editor({ id, snap, setSnap, reloadError, onRetry }: { id: string; snap:
           <SettingsTab template={template} settings={draft.settings} onChange={(settings) => setDraft((d) => ({ ...d, settings }))} />
         </TabsContent>
       </Tabs>
-      <ReviewChanges open={reviewing} onOpenChange={setReviewing} template={template} saved={saved} draft={draft} changes={changes} saving={save.saving} canSave={canSave} onSave={() => void saveAll()} />
+      <ReviewChanges open={reviewing} onOpenChange={setReviewing} template={template} saved={saved} draft={draft} changes={changes} saving={save.saving} canSave={canSave} onSave={() => void saveAll()} error={save.error} errorTitle={saveTitle} />
     </section>
   )
 }

@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest"
-import { cleanup, fireEvent, screen, waitFor, within } from "@testing-library/react"
+import { act, cleanup, fireEvent, screen, waitFor, within } from "@testing-library/react"
 import { ContractError } from "@forge-go/dashboard-plugin"
 import { TemplateWorkspacePage } from "../src/pages/template-workspace"
 import type { TemplatesDetailResponse, VariableWire, VersionWire } from "../src/wire"
@@ -171,5 +171,99 @@ describe("TemplateWorkspacePage", () => {
     expect(await screen.findByText(/This template didn't reload: UNAVAILABLE: store is down\. Your edits are still on the page\./)).toBeTruthy()
     expect((screen.getByLabelText("HTML (en)") as HTMLTextAreaElement).value).toBe("<p>Mine</p>")
     expect(review().textContent).toBe("Review 1 change")
+  })
+  it("advances only the fields it sent, so another editor's change to a different field is not undone", async () => {
+    const theirs = { ...EN, html: "<p>New</p>", text: "Theirs" }
+    const { sent } = open((_i, call) => (call === 0 ? DETAIL : new ContractError("UNAVAILABLE", "store is down")), { "versions.update": { answer: { version: theirs }, invalidates: VERSION_WRITE } })
+    fireEvent.change(await htmlEditor(), { target: { value: "<p>New</p>" } })
+    fireEvent.click(save())
+    await waitFor(() => expect(sent).toEqual([{ intent: "versions.update", payload: { templateId: TEMPLATE.id, versionId: EN.id, html: "<p>New</p>" } }]))
+    expect(await screen.findByText("Saved.")).toBeTruthy()
+    expect(review().textContent).toBe("Review changes")
+    expect((review() as HTMLButtonElement).disabled).toBe(true)
+  })
+
+  it("moves what is saved forward itself, so the page is clean even when the reload fails", async () => {
+    const saved = { ...EN, html: "<p>New</p>" }
+    const { sent } = open((_i, call) => (call === 0 ? DETAIL : new ContractError("UNAVAILABLE", "store is down")), {
+      "versions.update": { answer: { version: saved }, invalidates: VERSION_WRITE },
+      "templates.update": { answer: { template: TEMPLATE }, invalidates: TEMPLATE_WRITE },
+    })
+    fireEvent.change(await htmlEditor(), { target: { value: "<p>New</p>" } })
+    fireEvent.click(screen.getByRole("tab", { name: /Settings/ }))
+    fireEvent.change(await screen.findByLabelText("Name"), { target: { value: "Receipts" } })
+    fireEvent.click(save())
+    expect(await screen.findByText("Saved.")).toBeTruthy()
+    expect(sent.map((s) => s.intent)).toEqual(["versions.update", "templates.update"])
+    expect((review() as HTMLButtonElement).disabled).toBe(true)
+  })
+
+  it("keeps only what failed as a change when the second write is refused and the reload fails", async () => {
+    const saved = { ...EN, html: "<p>New</p>" }
+    open((_i, call) => (call === 0 ? DETAIL : new ContractError("UNAVAILABLE", "store is down")), {
+      "versions.update": { answer: { version: saved }, invalidates: VERSION_WRITE },
+      "templates.update": new ContractError("BAD_REQUEST", "category must be auth, transactional, marketing or system"),
+    })
+    fireEvent.change(await htmlEditor(), { target: { value: "<p>New</p>" } })
+    fireEvent.click(screen.getByRole("tab", { name: /Settings/ }))
+    fireEvent.change(await screen.findByLabelText("Name"), { target: { value: "Receipts" } })
+    fireEvent.click(save())
+    expect(await screen.findByText("Saved the en version. The rest is still unsaved.")).toBeTruthy()
+    await waitFor(() => expect(review().textContent).toBe("Review 1 change"))
+  })
+
+  it("shows a save that stops partway inside the Review dialog it was started from", async () => {
+    const saved = { ...EN, html: "<p>New</p>" }
+    open((_i, call) => (call === 0 ? DETAIL : withVersion(DETAIL, saved)), {
+      "versions.update": { answer: { version: saved }, invalidates: VERSION_WRITE },
+      "templates.update": new ContractError("BAD_REQUEST", "category must be auth, transactional, marketing or system"),
+    })
+    fireEvent.change(await htmlEditor(), { target: { value: "<p>New</p>" } })
+    fireEvent.click(screen.getByRole("tab", { name: /Settings/ }))
+    fireEvent.change(await screen.findByLabelText("Name"), { target: { value: "Receipts" } })
+    fireEvent.click(review())
+    const dialog = await screen.findByRole("dialog")
+    fireEvent.click(within(dialog).getByRole("button", { name: "Save changes" }))
+    expect(await within(dialog).findByText("Saved the en version. The rest is still unsaved.")).toBeTruthy()
+    expect(within(dialog).getByText(/category must be auth/)).toBeTruthy()
+  })
+
+  it("stays on the version being edited when engine.info lands late and would pick another", async () => {
+    let release: () => void = () => {}
+    const gate = new Promise<void>((resolve) => (release = resolve))
+    const harness = invalidatingClient({ "engine.info": async () => (await gate, engine({ defaultLocale: "en" })), "templates.detail": DETAIL, "templates.render": { fields: [], diagnostics: [] }, "send.resolve": SENDER })
+    renderPage(TemplateWorkspacePage, harness.client, { id: TEMPLATE.id })
+    const subject = await screen.findByLabelText("Subject (fallback)")
+    fireEvent.change(subject, { target: { value: "Edited fallback" } })
+    release()
+    await waitFor(() => expect(harness.queried.some((q) => q.intent === "engine.info")).toBe(true))
+    expect(await screen.findByText("app_demo")).toBeTruthy()
+    expect((screen.getByLabelText("Subject (fallback)") as HTMLTextAreaElement).value).toBe("Edited fallback")
+    expect(within(screen.getByRole("complementary", { name: "Locales" })).getByRole("button", { name: /^Fallback/ }).getAttribute("aria-current")).toBe("true")
+  })
+
+  it("stops saying Saved. once the next edit is made", async () => {
+    const saved = { ...EN, html: "<p>New</p>" }
+    open((_i, call) => (call === 0 ? DETAIL : withVersion(DETAIL, saved)), { "versions.update": { answer: { version: saved }, invalidates: VERSION_WRITE } })
+    const editor = await htmlEditor()
+    fireEvent.change(editor, { target: { value: "<p>New</p>" } })
+    fireEvent.click(save())
+    expect(await screen.findByText("Saved.")).toBeTruthy()
+    fireEvent.change(screen.getByLabelText("HTML (en)"), { target: { value: "<p>Newer</p>" } })
+    fireEvent.change(screen.getByLabelText("HTML (en)"), { target: { value: "<p>New</p>" } })
+    expect(screen.queryByText("Saved.")).toBeNull()
+  })
+
+  it("sends one write when Save is pressed twice at once", async () => {
+    const saved = { ...EN, html: "<p>New</p>" }
+    const { sent } = open((_i, call) => (call === 0 ? DETAIL : withVersion(DETAIL, saved)), { "versions.update": { answer: { version: saved }, invalidates: VERSION_WRITE } })
+    fireEvent.change(await htmlEditor(), { target: { value: "<p>New</p>" } })
+    const button = save()
+    act(() => {
+      button.click()
+      button.click()
+    })
+    expect(await screen.findByText("Saved.")).toBeTruthy()
+    expect(sent).toHaveLength(1)
   })
 })

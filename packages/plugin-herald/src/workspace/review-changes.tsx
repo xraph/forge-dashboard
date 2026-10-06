@@ -1,5 +1,7 @@
+import { ContractError } from "@forge-go/dashboard-plugin"
 import { Button } from "@forge-go/dashboard-kit/components/button"
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@forge-go/dashboard-kit/components/dialog"
+import { CommandAlert } from "@forge-go/dashboard-kit/components/query-boundary"
 import { FieldDiff } from "../components/editor/lazy"
 import { plural } from "../format"
 import type { TemplateDetail } from "../wire"
@@ -18,6 +20,9 @@ export interface ReviewChangesProps {
   saving: boolean
   canSave: boolean
   onSave: () => void
+  /** A save that stopped, shown where the operator started it. */
+  error?: ContractError
+  errorTitle?: string
 }
 
 const SETTING_LABEL: Record<keyof Settings, string> = { name: "Name", category: "Category", enabled: "Enabled" }
@@ -27,7 +32,7 @@ const settingText = (key: keyof Settings, value: Settings[keyof Settings]) => (k
 const variablesText = (draft: Draft["variables"]) => JSON.stringify(normaliseVariables(draft), null, 2)
 
 /** One section per change, so the operator reads exactly what Save will write. */
-export function ReviewChanges({ open, onOpenChange, template, saved, draft, changes, saving, canSave, onSave }: ReviewChangesProps) {
+export function ReviewChanges({ open, onOpenChange, template, saved, draft, changes, saving, canSave, onSave, error, errorTitle }: ReviewChangesProps) {
   const titleOf = (c: Change) => {
     if (c.kind === "variables") return "Variables"
     if (c.kind === "setting") return SETTING_LABEL[c.key]
@@ -67,6 +72,7 @@ export function ReviewChanges({ open, onOpenChange, template, saved, draft, chan
             )
           })}
         </div>
+        <CommandAlert error={error} title={errorTitle ?? ""} />
         <DialogFooter>
           <Button type="button" variant="outline" disabled={saving} onClick={() => onOpenChange(false)}>
             Close

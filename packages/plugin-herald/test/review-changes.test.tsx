@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest"
 import { cleanup, fireEvent, render, screen, within } from "@testing-library/react"
+import { ContractError } from "@forge-go/dashboard-plugin"
 import { ReviewChanges } from "../src/workspace/review-changes"
 import type { ReviewChangesProps } from "../src/workspace/review-changes"
 import { changesBetween, draftOf } from "../src/workspace/draft"
@@ -43,6 +44,13 @@ describe("ReviewChanges", () => {
     expect(within(dialog).getByText("1 change against what's saved.")).toBeTruthy()
     fireEvent.click(within(dialog).getByRole("button", { name: "Save changes" }))
     expect(onSave).toHaveBeenCalled()
+  })
+
+  it("shows a failed save inside the dialog", () => {
+    setup((d) => ({ ...d, settings: { ...d.settings, category: "marketing" } }), { error: new ContractError("BAD_REQUEST", "category is not allowed"), errorTitle: "Nothing was saved." })
+    const dialog = screen.getByRole("dialog")
+    expect(within(dialog).getByText("Nothing was saved.")).toBeTruthy()
+    expect(within(dialog).getByText(/category is not allowed/)).toBeTruthy()
   })
 
   it("holds Save while saving or blocked", () => {
