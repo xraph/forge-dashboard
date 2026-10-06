@@ -47,15 +47,17 @@ function setup(over: Partial<ContentTabProps> = {}, answer: Answer = RESULT) {
     onSampleRefill,
     ...over,
   }
-  render(
+  const ui = (p: ContentTabProps) => (
     <PluginProvider client={client}>
       <div>
-        <ContentTab {...props} />
+        <ContentTab {...p} />
       </div>
     </PluginProvider>
   )
+  const { rerender } = render(ui(props))
+  const update = (next: Partial<ContentTabProps>) => rerender(ui({ ...props, ...next }))
   const renders = () => queried.filter((q) => q.intent === "templates.render").map((q) => q.params)
-  return { onFieldChange, onSampleRefill, renders }
+  return { onFieldChange, onSampleRefill, renders, update }
 }
 
 // The preview has its own tabs (Rendered, Text, Source), so count only the editor's.
@@ -67,15 +69,16 @@ describe("ContentTab", () => {
     expect(await screen.findByLabelText("Subject (en)")).toBeTruthy()
     expect(tabNames()).toEqual(["Subject", "HTML", "Text"])
     expect(screen.queryByLabelText("Title (en)")).toBeNull()
-    fireEvent.click(screen.getByRole("button", { name: "Show fields email doesn't send (Title)" }))
+    fireEvent.click(screen.getByRole("button", { name: "Fields email doesn't send (Title)" }))
     expect(await screen.findByLabelText("Title (en)")).toBeTruthy()
+    expect(screen.getByRole("button", { name: "Fields email doesn't send (Title)" }).getAttribute("aria-expanded")).toBe("true")
   })
 
   it("shows an SMS's one field and folds the rest", async () => {
     setup({ channel: "sms" })
     expect(await screen.findByLabelText("Text (en)")).toBeTruthy()
     expect(tabNames()).toEqual(["Text"])
-    expect(screen.getByRole("button", { name: "Show fields sms doesn't send (Subject, HTML, Title)" })).toBeTruthy()
+    expect(screen.getByRole("button", { name: "Fields sms doesn't send (Subject, HTML, Title)" })).toBeTruthy()
   })
 
   it("names the fallback version's fields as fallback", async () => {
@@ -151,6 +154,58 @@ describe("ContentTab", () => {
     expect(await screen.findByLabelText("Subject (en)")).toBeTruthy()
     fireEvent.click(screen.getByRole("tab", { name: /HTML/ }))
     expect((await screen.findByLabelText("HTML (en)")).getAttribute("data-focus")).toBe("")
+  })
+
+  it("doesn't replay a focus request after a trip through another version", async () => {
+    const answer: PreviewResult = { ...RESULT, diagnostics: [{ field: "subject", line: 1, column: 3, severity: "warning", kind: "undeclared", message: ".x is used but not declared" }] }
+    const fallback = detail.versions[0]
+    const fallbackContent = { subject: "Your receipt", html: "", text: "", title: "" }
+    const { update } = setup({}, answer)
+    fireEvent.click(await screen.findByRole("button", { name: /not declared/ }))
+    expect((await screen.findByLabelText("Subject (en)")).getAttribute("data-focus")).toBe("1:3:1")
+    update({ version: fallback, content: fallbackContent })
+    expect(await screen.findByLabelText("Subject (fallback)")).toBeTruthy()
+    update({})
+    expect((await screen.findByLabelText("Subject (en)")).getAttribute("data-focus")).toBe("")
+  })
+
+  it("drops a focus request on a folded field when the fields are folded away", async () => {
+    setup({}, { ...RESULT, diagnostics: [{ field: "title", line: 1, column: 2, severity: "error", kind: "parse", message: "bad title" }] })
+    fireEvent.click(await screen.findByRole("button", { name: /bad title/ }))
+    expect((await screen.findByLabelText("Title (en)")).getAttribute("data-focus")).toBe("1:2:1")
+    const trigger = screen.getByRole("button", { name: /Fields email doesn't send/ })
+    fireEvent.click(trigger)
+    await waitFor(() => expect(screen.queryByLabelText("Title (en)")).toBeNull())
+    fireEvent.click(trigger)
+    expect((await screen.findByLabelText("Title (en)")).getAttribute("data-focus")).toBe("")
+  })
+
+  it("leaves a variable that has no name yet out of the render", async () => {
+    const variables = [
+      { name: "customer_name", type: "string", required: true },
+      { name: "  ", type: "string", required: false },
+    ]
+    const { renders } = setup({ variables, variablesEdited: true })
+    await waitFor(() => expect(renders()).toHaveLength(1))
+    expect(renders()[0]).toEqual({ templateId: detail.id, content: CONTENT, data: { customer_name: "Ada" }, variables: [variables[0]] })
+  })
+
+  it("marks a tab and the folded fields' trigger by their worst problem", async () => {
+    setup({}, {
+      ...RESULT,
+      diagnostics: [
+        { field: "html", line: 1, column: 4, severity: "error", kind: "exec", message: "boom" },
+        { field: "subject", line: 1, column: 1, severity: "warning", kind: "undeclared", message: "soft" },
+        { field: "title", line: 1, column: 1, severity: "warning", kind: "undeclared", message: "soft title" },
+      ],
+    })
+    await screen.findByRole("region", { name: "Problems" })
+    const cue = (el: HTMLElement) => el.querySelector('span[aria-hidden="true"]')
+    await waitFor(() => expect(cue(screen.getByRole("tab", { name: /HTML/ }))).not.toBeNull())
+    expect(cue(screen.getByRole("tab", { name: /HTML/ }))!.className).toContain("text-destructive")
+    expect(cue(screen.getByRole("tab", { name: /Subject/ }))!.className).toContain("text-muted-foreground")
+    expect(cue(within(screen.getByRole("region", { name: "Editor" })).getByRole("tab", { name: "Text" }))).toBeNull()
+    expect(cue(screen.getByRole("button", { name: /Fields email doesn't send/ }))!.className).toContain("text-muted-foreground")
   })
 
   it("says nothing is wrong only after a render has answered", async () => {

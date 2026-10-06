@@ -47,23 +47,41 @@ function byField(diagnostics: Diagnostic[]): Record<TemplateField, EditorDiagnos
   return out
 }
 
+/** A small dot on a tab or trigger whose field has problems: destructive when any is an error, muted when only warnings. */
+function Cue({ marks }: { marks: EditorDiagnostic[] }) {
+  if (marks.length === 0) return null
+  return (
+    <span aria-hidden="true" className={marks.some((m) => m.severity === "error") ? "ml-1 text-destructive" : "ml-1 text-muted-foreground"}>
+      •
+    </span>
+  )
+}
+
 export function ContentTab(props: ContentTabProps) {
   const { primary, other } = fieldsFor(props.channel)
   const [active, setActive] = useState<TemplateField>(primary[0])
   const [otherOpen, setOtherOpen] = useState(false)
-  const [focus, setFocus] = useState<{ versionId: string; field: TemplateField; request: FocusRequest } | null>(null)
+  const [focus, setFocus] = useState<{ field: TemplateField; request: FocusRequest } | null>(null)
+  // A request belongs to the version it was made on: a round trip through another version must not replay it into rebuilt editors.
+  const [focusVersion, setFocusVersion] = useState(props.version.id)
+  if (props.version.id !== focusVersion) {
+    setFocusVersion(props.version.id)
+    setFocus(null)
+  }
 
   const request: TemplatesRenderRequest = {
     templateId: props.templateId,
     content: props.content,
     data: props.sampleData,
-    ...(props.variablesEdited ? { variables: props.variables } : {}),
+    // A row still being named would make the server refuse the whole request.
+    ...(props.variablesEdited ? { variables: props.variables.filter((v) => v.name.trim() !== "") } : {}),
   }
   const preview = useRenderPreview(request)
   const diagnostics = preview.result?.diagnostics ?? NO_DIAGNOSTICS
   // Keyed on the answer, so typing doesn't re-place the marks between renders.
   const marks = useMemo(() => byField(diagnostics), [diagnostics])
   const names = useMemo(() => props.variables.map((v) => v.name.trim()).filter((n) => n !== ""), [props.variables])
+  const otherMarks = other.flatMap((f) => marks[f])
   const locale = props.version.locale === "" ? "fallback" : props.version.locale
 
   function select(d: Diagnostic) {
@@ -71,7 +89,7 @@ export function ContentTab(props: ContentTabProps) {
     const field = d.field
     if (primary.includes(field)) setActive(field)
     else setOtherOpen(true)
-    setFocus((prev) => ({ versionId: props.version.id, field, request: { line: d.line, column: d.column, seq: (prev?.request.seq ?? 0) + 1 } }))
+    setFocus((prev) => ({ field, request: { line: d.line, column: d.column, seq: (prev?.request.seq ?? 0) + 1 } }))
   }
 
   const editor = (field: TemplateField) => (
@@ -84,7 +102,7 @@ export function ContentTab(props: ContentTabProps) {
       diagnostics={marks[field]}
       variables={names}
       funcs={props.funcs}
-      focus={focus?.versionId === props.version.id && focus.field === field ? focus.request : undefined}
+      focus={focus?.field === field ? focus.request : undefined}
       onChange={(text) => props.onFieldChange(field, text)}
     />
   )
@@ -101,6 +119,7 @@ export function ContentTab(props: ContentTabProps) {
               <TabsTrigger key={field} value={field}>
                 {FIELD_LABEL[field]}
                 {marks[field].length > 0 && <span className="sr-only">, has problems</span>}
+                <Cue marks={marks[field]} />
               </TabsTrigger>
             ))}
           </TabsList>
@@ -116,7 +135,9 @@ export function ContentTab(props: ContentTabProps) {
             if (!open) setFocus(null)
           }}>
             <CollapsibleTrigger className="text-left text-sm text-muted-foreground hover:underline focus-visible:underline">
-              {`${otherOpen ? "Hide" : "Show"} fields ${props.channel} doesn't send (${other.map((f) => FIELD_LABEL[f]).join(", ")})`}
+              {`Fields ${props.channel} doesn't send (${other.map((f) => FIELD_LABEL[f]).join(", ")})`}
+              {otherMarks.length > 0 && <span className="sr-only">, has problems</span>}
+              <Cue marks={otherMarks} />
             </CollapsibleTrigger>
             <CollapsibleContent className="mt-3 flex flex-col gap-4">
               {other.map((field) => (
