@@ -2,7 +2,13 @@ import { describe, expect, it } from "vitest"
 import { resolvePluginState } from "@forge-go/dashboard-plugin"
 import type { Capabilities } from "@forge-go/dashboard-plugin"
 import sentinelPlugin, {
+  BaselineDetailPage,
+  BaselinesPage,
   CaseDetailPage,
+  OverviewPage,
+  ResultDetailPage,
+  RunDetailPage,
+  RunsPage,
   sentinelPlugin as named,
   SetupPage,
   SuiteDetailPage,
@@ -38,15 +44,16 @@ describe("sentinelPlugin", () => {
     expect(resolvePluginState(sentinelPlugin, capabilities({ name: "vault" })).kind).toBe("hidden")
   })
 
-  it("puts Suites and Setup in the Evaluation group, Suites first", () => {
-    const nav = sentinelPlugin.nav ?? []
-    const suites = nav.find((n) => n.label === "Suites")
-    const setup = nav.find((n) => n.label === "Setup")
-    expect(suites?.to).toBe("/suites")
-    expect(setup?.to).toBe("/setup")
-    expect(suites?.group).toBe("Evaluation")
-    expect(setup?.group).toBe("Evaluation")
-    expect((suites?.priority ?? 0) < (setup?.priority ?? 0)).toBe(true)
+  it("orders the Evaluation group Overview, Suites, Runs, Baselines, then Setup last", () => {
+    const nav = [...(sentinelPlugin.nav ?? [])].sort((a, b) => (a.priority ?? 0) - (b.priority ?? 0))
+    expect(nav.map((n) => [n.label, n.to])).toEqual([
+      ["Overview", "/"],
+      ["Suites", "/suites"],
+      ["Runs", "/runs"],
+      ["Baselines", "/baselines"],
+      ["Setup", "/setup"],
+    ])
+    for (const item of nav) expect(item.group).toBe("Evaluation")
   })
 
   it("mounts each page at its route", () => {
@@ -56,11 +63,26 @@ describe("sentinelPlugin", () => {
     expect(element("/suites/:id/cases/:caseId")).toBe(CaseDetailPage)
     expect(element("/setup")).toBe(SetupPage)
     expect(element("/suites/:id/prompts/:versionId")).toBeTruthy()
+    expect(element("/")).toBe(OverviewPage)
+    expect(element("/suites/:id/:tab")).toBe(SuiteDetailPage)
+    expect(element("/runs")).toBe(RunsPage)
+    expect(element("/runs/:id")).toBe(RunDetailPage)
+    expect(element("/runs/:id/results/:resultId")).toBe(ResultDetailPage)
+    expect(element("/baselines")).toBe(BaselinesPage)
+    expect(element("/baselines/:id")).toBe(BaselineDetailPage)
   })
 
   it("gives the detail routes no nav entry", () => {
     const targets = (sentinelPlugin.nav ?? []).map((n) => n.to)
-    for (const path of ["/suites/:id", "/suites/:id/cases/:caseId", "/suites/:id/prompts/:versionId"]) {
+    for (const path of [
+      "/suites/:id",
+      "/suites/:id/:tab",
+      "/suites/:id/cases/:caseId",
+      "/suites/:id/prompts/:versionId",
+      "/runs/:id",
+      "/runs/:id/results/:resultId",
+      "/baselines/:id",
+    ]) {
       expect(targets).not.toContain(path)
     }
   })

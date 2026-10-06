@@ -3,12 +3,14 @@ import { definePlugin } from "@forge-go/dashboard-plugin"
 import {
   BookmarkIcon,
   FlaskConicalIcon,
+  HouseIcon,
   PlayIcon,
   Settings2Icon,
 } from "@forge-go/dashboard-kit/icons"
 import { BaselineDetailPage } from "./pages/baseline-detail"
 import { BaselinesPage } from "./pages/baselines"
 import { CaseDetailPage } from "./pages/case-detail"
+import { OverviewPage } from "./pages/overview"
 import { ResultDetailPage } from "./pages/result-detail"
 import { RunDetailPage } from "./pages/run-detail"
 import { RunsPage } from "./pages/runs"
@@ -20,6 +22,7 @@ export {
   BaselineDetailPage,
   BaselinesPage,
   CaseDetailPage,
+  OverviewPage,
   ResultDetailPage,
   RunDetailPage,
   RunsPage,
@@ -97,8 +100,8 @@ const PromptVersionPage = lazy(() => import("./pages/prompt-version"))
 
 /**
  * The first-party UI for the `sentinel` extension: evaluation suites, their
- * cases and prompt versions, runs and their results, baselines and the
- * engine's setup.
+ * cases and prompt versions, runs and their results, baselines, the overview
+ * and the engine's setup.
  *
  * `extension` is "sentinel", the Go contributor name from the sentinel
  * contract manifest. It is the join key the host looks up in the capabilities
@@ -111,6 +114,14 @@ export const sentinelPlugin = definePlugin({
   namespace: "sentinel",
   label: "Sentinel",
   nav: [
+    // Overview is first, so the scope lands on it.
+    {
+      label: "Overview",
+      to: "/",
+      priority: -10,
+      icon: <HouseIcon />,
+      group: "Evaluation",
+    },
     {
       label: "Suites",
       to: "/suites",
@@ -141,6 +152,7 @@ export const sentinelPlugin = definePlugin({
     },
   ],
   routes: [
+    { path: "/", element: OverviewPage },
     { path: "/suites", element: SuitesPage },
     // No nav entries for the detail pages: a sidebar link to "a suite" with
     // none chosen points nowhere. They are reached from row links.
