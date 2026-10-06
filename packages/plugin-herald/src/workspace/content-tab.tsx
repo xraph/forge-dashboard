@@ -77,7 +77,7 @@ export function ContentTab(props: ContentTabProps) {
     templateId: props.templateId,
     content: props.content,
     data: props.sampleData,
-    // A row still being named would make the server refuse the whole request.
+    // A row still being named has a blank name, which Herald would report as a missing or unprovided variable that was never declared.
     ...(props.variablesEdited ? { variables: props.variables.filter((v) => v.name.trim() !== "") } : {}),
   }
   const preview = useRenderPreview(request)

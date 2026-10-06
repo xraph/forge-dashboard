@@ -659,8 +659,8 @@ a consequence of the core's hash changing, not of the other chunks changing.
 The merge chunk and the search chunk are byte for byte the same size as before
 (19.50 and 43.12 KB). The core itself grew from 288.56 to 296.21 KB raw (93.24 to
 95.70 KB gzip), and the lezer chunk from 28.03 to 28.36 KB (9.82 to 9.94 KB
-gzip), most likely because Herald uses more of the packages they hold. I did
-not trace which modules. The three shared chunks are now 367.69 KB raw and 119.70 KB gzip
+gzip), most likely because Herald uses more of the packages they hold. Which
+modules account for it wasn't traced. The three shared chunks are now 367.69 KB raw and 119.70 KB gzip
 together, against 359.71 KB and 117.21 KB in the trove section.
 
 The first time you open a template cold, you load about 591.03 KB raw and 205.37

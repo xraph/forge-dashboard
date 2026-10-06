@@ -15,6 +15,7 @@
 // - templates.render is an approximation for building the UI. It substitutes
 //   {{.name}} (and upper, lower, title of one), flags a function Herald does
 //   not have, an unclosed {{, and undeclared, missing or unprovided variables.
+//   The variables it is sent are used as they come, unvalidated, as Go does.
 //   Everything else inside {{ }} renders as nothing. It is not a template
 //   engine and must not become one: real rendering is proven by the Go
 //   contract tests against Herald's own renderer.
@@ -538,6 +539,17 @@ export function createHeraldHandlers(FixtureError) {
     })
   }
 
+  // As variablesFromWire in Go: names trimmed, an empty type is "string", and nothing is validated.
+  // templates.render takes the request's variables this way, where a write goes through checkVariables.
+  const variablesAsSent = (list) =>
+    list.map((item) => {
+      const variable = obj(item)
+      const out = { name: str(variable.name), type: str(variable.type) || "string", required: variable.required === true }
+      if (typeof variable.default === "string" && variable.default !== "") out.default = variable.default
+      if (typeof variable.description === "string" && variable.description !== "") out.description = variable.description
+      return out
+    })
+
   function messageSummary(m, app) {
     const p = state.providers.find((x) => x.id === m.providerId && x.appId === app)
     const out = { id: m.id, recipient: m.recipient, channel: m.channel, status: m.status, provider: p ? { id: p.id, name: p.name, driver: p.driver } : null, createdAt: m.createdAt }
@@ -724,7 +736,7 @@ export function createHeraldHandlers(FixtureError) {
         const requested = Array.isArray(f.variables) ? f.variables : null
         const size = bytes(c.subject) + bytes(c.html) + bytes(c.text) + bytes(c.title) + bytes(JSON.stringify(f.data ?? null)) + (requested ? bytes(JSON.stringify(requested)) : 0)
         if (size > MAX_RENDER_BYTES) throw bad("the template and its sample data are too large to preview")
-        let variables = requested ? checkVariables(requested) : []
+        let variables = requested ? variablesAsSent(requested) : []
         if (str(f.templateId)) {
           const t = ownedTemplate(app, f.templateId)
           if (!requested) variables = t.variables
