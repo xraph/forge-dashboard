@@ -1,6 +1,6 @@
 import { useState } from "react"
 import type { ComponentType } from "react"
-import { PluginLink, useQuery } from "@forge-go/dashboard-plugin"
+import { useQuery } from "@forge-go/dashboard-plugin"
 import type { PluginPageProps } from "@forge-go/dashboard-plugin"
 import { Button } from "@forge-go/dashboard-kit/components/button"
 import { FilterBar } from "@forge-go/dashboard-kit/components/filter-bar"
@@ -13,62 +13,13 @@ import {
 } from "@forge-go/dashboard-kit/components/resource-table"
 import { Timestamp } from "@forge-go/dashboard-kit/components/timestamp"
 import { RotationReasonBadge } from "../badges"
-import {
-  formatDuration,
-  keyPath,
-  ROTATION_REASONS,
-  rotationMasked,
-} from "../format"
+import { KeyCell, WindowCell } from "../components/rotation-cells"
+import { formatDuration, ROTATION_REASONS } from "../format"
 import type { RotationItem, RotationsList } from "../types"
 
 const PAGE_SIZE = 25
 
 const ALL = { value: "", label: "All" }
-
-/**
- * The rotated key by name, linked to its page, with the key it was rotated
- * into masked beneath. A key that no longer exists has no page and no name,
- * so its id stands in as a raw value and the row says why. The overview's
- * recent rotations use the same cell.
- */
-export function KeyCell({ item }: { item: RotationItem }) {
-  if (item.keyName === null) {
-    return (
-      <div className="flex flex-col gap-0.5">
-        <span className="font-mono text-xs font-normal">{item.keyId}</span>
-        <span className="text-xs font-normal text-muted-foreground">
-          Key no longer exists
-        </span>
-      </div>
-    )
-  }
-  return (
-    <div className="flex flex-col gap-0.5">
-      <PluginLink to={keyPath(item.keyId)}>{item.keyName}</PluginLink>
-      <span className="font-mono text-xs font-normal text-muted-foreground">
-        {rotationMasked(item, "new")}
-      </span>
-    </div>
-  )
-}
-
-/**
- * Whether the window is still running, worded neutrally. A suspended key's
- * window is open, yet its old key is refused until the key is reactivated,
- * so this never says the old key keeps working. The contract never reports
- * a gone key's window open; the page holds the same line regardless. The
- * overview uses this cell too, so the two pages word a window alike.
- */
-export function WindowCell({ item }: { item: RotationItem }) {
-  if (!item.windowOpen || item.keyName === null) {
-    return <span className="text-muted-foreground">Closed</span>
-  }
-  return (
-    <span>
-      Window ends <Timestamp value={item.graceEnds} label="window end" />
-    </span>
-  )
-}
 
 const columns: Column<RotationItem>[] = [
   {

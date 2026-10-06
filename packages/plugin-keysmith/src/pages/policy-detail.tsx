@@ -28,14 +28,12 @@ import {
 import { TagList } from "@forge-go/dashboard-kit/components/tag-list"
 import { Timestamp } from "@forge-go/dashboard-kit/components/timestamp"
 import { KeyStateBadge } from "../badges"
-import {
-  PolicyEditorDialog,
-  rateLimiterLine,
-} from "../components/policy-editor-dialog"
+import { PolicyEditorDialog } from "../components/policy-editor-dialog"
 import {
   ApplicationGroupLine,
   GROUP_HEADING,
   KEYSMITH_GROUP_LINE,
+  rateLimiterLine,
 } from "../enforcement"
 import { formatDuration, formatRateLimit, keyPath, maskedKey } from "../format"
 import type {

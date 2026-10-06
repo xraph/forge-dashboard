@@ -37,6 +37,7 @@ import {
 import type { ReactivateKey } from "../components/key-actions"
 import { PreviousKeyRow } from "../components/previous-key-row"
 import { RotateKeyDialog } from "../components/rotate-key-dialog"
+import { WindowCell } from "../components/rotation-cells"
 import { ScopesEditor, useScopeEditing } from "../components/scopes-editor"
 import type { ScopeEditing } from "../components/scopes-editor"
 import type {
@@ -47,7 +48,6 @@ import type {
   Settings,
   UsageSeries,
 } from "../types"
-import { WindowCell } from "./rotations"
 
 // Lazy: the usage chart brings Recharts, and this page is eager, in the
 // shell's entry chunk. A static import of usage-chart from here would put

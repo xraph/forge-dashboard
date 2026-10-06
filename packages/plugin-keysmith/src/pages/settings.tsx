@@ -11,11 +11,11 @@ import {
 } from "@forge-go/dashboard-kit/components/resource-table"
 import { TagList } from "@forge-go/dashboard-kit/components/tag-list"
 import { cn } from "@forge-go/dashboard-kit/lib/utils"
-import { rateLimiterLine } from "../components/policy-editor-dialog"
 import {
   ApplicationGroupLine,
   ENFORCEMENT_GROUPS,
   KEYSMITH_GROUP_LINE,
+  rateLimiterLine,
 } from "../enforcement"
 import type { EnforcementGroupId } from "../enforcement"
 import { formatDuration } from "../format"

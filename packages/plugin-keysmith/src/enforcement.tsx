@@ -2,8 +2,7 @@
  * The three groups a policy's fields fall into, by what enforces them, with
  * the words the policy editor, the policy page and the Settings page all use
  * for them. One copy, so the three cannot drift apart. The rate limiter
- * group's line depends on the deployment: see `rateLimiterLine` in
- * components/policy-editor-dialog.tsx.
+ * group's line depends on the deployment: see `rateLimiterLine` below.
  */
 
 /** The groups in the order the editor lays them out, top to bottom. */
@@ -33,4 +32,17 @@ export function ApplicationGroupLine() {
       .
     </>
   )
+}
+
+/**
+ * What the rate limiter group says about enforcement here. The editor, the
+ * policy page and the Settings page show the same line above the same group.
+ */
+export function rateLimiterLine(configured: boolean | undefined): string {
+  if (configured === undefined) {
+    return "Whether this deployment enforces these is not known right now."
+  }
+  return configured
+    ? "This deployment has a rate limiter, so Keysmith enforces these."
+    : "This deployment has no rate limiter. These are stored, but not enforced here."
 }

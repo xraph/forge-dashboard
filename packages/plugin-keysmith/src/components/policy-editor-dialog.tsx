@@ -31,6 +31,7 @@ import {
   ApplicationGroupLine,
   GROUP_HEADING,
   KEYSMITH_GROUP_LINE,
+  rateLimiterLine,
 } from "../enforcement"
 import { policyPath, splitDuration, toSeconds } from "../format"
 import type { DurationUnit } from "../format"
@@ -616,17 +617,4 @@ function PolicyForm({
       </DialogFooter>
     </form>
   )
-}
-
-/**
- * What the rate limit group says about enforcement here. The policy page
- * shows the same line above the same group.
- */
-export function rateLimiterLine(configured: boolean | undefined): string {
-  if (configured === undefined) {
-    return "Whether this deployment enforces these is not known right now."
-  }
-  return configured
-    ? "This deployment has a rate limiter, so Keysmith enforces these."
-    : "This deployment has no rate limiter. These are stored, but not enforced here."
 }

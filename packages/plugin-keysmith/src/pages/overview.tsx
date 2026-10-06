@@ -12,9 +12,9 @@ import type { StatItem } from "@forge-go/dashboard-kit/components/stat-grid"
 import { Timestamp } from "@forge-go/dashboard-kit/components/timestamp"
 import { cn } from "@forge-go/dashboard-kit/lib/utils"
 import { KeyStateBadge, RotationReasonBadge } from "../badges"
+import { KeyCell, WindowCell } from "../components/rotation-cells"
 import { formatCount, keyPath, maskedKey } from "../format"
 import type { KeySummary, Overview, RotationItem } from "../types"
-import { KeyCell, WindowCell } from "./rotations"
 
 // Nothing here may import the usage chart: this page is eager, and the chart
 // would bring Recharts into the shell's entry chunk with it.
