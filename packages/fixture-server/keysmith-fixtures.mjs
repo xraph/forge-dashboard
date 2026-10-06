@@ -5,10 +5,12 @@
 // Mirrors forgery/keysmith/extension/contract (tenant.go, project.go, load.go,
 // handlers_keys.go, handlers_pickers.go, handlers_key_create.go,
 // handlers_key_rotate.go, handlers_key_state.go, handlers_key_scopes.go,
-// handlers_policies.go, handlers_policy_write.go, handlers_scope_write.go and
-// manifest.yaml). Field names are the Go JSON tags, and every rule below is
-// the Go handler's rule, in the Go handler's order, so a refusal here is a
-// refusal there. Every write changes the state the next read answers from.
+// handlers_policies.go, handlers_policy_write.go, handlers_scope_write.go,
+// handlers_rotations.go, handlers_usage.go, handlers_overview.go,
+// handlers_settings.go, enforcement.go and manifest.yaml). Field names are the
+// Go JSON tags, and every rule below is the Go handler's rule, in the Go
+// handler's order, so a refusal here is a refusal there. Every write changes
+// the state the next read answers from.
 //
 // The module is self-contained and imports nothing from server.mjs. The one
 // thing it needs from there is the FixtureError class: server.mjs's dispatch
@@ -21,7 +23,7 @@
 // keys.create and keys.rotate answer a raw key, once, in their own response;
 // the state keeps just the hint (the last four characters of the raw key).
 //
-// Three things here are the fixture's own:
+// These things here are the fixture's own:
 //   - There is no principal in the fixture. FIXTURE_KEYSMITH_TENANT stands in
 //     for Deps.DefaultTenantID (default "acme"); set it to the empty string to
 //     see the refusal a deployment with no tenant configured gets.
@@ -33,6 +35,15 @@
 //   - There is no rate limiter either. FIXTURE_KEYSMITH_RATE_LIMITER=1 stands
 //     in for an engine built with one (rateLimiterConfigured); the default is
 //     none, so a policy's rate limit reads as stored but not enforced.
+//   - settings has no extension to ask. FIXTURE_KEYSMITH_PLUGINS (comma
+//     separated, default "audit-hook") stands in for the hook plugins, and
+//     FIXTURE_KEYSMITH_STORE_DOWN=1 for a store that does not answer its health
+//     check. The tenant always comes from config, since there is no principal
+//     to carry a tenant claim.
+//   - Usage has no write here. The seed records 30 days of acme requests for
+//     the Billing service and Reporting export keys from a fixed pseudo-random
+//     sequence, so the same start time always gives the same rows. globex has
+//     none, so FIXTURE_KEYSMITH_TENANT=globex shows usage as not recorded.
 
 import { randomBytes } from "node:crypto"
 import { isIP } from "node:net"
@@ -81,6 +92,46 @@ const MAX_SCOPE_CHILD_COUNT = 200
 const ENVIRONMENTS = ["live", "test", "staging"]
 // The engine never assigns "rotated", so it is not a filter.
 const STATES = ["active", "suspended", "revoked", "expired"]
+
+// A TypeID suffix's alphabet: lowercase Crockford base32. The usage seed needs
+// it before the TypeID helpers below.
+const CROCKFORD = "0123456789abcdefghjkmnpqrstvwxyz"
+
+// handlers_rotations.go: every reason a record can carry, "scheduled" included.
+const ROTATION_REASONS = ["manual", "compromise", "policy", "scheduled"]
+
+// handlers_usage.go: the most buckets one usage.series answer holds.
+const MAX_USAGE_BUCKETS = 400
+const USAGE_PERIODS = ["hourly", "daily", "monthly"]
+
+// handlers_overview.go: how many keys and rotations the overview lists.
+const OVERVIEW_RECENT = 5
+
+// handlers_settings.go. The grace RotateKey gives when nothing names one, in
+// seconds, and the two fixed sentences about the store.
+const DEFAULT_GRACE_SECONDS = DEFAULT_GRACE_MS / 1000
+const STORE_ANSWERED = "The store answered."
+const STORE_DID_NOT_REPLY = "The store did not answer. The error is in the server log."
+
+// enforcement.go: the policy editor's fields in its order, groups top to
+// bottom. `when` names the engine path that checks the field, and goes out
+// only when the field is enforced.
+const POLICY_FIELD_COUNT = 13
+const ENFORCEMENT_ROWS = [
+  { field: "maxKeyLifetimeSeconds", label: "Max key lifetime", group: "keysmith", when: "when a key is created" },
+  { field: "graceSeconds", label: "Grace on rotation", group: "keysmith", when: "when a key is rotated" },
+  { field: "allowedScopes", label: "Allowed scopes", group: "keysmith", when: "when a key is created or its scopes are assigned" },
+  { field: "rateLimit", label: "Rate limit", group: "rateLimiter", when: "when a key is validated" },
+  { field: "rateLimitWindowSeconds", label: "Window", group: "rateLimiter", when: "when a key is validated" },
+  { field: "burstLimit", label: "Burst limit", group: "application", when: "" },
+  { field: "rotationPeriodSeconds", label: "Rotation period", group: "application", when: "" },
+  { field: "dailyQuota", label: "Daily quota", group: "application", when: "" },
+  { field: "monthlyQuota", label: "Monthly quota", group: "application", when: "" },
+  { field: "allowedIps", label: "Allowed IPs", group: "application", when: "" },
+  { field: "allowedOrigins", label: "Allowed origins", group: "application", when: "" },
+  { field: "allowedPaths", label: "Allowed paths", group: "application", when: "" },
+  { field: "allowedMethods", label: "Allowed methods", group: "application", when: "" },
+]
 
 /** RFC3339 in UTC, without fractional seconds, like the Go projection. */
 function iso(date) {
@@ -171,6 +222,15 @@ export const KEYSMITH_IDS = {
   // billingKey's rotations: one open window, one whose grace has ended
   openRotation: "krot_01j9k4m3aac2d3e4f5g6h7j8k9",
   closedRotation: "krot_01j9k4m3abd3e4f5g6h7j8k9m0",
+  // partnerKey is suspended with its expiry ahead, so its window stays open
+  partnerRotation: "krot_01j9k4m3ace4f5g6h7j8k9m0n1",
+  // webhookKey's expiry has passed, so its window is closed with grace left
+  webhookRotation: "krot_01j9k4m3adf5g6h7j8k9m0n1p2",
+  // names goneKey, which no longer exists, and predates hints
+  goneKeyRotation: "krot_01j9k4m3aeg6h7j8k9m0n1p2q3",
+  globexRotation: "krot_01j9k4m3afh7j8k9m0n1p2q3r4",
+  // a key deleted outside the contract: no row has this id
+  goneKey: "akey_01j9k4m2efn5k0v2z3c7d8f9gh",
 }
 
 function seedKeysmithState() {
@@ -329,10 +389,10 @@ function seedKeysmithState() {
       createdBy: "usr_1",
       expiresAt: now - 2 * day,
       lastUsedAt: now - 3 * day,
-      rotatedAt: null,
+      rotatedAt: now - 3 * day,
       revokedAt: null,
       createdAt: now - 100 * day,
-      updatedAt: now - 100 * day,
+      updatedAt: now - 3 * day,
     },
     {
       id: KEYSMITH_IDS.partnerKey,
@@ -349,7 +409,7 @@ function seedKeysmithState() {
       // createdAt + maxKeyLifetime (90 days), so a policy-bound key never has none.
       expiresAt: now - 15 * day + 90 * day,
       lastUsedAt: now - 9 * day,
-      rotatedAt: null,
+      rotatedAt: now - 10 * day,
       revokedAt: null,
       createdAt: now - 15 * day,
       updatedAt: now - 8 * day,
@@ -410,37 +470,215 @@ function seedKeysmithState() {
       createdBy: "usr_9",
       expiresAt: null,
       lastUsedAt: now - hour,
-      rotatedAt: null,
+      rotatedAt: now - 5 * day,
       revokedAt: null,
       createdAt: now - 30 * day,
-      updatedAt: now - 30 * day,
+      updatedAt: now - 5 * day,
     },
   ]
 
-  // Rotation records. A window is open when it kept an old hint and its grace
-  // period has not ended. The closed one (grace ended) and any record without
-  // an old hint (written before the grace fix) never read as open.
+  // Rotation records. graceMs is the window the rotation recorded (0 is a
+  // real zero-grace rotation) and graceEnds where it ends now; keys.endGrace
+  // moves graceEnds only. rotatedBy is "" when nobody was recorded. A window is
+  // open by projectRotationItem's rule: the key is in the tenant and not
+  // finished, the record kept an old hint, and its grace has not ended.
+  const rotation = (fields) => ({ newHint: "", rotatedBy: "", ...fields, graceEnds: fields.createdAt + fields.graceMs })
   const rotations = [
-    {
+    rotation({
       id: KEYSMITH_IDS.openRotation,
+      tenantId: "acme",
       keyId: KEYSMITH_IDS.billingKey,
       reason: "manual",
       oldHint: "7c1e",
+      newHint: "a91f",
+      rotatedBy: "usr_1",
       createdAt: now - 2 * hour,
-      graceEnds: now + 22 * hour,
-    },
-    {
+      // The Standard policy's day.
+      graceMs: day,
+    }),
+    rotation({
       id: KEYSMITH_IDS.closedRotation,
+      tenantId: "acme",
       keyId: KEYSMITH_IDS.billingKey,
       // No scheduler exists, so production never records "scheduled".
       reason: "policy",
       oldHint: "19d4",
+      newHint: "7c1e",
+      rotatedBy: "usr_1",
       createdAt: now - 30 * day,
-      graceEnds: now - 30 * day + day,
-    },
+      graceMs: day,
+    }),
+    rotation({
+      // Suspended since, but its expiry is ahead, so it may resume and the
+      // window stays open.
+      id: KEYSMITH_IDS.partnerRotation,
+      tenantId: "acme",
+      keyId: KEYSMITH_IDS.partnerKey,
+      reason: "manual",
+      oldHint: "9e07",
+      newHint: "42ad",
+      rotatedBy: "usr_2",
+      createdAt: now - 10 * day,
+      graceMs: 14 * day,
+    }),
+    rotation({
+      // Rotated the day before it expired. Its grace runs four more days, but
+      // an expired key never validates again, so the window reads closed.
+      id: KEYSMITH_IDS.webhookRotation,
+      tenantId: "acme",
+      keyId: KEYSMITH_IDS.webhookKey,
+      reason: "compromise",
+      oldHint: "b210",
+      newHint: "e5c2",
+      rotatedBy: "usr_1",
+      createdAt: now - 3 * day,
+      graceMs: 7 * day,
+    }),
+    rotation({
+      // Written before hints existed, for a key since deleted outside the
+      // contract (the memory and mongo stores keep such a record).
+      id: KEYSMITH_IDS.goneKeyRotation,
+      tenantId: "acme",
+      keyId: KEYSMITH_IDS.goneKey,
+      reason: "compromise",
+      oldHint: "",
+      createdAt: now - 45 * day,
+      graceMs: day,
+    }),
+    rotation({
+      id: KEYSMITH_IDS.globexRotation,
+      tenantId: "globex",
+      keyId: KEYSMITH_IDS.globexKey,
+      reason: "manual",
+      oldHint: "d81c",
+      newHint: "0c9e",
+      rotatedBy: "usr_9",
+      createdAt: now - 5 * day,
+      graceMs: day,
+    }),
   ]
 
-  return { policies, scopes, keys, rotations }
+  return { policies, scopes, keys, rotations, usage: seedUsage(now) }
+}
+
+// ---------------------------------------------------------------------------
+// Usage seed
+// ---------------------------------------------------------------------------
+
+/** mulberry32: a small fixed pseudo-random sequence, so the seed is the same every run. */
+function mulberry32(seed) {
+  let a = seed >>> 0
+  return () => {
+    a = (a + 0x6d2b79f5) >>> 0
+    let t = Math.imul(a ^ (a >>> 15), 1 | a)
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296
+  }
+}
+
+const USAGE_SEED = 0x6b657973
+const USAGE_DAYS = 30
+
+/** A usage row id: the time in the top 48 bits, like the UUIDv7 a real id carries, so ids sort by time. */
+function usageID(at, seq) {
+  let n = (BigInt(at) << 80n) | BigInt(seq)
+  let suffix = ""
+  for (let i = 0; i < 26; i++) {
+    suffix = CROCKFORD[Number(n & 31n)] + suffix
+    n >>= 5n
+  }
+  return `kusg_${suffix}`
+}
+
+/**
+ * Thirty days of acme requests up to now, every hour from the same sequence:
+ * Billing service all along, Reporting export since it was created 25 days
+ * ago. Mostly 200s, some 404s, a handful of 503s (most in one busy hour, 50
+ * hours back), and one quiet UTC day 12 days back with no rows at all. Rows
+ * sit on whole seconds, newest first, ties by id descending.
+ */
+function seedUsage(now) {
+  const hour = 3600_000
+  const day = 24 * hour
+  const rand = mulberry32(USAGE_SEED)
+  const pick = (list) => list[Math.floor(rand() * list.length)]
+  const currentHour = Math.floor(now / hour) * hour
+  const quietDay = Math.floor((now - 12 * day) / day) * day
+  const busyHour = currentHour - 50 * hour
+  const reportingSince = now - 25 * day
+
+  const billing = {
+    keyId: KEYSMITH_IDS.billingKey,
+    calls: [
+      ["POST", "/v1/charges"],
+      ["GET", "/v1/invoices"],
+      ["GET", "/v1/invoices/inv_"],
+      ["POST", "/v1/refunds"],
+      ["GET", "/v1/customers/cus_"],
+    ],
+    ips: ["10.0.4.17", "10.0.4.18"],
+    slow: 0,
+  }
+  const reporting = {
+    keyId: KEYSMITH_IDS.reportingKey,
+    calls: [
+      ["GET", "/v1/reports"],
+      ["GET", "/v1/reports/rep_"],
+      ["POST", "/v1/reports/export"],
+    ],
+    // "" leaves the address out, as a request with none recorded.
+    ips: ["203.0.113.24", "198.51.100.7", ""],
+    slow: 300,
+  }
+
+  const rows = []
+  let seq = 0
+  const record = (source, start, span, busy) => {
+    const at = start + Math.floor((rand() * span) / 1000) * 1000
+    const [method, path] = pick(source.calls)
+    const endpoint = path.endsWith("_") ? `${path}${1000 + Math.floor(rand() * 9000)}` : path
+    const roll = rand()
+    const statusCode = roll < (busy ? 0.05 : 0.002) ? 503 : roll < (busy ? 0.12 : 0.08) ? 404 : 200
+    const jitter = rand()
+    const latencyMs =
+      statusCode === 503
+        ? 2000 + Math.floor(jitter * 3000)
+        : statusCode === 404
+          ? 4 + Math.floor(jitter * 20)
+          : 18 + source.slow + Math.floor(jitter * jitter * 240)
+    rows.push({
+      id: usageID(at, seq++),
+      tenantId: "acme",
+      keyId: source.keyId,
+      method,
+      endpoint,
+      statusCode,
+      latencyMs,
+      ipAddress: pick(source.ips),
+      createdAt: at,
+    })
+  }
+
+  for (let i = USAGE_DAYS * 24 - 1; i >= 0; i--) {
+    const start = currentHour - i * hour
+    // The current hour only runs up to now.
+    const span = Math.min(hour, now - start)
+    if (span < 1000 || Math.floor(start / day) * day === quietDay) continue
+    const utcHour = new Date(start).getUTCHours()
+    const working = utcHour >= 13 && utcHour <= 22
+    const billingCount = start === busyHour ? 160 : Math.floor(rand() * (working ? 9 : 4)) + (working ? 2 : 0)
+    for (let n = 0; n < billingCount; n++) record(billing, start, span, start === busyHour)
+    if (start >= reportingSince) {
+      const reportingCount = Math.floor(rand() * (utcHour >= 8 && utcHour <= 18 ? 4 : 2))
+      for (let n = 0; n < reportingCount; n++) record(reporting, start, span, false)
+    }
+  }
+  return rows.sort(usageStoreOrder)
+}
+
+/** Usages().Query order: created_at desc, then id desc. */
+function usageStoreOrder(a, b) {
+  return b.createdAt - a.createdAt || byteCompare(b.id, a.id)
 }
 
 let keysmith = seedKeysmithState()
@@ -463,6 +701,66 @@ function effectiveState(k, now) {
   if (k.revokedAt !== null) return { state: "revoked", pending: false }
   if (k.state === "active" && k.expiresAt !== null && k.expiresAt <= now) return { state: "expired", pending: true }
   return { state: k.state, pending: false }
+}
+
+/**
+ * keyIsFinished: no previous key of k can ever validate again. Its expiry has
+ * passed whatever the stored state (a suspended key past expiry is refused on
+ * expiry once reactivated), or it reads expired or revoked. rotations.list,
+ * overview and keys.detail all close windows by this one rule.
+ */
+function keyIsFinished(k, now) {
+  if (k.expiresAt !== null && k.expiresAt <= now) return true
+  const { state } = effectiveState(k, now)
+  return state === "expired" || state === "revoked"
+}
+
+/**
+ * projectRotationItem: k is the rotated key, or null when it no longer exists
+ * in the caller's tenant; then keyName, prefix and environment are null
+ * together and the window is closed. A window is open only while the record
+ * kept an old hint, its grace ends after now, and k is not finished.
+ */
+function projectRotationItem(r, k, now) {
+  return {
+    id: r.id,
+    keyId: r.keyId,
+    keyName: k ? k.name : null,
+    prefix: k ? k.prefix : null,
+    environment: k ? k.environment : null,
+    oldHint: r.oldHint,
+    newHint: r.newHint,
+    reason: r.reason,
+    graceSeconds: Math.trunc(r.graceMs / 1000),
+    graceEnds: iso(r.graceEnds),
+    windowOpen: k !== null && r.oldHint !== "" && r.graceEnds > now && !keyIsFinished(k, now),
+    ...(r.rotatedBy ? { rotatedBy: r.rotatedBy } : {}),
+    rotatedAt: iso(r.createdAt),
+  }
+}
+
+/**
+ * rotationKeys: each key the records name, kept only when it belongs to the
+ * tenant. A key that is gone or another tenant's maps to null.
+ */
+function rotationKeys(tenantId, recs) {
+  const keys = new Map()
+  for (const r of recs) {
+    if (keys.has(r.keyId)) continue
+    const k = keysmith.keys.find((row) => row.id === r.keyId)
+    keys.set(r.keyId, k && k.tenantId === tenantId ? k : null)
+  }
+  return keys
+}
+
+/** Rotations().List order: created_at desc, then id desc. */
+function rotationStoreOrder(a, b) {
+  return b.createdAt - a.createdAt || byteCompare(b.id, a.id)
+}
+
+/** Keys().List order: created_at desc, then id desc. */
+function keyStoreOrder(a, b) {
+  return b.createdAt - a.createdAt || byteCompare(b.id, a.id)
 }
 
 /**
@@ -534,7 +832,6 @@ function parseTypeID(s, prefix) {
  * character is 0 to 7). Real ones are UUIDv7 and sort by time; nothing here
  * reads that order.
  */
-const CROCKFORD = "0123456789abcdefghjkmnpqrstvwxyz"
 function newTypeID(prefix) {
   let n = BigInt(`0x${randomBytes(16).toString("hex")}`)
   let suffix = ""
@@ -670,6 +967,155 @@ function scopeStoreOrder(a, b) {
 
 /** The rate limiter stand-in (see the header). */
 const rateLimiterConfigured = () => process.env.FIXTURE_KEYSMITH_RATE_LIMITER === "1"
+
+/** The hook plugins stand-in: sortedPlugins of FIXTURE_KEYSMITH_PLUGINS, sorted, not de-duplicated, [] for none. */
+function fixturePlugins() {
+  return (process.env.FIXTURE_KEYSMITH_PLUGINS ?? "audit-hook")
+    .split(",")
+    .map((name) => name.trim())
+    .filter((name) => name !== "")
+    .sort(byteCompare)
+}
+
+/** The store health stand-in (see the header). */
+const storeDown = () => process.env.FIXTURE_KEYSMITH_STORE_DOWN === "1"
+
+/**
+ * enforcementTable: a fresh copy of the table. The keysmith group is always
+ * enforced, the application group never, and the rate limiter group only with
+ * a limiter. A row that is not enforced has no `when`.
+ */
+function enforcementTable(limiter) {
+  return ENFORCEMENT_ROWS.map((r) => {
+    const enforced = r.group === "keysmith" || (r.group === "rateLimiter" && limiter)
+    return { field: r.field, label: r.label, group: r.group, enforced, when: enforced ? r.when : "" }
+  })
+}
+
+/** enforcedPolicyFieldCount: 3, or 5 with a rate limiter. */
+function enforcedPolicyFieldCount(limiter) {
+  return enforcementTable(limiter).filter((r) => r.enforced).length
+}
+
+// ---------------------------------------------------------------------------
+// Usage times (handlers_usage.go)
+// ---------------------------------------------------------------------------
+
+const HOUR_MS = 3600_000
+const DAY_MS = 24 * HOUR_MS
+
+// time.Parse(time.RFC3339, s) as Go reads it once its fast path gives up: the
+// hour may be one digit, a fraction may follow the seconds after "." or ",",
+// and a zone offset may run to 24:60. Only "T" and "Z" in capitals.
+const GO_RFC3339 = /^(\d{4})-(\d{2})-(\d{2})T(\d{1,2}):(\d{2}):(\d{2})(?:[.,](\d+))?(?:Z|([+-])(\d{2}):(\d{2}))$/
+
+/** Go's daysIn, on the proleptic Gregorian calendar. month is 1 to 12. */
+function daysIn(month, year) {
+  if (month === 2) return year % 4 === 0 && (year % 100 !== 0 || year % 400 === 0) ? 29 : 28
+  return [4, 6, 9, 11].includes(month) ? 30 : 31
+}
+
+/** A UTC time from its parts. Date.UTC would read the years 0 to 99 as 1900 to 1999. */
+function utcTime(year, month0, day, hour = 0, min = 0, sec = 0) {
+  const d = new Date(0)
+  d.setUTCFullYear(year, month0, day)
+  d.setUTCHours(hour, min, sec, 0)
+  return d.getTime()
+}
+
+/**
+ * parseGoRFC3339: { ms, sub } in UTC, or null where Go refuses. ms is whole
+ * milliseconds and sub the nanoseconds past them (0 to 999999): Go keeps
+ * nanoseconds, and two times inside one millisecond still compare there.
+ */
+function parseGoRFC3339(s) {
+  const m = GO_RFC3339.exec(s)
+  if (!m) return null
+  const [, y, mo, d, h, mi, se, frac, sign, zh, zm] = m
+  const [year, month, day, hour, min, sec] = [y, mo, d, h, mi, se].map(Number)
+  if (month < 1 || month > 12 || day < 1 || day > daysIn(month, year)) return null
+  if (hour > 23 || min > 59 || sec > 59) return null
+  let offsetMs = 0
+  if (sign) {
+    if (Number(zh) > 24 || Number(zm) > 60) return null
+    offsetMs = (sign === "-" ? -1 : 1) * (Number(zh) * 60 + Number(zm)) * 60_000
+  }
+  // Go reads nine digits of fraction and drops the rest.
+  const nanos = (frac ?? "").slice(0, 9).padEnd(9, "0")
+  return {
+    ms: utcTime(year, month - 1, day, hour, min, sec) + Number(nanos.slice(0, 3)) - offsetMs,
+    sub: Number(nanos.slice(3)),
+  }
+}
+
+/** a is after b, to the nanosecond. */
+const timeAfter = (a, b) => a.ms > b.ms || (a.ms === b.ms && a.sub > b.sub)
+
+/** The first whole millisecond at or after t: a whole-millisecond time x is >= t, or < t, exactly when it is against this. */
+const ceilMs = (t) => (t.sub > 0 ? t.ms + 1 : t.ms)
+
+/** usage.Truncate: the UTC start of the hour, day or month ms falls in. */
+function usageTruncate(ms, period) {
+  if (period === "hourly") return Math.floor(ms / HOUR_MS) * HOUR_MS
+  if (period === "daily") return Math.floor(ms / DAY_MS) * DAY_MS
+  const d = new Date(ms)
+  return utcTime(d.getUTCFullYear(), d.getUTCMonth(), 1)
+}
+
+/** nextUsageBucket: one hour, one UTC day, or the 1st of the next UTC month. */
+function nextUsageBucket(ms, period) {
+  if (period === "hourly") return ms + HOUR_MS
+  if (period === "daily") return ms + DAY_MS
+  const d = new Date(ms)
+  return utcTime(d.getUTCFullYear(), d.getUTCMonth() + 1, 1)
+}
+
+/** usageBucketStarts: every start from first while it is before before, or null past MAX_USAGE_BUCKETS. */
+function usageBucketStarts(first, before, period) {
+  const starts = []
+  for (let s = first; s < before; s = nextUsageBucket(s, period)) {
+    if (starts.length === MAX_USAGE_BUCKETS) return null
+    starts.push(s)
+  }
+  return starts
+}
+
+/** time.Format(time.RFC3339) in UTC for any year: Go writes the year -1 as "-0001" and 10000 as "10000". */
+function goRFC3339(ms) {
+  const y = new Date(ms).getUTCFullYear()
+  const year = y < 0 ? `-${String(-y).padStart(4, "0")}` : String(y).padStart(4, "0")
+  return year + iso(ms).replace(/^[+-]?\d+/, "")
+}
+
+/** The tenant's usage rows, newest first, narrowed to a key and to [after, before) in whole milliseconds. */
+function usageRows(tenantId, keyId, after, before) {
+  return keysmith.usage.filter(
+    (r) =>
+      r.tenantId === tenantId &&
+      (keyId === null || r.keyId === keyId) &&
+      (after === null || r.createdAt >= after) &&
+      (before === null || r.createdAt < before),
+  )
+}
+
+/** usageRecorded: whether the tenant has any usage row at all, at any time, for any key. */
+function usageRecorded(tenantId) {
+  return keysmith.usage.some((r) => r.tenantId === tenantId)
+}
+
+/** UsageRecordItem: no user agent, no metadata; ipAddress left out when empty. */
+function projectUsageRecord(r) {
+  return {
+    id: r.id,
+    keyId: r.keyId,
+    method: r.method,
+    endpoint: r.endpoint,
+    statusCode: r.statusCode,
+    latencyMs: r.latencyMs,
+    ...(r.ipAddress ? { ipAddress: r.ipAddress } : {}),
+    at: iso(r.createdAt),
+  }
+}
 
 // ---------------------------------------------------------------------------
 // Policy list checks (handlers_policy_write.go)
@@ -861,6 +1307,30 @@ export function createKeysmithHandlers(FixtureError) {
     let offset = wholeNumber(params?.offset)
     if (offset < 0) offset = 0
     return { limit, offset }
+  }
+
+  /**
+   * parseUsageTime (handlers_usage.go): trimmed; blank is null when optional
+   * and "<name> is required" when not; anything Go's RFC3339 parse refuses is
+   * "<name> is not an RFC3339 time".
+   */
+  function parseUsageTime(name, raw, required) {
+    const s = goTrimSpace(str(raw))
+    if (s === "") {
+      if (required) throw badRequest(`${name} is required`)
+      return null
+    }
+    const t = parseGoRFC3339(s)
+    if (!t) throw badRequest(`${name} is not an RFC3339 time`)
+    return t
+  }
+
+  /** parseUsageKeyID, and rotations.list's keyId: trimmed, blank is every key. */
+  function parseKeyFilter(raw) {
+    const s = goTrimSpace(str(raw))
+    if (s === "") return null
+    if (!parseTypeID(s, "akey")) throw badRequest("keyId is not a key id")
+    return s
   }
 
   /**
@@ -1172,7 +1642,7 @@ export function createKeysmithHandlers(FixtureError) {
               (state === "" || k.state === state) &&
               (policyId === "" || k.policyId === policyId),
           )
-          .sort((a, b) => b.createdAt - a.createdAt)
+          .sort(keyStoreOrder)
 
         const now = Date.now()
         return {
@@ -1205,7 +1675,9 @@ export function createKeysmithHandlers(FixtureError) {
           if (pol && pol.tenantId === k.tenantId) out.policy = projectPolicyRef(pol)
         }
 
-        out.previousKeys = listOpenWindows(k.id, now)
+        // A finished key's windows can never validate again, so none is
+        // listed, the same rule rotations.list and overview close them by.
+        if (!keyIsFinished(k, now)) out.previousKeys = listOpenWindows(k.id, now)
         return out
       },
     },
@@ -1257,6 +1729,175 @@ export function createKeysmithHandlers(FixtureError) {
         if (hasMore) rows.length = limit
         rows.sort((a, b) => byteCompare(a.name, b.name))
         return { scopes: rows.map(projectScopeSummary), hasMore }
+      },
+    },
+
+    // The tenant's rotations, newest first. keyId is a filter, not a lookup:
+    // another tenant's key or a missing one answers an empty page.
+    "rotations.list": {
+      kind: "query",
+      handler: (params) => {
+        const tenantId = tenant()
+        const keyId = parseKeyFilter(params?.keyId)
+        // Matched exactly, like keys.list's environment and state.
+        const reason = str(params?.reason)
+        if (reason !== "" && !ROTATION_REASONS.includes(reason)) {
+          throw badRequest("reason must be one of manual, compromise, policy, scheduled")
+        }
+        const { limit, offset } = clampPage(params)
+        // One extra row tells whether another page exists.
+        const recs = keysmith.rotations
+          .filter((r) => r.tenantId === tenantId && (keyId === null || r.keyId === keyId) && (reason === "" || r.reason === reason))
+          .sort(rotationStoreOrder)
+          .slice(offset, offset + limit + 1)
+        const hasMore = recs.length > limit
+        if (hasMore) recs.length = limit
+        const keys = rotationKeys(tenantId, recs)
+        const now = Date.now()
+        return { items: recs.map((r) => projectRotationItem(r, keys.get(r.keyId), now)), hasMore }
+      },
+    },
+
+    // One bucket per period from the UTC bucket after falls in up to before,
+    // every bucket present. The first failing check wins, in Go's order.
+    "usage.series": {
+      kind: "query",
+      handler: (params) => {
+        const tenantId = tenant()
+        const period = params?.period
+        if (!USAGE_PERIODS.includes(period)) throw badRequest("period must be one of hourly, daily, monthly")
+        const after = parseUsageTime("after", params?.after, true)
+        const before = parseUsageTime("before", params?.before, true)
+        if (!timeAfter(before, after)) throw badRequest("before must be after after")
+        // The whole first bucket counts, even when after is inside it.
+        const first = usageTruncate(after.ms, period)
+        const end = ceilMs(before)
+        const starts = usageBucketStarts(first, end, period)
+        if (!starts) {
+          // Monthly is already the longest period, so only a shorter range helps.
+          const advice = period === "monthly" ? "choose a shorter range" : "choose a longer period or a shorter range"
+          throw badRequest(`this range has more than ${MAX_USAGE_BUCKETS} ${period} buckets; ${advice}`)
+        }
+        const keyId = parseKeyFilter(params?.keyId)
+
+        const sums = new Map(starts.map((s) => [s, { requests: 0, errs: 0, serverErrs: 0, latency: 0 }]))
+        // Every row in [first, before) truncates to one of the starts.
+        for (const r of usageRows(tenantId, keyId, first, end)) {
+          const b = sums.get(usageTruncate(r.createdAt, period))
+          b.requests++
+          if (r.statusCode >= 400) b.errs++
+          if (r.statusCode >= 500) b.serverErrs++
+          b.latency += r.latencyMs
+        }
+        return {
+          period,
+          buckets: starts.map((s) => {
+            const b = sums.get(s)
+            return {
+              start: goRFC3339(s),
+              requests: b.requests,
+              clientErrors: b.errs - b.serverErrs,
+              serverErrors: b.serverErrs,
+              succeeded: b.requests - b.errs,
+              // The mean rounded down, and null where there is nothing to average.
+              avgLatencyMs: b.requests > 0 ? Math.floor(b.latency / b.requests) : null,
+            }
+          }),
+          recorded: usageRecorded(tenantId),
+        }
+      },
+    },
+
+    // The tenant's recorded requests, newest first, with the total that match.
+    // Both times are optional, and there is no bucket cap.
+    "usage.records": {
+      kind: "query",
+      handler: (params) => {
+        const tenantId = tenant()
+        const after = parseUsageTime("after", params?.after, false)
+        const before = parseUsageTime("before", params?.before, false)
+        if (after && before && !timeAfter(before, after)) throw badRequest("before must be after after")
+        const keyId = parseKeyFilter(params?.keyId)
+        const { limit, offset } = clampPage(params)
+        const rows = usageRows(tenantId, keyId, after ? ceilMs(after) : null, before ? ceilMs(before) : null)
+        return { items: rows.slice(offset, offset + limit).map(projectUsageRecord), total: rows.length }
+      },
+    },
+
+    // Keys by stored state, open windows, keys expiring within 7 days,
+    // requests in the last 24 hours, the newest keys and rotations, and how
+    // many policy fields this deployment enforces.
+    overview: {
+      kind: "query",
+      handler: () => {
+        const tenantId = tenant()
+        const now = Date.now()
+        const limiter = rateLimiterConfigured()
+        const mine = keysmith.keys.filter((k) => k.tenantId === tenantId)
+
+        // Stored state: an active key past its expiry still counts as active.
+        const counts = { active: 0, suspended: 0, revoked: 0, expired: 0 }
+        for (const k of mine) if (Object.hasOwn(counts, k.state)) counts[k.state]++
+
+        // ListExpired(now + 7 days) is stored active keys whose expiry is
+        // before then; of those, this tenant's that still read active.
+        const expiringWithin7Days = mine.filter(
+          (k) =>
+            k.state === "active" &&
+            k.expiresAt !== null &&
+            k.expiresAt < now + EXPIRES_SOON_WINDOW_MS &&
+            effectiveState(k, now).state === "active",
+        ).length
+
+        // ListPendingGrace(now), this tenant's with an old hint, counted by
+        // rotations.list's own windowOpen so the two pages agree.
+        const pending = keysmith.rotations.filter((r) => r.graceEnds > now && r.tenantId === tenantId && r.oldHint !== "")
+        const pendingKeys = rotationKeys(tenantId, pending)
+        const openGraceWindows = pending.filter((r) => projectRotationItem(r, pendingKeys.get(r.keyId), now).windowOpen).length
+
+        // null when the tenant never recorded usage, so the page can say so.
+        const requestsLast24h = usageRecorded(tenantId) ? usageRows(tenantId, null, now - DAY_MS, null).length : null
+
+        const recentRecs = keysmith.rotations
+          .filter((r) => r.tenantId === tenantId)
+          .sort(rotationStoreOrder)
+          .slice(0, OVERVIEW_RECENT)
+        const recentKeys = rotationKeys(tenantId, recentRecs)
+        return {
+          counts,
+          openGraceWindows,
+          expiringWithin7Days,
+          requestsLast24h,
+          recentKeys: mine
+            .sort(keyStoreOrder)
+            .slice(0, OVERVIEW_RECENT)
+            .map((k) => projectKey(k, now)),
+          recentRotations: recentRecs.map((r) => projectRotationItem(r, recentKeys.get(r.keyId), now)),
+          enforcedFields: enforcedPolicyFieldCount(limiter),
+          policyFields: POLICY_FIELD_COUNT,
+        }
+      },
+    },
+
+    // What this deployment runs with. A store that does not answer is
+    // reported, not refused.
+    settings: {
+      kind: "query",
+      handler: () => {
+        const tenantId = tenant()
+        const limiter = rateLimiterConfigured()
+        const down = storeDown()
+        return {
+          plugins: fixturePlugins(),
+          storeHealthy: !down,
+          storeMessage: down ? STORE_DID_NOT_REPLY : STORE_ANSWERED,
+          rateLimiterConfigured: limiter,
+          tenantSource: "config",
+          tenant: tenantId,
+          enforcement: enforcementTable(limiter),
+          enforcedFields: enforcedPolicyFieldCount(limiter),
+          defaultGraceSeconds: DEFAULT_GRACE_SECONDS,
+        }
       },
     },
 
@@ -1389,10 +2030,12 @@ export function createKeysmithHandlers(FixtureError) {
         const newHint = rawKey.slice(-4)
         keysmith.rotations.push({
           id: newTypeID("krot"),
+          tenantId: k.tenantId,
           keyId: k.id,
           reason,
           oldHint: k.hint,
           newHint,
+          graceMs,
           rotatedBy: FIXTURE_OPERATOR,
           createdAt: now,
           graceEnds: now + graceMs,
