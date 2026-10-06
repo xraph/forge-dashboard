@@ -105,7 +105,7 @@ export function variableProblems(vars: VariableWire[]): Map<number, string> {
   vars.forEach((v, i) => {
     const name = v.name.trim()
     if (name === "") out.set(i, "A variable needs a name.")
-    else if (!VARIABLE_PATTERN.test(name)) out.set(i, "Use letters, digits and underscores, starting with a letter or an underscore.")
+    else if (!VARIABLE_PATTERN.test(name)) out.set(i, "Use up to 64 letters, digits and underscores, starting with a letter or an underscore.")
     else if (seen.has(name)) out.set(i, `${name} is declared twice.`)
     else seen.add(name)
   })

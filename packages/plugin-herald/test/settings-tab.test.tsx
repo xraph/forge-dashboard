@@ -42,6 +42,13 @@ describe("SettingsTab", () => {
     expect(screen.getByText("A template needs a name.")).toBeTruthy()
   })
 
+  it("ties the missing name message to the name input", () => {
+    setup({ settings: { ...SETTINGS, name: "" } })
+    const input = screen.getByLabelText("Name")
+    const message = document.getElementById(input.getAttribute("aria-describedby") ?? "")
+    expect(message?.textContent).toBe("A template needs a name.")
+  })
+
   it("shows slug and channel read only and says why", () => {
     setup()
     const slug = screen.getByText("billing.receipt")

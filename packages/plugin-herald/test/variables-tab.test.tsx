@@ -1,4 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest"
+import { useState } from "react"
 import { cleanup, fireEvent, render, screen, within } from "@testing-library/react"
 import { VariablesTab } from "../src/workspace/variables-tab"
 import type { VariableWire } from "../src/wire"
@@ -15,6 +16,11 @@ function setup(variables: VariableWire[] = VARS) {
   const onChange = vi.fn()
   render(<VariablesTab variables={variables} onChange={onChange} />)
   return { onChange, last: () => onChange.mock.calls.at(-1)?.[0] as VariableWire[] }
+}
+
+function Stateful({ initial }: { initial: VariableWire[] }) {
+  const [vars, setVars] = useState(initial)
+  return <VariablesTab variables={vars} onChange={setVars} />
 }
 
 describe("VariablesTab", () => {
@@ -63,8 +69,33 @@ describe("VariablesTab", () => {
 
   it("says what's wrong with a name on its own row", () => {
     setup([...VARS, { name: "1st", type: "string", required: false }, { name: "amount", type: "string", required: false }])
-    expect(screen.getByText("Use letters, digits and underscores, starting with a letter or an underscore.")).toBeTruthy()
+    expect(screen.getByText("Use up to 64 letters, digits and underscores, starting with a letter or an underscore.")).toBeTruthy()
     expect(screen.getByText("amount is declared twice.")).toBeTruthy()
     expect(screen.getByLabelText("Name of variable 4").getAttribute("aria-invalid")).toBe("true")
+  })
+
+  it("keeps focus on a row's button when the row moves", () => {
+    render(<Stateful initial={VARS} />)
+    const up = screen.getByRole("button", { name: "Move amount up" })
+    up.focus()
+    fireEvent.click(up)
+    expect((screen.getByLabelText("Name of variable 1") as HTMLInputElement).value).toBe("amount")
+    expect(document.activeElement).toBe(screen.getByRole("button", { name: "Move amount up" }))
+    expect((document.activeElement as HTMLButtonElement).disabled).toBe(true)
+  })
+
+  it("moves focus to a neighbouring row, or to Add variable, when a row is removed", () => {
+    render(<Stateful initial={VARS.slice(0, 2)} />)
+    fireEvent.click(screen.getByRole("button", { name: "Remove amount" }))
+    expect(document.activeElement).toBe(screen.getByRole("button", { name: "Remove customer_name" }))
+    fireEvent.click(screen.getByRole("button", { name: "Remove customer_name" }))
+    expect(document.activeElement).toBe(screen.getByRole("button", { name: "Add variable" }))
+  })
+
+  it("ties a row's message to its name input", () => {
+    setup([{ name: "1st", type: "string", required: false }])
+    const input = screen.getByLabelText("Name of variable 1")
+    const message = document.getElementById(input.getAttribute("aria-describedby") ?? "")
+    expect(message?.textContent).toBe("Use up to 64 letters, digits and underscores, starting with a letter or an underscore.")
   })
 })

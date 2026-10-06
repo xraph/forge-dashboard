@@ -105,7 +105,7 @@ describe("variableProblems", () => {
     ])
     expect([...problems.entries()]).toEqual([
       [1, "A variable needs a name."],
-      [2, "Use letters, digits and underscores, starting with a letter or an underscore."],
+      [2, "Use up to 64 letters, digits and underscores, starting with a letter or an underscore."],
       [3, "ok_name is declared twice."],
     ])
   })

@@ -38,8 +38,8 @@ export function SettingsTab({ template, settings, onChange }: { template: Templa
     <div className="flex max-w-xl flex-col gap-6">
       <div className="flex flex-col gap-1.5">
         <Label htmlFor="template-name">Name</Label>
-        <Input id="template-name" value={settings.name} aria-invalid={nameMissing || undefined} onChange={(e) => onChange({ ...settings, name: e.target.value })} />
-        {nameMissing && <p className="text-xs text-destructive">A template needs a name.</p>}
+        <Input id="template-name" value={settings.name} aria-invalid={nameMissing || undefined} aria-describedby={nameMissing ? "template-name-problem" : undefined} onChange={(e) => onChange({ ...settings, name: e.target.value })} />
+        {nameMissing && <p id="template-name-problem" className="text-xs text-destructive">A template needs a name.</p>}
       </div>
       <div className="flex flex-col gap-1.5">
         <Label htmlFor="template-category">Category</Label>
