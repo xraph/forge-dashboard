@@ -23,7 +23,7 @@
 // keys.create and keys.rotate answer a raw key, once, in their own response;
 // the state keeps just the hint (the last four characters of the raw key).
 //
-// These things here are the fixture's own:
+// The fixture's own stand-ins:
 //   - There is no principal in the fixture. FIXTURE_KEYSMITH_TENANT stands in
 //     for Deps.DefaultTenantID (default "acme"); set it to the empty string to
 //     see the refusal a deployment with no tenant configured gets.
@@ -558,7 +558,14 @@ function seedKeysmithState() {
     }),
   ]
 
-  return { policies, scopes, keys, rotations, usage: seedUsage(now) }
+  // A key's last use is its newest usage row; keys with no usage keep theirs.
+  const usage = seedUsage(now)
+  for (const k of keys) {
+    const newest = usage.find((r) => r.keyId === k.id)
+    if (newest) k.lastUsedAt = newest.createdAt
+  }
+
+  return { policies, scopes, keys, rotations, usage }
 }
 
 // ---------------------------------------------------------------------------
@@ -593,9 +600,12 @@ function usageID(at, seq) {
 /**
  * Thirty days of acme requests up to now, every hour from the same sequence:
  * Billing service all along, Reporting export since it was created 25 days
- * ago. Mostly 200s, some 404s, a handful of 503s (most in one busy hour, 50
- * hours back), and one quiet UTC day 12 days back with no rows at all. Rows
- * sit on whole seconds, newest first, ties by id descending.
+ * ago. Mostly 200s, some 404s, a handful of 503s, and one quiet UTC day 12
+ * days back with no rows at all. Two busy hours carry most of the errors: a
+ * big one 50 hours back for the daily views, and a smaller one 7 hours back,
+ * with at least three 503s and five 404s, so the 24 hour view has a spike and
+ * every range shows all three outcomes. Rows sit on whole seconds, newest
+ * first, ties by id descending.
  */
 function seedUsage(now) {
   const hour = 3600_000
@@ -605,6 +615,7 @@ function seedUsage(now) {
   const currentHour = Math.floor(now / hour) * hour
   const quietDay = Math.floor((now - 12 * day) / day) * day
   const busyHour = currentHour - 50 * hour
+  const recentBusyHour = currentHour - 7 * hour
   const reportingSince = now - 25 * day
 
   const billing = {
@@ -633,12 +644,13 @@ function seedUsage(now) {
 
   const rows = []
   let seq = 0
-  const record = (source, start, span, busy) => {
+  // forced, when set, is the status the row gets whatever the roll says.
+  const record = (source, start, span, busy, forced) => {
     const at = start + Math.floor((rand() * span) / 1000) * 1000
     const [method, path] = pick(source.calls)
     const endpoint = path.endsWith("_") ? `${path}${1000 + Math.floor(rand() * 9000)}` : path
     const roll = rand()
-    const statusCode = roll < (busy ? 0.05 : 0.002) ? 503 : roll < (busy ? 0.12 : 0.08) ? 404 : 200
+    const statusCode = forced ?? (roll < (busy ? 0.05 : 0.002) ? 503 : roll < (busy ? 0.12 : 0.08) ? 404 : 200)
     const jitter = rand()
     const latencyMs =
       statusCode === 503
@@ -668,6 +680,9 @@ function seedUsage(now) {
     const working = utcHour >= 13 && utcHour <= 22
     const billingCount = start === busyHour ? 160 : Math.floor(rand() * (working ? 9 : 4)) + (working ? 2 : 0)
     for (let n = 0; n < billingCount; n++) record(billing, start, span, start === busyHour)
+    if (start === recentBusyHour) {
+      for (let n = 0; n < 48; n++) record(billing, start, span, true, n < 3 ? 503 : n < 8 ? 404 : undefined)
+    }
     if (start >= reportingSince) {
       const reportingCount = Math.floor(rand() * (utcHour >= 8 && utcHour <= 18 ? 4 : 2))
       for (let n = 0; n < reportingCount; n++) record(reporting, start, span, false)
