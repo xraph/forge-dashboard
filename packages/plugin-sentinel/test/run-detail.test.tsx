@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest"
-import { act, fireEvent, screen, waitFor, within } from "@testing-library/react"
-import { ContractError } from "@forge-go/dashboard-plugin"
+import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react"
+import { ContractError, PluginProvider } from "@forge-go/dashboard-plugin"
+import { ResultsSection } from "../src/components/results-section"
 import { RunDetailPage } from "../src/pages/run-detail"
 import {
   baselineDetail,
@@ -253,5 +254,58 @@ describe("RunDetailPage", () => {
     expect(queries.find((q) => q.intent === "baselines.detail")?.params).toEqual({
       baselineId: regressed().baseline?.id,
     })
+  })
+})
+
+describe("ResultsSection", () => {
+  it("reads the results once more when the run stops, so a case that finished between polls shows", async () => {
+    const { client, queries } = recordingFullClient(answers())
+    const props = { runId: RUN_ID, status: "" as const, onStatusChange: () => {} }
+    const view = render(
+      <PluginProvider client={client}>
+        <ResultsSection {...props} running />
+      </PluginProvider>,
+    )
+    await screen.findByRole("region", { name: "4 results" })
+    const before = queries.filter((q) => q.intent === "runs.results").length
+    view.rerender(
+      <PluginProvider client={client}>
+        <ResultsSection {...props} running={false} />
+      </PluginProvider>,
+    )
+    await waitFor(() => expect(queries.filter((q) => q.intent === "runs.results").length).toBe(before + 1))
+  })
+
+  it("has no change column for a run compared with no baseline", async () => {
+    renderNavPage(RunDetailPage, stubClient(answers(runDetail({ regression: regression() }))), { id: RUN_ID })
+    const table = await screen.findByRole("region", { name: "4 results" })
+    expect(within(table).queryByRole("columnheader", { name: "Change vs baseline" })).toBeNull()
+  })
+
+  it("does not claim the baseline never scored a case while its scores load", async () => {
+    const inner = stubClient(answers())
+    const client = {
+      ...inner,
+      // The baseline's scores never arrive.
+      query: (intent: string, params?: Record<string, unknown>) =>
+        intent === "baselines.detail" ? new Promise<never>(() => {}) : inner.query(intent, params),
+    } as typeof inner
+    renderNavPage(RunDetailPage, client, { id: RUN_ID })
+    const table = await screen.findByRole("region", { name: "4 results" })
+    expect(within(table).getAllByLabelText("no baseline score loaded yet")).toHaveLength(2)
+    expect(within(table).queryByLabelText("no baseline score")).toBeNull()
+  })
+
+  it("says the baseline's scores could not be read, and does not claim it never scored a case", async () => {
+    const { client } = recordingFullClient((intent) =>
+      intent === "baselines.detail"
+        ? new ContractError("INTERNAL", "store unavailable")
+        : answers()[intent as keyof ReturnType<typeof answers>],
+    )
+    renderNavPage(RunDetailPage, client, { id: RUN_ID })
+    expect((await screen.findByText("store unavailable", { exact: false })).getAttribute("role")).toBe("alert")
+    const table = screen.getByRole("region", { name: "4 results" })
+    expect(within(table).getAllByLabelText("no readable baseline score")).toHaveLength(2)
+    expect(within(table).queryByLabelText("no baseline score")).toBeNull()
   })
 })

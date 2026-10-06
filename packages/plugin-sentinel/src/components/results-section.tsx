@@ -1,3 +1,4 @@
+import { useEffect, useRef } from "react"
 import { PluginLink, usePoll, useQuery } from "@forge-go/dashboard-plugin"
 import { Button } from "@forge-go/dashboard-kit/components/button"
 import { NoneCell } from "@forge-go/dashboard-kit/components/none-cell"
@@ -17,7 +18,38 @@ const CHIPS: { status: ResultStatus; label: string }[] = [
   { status: "error", label: "Error" },
 ]
 
-function columns(runId: string, baseline: Map<string, number> | null, threshold: number | undefined): Column<ResultRow>[] {
+/**
+ * What the change column knows: nothing yet while the baseline's scores load,
+ * or each case's saved score once they have.
+ */
+type BaselineScores = { state: "loading" } | { state: "loaded"; scores: Map<string, number> } | { state: "failed" }
+
+function changeColumn(baseline: BaselineScores, threshold: number | undefined): Column<ResultRow> {
+  return {
+    id: "change",
+    header: "Change vs baseline",
+    align: "end",
+    className: "tabular-nums",
+    cell: (r) => {
+      // Until the scores arrive, or if they could not be read, the page does
+      // not know whether the baseline scored this case, so it does not say.
+      if (baseline.state === "loading") return <NoneCell label="baseline score loaded yet" />
+      if (baseline.state === "failed") return <NoneCell label="readable baseline score" />
+      const old = baseline.scores.get(r.caseId)
+      if (old === undefined) return <NoneCell label="baseline score" />
+      const delta = r.score - old
+      const regressed = threshold !== undefined && delta < -threshold - 1e-9
+      return regressed ? (
+        <span className="font-medium">{`${formatDelta(delta)} regressed`}</span>
+      ) : (
+        formatDelta(delta)
+      )
+    },
+  }
+}
+
+/** The change column comes only with a baseline the run was compared with. */
+function columns(runId: string, baseline: BaselineScores | null, threshold: number | undefined): Column<ResultRow>[] {
   return [
     {
       id: "case",
@@ -32,23 +64,7 @@ function columns(runId: string, baseline: Map<string, number> | null, threshold:
     },
     { id: "status", header: "Status", cell: (r) => <ResultStatusBadge status={r.status} /> },
     { id: "score", header: "Score", align: "end", className: "tabular-nums", cell: (r) => formatScore(r.score) },
-    {
-      id: "change",
-      header: "Change vs baseline",
-      align: "end",
-      className: "tabular-nums",
-      cell: (r) => {
-        const old = baseline?.get(r.caseId)
-        if (old === undefined) return <NoneCell label="baseline score" />
-        const delta = r.score - old
-        const regressed = threshold !== undefined && delta < -threshold - 1e-9
-        return regressed ? (
-          <span className="font-medium">{`${formatDelta(delta)} regressed`}</span>
-        ) : (
-          formatDelta(delta)
-        )
-      },
-    },
+    ...(baseline ? [changeColumn(baseline, threshold)] : []),
     { id: "latency", header: "Latency", align: "end", className: "tabular-nums", cell: (r) => formatLatency(r.latencyMs) },
     { id: "tokens", header: "Tokens", align: "end", className: "tabular-nums", cell: (r) => formatCount(r.tokensUsed) },
     { id: "cost", header: "Cost reported", align: "end", className: "tabular-nums", cell: (r) => formatCost(r.cost) },
@@ -59,8 +75,12 @@ function columns(runId: string, baseline: Map<string, number> | null, threshold:
  * A run's results, filterable by status with the count beside each choice.
  * Result status has no knowable majority, so the chips and their counts do
  * the work a badge colour cannot. "Change vs baseline" reads each case's score
- * from the current baseline's saved results; a case the baseline never scored
- * says so.
+ * from the baseline the run was compared with; a case the baseline never
+ * scored says so, and a run compared with no baseline has no such column.
+ *
+ * Polling stops when the run stops, so the section reads once more on that
+ * edge: a case that finished between the last two polls would otherwise be
+ * missing from the table while the run's own counts include it.
  */
 export function ResultsSection({
   runId,
@@ -84,12 +104,30 @@ export function ResultsSection({
   usePoll(() => {
     if (running) results.refetch()
   }, RUN_POLL_MS)
-  const scores = baseline.data ? new Map(baseline.data.results.map((r) => [r.caseId, r.score])) : null
+  const { refetch } = results
+  const wasRunning = useRef(running)
+  useEffect(() => {
+    if (wasRunning.current && !running) refetch()
+    wasRunning.current = running
+  }, [running, refetch])
+  const scores: BaselineScores | null =
+    baselineId === undefined
+      ? null
+      : baseline.data
+        ? { state: "loaded", scores: new Map(baseline.data.results.map((r) => [r.caseId, r.score])) }
+        : baseline.error
+          ? { state: "failed" }
+          : { state: "loading" }
   return (
     <section aria-labelledby="sentinel-run-results" className="flex flex-col gap-3">
       <h2 id="sentinel-run-results" className="text-sm font-medium">
         Results
       </h2>
+      {baseline.error && (
+        <p role="alert" className="text-sm text-destructive">
+          {`The baseline's saved scores could not be read, so there is no change to show. ${baseline.error.message}`}
+        </p>
+      )}
       <SettledBoundary title="Results" query={results} skeletonRows={5}>
         {(data) => {
           const total = data.counts.pass + data.counts.fail + data.counts.error
