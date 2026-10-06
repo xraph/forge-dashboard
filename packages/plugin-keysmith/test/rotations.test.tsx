@@ -156,7 +156,7 @@ describe("RotationsPage", () => {
     await screen.findByText("Partner sandbox")
     expect(
       screen.getAllByRole("columnheader").map((h) => h.textContent),
-    ).toEqual(["When", "Key", "Reason", "Grace", "Window", "Rotated by"])
+    ).toEqual(["When", "Key", "Reason", "Grace", "Window"])
     expect(screen.getByText("5 rotations")).toBeTruthy()
   })
 
@@ -173,7 +173,7 @@ describe("RotationsPage", () => {
     renderPage(RotationsPage, stubClient({ "rotations.list": LIST }))
     await screen.findByText("Partner sandbox")
     const when = cellOf(rowWith("Billing service"), "When")
-    expect(when.textContent).toBe(formatTimestamp("2026-10-05T12:00:00Z"))
+    expect(within(when).getByText(formatTimestamp("2026-10-05T12:00:00Z"))).toBeTruthy()
   })
 
   it("links the key name to its page and shows the new key masked in mono beneath", async () => {
@@ -267,19 +267,28 @@ describe("RotationsPage", () => {
     expect(cellOf(rowWith("akey_deleted"), "Window").textContent).toBe("Closed")
   })
 
-  it("shows who rotated in mono, and says so when nobody was recorded", async () => {
+  it("shows who rotated in mono on a muted line under the time, with no column of its own", async () => {
     renderPage(RotationsPage, stubClient({ "rotations.list": LIST }))
     await screen.findByText("Partner sandbox")
-    const by = within(cellOf(rowWith("Billing service"), "Rotated by")).getByText(
-      "user_ops",
+    const when = cellOf(rowWith("Billing service"), "When")
+    expect(when.textContent).toBe(
+      `${formatTimestamp("2026-10-05T12:00:00Z")}by user_ops`,
     )
+    const by = within(when).getByText("user_ops")
     expect(by.className).toMatch(/font-mono/)
-    expect(by.className).toMatch(/text-xs/)
-    expect(
-      within(cellOf(rowWith("Reporting export"), "Rotated by")).getByLabelText(
-        "no actor recorded",
-      ),
-    ).toBeTruthy()
+    const line = by.parentElement!
+    expect(line.textContent).toBe("by user_ops")
+    expect(line.className).toMatch(/text-muted-foreground/)
+    expect(line.className).toMatch(/text-xs/)
+    expect(screen.queryByRole("columnheader", { name: "Rotated by" })).toBeNull()
+  })
+
+  it("says no actor was recorded on that line when nobody was", async () => {
+    renderPage(RotationsPage, stubClient({ "rotations.list": LIST }))
+    await screen.findByText("Partner sandbox")
+    const when = cellOf(rowWith("Reporting export"), "When")
+    const none = within(when).getByLabelText("no actor recorded")
+    expect(none.parentElement!.className).toMatch(/text-muted-foreground/)
   })
 
   it("says so when there are no rotations yet", async () => {
@@ -405,6 +414,9 @@ describe("RotationsPage", () => {
 
     expect(await screen.findByText("No rotations on this page.")).toBeTruthy()
     expect(screen.queryByText("No rotations yet.")).toBeNull()
+    // Nothing beneath it: a caption here would only repeat the message.
+    expect(screen.queryByText(/No rotations from/)).toBeNull()
+    expect(screen.queryByText(/^Rotations \d/)).toBeNull()
     fireEvent.click(screen.getByRole("button", { name: "Back to the first page" }))
     await screen.findByText("Billing service")
     expect(sent.at(-1)).toEqual({ limit: 25, offset: 0 })

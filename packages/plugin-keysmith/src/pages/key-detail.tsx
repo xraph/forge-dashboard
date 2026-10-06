@@ -52,10 +52,26 @@ import type {
 // Lazy: the usage chart brings Recharts, and this page is eager, in the
 // shell's entry chunk. A static import of usage-chart from here would put
 // Recharts there too. The chart loads in its own chunk, inside a Suspense,
-// once a key with recorded usage asks for it.
+// once a key with recorded usage asks for it. A chunk that will not load (a
+// deploy replaced it, the network dropped) costs the chart, not the page.
 const UsageChart = lazy(() =>
-  import("../components/usage-chart").then((m) => ({ default: m.UsageChart })),
+  import("../components/usage-chart")
+    .then((m) => ({ default: m.UsageChart }))
+    .catch(() => ({ default: ChartUnavailable })),
 )
+
+/** In place of the chart when its chunk would not load. */
+function ChartUnavailable() {
+  return (
+    <p className="text-sm text-muted-foreground">
+      Chart unavailable.{" "}
+      <PluginLink to="/usage" className="underline underline-offset-4">
+        See it on Usage
+      </PluginLink>
+      .
+    </p>
+  )
+}
 
 /** How many rotations the key page lists before pointing at the full list. */
 const HISTORY_LIMIT = 10
@@ -470,7 +486,7 @@ function UsageSection({ keyId }: { keyId: string }) {
           return (
             <>
               <p className="text-sm text-muted-foreground">
-                {`${formatCount(total)} ${total === 1 ? "request" : "requests"} in the last 7 days.`}
+                {`${formatCount(total)} ${total === 1 ? "request" : "requests"} over 7 UTC days, today included.`}
               </p>
               <Suspense
                 fallback={

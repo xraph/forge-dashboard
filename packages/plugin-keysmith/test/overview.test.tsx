@@ -64,6 +64,19 @@ const PARTNER = key({
   createdAt: "2026-09-20T08:30:00Z",
 })
 
+// Stored active, but its expiry has passed: the badge reads Expired, and the
+// counts put it under expired with it.
+const WEBHOOK = key({
+  id: "akey_webhook",
+  name: "Legacy webhook signer",
+  prefix: "whk",
+  hint: "e5c2",
+  effectiveState: "expired",
+  expiryPending: true,
+  expiresAt: "2026-10-03T00:00:00Z",
+  createdAt: "2026-06-27T00:00:00Z",
+})
+
 const OPEN = rotation({})
 const CLOSED = rotation({
   id: "krot_2",
@@ -96,7 +109,7 @@ function overview(over: Partial<Overview> = {}): Overview {
     openGraceWindows: 2,
     expiringWithin7Days: 1,
     requestsLast24h: 1234,
-    recentKeys: [BILLING, PARTNER],
+    recentKeys: [BILLING, PARTNER, WEBHOOK],
     recentRotations: [OPEN, CLOSED, GONE],
     enforcedFields: 3,
     policyFields: 13,
@@ -165,6 +178,19 @@ describe("OverviewPage", () => {
       await screen.findByText("Active keys")
       expect(statValue("Active keys")).toBe("3")
       expect(within(stat("Active keys")).getByText("1 suspended, 2 revoked, 1 expired")).toBeTruthy()
+    })
+
+    it("counts the way the badges read, so a key past its expiry is expired in both", async () => {
+      // The counts come from the contract by effective state. The one key in
+      // the list whose stored state is active but whose badge says Expired is
+      // the one the expired count holds, not one more active key.
+      renderOverview()
+      await screen.findByText("Recent keys")
+      const table = within(section("Recent keys")).getByRole("table")
+      expect(
+        cellOf(table, rowWith(table, "Legacy webhook signer"), "State").textContent,
+      ).toMatch(/^Expired/)
+      expect(within(stat("Active keys")).getByText(/, 1 expired$/)).toBeTruthy()
     })
 
     it("counts open grace windows", async () => {

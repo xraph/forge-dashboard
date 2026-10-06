@@ -271,8 +271,9 @@ export interface UsageRecords {
 }
 
 /**
- * The tenant's keys by stored state. An active key past its expiry that
- * nothing has marked yet is still stored active, so it counts as active.
+ * The tenant's keys by effective state, as their badges show it. An active
+ * key past its expiry that nothing has marked yet counts as expired, and one
+ * with a revokedAt counts as revoked, whatever the stored state says.
  */
 export interface OverviewCounts {
   active: number

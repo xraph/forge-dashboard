@@ -21,11 +21,31 @@ const PAGE_SIZE = 25
 
 const ALL = { value: "", label: "All" }
 
+/**
+ * When the rotation happened, with who rotated on a muted line beneath. The
+ * actor shares this cell so the table fits without scrolling sideways.
+ */
+function WhenCell({ item }: { item: RotationItem }) {
+  return (
+    <div className="flex flex-col gap-0.5">
+      <Timestamp value={item.rotatedAt} label="rotation time" />
+      <span className="text-xs text-muted-foreground">
+        by{" "}
+        {item.rotatedBy ? (
+          <span className="font-mono">{item.rotatedBy}</span>
+        ) : (
+          <NoneCell label="actor recorded" />
+        )}
+      </span>
+    </div>
+  )
+}
+
 const columns: Column<RotationItem>[] = [
   {
     id: "when",
     header: "When",
-    cell: (r) => <Timestamp value={r.rotatedAt} label="rotation time" />,
+    cell: (r) => <WhenCell item={r} />,
   },
   {
     id: "key",
@@ -50,28 +70,23 @@ const columns: Column<RotationItem>[] = [
     header: "Window",
     cell: (r) => <WindowCell item={r} />,
   },
-  {
-    id: "rotatedBy",
-    header: "Rotated by",
-    cell: (r) =>
-      r.rotatedBy ? (
-        <span className="font-mono text-xs">{r.rotatedBy}</span>
-      ) : (
-        <NoneCell label="actor recorded" />
-      ),
-  },
 ]
 
 /**
  * What the caption says. rotations.list has no total, so past the first page
  * the caption names the rows shown and whether more follow, and nothing it
- * does not know.
+ * does not know. A later page that came back empty has none: the empty
+ * message already says so.
  */
-function caption(offset: number, shown: number, hasMore: boolean): string {
+function caption(
+  offset: number,
+  shown: number,
+  hasMore: boolean,
+): string | undefined {
   if (offset === 0 && !hasMore) {
     return `${shown} ${shown === 1 ? "rotation" : "rotations"}`
   }
-  if (shown === 0) return `No rotations from ${offset + 1}`
+  if (shown === 0) return undefined
   const more = hasMore ? ", more on the next page" : ""
   return `Rotations ${offset + 1} to ${offset + shown}${more}`
 }

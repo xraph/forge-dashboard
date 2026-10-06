@@ -631,6 +631,8 @@ describe("KeyDetailPage rotation history", () => {
 describe("KeyDetailPage usage", () => {
   afterEach(() => {
     vi.useRealTimers()
+    // A test that let the chart in must not let it in for the next one.
+    chart.allowed = false
   })
 
   const HINT = "Usage appears once your application calls RecordUsage."
@@ -669,7 +671,7 @@ describe("KeyDetailPage usage", () => {
     const s = section("Usage")
     expect(await within(s).findByText(HINT)).toBeTruthy()
     expect(container.querySelector("[data-chart]")).toBeNull()
-    expect(within(s).queryByText(/requests in the last 7 days/)).toBeNull()
+    expect(within(s).queryByText(/over 7 UTC days/)).toBeNull()
   })
 
   it("links to the Usage page", async () => {
@@ -690,7 +692,9 @@ describe("KeyDetailPage usage", () => {
     expect(group.getAttribute("data-chart")).not.toBeNull()
     // Compact: no legend naming the series.
     expect(within(s).queryByText("4xx client errors")).toBeNull()
-    expect(within(s).getByText("2,121 requests in the last 7 days.")).toBeTruthy()
+    expect(
+      within(s).getByText("2,121 requests over 7 UTC days, today included."),
+    ).toBeTruthy()
     expect(within(s).queryByText(HINT)).toBeNull()
     expect(within(s).getByRole("link", { name: "Open usage" })).toBeTruthy()
   })
