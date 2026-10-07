@@ -85,6 +85,12 @@ function lastDateWithin(now: number, lifetimeSeconds: number): string {
   return dateValue(new Date(y, m - 1, d - 1))
 }
 
+/** "a", "a and b", "a, b and c". */
+function joinNames(names: string[]): string {
+  if (names.length < 2) return names.join("")
+  return `${names.slice(0, -1).join(", ")} and ${names[names.length - 1]}`
+}
+
 function longDate(value: string): string {
   return endOfLocalDay(value).toLocaleDateString(undefined, {
     dateStyle: "long",
@@ -164,8 +170,13 @@ function CreateKeyForm({
   const [environment, setEnvironment] = useState<Environment>("test")
   const [prefix, setPrefix] = useState("sk")
   const [policyId, setPolicyId] = useState("")
+  // The chosen policy's name, kept so the form can still name it once a
+  // reload of the list no longer has it.
+  const [policyName, setPolicyName] = useState("")
   const [expiry, setExpiry] = useState("")
   const [picked, setPicked] = useState<string[]>([])
+  // What a reload of the lists took off the form, said in one sentence.
+  const [dropped, setDropped] = useState<string | null>(null)
   const [problem, setProblem] = useState<string | null>(null)
   const [expiryProblem, setExpiryProblem] = useState<string | null>(null)
   // The date a policy change just took away, so the form can say so.
@@ -206,9 +217,47 @@ function CreateKeyForm({
     (s) => !narrowed || allowed.includes(s.name)
   )
 
+  // A context switch (this tab's, or another tab's applied when this window
+  // comes to the front) blanks both lists while they reload for the new
+  // context. Until they answer, the form cannot tell which picks still exist,
+  // and submitting would mint the key with none of them.
+  const scopesWaiting = scopes.loading && !scopes.data
+  const policiesWaiting = policies.loading && !policies.data
+  const listsWaiting = scopesWaiting || policiesWaiting
+
+  // Once they answer, a pick the new lists do not hold comes off the form,
+  // and the form says which. Adjusted during render, so no commit ever
+  // offers Create with a pick that would be dropped without a word.
+  const goneScopes = scopesWaiting
+    ? []
+    : picked.filter((n) => !scopes.data?.scopes?.some((s) => s.name === n))
+  const policyGone =
+    !policiesWaiting &&
+    policyId !== "" &&
+    !policies.data?.policies?.some((p) => p.id === policyId)
+  if (!revealed && !finished && (goneScopes.length > 0 || policyGone)) {
+    const names = [
+      ...goneScopes,
+      ...(policyGone ? [`the ${policyName} policy`] : []),
+    ]
+    setDropped(
+      `Some of your picks are no longer listed and came off the form: ${joinNames(names)}.`
+    )
+    if (goneScopes.length > 0) {
+      setPicked(picked.filter((n) => !goneScopes.includes(n)))
+    }
+    if (policyGone) {
+      setPolicyId("")
+      setPolicyName("")
+      setClearedExpiry(null)
+    }
+  }
+
   async function submit(event: FormEvent) {
     event.preventDefault()
-    if (sending.current || create.loading) return
+    // The button is disabled while the lists reload, but a click can already
+    // be on its way when they blank.
+    if (sending.current || create.loading || listsWaiting) return
 
     const trimmed = name.trim()
     const invalid =
@@ -255,6 +304,8 @@ function CreateKeyForm({
   function changePolicy(id: string) {
     setPolicyId(id)
     const next = policies.data?.policies?.find((p) => p.id === id)
+    setPolicyName(next?.name ?? "")
+    setDropped(null)
     const max =
       next?.maxKeyLifetimeSeconds != null
         ? lastDateWithin(openedAt, next.maxKeyLifetimeSeconds)
@@ -471,13 +522,14 @@ function CreateKeyForm({
                 <Label key={s.id} className="font-normal">
                   <Checkbox
                     checked={picked.includes(s.name)}
-                    onCheckedChange={(checked) =>
+                    onCheckedChange={(checked) => {
+                      setDropped(null)
                       setPicked((cur) =>
                         checked === true
                           ? [...cur.filter((n) => n !== s.name), s.name]
                           : cur.filter((n) => n !== s.name)
                       )
-                    }
+                    }}
                   />
                   {s.name}
                 </Label>
@@ -497,6 +549,12 @@ function CreateKeyForm({
         </FieldSet>
       </FieldGroup>
 
+      {dropped && (
+        <p role="status" className="text-sm">
+          {dropped}
+        </p>
+      )}
+
       {message && (
         <p id={ids.error} role="alert" className="text-sm text-destructive">
           {message}
@@ -510,7 +568,7 @@ function CreateKeyForm({
         >
           Cancel
         </DialogClose>
-        <Button type="submit" disabled={create.loading}>
+        <Button type="submit" disabled={create.loading || listsWaiting}>
           Create key
         </Button>
       </DialogFooter>

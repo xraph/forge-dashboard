@@ -1,6 +1,7 @@
 import { useState } from "react"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 import {
+  act,
   cleanup,
   fireEvent,
   render,
@@ -412,6 +413,103 @@ describe("CreateKeyDialog submit", () => {
 
     release(WITH_SECRET)
     await screen.findByText("This is the only time Keysmith will show it.")
+  })
+})
+
+/**
+ * A client whose lists can change under the form, the way they do when the
+ * operator switches org in another tab and comes back. After `switchTo`, every
+ * read answers the new lists, but only once the test calls `release`, so the
+ * test can press Create while they are still blank.
+ */
+function switchingClient() {
+  const sent: { intent: string; payload: unknown }[] = []
+  let answers: Record<string, unknown> = {
+    "policies.list": POLICIES,
+    "scopes.list": SCOPES,
+  }
+  let hold = false
+  const held: (() => void)[] = []
+  const client = {
+    extension: "keysmith",
+    query: (intent: string) => {
+      const answer = answers[intent]
+      if (!hold) return Promise.resolve(answer)
+      return new Promise((resolve) => held.push(() => resolve(answer)))
+    },
+    command: async (intent: string, payload?: unknown) => {
+      sent.push({ intent, payload })
+      return WITH_SECRET
+    },
+  } as unknown as ScopedClient
+  return {
+    client,
+    sent,
+    switchTo(next: Record<string, unknown>) {
+      answers = { ...answers, ...next }
+      hold = true
+    },
+    release() {
+      hold = false
+      for (const r of held.splice(0)) r()
+    },
+  }
+}
+
+describe("CreateKeyDialog across a context switch", () => {
+  it("will not create while the lists reload, then says which picks are gone", async () => {
+    const host = switchingClient()
+    mount(host.client)
+    await dialog()
+    fireEvent.click(await screen.findByRole("checkbox", { name: "billing:write" }))
+    fireEvent.click(screen.getByRole("checkbox", { name: "reports:read" }))
+    fill("Policy", "kpol_standard")
+    fill("Name", "Billing service")
+
+    // The other org has reports:read but not billing:write, and no Standard.
+    host.switchTo({
+      "scopes.list": {
+        hasMore: false,
+        scopes: [
+          { id: "kscope_7", name: "billing:read" },
+          { id: "kscope_8", name: "reports:read" },
+        ],
+      },
+      "policies.list": { ...POLICIES, policies: [POLICIES.policies[1]] },
+    })
+    act(() => queryStore.clear())
+
+    expect(createButton().disabled).toBe(true)
+    fireEvent.click(createButton())
+    // A click already on its way reaches the submit handler, not the button.
+    fireEvent.submit(createButton().closest("form")!)
+    await act(async () => {})
+    expect(host.sent).toHaveLength(0)
+
+    act(() => host.release())
+    expect(
+      await screen.findByText(
+        "Some of your picks are no longer listed and came off the form: billing:write and the Standard policy."
+      )
+    ).toBeTruthy()
+    expect(
+      screen.getByRole("checkbox", { name: "reports:read" }).getAttribute("aria-checked")
+    ).toBe("true")
+    expect(
+      screen.getByRole("checkbox", { name: "billing:read" }).getAttribute("aria-checked")
+    ).toBe("false")
+    expect((screen.getByLabelText("Policy") as HTMLSelectElement).value).toBe("")
+    expect(createButton().disabled).toBe(false)
+
+    // Having read that, the operator creates with what is left.
+    fireEvent.click(createButton())
+    await waitFor(() => expect(host.sent).toHaveLength(1))
+    expect(host.sent[0].payload).toEqual({
+      name: "Billing service",
+      environment: "test",
+      prefix: "sk",
+      scopes: ["reports:read"],
+    })
   })
 })
 
