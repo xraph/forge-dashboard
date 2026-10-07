@@ -688,12 +688,14 @@ async function main() {
     vaultCheck("a version of an encrypted secret is encrypted", primaryHistory.length >= 1 && primaryHistory.every((e) => e === "encrypted"), JSON.stringify(primaryHistory))
 
     // overview.stats, before the checks below write anything that changes the
-    // figures: plaintext versions are the two unencrypted secrets' (1 and 2)
-    // plus the mixed secret's v1; one version is unrecorded.
+    // figures. Only earlier versions count, never a secret's current one:
+    // legacy/ftp.password has just its current version (0), queue/rabbit's v1
+    // sits under its current v2 (1), and the mixed secret's v1 is plaintext
+    // (1) and its v2 unrecorded (1).
     const seedStats = (await vaultCall("overview.stats", "query", {})).body?.data
     vaultCheck(
-      "overview.stats counts the seed's plaintext and unrecorded versions and its expired and expiring secrets",
-      seedStats?.plaintextVersions === 4 && seedStats.unrecordedVersions === 1 && seedStats.expiredSecrets === expiredList.total && seedStats.expiringSecrets === monthList.total,
+      "overview.stats counts the seed's earlier plaintext and unrecorded versions and its expired and expiring secrets",
+      seedStats?.plaintextVersions === 2 && seedStats.unrecordedVersions === 1 && seedStats.expiredSecrets === expiredList.total && seedStats.expiringSecrets === monthList.total,
       JSON.stringify([seedStats?.plaintextVersions, seedStats?.unrecordedVersions, seedStats?.expiredSecrets, seedStats?.expiringSecrets]),
     )
 
@@ -785,10 +787,21 @@ async function main() {
     )
 
     // The fixture models a keyed vault: Set stamps the algorithm on every write,
-    // so replacing the legacy unencrypted row's value encrypts it.
+    // so replacing the legacy unencrypted row's value encrypts it. Its old
+    // plaintext value moves from the unencrypted-secret count to the earlier
+    // plaintext-version count.
+    const beforeLegacy = (await vaultCall("overview.stats", "query", {})).body?.data
     await vaultCall("secrets.update", "command", { key: "legacy/ftp.password", value: canary })
     const legacy = await vaultCall("secrets.detail", "query", { key: "legacy/ftp.password" })
     vaultCheck("secrets.update on the unencrypted row stamps AES-256-GCM", legacy.body?.data?.secret?.encryptionAlg === "AES-256-GCM", `${JSON.stringify(legacy.body?.data?.secret?.encryptionAlg)}`)
+    const legacyHistory = await encryptionOf("legacy/ftp.password")
+    vaultCheck("the new version of a once-plaintext secret is encrypted, the old one plaintext", JSON.stringify(legacyHistory) === JSON.stringify(["encrypted", "plaintext"]), JSON.stringify(legacyHistory))
+    const afterLegacy = (await vaultCall("overview.stats", "query", {})).body?.data
+    vaultCheck(
+      "encrypting a plaintext secret moves it from unencryptedSecrets to plaintextVersions",
+      afterLegacy?.unencryptedSecrets === beforeLegacy?.unencryptedSecrets - 1 && afterLegacy?.plaintextVersions === beforeLegacy?.plaintextVersions + 1,
+      JSON.stringify([beforeLegacy?.unencryptedSecrets, afterLegacy?.unencryptedSecrets, beforeLegacy?.plaintextVersions, afterLegacy?.plaintextVersions]),
+    )
 
     // Metadata: absent keeps, present replaces (even with {}). On its own key,
     // so the version arithmetic above stays exact.
@@ -1755,9 +1768,11 @@ async function main() {
       )
       vaultCheck("the seed leaves an unencrypted secret, so the overview cannot call the vault encrypted", stats.unencryptedSecrets >= 1, `${stats.unencryptedSecrets}`)
       // The four figures against what the lists say now, whatever the earlier
-      // checks wrote: version rows tallied from secrets.versions, the expiry
-      // counts from the filtered totals (same bounds, so no overlap).
-      const versionEncryptions = (await Promise.all(secretList.secrets.map(async (s) => ((await vaultCall("secrets.versions", "query", { key: s.key })).body?.data?.versions ?? []).map((v) => v.encryption)))).flat()
+      // checks wrote: earlier version rows tallied from secrets.versions (each
+      // secret's current, highest version left out), the expiry counts from
+      // the filtered totals (same bounds, so no overlap).
+      const earlierOnly = (versions) => versions.filter((v) => v.version !== Math.max(...versions.map((x) => x.version)))
+      const versionEncryptions = (await Promise.all(secretList.secrets.map(async (s) => earlierOnly((await vaultCall("secrets.versions", "query", { key: s.key })).body?.data?.versions ?? []).map((v) => v.encryption)))).flat()
       const expiredNow = (await vaultCall("secrets.list", "query", { expiry: "expired", limit: 200 })).body?.data
       const expiringNow = (await vaultCall("secrets.list", "query", { expiry: "30d", limit: 200 })).body?.data
       vaultCheck(

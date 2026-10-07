@@ -24,10 +24,10 @@ export interface OverviewStats {
   rotationWithoutRotator: number
   rotationFailures24h: number
   /**
-   * Version rows stored without encryption, and version rows vault never
-   * recorded either way (written before it kept track). Both count every
-   * version row of every secret, the current version of each secret included,
-   * so neither is a count of "earlier" versions.
+   * Earlier version rows stored without encryption, and earlier version rows
+   * vault never recorded either way (written before it kept track). Each
+   * secret's current version is left out of both: unencryptedSecrets already
+   * counts a current value stored in the clear.
    */
   plaintextVersions: number
   unrecordedVersions: number
@@ -92,7 +92,7 @@ function problems(s: OverviewStats): Problem[] {
     const n = s.plaintextVersions
     out.push({
       id: "plaintext-versions",
-      text: `${n} secret ${n === 1 ? "version is" : "versions are"} stored without encryption.`,
+      text: `${n} earlier secret ${n === 1 ? "version is" : "versions are"} stored without encryption.`,
       to: "/secrets",
     })
   }
@@ -149,7 +149,7 @@ function EncryptionLine({ stats }: { stats: OverviewStats }) {
   if (stats.plaintextVersions > 0) {
     const n = stats.plaintextVersions
     parts.push(
-      `${n} ${n === 1 ? "version" : "versions"} in secret histories ${n === 1 ? "is" : "are"} stored without encryption. Replacing a value does not encrypt the versions before it.`
+      `${n} earlier ${n === 1 ? "version is" : "versions are"} stored without encryption. Replacing a value does not encrypt the versions before it.`
     )
   }
   if (stats.unrecordedVersions > 0) {

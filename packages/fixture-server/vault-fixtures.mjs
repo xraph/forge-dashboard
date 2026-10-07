@@ -841,6 +841,11 @@ function versionEncryption(alg) {
 }
 
 /** encryption has no omitempty in Go, so it is always on the wire. */
+/** A secret's version rows other than its current one, as vault counts them. */
+function earlierVersions(row) {
+  return row.versions.filter((v) => v.version !== row.version)
+}
+
 function projectVersion(v) {
   const out = { id: v.id, version: v.version }
   if (v.createdBy) out.createdBy = v.createdBy
@@ -2176,10 +2181,12 @@ export function createVaultHandlers(FixtureError) {
         return {
           secrets: secrets.length,
           unencryptedSecrets: secrets.filter((r) => r.encryptionAlg === "").length,
-          // Version rows, not secrets: "" is stored in the clear, null was
-          // written before versions recorded an algorithm.
-          plaintextVersions: secrets.reduce((n, r) => n + r.versions.filter((v) => v.encryptionAlg === "").length, 0),
-          unrecordedVersions: secrets.reduce((n, r) => n + r.versions.filter((v) => v.encryptionAlg === null).length, 0),
+          // Earlier version rows, not secrets: each secret's current version
+          // is left out, since unencryptedSecrets already covers it. "" is
+          // stored in the clear, null was written before versions recorded
+          // an algorithm.
+          plaintextVersions: secrets.reduce((n, r) => n + earlierVersions(r).filter((v) => v.encryptionAlg === "").length, 0),
+          unrecordedVersions: secrets.reduce((n, r) => n + earlierVersions(r).filter((v) => v.encryptionAlg === null).length, 0),
           expiredSecrets: secrets.filter((r) => expiresWithin(r, null, nowMs)).length,
           expiringSecrets: secrets.filter((r) => expiresWithin(r, nowMs, addDaysMs(nowMs, EXPIRING_SOON_DAYS))).length,
           flags: vault.flags.size,

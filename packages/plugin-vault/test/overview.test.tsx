@@ -39,8 +39,8 @@ const NO_ROTATOR = /enabled polic(y|ies) (has|have) no rotator and will never ro
 const FAILED = /rotation attempts? failed in the last 24 hours\./
 const EXPIRED = /secrets? (has|have) expired\./
 const EXPIRING = /secrets? expires? within 30 days\./
-const PLAINTEXT_VERSIONS = /versions? in secret histories (is|are) stored without encryption/
-const PLAINTEXT_PROBLEM = /secret versions? (is|are) stored without encryption\./
+const PLAINTEXT_VERSIONS = /earlier versions? (is|are) stored without encryption\. Replacing/
+const PLAINTEXT_PROBLEM = /earlier secret versions? (is|are) stored without encryption\./
 const UNRECORDED = /Vault can't tell how/
 
 describe("OverviewPage", () => {
@@ -184,10 +184,10 @@ describe("OverviewPage", () => {
     expect(screen.queryByText(EXPIRING)).toBeNull()
   })
 
-  it("names the versions in secret histories stored without encryption", async () => {
+  it("names the earlier versions stored without encryption", async () => {
     show({ plaintextVersions: 3 })
     const line = await screen.findByText(PLAINTEXT_VERSIONS)
-    expect(line.textContent).toContain("3 versions in secret histories are stored without encryption")
+    expect(line.textContent).toContain("3 earlier versions are stored without encryption.")
     expect(line.textContent).not.toMatch(/can't count|cannot count|can't be counted/i)
     // Plaintext remains, so the line is not a bare claim that all is encrypted.
     expect(screen.queryByText("New secrets are encrypted with AES-256-GCM.")).toBeNull()
@@ -197,19 +197,19 @@ describe("OverviewPage", () => {
   it("uses the singular for one plaintext version", async () => {
     show({ plaintextVersions: 1 })
     const line = await screen.findByText(PLAINTEXT_VERSIONS)
-    expect(line.textContent).toContain("1 version in secret histories is stored without encryption")
+    expect(line.textContent).toContain("1 earlier version is stored without encryption.")
   })
 
   it("adds the versions vault never recorded", async () => {
     show({ plaintextVersions: 3, unrecordedVersions: 5 })
     const line = await screen.findByText(UNRECORDED)
-    expect(line.textContent).toContain("3 versions in secret histories are stored without encryption")
+    expect(line.textContent).toContain("3 earlier versions are stored without encryption.")
     expect(line.textContent).toContain("Vault can't tell how 5 older versions were stored.")
   })
 
   it("flags plaintext versions under Needs attention, linked to the secrets list", async () => {
     show({ plaintextVersions: 3 })
-    const line = await screen.findByText("3 secret versions are stored without encryption.")
+    const line = await screen.findByText("3 earlier secret versions are stored without encryption.")
     expect(line.closest("a")?.getAttribute("href")).toBe("/secrets")
     expect(screen.getByText("Needs attention")).toBeTruthy()
     expect(screen.queryByText(NOTHING)).toBeNull()
@@ -217,7 +217,7 @@ describe("OverviewPage", () => {
 
   it("uses the singular for one plaintext version in Needs attention", async () => {
     show({ plaintextVersions: 1 })
-    expect(await screen.findByText("1 secret version is stored without encryption.")).toBeTruthy()
+    expect(await screen.findByText("1 earlier secret version is stored without encryption.")).toBeTruthy()
     expect(screen.queryByText(NOTHING)).toBeNull()
   })
 
