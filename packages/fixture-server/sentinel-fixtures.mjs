@@ -931,9 +931,10 @@ function optObject(input, key) {
  * undefined for a new case.
  */
 function contextFrom(submitted, stored) {
-  const out = {}
-  for (const [k, v] of Object.entries(submitted ?? {})) if (k !== "attack_type") out[k] = v
-  if (stored && "attack_type" in stored) out.attack_type = stored.attack_type
+  // fromEntries defines own keys, so a JSON "__proto__" key stays an ordinary
+  // key here as it is in Go, and never becomes the map's prototype.
+  const out = Object.fromEntries(Object.entries(submitted ?? {}).filter(([k]) => k !== "attack_type"))
+  if (stored && Object.hasOwn(stored, "attack_type")) out.attack_type = stored.attack_type
   return out
 }
 
@@ -1128,6 +1129,11 @@ function runView(r, { lastProgress = false } = {}) {
   return v
 }
 
+/** ScorerResult.Errored: the scorer could not judge the case, which is not failing it. */
+function scorerErrored(sr) {
+  return typeof sr.reason === "string" && sr.reason.startsWith("scorer error: ")
+}
+
 /** resultRow. redTeam comes from the case as it is now, so a deleted case loses it. */
 function resultRow(res) {
   const v = {
@@ -1141,7 +1147,7 @@ function resultRow(res) {
     cost: res.cost,
     dimensionScores: { ...res.dimensionScores },
     // Each scorer's verdict only; reasons stay on results.detail.
-    scorers: res.scorerResults.map((sr) => ({ name: sr.scorerName, passed: sr.passed })),
+    scorers: res.scorerResults.map((sr) => ({ name: sr.scorerName, passed: sr.passed, ...(scorerErrored(sr) && { errored: true }) })),
   }
   const tc = state.cases.find((c) => c.id === res.caseId)
   const at = tc ? attackTypeOf(tc) : ""
@@ -1158,6 +1164,7 @@ function resultView(res) {
     const s = { scorerName: sr.scorerName, score: sr.score, passed: sr.passed, reason: sr.reason ?? "" }
     if (sr.dimension) s.dimension = sr.dimension
     if (sr.details && Object.keys(sr.details).length) s.details = { ...sr.details }
+    if (scorerErrored(sr)) s.errored = true
     return s
   })
   if (res.runTrace) {

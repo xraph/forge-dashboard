@@ -214,6 +214,13 @@ CHECKS.push(async ({ q, c, check, data, code, message, invalidates }) => {
   check("cases.update cannot add an attack_type", JSON.stringify(added?.context) === "{}", added?.context)
   const kept = data(await c("cases.update", { caseId: probe?.id, expected: "e" }))
   check("cases.update without a context keeps it", JSON.stringify(kept?.context) === '{"attack_type":"leakage"}', kept?.context)
+  const viaProto = data(await c("cases.create", { suiteId: spot?.id, name: "Ctx3", input: "x", context: JSON.parse('{"__proto__":{"attack_type":"leakage"},"note":"n"}') }))
+  const protoAgain = data(await c("cases.update", { caseId: viaProto?.id, expected: "e" }))
+  check(
+    "a __proto__ key in the context cannot add an attack_type, as in Go",
+    JSON.stringify(viaProto?.context) === '{"__proto__":{"attack_type":"leakage"},"note":"n"}' && !(viaProto?.scorers ?? []).some((s) => s.redacted) && JSON.stringify(protoAgain?.context) === JSON.stringify(viaProto?.context),
+    [viaProto?.context, protoAgain?.context],
+  )
   const notObject = await c("cases.update", { caseId: probe?.id, context: ["a"] })
   check("a context that is not an object is BAD_REQUEST", code(notObject) === "BAD_REQUEST", notObject.body)
 
@@ -315,11 +322,14 @@ CHECKS.push(async ({ q, c, check, data, code, message, invalidates }) => {
   const verdictsMatch = await Promise.all(
     (all?.items ?? []).map(async (r) => {
       const d = data(await q("results.detail", { runId: I.supportRegressedRun, resultId: r.id }))
-      const want = (d?.scorerResults ?? []).map((s) => ({ name: s.scorerName, passed: s.passed }))
+      const errored = (s) => s.reason.startsWith("scorer error: ")
+      const detailOk = (d?.scorerResults ?? []).every((s) => (s.errored === true) === errored(s) && (errored(s) || !("errored" in s)))
+      if (!detailOk) return false
+      const want = (d?.scorerResults ?? []).map((s) => ({ name: s.scorerName, passed: s.passed, ...(errored(s) && { errored: true }) }))
       return Array.isArray(r.scorers) && JSON.stringify(r.scorers) === JSON.stringify(want)
     }),
   )
-  check("each result row lists its scorers' verdicts, name and passed only", verdictsMatch.length === 8 && verdictsMatch.every(Boolean) && all.items.some((r) => r.scorers.length > 0), all?.items?.[0]?.scorers)
+  check("each result row lists its scorers' verdicts, errored only when a scorer could not judge", verdictsMatch.length === 8 && verdictsMatch.every(Boolean) && all.items.some((r) => r.scorers.length > 0), all?.items?.[0]?.scorers)
   const badStatus = await q("runs.results", { runId: "not-a-run", status: "maybe" })
   check("an unknown status is BAD_REQUEST before the run is looked up", message(badStatus) === 'unknown result status "maybe"', badStatus.body)
   const leaked = data(await q("results.detail", { runId: I.guardRun, resultId: I.guardLeakedResult }))
