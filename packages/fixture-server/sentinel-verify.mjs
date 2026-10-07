@@ -201,6 +201,22 @@ CHECKS.push(async ({ q, c, check, data, code, message, invalidates }) => {
   const probe = (data(await q("cases.list", { suiteId: spot?.id }))?.items ?? []).find((x) => x.name === "Probe")
   check("an imported case keeps its attack_type but is unmarked without the redteam tag", hidden?.imported === 1 && probe?.context?.attack_type === "leakage" && !("redTeam" in probe), probe)
 
+  // Context: writable, except attack_type, which only generation and import set.
+  const withContext = data(await c("cases.create", { suiteId: spot?.id, name: "Ctx", input: "x", context: { latency_ms: 120, attack_type: "leakage" } }))
+  check("cases.create keeps the context but never an attack_type", withContext?.context?.latency_ms === 120 && !("attack_type" in (withContext?.context ?? {})), withContext?.context)
+  const noContext = data(await c("cases.create", { suiteId: spot?.id, name: "Ctx2", input: "x" }))
+  check("cases.create with no context stores {}", JSON.stringify(noContext?.context) === "{}", noContext?.context)
+  const swapped = data(await c("cases.update", { caseId: probe?.id, context: { attack_type: "offtopic", note: "n" } }))
+  check("cases.update replaces the context but keeps the stored attack_type", swapped?.context?.attack_type === "leakage" && swapped.context.note === "n", swapped?.context)
+  const dropped = data(await c("cases.update", { caseId: probe?.id, context: {} }))
+  check("cases.update cannot remove an attack_type", JSON.stringify(dropped?.context) === '{"attack_type":"leakage"}', dropped?.context)
+  const added = data(await c("cases.update", { caseId: withContext?.id, context: { attack_type: "jailbreak" } }))
+  check("cases.update cannot add an attack_type", JSON.stringify(added?.context) === "{}", added?.context)
+  const kept = data(await c("cases.update", { caseId: probe?.id, expected: "e" }))
+  check("cases.update without a context keeps it", JSON.stringify(kept?.context) === '{"attack_type":"leakage"}', kept?.context)
+  const notObject = await c("cases.update", { caseId: probe?.id, context: ["a"] })
+  check("a context that is not an object is BAD_REQUEST", code(notObject) === "BAD_REQUEST", notObject.body)
+
   // Prompt versions number themselves and set-current refuses a stranger.
   const v1 = data(await c("prompts.create", { suiteId: spot?.id, systemPrompt: "First." }))
   const v2Res = await c("prompts.create", { suiteId: spot?.id, systemPrompt: "Second.", changelog: "Shorter", makeCurrent: true })
@@ -296,6 +312,14 @@ CHECKS.push(async ({ q, c, check, data, code, message, invalidates }) => {
     [all?.counts, failed?.items?.length],
   )
   check("a result row carries no output", all?.items?.every((r) => !("output" in r)) === true, all?.items?.[0])
+  const verdictsMatch = await Promise.all(
+    (all?.items ?? []).map(async (r) => {
+      const d = data(await q("results.detail", { runId: I.supportRegressedRun, resultId: r.id }))
+      const want = (d?.scorerResults ?? []).map((s) => ({ name: s.scorerName, passed: s.passed }))
+      return Array.isArray(r.scorers) && JSON.stringify(r.scorers) === JSON.stringify(want)
+    }),
+  )
+  check("each result row lists its scorers' verdicts, name and passed only", verdictsMatch.length === 8 && verdictsMatch.every(Boolean) && all.items.some((r) => r.scorers.length > 0), all?.items?.[0]?.scorers)
   const badStatus = await q("runs.results", { runId: "not-a-run", status: "maybe" })
   check("an unknown status is BAD_REQUEST before the run is looked up", message(badStatus) === 'unknown result status "maybe"', badStatus.body)
   const leaked = data(await q("results.detail", { runId: I.guardRun, resultId: I.guardLeakedResult }))

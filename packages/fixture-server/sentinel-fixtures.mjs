@@ -916,6 +916,27 @@ function optStrList(input, key) {
   return v
 }
 
+/** An object field, or undefined when absent or null (Go decodes null to nil). */
+function optObject(input, key) {
+  const v = input[key]
+  if (v === undefined || v === null) return undefined
+  if (typeof v !== "object" || Array.isArray(v)) throw badRequest(`invalid payload: ${key} must be an object`)
+  return { ...v }
+}
+
+/**
+ * contextFrom: the submitted context with attack_type taken from the stored
+ * case, never the request. That key decides whether the case's scorers hide
+ * the system prompt, so no write adds, changes or removes it. stored is
+ * undefined for a new case.
+ */
+function contextFrom(submitted, stored) {
+  const out = {}
+  for (const [k, v] of Object.entries(submitted ?? {})) if (k !== "attack_type") out[k] = v
+  if (stored && "attack_type" in stored) out.attack_type = stored.attack_type
+  return out
+}
+
 function optScorers(input, key) {
   const v = input[key]
   if (v === undefined || v === null) return undefined
@@ -1119,6 +1140,8 @@ function resultRow(res) {
     tokensUsed: res.tokensUsed,
     cost: res.cost,
     dimensionScores: { ...res.dimensionScores },
+    // Each scorer's verdict only; reasons stay on results.detail.
+    scorers: res.scorerResults.map((sr) => ({ name: sr.scorerName, passed: sr.passed })),
   }
   const tc = state.cases.find((c) => c.id === res.caseId)
   const at = tc ? attackTypeOf(tc) : ""
@@ -1455,7 +1478,7 @@ define("cases.create", "command", ["cases.list", "suites.list", "suites.detail",
     scenarioType,
     tags: cleanTags(optStrList(input, "tags")),
     scorers,
-    context: {},
+    context: contextFrom(optObject(input, "context"), undefined),
     metadata: {},
     createdAt: now,
     updatedAt: now,
@@ -1489,6 +1512,8 @@ define(
     if (scenarioType !== undefined) patch.scenarioType = checkScenario(scenarioType)
     const tags = optStrList(input, "tags")
     if (tags !== undefined) patch.tags = cleanTags(tags)
+    const context = optObject(input, "context")
+    if (context !== undefined) patch.context = contextFrom(context, tc.context)
     const scorers = optScorers(input, "scorers")
     if (scorers !== undefined) {
       if (hide) {
