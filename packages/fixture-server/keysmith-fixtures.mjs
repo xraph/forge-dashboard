@@ -38,8 +38,10 @@
 //   - settings has no extension to ask. FIXTURE_KEYSMITH_PLUGINS (comma
 //     separated, default "audit-hook") stands in for the hook plugins, and
 //     FIXTURE_KEYSMITH_STORE_DOWN=1 for a store that does not answer its health
-//     check. The tenant always comes from config, since there is no principal
-//     to carry a tenant claim.
+//     check. There is no principal to carry a tenant claim, so settings says
+//     the tenant came from config, or from the session's org (tenantSource
+//     "scope") under FIXTURE_KEYSMITH_TENANT_SOURCE=scope. Only the label
+//     changes: either way the tenant is FIXTURE_KEYSMITH_TENANT.
 //   - Usage has no write here. The seed records 30 days of acme requests for
 //     the Billing service and Reporting export keys from a fixed pseudo-random
 //     sequence, so the same start time always gives the same rows. globex has
@@ -992,6 +994,10 @@ function fixturePlugins() {
     .sort(byteCompare)
 }
 
+/** Where settings says the tenant came from (see the header): "scope" or "config". */
+const tenantSource = () =>
+  process.env.FIXTURE_KEYSMITH_TENANT_SOURCE === "scope" ? "scope" : "config"
+
 /** The store health stand-in (see the header). */
 const storeDown = () => process.env.FIXTURE_KEYSMITH_STORE_DOWN === "1"
 
@@ -1915,7 +1921,7 @@ export function createKeysmithHandlers(FixtureError) {
           storeHealthy: !down,
           storeMessage: down ? STORE_DID_NOT_REPLY : STORE_ANSWERED,
           rateLimiterConfigured: limiter,
-          tenantSource: "config",
+          tenantSource: tenantSource(),
           tenant: tenantId,
           enforcement: enforcementTable(limiter),
           enforcedFields: enforcedPolicyFieldCount(limiter),

@@ -153,7 +153,7 @@ describe("SettingsPage", () => {
       await screen.findByText("Healthy")
       const tenant = section("Tenant")
       expect(
-        within(tenant).getByText("Resolved from the request's tenant claim"),
+        within(tenant).getByText("Taken from the tenant claim your session carries."),
       ).toBeTruthy()
       expect(within(tenant).queryByText(/extensions\.keysmith/)).toBeNull()
       const id = within(tenant).getByText("t_claimed")
@@ -161,12 +161,25 @@ describe("SettingsPage", () => {
       expect(id.className).toContain("text-xs")
     })
 
+    it("names the session's organization when the tenant came from the scope", async () => {
+      renderSettings(settings({ tenantSource: "scope", tenant: "org_acme" }))
+      await screen.findByText("Healthy")
+      const tenant = section("Tenant")
+      expect(
+        within(tenant).getByText("Taken from your session's organization."),
+      ).toBeTruthy()
+      expect(within(tenant).queryByText(/extensions\.keysmith/)).toBeNull()
+      expect(within(tenant).queryByText(/tenant claim/)).toBeNull()
+      const id = within(tenant).getByText("org_acme")
+      expect(id.className).toContain("font-mono")
+    })
+
     it("names the config key when the tenant came from config", async () => {
       renderSettings(settings({ tenantSource: "config", tenant: "acme" }))
       await screen.findByText("Healthy")
       const tenant = section("Tenant")
       expect(tenant.textContent).toContain(
-        "Resolved from extensions.keysmith.dashboard.tenant_id",
+        "Taken from extensions.keysmith.dashboard.tenant_id in the server's configuration.",
       )
       const key = within(tenant).getByText(
         "extensions.keysmith.dashboard.tenant_id",
@@ -174,6 +187,7 @@ describe("SettingsPage", () => {
       expect(key.className).toContain("font-mono")
       expect(key.className).toContain("text-xs")
       expect(within(tenant).queryByText(/tenant claim/)).toBeNull()
+      expect(within(tenant).queryByText(/organization/)).toBeNull()
       const id = within(tenant).getByText("acme")
       expect(id.className).toContain("font-mono")
       expect(id.className).toContain("text-xs")

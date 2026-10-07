@@ -322,6 +322,9 @@ export interface EnforcementRow {
   when: string
 }
 
+/** settings' tenantSource. Mirrors tenant.go's tenantSourceOf. */
+export type TenantSource = "claim" | "scope" | "config"
+
 /** settings. Mirrors contract.settingsResponse. Read-only. */
 export interface Settings {
   /** The hook plugins' names, sorted. [] when none. */
@@ -330,8 +333,12 @@ export interface Settings {
   /** One of two fixed sentences. The driver's error is only in the server log. */
   storeMessage: string
   rateLimiterConfigured: boolean
-  /** "claim" when the request carried a tenant_id claim, else "config". */
-  tenantSource: "claim" | "config"
+  /**
+   * Where the tenant came from, in tenantFrom's order: "claim" when the
+   * principal carries a tenant_id claim, "scope" when the forge Scope an auth
+   * extension set (authsome's, for one) names an org, else "config".
+   */
+  tenantSource: TenantSource
   tenant: string
   /** Every policy field, in the editor's order, groups top to bottom. */
   enforcement: EnforcementRow[]

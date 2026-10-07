@@ -19,7 +19,7 @@ import {
 } from "../enforcement"
 import type { EnforcementGroupId } from "../enforcement"
 import { formatDuration } from "../format"
-import type { EnforcementRow, Settings } from "../types"
+import type { EnforcementRow, Settings, TenantSource } from "../types"
 
 const TENANT_CONFIG_KEY = "extensions.keysmith.dashboard.tenant_id"
 
@@ -55,6 +55,29 @@ function Section({
 
 function Line({ children }: { children: ReactNode }) {
   return <p className="text-sm text-muted-foreground">{children}</p>
+}
+
+/**
+ * Where the tenant came from, one sentence per source. The order is
+ * tenantFrom's: a claim wins, then the session's org, then the config key.
+ */
+function TenantSourceLine({ source }: { source: TenantSource }) {
+  switch (source) {
+    case "claim":
+      return "Taken from the tenant claim your session carries."
+    case "scope":
+      return "Taken from your session's organization."
+    case "config":
+      return (
+        <>
+          Taken from{" "}
+          <span className="font-mono text-xs text-foreground">
+            {TENANT_CONFIG_KEY}
+          </span>{" "}
+          in the server's configuration.
+        </>
+      )
+  }
 }
 
 /** "when a key is created" as a table cell reads it: "When a key is created". */
@@ -179,16 +202,7 @@ function SettingsView({ data }: { data: Settings }) {
         <Section id="tenant" title="Tenant">
           <span className="font-mono text-xs">{data.tenant}</span>
           <Line>
-            {data.tenantSource === "claim" ? (
-              "Resolved from the request's tenant claim"
-            ) : (
-              <>
-                Resolved from{" "}
-                <span className="font-mono text-xs text-foreground">
-                  {TENANT_CONFIG_KEY}
-                </span>
-              </>
-            )}
+            <TenantSourceLine source={data.tenantSource} />
           </Line>
         </Section>
 
