@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest"
-import { fireEvent, screen, waitFor, within } from "@testing-library/react"
-import { ContractError } from "@forge-go/dashboard-plugin"
+import { act, fireEvent, screen, waitFor, within } from "@testing-library/react"
+import { ContractError, queryStore } from "@forge-go/dashboard-plugin"
 import type { ScopedClient } from "@forge-go/dashboard-plugin"
 import { WardenRoleDetailPage } from "../src/pages/role-detail"
 import { formatTimestamp } from "@forge-go/dashboard-kit/lib/format"
@@ -554,6 +554,22 @@ describe("WardenRoleDetailPage", () => {
       expect(screen.queryByRole("button", { name: "Save changes" })).toBeNull()
       // The form unmounted under the focus, so it goes back to Edit.
       await waitFor(() => expect(document.activeElement).toBe(trigger))
+    })
+
+    it("keeps the page and the focus on Edit while the save's refetch runs", async () => {
+      const { client: c, sent } = recording()
+      renderPage(WardenRoleDetailPage, c, { id: "role_01hq" })
+      const save = await openEdit()
+      type("Name", "Renamed")
+      fireEvent.click(save)
+      await waitFor(() => expect(sent).toHaveLength(1))
+      const trigger = await screen.findByRole("button", { name: "Edit" })
+      await waitFor(() => expect(document.activeElement).toBe(trigger))
+      // roles.update invalidates roles.detail. Without keepPreviousData the
+      // skeleton would replace the page here and take the button with it.
+      act(() => queryStore.invalidate(c.extension, ["roles.detail"]))
+      expect(screen.getByRole("button", { name: "Edit" })).toBe(trigger)
+      expect(document.activeElement).toBe(trigger)
     })
 
     it("moves focus to the first field when the form opens", async () => {

@@ -121,7 +121,11 @@ export function WardenRoleDetailPage({ params }: PluginPageProps) {
   }
 
   return (
-    <QueryBoundary title="Role" query={detail} skeletonRows={4}>
+    // keepPreviousData: a refetch (after a save, which invalidates
+    // roles.detail, or when the tab comes back) would otherwise swap in the
+    // skeleton, unmounting an open form with what the operator typed and
+    // the Edit button focus returns to after a save.
+    <QueryBoundary title="Role" query={detail} skeletonRows={4} keepPreviousData>
       {(role) => (
         <section className="flex flex-col gap-6">
           <PageHeader
