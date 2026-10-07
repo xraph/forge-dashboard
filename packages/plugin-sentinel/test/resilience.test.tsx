@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest"
-import { act, fireEvent, screen, waitFor, within } from "@testing-library/react"
-import { ContractError, queryStore } from "@forge-go/dashboard-plugin"
+import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react"
+import { ContractError, PluginProvider, queryStore } from "@forge-go/dashboard-plugin"
+import { RedTeamReportSection } from "../src/components/redteam-report"
 import { RunDetailPage } from "../src/pages/run-detail"
 import { SuiteDetailPage } from "../src/pages/suite-detail"
 import { baselineDetail, config, redTeamReport, regression, resultRow, run, runDetail, runningRun, suite, SUITE_ID } from "./fixtures"
@@ -143,7 +144,7 @@ describe("The red-team report through a failed poll", () => {
   })
 
   it("says nothing about the newest run on the tab when the suite has no red-team case", async () => {
-    const { client } = recordingFullClient((intent) => {
+    const { client, queries } = recordingFullClient((intent) => {
       if (intent === "suites.detail") return suite()
       if (intent === "cases.list") return { items: [] }
       if (intent === "runs.list") return { items: [run()], hasMore: false }
@@ -152,6 +153,28 @@ describe("The red-team report through a failed poll", () => {
     })
     renderNavPage(SuiteDetailPage, client, { id: SUITE_ID, tab: "redteam" })
     expect(await screen.findByText("No red-team cases yet. Generate some to see how the target holds up.")).toBeTruthy()
-    await waitFor(() => expect(screen.queryByText(/From the newest completed run/)).toBeNull())
+    // Only once the report has answered null does its absence mean anything.
+    await waitFor(() => expect(queries.some((q) => q.intent === "redteam.report")).toBe(true))
+    await act(async () => {})
+    expect(screen.queryByText(/From the newest completed run/)).toBeNull()
+  })
+})
+
+describe("The red-team report when a watched run finishes", () => {
+  it("reads once more when the run stops, so the finished run's tally is complete", async () => {
+    const { client, queries } = recordingFullClient(() => redTeamReport())
+    const view = render(
+      <PluginProvider client={client}>
+        <RedTeamReportSection runId={live.id} running />
+      </PluginProvider>,
+    )
+    await screen.findByRole("list", { name: "Bypass rate by attack type" })
+    const before = queries.filter((q) => q.intent === "redteam.report").length
+    view.rerender(
+      <PluginProvider client={client}>
+        <RedTeamReportSection runId={live.id} running={false} />
+      </PluginProvider>,
+    )
+    await waitFor(() => expect(queries.filter((q) => q.intent === "redteam.report").length).toBe(before + 1))
   })
 })

@@ -31,7 +31,7 @@ export function ChartFrame({
           </h2>
           {description && <p className="text-sm text-muted-foreground">{description}</p>}
         </div>
-        <Button variant="ghost" size="sm" aria-pressed={asTable} onClick={() => setAsTable((on) => !on)}>
+        <Button variant="ghost" size="sm" onClick={() => setAsTable((on) => !on)}>
           {asTable ? `Show ${title.toLowerCase()} as a chart` : `Show ${title.toLowerCase()} as a table`}
         </Button>
       </div>

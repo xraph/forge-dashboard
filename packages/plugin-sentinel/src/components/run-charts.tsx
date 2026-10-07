@@ -151,13 +151,13 @@ function DimensionScores({ run }: { run: Run }) {
   const rows = dims.map((dim) => ({ dim, score: run.dimensionScores[dim] }))
   const unmeasured = DIMENSIONS.filter((d) => !dims.includes(d))
   const pass = run.settings.passThreshold
-  const partial = run.state === "running"
+  const partial = run.state !== "completed"
   if (rows.length === 0) {
     return (
       <section className="flex flex-col gap-2">
         <h2 className="text-sm font-medium">Dimension scores</h2>
         <p className="text-sm text-muted-foreground">
-          {partial ? "No dimension has been measured yet." : "This run measured no dimensions."}
+          {run.state === "running" ? "No dimension has been measured yet." : "This run measured no dimensions."}
         </p>
       </section>
     )
@@ -165,7 +165,13 @@ function DimensionScores({ run }: { run: Run }) {
   return (
     <ChartFrame
       title="Dimension scores"
-      description={partial ? "So far, from the cases scored." : undefined}
+      description={
+        run.state === "running"
+          ? "So far, from the cases scored."
+          : partial
+            ? "From the cases scored before the run stopped."
+            : undefined
+      }
       table={
         <ResourceTable<{ dim: string; score: number }>
           columns={dimensionColumns}

@@ -72,7 +72,7 @@ export function RedTeamTab({ suiteId }: { suiteId: string }) {
         <RedTeamReportSection
           key={run.id}
           runId={run.id}
-          title="In the newest completed run"
+          title="Newest completed run"
           intro={
             <p className="text-sm text-muted-foreground">
               {"From the newest completed run, "}

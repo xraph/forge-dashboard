@@ -724,7 +724,7 @@ Herald section are in both builds.
 | `LineChart` (Recharts' line parts) | 14.63 KB | 4.75 KB | lazy, with either line chart |
 | `XAxis` (Recharts' axis parts) | 10.11 KB | 3.15 KB | lazy, with any Recharts chart |
 | `compare` (the comparison page) | 9.13 KB | 3.05 KB | lazy, when you open a comparison |
-| `prompt-diff` (the diff, shared with the prompt version page) | 0.95 KB | 0.60 KB | lazy, when you open a case's outputs |
+| `prompt-diff` (the diff, shared with the prompt version page) | 0.95 KB | 0.60 KB | lazy, when you open a case's outputs and the two runs gave different ones (a red-team case's only after you reveal them) |
 
 Sentinel costs the eager set 100.17 KB raw and 23.35 KB gzip. That is every
 sentinel page that isn't a lazy route, from 4a's suites and cases to 4c's run

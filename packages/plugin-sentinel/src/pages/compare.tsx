@@ -1,4 +1,4 @@
-import { useState } from "react"
+import { useEffect, useRef, useState } from "react"
 import { PluginLink, useNavigateTo, useQuery } from "@forge-go/dashboard-plugin"
 import type { PluginPageProps } from "@forge-go/dashboard-plugin"
 import { Button } from "@forge-go/dashboard-kit/components/button"
@@ -63,6 +63,12 @@ function CompareBody({ runId, otherId }: { runId: string; otherId: string }) {
   const navigate = useNavigateTo()
   const [changedOnly, setChangedOnly] = useState(false)
   const [open, setOpen] = useState<string | null>(null)
+  // The panel opens below the table, which may be long: it takes focus, and
+  // so scrolls into view, when a case is opened.
+  const panelHeading = useRef<HTMLHeadingElement>(null)
+  useEffect(() => {
+    if (open !== null) panelHeading.current?.focus()
+  }, [open])
   return (
     <section className="flex flex-col gap-8">
       <PageHeader
@@ -134,16 +140,19 @@ function CompareBody({ runId, otherId }: { runId: string; otherId: string }) {
                       variant="ghost"
                       size="sm"
                       aria-pressed={open === p.caseId}
+                      aria-label={`Compare outputs of ${p.caseName}`}
                       onClick={() => setOpen(open === p.caseId ? null : p.caseId)}
                     >
-                      {`Compare outputs of ${p.caseName}`}
+                      Compare outputs
                     </Button>
                   )}
                 />
                 {pair && (
                   <section aria-label={`Outputs of ${pair.caseName}`} className="flex flex-col gap-2 rounded-lg border p-4">
                     <div className="flex items-center justify-between gap-2">
-                      <h3 className="text-sm font-medium">{`Outputs of ${pair.caseName}`}</h3>
+                      <h3 ref={panelHeading} tabIndex={-1} className="text-sm font-medium outline-none">
+                        {`Outputs of ${pair.caseName}`}
+                      </h3>
                       <Button variant="ghost" size="sm" onClick={() => setOpen(null)}>
                         Close
                       </Button>

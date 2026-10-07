@@ -107,6 +107,14 @@ describe("ComparePage", () => {
     expect(reads).toEqual(expect.arrayContaining([{ runId: A, resultId: "result_a_1" }, { runId: B, resultId: "result_b_1" }]))
   })
 
+  it("labels each row's button briefly and moves to the outputs when a case is opened", async () => {
+    open()
+    const button = await screen.findByRole("button", { name: "Compare outputs of Old case" })
+    expect(button.textContent).toBe("Compare outputs")
+    fireEvent.click(button)
+    expect(document.activeElement).toBe(screen.getByRole("heading", { name: "Outputs of Old case" }))
+  })
+
   it("keeps a red-team case's output collapsed until asked, and shows the one side that scored it", async () => {
     open()
     fireEvent.click(await screen.findByRole("button", { name: "Compare outputs of leakage_direct_request" }))

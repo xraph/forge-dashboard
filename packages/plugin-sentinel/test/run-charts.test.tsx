@@ -96,6 +96,22 @@ describe("Dimension scores", () => {
     expect(await screen.findByText("This run measured no dimensions.")).toBeTruthy()
   })
 
+  it("calls a cancelled run's scores partial too", async () => {
+    renderNavPage(
+      RunDetailPage,
+      stubClient(
+        answers(
+          runDetail({
+            run: run({ state: "cancelled", dimensionScores: dims }),
+            regression: regression({ state: "notComparable", reason: "runCancelled" }),
+          }),
+        ),
+      ),
+      { id: RUN_ID },
+    )
+    expect(await screen.findByText("From the cases scored before the run stopped.")).toBeTruthy()
+  })
+
   it("calls a running run's scores partial", async () => {
     const live = runningRun({ dimensionScores: dims })
     renderNavPage(RunDetailPage, stubClient(answers(runDetail({ run: live, regression: regression({ state: "running" }) }))), {

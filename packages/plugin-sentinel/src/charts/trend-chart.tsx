@@ -60,6 +60,16 @@ export default function TrendChart({
     avgScore: p.avgScore,
   }))
   const last = rows.length - 1
+  // The baseline's label and the average score's end label both sit just past
+  // the plot's right edge. When the two values are close they would overlap,
+  // so the average's label moves below or above the baseline's.
+  const lastAvg = rows[last]?.avgScore
+  const nudge =
+    baseline && lastAvg !== undefined && Math.abs(lastAvg - baseline.passRate) < 0.08
+      ? lastAvg < baseline.passRate
+        ? 14
+        : -8
+      : 4
   return (
     <div className="flex flex-col gap-2">
       <div className="flex flex-wrap gap-4">
@@ -129,7 +139,7 @@ export default function TrendChart({
                   key="avg-end"
                   x={Number(props.x) + 8}
                   y={Number(props.y)}
-                  dy={4}
+                  dy={nudge}
                   fontSize={11}
                   fill="var(--muted-foreground)"
                 >

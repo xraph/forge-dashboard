@@ -26,48 +26,47 @@ const hiddenCell = <span className="text-muted-foreground">Hidden with the outpu
  */
 function scorerColumns(hidden: boolean): Column<ScorerResult & { key: string }>[] {
   return [
-
-  { id: "scorer", header: "Scorer", className: "font-mono text-xs font-medium", cell: (s) => s.scorerName },
-  {
-    id: "verdict",
-    header: "Verdict",
-    // Most scorers pass on most cases, so a pass recedes and a fail is the
-    // thing to find.
-    cell: (s) => <Badge variant={s.passed ? "outline" : "destructive"}>{s.passed ? "Passed" : "Failed"}</Badge>,
-  },
-  { id: "score", header: "Score", align: "end", className: "tabular-nums", cell: (s) => formatScore(s.score) },
-  {
-    id: "dimension",
-    header: "Dimension",
-    className: "font-mono text-xs",
-    cell: (s) => s.dimension || <NoneCell label="dimension" />,
-  },
-  {
-    id: "reason",
-    header: "Reason",
-    cell: (s) =>
-      !s.reason ? (
-        <NoneCell label="reason" />
-      ) : hidden ? (
-        hiddenCell
-      ) : (
-        <span className="break-words whitespace-pre-wrap">{s.reason}</span>
-      ),
-  },
-  {
-    id: "details",
-    header: "Details",
-    cell: (s) =>
-      !s.details ? (
-        <NoneCell label="details" />
-      ) : hidden ? (
-        hiddenCell
-      ) : (
-        <pre className="max-h-40 overflow-auto font-mono text-xs break-words whitespace-pre-wrap">
-          {JSON.stringify(s.details, null, 2)}
-        </pre>
-      ),
-  },
+    { id: "scorer", header: "Scorer", className: "font-mono text-xs font-medium", cell: (s) => s.scorerName },
+    {
+      id: "verdict",
+      header: "Verdict",
+      // Most scorers pass on most cases, so a pass recedes and a fail is the
+      // thing to find.
+      cell: (s) => <Badge variant={s.passed ? "outline" : "destructive"}>{s.passed ? "Passed" : "Failed"}</Badge>,
+    },
+    { id: "score", header: "Score", align: "end", className: "tabular-nums", cell: (s) => formatScore(s.score) },
+    {
+      id: "dimension",
+      header: "Dimension",
+      className: "font-mono text-xs",
+      cell: (s) => s.dimension || <NoneCell label="dimension" />,
+    },
+    {
+      id: "reason",
+      header: "Reason",
+      cell: (s) =>
+        !s.reason ? (
+          <NoneCell label="reason" />
+        ) : hidden ? (
+          hiddenCell
+        ) : (
+          <span className="break-words whitespace-pre-wrap">{s.reason}</span>
+        ),
+    },
+    {
+      id: "details",
+      header: "Details",
+      cell: (s) =>
+        !s.details ? (
+          <NoneCell label="details" />
+        ) : hidden ? (
+          hiddenCell
+        ) : (
+          <pre className="max-h-40 overflow-auto font-mono text-xs break-words whitespace-pre-wrap">
+            {JSON.stringify(s.details, null, 2)}
+          </pre>
+        ),
+    },
   ]
 }
 

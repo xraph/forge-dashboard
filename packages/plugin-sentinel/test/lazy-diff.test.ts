@@ -58,6 +58,14 @@ describe("CodeMirror loads only with the prompt version and comparison pages", (
     expect(entry).not.toMatch(/^import[^\n]*["']\.\/pages\/compare["']/m)
   })
 
+  it("names the comparison page from nowhere but the plugin entry", () => {
+    const importers = Object.entries(modules)
+      .filter(([path]) => path !== "../src/index.tsx" && path !== COMPARE)
+      .filter(([, mod]) => sourceOf(mod).includes("pages/compare"))
+      .map(([path]) => path)
+    expect(importers).toEqual([])
+  })
+
   it("reaches the comparison page's diff only through lazy(), from the output diff", () => {
     const outputs = sourceOf(modules[OUTPUTS])
     expect(outputs).toMatch(/lazy\(\(\)\s*=>\s*import\("\.\/prompt-diff"\)\)/)

@@ -1,3 +1,4 @@
+import { useEffect, useRef } from "react"
 import type { ReactNode } from "react"
 import { usePoll, useQuery } from "@forge-go/dashboard-plugin"
 import {
@@ -58,6 +59,15 @@ export function RedTeamReportSection({
   usePoll(() => {
     if (running) report.refetch()
   }, RUN_POLL_MS)
+  // Polling stops with the run, so the report reads once more on that edge,
+  // as the results section does: the cases scored after the last poll would
+  // otherwise be missing from a finished run's tally.
+  const { refetch } = report
+  const wasRunning = useRef(running)
+  useEffect(() => {
+    if (wasRunning.current && !running) refetch()
+    wasRunning.current = running
+  }, [running, refetch])
   if (report.error && report.data === undefined) {
     return (
       <section className="flex flex-col gap-2">

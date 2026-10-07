@@ -88,7 +88,7 @@ describe("Red team tab", () => {
   it("shows how the newest completed run fared, and links to it", async () => {
     const { client, queries } = recordingFullClient(tabAnswers())
     renderNavPage(SuiteDetailPage, client, { id: SUITE_ID, tab: "redteam" })
-    expect(await screen.findByRole("heading", { name: "In the newest completed run" })).toBeTruthy()
+    expect(await screen.findByRole("heading", { name: "Newest completed run" })).toBeTruthy()
     expect(screen.getByRole("link", { name: "run_…000050" }).getAttribute("href")).toBe(`/runs/${RUN_ID}`)
     expect(queries.find((q) => q.intent === "runs.list")?.params).toEqual({ suiteId: SUITE_ID, state: "completed", limit: 1 })
     expect(queries.find((q) => q.intent === "redteam.report")?.params).toEqual({ runId: RUN_ID })
@@ -101,7 +101,7 @@ describe("Red team tab", () => {
       { id: SUITE_ID, tab: "redteam" },
     )
     expect(await screen.findByText("No red-team cases yet. Generate some to see how the target holds up.")).toBeTruthy()
-    expect(screen.queryByRole("heading", { name: "In the newest completed run" })).toBeNull()
+    expect(screen.queryByRole("heading", { name: "Newest completed run" })).toBeNull()
   })
 })
 
