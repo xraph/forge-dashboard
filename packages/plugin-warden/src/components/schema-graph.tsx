@@ -69,6 +69,18 @@ const SHOWN_PERMISSIONS = 6
 
 const UNDECLARED = "undeclared:"
 
+/**
+ * The relations that list no subject types. An empty list puts no limit on
+ * the subject type, so such a relation has no arrow to draw: its card names
+ * it instead, and so does the text list, so it never reads as allowing
+ * nothing.
+ */
+function openRelations(node: ResourceTypeGraphNode): string[] {
+  return (node.relations ?? [])
+    .filter((r) => (r.allowedSubjects ?? []).length === 0)
+    .map((r) => r.name)
+}
+
 function namespaceLabel(path: string): string {
   return path === "" ? "the tenant root" : path
 }
@@ -76,6 +88,7 @@ function namespaceLabel(path: string): string {
 function TypeCard({ node }: { node: ResourceTypeGraphNode }) {
   const shown = node.permissions.slice(0, SHOWN_PERMISSIONS)
   const hidden = node.permissions.length - shown.length
+  const open = openRelations(node)
   return (
     <PluginLink
       to={`/resource-types/${node.id}`}
@@ -103,6 +116,16 @@ function TypeCard({ node }: { node: ResourceTypeGraphNode }) {
       {hidden > 0 && (
         <span className="text-xs text-muted-foreground">{`and ${hidden} more`}</span>
       )}
+      {open.map((name) => (
+        <span
+          key={`open:${name}`}
+          data-open-relation={name}
+          className="truncate font-mono text-xs text-muted-foreground"
+          title={`${name}: any subject type`}
+        >
+          {`${name}: any subject type`}
+        </span>
+      ))}
     </PluginLink>
   )
 }
@@ -162,10 +185,11 @@ export function buildSchemaGraph(graph: ResourceTypeGraph): {
   const nodes: CanvasNode[] = graph.nodes.map((n) => {
     const shown = Math.min(n.permissions.length, SHOWN_PERMISSIONS)
     const more = n.permissions.length > shown ? 1 : 0
+    const open = openRelations(n).length
     return {
       id: n.id,
       width: NODE_WIDTH,
-      height: HEADER_HEIGHT + (shown + more) * ROW_HEIGHT,
+      height: HEADER_HEIGHT + (shown + more + open) * ROW_HEIGHT,
       content: <TypeCard node={n} />,
     }
   })
@@ -191,6 +215,15 @@ export function buildSchemaGraph(graph: ResourceTypeGraph): {
       edges.push({ id, source: e.fromId, target, label })
       descriptions.push(
         describeEdge(byId.get(e.fromId)!, e, byId.get(target) ?? null)
+      )
+    }
+  }
+  // A relation that lists no subject types has no edge, so it gets its own
+  // line after the drawn edges: "document watcher any subject type".
+  for (const n of graph.nodes) {
+    for (const name of openRelations(n)) {
+      descriptions.push(
+        `${typeName(n.name, n.namespacePath)} ${name} any subject type`
       )
     }
   }
@@ -231,7 +264,8 @@ function SchemaGraphView({
         allow that no resource type in this view has: a subject kind such as
         user, or a type outside this namespace or past the first 500. An arrow
         runs from a type to a subject one of its relations allows, and is
-        labelled with that relation.
+        labelled with that relation. A relation that lists no subject types
+        allows any subject: it has no arrow, and its type&apos;s box names it.
       </p>
       <Suspense
         fallback={

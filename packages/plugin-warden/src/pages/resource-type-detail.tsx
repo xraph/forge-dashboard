@@ -468,14 +468,16 @@ function RelationsTable({ relations }: { relations: RelationDef[] }) {
     {
       id: "subjects",
       header: "Allowed subject types",
-      // A relation allowing no subject type is a real state. It is not a
-      // closed one: relations.create does no schema check, so a tuple with
-      // this relation can still be written and a check will match it as
-      // written. TagList renders it as a labelled dash rather than as a
-      // blank cell.
-      cell: (r) => (
-        <TagList values={r.allowedSubjects ?? []} label="allowed subject types" />
-      ),
+      // An empty list puts no limit on the subject type: relations.create,
+      // the REST write and a schema apply all accept any subject for this
+      // relation (resourcetype.SubjectAllowed). So it reads as what it
+      // allows, never as a dash or a blank that looks like nothing.
+      cell: (r) =>
+        (r.allowedSubjects ?? []).length === 0 ? (
+          <span className="text-muted-foreground">Any subject type</span>
+        ) : (
+          <TagList values={r.allowedSubjects} label="allowed subject types" />
+        ),
     },
   ]
   return (
@@ -487,13 +489,18 @@ function RelationsTable({ relations }: { relations: RelationDef[] }) {
         caption={`${relations.length} ${relations.length === 1 ? "relation" : "relations"}`}
         emptyMessage="This type declares no relations."
       />
-      {/* Nothing enforces these declarations: relations.create writes any
-          tuple it is given, and the evaluator resolves a name by raw tuple
-          lookup (dsl/eval.go). A page implying otherwise would tell an
-          operator a subject type is kept out when it is not. */}
+      {/* relations.create, the REST write and a schema apply refuse a new
+          tuple the governing resource type does not declare
+          (resourcetype.CheckTupleDeclared). Nothing re-checks a stored one,
+          and the evaluator resolves a name by raw tuple lookup (dsl/eval.go),
+          so a tuple stored before the declaration changed, or written
+          straight to the store, still counts as written. */}
       <p className="text-xs text-muted-foreground">
-        Warden does not check tuples against these declarations. A check
-        matches a tuple as written, whatever relation or subject type it names.
+        The dashboard, the REST API and a schema apply refuse a new tuple these
+        declarations do not allow. They govern tuples of this type in its
+        namespace and below, unless a namespace closer to the tuple declares a
+        type of the same name. A check still matches every stored tuple as
+        written, including one stored before a declaration changed.
       </p>
     </div>
   )
@@ -751,7 +758,8 @@ function EditForm({
         <legend className="text-sm font-medium">Relations</legend>
         <p className="text-xs text-muted-foreground">
           Each relation lists the subject types it allows, separated by commas.
-          A userset is written group#member.
+          A userset is written group#member. Leave the list empty to allow any
+          subject type.
         </p>
         {relationRows.map((row, i) => (
           <div key={row.key} role="group" aria-label={`Relation ${i + 1}`} className="flex gap-2">
@@ -769,7 +777,9 @@ function EditForm({
             <Input
               aria-label={`Relation ${i + 1} subject types`}
               className="flex-1 font-mono text-xs"
-              placeholder="user, group#member"
+              // An empty list allows any subject type, so a blank field says
+              // that rather than showing an example list it does not hold.
+              placeholder="Any subject type"
               value={row.subjects}
               onChange={(e) =>
                 setRelationRows((rows) =>

@@ -297,9 +297,53 @@ describe("the resource types graph", () => {
     await nodeLink(/Open document/)
     expect(
       screen.getByText(
-        "Each solid box is a resource type. A dashed box is a name the relations allow that no resource type in this view has: a subject kind such as user, or a type outside this namespace or past the first 500. An arrow runs from a type to a subject one of its relations allows, and is labelled with that relation."
+        "Each solid box is a resource type. A dashed box is a name the relations allow that no resource type in this view has: a subject kind such as user, or a type outside this namespace or past the first 500. An arrow runs from a type to a subject one of its relations allows, and is labelled with that relation. A relation that lists no subject types allows any subject: it has no arrow, and its type's box names it."
       )
     ).toBeTruthy()
+  })
+
+  it("names a relation with no listed subject types as allowing any, with no arrow", async () => {
+    // An empty list puts no limit on the subject type. With no arrow to
+    // draw, the box and the text list say so, so it never reads as nothing.
+    const graph = {
+      ...GRAPH,
+      nodes: GRAPH.nodes.map((n) =>
+        n.id === "rt_doc"
+          ? {
+              ...n,
+              relations: [
+                ...n.relations,
+                { name: "watcher", allowedSubjects: [] },
+              ],
+            }
+          : n
+      ),
+    }
+    const { container } = renderPage(
+      WardenResourceTypesPage,
+      stubClient(answers({ "resourceTypes.graph": graph }))
+    )
+    const doc = await nodeLink(/Open document/)
+    expect(within(doc).getByText("watcher: any subject type")).toBeTruthy()
+    expect(
+      container.querySelectorAll('[data-open-relation="watcher"]')
+    ).toHaveLength(1)
+    // No edge is drawn for it.
+    expect(
+      Array.from(container.querySelectorAll("[data-edge-source]")).filter((e) =>
+        (e.textContent ?? "").includes("watcher")
+      )
+    ).toHaveLength(0)
+    const details = screen
+      .getByText("Relationships as text")
+      .closest("details")!
+    const lines = within(details)
+      .getAllByRole("listitem", { hidden: true })
+      .map((li) => li.textContent)
+    expect(lines).toContain("document watcher any subject type")
+    // A listed relation keeps its arrows and its lines.
+    expect(lines).toContain("document viewer user")
+    expect(lines).not.toContain("document viewer any subject type")
   })
 
   describe("Relationships as text", () => {

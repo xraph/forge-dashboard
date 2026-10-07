@@ -149,28 +149,35 @@ describe("WardenResourceTypeDetailPage", () => {
       expect(within(viewer).queryByText("group#member")).toBeNull()
     })
 
-    it("does not render a relation that allows no subject types as a blank cell", async () => {
-      // A real state, though not a closed one: relations.create does no
-      // schema check, so a tuple with this relation can still be written.
+    it("reads a relation with no listed subject types as allowing any", async () => {
+      // An empty list puts no limit on the subject type, so the cell says
+      // so instead of showing a dash or a blank that reads as nothing.
       render(
         detailOf({
-          relations: [{ name: "orphan", allowedSubjects: [] }],
+          relations: [
+            { name: "watcher", allowedSubjects: [] },
+            { name: "viewer", allowedSubjects: ["user"] },
+          ],
           permissions: [],
         })
       )
-      const row = (await screen.findByText("orphan", { selector: "td" })).closest("tr")!
-      expect(within(row).getByLabelText("no allowed subject types")).toBeTruthy()
+      const open = (await screen.findByText("watcher", { selector: "td" })).closest("tr")!
+      expect(within(open).getByText("Any subject type")).toBeTruthy()
+      expect(within(open).queryByLabelText("no allowed subject types")).toBeNull()
+      // A listed relation still shows its list.
+      const listed = screen.getByText("viewer", { selector: "td" }).closest("tr")!
+      expect(within(listed).getByText("user")).toBeTruthy()
+      expect(within(listed).queryByText("Any subject type")).toBeNull()
     })
 
-    it("says warden does not check tuples against the declared subject types", async () => {
-      // relations.create does no schema check and the evaluator resolves a
-      // name by raw tuple lookup. Without this line the column reads as a
-      // rule that keeps other subject types out, which it is not.
+    it("says which writes are refused and that stored tuples still count", async () => {
+      // relations.create, the REST write and a schema apply refuse a tuple
+      // the governing type does not declare; nothing re-checks a stored one.
       render()
       await screen.findByText("viewer", { selector: "td" })
       expect(
         screen.getByText(
-          "Warden does not check tuples against these declarations. A check matches a tuple as written, whatever relation or subject type it names."
+          "The dashboard, the REST API and a schema apply refuse a new tuple these declarations do not allow. They govern tuples of this type in its namespace and below, unless a namespace closer to the tuple declares a type of the same name. A check still matches every stored tuple as written, including one stored before a declaration changed."
         )
       ).toBeTruthy()
     })
@@ -610,6 +617,24 @@ describe("WardenResourceTypeDetailPage", () => {
   })
 
   describe("editing", () => {
+    it("shows a relation with no listed subject types as allowing any", async () => {
+      render(
+        detailOf({
+          relations: [{ name: "watcher", allowedSubjects: [] }],
+          permissions: [],
+        })
+      )
+      await openEdit()
+      const subjects = field("Relation 1 subject types")
+      expect(subjects.value).toBe("")
+      expect(subjects.getAttribute("placeholder")).toBe("Any subject type")
+      expect(
+        screen.getByText(
+          "Each relation lists the subject types it allows, separated by commas. A userset is written group#member. Leave the list empty to allow any subject type."
+        )
+      ).toBeTruthy()
+    })
+
     it("starts from what the type has now", async () => {
       render()
       await openEdit()
