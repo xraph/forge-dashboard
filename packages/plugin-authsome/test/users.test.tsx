@@ -288,6 +288,10 @@ describe("AuthUsersPage search and paging", () => {
     fireEvent.click(screen.getByRole("button", { name: "Next page" }))
     await waitFor(() => expect(queries.some((q) => q.params?.cursor === "c1")).toBe(true))
     await waitFor(() => expect(screen.getByText("No users yet.")).toBeTruthy())
+    // Past the search box's 300ms debounce. It used to run on mount as well,
+    // and its reset threw this page back to the first one, Next enabled.
+    await new Promise((resolve) => setTimeout(resolve, 400))
+    expect(screen.getByText("No users yet.")).toBeTruthy()
 
     const next = screen.getByRole("button", { name: "Next page" })
     expect(next.hasAttribute("disabled")).toBe(true)

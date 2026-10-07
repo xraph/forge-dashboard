@@ -63,6 +63,10 @@ export function AuthUsersPage() {
   const [deleting, setDeleting] = useState<UserSummary | null>(null)
 
   useEffect(() => {
+    // Nothing to apply when the box already matches the search in use: on
+    // mount, or after typing back to it. Without this the reset below ran
+    // 300ms after every mount and threw away a page you had moved to.
+    if (searchInput === search) return
     const timer = setTimeout(() => {
       setSearch(searchInput)
       // A cursor points into the previous result set. Carrying it across a
@@ -70,7 +74,7 @@ export function AuthUsersPage() {
       page.reset()
     }, 300)
     return () => clearTimeout(timer)
-  }, [searchInput, page.reset])
+  }, [searchInput, search, page.reset])
 
   // `email` and `cursor` are left undefined rather than sent empty. The store
   // keys an undefined value the same as an absent one, and the server reads an
