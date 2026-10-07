@@ -972,11 +972,11 @@ Slice 3 made the gateway say no. Keys are checked at the HTTP edge, tenants and 
 | `quota_exceeded` | 429 | daily requests, or a stream cut at `MaxStreamDuration` or `MaxStreamTokens` |
 | `budget_exceeded` | 429 | monthly budget |
 | `unavailable` | 503 | tenant, key, daily count or monthly spend could not be read |
-| `content_blocked` | 400 | a guard block |
+| `content_blocked` | 400 | a guard block (recorded as `blocked`, not `refused`, see below) |
 
 Over HTTP the body is `{"error":{"message","type","code"}}`. A 429 with a known wait carries `Retry-After` in whole seconds, rounded up. A 401 carries `WWW-Authenticate: Bearer`. Every `/v1` and `/admin` response carries `X-Request-Id`, the same id as the usage record, and a client-supplied one is ignored. A 500 says only `internal error`; the cause goes to the gateway log. A stream error that is not a refusal says `upstream error` in-band, and a refusal in-band has `type: refused` and `code` set to the refusal code.
 
-Which refusals become usage rows matters for what the pages can show. A refusal inside the pipeline (access, quota, guard, identity) writes a row with outcome `refused`, $0, under its code. The edge 401 and the route-scope 401 or 403 (`admin`, `models`) do not: they happen before the pipeline, with no tenant to charge, and recording them would let anyone write rows. That is Ruling 3 below, and it contradicts the spec line "every refusal still writes a usage record". The gateway page cannot show a count of failed logins. If you want one, add an unattributed edge record with a rate cap, as a deliberate change.
+Which refusals become usage rows matters for what the pages can show. A refusal inside the pipeline (access, quota, identity) writes a row with outcome `refused`, $0, under its code. A guard block is not a refusal: it is recorded as outcome `blocked`, with `BlockedBy` set and status 400. An input block costs $0, but an output block happens after the provider answered, so its row can carry cost (or `unknown` when the provider reported no tokens). Three things are not recorded at all: the edge 401, the route-scope 401 or 403 (`admin`, `models`), and the edge 503 `key check is unavailable`. They happen before the pipeline, with no tenant to charge, and recording them would let anyone write rows. So does a streaming request sent to `Engine.Complete`, which is refused `invalid_request` before the chain runs. The edge case is Ruling 3 below, and it contradicts the spec line "every refusal still writes a usage record". The gateway page cannot show a count of failed logins. If you want one, add an unattributed edge record with a rate cap, as a deliberate change.
 
 An unknown tenant is refused `forbidden` and recorded unattributed, because the Postgres foreign key would lose the row otherwise (M9, fixed).
 
@@ -984,7 +984,7 @@ A stream cut by a stream limit is recorded `error`, status 429, code `quota_exce
 
 ### Counting and the budget
 
-`DailyRequests` counts every recorded request except `refused` ones. Without that, a tenant held at its RPM burns its daily quota on the refusals. `usage.Service.DailyRequests` is what the quota stage reads, and the templ "requests today" figure (`dashboard/data.go`) now leaves refusals out too. The contract's `requestsToday` should say "not counting refusals" in its label, and `overview.get` has the outcome counts if you want the refused ones beside it.
+`DailyRequests` counts every recorded request except `refused` ones. Without that, a tenant held at its RPM burns its daily quota on the refusals. `blocked` rows do count, and so do `cached` and `error` rows. `usage.Service.DailyRequests` is what the quota stage reads, and the templ "requests today" figure (`dashboard/data.go`) now leaves refusals out too. The contract's `requestsToday` should say "not counting refusals" in its label, and `overview.get` has the outcome counts if you want the refused ones beside it.
 
 The budget is soft: the request that crosses it completes, the next one gets `budget_exceeded`. Only a positive budget limits. A negative `MonthlyBudgetUSD` is ignored by enforcement, so a tenant saved with one runs unlimited and nothing says so. The store accepts it, so `tenants.create` and `tenants.update` must refuse a negative budget with `BAD_REQUEST`.
 
@@ -1004,6 +1004,8 @@ request_id 5, tracing 10, usage 15, timeout 20, identity 30, access 40, quota 50
 - `Gateway.UsageInsertErrors()`, records that failed to store.
 
 Show the limiter kind next to the replica count, if the host knows it: `memory` with several replicas means each one counts on its own.
+
+Ruling 16: with `EnableUsage` false, no usage rows are written, so `DailyRequests` and `MonthlyBudgetUSD` can never trip while the quota stage still runs RPM, TPM and the token cap. The posture readout in `overview.get` (`usageEnabled`) should therefore show "usage off: daily and budget limits inert" instead of a plain "off", and the tenant quota form should say the same beside those two fields.
 
 ### Keys
 
@@ -1037,18 +1039,19 @@ With keys required, no HTTP route can make the first admin key, because making o
 | 13 | The key shape check in `Validate`. |
 | 14 | Admin routes always need an authenticated key with the `admin` scope. Needs Rex's confirmation, below. |
 | 15 | A stream error that is not a refusal says `upstream error` in-band, with the cause logged. |
+| 16 | With `EnableUsage` false no rows are written, so the daily and budget limits never trip while the rest of the quota stage runs. Docs and the posture readout say so. |
 
 Ruling 14 needs Rex's yes. The plan let `RequireScope` pass an unauthenticated request, which meant `require_api_key: false` also opened `/admin/*` to anyone, including key creation, so anyone could mint an admin key. We decided toward fail-closed: `RequireScope` refuses with 401 when `KeyAuth` has not run on the request, and `require_api_key: false` opens only `/v1`. The cost is that local work with an open gateway still needs one Go call to make an admin key before the admin API answers. If Rex wants the other behaviour, it is a change to `api/api.go` (the `adminKeys` wrapper and `RequireScope`) and to the HTTP API docs page.
 
 Do not trust the message of commit 13ff919. It says `/admin` is open when `RequireAPIKey` is off. The code and its tests follow Ruling 14, and the admin API is closed. Nobody amended the commit, so the message stays wrong; this paragraph is the correction.
 
-Two more edge behaviours the posture copy has to match. Any non-empty `Authorization` header counts as a presented key, so on an open gateway a forwarded Bearer JWT or a Basic credential from an auth proxy gets a 401. When both headers are present `x-api-key` wins, and `Bearer` is case-insensitive. A WebSocket refusal closes with 1008.
+Two more edge behaviours the posture copy has to match. Any non-empty `Authorization` header counts as a presented key, so on an open gateway a forwarded Bearer JWT or a Basic credential from an auth proxy gets a 401. When both headers are present `x-api-key` wins, and `Bearer` is case-insensitive. A missing or bad key on `/v1/realtime` gets a 401 at the handshake, before the upgrade. Close code 1008 applies only to a pipeline refusal after the session has started.
 
 ### What the slice 4 contract must map
 
 - `key.ErrInvalid` to `BAD_REQUEST`. The key and templ handlers still answer every `Create` error as a 500 or raw text; the contract is where this gets fixed.
 - `tenant.ErrNotFound` (and the not-found wrapped by `key.Create` for an unknown tenant) to `NOT_FOUND`.
-- `key.ErrNotFound` to `NOT_FOUND`; `key.ErrRevoked` and `key.ErrExpired` on a rotate are state errors, not 500s.
+- `key.ErrNotFound` to `NOT_FOUND`. `Rotate` on a revoked or expired key returns `key.ErrInvalid` (with the status in the message), so it is `BAD_REQUEST`; `key.ErrRevoked` and `key.ErrExpired` come from `Validate` only, which the contract does not call.
 - A negative `MonthlyBudgetUSD` to `BAD_REQUEST` on save, as above.
 - The admin handlers in `api/` still return raw `err.Error()` 500s. That is reachable only with an admin key, but the contract must not copy it. The contract's own rule stands: log the cause, answer `INTERNAL`.
 - The proxy answers an unknown model with `not_found_error` and the api with `not_found`. The contract does not call either, but the fixtures should not copy one into the other.
@@ -1069,7 +1072,7 @@ What the slice 2 hand-off asked slice 3 to do and it did: N1 (usage reserves bef
 
 Each of these was found in review, judged too small to hold a task, and is written down so the next person does not rediscover it.
 
-- Posture and numbers: the posture readouts above are the only operator-facing signals for limiter and insert health. There is no per-tenant refusal count by code except through `usage.records` with `outcome=refused`; the pages should filter on that.
+- Posture and numbers: the posture readouts above are the only operator-facing signals for limiter and insert health. There is no per-tenant refusal count by code except through `usage.records`: filter `outcome=refused` for quota, budget, access and identity refusals, and `outcome=blocked` for guard blocks, which are a separate outcome and can carry cost.
 - Redis limiter: a charge of zero has no test for the TTL; the key TTL is the window plus one second from creation, so replica clock skew over about a second can reset a window; the unreachable-Redis test prints a dial failure to stderr.
 - Memory limiter: `RetryAfter` uses the stored window's end, so one key used with two window sizes sharing a start gets the first window's end (keys are per limit, so unlikely); the sweep clock is a package variable used as a test seam.
 - Quota stage: no test for the embedding TPM charge; the warned and exceeded maps are never pruned (one entry per tenant per replica); the `gw.usage != nil` guard before `NewQuota` is dead.
@@ -1078,4 +1081,8 @@ Each of these was found in review, judged too small to hold a task, and is writt
 - Usage: `Flush` leaves its waiter parked after a context timeout, so repeated timed-out `FlushUsage` calls accumulate goroutines; the SQL `DailyRequests` hard-codes `'refused'` while Mongo and memory use `usage.OutcomeRefused`; the recover and re-panic defer misses `runtime.Goexit`.
 - Retry and errors: no test that `RefusalError.Unwrap` reaches `Cause` through nested wraps; `ErrInvalidIdentity` is an exported mutable pointer; a refused `Execute` with `Stream: true` is refused before the chain, so it is not recorded; `guard.BlockedError.Reason` reaches the client verbatim, which exposes a third-party rule's text.
 - Edge: no test pins the api and proxy WebSocket `OnError` wiring; `WSOptions.OnError` overrides one the caller supplied; client-disconnect errors from `EncodeEvent` now log at error level; provider errors that carry upstream credentials reach the gateway log raw, so consider redaction in the logger; proxy CORS lacks `Access-Control-Expose-Headers: X-Request-Id`, so a browser page cannot read the request id; model-route 500s are untested because the fake `ListModels` never fails.
-- Docs: the errors page used to map `ErrBudgetExceeded` to 402 and `ErrTokenOverflow` to 413, and the HTTP API page listed `PUT` and a `/admin/usage/summary` route that do not exist. Both are corrected. `ErrBudgetExceeded`, `ErrRateLimited`, `ErrAuthRequired` and `ErrTokenOverflow` in `errors.go` are defined and used nowhere else; remove them in the v1 break or wire them, and note it in `MIGRATION.md`.
+- Docs: the errors page used to map `ErrBudgetExceeded` to 402 and `ErrTokenOverflow` to 413, and the HTTP API page listed `PUT` and a `/admin/usage/summary` route that do not exist. Both are corrected, and the errors page now lists the sentinels that really exist in `errors.go` (the old list named eight that were never defined). Of those, only `ErrProviderNotFound` is returned by any code (`Engine`, when it has no pipeline). Every other one, for example `ErrBudgetExceeded`, `ErrRateLimited`, `ErrUnauthorized`, `ErrQuotaExceeded` and `ErrContentBlocked`, is exported and unused, and the HTTP status comes from refusals, not from sentinels. Remove them in the v1 break or wire them, and note it in `MIGRATION.md`.
+- Task 1: no test for the panic path leaving `Pending()` at zero; the `usage.go` docs for the type, `pending`, `Pending()` and `Flush` still say "open streams and inserts" when requests with the provider count too; the gateway test leaves its `Complete` goroutine blocked if the negative check fails (needs a `t.Cleanup`).
+- Task 2: the builder's stream refusal message names `Engine.CompleteStream`, which means little to someone using `pipeline.Service` directly.
+- Task 4: `Revoke`'s full-row `Update` can overwrite a concurrent `TouchLastUsed` timestamp (a lost timestamp, nothing worse); `Rotate` reuses `old.ExpiresAt`, so rotating a key that expires within moments fails with `key.ErrInvalid` ("expires_at is in the past"), and the contract must map that to `BAD_REQUEST` with a message that says to create a new key; the events fake reads without its mutex in single-goroutine tests.
+- Task 5: `TestDailyRequestsLeaveOutRefusals` has no unattributed row for the empty-tenant ("every tenant") case.
