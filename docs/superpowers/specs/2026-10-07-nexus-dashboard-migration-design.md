@@ -954,3 +954,5 @@ Deferred to slice 3 or `MIGRATION.md`:
 - M9: Postgres usage rows keep the tenant foreign key, so a well-formed but unknown tenant is served and then its record is lost. Slice 3's unknown-tenant refusals should record unattributed.
 - M10: `Engine.Complete` with `Stream: true` drops the stream without closing it, so there's no record and the stream counts as pending until shutdown gives up on it.
 - M11: every insert gets its own goroutine. During a store outage those pile up without a bound on their number; a worker queue with a drop counter would cap it.
+- N1, and slice 3's first task: a non-stream request reserves its insert only after `next` returns. So a completion still in flight when `Shutdown` starts loses its record while `Shutdown` returns nil. It is counted and logged, not silent, but it breaks the promise above. Move `reserve()` to the top of `Process`, before `next`, and add a gateway test with a completion in flight during shutdown.
+- Vertex's embed response carries `statistics.token_count`, which the client doesn't decode yet. Decode it and Vertex embeddings price again instead of reading `unknown`.
