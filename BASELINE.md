@@ -705,3 +705,68 @@ scans the sources either way.
 
 The chunk hashes named in this section are from this build. Any edit to the
 entry changes them, so search by chunk name if you repeat the counts.
+
+## Sentinel's charts and comparison, and where they land (2026-10-07)
+
+Measured with `vite build` in `apps/shell` on 2026-10-07, written to a scratch
+directory with `--outDir` like the sections above: `tsc -b` skipped, sizes in
+Vite's own kB. There are two builds this time, the tree as it stands and the
+same tree with `sentinelPlugin` taken out of `App.tsx`, so sentinel's share of
+the eager set can be read off directly. The other plugins' commits since the
+Herald section are in both builds.
+
+| chunk | raw | gzip | loaded |
+|---|---|---|---|
+| eager, with sentinel | 1,648.03 KB | 454.26 KB | eager (22 scripts) |
+| eager, without sentinel | 1,547.86 KB | 430.91 KB | eager (20 scripts) |
+| `trend-chart` (pass rate over runs) | 7.57 KB | 3.03 KB | lazy, when a suite's Runs tab has two completed runs |
+| `dimension-trends` (a line per dimension) | 1.83 KB | 0.93 KB | lazy, with the trend chart |
+| `LineChart` (Recharts' line parts) | 14.63 KB | 4.75 KB | lazy, with either line chart |
+| `XAxis` (Recharts' axis parts) | 10.11 KB | 3.15 KB | lazy, with any Recharts chart |
+| `compare` (the comparison page) | 9.13 KB | 3.05 KB | lazy, when you open a comparison |
+| `prompt-diff` (the diff, shared with the prompt version page) | 0.95 KB | 0.60 KB | lazy, when you open a case's outputs |
+
+Sentinel costs the eager set 100.17 KB raw and 23.35 KB gzip. That is every
+sentinel page that isn't a lazy route, from 4a's suites and cases to 4c's run
+charts and red team, which are plain elements and ship with their pages. Against
+the Herald section's 1,605.15 KB raw and 443.13 KB gzip the eager set is 42.88
+KB raw and 11.13 KB gzip larger, and that difference carries other sessions'
+work as well.
+
+### Recharts stays out of the entry
+
+The two line charts are reached only through `lazy()` from the trend section,
+and they share the kit's `chart` chunk with Chronicle's, Ledger's and
+Keysmith's charts: 313.61 KB raw and 93.65 KB gzip, Recharts itself. Adding
+`Line`, `LineChart` and `ReferenceLine` to the kit's re-exports split two small
+chunks out of it, `LineChart` and `XAxis`. Opening a suite's Runs tab cold loads
+347.75 KB raw and 105.51 KB gzip: the two charts, the `chart` chunk and those
+two. If another plugin's chart already loaded the `chart` chunk, sentinel's own
+part is the two chart chunks plus `LineChart`, 24.03 KB raw and 8.71 KB gzip.
+A suite with fewer than two completed runs never loads any of it.
+
+### The comparison reuses the diff
+
+`compare` imports only chunks the entry already loads (`button`, `format`,
+`none-cell`, `page-header`, `jsx-runtime` and the entry), and reaches the diff
+through `output-diff`, which only it imports, and a second `import()`. The diff
+is the same `prompt-diff` chunk the prompt version page opens, and it imports
+the same two CodeMirror chunks: `dist-DTPZDTh4` (the core, 296.22 KB raw and
+95.70 KB gzip) and `dist-PNYeBczq` (19.50 KB raw and 7.30 KB gzip, with
+`@codemirror/merge` in it). Opening a comparison costs 9.13 KB raw and 3.05 KB
+gzip, and the CodeMirror chunks only load when you open a case's outputs and
+both runs gave different ones.
+
+### What the eager scripts carry
+
+All 22 scripts `index.html` loads were searched for `recharts` and for
+`@codemirror`, `cm-editor` and `EditorView`. Every count is 0, the entry
+(`index-D3q1FRwZ.js`) included. `index.html` names none of `trend-chart`,
+`dimension-trends` or `compare` (0 matches), so none of them is modulepreloaded.
+
+The CSS is 278.05 KB (41.63 KB gzip) in both builds, 2.01 KB more than in the
+Herald section. Taking sentinel out of `App.tsx` doesn't change it, because the
+shell's `styles.css` scans every plugin package's sources either way.
+
+The chunk hashes named here are from this build. Any edit to the entry changes
+them, so search by chunk name if you repeat the counts.
