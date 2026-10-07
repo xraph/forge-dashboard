@@ -34,6 +34,7 @@ const INPUT_REQUIRED = "a case needs an input"
 const SUBSTRING_REQUIRED = "a not_contains scorer needs a non-empty substring"
 const CONTEXT_NOT_JSON = "The context is not valid JSON."
 const CONTEXT_NOT_OBJECT = "The context must be a JSON object."
+const CONTEXT_ATTACK_TYPE = "attack_type comes from red-team generation or an import, and is never saved from this form."
 
 type Problem = "name" | "input" | "scenario" | "scorers" | "context"
 
@@ -43,9 +44,11 @@ function fieldFor(message: string | undefined): Problem | null {
   if (message === INPUT_REQUIRED) return "input"
   if (message === CREATE_REQUIRED) return "name"
   if (message.startsWith("unknown scenario type")) return "scenario"
-  if (message === CONTEXT_NOT_JSON || message === CONTEXT_NOT_OBJECT || message.startsWith("invalid payload: context")) {
-    return "context"
-  }
+  // The fixture says "invalid payload: context ..."; Go's binder names the
+  // field as "<input>.context of type ...". The form refuses both shapes
+  // itself, so this is only a backstop.
+  if ([CONTEXT_NOT_JSON, CONTEXT_NOT_OBJECT, CONTEXT_ATTACK_TYPE].includes(message)) return "context"
+  if (/^invalid payload: (context\b|.*\.context of type)/.test(message)) return "context"
   if (message.startsWith('scorer "') || message.startsWith("Scorer ") || message === SUBSTRING_REQUIRED) {
     return "scorers"
   }
@@ -112,6 +115,9 @@ function parseContext(text: string): { context: Record<string, unknown> } | { pr
     return { problem: CONTEXT_NOT_JSON }
   }
   if (value === null || typeof value !== "object" || Array.isArray(value)) return { problem: CONTEXT_NOT_OBJECT }
+  // The server drops it whatever is sent, so say so instead of saving
+  // something that looks accepted.
+  if (Object.hasOwn(value, "attack_type")) return { problem: CONTEXT_ATTACK_TYPE }
   return { context: value as Record<string, unknown> }
 }
 

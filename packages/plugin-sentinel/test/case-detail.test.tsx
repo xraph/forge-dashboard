@@ -266,6 +266,43 @@ describe("CaseDetailPage", () => {
     expect(sent).toHaveLength(0)
   })
 
+  it("refuses an attack_type typed into the context, because no edit saves one", async () => {
+    const c = testCase()
+    const { client, sent } = recordingCommandClient(answers(c), { "cases.update": c })
+    renderNavPage(CaseDetailPage, client, { id: SUITE_ID, caseId: CASE_ID })
+    await screen.findByRole("heading", { level: 1, name: "Reset password" })
+    fireEvent.click(screen.getByRole("button", { name: "Edit" }))
+    const dialog = screen.getByRole("dialog")
+    fireEvent.change(within(dialog).getByLabelText("Context"), { target: { value: '{"attack_type": "leakage"}' } })
+    fireEvent.click(within(dialog).getByRole("button", { name: "Save case" }))
+    expect(within(dialog).getByRole("alert").textContent).toBe(
+      "attack_type comes from red-team generation or an import, and is never saved from this form.",
+    )
+    expect(within(dialog).getByLabelText("Context").getAttribute("aria-invalid")).toBe("true")
+    expect(sent).toHaveLength(0)
+  })
+
+  it("marks the context field when the server refuses it in its binder's words", async () => {
+    const c = testCase()
+    const client = {
+      ...stubClient(answers(c)),
+      command: async () => {
+        throw new ContractError(
+          "BAD_REQUEST",
+          "invalid payload: json: cannot unmarshal array into Go struct field casesUpdateInput.context of type map[string]interface {}",
+        )
+      },
+    } as ScopedClient
+    renderNavPage(CaseDetailPage, client, { id: SUITE_ID, caseId: CASE_ID })
+    await screen.findByRole("heading", { level: 1, name: "Reset password" })
+    fireEvent.click(screen.getByRole("button", { name: "Edit" }))
+    const dialog = screen.getByRole("dialog")
+    fireEvent.change(within(dialog).getByLabelText("Context"), { target: { value: '{"region": "eu"}' } })
+    fireEvent.click(within(dialog).getByRole("button", { name: "Save case" }))
+    await within(dialog).findByRole("alert")
+    expect(within(dialog).getByLabelText("Context").getAttribute("aria-invalid")).toBe("true")
+  })
+
   it("links to the suite the case belongs to, not the one in the URL", async () => {
     const own = "suite_01j9se00000000000000000099"
     const c = testCase({ suiteId: own })
