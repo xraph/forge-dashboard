@@ -9,6 +9,8 @@ import {
   DescriptionList,
   DetailLayout,
 } from "@forge-go/dashboard-kit/components/detail-layout"
+import { Input } from "@forge-go/dashboard-kit/components/input"
+import { Label } from "@forge-go/dashboard-kit/components/label"
 import { NoneCell } from "@forge-go/dashboard-kit/components/none-cell"
 import { PageHeader } from "@forge-go/dashboard-kit/components/page-header"
 import {
@@ -46,6 +48,7 @@ export function WardenPermissionDetailPage({ params }: PluginPageProps) {
   const navigate = useNavigateTo()
 
   const [deleting, setDeleting] = useState(false)
+  const [editing, setEditing] = useState(false)
   // `permissions.delete` gives this page no intent to refetch that would say
   // the permission it is showing is gone, so once a delete succeeds the page
   // stops rendering the permission at once, rather than waiting on a
@@ -77,34 +80,45 @@ export function WardenPermissionDetailPage({ params }: PluginPageProps) {
   }
 
   return (
-    <QueryBoundary title="Permission" query={detail} skeletonRows={4}>
+    // keepPreviousData: a refetch (after the save, or when the tab comes
+    // back) would otherwise swap in the skeleton and unmount the form with
+    // whatever the operator was typing in it.
+    <QueryBoundary title="Permission" query={detail} skeletonRows={4} keepPreviousData>
       {(permission) => (
         <section className="flex flex-col gap-6">
           <PageHeader
             title={permission.name}
             actions={
-              // No delete on a system permission: the contract refuses it, so
-              // offering the button would promise a rejection.
-              !permission.isSystem && (
-                <Button
-                  variant="destructive"
-                  onClick={() => {
-                    // Reset at open, not at close: the operator is about to
-                    // read whatever this dialog shows for THIS permission, so
-                    // a failure from an earlier attempt must not be
-                    // attributed to it.
-                    remove.reset()
-                    setDeleting(true)
-                  }}
-                >
-                  Delete
-                </Button>
+              // Neither on a system permission: the contract refuses both
+              // the update and the delete, so offering them would promise a
+              // rejection. Neither while the form is open, either: they
+              // would act on a page the operator is mid-edit on.
+              !permission.isSystem &&
+              !editing && (
+                <>
+                  <Button variant="outline" onClick={() => setEditing(true)}>
+                    Edit description
+                  </Button>
+                  <Button
+                    variant="destructive"
+                    onClick={() => {
+                      // Reset at open, not at close: the operator is about to
+                      // read whatever this dialog shows for THIS permission, so
+                      // a failure from an earlier attempt must not be
+                      // attributed to it.
+                      remove.reset()
+                      setDeleting(true)
+                    }}
+                  >
+                    Delete
+                  </Button>
+                </>
               )
             }
           />
 
           {permission.isSystem && (
-            <Alert>This is a system permission. It cannot be deleted.</Alert>
+            <Alert>This is a system permission. It cannot be changed or deleted.</Alert>
           )}
 
           <DetailLayout
@@ -157,7 +171,13 @@ export function WardenPermissionDetailPage({ params }: PluginPageProps) {
                 </p>
               </div>
             }
-            main={<GrantedByTable roles={permission.grantedBy ?? []} />}
+            main={
+              editing ? (
+                <DescriptionForm permission={permission} onDone={() => setEditing(false)} />
+              ) : (
+                <GrantedByTable roles={permission.grantedBy ?? []} />
+              )
+            }
           />
 
           {/* The error lives inside the dialog. Base UI marks everything
@@ -177,6 +197,72 @@ export function WardenPermissionDetailPage({ params }: PluginPageProps) {
         </section>
       )}
     </QueryBoundary>
+  )
+}
+
+/**
+ * Edits the one field `permissions.update` accepts.
+ *
+ * The contract takes `{id, description}` and nothing else: resource and
+ * action are left out on purpose, because changing either would change what
+ * the permission means while every role kept granting it. `description` is a
+ * pointer there, so an empty string is an instruction (clear it), not an
+ * absent field, and the form sends it as one.
+ *
+ * On success the server names permissions.detail in the command's
+ * invalidates, so this page reads again and shows what was saved.
+ */
+function DescriptionForm({
+  permission,
+  onDone,
+}: {
+  permission: PermissionDetail
+  onDone: () => void
+}) {
+  const update = useCommand<AckResponse>("permissions.update")
+  const [description, setDescription] = useState(permission.description ?? "")
+  const next = description.trim()
+  const dirty = next !== (permission.description ?? "").trim()
+
+  async function submit() {
+    if (!dirty) return
+    const result = await update.execute({ id: permission.id, description: next })
+    // execute() resolves undefined only when the client throws, so this is
+    // the success check. A refused save must leave the form open with what
+    // the operator typed.
+    if (result === undefined) return
+    onDone()
+  }
+
+  return (
+    <div className="flex flex-col gap-4 rounded-md border p-4">
+      <p className="text-sm text-muted-foreground">
+        Only the description can change. Resource and action decide what this
+        permission means, so to change either, delete it and create another.
+        Checks never read the description, so saving it changes no one&apos;s
+        access.
+      </p>
+      <div className="flex flex-col gap-1.5">
+        <Label htmlFor="permission-edit-description">Description</Label>
+        <Input
+          id="permission-edit-description"
+          value={description}
+          onChange={(e) => setDescription(e.target.value)}
+        />
+        <p className="text-xs text-muted-foreground">
+          Leave it empty to remove the description.
+        </p>
+      </div>
+      <CommandAlert error={update.error} title="Could not save the description" />
+      <div className="flex gap-2">
+        <Button onClick={() => void submit()} disabled={update.loading || !dirty}>
+          {update.loading ? "Saving…" : "Save description"}
+        </Button>
+        <Button variant="ghost" onClick={onDone} disabled={update.loading}>
+          Cancel
+        </Button>
+      </div>
+    </div>
   )
 }
 

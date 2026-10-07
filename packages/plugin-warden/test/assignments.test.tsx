@@ -908,4 +908,183 @@ describe("WardenAssignmentsPage", () => {
       })
     })
   })
+
+  describe("expiring soon", () => {
+    // assignments.expiring is ordered by expiry and bounded only above, so
+    // rows that lapsed and are still stored sort ahead of the upcoming ones.
+    const LAPSED = { ...ASSIGNMENTS.items[0]! }
+    const UPCOMING = {
+      ...ASSIGNMENTS.items[1]!,
+      id: "asg_upcoming",
+      subjectId: "upcoming",
+      expiresAt: "2026-10-09T00:00:00Z",
+    }
+    const FEED = { items: [LAPSED, UPCOMING] }
+
+    function expiringAnswers(feed: unknown = FEED) {
+      return answers({ "assignments.expiring": feed })
+    }
+
+    function lastExpiring(sent: { intent: string; params?: unknown }[]) {
+      return sent.filter((q) => q.intent === "assignments.expiring").at(-1)?.params
+    }
+
+    async function showExpiring() {
+      await screen.findByText("user:gone")
+      fireEvent.change(screen.getByLabelText("Show"), { target: { value: "expiring" } })
+    }
+
+    function many(n: number) {
+      return {
+        items: Array.from({ length: n }, (_, i) => ({
+          ...UPCOMING,
+          id: `asg_${i}`,
+          subjectId: `s${i}`,
+        })),
+      }
+    }
+
+    it("offers the view beside the filters, and does not read it until asked", async () => {
+      const { client: c, sent } = recordingQueryClient(expiringAnswers())
+      renderPage(WardenAssignmentsPage, c)
+      await screen.findByText("user:gone")
+      const show = screen.getByLabelText("Show") as HTMLSelectElement
+      expect(show.value).toBe("all")
+      expect(Array.from(show.options).map((o) => [o.value, o.textContent])).toEqual([
+        ["all", "All assignments"],
+        ["expiring", "Expiring soon"],
+      ])
+      expect(sent.some((q) => q.intent === "assignments.expiring")).toBe(false)
+    })
+
+    it("asks for the next seven days and the most one request returns, and nothing else", async () => {
+      const { client: c, sent } = recordingQueryClient(expiringAnswers())
+      renderPage(WardenAssignmentsPage, c)
+      await showExpiring()
+      await waitFor(() =>
+        expect(lastExpiring(sent)).toEqual({ withinHours: 168, limit: 200 })
+      )
+    })
+
+    it("lists what the intent returns, the expired rows marked", async () => {
+      renderPage(WardenAssignmentsPage, client({ "assignments.expiring": FEED }))
+      await showExpiring()
+      expect(await screen.findByText("api_key:upcoming")).toBeTruthy()
+      const gone = await rowOf("user:gone")
+      expect(within(gone).getByText("Expired")).toBeTruthy()
+      expect(within(await rowOf("api_key:upcoming")).queryByText("Expired")).toBeNull()
+      expect(screen.getByText("2 assignments")).toBeTruthy()
+    })
+
+    it("hides the filters the feed does not take", async () => {
+      // assignments.expiring reads the whole tenant and takes no namespace,
+      // kind, role or subject, so offering them would promise a filter.
+      renderPage(WardenAssignmentsPage, client({ "assignments.expiring": FEED }))
+      await showExpiring()
+      await screen.findByText("api_key:upcoming")
+      expect(screen.queryByLabelText("Namespace")).toBeNull()
+      expect(screen.queryByLabelText("Subject kind")).toBeNull()
+      expect(screen.queryByLabelText("Role")).toBeNull()
+      expect(screen.queryByLabelText("Filter by subject id")).toBeNull()
+    })
+
+    it("says the window it used, that it covers every namespace, and that expired rows are in it", async () => {
+      renderPage(WardenAssignmentsPage, client({ "assignments.expiring": FEED }))
+      await showExpiring()
+      expect(
+        await screen.findByText(
+          "Assignments that expire within the next 7 days, in every namespace of this tenant, earliest expiry first. Assignments that have already expired but are still stored are listed too, ahead of the rest: they grant nothing, and they stay until they are deleted."
+        )
+      ).toBeTruthy()
+    })
+
+    it("sends the window chosen and says that window", async () => {
+      const { client: c, sent } = recordingQueryClient(expiringAnswers())
+      renderPage(WardenAssignmentsPage, c)
+      await showExpiring()
+      const within_ = (await screen.findByLabelText("Within")) as HTMLSelectElement
+      expect(Array.from(within_.options).map((o) => [o.value, o.textContent])).toEqual([
+        ["24", "24 hours"],
+        ["168", "7 days"],
+        ["720", "30 days"],
+      ])
+      fireEvent.change(within_, { target: { value: "24" } })
+      await waitFor(() => expect(lastExpiring(sent)).toEqual({ withinHours: 24, limit: 200 }))
+      expect(await screen.findByText(/^Assignments that expire within the next 24 hours,/)).toBeTruthy()
+    })
+
+    it("says when it hit its limit, and what may be missing", async () => {
+      renderPage(WardenAssignmentsPage, client({ "assignments.expiring": many(200) }))
+      await showExpiring()
+      expect(
+        await screen.findByText(
+          "Warden stopped at 200 assignments, the most this list asks for, so there may be more. The list is sorted by expiry, so a missing assignment expires no earlier than the last one shown. Expired assignments that are still stored count toward the 200."
+        )
+      ).toBeTruthy()
+    })
+
+    it("says nothing about a limit when the list came back short of it", async () => {
+      renderPage(WardenAssignmentsPage, client({ "assignments.expiring": many(199) }))
+      await showExpiring()
+      await screen.findByText("199 assignments")
+      expect(screen.queryByText(/Warden stopped at/)).toBeNull()
+    })
+
+    it("says which kind of empty an empty feed is", async () => {
+      renderPage(WardenAssignmentsPage, client({ "assignments.expiring": { items: [] } }))
+      await showExpiring()
+      expect(
+        await screen.findByText(
+          "No assignment expires within the next 7 days, and no expired assignment is still stored."
+        )
+      ).toBeTruthy()
+    })
+
+    it("survives a null items list rather than throwing", async () => {
+      renderPage(WardenAssignmentsPage, client({ "assignments.expiring": { items: null } }))
+      await showExpiring()
+      expect(await screen.findByText(/^No assignment expires within/)).toBeTruthy()
+    })
+
+    it("surfaces a failure of the feed", async () => {
+      const c = client()
+      const failing = {
+        ...c,
+        query: async (intent: string, params?: Record<string, unknown>) => {
+          if (intent === "assignments.expiring") {
+            throw new ContractError("PERMISSION_DENIED", "cannot read assignments")
+          }
+          return c.query(intent, params)
+        },
+      } as ScopedClient
+      renderPage(WardenAssignmentsPage, failing)
+      await showExpiring()
+      expect(await screen.findAllByText(/cannot read assignments/)).toBeTruthy()
+    })
+
+    it("deletes from the feed by id", async () => {
+      const { client: c, sent } = recordingCommandClient(
+        expiringAnswers(),
+        { "assignments.delete": {} }
+      )
+      renderPage(WardenAssignmentsPage, c)
+      await showExpiring()
+      await screen.findByText("api_key:upcoming")
+      fireEvent.click(screen.getByRole("button", { name: "Delete api_key:upcoming from reader" }))
+      fireEvent.click(await screen.findByRole("button", { name: /^Delete$/ }))
+      await waitFor(() =>
+        expect(sent).toEqual([{ intent: "assignments.delete", payload: { id: "asg_upcoming" } }])
+      )
+    })
+
+    it("goes back to the full list, with its filters", async () => {
+      renderPage(WardenAssignmentsPage, client({ "assignments.expiring": FEED }))
+      await showExpiring()
+      await screen.findByText("api_key:upcoming")
+      fireEvent.change(screen.getByLabelText("Show"), { target: { value: "all" } })
+      expect(await screen.findByText("service:forever")).toBeTruthy()
+      expect(screen.getByLabelText("Namespace")).toBeTruthy()
+      expect(screen.queryByLabelText("Within")).toBeNull()
+    })
+  })
 })

@@ -1,4 +1,4 @@
-import { useState, type FormEvent } from "react"
+import { useState, type FormEvent, type ReactNode } from "react"
 import { PluginLink, useCommand, useQuery, type QueryState } from "@forge-go/dashboard-plugin"
 import { Badge } from "@forge-go/dashboard-kit/components/badge"
 import { Button } from "@forge-go/dashboard-kit/components/button"
@@ -52,6 +52,14 @@ export interface AssignmentSummary {
   createdAt: string
 }
 
+/**
+ * Mirrors the Go `ExpiringResponse`. Not paged: the server returns at most
+ * the limit it was asked for and says nothing about what lies past it.
+ */
+export interface ExpiringAssignments {
+  items: AssignmentSummary[]
+}
+
 /** Mirrors the Go `AssignmentsListResponse`: PageMeta embedded beside items. */
 export interface AssignmentsList {
   items: AssignmentSummary[]
@@ -71,6 +79,27 @@ const SUBJECT_KINDS = ["user", "api_key", "service", "service_acct"] as const
 const ROLE_PICKER_LIMIT = 200
 
 const PAGE_SIZE = 25
+
+/**
+ * What the expiring view asks for: the contract's cap (maxPageLimit). The
+ * feed sorts by expiry and includes rows that lapsed and are still stored,
+ * so those come first, and a smaller limit could be filled by them alone.
+ */
+const EXPIRING_LIMIT = 200
+
+/**
+ * The windows the expiring view offers, in hours. Seven days is the default,
+ * and the same horizon subject pages use for "expires soon".
+ */
+const EXPIRING_WINDOWS = [
+  { hours: 24, label: "24 hours" },
+  { hours: 7 * 24, label: "7 days" },
+  { hours: 30 * 24, label: "30 days" },
+] as const
+
+const DEFAULT_WINDOW_HOURS = 7 * 24
+
+type View = "all" | "expiring"
 
 interface Form {
   roleId: string
@@ -228,7 +257,84 @@ function RoleFilterNote({ roles }: { roles: QueryState<RolesList> }) {
   return null
 }
 
+/**
+ * What assignments.expiring returned, and what it means.
+ *
+ * The feed reads the whole tenant: the store filters by tenant and by expiry
+ * before the end of the window, nothing else. So it takes no namespace, kind,
+ * role or subject, and the page offers none. Its only lower bound is "has an
+ * expiry", which is why rows that already lapsed and are still stored are in
+ * it, sorted ahead of the rest.
+ *
+ * It is not paged and does not say whether more rows exist. When it returns
+ * exactly the limit asked for, there may be more, and the page says so.
+ */
+function ExpiringList({
+  windowHours,
+  columns,
+  rowActions,
+}: {
+  windowHours: number
+  columns: Column<AssignmentSummary>[]
+  rowActions: (a: AssignmentSummary) => ReactNode
+}) {
+  // The window is always above zero, so the server uses it as sent and the
+  // sentence below names the window it actually read.
+  const feed = useQuery<ExpiringAssignments>("assignments.expiring", {
+    withinHours: windowHours,
+    limit: EXPIRING_LIMIT,
+  })
+  const window =
+    EXPIRING_WINDOWS.find((w) => w.hours === windowHours)?.label ?? `${windowHours} hours`
+
+  return (
+    <div className="flex flex-col gap-2">
+      <p className="text-sm text-muted-foreground">
+        Assignments that expire within the next {window}, in every namespace of
+        this tenant, earliest expiry first. Assignments that have already
+        expired but are still stored are listed too, ahead of the rest: they
+        grant nothing, and they stay until they are deleted.
+      </p>
+      <QueryBoundary title="Expiring assignments" query={feed} skeletonRows={5}>
+        {(data) => {
+          const rows = data.items ?? []
+          // The server returns at most the limit and never says whether it
+          // stopped there, so a full page is the only sign it may have.
+          const cut = rows.length >= EXPIRING_LIMIT
+          return (
+            <div className="flex flex-col gap-2">
+              <ResourceTable<AssignmentSummary>
+                columns={columns}
+                rows={rows}
+                rowKey={(a) => a.id}
+                caption={`${rows.length} ${rows.length === 1 ? "assignment" : "assignments"}`}
+                // Lapsed rows are in the feed, so an empty one also means no
+                // expired row is waiting to be deleted.
+                emptyMessage={`No assignment expires within the next ${window}, and no expired assignment is still stored.`}
+                rowActions={rowActions}
+              />
+              {cut && (
+                <p className="text-sm text-muted-foreground">
+                  Warden stopped at {EXPIRING_LIMIT} assignments, the most this
+                  list asks for, so there may be more. The list is sorted by
+                  expiry, so a missing assignment expires no earlier than the
+                  last one shown. Expired assignments that are still stored
+                  count toward the {EXPIRING_LIMIT}.
+                </p>
+              )}
+            </div>
+          )
+        }}
+      </QueryBoundary>
+    </div>
+  )
+}
+
 export function WardenAssignmentsPage() {
+  // Which list the page shows. The expiring feed is a different read with
+  // its own window, not a filter on the full list.
+  const [view, setView] = useState<View>("all")
+  const [windowHours, setWindowHours] = useState(DEFAULT_WINDOW_HOURS)
   // One-based, matching ResourceTable's PaginationState. Every filter below
   // resets it, because a page number carried across filters lands on page N
   // of a shorter set.
@@ -245,19 +351,28 @@ export function WardenAssignmentsPage() {
   const [form, setForm] = useState<Form>(EMPTY_FORM)
   const [deleting, setDeleting] = useState<AssignmentSummary | null>(null)
 
-  const list = useQuery<AssignmentsList>("assignments.list", {
-    ...namespace.param,
-    // Unset filters are ABSENT, not empty strings.
-    ...(subjectKind !== "" && { subjectKind }),
-    ...(subjectId !== "" && { subjectId }),
-    ...(roleId !== "" && { roleId }),
-    limit: PAGE_SIZE,
-    offset: (page - 1) * PAGE_SIZE,
-  })
+  const list = useQuery<AssignmentsList>(
+    "assignments.list",
+    {
+      ...namespace.param,
+      // Unset filters are ABSENT, not empty strings.
+      ...(subjectKind !== "" && { subjectKind }),
+      ...(subjectId !== "" && { subjectId }),
+      ...(roleId !== "" && { roleId }),
+      limit: PAGE_SIZE,
+      offset: (page - 1) * PAGE_SIZE,
+    },
+    { enabled: view === "all" },
+  )
   // Every namespace's roles, because an assignment's role can sit in a
   // namespace above the assignment's own. The same read as the create
-  // dialog's picker, so the two share one cache entry.
-  const roles = useQuery<RolesList>("roles.list", { limit: ROLE_PICKER_LIMIT })
+  // dialog's picker, so the two share one cache entry. Only the full list's
+  // role filter needs it, so the expiring view does not read it.
+  const roles = useQuery<RolesList>(
+    "roles.list",
+    { limit: ROLE_PICKER_LIMIT },
+    { enabled: view === "all" },
+  )
   const filtered = subjectKind !== "" || subjectId !== "" || roleId !== ""
 
   function applySubjectId(event: FormEvent) {
@@ -322,7 +437,10 @@ export function WardenAssignmentsPage() {
     setDeleting(null)
     // Deleting the only row on the last page leaves that page past the end
     // of the set. Step back one so the operator lands on rows that exist.
-    if (page > 1 && (list.data?.items?.length ?? 0) <= 1) setPage(page - 1)
+    // The expiring view is not paged, so there it has nothing to step back.
+    if (view === "all" && page > 1 && (list.data?.items?.length ?? 0) <= 1) {
+      setPage(page - 1)
+    }
   }
 
   const columns: Column<AssignmentSummary>[] = [
@@ -407,6 +525,37 @@ export function WardenAssignmentsPage() {
     },
   ]
 
+  function deleteAction(a: AssignmentSummary) {
+    return (
+      <Button
+        variant="destructive"
+        size="sm"
+        aria-label={`Delete ${subjectLabel(a)} from ${a.roleSlug || a.roleId}`}
+        onClick={() => {
+          remove.reset()
+          setDeleting(a)
+        }}
+      >
+        Delete
+      </Button>
+    )
+  }
+
+  const viewFilter = {
+    id: "view",
+    label: "Show",
+    value: view,
+    options: [
+      { label: "All assignments", value: "all" },
+      { label: "Expiring soon", value: "expiring" },
+    ],
+    onChange: (next: string) => setView(next === "expiring" ? "expiring" : "all"),
+  }
+
+  // The feed is about when rows lapse, so who granted them and when they
+  // were made are left out.
+  const expiringColumns = columns.filter((c) => c.id !== "grantedBy" && c.id !== "createdAt")
+
   return (
     <section className="flex flex-col gap-4">
       <PageHeader
@@ -422,97 +571,113 @@ export function WardenAssignmentsPage() {
         same binding as a duplicate while the expired row exists.
       </p>
 
-      <FilterBar
-        filters={[
-          namespace.filterConfig,
-          {
-            id: "subjectKind",
-            label: "Subject kind",
-            value: subjectKind,
-            options: [
-              { label: "Any kind", value: "" },
-              ...SUBJECT_KINDS.map((kind) => ({ label: kind, value: kind })),
-            ],
-            onChange: (next) => {
-              setSubjectKind(next)
-              setPage(1)
-            },
-          },
-          {
-            id: "role",
-            label: "Role",
-            value: roleId,
-            options: [
-              { label: "Any role", value: "" },
-              ...(roles.data?.items ?? []).map((r) => ({
-                label: roleOptionLabel(r),
-                value: r.id,
-              })),
-            ],
-            onChange: (next) => {
-              setRoleId(next)
-              setPage(1)
-            },
-          },
-        ]}
-      />
-      <RoleFilterNote roles={roles} />
-
-      <form className="flex flex-wrap items-end gap-3" onSubmit={applySubjectId}>
-        <span className="flex flex-col gap-1.5">
-          <Label htmlFor="assignments-filter-subject-id">Filter by subject id</Label>
-          <Input
-            id="assignments-filter-subject-id"
-            className="font-mono text-xs"
-            placeholder="exact match"
-            value={subjectIdDraft}
-            onChange={(e) => setSubjectIdDraft(e.target.value)}
+      {view === "expiring" ? (
+        <>
+          <FilterBar
+            filters={[
+              viewFilter,
+              {
+                id: "within",
+                label: "Within",
+                value: String(windowHours),
+                options: EXPIRING_WINDOWS.map((w) => ({
+                  label: w.label,
+                  value: String(w.hours),
+                })),
+                onChange: (next) => setWindowHours(Number(next)),
+              },
+            ]}
           />
-        </span>
-        <Button type="submit">Apply</Button>
-        <Button type="button" variant="outline" onClick={clearSubjectId}>
-          Clear
-        </Button>
-      </form>
+          <ExpiringList
+            windowHours={windowHours}
+            columns={expiringColumns}
+            rowActions={deleteAction}
+          />
+        </>
+      ) : (
+        <>
+          <FilterBar
+            filters={[
+              viewFilter,
+              namespace.filterConfig,
+              {
+                id: "subjectKind",
+                label: "Subject kind",
+                value: subjectKind,
+                options: [
+                  { label: "Any kind", value: "" },
+                  ...SUBJECT_KINDS.map((kind) => ({ label: kind, value: kind })),
+                ],
+                onChange: (next) => {
+                  setSubjectKind(next)
+                  setPage(1)
+                },
+              },
+              {
+                id: "role",
+                label: "Role",
+                value: roleId,
+                options: [
+                  { label: "Any role", value: "" },
+                  ...(roles.data?.items ?? []).map((r) => ({
+                    label: roleOptionLabel(r),
+                    value: r.id,
+                  })),
+                ],
+                onChange: (next) => {
+                  setRoleId(next)
+                  setPage(1)
+                },
+              },
+            ]}
+          />
+          <RoleFilterNote roles={roles} />
 
-      <QueryBoundary title="Assignments" query={list} skeletonRows={5}>
-        {(data) => {
-          const rows = data.items ?? []
-          // The server's total, never rows.length: rows is one page.
-          const caption = `${data.total} ${data.total === 1 ? "assignment" : "assignments"}`
-          return (
-            <ResourceTable<AssignmentSummary>
-              columns={columns}
-              rows={rows}
-              rowKey={(a) => a.id}
-              caption={caption}
-              emptyMessage={
-                // The shared message knows only the namespace. With another
-                // filter on, "No assignments yet" would say nothing exists
-                // when the filter is what hid it.
-                filtered
-                  ? "No assignments match these filters."
-                  : emptyListMessage("assignments", "", namespace.value)
-              }
-              pagination={{ page, pageSize: data.limit, total: data.total }}
-              onPageChange={setPage}
-              rowActions={(a) => (
-                <Button
-                  variant="destructive"
-                  size="sm"
-                  aria-label={`Delete ${subjectLabel(a)} from ${a.roleSlug || a.roleId}`}
-                  onClick={() => {
-                    remove.reset()
-                    setDeleting(a)
-                  }}
-                >
-                  Delete
-                </Button>
-              )}
-            />
-          )
-        }}
-      </QueryBoundary>
+          <form className="flex flex-wrap items-end gap-3" onSubmit={applySubjectId}>
+            <span className="flex flex-col gap-1.5">
+              <Label htmlFor="assignments-filter-subject-id">Filter by subject id</Label>
+              <Input
+                id="assignments-filter-subject-id"
+                className="font-mono text-xs"
+                placeholder="exact match"
+                value={subjectIdDraft}
+                onChange={(e) => setSubjectIdDraft(e.target.value)}
+              />
+            </span>
+            <Button type="submit">Apply</Button>
+            <Button type="button" variant="outline" onClick={clearSubjectId}>
+              Clear
+            </Button>
+          </form>
+
+          <QueryBoundary title="Assignments" query={list} skeletonRows={5}>
+            {(data) => {
+              const rows = data.items ?? []
+              // The server's total, never rows.length: rows is one page.
+              const caption = `${data.total} ${data.total === 1 ? "assignment" : "assignments"}`
+              return (
+                <ResourceTable<AssignmentSummary>
+                  columns={columns}
+                  rows={rows}
+                  rowKey={(a) => a.id}
+                  caption={caption}
+                  emptyMessage={
+                    // The shared message knows only the namespace. With another
+                    // filter on, "No assignments yet" would say nothing exists
+                    // when the filter is what hid it.
+                    filtered
+                      ? "No assignments match these filters."
+                      : emptyListMessage("assignments", "", namespace.value)
+                  }
+                  pagination={{ page, pageSize: data.limit, total: data.total }}
+                  onPageChange={setPage}
+                  rowActions={deleteAction}
+                />
+              )
+            }}
+          </QueryBoundary>
+        </>
+      )}
 
       {/* Both errors live inside their dialog. Base UI marks everything
           outside an open dialog inert and aria-hidden, so an alert on the

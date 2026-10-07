@@ -4,6 +4,7 @@ import {
   ContractError,
   NavigationProvider,
   PluginProvider,
+  queryStore,
 } from "@forge-go/dashboard-plugin"
 import type { PluginLinkProps, ScopedClient } from "@forge-go/dashboard-plugin"
 import { WardenPermissionDetailPage } from "../src/pages/permission-detail"
@@ -308,6 +309,16 @@ describe("WardenPermissionDetailPage", () => {
       expect(screen.queryByRole("button", { name: /delete/i })).toBeNull()
     })
 
+    it("offers no edit, and says it cannot be changed", async () => {
+      // permissions.update refuses a system permission (guardSystemPermission,
+      // PERMISSION_DENIED), so an edit control would promise a refusal.
+      show(SYSTEM)
+      expect(
+        await screen.findByText("This is a system permission. It cannot be changed or deleted.")
+      ).toBeTruthy()
+      expect(screen.queryByRole("button", { name: /edit/i })).toBeNull()
+    })
+
     it("does not mark an ordinary permission, and offers its delete", async () => {
       // The other side of the two tests above, so neither can pass by the
       // page rendering nothing at all.
@@ -461,6 +472,168 @@ describe("WardenPermissionDetailPage", () => {
       fireEvent.click(screen.getByRole("button", { name: "Delete" }))
       await screen.findByRole("alertdialog")
       expect(dialog().queryByRole("alert")).toBeNull()
+    })
+  })
+
+  describe("editing the description", () => {
+    async function openEdit() {
+      await screen.findByRole("heading", { name: "document:read" })
+      fireEvent.click(screen.getByRole("button", { name: "Edit description" }))
+      return screen.findByLabelText("Description")
+    }
+
+    it("offers the edit on an ordinary permission, filled with what it says now", async () => {
+      show()
+      const input = (await openEdit()) as HTMLInputElement
+      expect(input.value).toBe("read a document")
+    })
+
+    it("says only the description can change, and that no check reads it", async () => {
+      show()
+      await openEdit()
+      expect(
+        screen.getByText(
+          "Only the description can change. Resource and action decide what this permission means, so to change either, delete it and create another. Checks never read the description, so saving it changes no one's access."
+        )
+      ).toBeTruthy()
+    })
+
+    it("cannot be saved until something changed", async () => {
+      show()
+      await openEdit()
+      expect(
+        (screen.getByRole("button", { name: "Save description" }) as HTMLButtonElement).disabled
+      ).toBe(true)
+    })
+
+    it("sends exactly the id and the new description, trimmed", async () => {
+      const { client: c, sent } = recordingCommandClient(
+        { "permissions.detail": DETAIL },
+        { "permissions.update": { id: "perm_01a" } }
+      )
+      renderPage(WardenPermissionDetailPage, c, { id: "perm_01a" })
+      const input = await openEdit()
+      fireEvent.change(input, { target: { value: "  read any document  " } })
+      fireEvent.click(screen.getByRole("button", { name: "Save description" }))
+      await waitFor(() => expect(sent.length).toBe(1))
+      expect(sent[0]).toEqual({
+        intent: "permissions.update",
+        payload: { id: "perm_01a", description: "read any document" },
+      })
+    })
+
+    it("sends an empty description to clear it, and says that it will", async () => {
+      const { client: c, sent } = recordingCommandClient(
+        { "permissions.detail": DETAIL },
+        { "permissions.update": { id: "perm_01a" } }
+      )
+      renderPage(WardenPermissionDetailPage, c, { id: "perm_01a" })
+      const input = await openEdit()
+      expect(screen.getByText("Leave it empty to remove the description.")).toBeTruthy()
+      fireEvent.change(input, { target: { value: "   " } })
+      fireEvent.click(screen.getByRole("button", { name: "Save description" }))
+      await waitFor(() => expect(sent.length).toBe(1))
+      expect(sent[0]).toEqual({
+        intent: "permissions.update",
+        payload: { id: "perm_01a", description: "" },
+      })
+    })
+
+    it("hides the other actions while the form is open", async () => {
+      show()
+      await openEdit()
+      expect(screen.queryByRole("button", { name: "Delete" })).toBeNull()
+      expect(screen.queryByRole("button", { name: "Edit description" })).toBeNull()
+    })
+
+    it("cancels without sending anything", async () => {
+      const { client: c, sent } = recordingCommandClient(
+        { "permissions.detail": DETAIL },
+        { "permissions.update": { id: "perm_01a" } }
+      )
+      renderPage(WardenPermissionDetailPage, c, { id: "perm_01a" })
+      const input = await openEdit()
+      fireEvent.change(input, { target: { value: "something else" } })
+      fireEvent.click(screen.getByRole("button", { name: "Cancel" }))
+      await waitFor(() => expect(screen.queryByLabelText("Description")).toBeNull())
+      expect(sent).toEqual([])
+      expect(screen.getByText("read a document")).toBeTruthy()
+    })
+
+    it("shows the server's refusal and keeps what was typed", async () => {
+      const { client: c } = refusing(
+        new ContractError(
+          "PERMISSION_DENIED",
+          '"document:read" is a system permission and cannot be changed or deleted'
+        )
+      )
+      renderPage(WardenPermissionDetailPage, c, { id: "perm_01a" })
+      const input = (await openEdit()) as HTMLInputElement
+      fireEvent.change(input, { target: { value: "read any document" } })
+      fireEvent.click(screen.getByRole("button", { name: "Save description" }))
+      const alert = await screen.findByRole("alert")
+      expect(alert.textContent).toContain("Could not save the description")
+      expect(alert.textContent).toContain("cannot be changed or deleted")
+      expect(alert.textContent).toContain("PERMISSION_DENIED")
+      expect((screen.getByLabelText("Description") as HTMLInputElement).value).toBe(
+        "read any document"
+      )
+    })
+
+    it("shows the save as pending while the command is in flight", async () => {
+      renderPage(WardenPermissionDetailPage, commandsNeverSettle(), { id: "perm_01a" })
+      const input = await openEdit()
+      fireEvent.change(input, { target: { value: "read any document" } })
+      fireEvent.click(screen.getByRole("button", { name: "Save description" }))
+      const saving = (await screen.findByRole("button", { name: "Saving…" })) as HTMLButtonElement
+      expect(saving.disabled).toBe(true)
+    })
+
+    it("closes the form and shows the saved description once the page reads again", async () => {
+      // The server names permissions.detail in permissions.update's
+      // invalidates, so the client drops this page's read and it goes again.
+      let description = "read a document"
+      const queried: string[] = []
+      const c = {
+        extension: "warden",
+        query: async (intent: string) => {
+          queried.push(intent)
+          if (intent !== "permissions.detail") {
+            throw new ContractError("NOT_FOUND", `no handler for intent "${intent}"`)
+          }
+          return { ...DETAIL, description }
+        },
+        command: async (intent: string, payload?: unknown) => {
+          if (intent !== "permissions.update") {
+            throw new ContractError("NOT_FOUND", `no handler for command "${intent}"`)
+          }
+          description = (payload as { description: string }).description
+          queryStore.invalidate("warden", ["permissions.list", "permissions.detail", "subjects.detail"])
+          return { id: "perm_01a" }
+        },
+      } as ScopedClient
+      renderPage(WardenPermissionDetailPage, c, { id: "perm_01a" })
+      const input = await openEdit()
+      fireEvent.change(input, { target: { value: "read any document" } })
+      fireEvent.click(screen.getByRole("button", { name: "Save description" }))
+      expect(await screen.findByText("read any document")).toBeTruthy()
+      await waitFor(() => expect(screen.queryByLabelText("Description")).toBeNull())
+      expect(queried.filter((q) => q === "permissions.detail").length).toBe(2)
+      expect(screen.getByRole("button", { name: "Edit description" })).toBeTruthy()
+    })
+
+    it("clears an earlier refusal when the form opens again", async () => {
+      const { client: c } = refusing(new ContractError("INTERNAL", "store down"))
+      renderPage(WardenPermissionDetailPage, c, { id: "perm_01a" })
+      const input = await openEdit()
+      fireEvent.change(input, { target: { value: "read any document" } })
+      fireEvent.click(screen.getByRole("button", { name: "Save description" }))
+      await screen.findByRole("alert")
+      fireEvent.click(screen.getByRole("button", { name: "Cancel" }))
+      await waitFor(() => expect(screen.queryByLabelText("Description")).toBeNull())
+      fireEvent.click(screen.getByRole("button", { name: "Edit description" }))
+      await screen.findByLabelText("Description")
+      expect(screen.queryByRole("alert")).toBeNull()
     })
   })
 })
