@@ -120,6 +120,34 @@ describe("WardenConfigPage", () => {
     expect(await screen.findByText(/120 check log entries/i)).toBeTruthy()
   })
 
+  /**
+   * maintenance.run purges the caller's tenant only (warden's
+   * RunTenantMaintenance). The dialog used to say it ran across every
+   * tenant, which stopped being true. The check log clause is conditional
+   * because a retention of zero keeps every entry.
+   */
+  it("says the maintenance run covers this tenant only", async () => {
+    const { client } = recordingCommandClient(
+      { "config.detail": CONFIG },
+      { "maintenance.run": { assignmentsPurged: 3, checkLogsPurged: 0 } }
+    )
+    renderPage(WardenConfigPage, client)
+
+    fireEvent.click(await screen.findByRole("button", { name: /run maintenance/i }))
+    const dialog = await screen.findByRole("alertdialog")
+    expect(dialog.textContent).toContain("this tenant's assignments that have already expired")
+    expect(dialog.textContent).toContain(
+      "when a check log retention is set, this tenant's check log entries older than it"
+    )
+    expect(dialog.textContent).toContain("Other tenants are not touched.")
+    expect(dialog.textContent).not.toMatch(/every tenant/i)
+
+    fireEvent.click(await screen.findByRole("button", { name: /^run$/i }))
+    expect(
+      await screen.findByText("Maintenance ran for this tenant. Purged 3 expired assignments.")
+    ).toBeTruthy()
+  })
+
   it("sends no subject fields when flushing the whole tenant", async () => {
     const { client, sent } = recordingCommandClient(
       { "config.detail": CONFIG },

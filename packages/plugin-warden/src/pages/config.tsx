@@ -45,11 +45,13 @@ interface MaintenanceResult {
 /**
  * A run that purged nothing succeeded and changed nothing. Saying "done"
  * would be ambiguous between that and a run that removed rows, and both are
- * things an operator acts on differently.
+ * things an operator acts on differently. maintenance.run covers the
+ * caller's tenant only (RunTenantMaintenance), so both counts are this
+ * tenant's and the sentence says so.
  */
 function purgeSummary(r: MaintenanceResult): string {
   if (r.assignmentsPurged === 0 && r.checkLogsPurged === 0) {
-    return "Maintenance ran. Nothing needed purging."
+    return "Maintenance ran for this tenant. Nothing needed purging."
   }
   const parts: string[] = []
   if (r.assignmentsPurged > 0) {
@@ -58,7 +60,7 @@ function purgeSummary(r: MaintenanceResult): string {
   if (r.checkLogsPurged > 0) {
     parts.push(`${r.checkLogsPurged} check log entries`)
   }
-  return `Maintenance ran. Purged ${parts.join(" and ")}.`
+  return `Maintenance ran for this tenant. Purged ${parts.join(" and ")}.`
 }
 
 /**
@@ -264,7 +266,7 @@ export function WardenConfigPage() {
         open={confirmingRun}
         onOpenChange={(open) => !open && setConfirmingRun(false)}
         title="Run maintenance now?"
-        description="Purges assignments that have already expired, and check log entries older than the retention window. This runs across every tenant."
+        description="Purges this tenant's assignments that have already expired and, when a check log retention is set, this tenant's check log entries older than it. Other tenants are not touched."
         confirmLabel="Run"
         pending={runMaintenance.loading}
         onConfirm={() => void doRun()}

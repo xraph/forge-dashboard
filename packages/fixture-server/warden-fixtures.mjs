@@ -6030,20 +6030,33 @@ export const wardenHandlers = {
     invalidates: [
       "overview.stats", "overview.recentChecks", "assignments.list",
       "assignments.expiring", "roles.detail", "namespaces.list",
-      "checkLogs.list", "checkLogs.detail",
+      "checkLogs.list", "checkLogs.detail", "subjects.detail",
     ],
     handler: () => {
+      // Go runs RunTenantMaintenance for the caller's tenant: that tenant's
+      // expired assignments and, when the retention is above zero, its check
+      // log entries older than the retention window. This fixture holds one
+      // tenant, the caller's, so every row here is in scope.
+      //
       // A fixture that accepts a write and changes nothing hides the bug it
-      // exists to expose, so this really removes the expired rows and a
-      // second run honestly reports zero.
+      // exists to expose, so this really removes the rows and a second run
+      // honestly reports zero.
       const nowMs = Date.now()
-      const before = warden.assignments.length
+      const assignmentsBefore = warden.assignments.length
       warden.assignments = warden.assignments.filter(
         (a) => !a.expiresAt || Date.parse(a.expiresAt) > nowMs
       )
+      let checkLogsPurged = 0
+      const retentionHours = warden.config.checkLogRetentionHours
+      if (retentionHours > 0) {
+        const cutoffMs = nowMs - retentionHours * 3600_000
+        const logsBefore = warden.checkLogs.length
+        warden.checkLogs = warden.checkLogs.filter((e) => Date.parse(e.createdAt) >= cutoffMs)
+        checkLogsPurged = logsBefore - warden.checkLogs.length
+      }
       return {
-        assignmentsPurged: before - warden.assignments.length,
-        checkLogsPurged: 0,
+        assignmentsPurged: assignmentsBefore - warden.assignments.length,
+        checkLogsPurged,
       }
     },
   },
