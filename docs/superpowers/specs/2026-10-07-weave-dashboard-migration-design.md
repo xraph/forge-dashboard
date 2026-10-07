@@ -720,3 +720,546 @@ Weave `main`, in the order they landed. Task numbers are the plan's.
 | Review fixes | `9a0838c`, `c9a8de0`, `6eac0f4`, `bd5bae3`, `0d29d1b` |
 
 Task 1 also carries `973f5b4`, the test helpers that refuse ports 5432 and 27017 however the DSN spells them. Task 14 is the lint clean-up, `chore: clear the lint the slice left behind`. The review fixes came out of the final whole-slice review: score ties broken by ID (`9a0838c`), vector metadata kept on hydrated hits that no longer share the store's chunk (`c9a8de0`), empty lists answered as arrays (`6eac0f4`), nil metadata stored as empty on Postgres and Mongo (`bd5bae3`), and a lint fix in the orphan test (`0d29d1b`). Nothing is pushed.
+
+## What slice 3 found that slice 2 must know
+
+Slice 3 is done: the Weave contract is on weave `main` and answers all 17 intents in the manifest from the engine. This section is the wire, for whoever writes `packages/plugin-weave`. Every struct below was pulled out of `extension/contract/*.go` by script, so the field names are the Go tags and nothing was retyped. Where this section and an earlier one in this spec disagree, this one wins. The last part lists the places where that happens.
+
+### What changed around the contract
+
+Templ is gone from Weave, and it went in this slice. The slice table puts the deletion in slice 5; it didn't wait. `MIGRATION.md` landed at `4772ecc` (with a fix at `79ca320`), `dashboard/` was deleted at `9221db3`, and forge v1.12.0 and grove v1.7.0 arrived with the tidy at `d691ab5`. Slice 5 now only confirms the "moved" entries in `MIGRATION.md` once the browser walk is done. `find . -name '*.templ' -not -path './_*'` is empty, and `a-h/templ` and `xraph/forgeui` appear nowhere in `go.mod`, `go.sum` or any build or test graph.
+
+One thing in `go.mod` will look odd. The tidy removed the otel exporters, grpc and genproto, and the contract tests put them back as indirect requirements. A test-only assertion that the extension satisfies `ContractContributorAware` imports forge's dashboard root package, and that package needs them. Production code never imports the root package, only `contract`, `contract/dispatcher` and `contract/loader`. One internal change has no wire effect: the helper `optionalCollectionID` lost its field-name argument.
+
+The contributor name, the extension name and your plugin's `extension` field are all `weave`. A mismatch hides the plugin with no error anywhere. The manifest asks for the capabilities `weave.read` (every query) and `weave.write` (every command, `retrieval.run` and `retrieval.assemble` included).
+
+The YAML config (default chunk size and overlap, embedding model, strategy, default top_k, shutdown timeout) now reaches the engine. Before this slice it never did, so every deployment ran on the built-in defaults whatever the file said. `system.components` reports the values the engine actually holds, and the collection form's defaults should come from there.
+
+### Rules every intent follows
+
+Field names on the wire are the json tags, all snake_case. IDs are strings, timestamps are RFC 3339 strings.
+
+Every list takes `limit` and `offset` and answers `items`, `total`, `limit` and `offset`. A limit of 0 (or no limit) means 25, anything over 100 is clamped to 100, and the answer echoes the limit it applied, so read `limit` from the response and not from what you sent. A negative `limit` or `offset` is `BAD_REQUEST`. Collections and documents come back newest first. Chunks do not: `chunks.list` is ordered by document ID and then by chunk index, so the page can show a document's chunks in reading order. Do not put a sort control on any of the three.
+
+The dashboard resolves no tenant, so it is operator-wide. The list and retrieval intents take an optional `tenant`. Leave it out (or send `null`) and you get every tenant. Send a string and you get an exact match, and that includes `""`, which means rows written with no tenant. Those are different requests, so a tenant picker needs an "all" choice that omits the field. The get-by-ID intents take no tenant, and the counts on `collections.get` span every tenant.
+
+Arrays are never `null`: `items`, `spans`, `newest_documents`, `hits`, `left_out`, `included`, `extensions` and each extension's `hooks` are `[]` when empty. `metadata` on a collection, document or chunk is `{}` when empty. Fields tagged `omitempty` are simply absent when empty, and the Go source below says which: on a collection `description`, on a document `title`, `source`, `source_type` and `error`, on a chunk `parent_id`, and on a pipeline component `type`, `params`, `score`, `tenant_filter`, `children`, `content_types` and `dimensions`. Guard those.
+
+No response carries a vector or an embedding. A Go test marshals every handler's answer and fails if either word shows up as a key.
+
+A command's `invalidates` list reaches the client with the answer. You don't invalidate by hand. `retrieval.run` and `retrieval.assemble` invalidate nothing because they write nothing. They are commands so that they fire only when somebody presses Run, never on a window refocus. Don't wire anything to refetch them, and don't call them from a `useEffect`.
+
+#### Limits and defaults
+
+| what | value | past it |
+|---|---|---|
+| list `limit` | default 25, max 100 | clamped to 100 and echoed |
+| `retrieval.run` `query` | 8 KiB (8192 bytes) | `BAD_REQUEST` |
+| `retrieval.run` `top_k` | 0 means the engine default, which is `config.default_top_k` from `system.components`; max 50 | clamped to 50; negative is `BAD_REQUEST` |
+| `max_tokens` (run and assemble) | 0 means 4096; max 32768 | clamped to 32768; negative is `BAD_REQUEST`; `context.max_tokens` in the answer is the budget that applied |
+| `documents.ingest` `content` | 1 MiB (1048576 bytes) | `BAD_REQUEST` |
+| `documents.spans` | 5000 spans | `complete: false`, and `total` is still the full chunk count |
+| `retrieval.assemble` | 50 hits, and 1 MiB of `content` across all of them | `BAD_REQUEST` for either |
+| `system.overview` `newest_documents` | the 10 newest | none |
+| stalled document | still `processing` 15 minutes after its last update | `stalled_after_seconds` says 900 |
+
+#### Errors
+
+Errors come back typed, with one of five codes and a `message`.
+
+| code | when |
+|---|---|
+| `BAD_REQUEST` | a missing or unparseable ID, a negative `limit` or `offset`, a `state` that isn't one of the four, empty or oversized `content` or `query`, a negative size or token count, a blank collection name, an overlap that isn't smaller than the size, or a cap above. The message is the reason and is safe to show |
+| `NOT_FOUND` | a get, update, delete, reindex or ingest names a collection, document or chunk that doesn't exist. A list filtered by an ID that doesn't exist is not a 404: it answers an empty page |
+| `CONFLICT` | a collection name that already exists (create or rename), or a document whose exact content is already in that collection |
+| `UNAVAILABLE` | Weave is missing a stage: no store, no embedder, no vector store or no chunker, and the message names which. Also a cancelled or timed-out request, which carries `retryable: true` |
+| `INTERNAL` | anything else. The message is always "an internal error occurred" and the real error goes to Weave's log, because a store error can carry a DSN or a host |
+
+Any query or command that reads the store can answer `UNAVAILABLE` (no store) or `INTERNAL` (the store failed). The per-intent lists below only repeat them where something specific applies.
+
+### The shapes
+
+First the Go, then what they look like flattened, because the embedding is easy to misread.
+
+```go
+// extension/contract/paging.go
+// page is embedded in every list input: `limit` and `offset` in, matching
+// the stores' offset paging.
+type page struct {
+	Limit  int `json:"limit"`
+	Offset int `json:"offset"`
+}
+
+// listOutput is every list's answer: `items` and `total`, plus the limit
+// and offset actually applied, so a page can show where it is.
+type listOutput[T any] struct {
+	Items  []T   `json:"items"`
+	Total  int64 `json:"total"`
+	Limit  int   `json:"limit"`
+	Offset int   `json:"offset"`
+}
+
+// extension/contract/rows.go
+// tenantInput is the input of an intent whose only parameter is the tenant
+// filter: absent means every tenant, present is an exact match.
+type tenantInput struct {
+	Tenant *string `json:"tenant"`
+}
+
+// stateCounts is how many documents sit in each state.
+type stateCounts struct {
+	Pending    int64 `json:"pending"`
+	Processing int64 `json:"processing"`
+	Ready      int64 `json:"ready"`
+	Failed     int64 `json:"failed"`
+}
+
+// documentRow is a document as the dashboard lists it: the stored row,
+// its collection's name, and whether it looks stalled.
+type documentRow struct {
+	*document.Document
+	CollectionName string `json:"collection_name"`
+	// Stalled is true for a document still processing StalledAfter after
+	// its last update. Weave has no heartbeat, so this is an age, not a
+	// verdict.
+	Stalled bool `json:"stalled"`
+}
+
+// extension/contract/handlers_collections.go
+type idInput struct {
+	ID string `json:"id"`
+}
+
+type idOutput struct {
+	ID string `json:"id"`
+}
+
+// collectionRow is a collection with LIVE document and chunk counts. The
+// stored count columns are never updated, so these fields shadow them.
+type collectionRow struct {
+	*collection.Collection
+	DocumentCount int64 `json:"document_count"`
+	ChunkCount    int64 `json:"chunk_count"`
+}
+
+type collectionDetail struct {
+	collectionRow
+	DocumentsByState stateCounts `json:"documents_by_state"`
+	Stalled          int64       `json:"stalled"`
+}
+```
+
+The domain types they embed or carry. Storage (`bun`) tags are dropped from these four, since they say nothing about the wire; the json tags are exactly as written in the source.
+
+```go
+// entity.go (package weave)
+// Entity is the base type embedded by all weave domain objects.
+type Entity struct {
+	CreatedAt time.Time `json:"created_at"`
+	UpdatedAt time.Time `json:"updated_at"`
+}
+
+// collection/collection.go
+// Collection represents a named group of documents with shared
+// embedding and chunking configuration.
+type Collection struct {
+	weave.Entity
+
+	ID             id.CollectionID   `json:"id"`
+	Name           string            `json:"name"`
+	Description    string            `json:"description,omitempty"`
+	TenantID       string            `json:"tenant_id"`
+	AppID          string            `json:"app_id"`
+	EmbeddingModel string            `json:"embedding_model"`
+	EmbeddingDims  int               `json:"embedding_dims"`
+	ChunkStrategy  string            `json:"chunk_strategy"`
+	ChunkSize      int               `json:"chunk_size"`
+	ChunkOverlap   int               `json:"chunk_overlap"`
+	Metadata       map[string]string `json:"metadata"`
+	DocumentCount  int64             `json:"document_count"`
+	ChunkCount     int64             `json:"chunk_count"`
+}
+
+// document/document.go
+// Document represents an ingested document within a collection.
+type Document struct {
+	weave.Entity
+
+	ID            id.DocumentID     `json:"id"`
+	CollectionID  id.CollectionID   `json:"collection_id"`
+	TenantID      string            `json:"tenant_id"`
+	Title         string            `json:"title,omitempty"`
+	Source        string            `json:"source,omitempty"`
+	SourceType    string            `json:"source_type,omitempty"`
+	ContentHash   string            `json:"content_hash"`
+	ContentLength int               `json:"content_length"`
+	ChunkCount    int               `json:"chunk_count"`
+	Metadata      map[string]string `json:"metadata"`
+	State         State             `json:"state"`
+	Error         string            `json:"error,omitempty"`
+}
+
+// chunk/chunk.go
+// Chunk represents a portion of a document that has been split for
+// embedding and retrieval.
+type Chunk struct {
+	ID           id.ChunkID        `json:"id"`
+	DocumentID   id.DocumentID     `json:"document_id"`
+	CollectionID id.CollectionID   `json:"collection_id"`
+	TenantID     string            `json:"tenant_id"`
+	Content      string            `json:"content"`
+	Index        int               `json:"index"`
+	StartOffset  int               `json:"start_offset"`
+	EndOffset    int               `json:"end_offset"`
+	TokenCount   int               `json:"token_count"`
+	Metadata     map[string]string `json:"metadata"`
+	ParentID     string            `json:"parent_id,omitempty"`
+	CreatedAt    time.Time         `json:"created_at"`
+}
+```
+
+`document.State` is the string type behind a document's `state`, and its four values are `pending`, `processing`, `ready` and `failed`.
+
+Go's JSON rules flatten every embedded struct, and where an outer field has the same tag as an inner one the outer wins. So the shapes on the wire are these. Types are TypeScript's; `?` marks a field that can be absent.
+
+```text
+list<T>             items: T[], total: number, limit: number, offset: number
+
+collectionRow       created_at, updated_at: string
+                    id, name: string
+                    description?: string
+                    tenant_id, app_id: string
+                    embedding_model: string
+                    embedding_dims: number
+                    chunk_strategy: string
+                    chunk_size, chunk_overlap: number
+                    metadata: Record<string, string>
+                    document_count, chunk_count: number    live counts; the stored ones are shadowed
+
+collectionDetail    every collectionRow field, then
+                    documents_by_state: { pending, processing, ready, failed: number }
+                    stalled: number
+
+documentRow         created_at, updated_at: string
+                    id, collection_id, tenant_id: string
+                    title?, source?, source_type?: string
+                    content_hash: string
+                    content_length, chunk_count: number
+                    metadata: Record<string, string>
+                    state: "pending" | "processing" | "ready" | "failed"
+                    error?: string
+                    collection_name: string                "" once the collection is deleted
+                    stalled: boolean
+
+chunk               id, document_id, collection_id, tenant_id: string
+                    content: string
+                    index, start_offset, end_offset, token_count: number
+                    metadata: Record<string, string>
+                    parent_id?: string
+                    created_at: string
+```
+
+`collection_name` on a document row is the only place a blank name is legitimate. A deleted collection gives `""`. A failed name lookup does not give a blank: the whole request answers `INTERNAL` instead. The engine types (`Components`, `Component`, `ComponentInfo`, `ExtensionInfo`, `CompareResult`, `CompareHit`, `ScoredChunk`, `AssembledContext`) are unchanged from the slice 1 section above and are copied there verbatim, with their embedding spelled out. The rest of the handler structs sit with the intents that use them.
+
+### The 17 intents
+
+Nine queries and eight commands, in the manifest's order. "Input" and "Output" name the Go struct; the field list is in the block under each group.
+
+#### Overview and pipeline
+
+```go
+// extension/contract/handlers_system.go
+type overviewOutput struct {
+	Collections         int64             `json:"collections"`
+	Documents           int64             `json:"documents"`
+	DocumentsByState    stateCounts       `json:"documents_by_state"`
+	Chunks              int64             `json:"chunks"`
+	Stalled             int64             `json:"stalled"`
+	StalledAfterSeconds int               `json:"stalled_after_seconds"`
+	NewestDocuments     []documentRow     `json:"newest_documents"`
+	Components          engine.Components `json:"components"`
+	// Scope is "all": the dashboard path resolves no tenant, so it sees
+	// every tenant's data unless a page filters by one.
+	Scope string `json:"scope"`
+}
+
+// engineConfig is the engine's configuration as the engine holds it. The
+// recorded-but-unused defaults (model, strategy) are listed because they
+// are what new collections record. IngestConcurrency is left out: the
+// engine never reads it.
+type engineConfig struct {
+	DefaultChunkSize       int     `json:"default_chunk_size"`
+	DefaultChunkOverlap    int     `json:"default_chunk_overlap"`
+	DefaultEmbeddingModel  string  `json:"default_embedding_model"`
+	DefaultChunkStrategy   string  `json:"default_chunk_strategy"`
+	DefaultTopK            int     `json:"default_top_k"`
+	ShutdownTimeoutSeconds float64 `json:"shutdown_timeout_seconds"`
+}
+
+type componentsOutput struct {
+	Components engine.Components      `json:"components"`
+	Config     engineConfig           `json:"config"`
+	Extensions []engine.ExtensionInfo `json:"extensions"`
+}
+```
+
+`system.overview`
+- query. Input `tenantInput`. Output `overviewOutput`.
+- `components` is the engine's `Components` as in slice 1. `scope` is always `"all"`, even when you pass a `tenant`, because it describes the dashboard and not the filter.
+- `stalled` counts documents still `processing` more than `stalled_after_seconds` after their last update. Weave has no heartbeat, so this is an age and not a verdict; say "looks stalled".
+- Errors: only the store ones. A failed lookup of a newest document's collection name is `INTERNAL`, not a blank `collection_name`.
+
+`system.components`
+- query. Input none (send `{}`). Output `componentsOutput`.
+- `config` is what the engine holds, YAML included. `default_embedding_model` and `default_chunk_strategy` are what a new collection records; Weave writes them down and never reads them back, and the form should say so. `IngestConcurrency` is left out on purpose because the engine never reads it. `shutdown_timeout_seconds` is a float.
+- Errors: none. It reads memory.
+
+#### Collections
+
+```go
+// extension/contract/handlers_collections.go
+type collectionsListInput struct {
+	page
+	Tenant *string `json:"tenant"`
+	Search string  `json:"search"`
+}
+
+type collectionCreateInput struct {
+	Name         string            `json:"name"`
+	Description  string            `json:"description"`
+	ChunkSize    int               `json:"chunk_size"`
+	ChunkOverlap int               `json:"chunk_overlap"`
+	Metadata     map[string]string `json:"metadata"`
+}
+
+type collectionUpdateInput struct {
+	ID          string             `json:"id"`
+	Name        *string            `json:"name"`
+	Description *string            `json:"description"`
+	Metadata    *map[string]string `json:"metadata"`
+}
+
+type reindexOutput struct {
+	ID                 string  `json:"id"`
+	ReindexedDocuments int64   `json:"reindexed_documents"`
+	ElapsedMillis      float64 `json:"elapsed_ms"`
+}
+```
+
+`collections.list`
+- query. Input `collectionsListInput`. Output `list<collectionRow>`.
+- `search` is a case-insensitive substring match on the name. Newest first.
+- Errors: `BAD_REQUEST` for a negative `limit` or `offset`.
+
+`collections.get`
+- query. Input `idInput`. Output `collectionDetail`.
+- Errors: `BAD_REQUEST` (missing or unparseable `id`), `NOT_FOUND`.
+
+`collections.create`
+- command. Input `collectionCreateInput`. Output `collectionRow` (the new collection, with both counts at 0). Invalidates `collections.list`, `system.overview`.
+- `name` is trimmed. A `chunk_size` or `chunk_overlap` of 0 means the engine default, and that is a problem for the form: an overlap of 0 means "the default", because the engine treats 0 that way, so the form cannot create a collection with no overlap. Say so next to the field. Validation compares the effective overlap with the effective size, so `chunk_overlap: 600` with no size fails against the default size of 512.
+- `embedding_dims` is recorded from the wired embedder. The model and strategy are the engine's defaults, and you can't set them here.
+- The new collection's `tenant_id` is `""`, since the dashboard resolves none.
+- Errors: `BAD_REQUEST` (blank name, negative size or overlap, effective overlap not smaller than effective size), `CONFLICT` (the name exists), `UNAVAILABLE` (no store).
+
+`collections.update`
+- command. Input `collectionUpdateInput`. Output `collectionRow`. Invalidates `collections.list`, `collections.get`.
+- Every field except `id` is a pointer and a missing or `null` one is left alone. `metadata: {}` clears the metadata, and a non-empty map replaces it whole; it does not merge. Chunk size, overlap and the recorded model, dimensions and strategy can't change after creation, so don't offer them on the edit form.
+- Errors: `BAD_REQUEST` (bad `id`, or a blank `name`), `NOT_FOUND`, `CONFLICT` (the new name is taken).
+
+`collections.delete`
+- command. Input `idInput`. Output `idOutput`. Invalidates `collections.list`, `collections.get`, `documents.list`, `chunks.list`, `system.overview`.
+- It removes the collection's chunks and documents too. Deleting the same collection twice answers `NOT_FOUND` the second time. If clearing the vector store fails, Weave logs it and still answers success.
+- Errors: `BAD_REQUEST`, `NOT_FOUND`.
+
+`collections.reindex`
+- command. Input `idInput`. Output `reindexOutput`. Invalidates `collections.get`, `system.overview`.
+- It re-embeds the collection's `ready` documents inside the request, so it can run for a while. `reindexed_documents` is how many `ready` documents there were when it started, and `elapsed_ms` is a float.
+- Errors: `BAD_REQUEST`, `NOT_FOUND` (checked first, because the engine alone would report success for an ID that doesn't exist), `UNAVAILABLE` (no embedder or no vector store). An embedder that fails halfway is `INTERNAL`, with the generic message.
+
+#### Documents
+
+```go
+// extension/contract/handlers_documents.go
+type documentsListInput struct {
+	page
+	CollectionID string  `json:"collection_id"`
+	State        string  `json:"state"`
+	Search       string  `json:"search"`
+	Tenant       *string `json:"tenant"`
+}
+
+type span struct {
+	ID          string `json:"id"`
+	Index       int    `json:"index"`
+	StartOffset int    `json:"start_offset"`
+	EndOffset   int    `json:"end_offset"`
+	TokenCount  int    `json:"token_count"`
+}
+
+// spansOutput lays a document's chunks out as byte ranges. Offsets are into
+// the text after the loader extracted it and after trimming; the semantic
+// and code chunkers approximate them.
+type spansOutput struct {
+	DocumentID    string `json:"document_id"`
+	ContentLength int    `json:"content_length"`
+	Spans         []span `json:"spans"`
+	Total         int64  `json:"total"`
+	Complete      bool   `json:"complete"`
+}
+
+type ingestInput struct {
+	CollectionID string            `json:"collection_id"`
+	Title        string            `json:"title"`
+	Source       string            `json:"source"`
+	SourceType   string            `json:"source_type"`
+	Content      string            `json:"content"`
+	Metadata     map[string]string `json:"metadata"`
+}
+
+// ingestOutput is the result of one synchronous ingest. A failed ingest is
+// an answer: the document row exists in state failed, and Error is the
+// reason Weave stored on it.
+type ingestOutput struct {
+	DocumentID string `json:"document_id"`
+	State      string `json:"state"`
+	ChunkCount int    `json:"chunk_count"`
+	Error      string `json:"error,omitempty"`
+}
+```
+
+`documents.list`
+- query. Input `documentsListInput`. Output `list<documentRow>`.
+- `state` is `""`, `pending`, `processing`, `ready` or `failed`. `collection_id` is optional. `search` is a case-insensitive substring match on the title. Newest first.
+- Errors: `BAD_REQUEST` (any other `state`, an unparseable `collection_id`, a negative `limit` or `offset`). A `collection_id` that parses but doesn't exist answers an empty page. A failed lookup of a row's collection name is `INTERNAL`, never a blank `collection_name`.
+
+`documents.get`
+- query. Input `idInput`. Output `documentRow`.
+- Errors: `BAD_REQUEST`, `NOT_FOUND`, and `INTERNAL` if the collection-name lookup fails (a deleted collection is fine and gives `""`).
+
+`documents.spans`
+- query. Input `idInput`. Output `spansOutput`.
+- Spans are the document's chunks in index order, up to 5000. `total` is the real chunk count and `complete` is false past the cap.
+- `content_length` is the raw input length, set before any loader runs. `start_offset` and `end_offset` are offsets into the text after the loader ran and the text was trimmed. For plain text the two share a scale. When a loader changed the text (HTML, markdown) they don't, and a span map drawn against `content_length` will stop short. Scale it against the largest `end_offset`, or show both numbers and say which is which. The semantic and code chunkers only approximate their offsets.
+- Errors: `BAD_REQUEST`, `NOT_FOUND`.
+
+`documents.ingest`
+- command. Input `ingestInput`. Output `ingestOutput`. Invalidates `documents.list`, `chunks.list`, `collections.list`, `collections.get`, `system.overview`.
+- It runs the whole pipeline inside the request. `source_type` selects the loader when one supports it, and the supported types are `components.loader.content_types`.
+- A failed ingest is an answer, not an error. If the document row was written and a later stage failed (the embedder, say), you get a normal response with `state: "failed"`, the stored reason in `error`, and `chunk_count` 0. The command succeeds as far as the client is concerned, so branch on `state` in `onSuccess` and link to the document. A good ingest answers `state: "ready"`, `chunk_count` and no `error` key.
+- A duplicate (the same content already in that collection) is an error, `CONFLICT`, and no row is created.
+- Errors: `BAD_REQUEST` (missing or unparseable `collection_id`, content that is empty or only whitespace, more than 1 MiB), `NOT_FOUND` (the collection), `CONFLICT`, `UNAVAILABLE` (no store, embedder, vector store or chunker; the message names it).
+
+`documents.delete`
+- command. Input `idInput`. Output `idOutput`. Invalidates `documents.list`, `documents.get`, `chunks.list`, `collections.list`, `collections.get`, `system.overview`.
+- Errors: `BAD_REQUEST`, `NOT_FOUND`.
+
+#### Chunks
+
+```go
+// extension/contract/handlers_chunks.go
+type chunksListInput struct {
+	page
+	DocumentID   string  `json:"document_id"`
+	CollectionID string  `json:"collection_id"`
+	Tenant       *string `json:"tenant"`
+}
+
+// chunkDetail is one chunk with its neighbours in its document. An empty
+// previous_id or next_id means there is none.
+type chunkDetail struct {
+	Chunk         *chunk.Chunk `json:"chunk"`
+	DocumentTitle string       `json:"document_title"`
+	PreviousID    string       `json:"previous_id"`
+	NextID        string       `json:"next_id"`
+}
+```
+
+`chunks.list`
+- query. Input `chunksListInput`. Output `list<chunk>`, each item a bare chunk object, not wrapped.
+- It needs a `document_id` or a `collection_id`, and with neither it answers `BAD_REQUEST`; an unscoped listing is a table scan nobody wants. With both, both apply. Ordered by document, then index, and not newest first.
+- Errors: `BAD_REQUEST` (no scope, an unparseable ID, a negative `limit` or `offset`). An ID that parses but doesn't exist answers an empty page.
+
+`chunks.get`
+- query. Input `idInput`. Output `chunkDetail`, with the chunk under the `chunk` key.
+- `previous_id` and `next_id` are `""` when there is none. They assume a document's chunks are numbered from 0 with no gaps, which the chunkers guarantee.
+- An orphaned chunk (the chunk row exists and its document row is gone) opens normally, with `document_title` `""`. `chunks.list` shows such chunks, so the detail page has to be able to open them. Treat an empty title as "document deleted" and not as a failure.
+- Errors: `BAD_REQUEST`, `NOT_FOUND` (the chunk). Any other failure looking up the document is mapped the usual way.
+
+#### Retrieval
+
+```go
+// extension/contract/handlers_retrieval.go
+type runInput struct {
+	Query        string  `json:"query"`
+	CollectionID string  `json:"collection_id"`
+	Tenant       *string `json:"tenant"`
+	TopK         int     `json:"top_k"`
+	MinScore     float64 `json:"min_score"`
+	MaxTokens    int     `json:"max_tokens"`
+}
+
+// runOutput is one retrieval run: the configured ranking beside the raw
+// vector ranking, and what Weave's default assembler builds from it.
+type runOutput struct {
+	Result  *engine.CompareResult    `json:"result"`
+	Context *engine.AssembledContext `json:"context"`
+}
+
+// assembleHit is one hit of an earlier run, echoed back exactly as the run
+// returned it. chunk_id is "" for a hit a custom retriever did not identify.
+type assembleHit struct {
+	ChunkID string  `json:"chunk_id"`
+	Content string  `json:"content"`
+	Score   float64 `json:"score"`
+}
+
+type assembleInput struct {
+	Hits      []assembleHit `json:"hits"`
+	MaxTokens int           `json:"max_tokens"`
+}
+```
+
+`retrieval.run`
+- command. Input `runInput`. Output `runOutput`: `result` is the `CompareResult` and `context` the `AssembledContext`, both as in slice 1. Invalidates nothing.
+- `top_k` 0 is the engine default and over 50 is clamped. `min_score` applies to the final hits only. `collection_id` is optional and, like the list filters, an ID that doesn't exist just finds nothing. `max_tokens` 0 is 4096, over 32768 is clamped.
+- It needs Weave's own embedder and vector store. When either is missing it answers `UNAVAILABLE` before touching the engine, with "retrieval needs Weave's own embedder and vector store; this deployment has no embedder configured", or the same with "no vector store configured". Show that message as it is; a deployment that retrieves through a retriever alone can't use this page.
+- Errors: `BAD_REQUEST` (a blank query, a query over 8 KiB, a negative `top_k` or `max_tokens`, an unparseable `collection_id`), `UNAVAILABLE`. An embedder that fails during a run is `INTERNAL` with the generic message; the cause is in Weave's log.
+
+`retrieval.assemble`
+- command. Input `assembleInput`. Output `AssembledContext` itself, not wrapped in anything. Invalidates nothing.
+- Its input is not what the slice 3 plan said. It does not take `chunk_id` and `score` pairs. It takes `hits`, each `{chunk_id, content, score}`, echoed from a `retrieval.run` result, plus `max_tokens`. For each entry in `result.hits`, in order, send `chunk_id` as the hit's `chunk.id` (or `""` when `chunk` is null or has no ID, the unidentified case), `content` as `chunk.content` and `score` as the hit's `score`.
+- It is pure re-assembly. It reads no store, embeds nothing and is never `NOT_FOUND`. The same hits and the same `max_tokens` give exactly the context `retrieval.run` gave, orphans included. That is the reason for the shape: an orphaned hit (the vector is there, the chunk row is gone) is part of what an app would hand its model, and re-reading by ID could never rebuild it. The `included` and `first_excluded` positions refer to the `hits` you sent, in the order you sent them.
+- A `chunk_id` that doesn't parse is treated as `""`. It is not an error.
+- Errors: `BAD_REQUEST` (more than 50 hits, more than 1 MiB of `content` in total, a negative `max_tokens`). Nothing else is specific to it.
+
+### Where this section corrects the text above
+
+- The intent table in "The contract package" says `retrieval.assemble` re-assembles from `chunk_id` and `score` pairs. It takes `hits` with `content`, as above.
+- The slice 1 section says `ChunkRef` is the input of `AssembleRefs`, "which `retrieval.assemble` calls". It no longer does. `AssembleRefs` still exists in the engine and the contract never calls it, so don't type `ChunkRef` into the plugin.
+- The slice table and "Retiring the templ dashboard" put the templ deletion after the browser walk. It is already done, so the browser walk has nothing left to retire.
+- Lists are newest first for collections and documents only. `chunks.list` is ordered by document and index.
+
+### Commits
+
+Weave `main`, oldest first. `0d29d1b` was the last commit of slice 1, so everything below is slice 3. Nothing is pushed.
+
+| commit | what it did |
+|---|---|
+| `4772ecc` | docs: record what the templ dashboard did before it goes |
+| `9221db3` | chore: delete the templ dashboard |
+| `79ca320` | docs: say what the moved dashboard items still wait on |
+| `d691ab5` | chore(deps): move to forge v1.12.0 and drop templ and forgeui |
+| `e182a38` | feat(contract): lay the weave contract's foundation |
+| `1eafdd2` | feat(contract): answer the overview and the component report |
+| `d37caed` | fix(contract): report a failed collection lookup instead of a blank name |
+| `95923a6` | feat(contract): list, create, edit, delete and reindex collections |
+| `9404599` | feat(contract): list, read, ingest and delete documents |
+| `9391773` | feat(contract): page chunks and read one with its neighbours |
+| `bdf494c` | fix(contract): open an orphaned chunk instead of calling it missing |
+| `bf7ba40` | feat(contract): run a query side by side and re-assemble its context |
+| `d179a95` | fix(contract): re-assemble exactly the hits a run returned |
+| `07b34ff` | test(contract): bind every intent, carry invalidates, never send a vector |
+| `df0a253` | feat(extension): register the weave contract and hand the engine its config |
+
+At `df0a253`, with both test databases up: `go build`, `go vet` and `go test -count=1 ./...` pass, the store conformance suite runs with 0 skips on all four backends, `gofmt -l .` is empty, and a fresh-cache `golangci-lint run ./...` reports `0 issues.`
