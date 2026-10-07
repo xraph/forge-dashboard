@@ -10,7 +10,6 @@ import {
 import { StatGrid } from "@forge-go/dashboard-kit/components/stat-grid"
 import type { StatItem } from "@forge-go/dashboard-kit/components/stat-grid"
 import { Timestamp } from "@forge-go/dashboard-kit/components/timestamp"
-import { cn } from "@forge-go/dashboard-kit/lib/utils"
 import { KeyStateBadge, RotationReasonBadge } from "../badges"
 import { KeyCell, WindowCell } from "../components/rotation-cells"
 import { formatCount, keyPath, maskedKey } from "../format"
@@ -20,15 +19,6 @@ import type { KeySummary, Overview, RotationItem } from "../types"
 // would bring Recharts into the shell's entry chunk with it.
 
 const NOT_RECORDED_HINT = "Usage appears once your application calls RecordUsage."
-
-/**
- * StatGrid takes no per-card emphasis, so the grid aims it at the expiring
- * card by position, through the card's own slots. That card is third in
- * `stats` below; move it and change the 3 here with it. Written out in full,
- * not built from a variable: Tailwind finds classes by reading this file.
- */
-const EXPIRING_EMPHASIS =
-  "[&>*:nth-child(3)]:ring-destructive/50 [&>*:nth-child(3)_[data-slot=card-title]]:text-destructive"
 
 function stats(data: Overview): StatItem[] {
   const { counts } = data
@@ -44,6 +34,7 @@ function stats(data: Overview): StatItem[] {
       value: formatCount(data.expiringWithin7Days),
       // Colour is not the only cue: the card also says where to find them.
       ...(data.expiringWithin7Days > 0 && {
+        tone: "danger",
         hint: "Shown as Expires soon on Keys.",
       }),
     },
@@ -166,10 +157,7 @@ export const OverviewPage: ComponentType<PluginPageProps> = () => {
           const rotations = data.recentRotations ?? []
           return (
             <>
-              <StatGrid
-                items={stats(data)}
-                className={cn(data.expiringWithin7Days > 0 && EXPIRING_EMPHASIS)}
-              />
+              <StatGrid items={stats(data)} />
 
               <RecentSection
                 id="keys"

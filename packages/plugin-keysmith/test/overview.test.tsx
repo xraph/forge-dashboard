@@ -234,38 +234,37 @@ describe("OverviewPage", () => {
   })
 
   describe("expiring emphasis", () => {
-    /**
-     * The emphasis is a class on the grid aimed at the expiring card by its
-     * position, so the test checks the position and the class together: the
-     * class names the card it lands on.
-     */
-    function emphasisOn(label: string): { grid: HTMLElement; nth: number } {
-      const card = stat(label)
-      const grid = card.parentElement!
-      const nth = Array.from(grid.children).indexOf(card) + 1
-      return { grid, nth }
+    /** The kit's tone, as the card carries it. */
+    function toneOf(label: string): string | null {
+      return stat(label).getAttribute("data-tone")
     }
 
-    it("marks the expiring card destructive when a key expires within 7 days", async () => {
+    function title(label: string): HTMLElement {
+      return stat(label).querySelector<HTMLElement>("[data-slot=card-title]")!
+    }
+
+    it("gives the expiring card the danger tone when a key expires within 7 days", async () => {
       renderOverview(overview({ expiringWithin7Days: 2 }))
       await screen.findByText("Expiring within 7 days")
-      const { grid, nth } = emphasisOn("Expiring within 7 days")
-      expect(grid.className).toContain(
-        `[&>*:nth-child(${nth})_[data-slot=card-title]]:text-destructive`,
-      )
-      expect(grid.className).toContain(`[&>*:nth-child(${nth})]:ring-destructive/50`)
+      expect(toneOf("Expiring within 7 days")).toBe("danger")
+      expect(stat("Expiring within 7 days").className).toContain("ring-destructive/50")
+      expect(title("Expiring within 7 days").className).toContain("text-destructive")
       // Colour is not the only cue: the card says what to do.
       expect(
         within(stat("Expiring within 7 days")).getByText("Shown as Expires soon on Keys."),
       ).toBeTruthy()
+      // The tone is the card's own. Nothing on the grid aims at it by position.
+      expect(stat("Expiring within 7 days").parentElement!.className).not.toContain(
+        "destructive",
+      )
     })
 
     it("leaves the card plain at 0", async () => {
       renderOverview(overview({ expiringWithin7Days: 0 }))
       await screen.findByText("Expiring within 7 days")
       expect(statValue("Expiring within 7 days")).toBe("0")
-      const { grid } = emphasisOn("Expiring within 7 days")
-      expect(grid.className).not.toContain("destructive")
+      expect(toneOf("Expiring within 7 days")).toBe("default")
+      expect(stat("Expiring within 7 days").className).not.toContain("destructive")
       expect(screen.queryByText("Shown as Expires soon on Keys.")).toBeNull()
     })
 
@@ -274,13 +273,16 @@ describe("OverviewPage", () => {
         overview({
           counts: { active: 90, suspended: 9, revoked: 9, expired: 9 },
           openGraceWindows: 40,
-          expiringWithin7Days: 0,
+          expiringWithin7Days: 3,
           requestsLast24h: 99999,
         }),
       )
       await screen.findByText("Expiring within 7 days")
-      const { grid } = emphasisOn("Active keys")
-      expect(grid.className).not.toContain("destructive")
+      for (const label of ["Active keys", "Open grace windows", "Requests in the last 24h"]) {
+        expect(toneOf(label)).toBe("default")
+        expect(stat(label).className).not.toContain("destructive")
+        expect(title(label).className).not.toContain("destructive")
+      }
     })
   })
 
