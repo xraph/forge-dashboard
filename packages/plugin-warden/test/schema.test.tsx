@@ -453,6 +453,29 @@ describe("WardenSchemaPage: prune", () => {
     await waitFor(() => expect(confirm).toHaveProperty("disabled", false))
   })
 
+  it("keeps the checkbox out of the dialog's description, and Apply still waits for it", async () => {
+    // The description is a <p> and the dialog's accessible description: a
+    // control inside it is read out as prose. The kit puts controls in the
+    // body below it.
+    await mount({ plan: () => ({ ...VALID, deleted: ["- role//r1"] }) })
+    fireEvent.click(pruneSwitch())
+    await plan()
+    fireEvent.click(button("Apply"))
+    const dialog = await screen.findByRole("alertdialog")
+    const description = dialog.querySelector("[data-slot=alert-dialog-description]")!
+    expect(description.textContent).toMatch(/^This deletes 1 entity/)
+    const checkbox = within(dialog).getByRole("checkbox", { name: "I have read the deletions" })
+    expect(description.contains(checkbox)).toBe(false)
+    expect(description.querySelector("label")).toBeNull()
+    expect(checkbox.closest("[data-slot=confirm-dialog-body]")).not.toBeNull()
+    const confirm = within(dialog).getByRole("button", { name: "Apply changes" })
+    expect(confirm).toHaveProperty("disabled", true)
+    fireEvent.click(checkbox)
+    await waitFor(() => expect(confirm).toHaveProperty("disabled", false))
+    fireEvent.click(checkbox)
+    await waitFor(() => expect(confirm).toHaveProperty("disabled", true))
+  })
+
   it("names all the deletions and no 'and n more' when there are five or fewer", async () => {
     const deleted = ["- role//a", "- role//b"]
     await mount({ plan: () => ({ ...VALID, deleted }) })

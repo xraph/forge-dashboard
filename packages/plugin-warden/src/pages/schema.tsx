@@ -451,32 +451,31 @@ export function WardenSchemaPage() {
         confirmDisabled={deletions !== null && !readDeletions}
         onConfirm={() => void confirmApply()}
         description={
-          deletions !== null || applyError ? (
-            <span className="flex flex-col gap-3">
-              {deletions !== null && (
-                <>
-                  <span className="text-destructive">
-                    {`This deletes ${count(deletions.length, "entity", "entities")} in the namespaces this source covers: ${deletions.slice(0, SHOWN_DELETIONS).join(", ")}${deletions.length > SHOWN_DELETIONS ? `, and ${deletions.length - SHOWN_DELETIONS} more` : ""}.${deletions.some((line) => DELETES_ROLE.test(line)) ? " Deleting a role also deletes its assignments and grants." : ""}${deletions.some((line) => DELETES_PERMISSION.test(line)) ? " Deleting a permission also revokes it from every role that holds it." : ""}`}
-                  </span>
-                  <span className="flex items-center gap-2">
-                    <Checkbox
-                      id="schema-read-deletions"
-                      checked={readDeletions}
-                      onCheckedChange={(checked) => setReadDeletions(checked === true)}
-                    />
-                    <Label htmlFor="schema-read-deletions">I have read the deletions</Label>
-                  </span>
-                </>
-              )}
-              {applyError && (
-                <span role="alert" className="text-destructive">
-                  {refusal(applyError)}
-                </span>
-              )}
+          deletions !== null ? (
+            <span className="text-destructive">
+              {`This deletes ${count(deletions.length, "entity", "entities")} in the namespaces this source covers: ${deletions.slice(0, SHOWN_DELETIONS).join(", ")}${deletions.length > SHOWN_DELETIONS ? `, and ${deletions.length - SHOWN_DELETIONS} more` : ""}.${deletions.some((line) => DELETES_ROLE.test(line)) ? " Deleting a role also deletes its assignments and grants." : ""}${deletions.some((line) => DELETES_PERMISSION.test(line)) ? " Deleting a permission also revokes it from every role that holds it." : ""}`}
             </span>
           ) : undefined
         }
-      />
+      >
+        {/* Controls go in the body, not the description: the description is a
+            <p> and the dialog's accessible description, read out as prose. */}
+        {deletions !== null && (
+          <span className="flex items-center gap-2">
+            <Checkbox
+              id="schema-read-deletions"
+              checked={readDeletions}
+              onCheckedChange={(checked) => setReadDeletions(checked === true)}
+            />
+            <Label htmlFor="schema-read-deletions">I have read the deletions</Label>
+          </span>
+        )}
+        {applyError && (
+          <span role="alert" className="text-destructive">
+            {refusal(applyError)}
+          </span>
+        )}
+      </ConfirmDialog>
     </section>
   )
 }

@@ -155,11 +155,15 @@ describe("WardenPermissionDetailPage", () => {
       expect(await screen.findByText("1 role attaches it directly")).toBeTruthy()
     })
 
-    it("says roles can also reach it through a parent or a wildcard, which the list omits", async () => {
+    it("says what else grants its check and is not listed: a parent, a wildcard, or the same resource and action", async () => {
+      // The engine compares a role's permissions by resource:action alone
+      // (engine.go evaluateRBAC, matcher.go matchPermission). It never reads
+      // a permission's name or namespace, so another permission with the
+      // same pair grants the same check through any role that attaches it.
       show()
       expect(
         await screen.findByText(
-          "A role can also reach this permission through a parent role or a wildcard permission such as document:*, and this list does not show those."
+          "A role can also grant this permission's check without attaching it: through a parent role, a wildcard permission such as document:*, or another permission with the same resource and action under another name or in another namespace. This list does not show those roles."
         )
       ).toBeTruthy()
     })
@@ -204,7 +208,7 @@ describe("WardenPermissionDetailPage", () => {
       expect(await screen.findByText("0 roles attach it directly")).toBeTruthy()
       expect(screen.queryByText("No role grants this permission.")).toBeNull()
       expect(
-        screen.getByText(/through a parent role or a wildcard permission/)
+        screen.getByText(/through a parent role, a wildcard permission/)
       ).toBeTruthy()
     })
 
@@ -254,10 +258,12 @@ describe("WardenPermissionDetailPage", () => {
       }
     })
 
-    it("says that a check matches on resource and action, not on the name", async () => {
+    it("says that a check matches on resource and action, not on the permission's name or namespace", async () => {
       show()
       expect(
-        await screen.findByText("A check matches on resource and action, never on the name.")
+        await screen.findByText(
+          "A check matches on resource and action, never on the permission's name or namespace."
+        )
       ).toBeTruthy()
     })
 

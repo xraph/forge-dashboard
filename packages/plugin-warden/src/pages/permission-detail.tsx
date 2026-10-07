@@ -152,7 +152,8 @@ export function WardenPermissionDetailPage({ params }: PluginPageProps) {
                   ]}
                 />
                 <p className="text-xs text-muted-foreground">
-                  A check matches on resource and action, never on the name.
+                  A check matches on resource and action, never on the permission&apos;s name or
+                  namespace.
                 </p>
               </div>
             }
@@ -183,12 +184,15 @@ export function WardenPermissionDetailPage({ params }: PluginPageProps) {
  * Which roles attach this permission DIRECTLY.
  *
  * That is all `grantedBy` holds: the server matches role grants by exact name
- * and namespace. A role can also reach the permission without attaching it,
- * by inheriting it from a parent role (the engine's
- * resolveInheritedRoleObjects) or through a wildcard grant such as
- * `document:*` (matcher.go matchPermission). Neither shows here, so nothing
- * on this table may claim to be every role that grants it, and an empty
- * table does not mean no role grants it.
+ * and namespace. The engine does not. It compares each of a role's
+ * permissions as `resource:action` with the check's (engine.go evaluateRBAC,
+ * matcher.go matchPermission) and never reads a permission's name or
+ * namespace. So a role grants this permission's check without attaching it
+ * when it inherits it from a parent role (resolveInheritedRoleObjects), holds
+ * a wildcard such as `document:*`, or attaches another permission with the
+ * same resource and action under another name or in another namespace. None
+ * of those shows here, so nothing on this table may claim to be every role
+ * that grants the check, and an empty table does not mean no role grants it.
  *
  * The count is what the server returned, never a page's worth of it:
  * `grantedBy` is not paged, because the delete guard that shares its scan
@@ -228,9 +232,10 @@ function GrantedByTable({ roles }: { roles: RoleSummary[] }) {
         )}
       />
       <p className="text-xs text-muted-foreground">
-        A role can also reach this permission through a parent role or a
-        wildcard permission such as document:*, and this list does not show
-        those.
+        A role can also grant this permission&apos;s check without attaching it:
+        through a parent role, a wildcard permission such as document:*, or
+        another permission with the same resource and action under another name
+        or in another namespace. This list does not show those roles.
       </p>
     </div>
   )
