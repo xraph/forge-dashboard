@@ -60,16 +60,16 @@ Created:
 | `store/{postgres,sqlite}/migrations.go` (modified) | `worker_capacity_column` (Task 6a) and `list_order_indexes` (Task 8) appended last |
 | `store/mongo/store.go` (modified) | List-order compound indexes in `migrationIndexes()` (Task 8) |
 
-Modified: `go.mod`, `go.sum`, `Makefile`, every `dashboard/**/*.go` (build tag only), `id/id.go` (`Time`), `cluster/store.go` (`GetWorker`), every `cluster.Store` implementation, the postgres, sqlite and mongo worker models and migrations, the redis job, run, DLQ and artifact write paths, `engine/engine.go`, `store/store.go`.
+Modified: `go.mod`, `go.sum`, `Makefile`, `dashboard/` renamed to `_dashboard/` (no content change), `id/id.go` (`Time`), `cluster/store.go` (`GetWorker`), every `cluster.Store` implementation, the postgres, sqlite and mongo worker models and migrations, the redis job, run, DLQ and artifact write paths, `engine/engine.go`, `store/store.go`.
 
 ---
 
 ### Task 0: Move to forge v1.12.0 and grove v1.7.0, and take templ out of the build
 
-The templ dashboard imports `forge/extensions/dashboard/contributor`, which forge v1.12.0 removed. The pages stay on disk as the reference for `MIGRATION.md` (slice 6) but leave the build now.
+The templ dashboard imports `forge/extensions/dashboard/contributor`, which forge v1.12.0 removed. The pages stay in the repo as the reference for `MIGRATION.md` (slice 6) but leave the build now: the directory is renamed to `_dashboard`, and the go tool skips any directory whose name starts with an underscore. (Ruling 2026-10-07: a rename replaces the earlier plan of prepending a build tag to ~40 files, which the permission classifier refused as an in-place rewrite of shared files. The rename is one reversible, history-preserving git operation and changes no file content.)
 
 **Files:**
-- Modify: every `*.go` file under `dashboard/` (prepend a build constraint)
+- Rename: `dashboard/` to `_dashboard/` (`git mv`, no content change)
 - Modify: `go.mod`, `go.sum`
 - Modify: `Makefile` (drop the `templ` step from `all`)
 - Modify: `exec/shim/store_test.go` (allow `golang.org/x/term`)
@@ -83,25 +83,16 @@ The templ dashboard imports `forge/extensions/dashboard/contributor`, which forg
 Run: `cd /Users/rexraphael/Work/xraph/forgery/dispatch && git status --porcelain && git log -1 --oneline`
 Expected: no lines from `git status` touching `go.mod`, `go.sum`, `Makefile` or `dashboard/`. If another session has uncommitted edits in any of them, stop and report.
 
-- [ ] **Step 2: Exclude the templ package from the build**
+- [ ] **Step 2: Move the templ package out of the build**
 
 ```bash
 cd /Users/rexraphael/Work/xraph/forgery/dispatch
-for f in $(find dashboard -name '*.go'); do
-  printf '//go:build ignore\n\n' | cat - "$f" > "$f.tmp" && mv "$f.tmp" "$f"
-done
-head -3 dashboard/contributor.go
+git mv dashboard _dashboard
+git status --short | head -3
+ls _dashboard | head
 ```
 
-Expected first lines of `dashboard/contributor.go`:
-
-```go
-//go:build ignore
-
-package dashboard
-```
-
-(These files carry no other session's work; a scripted edit is safe here, unlike `fixture-server/server.mjs` in the other repo.)
+Expected: `git status` shows rename lines (`R  dashboard/... -> _dashboard/...`), and `_dashboard` lists `components`, `contributor.go`, `data.go`, `manifest.go`, `pages`, `settings`, `shared`, `widgets`. Nothing outside the directory imports it (checked: `grep -rn '"github.com/xraph/dispatch/dashboard' --include='*.go' . | grep -v '^./_dashboard/'` prints nothing), so no other file changes.
 
 - [ ] **Step 3: Stop `make all` regenerating templ output**
 
@@ -111,7 +102,7 @@ In `Makefile`, the `all` target reads `all: templ check test build` (line 234). 
 all: check test build
 ```
 
-Leave the `templ` and `templ-watch` targets in place until slice 6 deletes the directory.
+Leave the `templ` and `templ-watch` targets in place until slice 6 deletes the directory. They still point at `./dashboard/...`, which no longer exists, so they now do nothing useful; nothing in `all` runs them.
 
 - [ ] **Step 4: Bump the modules**
 
@@ -168,12 +159,13 @@ git commit --only -m "build: move to forge v1.12.0 and grove v1.7.0 and take tem
 Forge v1.12.0 removed the contributor package the templ dashboard is built
 on, and it is the release whose transport carries meta.invalidates, which
 the React dashboard needs so a write refreshes the page. The templ pages
-stay on disk behind a build tag until the migration record is written,
-then go in their own commit.
+move to _dashboard, which the go tool skips, and stay there as the
+reference until the migration record is written; then they go in their
+own commit.
 
 Grove v1.7.0 resolves hook-rewritten keys on every kv operation. The
 shim allowlist gains golang.org/x/term, which go-utils' logger now uses
-to detect a terminal." -- go.mod go.sum Makefile exec/shim/store_test.go $(find dashboard -name '*.go')
+to detect a terminal." -- go.mod go.sum Makefile exec/shim/store_test.go dashboard _dashboard
 git show --stat HEAD | tail -3
 ```
 
