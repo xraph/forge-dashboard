@@ -641,6 +641,62 @@ async function main() {
       "encryptionAlg missing or no unencrypted seed row",
     )
 
+    // secrets.list expiry: half-open bounds, only secrets that have an expiry,
+    // soonest first, and a total that counts the filtered set. The seed has
+    // vpn/gateway.psk past, api/twilio.token in 3 days and ssh/bastion.key in
+    // 20, so 7d and 30d differ.
+    const unfilteredTotal = listed?.total
+    const expiryList = async (expiry, extra = {}) => (await vaultCall("secrets.list", "query", { expiry, limit: 200, ...extra })).body?.data
+    const expiredList = await expiryList("expired")
+    const weekList = await expiryList("7d")
+    const monthList = await expiryList("30d")
+    const keysOf = (l) => (l?.secrets ?? []).map((s) => s.key)
+    vaultCheck("secrets.list expiry \"expired\" keeps only the past expiry", JSON.stringify(keysOf(expiredList)) === JSON.stringify(["vpn/gateway.psk"]) && expiredList.total === 1, JSON.stringify([keysOf(expiredList), expiredList?.total]))
+    vaultCheck("secrets.list expiry \"7d\" keeps only the expiry inside a week", JSON.stringify(keysOf(weekList)) === JSON.stringify(["api/twilio.token"]) && weekList.total === 1, JSON.stringify([keysOf(weekList), weekList?.total]))
+    vaultCheck(
+      "secrets.list expiry \"30d\" is soonest first and wider than \"7d\"",
+      JSON.stringify(keysOf(monthList)) === JSON.stringify(["api/twilio.token", "ssh/bastion.key"]) && monthList.total === 2,
+      JSON.stringify([keysOf(monthList), monthList?.total]),
+    )
+    vaultCheck(
+      "every expiry value changes the page and the total against the unfiltered list",
+      [expiredList, weekList, monthList].every((l) => l.total < unfilteredTotal && l.secrets.length < listed.secrets.length),
+      JSON.stringify([unfilteredTotal, expiredList?.total, weekList?.total, monthList?.total]),
+    )
+    vaultCheck(
+      "no secret without an expiry, and no expired secret, appears under 7d or 30d",
+      [expiredList, weekList, monthList].every((l) => l.secrets.every((s) => typeof s.expiresAt === "string")) && [...weekList.secrets, ...monthList.secrets].every((s) => Date.parse(s.expiresAt) > Date.now()),
+      JSON.stringify([keysOf(expiredList), keysOf(weekList), keysOf(monthList)]),
+    )
+    const monthPaged = await expiryList("30d", { limit: 1, offset: 1 })
+    vaultCheck("a filtered page keeps the filtered total", JSON.stringify(keysOf(monthPaged)) === JSON.stringify(["ssh/bastion.key"]) && monthPaged.total === 2, JSON.stringify([keysOf(monthPaged), monthPaged?.total]))
+    const emptyExpiry = await vaultCall("secrets.list", "query", { expiry: "", limit: 500 })
+    vaultCheck("secrets.list expiry \"\" is the unfiltered list", emptyExpiry.body?.data?.total === unfilteredTotal && emptyExpiry.body.data.secrets.length === rows.length, `${emptyExpiry.body?.data?.total}`)
+    for (const bad of ["soon", "7D", " 7d", "90d"]) {
+      const refused = await vaultCall("secrets.list", "query", { expiry: bad })
+      vaultCheck(`secrets.list refuses expiry ${JSON.stringify(bad)} with 400 BAD_REQUEST`, refused.status === 400 && refused.body?.error?.code === "BAD_REQUEST", `${refused.status} ${refused.body?.error?.code}`)
+    }
+
+    // secrets.versions encryption: the seeded history of api/slack.webhook
+    // holds all three values, and a version follows its secret otherwise.
+    const encryptionOf = async (key) => ((await vaultCall("secrets.versions", "query", { key })).body?.data?.versions ?? []).map((v) => v.encryption)
+    const mixedHistory = await encryptionOf("api/slack.webhook")
+    vaultCheck("secrets.versions projects encrypted, unknown and plaintext, newest first", JSON.stringify(mixedHistory) === JSON.stringify(["encrypted", "unknown", "plaintext"]), JSON.stringify(mixedHistory))
+    const ftpHistory = await encryptionOf("legacy/ftp.password")
+    vaultCheck("a version of an unencrypted secret is plaintext", ftpHistory.length >= 1 && ftpHistory.every((e) => e === "plaintext"), JSON.stringify(ftpHistory))
+    const primaryHistory = await encryptionOf("db/primary.password")
+    vaultCheck("a version of an encrypted secret is encrypted", primaryHistory.length >= 1 && primaryHistory.every((e) => e === "encrypted"), JSON.stringify(primaryHistory))
+
+    // overview.stats, before the checks below write anything that changes the
+    // figures: plaintext versions are the two unencrypted secrets' (1 and 2)
+    // plus the mixed secret's v1; one version is unrecorded.
+    const seedStats = (await vaultCall("overview.stats", "query", {})).body?.data
+    vaultCheck(
+      "overview.stats counts the seed's plaintext and unrecorded versions and its expired and expiring secrets",
+      seedStats?.plaintextVersions === 4 && seedStats.unrecordedVersions === 1 && seedStats.expiredSecrets === expiredList.total && seedStats.expiringSecrets === monthList.total,
+      JSON.stringify([seedStats?.plaintextVersions, seedStats?.unrecordedVersions, seedStats?.expiredSecrets, seedStats?.expiringSecrets]),
+    )
+
     const created = await vaultCall("secrets.create", "command", { key: "spot/check.key", value: canary, expiresAt: "2099-01-01T00:00:00Z" })
     const again = await vaultCall("secrets.create", "command", { key: "spot/check.key", value: canary })
     vaultCheck("secrets.create refuses an existing key with 409 CONFLICT", again.status === 409 && again.body?.error?.code === "CONFLICT", `${again.status} ${again.body?.error?.code}`)
@@ -1698,6 +1754,21 @@ async function main() {
         JSON.stringify(stats),
       )
       vaultCheck("the seed leaves an unencrypted secret, so the overview cannot call the vault encrypted", stats.unencryptedSecrets >= 1, `${stats.unencryptedSecrets}`)
+      // The four figures against what the lists say now, whatever the earlier
+      // checks wrote: version rows tallied from secrets.versions, the expiry
+      // counts from the filtered totals (same bounds, so no overlap).
+      const versionEncryptions = (await Promise.all(secretList.secrets.map(async (s) => ((await vaultCall("secrets.versions", "query", { key: s.key })).body?.data?.versions ?? []).map((v) => v.encryption)))).flat()
+      const expiredNow = (await vaultCall("secrets.list", "query", { expiry: "expired", limit: 200 })).body?.data
+      const expiringNow = (await vaultCall("secrets.list", "query", { expiry: "30d", limit: 200 })).body?.data
+      vaultCheck(
+        "overview.stats' version and expiry figures match secrets.versions and the expiry filters",
+        stats.plaintextVersions === versionEncryptions.filter((e) => e === "plaintext").length &&
+          stats.unrecordedVersions === versionEncryptions.filter((e) => e === "unknown").length &&
+          stats.expiredSecrets === expiredNow.total &&
+          stats.expiringSecrets === expiringNow.total &&
+          !expiredNow.secrets.some((s) => expiringNow.secrets.some((t) => t.key === s.key)),
+        JSON.stringify([stats.plaintextVersions, stats.unrecordedVersions, stats.expiredSecrets, stats.expiringSecrets, versionEncryptions.length]),
+      )
       vaultCheck(
         "overview.stats' rotation figures come from the one policy list",
         stats.rotationPolicies === policyList.total && stats.rotationEnabled === enabledPolicies.length && stats.rotationWithoutRotator === enabledPolicies.filter((p) => !p.rotatable).length && stats.rotationOverdue === enabledPolicies.filter((p) => p.rotatable && p.nextRotationAt && Date.parse(p.nextRotationAt) < Date.now()).length,
@@ -1738,7 +1809,7 @@ async function main() {
         statsRead.recentActivity.length === 10 && statsRead.recentActivity.every((e) => e.action !== "secret.get") && eq(statsRead.recentActivity, hiddenTop.entries),
         JSON.stringify(statsRead.recentActivity.map((e) => e.action)),
       )
-      const overviewKeys = ["secrets", "unencryptedSecrets", "flags", "configEntries", "configOverrides", "rotationPolicies", "rotationEnabled", "rotationOverdue", "rotationWithoutRotator", "rotationFailures24h", "encryptionEnabled", "encryptionAlgorithm", "recentActivity"]
+      const overviewKeys = ["secrets", "unencryptedSecrets", "plaintextVersions", "unrecordedVersions", "expiredSecrets", "expiringSecrets", "flags", "configEntries", "configOverrides", "rotationPolicies", "rotationEnabled", "rotationOverdue", "rotationWithoutRotator", "rotationFailures24h", "encryptionEnabled", "encryptionAlgorithm", "recentActivity"]
       vaultCheck("overview.stats carries every field and nothing else", eq(Object.keys(stats).sort(), overviewKeys.slice().sort()), JSON.stringify(Object.keys(stats)))
 
       // Every command writes a row that names the operator, and a refused or read call writes none.

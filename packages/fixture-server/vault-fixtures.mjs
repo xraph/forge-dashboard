@@ -98,6 +98,12 @@ function iso(date) {
 //     destructive badge exists for.
 //   - Expiries: future, soon, already passed, and one on the rotatable
 //     db/primary.password so a rotation that drops the expiry shows.
+//   - ssh/bastion.key expires in 20 days: inside the 30-day window and outside
+//     the 7-day one, so the two expiry filters answer differently.
+//   - api/slack.webhook has a mixed history: v1 stored in the clear, v2 from
+//     before versions recorded their algorithm (unrecorded), v3 encrypted.
+//     Every other version follows its secret: the two unencrypted keys are
+//     plaintext throughout, the rest encrypted.
 //   - Metadata on two secrets.
 //   - Policies for every case the overview counts: enabled with a rotator,
 //     enabled with a rotator and overdue (its rotator always fails), enabled
@@ -156,6 +162,38 @@ const FAILING_ROTATOR_KEYS = new Map([["cache/redis.auth", "dial tcp 10.0.3.7:63
 // overview's "unencrypted" line has a count and the list is a mix.
 const UNENCRYPTED_KEYS = new Set(["legacy/ftp.password", "queue/rabbit.password"])
 
+// The secret whose version history shows all three encryption values.
+const MIXED_HISTORY_KEY = "api/slack.webhook"
+
+// Version rows carry the algorithm the value was written with: a string
+// ("" is plaintext), or null for a row written before versions recorded one.
+function seedVersionAlg(key, v) {
+  if (key === MIXED_HISTORY_KEY) return v === 1 ? "" : v === 2 ? null : ENCRYPTION_ALG
+  return UNENCRYPTED_KEYS.has(key) ? "" : ENCRYPTION_ALG
+}
+
+// The 7d and 30d windows of secrets.list and overview.stats. Bounds are
+// half-open: an expired secret (expires_at <= now) is never also expiring
+// (now < expires_at <= now + window), and a secret with no expiry is neither.
+const EXPIRY_WINDOW_DAYS = { "7d": 7, "30d": 30 }
+const EXPIRING_SOON_DAYS = 30
+
+/** AddDate(0, 0, n) in UTC: whole calendar days, like the Go handlers. */
+function addDaysMs(ms, days) {
+  const d = new Date(ms)
+  d.setUTCDate(d.getUTCDate() + days)
+  return d.getTime()
+}
+
+/** The expires_at test for one bound pair; a secret with no expiry never matches. */
+function expiresWithin(row, afterMs, beforeMs) {
+  if (!row.expiresAt) return false
+  const at = Date.parse(row.expiresAt)
+  if (afterMs !== null && !(at > afterMs)) return false
+  if (beforeMs !== null && !(at <= beforeMs)) return false
+  return true
+}
+
 function seedVaultState() {
   const nowMs = Date.now()
   const hour = 3600_000
@@ -203,7 +241,13 @@ function seedVaultState() {
     const versions = []
     for (let v = 1; v <= version; v += 1) {
       const at = key === "db/primary.password" ? nowMs - (4 - v) * 7 * day - 2 * hour : createdMs + (v - 1) * 3 * day
-      versions.push({ id: nextId("secver"), version: v, ...(v === 1 || index % 2 === 0 ? { createdBy: "usr_1" } : {}), createdAt: iso(at) })
+      versions.push({
+        id: nextId("secver"),
+        version: v,
+        ...(v === 1 || index % 2 === 0 ? { createdBy: "usr_1" } : {}),
+        createdAt: iso(at),
+        encryptionAlg: seedVersionAlg(key, v),
+      })
     }
     const updatedMs = Date.parse(versions[versions.length - 1].createdAt)
     const row = {
@@ -219,6 +263,7 @@ function seedVaultState() {
     }
     if (key === "oauth/google.client-secret") row.expiresAt = iso(nowMs + 45 * day)
     if (key === "api/twilio.token") row.expiresAt = iso(nowMs + 3 * day)
+    if (key === "ssh/bastion.key") row.expiresAt = iso(nowMs + 20 * day)
     // Already passed: the Go handlers refuse to SET a past expiry, but a row
     // written while it was still in the future gets there by waiting.
     if (key === "vpn/gateway.psk") row.expiresAt = iso(nowMs - 2 * day)
@@ -318,8 +363,8 @@ function seedVaultState() {
   const smtp = state.secrets.get("smtp/relay.password")
   smtp.version = 2
   smtp.versions = [
-    { id: nextId("secver"), version: 1, createdBy: "usr_1", createdAt: smtp.createdAt },
-    { id: nextId("secver"), version: 2, createdAt: iso(nowMs - 30 * day) },
+    { id: nextId("secver"), version: 1, createdBy: "usr_1", createdAt: smtp.createdAt, encryptionAlg: ENCRYPTION_ALG },
+    { id: nextId("secver"), version: 2, createdAt: iso(nowMs - 30 * day), encryptionAlg: ENCRYPTION_ALG },
   ]
   smtp.updatedAt = iso(nowMs - 30 * day)
 
@@ -789,10 +834,18 @@ function projectSecret(row) {
   return out
 }
 
+/** project.go versionEncryption: null (unrecorded) is "unknown", "" is "plaintext", anything else "encrypted". */
+function versionEncryption(alg) {
+  if (alg === null || alg === undefined) return "unknown"
+  return alg === "" ? "plaintext" : "encrypted"
+}
+
+/** encryption has no omitempty in Go, so it is always on the wire. */
 function projectVersion(v) {
   const out = { id: v.id, version: v.version }
   if (v.createdBy) out.createdBy = v.createdBy
   out.createdAt = v.createdAt
+  out.encryption = versionEncryption(v.encryptionAlg)
   return out
 }
 
@@ -1189,6 +1242,7 @@ function evaluateDetail(row, tenantId, userId, nowMs) {
  */
 export function createVaultHandlers(FixtureError) {
   const badRequest = (message) => new FixtureError(400, "BAD_REQUEST", message)
+  const EXPIRY_MESSAGE = 'expiry must be "", "expired", "7d" or "30d"'
   const conflict = (message) => new FixtureError(409, "CONFLICT", message)
   const secretNotFound = () => new FixtureError(404, "NOT_FOUND", "secret not found")
   const policyNotFound = () => new FixtureError(404, "NOT_FOUND", "rotation policy not found")
@@ -1283,7 +1337,9 @@ export function createVaultHandlers(FixtureError) {
   }
 
   function newVersionRow(row, version) {
-    const v = { id: vault.nextId("secver"), version, createdAt: iso(Date.now()) }
+    // The row is stamped with the secret's algorithm before this is called,
+    // as Secrets().Set records the algorithm it wrote the value with.
+    const v = { id: vault.nextId("secver"), version, createdAt: iso(Date.now()), encryptionAlg: row.encryptionAlg }
     row.versions.push(v)
   }
 
@@ -1442,7 +1498,30 @@ export function createVaultHandlers(FixtureError) {
       kind: "query",
       handler: (payload) => {
         const { limit, offset } = pageParams(payload)
-        const all = [...vault.secrets.values()].sort((a, b) => (a.key < b.key ? -1 : a.key > b.key ? 1 : 0))
+        // One now per request. Validated before the store is read, so an
+        // unknown value is BAD_REQUEST whatever else is on the request.
+        const nowMs = Date.now()
+        const expiry = payload?.expiry ?? ""
+        let afterMs = null
+        let beforeMs = null
+        if (typeof expiry !== "string") throw badRequest(EXPIRY_MESSAGE)
+        if (expiry === "expired") {
+          beforeMs = nowMs
+        } else if (expiry !== "") {
+          if (!Object.hasOwn(EXPIRY_WINDOW_DAYS, expiry)) throw badRequest(EXPIRY_MESSAGE)
+          afterMs = nowMs
+          beforeMs = addDaysMs(nowMs, EXPIRY_WINDOW_DAYS[expiry])
+        }
+
+        let all = [...vault.secrets.values()]
+        if (expiry === "") {
+          all.sort((a, b) => (a.key < b.key ? -1 : a.key > b.key ? 1 : 0))
+        } else {
+          // Only secrets with an expiry, soonest first, then by key.
+          all = all
+            .filter((r) => expiresWithin(r, afterMs, beforeMs))
+            .sort((a, b) => Date.parse(a.expiresAt) - Date.parse(b.expiresAt) || (a.key < b.key ? -1 : a.key > b.key ? 1 : 0))
+        }
         return { secrets: all.slice(offset, offset + limit).map(projectSecret), total: all.length }
       },
     },
@@ -2097,6 +2176,12 @@ export function createVaultHandlers(FixtureError) {
         return {
           secrets: secrets.length,
           unencryptedSecrets: secrets.filter((r) => r.encryptionAlg === "").length,
+          // Version rows, not secrets: "" is stored in the clear, null was
+          // written before versions recorded an algorithm.
+          plaintextVersions: secrets.reduce((n, r) => n + r.versions.filter((v) => v.encryptionAlg === "").length, 0),
+          unrecordedVersions: secrets.reduce((n, r) => n + r.versions.filter((v) => v.encryptionAlg === null).length, 0),
+          expiredSecrets: secrets.filter((r) => expiresWithin(r, null, nowMs)).length,
+          expiringSecrets: secrets.filter((r) => expiresWithin(r, nowMs, addDaysMs(nowMs, EXPIRING_SOON_DAYS))).length,
           flags: vault.flags.size,
           configEntries: vault.configs.size,
           configOverrides,
