@@ -5,6 +5,8 @@ import { ForgeDashboardProvider, SessionProvider, useSession } from "@forge-go/d
 import { definePlugin, defineSubPlugin, queryStore, useQuery, usePluginClient } from "@forge-go/dashboard-plugin"
 import type {
   Capabilities,
+  ContextDimension,
+  ContextOption,
   ContributorCapability,
   ForgePlugin,
   PluginInput,
@@ -1253,13 +1255,14 @@ describe("PluginHost root destination", () => {
     expect(secondarySidebar(container)).toBeNull()
   })
 
-  function renderWithSubPlugins(route: string) {
+  function renderWithSubPlugins(route: string, context: ContextDimension[] = []) {
     const auth = definePlugin({
       extension: "auth",
       namespace: "auth",
       label: "Auth",
       nav: [{ label: "Users", to: "/users", group: "Identity" }],
       routes: [{ path: "/users", element: () => <p>auth users body</p> }],
+      context,
     })
     const billing = defineSubPlugin({
       extension: "subscription",
@@ -1274,11 +1277,21 @@ describe("PluginHost root destination", () => {
         { path: "/invoices", element: () => <p>billing invoices body</p> },
       ],
     })
-    const fetchImpl = capabilitiesFetch([
+    const capabilities = capabilitiesFetch([
       { name: "core-contract", envelopes: ["v1"], configured: true },
       { name: "auth", envelopes: ["v1"], configured: true },
       { name: "subscription", envelopes: ["v1"], configured: true },
     ])
+    // A declared dimension's switcher reads its options. Everything else is
+    // the capabilities fixture's business.
+    const fetchImpl = (async (input: RequestInfo | URL, init?: RequestInit) => {
+      const body = JSON.parse(String(init?.body ?? "{}")) as { intent?: string }
+      if (body.intent === "environments.context") {
+        const staging = { id: "env_staging", label: "Staging", slug: "staging" }
+        return jsonOk({ ok: true, data: { current: staging, options: [staging] } })
+      }
+      return capabilities(input, init)
+    }) as typeof fetch
     return render(
       <MemoryRouter initialEntries={[route]}>
         <ForgeDashboardProvider config={config}>
@@ -1324,10 +1337,25 @@ describe("PluginHost root destination", () => {
     expect(within(dialog).getByRole("link", { name: /Invoices/ })).toBeTruthy()
   })
 
-  it("keeps the query string on rail entries", async () => {
-    renderWithSubPlugins("/@auth/users?env=staging")
+  it("keeps the scope's declared context on rail entries and drops the page's own params", async () => {
+    const env: ContextDimension = {
+      id: "environment",
+      label: "Environment",
+      query: "environments.context",
+      switchCommand: "environments.switch",
+      select: (data) => data as { current?: ContextOption; options: ContextOption[] },
+      payload: (envId) => ({ envId }),
+      routed: { placement: "query", param: "env", by: "slug" },
+    }
+    renderWithSubPlugins("/@auth/users?env=staging&keyId=k1", [env])
     await screen.findByText("auth users body")
     expect(within(rail()).getByRole("link", { name: "Subscription" }).getAttribute("href")).toBe("/@auth/plans?env=staging")
+  })
+
+  it("carries nothing on rail entries for a scope that declares no context", async () => {
+    renderWithSubPlugins("/@auth/users?env=staging&keyId=k1")
+    await screen.findByText("auth users body")
+    expect(within(rail()).getByRole("link", { name: "Subscription" }).getAttribute("href")).toBe("/@auth/plans")
   })
 })
 

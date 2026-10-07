@@ -40,6 +40,7 @@ import type {
   Capabilities,
   ForgePlugin,
   ForgeSubPlugin,
+  NavigateOptions,
   PluginLinkProps,
   PluginNavItem,
   PluginPageProps,
@@ -50,6 +51,7 @@ import type {
 } from "@forge-go/dashboard-plugin"
 import { DashboardShell } from "@forge-go/dashboard-kit/components/dashboard-shell"
 import { NavigationSearch } from "./NavigationSearch"
+import { contextSearch, withContext } from "./context-search"
 import { ContextControl } from "./ContextControl"
 import { RoutedPage, RoutedPicker, routeSegmentPattern } from "./RoutedScope"
 import { NotFoundPanel } from "./NotFoundPanel"
@@ -792,10 +794,12 @@ export function PluginHost({
           {children}
         </Link>
       ),
-      navigate: (to: string) => navigate(to),
+      navigate: (to: string, options?: NavigateOptions) =>
+        navigate(to, { replace: options?.replace }),
       // Turns a page's scope-relative path into a real one. The page writes
       // "/users/u1"; only this layer knows which scope is mounted, which app
-      // the URL currently names, and what search to carry along.
+      // the URL currently names, and which query params are context. Only
+      // those are carried: the page's own (a `?keyId=` filter) stay behind.
       //
       // Reads the scope off the PATHNAME rather than off route params for the
       // same reason `segmentFromPath` does: this runs above any matched Route
@@ -816,7 +820,10 @@ export function PluginHost({
         const segment = routedPathDimension(scope.plugin)
           ? segmentFromPath(pathname, namespaceOf(scope.plugin))
           : undefined
-        return `${mountPath(scope.plugin, to, segment)}${search}`
+        return withContext(
+          mountPath(scope.plugin, to, segment),
+          contextSearch(search, scope.plugin),
+        )
       },
     }),
     [navigate, resolved, pathname, search],
@@ -1004,13 +1011,15 @@ export function PluginHost({
         }
       : undefined
 
+  // The sidebar's links stay inside `navOwner`, so they carry its context and
+  // nothing else. The rest of the search is the current page's own state.
+  const navContext = contextSearch(search, navOwner?.plugin)
+
   // Switching scope is a navigation, never a state write. A scope with no nav
   // (one that needs setup) goes to its bare namespace root, where its panel
-  // renders. Search is carried over for now, but that is provisional: no
-  // `ctx.` params exist yet, so there is nothing to drop and nothing to prove
-  // this against. Per-scope context dimensions belong to the plugin that
-  // declares them, so once `ctx.` params land, switching scope should DROP
-  // any dimension the new scope never declared, not carry it over blind.
+  // renders. Context dimensions belong to the plugin that declares them, so
+  // the target keeps only the query params it declares itself and drops the
+  // rest, including every one the scope you are leaving declared.
   const selectScope = (id: string) => {
     const target = scopes.find((scope) => scope.id === id)
     if (!target) return
@@ -1020,14 +1029,15 @@ export function PluginHost({
     // literally would be a dead route. homePathFor already knows to send
     // that case to the namespace root instead, where RoutedPicker resolves
     // it the rest of the way.
-    navigate(`${homePathFor(target.plugin)}${search}`)
+    navigate(withContext(homePathFor(target.plugin), contextSearch(search, target.plugin)))
   }
 
   const sidebar = {
     scopeHome: root ? {
       label: root.label,
       icon: root.icon,
-      onSelect: () => navigate(`${homePathFor(root.plugin)}${search}`),
+      onSelect: () =>
+        navigate(withContext(homePathFor(root.plugin), contextSearch(search, root.plugin))),
     } : undefined,
     scopes: scopeOptions,
     activeScopeId: activeScope?.id,
@@ -1037,7 +1047,7 @@ export function PluginHost({
     empty,
     groups,
     currentPath: pathname,
-    search,
+    search: navContext,
     // aria-current only when true. The rail merges its own aria-current onto
     // this element through base-ui's render prop, and an explicit undefined
     // here would win over it and strip the active entry's marker.
@@ -1056,10 +1066,13 @@ export function PluginHost({
         </PluginErrorBoundary>
       ) : undefined,
     searchControl: (
-      <NavigationSearch groups={allGroups} search={search} scopes={[
-        ...(root ? [{ label: root.label, href: homePathFor(root.plugin) }] : []),
-        ...scopes.map(scope => ({ label: scope.label, href: homePathFor(scope.plugin) })),
-      ]} />
+      <NavigationSearch groups={allGroups} search={navContext} scopes={[
+        ...(root ? [root] : []),
+        ...scopes,
+      ].map(scope => ({
+        label: scope.label,
+        href: withContext(homePathFor(scope.plugin), contextSearch(search, scope.plugin)),
+      }))} />
     ),
     user:
       session.state.status === "signedIn"

@@ -9,6 +9,18 @@ export interface PluginLinkProps {
   "aria-label"?: string
 }
 
+/** How a navigation lands. */
+export interface NavigateOptions {
+  /**
+   * Replace the current history entry instead of adding one.
+   *
+   * For a navigation that corrects where you are rather than taking you
+   * somewhere new: a page whose subject was just deleted, or one tidying its
+   * own URL. Back should skip the page you were moved off, not return to it.
+   */
+  replace?: boolean
+}
+
 /**
  * How the host turns an in-app path into a link, and how it navigates to one.
  *
@@ -18,13 +30,14 @@ export interface PluginLinkProps {
  */
 export interface Navigation {
   Link: ComponentType<PluginLinkProps>
-  navigate: (to: string) => void
+  navigate: (to: string, options?: NavigateOptions) => void
   /**
    * Turns a scope-relative path into a real one.
    *
    * A page writes `/users/u1` and the host decides that means
    * `/@auth/acme/users/u1?env=prod`, because only the host knows which scope
-   * is mounted, which app the URL names and what the current search is.
+   * is mounted, which app the URL names and which of the current query
+   * params are context worth carrying. A page's own params are not.
    *
    * Optional so a host predating routed context still satisfies this
    * interface; `PluginLink` falls back to using the path as written.
@@ -108,16 +121,30 @@ export function PluginLink({ to, children, className, ...rest }: PluginLinkProps
  * just been deleted has nowhere to stay. Everything else should be a link, so
  * that middle-clicking it opens a tab and hovering it shows a destination.
  *
- * Outside a host this assigns `location.href`, which is correct rather than
- * merely tolerable: a standalone render has no router to ask.
+ * Pass `{ replace: true }` when the move corrects where you are rather than
+ * taking you somewhere new, so Back skips the page you were moved off.
+ *
+ * Outside a host this assigns `location.href`, or calls `location.replace`
+ * for a replace, which is correct rather than merely tolerable: a standalone
+ * render has no router to ask.
  */
-export function useNavigateTo(): (to: string) => void {
+export function useNavigateTo(): (to: string, options?: NavigateOptions) => void {
   const nav = useContext(NavigationContext)
   if (nav) {
     const { navigate, resolve } = nav
-    return (to: string) => navigate(resolve && !isAbsolute(to) ? resolve(to) : to)
+    return (to: string, options?: NavigateOptions) => {
+      const target = resolve && !isAbsolute(to) ? resolve(to) : to
+      // A one-argument call reaches the host as one, exactly as it did before
+      // options existed, so nothing watching `navigate` sees a new shape.
+      if (options) navigate(target, options)
+      else navigate(target)
+    }
   }
-  return (to: string) => {
+  return (to: string, options?: NavigateOptions) => {
+    if (options?.replace) {
+      window.location.replace(to)
+      return
+    }
     window.location.href = to
   }
 }

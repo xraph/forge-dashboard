@@ -1,7 +1,8 @@
-import { describe, expect, it } from "vitest"
-import { render, screen } from "@testing-library/react"
-import { NavigationProvider, PluginLink } from "../src/link"
-import type { PluginLinkProps } from "../src/link"
+import { describe, expect, it, vi } from "vitest"
+import { act, render, renderHook, screen } from "@testing-library/react"
+import type { ReactNode } from "react"
+import { NavigationProvider, PluginLink, useNavigateTo } from "../src/link"
+import type { Navigation, PluginLinkProps } from "../src/link"
 
 function RouterLink({ to, children, className, ...rest }: PluginLinkProps) {
   return (
@@ -92,5 +93,43 @@ describe("PluginLink with a host that resolves scope-relative paths", () => {
       </NavigationProvider>,
     )
     expect(screen.getByRole("link", { name: "Details" }).getAttribute("href")).toBe("/users/u1")
+  })
+})
+
+describe("useNavigateTo", () => {
+  function withHost(nav: Navigation) {
+    return ({ children }: { children: ReactNode }) => (
+      <NavigationProvider value={nav}>{children}</NavigationProvider>
+    )
+  }
+
+  it("hands replace to the host's navigate, after resolving the path", () => {
+    const navigate = vi.fn()
+    const { result } = renderHook(() => useNavigateTo(), {
+      wrapper: withHost({ Link: RouterLink, navigate, resolve: (to) => `/@keys${to}` }),
+    })
+
+    result.current("/keys", { replace: true })
+    expect(navigate).toHaveBeenLastCalledWith("/@keys/keys", { replace: true })
+
+    // Every call site written before replace existed is a one-argument call,
+    // and it still compiles and still pushes.
+    result.current("/keys")
+    expect(navigate).toHaveBeenLastCalledWith("/@keys/keys")
+  })
+
+  it("replaces the history entry outside a host, and pushes one otherwise", () => {
+    // jsdom performs fragment navigations for real, history entries included,
+    // which makes a hash the one target this can be checked against.
+    const { result } = renderHook(() => useNavigateTo())
+    const start = window.history.length
+
+    act(() => result.current("#pushed"))
+    expect(window.location.hash).toBe("#pushed")
+    expect(window.history.length).toBe(start + 1)
+
+    act(() => result.current("#replaced", { replace: true }))
+    expect(window.location.hash).toBe("#replaced")
+    expect(window.history.length).toBe(start + 1)
   })
 })

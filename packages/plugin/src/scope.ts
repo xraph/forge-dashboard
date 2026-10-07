@@ -126,8 +126,8 @@ export function partitionScopes(all: Scope[]): {
  * first segment, strip the sigil, look it up; anything without a sigil, and
  * any namespace that matches nothing, is the root.
  *
- * Nothing here inspects the search string: context selectors live in the
- * query under a `ctx.` prefix and must never influence which scope resolves.
+ * Nothing here inspects the search string: a context dimension routed into
+ * the query (authsome's `?env=`) must never influence which scope resolves.
  */
 export function resolveActiveScope(
   pathname: string,
