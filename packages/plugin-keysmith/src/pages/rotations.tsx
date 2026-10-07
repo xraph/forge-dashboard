@@ -195,6 +195,7 @@ export const RotationsPage: ComponentType<PluginPageProps> = () => {
       ...(reason !== "" && { reason }),
     }),
     JSON.stringify([keyId, reason]),
+    offset,
   )
 
   // A new filter means a new result set, and page 3 of it may not exist.

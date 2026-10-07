@@ -299,6 +299,7 @@ export const UsagePage: ComponentType<PluginPageProps> = () => {
       ...forKey,
     }),
     JSON.stringify([keyId, bounds.after, bounds.before]),
+    page,
   )
 
   function changeRange(value: string) {

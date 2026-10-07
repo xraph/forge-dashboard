@@ -100,7 +100,7 @@ function PolicyDetailBody({ id }: { id: string }) {
   })
   // What the table shows: the page on screen stays while the next one loads,
   // so the pager keeps the focus of the button you pressed.
-  const keys = useHeldPage(read, id)
+  const keys = useHeldPage(read, id, page)
   // Keys revoked or moved elsewhere can leave the page past the end. Step back
   // to the last page that exists, as the keys list does. From the page's own
   // answer, never the held one.

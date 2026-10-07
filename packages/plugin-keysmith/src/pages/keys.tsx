@@ -134,7 +134,11 @@ export const KeysPage: ComponentType<PluginPageProps> = () => {
   })
   // What the table shows: the page on screen stays while the next one loads,
   // so the pager keeps the focus of the button you pressed.
-  const list = useHeldPage(read, JSON.stringify([environment, state, policyId]))
+  const list = useHeldPage(
+    read,
+    JSON.stringify([environment, state, policyId]),
+    page,
+  )
 
   // The data can shrink under the page being viewed (keys deleted elsewhere),
   // leaving a page past the end: rows empty, total still positive. Step back

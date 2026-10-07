@@ -560,6 +560,19 @@ describe("RotationsPage while a page loads", () => {
     expect(screen.getByRole("button", { name: "Next page" })).toBe(next)
   })
 
+  it("shows the skeleton, not the old rows, when the store blanks the page on a context switch", async () => {
+    const { client, release } = heldClient({ items: [MANUAL], hasMore: true })
+    renderPage(RotationsPage, client)
+    await screen.findByText("Billing service")
+
+    act(() => queryStore.clear())
+    expect(await screen.findByRole("status", { name: "Loading Rotations" })).toBeTruthy()
+    expect(screen.queryByText("Billing service")).toBeNull()
+
+    await release({ items: [POLICY], hasMore: false })
+    await screen.findByText("Reporting export")
+  })
+
   it("shows the skeleton, not the old rows, for a new reason", async () => {
     const { client, release } = heldClient({ items: [MANUAL], hasMore: true })
     renderPage(RotationsPage, client)
