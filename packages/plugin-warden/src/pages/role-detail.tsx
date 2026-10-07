@@ -556,7 +556,7 @@ function EditForm({ role, onDone }: { role: RoleDetail; onDone: () => void }) {
           Leave it empty for no limit. Clearing a cap you had removes it. The
           cap is checked when a subject is assigned here or through
           warden&apos;s REST API; warden&apos;s bootstrap admin assignment
-          skips it. You can&apos;t set it below the number of subjects who
+          skips it. You can&apos;t lower it below the number of subjects who
           hold the role now.
         </p>
       </div>

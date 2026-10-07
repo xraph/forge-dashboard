@@ -616,7 +616,7 @@ describe("WardenRoleDetailPage", () => {
       await openEdit()
       expect(
         screen.getByText(
-          "Leave it empty for no limit. Clearing a cap you had removes it. The cap is checked when a subject is assigned here or through warden's REST API; warden's bootstrap admin assignment skips it. You can't set it below the number of subjects who hold the role now."
+          "Leave it empty for no limit. Clearing a cap you had removes it. The cap is checked when a subject is assigned here or through warden's REST API; warden's bootstrap admin assignment skips it. You can't lower it below the number of subjects who hold the role now."
         )
       ).toBeTruthy()
     })
