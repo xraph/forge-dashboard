@@ -66,4 +66,3 @@ export function DumbbellKey({ a, b }: { a: string; b: string }) {
     </p>
   )
 }
-

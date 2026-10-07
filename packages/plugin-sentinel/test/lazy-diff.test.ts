@@ -84,4 +84,3 @@ describe("CodeMirror loads only with the prompt version and comparison pages", (
     expect(importers).toEqual([])
   })
 })
-

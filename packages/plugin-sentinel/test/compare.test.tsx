@@ -18,7 +18,6 @@ import { recordingFullClient, renderNavPage, stubClient } from "./harness"
 const A = OTHER_RUN_ID
 const B = RUN_ID
 
-
 /** results.detail answers by result id, so each side gets its own output. */
 function client() {
   return recordingFullClient((intent, params) => {
@@ -186,4 +185,3 @@ describe("Compare with…", () => {
     expect(within(dialog).getByRole("button", { name: "Compare" }).hasAttribute("disabled")).toBe(true)
   })
 })
-

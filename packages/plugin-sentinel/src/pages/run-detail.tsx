@@ -248,4 +248,3 @@ function ScoredWith({ run }: { run: Run }) {
     </p>
   )
 }
-

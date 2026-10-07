@@ -213,4 +213,3 @@ function OnlyIn({ label, dims }: { label: string; dims: string[] }) {
   if (dims.length === 0) return null
   return <p className="text-sm text-muted-foreground">{`${label}: ${orderDimensions(dims).join(", ")}.`}</p>
 }
-

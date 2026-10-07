@@ -73,4 +73,3 @@ export function OutputDiff({ pair, aRunId, bRunId }: { pair: CasePair; aRunId: s
     </Suspense>
   )
 }
-

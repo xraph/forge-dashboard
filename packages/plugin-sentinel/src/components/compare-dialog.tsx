@@ -93,4 +93,3 @@ function CompareForm({ run, onDone }: { run: Pick<Run, "id" | "suiteId" | "creat
     </form>
   )
 }
-
