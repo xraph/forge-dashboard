@@ -72,3 +72,15 @@
 - [ ] **Step 3:** Implement: contract `BAD_REQUEST`, REST 400, DSL refused at plan with nothing written. Check warden's own seeded permissions (bootstrap) contain no such action.
 - [ ] **Step 4:** Docs: the permissions page states the rule. `go test ./...`, plugin-warden tests if the create form shows the refusal, fixture node check.
 - [ ] **Step 5:** Commit `feat(permissions): refuse a ':' in a permission's action`.
+
+### Task 5: REST holds the same invariants as the dashboard
+
+Added during execution (Task 1 found that the REST status table promised refusals REST never makes). The dashboard contract refuses a role inheritance cycle and any update or delete of a system role or permission; REST accepts both. Long term, every write path must hold the same invariants.
+
+**Files:** `api/role_handler.go`, `api/permission_handler.go` (update, delete, attach/detach if they can change a system role), the contract's existing checks (find them in `extension/contract/handlers_roles.go` and `handlers_permissions.go`, e.g. the system guards and the cycle check) moved to a package both can import if they are not already shared, tests, `rest-api.mdx`.
+
+- [ ] **Step 1:** Tests through REST: updating or deleting a system role or permission is refused with the contract's message and status mapping (`ErrSystemRoleImmutable`/`ErrSystemPermissionImmutable`, 400 per the current table, or 403 if that is truer; decide and keep the table true); setting a parent that creates a cycle is refused (`ErrCyclicRoleInheritance`); ordinary updates still work.
+- [ ] **Step 2:** Run. Expected: FAIL.
+- [ ] **Step 3:** Implement by sharing the contract's checks, not copying them. Check the DSL apply path holds the same invariants already (it has ProtectSystem); note any gap.
+- [ ] **Step 4:** `go test -race ./api/ ./extension/contract/`, `go test ./...`; the status table stays true.
+- [ ] **Step 5:** Commit `fix(api): refuse role cycles and edits to system roles and permissions, as the dashboard does`.
