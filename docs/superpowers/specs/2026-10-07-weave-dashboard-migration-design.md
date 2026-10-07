@@ -644,17 +644,29 @@ Two things about those shapes trip people up. `CompareHit` embeds `ScoredChunk` 
 
 `ScoredChunk.chunk` is the full `chunk.Chunk`, which has no vector field. The no-vectors rule holds without any stripping.
 
+`ChunkRef` is the input of `AssembleRefs`, which `retrieval.assemble` calls to re-assemble a ranking you already have, by chunk ID, without embedding anything.
+
+`hits`, `left_out` and the chunk list from `ListChunks` are always arrays. An empty one is `[]` on the wire, never `null`, so you don't need a null guard for any of them.
+
 ### Behaviours that differ from the plan
 
-Reordered and LeftOut are per query, whatever the retriever kind. The plan said `Reordered` is true for every non-similarity retriever. The controller ruled otherwise and the spec wins: `LeftOut` is the raw-window hits that are not in the final list and whose vector rank is better than the worst vector rank among the final hits (any rank counts if a final hit has vector rank 0), in vector order, capped at `TopK`. `Reordered` is true when some hit's `rank` differs from its `vector_rank`, or when `left_out` is not empty. An MMR retriever that happens to return raw order for one query reports `reordered: false`. So the page shows "No reordering" when `reordered` is false, and it names the retriever kind from `system.components`, never from the compare result. `same_search` is true when no retriever is configured, because both sides then come from one vector search and cannot disagree.
+Reordered and LeftOut are per query, whatever the retriever kind. The plan said `Reordered` is true for every non-similarity retriever. The controller ruled otherwise and the spec wins: `LeftOut` is the raw-window hits that are not in the final list and whose vector rank is better than the worst vector rank among the final hits (any rank counts if a final hit has vector rank 0), in vector order, capped at `TopK`. `Reordered` is true when some hit's `rank` differs from its `vector_rank`, or when `left_out` is not empty. An MMR retriever that happens to return raw order for one query reports `reordered: false`. `same_search` is true when no retriever is configured, because both sides then come from one vector search and cannot disagree.
+
+So the "No reordering" copy depends on why nothing moved. If `same_search` is true, or `components.retriever.kind` is `"similarity"`, you can say it about the deployment: this deployment returns the vector ranking as-is. If `reordered` is false under MMR, hybrid or rerank, say it about the query only: this query came back in vector order. The next query may not. Either way the page names the retriever kind from `system.components`, never from the compare result.
+
+`vector_rank` is 1-based. A 0 means the hit has no place in the raw window, either because it sat outside it or because it had no chunk ID to look up. A `left_out` hit always has `rank` 0, since it isn't in the final list, and its `score` is the raw vector score (cosine on the memory store and on pgvector), not whatever the retriever scores in. `compare_result.score` describes `hits` only. Label the left-out scores on the page as vector scores.
+
+Score ties no longer fake a move. `RetrieveCompare` runs two separate searches, and the memory store used to sort tied scores in map order, so a similarity retriever over tied chunks showed `reordered: true` and a non-empty `left_out` about a third of the time. The memory store and pgvector now break score ties by ID, so both searches agree. Fabriq's tie order is unknown.
 
 A hit has three possible states, and the page has to draw all three. Hydrated is the normal one. Orphaned means the vector store returned a chunk ID with no row in the metadata store (`hydrated` false, `orphaned` true). Unidentified means `hydrated` false and `orphaned` false: a custom retriever set no chunk ID, or returned a nil chunk, so `chunk` can be `null`. Both odd cases keep their rank. Don't drop them from the table.
+
+A hydrated hit keeps the vector store's metadata keys (`collection_id`, `document_id`, `tenant_id`, `chunk_index`) in `chunk.metadata`, with the row's own keys winning a clash. An orphan carries the same keys, because the vector store is all it has, so the two shapes match and you can read an orphan's document from `chunk.metadata.document_id`. Each hit is a copy of the stored row, and editing it never edits the store.
 
 Assembly skips a hit that does not fit and carries on, so a later, smaller hit can still get in. That means `included` is not a prefix. The page dims each row from `included`, and the budget line sits above the row at `first_excluded`. `first_excluded` also covers a hit with no chunk, not only a budget overrun, and it is `-1` when everything made it in. Marker `[n]` in `context` is hit `included[n-1]`. The token count is `chars/4`, and `token_counter` says so.
 
 `RetrieveCompare` emits no retrieval hooks. It also needs the engine's own embedder and vector store, so a retriever-only engine is refused. Don't wire the compare panel to anything that counts retrievals.
 
-Tenant filter semantics are now pinned on all four store backends and on retrieval. A nil tenant means every tenant. A pointer to `""` means only untenanted rows. The contract has to keep that difference: an absent `tenant` query parameter is not the same request as `tenant=`.
+Tenant filter semantics are pinned on all four store backends. On retrieval they're tested on the memory vector store only. pgvector's "verified" label rests on reading its code, because no pgvector test runs, and rows ingested through the `pipeline` package carry no `tenant_id` key at all (see the MIGRATION findings below). A nil tenant means every tenant. A pointer to `""` means only untenanted rows. The contract has to keep that difference: an absent `tenant` query parameter is not the same request as `tenant=`.
 
 Store additions, all covered by the conformance suite on every backend:
 
@@ -665,13 +677,15 @@ Store additions, all covered by the conformance suite on every backend:
 - A duplicate document (same content) and a duplicate collection name (on create or on rename) return `weave.ErrDuplicateDocument` and `weave.ErrCollectionAlreadyExists` on every backend. The contract should map both to a conflict, not a 500.
 - SQLite pages by offset without a limit.
 
+The contract must refuse a negative `limit` or `offset` as an invalid argument before it reaches a store. The memory store panics on a negative chunk offset, and the SQL backends hand back a raw driver error.
+
 ### Findings for MIGRATION.md
 
 Two items that slices 2 and 3 should carry into the migration notes.
 
 `pipeline/steps.go` leaves `tenant_id` out of the vector metadata for untenanted rows. The engine does not read that key for those rows today, so nothing breaks, but anything that filters vector metadata on `tenant_id = ""` would find nothing.
 
-Weave's own HTTP retrieve route now returns hydrated hits, with chunk IDs present, because `Retrieve` reads each hit back by ID. Clients that relied on the old thin hits get more fields than before. That costs one `GetChunk` per hit, which is fine at `TopK` scale and worth a batch getter if `TopK` grows.
+Weave's own HTTP retrieve route now returns hydrated hits, with chunk IDs present, because `Retrieve` reads each hit back by ID. Existing clients keep working. `chunk.metadata` still carries `collection_id`, `document_id`, `tenant_id` and `chunk_index`, and the hit gains the real top-level fields (`document_id`, `collection_id`, `tenant_id`, `index`, offsets and token count) beside them. That costs one `GetChunk` per hit, which is fine at `TopK` scale and worth a batch getter if `TopK` grows.
 
 ### What the plan did not predict
 
@@ -680,6 +694,7 @@ Weave's own HTTP retrieve route now returns hydrated hits, with chunk IDs presen
 - SQLite cannot take `OFFSET` without `LIMIT`, and the grove driver silently drops a negative limit. The store now sends `math.MaxInt32` as the limit when a caller gives an offset and no limit.
 - `go mod tidy` is not clean on `main`, and was not before this slice. It wants to drop about 25 unrelated indirect requirements. Slice 1 only moved `github.com/jackc/pgx/v5` to the direct block by hand and left the rest. Someone should decide on a whole-module tidy separately.
 - A freshly started Mongo container accepts TCP before `mongod` is ready, so the first conformance run against a two-minute-old container timed out on server selection. A re-run seconds later was fine. If you see that in CI, wait before you retry.
+- Postgres ingest with no metadata map was broken before this slice. The mappers passed a nil map into the `metadata NOT NULL` jsonb columns, so the write failed on the not-null constraint. Mongo refused the same writes against its schema, which wants an object. Both now store an empty map, and a `NilMetadata` conformance case writes a collection, a document and a chunk with nil metadata on all four backends.
 - The default `golangci-lint` run holds a lock, and four tasks could not lint at all. The findings they carried (one `unnamedResult`, two `shadow`, two `prealloc`) are cleared in the last commit below, and the fresh-cache run now reports `0 issues`.
 
 ### Commits
@@ -702,5 +717,6 @@ Weave `main`, in the order they landed. Task numbers are the plan's.
 | 12 | `bfe9f79`, `2eedaf0` |
 | 13 | `2a1f10c` |
 | 14 | `5621a2c` |
+| Review fixes | `9a0838c`, `c9a8de0`, `6eac0f4`, `bd5bae3`, `0d29d1b` |
 
-Task 1 also carries `973f5b4`, the test helpers that refuse ports 5432 and 27017 however the DSN spells them. Task 14 is the lint clean-up, `chore: clear the lint the slice left behind`. Nothing is pushed.
+Task 1 also carries `973f5b4`, the test helpers that refuse ports 5432 and 27017 however the DSN spells them. Task 14 is the lint clean-up, `chore: clear the lint the slice left behind`. The review fixes came out of the final whole-slice review: score ties broken by ID (`9a0838c`), vector metadata kept on hydrated hits that no longer share the store's chunk (`c9a8de0`), empty lists answered as arrays (`6eac0f4`), nil metadata stored as empty on Postgres and Mongo (`bd5bae3`), and a lint fix in the orphan test (`0d29d1b`). Nothing is pushed.
