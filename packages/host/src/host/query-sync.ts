@@ -13,6 +13,10 @@ import type { QueryStore } from "@forge-go/dashboard-plugin"
  * refetch. The other tabs used to keep showing the old org's rows until
  * something happened to refetch them. Now the tab that clears says so, and
  * every other tab clears too.
+ *
+ * A change made outside the dashboard (an org switched in another tool) sends
+ * no message, so a tab that was hidden also revalidates when it is shown
+ * again: everything watched refetches with its rows left on screen.
  */
 
 /** What one tab tells the others. `seq` makes each write unique, which the storage fallback needs. */
@@ -50,6 +54,18 @@ export const QUERY_SYNC_STORAGE_KEY = "forge-dashboard:query-store-cleared"
  * the window is swallowed: the operator's next switch goes out as usual.
  */
 const ECHO_WINDOW_MS = 10_000
+
+/**
+ * The least time between two revalidations on return, counted from the last
+ * time this tab refreshed everything (a revalidation or a clear).
+ *
+ * Without it, flicking between tabs would refetch every watched query on
+ * each flick. Ten seconds lets a glance at another tab cost nothing while
+ * still catching a switch made in another tool, which takes longer than that
+ * to make and come back from. A switch made in another dashboard tab never
+ * waits on this: it arrives as a message.
+ */
+export const REVALIDATE_MIN_INTERVAL_MS = 10_000
 
 function isClearMessage(value: unknown): value is ClearMessage {
   if (typeof value !== "object" || value === null) return false
@@ -132,6 +148,7 @@ export function createQuerySync(options: QuerySyncOptions = {}): QuerySync {
   let seq = 0
   let pending = false
   let echoUntil = 0
+  let lastRefreshAt = now()
 
   const hidden = () => document.visibilityState === "hidden"
 
@@ -150,22 +167,44 @@ export function createQuerySync(options: QuerySyncOptions = {}): QuerySync {
       return
     }
     store.clear()
-    echoUntil = now() + ECHO_WINDOW_MS
+    lastRefreshAt = now()
+    echoUntil = lastRefreshAt + ECHO_WINDOW_MS
   })
 
+  // Set on the way out, so only a real return from hidden counts. A browser
+  // that fires "visible" twice gets one revalidation, not two.
+  let away = hidden()
+
   const onVisibilityChange = () => {
-    if (hidden() || !pending) return
-    pending = false
-    // Not marked as an echo. This tab is the one in front of the operator
-    // now, and whatever it does next (its URL reconciling the server, say)
-    // is news the other tabs should hear.
-    store.clear()
+    if (hidden()) {
+      away = true
+      return
+    }
+    if (!away) return
+    away = false
+
+    if (pending) {
+      pending = false
+      lastRefreshAt = now()
+      // A known change beats a guess, and a clear refetches everything a
+      // revalidation would, so this replaces it rather than adding to it.
+      // Not marked as an echo either: this tab is the one in front of the
+      // operator now, and whatever it does next (its URL reconciling the
+      // server, say) is news the other tabs should hear.
+      store.clear()
+      return
+    }
+
+    if (now() - lastRefreshAt < REVALIDATE_MIN_INTERVAL_MS) return
+    lastRefreshAt = now()
+    store.revalidate()
   }
   document.addEventListener("visibilitychange", onVisibilityChange)
 
   return {
     clear() {
       store.clear()
+      lastRefreshAt = now()
       // This clear covers whatever another tab asked for while we were away.
       pending = false
       const echo = now() < echoUntil
@@ -195,7 +234,7 @@ export function clearQueries(): void {
   else queryStore.clear()
 }
 
-/** Installs the cross-tab sync for as long as the calling component is mounted. */
+/** Installs the cross-tab sync and the revalidation on return for as long as the calling component is mounted. */
 export function useQuerySync(): void {
   useEffect(() => {
     const sync = createQuerySync()

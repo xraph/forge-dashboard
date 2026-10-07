@@ -4,6 +4,7 @@ import { QueryStore } from "@forge-go/dashboard-plugin"
 import {
   QUERY_SYNC_CHANNEL,
   QUERY_SYNC_STORAGE_KEY,
+  REVALIDATE_MIN_INTERVAL_MS,
   clearQueries,
   createQuerySync,
   useQuerySync,
@@ -213,6 +214,90 @@ describe("query sync across tabs", () => {
     const here = fakeStore()
     sync({ store: here }).clear()
     expect(here.clear).toHaveBeenCalledOnce()
+  })
+})
+
+describe("revalidating when a tab comes back", () => {
+  const open: QuerySync[] = []
+  let now = 1_000_000
+  function sync(store: ReturnType<typeof fakeStore>, transport = bus().factory) {
+    const created = createQuerySync({ store, transport, now: () => now })
+    open.push(created)
+    return created
+  }
+
+  beforeEach(() => {
+    now = 1_000_000
+    setHidden(false)
+  })
+  afterEach(() => {
+    for (const created of open.splice(0)) created.dispose()
+    setHidden(false)
+  })
+
+  it("revalidates every watched query once when a hidden tab becomes visible", () => {
+    const store = fakeStore()
+    sync(store)
+
+    setHidden(true)
+    now += REVALIDATE_MIN_INTERVAL_MS
+    setHidden(false)
+    // A browser can repeat the event. Only a return from hidden counts.
+    document.dispatchEvent(new Event("visibilitychange"))
+
+    expect(store.revalidate).toHaveBeenCalledOnce()
+    expect(store.clear).not.toHaveBeenCalled()
+  })
+
+  it("does not revalidate on a quick hide and show inside the interval", () => {
+    const store = fakeStore()
+    sync(store)
+
+    setHidden(true)
+    now += REVALIDATE_MIN_INTERVAL_MS
+    setHidden(false)
+    expect(store.revalidate).toHaveBeenCalledOnce()
+
+    // Flipping back and forth costs nothing until the interval has passed
+    // since the last revalidation, then costs exactly one more.
+    for (let flip = 0; flip < 5; flip++) {
+      now += 1_000
+      setHidden(true)
+      setHidden(false)
+    }
+    expect(store.revalidate).toHaveBeenCalledOnce()
+
+    now += REVALIDATE_MIN_INTERVAL_MS
+    setHidden(true)
+    setHidden(false)
+    expect(store.revalidate).toHaveBeenCalledTimes(2)
+  })
+
+  it("counts a clear as a refresh, so a return just after one does not revalidate", () => {
+    const store = fakeStore()
+    const here = sync(store)
+
+    now += REVALIDATE_MIN_INTERVAL_MS
+    here.clear()
+    now += 1_000
+    setHidden(true)
+    setHidden(false)
+    expect(store.revalidate).not.toHaveBeenCalled()
+  })
+
+  it("applies a held clear on return instead of revalidating", () => {
+    const channel = bus()
+    const there = fakeStore()
+    const sender = sync(fakeStore(), channel.factory)
+    sync(there, channel.factory)
+
+    setHidden(true)
+    now += REVALIDATE_MIN_INTERVAL_MS
+    sender.clear()
+    setHidden(false)
+
+    expect(there.clear).toHaveBeenCalledOnce()
+    expect(there.revalidate).not.toHaveBeenCalled()
   })
 })
 
