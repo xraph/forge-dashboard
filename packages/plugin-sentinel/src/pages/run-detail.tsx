@@ -8,10 +8,12 @@ import { StatGrid } from "@forge-go/dashboard-kit/components/stat-grid"
 import { Timestamp } from "@forge-go/dashboard-kit/components/timestamp"
 import { RunStateBadge } from "../badges"
 import { ResultsSection } from "../components/results-section"
+import { RunCharts } from "../components/run-charts"
 import { CancelRunDialog, SaveBaselineDialog } from "../components/run-dialogs"
 import { RUN_POLL_MS } from "../components/runs-list"
 import { SettledBoundary } from "../components/settled-boundary"
 import { VerdictBand } from "../components/verdict-band"
+import { ViewAgainst, type ViewChoice } from "../components/view-against"
 import {
   formatCost,
   formatCount,
@@ -22,7 +24,7 @@ import {
   suitePath,
   versionPath,
 } from "../format"
-import type { ResultStatus, Run, RunDetail } from "../types"
+import type { Regression, ResultStatus, Run, RunDetail } from "../types"
 
 /** /runs/:id. Guards the id, then keys the body on it. */
 export const RunDetailPage: ComponentType<PluginPageProps> = ({ params }) => {
@@ -43,14 +45,26 @@ function RunDetailBody({ runId }: { runId: string }) {
   const [saving, setSaving] = useState(false)
   const [cancelling, setCancelling] = useState(false)
   const [target, setTarget] = useState<Run | null>(null)
+  // Another baseline or threshold, for this view only. The run's own answer
+  // stays in runs.detail; runs.regression answers the chosen one.
+  const [choice, setChoice] = useState<ViewChoice | null>(null)
+  const chosen = useQuery<Regression>("runs.regression", { runId, ...choice }, { enabled: choice !== null })
+  const own = detail.data?.regression
+  // While the chosen answer loads, or if it was refused, the run's own
+  // stands, and the band names whichever baseline is actually on screen.
+  const viewed = choice !== null ? chosen.data : undefined
+  const regression = viewed ?? own
+  const baselineNote =
+    viewed?.baseline && viewed.baseline.id !== own?.baseline?.id ? "chosen for this view" : "current baseline"
   return (
     <section className="flex flex-col gap-6">
       <SettledBoundary title="Run" query={detail} skeletonRows={6}>
-        {({ run, regression }) => {
+        {({ run, regression: ownAnswer }) => {
+          const answer = regression ?? ownAnswer
           const saveButton =
             run.state === "completed" ? (
               <Button
-                variant={regression.state === "noBaseline" ? "default" : "outline"}
+                variant={answer.state === "noBaseline" ? "default" : "outline"}
                 onClick={() => {
                   setTarget(run)
                   setSaving(true)
@@ -66,7 +80,7 @@ function RunDetailBody({ runId }: { runId: string }) {
                   title={`Run ${shortRunId(run.id)}`}
                   actions={
                     <>
-                      {regression.state !== "noBaseline" && saveButton}
+                      {answer.state !== "noBaseline" && saveButton}
                       {run.state === "running" && (
                         <Button
                           variant="outline"
@@ -85,8 +99,9 @@ function RunDetailBody({ runId }: { runId: string }) {
               </div>
               <VerdictBand
                 run={run}
-                regression={regression}
-                action={regression.state === "noBaseline" ? saveButton : undefined}
+                regression={answer}
+                baselineNote={baselineNote}
+                action={answer.state === "noBaseline" ? saveButton : undefined}
               />
               <StatGrid items={stats(run)} />
               <ScoredWith run={run} />
@@ -94,15 +109,27 @@ function RunDetailBody({ runId }: { runId: string }) {
           )
         }}
       </SettledBoundary>
-      {detail.data && (
-        <ResultsSection
-          runId={runId}
-          status={status}
-          onStatusChange={setStatus}
-          running={running}
-          baselineId={detail.data.regression.state === "compared" ? detail.data.regression.baseline?.id : undefined}
-          threshold={detail.data.regression.threshold}
-        />
+      {detail.data && regression && (
+        <>
+          {detail.data.run.state === "completed" && (
+            <ViewAgainst
+              suiteId={detail.data.run.suiteId}
+              recordedThreshold={own?.threshold}
+              choice={choice}
+              onChange={setChoice}
+              error={choice !== null ? chosen.error?.message : undefined}
+            />
+          )}
+          <RunCharts runId={runId} run={detail.data.run} regression={regression} />
+          <ResultsSection
+            runId={runId}
+            status={status}
+            onStatusChange={setStatus}
+            running={running}
+            baselineId={regression.state === "compared" ? regression.baseline?.id : undefined}
+            threshold={regression.threshold}
+          />
+        </>
       )}
       {target && (
         <>

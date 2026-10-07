@@ -7,7 +7,7 @@ import {
   type Column,
 } from "@forge-go/dashboard-kit/components/resource-table"
 import { RedTeamBadge, ResultStatusBadge } from "../badges"
-import { formatCost, formatCount, formatDelta, formatLatency, formatScore, plural, resultPath } from "../format"
+import { fellPast, formatCost, formatCount, formatDelta, formatLatency, formatScore, plural, resultPath } from "../format"
 import type { BaselineDetail, ResultRow, ResultStatus, RunResults } from "../types"
 import { RUN_POLL_MS } from "./runs-list"
 import { SettledBoundary } from "./settled-boundary"
@@ -38,7 +38,7 @@ function changeColumn(baseline: BaselineScores, threshold: number | undefined): 
       const old = baseline.scores.get(r.caseId)
       if (old === undefined) return <NoneCell label="baseline score" />
       const delta = r.score - old
-      const regressed = threshold !== undefined && delta < -threshold - 1e-9
+      const regressed = fellPast(delta, threshold)
       return regressed ? (
         <span className="font-medium">{`${formatDelta(delta)} regressed`}</span>
       ) : (

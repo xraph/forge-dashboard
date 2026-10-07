@@ -2,7 +2,7 @@ import { useEffect, useState } from "react"
 import type { ReactNode } from "react"
 import { CircleCheckIcon, CircleDashedIcon, TriangleAlertIcon } from "@forge-go/dashboard-kit/icons"
 import { cn } from "@forge-go/dashboard-kit/lib/utils"
-import { ago, formatDelta, formatScore, formatThreshold, plural } from "../format"
+import { ago, fellPast, formatDelta, formatScore, formatThreshold, plural } from "../format"
 import type { Regression, Run } from "../types"
 import { ProgressMeter } from "./progress-meter"
 
@@ -25,12 +25,15 @@ export function VerdictBand({
   run,
   regression,
   action,
+  baselineNote = "current baseline",
   now: fixedNow,
 }: {
   run: Run
   regression: Regression
   /** A button the band offers, such as "Save as baseline" on a run with no baseline. */
   action?: ReactNode
+  /** What the compared baseline is to this view: the current one, or one chosen for it. */
+  baselineNote?: string
   /** For tests: the moment "last progress" is measured from. */
   now?: number
 }) {
@@ -59,8 +62,7 @@ export function VerdictBand({
     // case regress when they fall more than the threshold below the
     // baseline. The evidence names whichever did, so "Regressed" is never
     // shown beside numbers that hold.
-    const t = regression.threshold
-    const fell = (delta: number) => t !== undefined && delta < -t - 1e-9
+    const fell = (delta: number) => fellPast(delta, regression.threshold)
     const fallenDimensions = Object.entries(regression.dimensionDeltas)
       .filter(([, delta]) => fell(delta))
       .sort(([a], [b]) => a.localeCompare(b))
@@ -92,7 +94,7 @@ export function VerdictBand({
         <p className="text-base font-medium">
           {regressed ? `Regressed against "${name}"` : `Within threshold of "${name}"`}
           <span className="font-normal text-muted-foreground">
-            {` (current baseline), threshold ${threshold} ${source}`}
+            {` (${baselineNote}), threshold ${threshold} ${source}`}
           </span>
         </p>
         <p className="text-sm text-muted-foreground">{evidence.join(" · ")}</p>

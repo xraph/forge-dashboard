@@ -31,6 +31,7 @@ function answers(detail: RunDetail = runDetail()) {
       counts: { pass: 3, fail: 1, error: 0 },
     },
     "baselines.detail": baselineDetail(),
+    "redteam.report": null,
   }
 }
 
@@ -311,7 +312,10 @@ describe("ResultsSection", () => {
         : answers()[intent as keyof ReturnType<typeof answers>],
     )
     renderNavPage(RunDetailPage, client, { id: RUN_ID })
-    expect((await screen.findByText("store unavailable", { exact: false })).getAttribute("role")).toBe("alert")
+    expect(
+      (await screen.findByText("The baseline's saved scores could not be read", { exact: false })).getAttribute("role"),
+    ).toBe("alert")
+    expect(screen.getByText("The scores could not be read. store unavailable").getAttribute("role")).toBe("alert")
     const table = screen.getByRole("region", { name: "4 results" })
     expect(within(table).getAllByLabelText("no readable baseline score")).toHaveLength(2)
     expect(within(table).queryByLabelText("no baseline score")).toBeNull()
