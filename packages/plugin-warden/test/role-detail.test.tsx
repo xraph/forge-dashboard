@@ -550,8 +550,35 @@ describe("WardenRoleDetailPage", () => {
       type("Name", "Renamed")
       fireEvent.click(save)
       await waitFor(() => expect(sent).toHaveLength(1))
-      expect(await screen.findByRole("button", { name: "Edit" })).toBeTruthy()
+      const trigger = await screen.findByRole("button", { name: "Edit" })
       expect(screen.queryByRole("button", { name: "Save changes" })).toBeNull()
+      // The form unmounted under the focus, so it goes back to Edit.
+      await waitFor(() => expect(document.activeElement).toBe(trigger))
+    })
+
+    it("moves focus to the first field when the form opens", async () => {
+      renderPage(WardenRoleDetailPage, recording().client, { id: "role_01hq" })
+      await openEdit()
+      await waitFor(() => expect(document.activeElement).toBe(field("Name")))
+    })
+
+    it("returns focus to Edit on cancel", async () => {
+      renderPage(WardenRoleDetailPage, recording().client, { id: "role_01hq" })
+      await openEdit()
+      fireEvent.click(screen.getByRole("button", { name: "Cancel" }))
+      const trigger = await screen.findByRole("button", { name: "Edit" })
+      await waitFor(() => expect(document.activeElement).toBe(trigger))
+    })
+
+    it("links each hint to its field as the field's description", async () => {
+      renderPage(WardenRoleDetailPage, recording().client, { id: "role_01hq" })
+      await openEdit()
+      const described = (label: string) =>
+        document.getElementById(field(label).getAttribute("aria-describedby") ?? "")?.textContent
+      expect(described("Inherits from")).toBe(
+        "The slug of another role in this namespace. Leave it empty for no parent."
+      )
+      expect(described("Member cap")).toMatch(/^Leave it empty for no limit\./)
     })
 
     it("closes on cancel without sending anything, and forgets the abandoned edit", async () => {

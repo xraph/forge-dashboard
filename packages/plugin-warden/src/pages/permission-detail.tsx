@@ -1,4 +1,4 @@
-import { useState } from "react"
+import { useEffect, useRef, useState } from "react"
 import { PluginLink, useCommand, useNavigateTo, useQuery } from "@forge-go/dashboard-plugin"
 import type { PluginPageProps } from "@forge-go/dashboard-plugin"
 import { Alert } from "@forge-go/dashboard-kit/components/alert"
@@ -24,6 +24,7 @@ import {
 import { Timestamp } from "@forge-go/dashboard-kit/components/timestamp"
 import { ZeroState } from "@forge-go/dashboard-kit/components/zero-state"
 import { NamespaceCell } from "../components/namespace-filter"
+import { useEditToggle } from "../components/use-edit-toggle"
 import type { PermissionSummary } from "./role-detail"
 import type { AckResponse, RoleSummary } from "./roles"
 
@@ -48,7 +49,7 @@ export function WardenPermissionDetailPage({ params }: PluginPageProps) {
   const navigate = useNavigateTo()
 
   const [deleting, setDeleting] = useState(false)
-  const [editing, setEditing] = useState(false)
+  const edit = useEditToggle()
   // `permissions.delete` gives this page no intent to refetch that would say
   // the permission it is showing is gone, so once a delete succeeds the page
   // stops rendering the permission at once, rather than waiting on a
@@ -94,9 +95,9 @@ export function WardenPermissionDetailPage({ params }: PluginPageProps) {
               // rejection. Neither while the form is open, either: they
               // would act on a page the operator is mid-edit on.
               !permission.isSystem &&
-              !editing && (
+              !edit.editing && (
                 <>
-                  <Button variant="outline" onClick={() => setEditing(true)}>
+                  <Button variant="outline" ref={edit.triggerRef} onClick={edit.open}>
                     Edit description
                   </Button>
                   <Button
@@ -172,8 +173,8 @@ export function WardenPermissionDetailPage({ params }: PluginPageProps) {
               </div>
             }
             main={
-              editing ? (
-                <DescriptionForm permission={permission} onDone={() => setEditing(false)} />
+              edit.editing ? (
+                <DescriptionForm permission={permission} onDone={edit.close} />
               ) : (
                 <GrantedByTable roles={permission.grantedBy ?? []} />
               )
@@ -223,6 +224,10 @@ function DescriptionForm({
   const [description, setDescription] = useState(permission.description ?? "")
   const next = description.trim()
   const dirty = next !== (permission.description ?? "").trim()
+  // The button that opened this form unmounted, so focus moves here rather
+  // than falling to the page body.
+  const inputRef = useRef<HTMLInputElement>(null)
+  useEffect(() => inputRef.current?.focus(), [])
 
   async function submit() {
     if (!dirty) return
@@ -246,10 +251,12 @@ function DescriptionForm({
         <Label htmlFor="permission-edit-description">Description</Label>
         <Input
           id="permission-edit-description"
+          ref={inputRef}
+          aria-describedby="permission-edit-description-hint"
           value={description}
           onChange={(e) => setDescription(e.target.value)}
         />
-        <p className="text-xs text-muted-foreground">
+        <p id="permission-edit-description-hint" className="text-xs text-muted-foreground">
           Leave it empty to remove the description.
         </p>
       </div>

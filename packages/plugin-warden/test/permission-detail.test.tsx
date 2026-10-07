@@ -539,6 +539,35 @@ describe("WardenPermissionDetailPage", () => {
       })
     })
 
+    it("moves focus into the form when it opens", async () => {
+      // The button that opened it is gone, so focus must not fall to the
+      // page body.
+      show()
+      const input = await openEdit()
+      await waitFor(() => expect(document.activeElement).toBe(input))
+    })
+
+    it("returns focus to Edit description when the form closes", async () => {
+      show()
+      await openEdit()
+      fireEvent.click(screen.getByRole("button", { name: "Cancel" }))
+      await waitFor(() =>
+        expect(document.activeElement).toBe(
+          screen.getByRole("button", { name: "Edit description" })
+        )
+      )
+    })
+
+    it("links the hint to the field as its description", async () => {
+      show()
+      const input = await openEdit()
+      const hint = input.getAttribute("aria-describedby")
+      expect(hint).toBeTruthy()
+      expect(document.getElementById(hint as string)?.textContent).toBe(
+        "Leave it empty to remove the description."
+      )
+    })
+
     it("hides the other actions while the form is open", async () => {
       show()
       await openEdit()
@@ -561,10 +590,13 @@ describe("WardenPermissionDetailPage", () => {
     })
 
     it("shows the server's refusal and keeps what was typed", async () => {
+      // What an ordinary permission's update gets when another operator
+      // deleted it while this form was open: the Go handler's read is
+      // NOT_FOUND, with the store's own text.
       const { client: c } = refusing(
         new ContractError(
-          "PERMISSION_DENIED",
-          '"document:read" is a system permission and cannot be changed or deleted'
+          "NOT_FOUND",
+          "permission perm_01a: warden: permission not found: warden: not found"
         )
       )
       renderPage(WardenPermissionDetailPage, c, { id: "perm_01a" })
@@ -573,8 +605,8 @@ describe("WardenPermissionDetailPage", () => {
       fireEvent.click(screen.getByRole("button", { name: "Save description" }))
       const alert = await screen.findByRole("alert")
       expect(alert.textContent).toContain("Could not save the description")
-      expect(alert.textContent).toContain("cannot be changed or deleted")
-      expect(alert.textContent).toContain("PERMISSION_DENIED")
+      expect(alert.textContent).toContain("permission not found")
+      expect(alert.textContent).toContain("NOT_FOUND")
       expect((screen.getByLabelText("Description") as HTMLInputElement).value).toBe(
         "read any document"
       )
@@ -619,7 +651,8 @@ describe("WardenPermissionDetailPage", () => {
       expect(await screen.findByText("read any document")).toBeTruthy()
       await waitFor(() => expect(screen.queryByLabelText("Description")).toBeNull())
       expect(queried.filter((q) => q === "permissions.detail").length).toBe(2)
-      expect(screen.getByRole("button", { name: "Edit description" })).toBeTruthy()
+      const trigger = screen.getByRole("button", { name: "Edit description" })
+      await waitFor(() => expect(document.activeElement).toBe(trigger))
     })
 
     it("clears an earlier refusal when the form opens again", async () => {

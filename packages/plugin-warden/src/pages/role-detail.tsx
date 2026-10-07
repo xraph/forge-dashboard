@@ -1,4 +1,4 @@
-import { useState } from "react"
+import { useEffect, useRef, useState } from "react"
 import { PluginLink, useCommand, useQuery } from "@forge-go/dashboard-plugin"
 import type { PluginPageProps } from "@forge-go/dashboard-plugin"
 import { Alert } from "@forge-go/dashboard-kit/components/alert"
@@ -24,6 +24,7 @@ import {
 } from "@forge-go/dashboard-kit/components/resource-table"
 import { Timestamp } from "@forge-go/dashboard-kit/components/timestamp"
 import { NamespaceCell } from "../components/namespace-filter"
+import { useEditToggle } from "../components/use-edit-toggle"
 import type { AckResponse, RoleSummary } from "./roles"
 
 /** Mirrors the Go `PermissionSummary`. */
@@ -96,7 +97,7 @@ export function WardenRoleDetailPage({ params }: PluginPageProps) {
   const [revoking, setRevoking] = useState<PermissionSummary | null>(null)
   const [attaching, setAttaching] = useState(false)
   const [replacing, setReplacing] = useState(false)
-  const [editing, setEditing] = useState(false)
+  const edit = useEditToggle()
 
   async function confirmRevoke() {
     if (!revoking) return
@@ -130,9 +131,9 @@ export function WardenRoleDetailPage({ params }: PluginPageProps) {
               // so none is offered there. While the form is open they
               // would be acting on a page the operator is mid-edit on.
               !role.isSystem &&
-              !editing && (
+              !edit.editing && (
                 <>
-                  <Button variant="outline" onClick={() => setEditing(true)}>
+                  <Button variant="outline" ref={edit.triggerRef} onClick={edit.open}>
                     Edit
                   </Button>
                   <Button
@@ -205,8 +206,8 @@ export function WardenRoleDetailPage({ params }: PluginPageProps) {
               />
             }
             main={
-              editing ? (
-                <EditForm role={role} onDone={() => setEditing(false)} />
+              edit.editing ? (
+                <EditForm role={role} onDone={edit.close} />
               ) : (
                 <div className="flex flex-col gap-6">
                   <GrantsTable
@@ -496,6 +497,10 @@ function EditForm({ role, onDone }: { role: RoleDetail; onDone: () => void }) {
 
   const nameBlank = name.trim() === ""
   const capInvalid = parsedCap === null
+  // The button that opened this form unmounted, so focus moves here rather
+  // than falling to the page body.
+  const nameRef = useRef<HTMLInputElement>(null)
+  useEffect(() => nameRef.current?.focus(), [])
 
   async function submit() {
     if (!dirty || nameBlank || capInvalid) return
@@ -517,6 +522,7 @@ function EditForm({ role, onDone }: { role: RoleDetail; onDone: () => void }) {
         <Label htmlFor="role-edit-name">Name</Label>
         <Input
           id="role-edit-name"
+          ref={nameRef}
           value={name}
           onChange={(e) => setName(e.target.value)}
         />
@@ -535,10 +541,11 @@ function EditForm({ role, onDone }: { role: RoleDetail; onDone: () => void }) {
           id="role-edit-parent"
           className="font-mono text-xs"
           placeholder="reader"
+          aria-describedby="role-edit-parent-hint"
           value={parentSlug}
           onChange={(e) => setParentSlug(e.target.value)}
         />
-        <p className="text-xs text-muted-foreground">
+        <p id="role-edit-parent-hint" className="text-xs text-muted-foreground">
           The slug of another role in this namespace. Leave it empty for no parent.
         </p>
       </div>
@@ -549,10 +556,11 @@ function EditForm({ role, onDone }: { role: RoleDetail; onDone: () => void }) {
           inputMode="numeric"
           placeholder="Unlimited"
           aria-invalid={capInvalid || undefined}
+          aria-describedby="role-edit-cap-hint"
           value={cap}
           onChange={(e) => setCap(e.target.value)}
         />
-        <p className="text-xs text-muted-foreground">
+        <p id="role-edit-cap-hint" className="text-xs text-muted-foreground">
           Leave it empty for no limit. Clearing a cap you had removes it. The
           cap is checked when a subject is assigned here or through
           warden&apos;s REST API; warden&apos;s bootstrap admin assignment
