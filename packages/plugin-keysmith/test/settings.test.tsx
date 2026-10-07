@@ -174,6 +174,19 @@ describe("SettingsPage", () => {
       expect(id.className).toContain("font-mono")
     })
 
+    it("falls back to the config sentence for a source it does not know", async () => {
+      // A newer server may add a source. It reads as config, as every
+      // non-claim source did before "scope".
+      renderSettings(
+        settings({ tenantSource: "header" as unknown as Settings["tenantSource"], tenant: "acme" }),
+      )
+      await screen.findByText("Healthy")
+      const tenant = section("Tenant")
+      expect(tenant.textContent).toContain(
+        "Taken from extensions.keysmith.dashboard.tenant_id in the server's configuration.",
+      )
+    })
+
     it("names the config key when the tenant came from config", async () => {
       renderSettings(settings({ tenantSource: "config", tenant: "acme" }))
       await screen.findByText("Healthy")

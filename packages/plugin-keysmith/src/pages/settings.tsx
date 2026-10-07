@@ -60,6 +60,7 @@ function Line({ children }: { children: ReactNode }) {
 /**
  * Where the tenant came from, one sentence per source. The order is
  * tenantFrom's: a claim wins, then the session's org, then the config key.
+ * Anything else gets the config sentence.
  */
 function TenantSourceLine({ source }: { source: TenantSource }) {
   switch (source) {
@@ -67,7 +68,10 @@ function TenantSourceLine({ source }: { source: TenantSource }) {
       return "Taken from the tenant claim your session carries."
     case "scope":
       return "Taken from your session's organization."
+    // A source a newer server added reads as config, the fallback it was
+    // before "scope" existed.
     case "config":
+    default:
       return (
         <>
           Taken from{" "}
