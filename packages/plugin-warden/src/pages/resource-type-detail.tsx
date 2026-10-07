@@ -80,8 +80,11 @@ export interface ExpressionDiagnostic {
 // What a bad reference actually does at check time (dsl/eval.go): a bare
 // reference is a raw tuple lookup, CheckDirectRelation, and never consults the
 // type's declared relations. So an undeclared name is not "dead". It matches a
-// subject holding a stray tuple with that exact relation name (relations.create
-// does not validate names against a schema), and is false for everyone else. A
+// subject holding a stray tuple with that exact relation name, and is false for
+// everyone else. relations.create, the REST write and a schema apply now refuse
+// a new tuple whose relation the governing type does not declare
+// (resourcetype.CheckTupleDeclared), but a stray tuple can still be stored: one
+// written before the declaration changed, or written straight to the store. A
 // NotExpr negates that, so `not ghost` is TRUE for almost every subject. The
 // warnings are written about the reference, never about the whole expression,
 // because only the reference's behaviour is certain: `viewer or ghost` still

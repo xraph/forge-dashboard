@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest"
 import { fireEvent, screen, waitFor, within } from "@testing-library/react"
 import { ContractError } from "@forge-go/dashboard-plugin"
 import { WardenResourceTypesPage } from "../src/pages/resource-types"
+import { buildSchemaGraph } from "../src/components/schema-graph"
 import {
   failingClient,
   recordingQueryClient,
@@ -328,12 +329,15 @@ describe("the resource types graph", () => {
     expect(
       container.querySelectorAll('[data-open-relation="watcher"]')
     ).toHaveLength(1)
-    // No edge is drawn for it.
+    // No edge is handed to the canvas for it: the edges are exactly the
+    // ones the graph without it gets, and none is labelled watcher.
+    const built = buildSchemaGraph(graph)
+    expect(built.edges.map((e) => e.id)).toEqual(
+      buildSchemaGraph(GRAPH).edges.map((e) => e.id)
+    )
     expect(
-      Array.from(container.querySelectorAll("[data-edge-source]")).filter((e) =>
-        (e.textContent ?? "").includes("watcher")
-      )
-    ).toHaveLength(0)
+      built.edges.filter((e) => String(e.label).includes("watcher"))
+    ).toEqual([])
     const details = screen
       .getByText("Relationships as text")
       .closest("details")!
