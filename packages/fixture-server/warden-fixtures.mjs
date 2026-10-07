@@ -6438,6 +6438,13 @@ export const wardenHandlers = {
       if (!payload?.resource || !payload?.action) {
         throw badRequest("a permission needs a resource and an action")
       }
+      // Mirrors permission.CheckAction: the engine joins resource and action
+      // with ':', so an action with one would alias another grant.
+      if (payload.action.includes(":")) {
+        throw badRequest(
+          `action "${payload.action}" contains ':': the engine joins resource and action with ':', so an action may not contain one`
+        )
+      }
       const want = `${payload.resource}:${payload.action}`
       const name = payload.name || want
       if (name !== want) {
