@@ -207,7 +207,12 @@ function stats(run: Run) {
     { label: "Avg score", value: formatScore(run.avgScore), hint: partial ? "So far" : undefined },
     { label: "Errored", value: run.errored, hint: "Cases that could not be judged" },
     { label: "Tokens", value: formatCount(run.totalTokens), hint: partial ? "So far" : undefined },
-    { label: "Cost reported by target", value: formatCost(run.totalCost), hint: "LLM judge calls are not metered" },
+    {
+      label: "Cost reported by target",
+      value: formatCost(run.totalCost),
+      // A target that reports nothing reads as $0.0000, which is not free.
+      hint: run.totalCost === 0 ? "The target reported none; LLM judge calls are not metered" : "LLM judge calls are not metered",
+    },
   ]
 }
 

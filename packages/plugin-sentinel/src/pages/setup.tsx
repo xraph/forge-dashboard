@@ -10,7 +10,7 @@ import {
   type Column,
 } from "@forge-go/dashboard-kit/components/resource-table"
 import { LlmBadge, NeedsConfigBadge } from "../badges"
-import { formatScore, plural } from "../format"
+import { formatThreshold, plural } from "../format"
 import type { ScorerInfo, SentinelConfig, TargetInfo } from "../types"
 
 const targetColumns: Column<TargetInfo>[] = [
@@ -96,10 +96,10 @@ export const SetupPage: ComponentType<PluginPageProps> = () => {
                     value: <span className="font-mono text-xs">{data.defaultModel}</span>,
                   },
                   { term: "Temperature", value: String(data.temperature) },
-                  { term: "Pass threshold", value: formatScore(data.passThreshold) },
+                  { term: "Pass threshold", value: formatThreshold(data.passThreshold) },
                   {
                     term: "Regression threshold",
-                    value: formatScore(data.regressionThreshold),
+                    value: formatThreshold(data.regressionThreshold),
                   },
                   { term: "Concurrency", value: String(data.concurrency) },
                 ]}

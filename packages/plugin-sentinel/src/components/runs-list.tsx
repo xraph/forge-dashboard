@@ -111,7 +111,9 @@ export function RunsList({
                 caption={
                   offset === 0 && !data.hasMore
                     ? `${data.items.length} ${data.items.length === 1 ? "run" : "runs"}, newest first`
-                    : `Runs ${first} to ${last}, newest first`
+                    : data.items.length === 0
+                      ? "0 runs on this page"
+                      : `Runs ${first} to ${last}, newest first`
                 }
                 emptyMessage={
                   offset > 0 ? "No runs on this page." : filtered ? "No runs match these filters." : "No runs yet."

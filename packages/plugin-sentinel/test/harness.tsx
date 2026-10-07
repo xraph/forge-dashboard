@@ -209,8 +209,10 @@ export function renderNavPage(
     <PluginProvider client={client}>
       <NavigationProvider
         value={{
-          Link: ({ to, children, className }) => (
-            <a href={to} className={className}>
+          // Passes every other prop through, as the shell's link does, so an
+          // aria-label a page sets reaches the anchor.
+          Link: ({ to, children, className, ...rest }) => (
+            <a href={to} className={className} {...rest}>
               {children}
             </a>
           ),

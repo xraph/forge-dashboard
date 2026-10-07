@@ -15,21 +15,10 @@ import { TagList } from "@forge-go/dashboard-kit/components/tag-list"
 import { Timestamp } from "@forge-go/dashboard-kit/components/timestamp"
 import { RedTeamBadge, ScenarioBadge } from "../badges"
 import { CaseFormDialog } from "../components/case-form-dialog"
+import { PlainText } from "../components/plain-text"
 import { SettledBoundary } from "../components/settled-boundary"
 import { plural, suitePath } from "../format"
 import type { ScorerConfig, Suite, TestCase } from "../types"
-
-/** Text as it was written: never markdown, never HTML, long lines wrapped. */
-function Text({ value, label }: { value: string; label: string }) {
-  return (
-    <pre
-      aria-label={label}
-      className="max-h-96 overflow-auto rounded-md border p-3 font-mono text-xs break-words whitespace-pre-wrap"
-    >
-      {value}
-    </pre>
-  )
-}
 
 /**
  * Keys a scorer row by its place in the list. A case may hold the same scorer
@@ -138,13 +127,13 @@ function CaseDetailBody({ caseId }: { caseId: string }) {
               <h2 id="sentinel-case-input" className="text-sm font-medium">
                 Input
               </h2>
-              <Text value={c.input} label="Input" />
+              <PlainText value={c.input} label="Input" />
             </section>
             <section aria-labelledby="sentinel-case-expected" className="flex flex-col gap-2">
               <h2 id="sentinel-case-expected" className="text-sm font-medium">
                 Expected output
               </h2>
-              {c.expected ? <Text value={c.expected} label="Expected output" /> : <NoneCell label="expected output" />}
+              {c.expected ? <PlainText value={c.expected} label="Expected output" /> : <NoneCell label="expected output" />}
             </section>
             <section aria-labelledby="sentinel-case-scorers" className="flex flex-col gap-2">
               <h2 id="sentinel-case-scorers" className="text-sm font-medium">
@@ -168,7 +157,7 @@ function CaseDetailBody({ caseId }: { caseId: string }) {
                 <h2 id="sentinel-case-context" className="text-sm font-medium">
                   Context
                 </h2>
-                <Text value={JSON.stringify(c.context, null, 2)} label="Context" />
+                <PlainText value={JSON.stringify(c.context, null, 2)} label="Context" />
               </section>
             )}
           </div>

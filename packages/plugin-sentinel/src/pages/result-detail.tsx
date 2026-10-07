@@ -17,7 +17,16 @@ import { SettledBoundary } from "../components/settled-boundary"
 import { casePath, formatCost, formatCount, formatLatency, formatScore, plural, runPath, shortRunId } from "../format"
 import type { ResultDetail, Run, RunDetail, ScorerResult, TestCase, ToolCall, TraceStep } from "../types"
 
-const scorerColumns: Column<ScorerResult & { key: string }>[] = [
+/** What a hidden reason or detail shows in its place. */
+const hiddenCell = <span className="text-muted-foreground">Hidden with the output</span>
+
+/**
+ * A red-team result's reasons and details stay hidden with its output: an LLM
+ * judge's reason can quote what the target said. The verdicts stay open.
+ */
+function scorerColumns(hidden: boolean): Column<ScorerResult & { key: string }>[] {
+  return [
+
   { id: "scorer", header: "Scorer", className: "font-mono text-xs font-medium", cell: (s) => s.scorerName },
   {
     id: "verdict",
@@ -36,31 +45,44 @@ const scorerColumns: Column<ScorerResult & { key: string }>[] = [
   {
     id: "reason",
     header: "Reason",
-    cell: (s) => (s.reason ? <span className="break-words whitespace-pre-wrap">{s.reason}</span> : <NoneCell label="reason" />),
+    cell: (s) =>
+      !s.reason ? (
+        <NoneCell label="reason" />
+      ) : hidden ? (
+        hiddenCell
+      ) : (
+        <span className="break-words whitespace-pre-wrap">{s.reason}</span>
+      ),
   },
   {
     id: "details",
     header: "Details",
     cell: (s) =>
-      s.details ? (
-        <pre className="font-mono text-xs break-words whitespace-pre-wrap">{JSON.stringify(s.details, null, 2)}</pre>
-      ) : (
+      !s.details ? (
         <NoneCell label="details" />
+      ) : hidden ? (
+        hiddenCell
+      ) : (
+        <pre className="max-h-40 overflow-auto font-mono text-xs break-words whitespace-pre-wrap">
+          {JSON.stringify(s.details, null, 2)}
+        </pre>
       ),
   },
-]
+  ]
+}
 
 const toolColumns: Column<ToolCall & { key: string }>[] = [
   { id: "tool", header: "Tool", className: "font-mono text-xs font-medium", cell: (t) => t.toolName },
   {
     id: "arguments",
     header: "Arguments",
-    cell: (t) => <pre className="font-mono text-xs break-words whitespace-pre-wrap">{t.arguments}</pre>,
+    // Bounded, so one long payload cannot stretch the table.
+    cell: (t) => <pre className="max-h-40 overflow-auto font-mono text-xs break-words whitespace-pre-wrap">{t.arguments}</pre>,
   },
   {
     id: "result",
     header: "Result",
-    cell: (t) => <pre className="font-mono text-xs break-words whitespace-pre-wrap">{t.result}</pre>,
+    cell: (t) => <pre className="max-h-40 overflow-auto font-mono text-xs break-words whitespace-pre-wrap">{t.result}</pre>,
   },
   {
     id: "error",
@@ -85,6 +107,8 @@ function ResultDetailBody({ runId, resultId }: { runId: string; resultId: string
   // The case as it is now, for the input. It may have been deleted since.
   const caseId = result.data?.caseId
   const testCase = useQuery<TestCase>("cases.detail", { caseId }, { enabled: caseId !== undefined })
+  // A red-team result's scorer reasons, revealed for this result only.
+  const [showReasons, setShowReasons] = useState(false)
   return (
     <section className="flex flex-col gap-6">
       <SettledBoundary title="Result" query={result} skeletonRows={6}>
@@ -103,7 +127,16 @@ function ResultDetailBody({ runId, resultId }: { runId: string; resultId: string
                 <h2 id="sentinel-result-error" className="text-sm font-medium">
                   Why it could not be judged
                 </h2>
-                <PlainText value={r.error} label="Error" />
+                {r.redTeam ? (
+                  <RevealText
+                    value={r.error}
+                    length={[...r.error].length}
+                    attackType={r.redTeam.attackType}
+                    label="Error"
+                  />
+                ) : (
+                  <PlainText value={r.error} label="Error" />
+                )}
               </section>
             )}
             <section aria-labelledby="sentinel-result-input" className="flex flex-col gap-2">
@@ -142,8 +175,20 @@ function ResultDetailBody({ runId, resultId }: { runId: string; resultId: string
               <h2 id="sentinel-result-scorers" className="text-sm font-medium">
                 How it was scored
               </h2>
+              {r.redTeam && r.scorerResults.some((sr) => sr.reason || sr.details) && (
+                <div className="flex flex-wrap items-center gap-2">
+                  <p className="text-sm text-muted-foreground">
+                    {showReasons
+                      ? "Showing the scorers' reasons."
+                      : "The scorers' reasons can quote the output, so they stay hidden with it."}
+                  </p>
+                  <Button variant="outline" size="sm" onClick={() => setShowReasons((on) => !on)}>
+                    {showReasons ? "Hide scorer reasons" : "Show scorer reasons"}
+                  </Button>
+                </div>
+              )}
               <ResourceTable<ScorerResult & { key: string }>
-                columns={scorerColumns}
+                columns={scorerColumns(r.redTeam !== undefined && !showReasons)}
                 rows={r.scorerResults.map((s, i) => ({ ...s, key: String(i) }))}
                 rowKey={(s) => s.key}
                 caption={plural(r.scorerResults.length, "scorer", "scorers")}

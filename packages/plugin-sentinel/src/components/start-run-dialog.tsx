@@ -234,5 +234,7 @@ function lastCost(data: RunsList | undefined, failed: boolean): string {
   if (!data) return "Reading the last run's cost."
   const run = data.items[0]
   if (!run) return "This suite has no completed run yet, so there is no cost to go on."
+  if (run.totalCost === 0)
+    return "The last completed run's target reported no cost. LLM judge calls are not metered either, so that is not a sign the run is free."
   return `The last completed run reported ${formatCost(run.totalCost)}. That is what the target reported; LLM judge calls are not metered and are not in it.`
 }
