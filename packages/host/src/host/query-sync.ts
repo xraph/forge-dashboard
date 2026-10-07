@@ -12,11 +12,20 @@ import type { QueryStore } from "@forge-go/dashboard-plugin"
  * sees a different person signed in, it clears its store and its pages
  * refetch. The other tabs used to keep showing the old org's rows until
  * something happened to refetch them. Now the tab that clears says so, and
- * every other tab clears too.
+ * every other tab clears too, once it is the one in front of the operator.
+ *
+ * "In front" means visible and focused. A tab that is hidden, or sits in a
+ * window that does not have focus, holds the clear until it gets focus (or
+ * until the operator presses a key or a pointer in it, whichever comes
+ * first). Clearing at once would refetch pages nobody is using, and a routed
+ * page there would read the new context, see that it disagrees with its own
+ * URL and switch the server back, undoing the switch the operator just made
+ * in the window they are actually using. Only the window in front ever
+ * reconciles the server to its URL.
  *
  * A change made outside the dashboard (an org switched in another tool) sends
- * no message, so a tab that was hidden also revalidates when it is shown
- * again: everything watched refetches with its rows left on screen.
+ * no message, so a tab that comes back to the front also revalidates:
+ * everything watched refetches with its rows left on screen.
  */
 
 /** What one tab tells the others. `seq` makes each write unique, which the storage fallback needs. */
@@ -42,28 +51,15 @@ export const QUERY_SYNC_CHANNEL = "forge-dashboard:query-store"
 export const QUERY_SYNC_STORAGE_KEY = "forge-dashboard:query-store-cleared"
 
 /**
- * How long after applying another tab's clear a clear of our own counts as a
- * reaction to it, and is kept local.
- *
- * The reaction is real. A routed page whose URL names app B, told that the
- * server now says app A, switches the server back to B and clears. If that
- * clear went out, the first tab (whose URL says A) would switch back to A,
- * and two visible windows on different apps would trade switches until one
- * closed. The reaction is two round trips (re-read the context, send the
- * switch), so ten seconds covers a slow server, and only the first clear in
- * the window is swallowed: the operator's next switch goes out as usual.
- */
-const ECHO_WINDOW_MS = 10_000
-
-/**
  * The least time between two revalidations on return, counted from the last
  * time this tab refreshed everything (a revalidation or a clear).
  *
  * Without it, flicking between tabs would refetch every watched query on
- * each flick. Ten seconds lets a glance at another tab cost nothing while
- * still catching a switch made in another tool, which takes longer than that
- * to make and come back from. A switch made in another dashboard tab never
- * waits on this: it arrives as a message.
+ * each flick. Ten seconds lets a glance at another tab cost nothing. A return
+ * inside the interval is not ignored, though: it schedules one revalidation
+ * for when the interval runs out, so a change made in another tool just
+ * after the last refresh still shows up without another flick. A switch made
+ * in another dashboard tab never waits on this: it arrives as a message.
  */
 export const REVALIDATE_MIN_INTERVAL_MS = 10_000
 
@@ -127,6 +123,12 @@ export interface QuerySyncOptions {
   store?: Pick<QueryStore, "clear" | "revalidate">
   transport?: TransportFactory
   now?: () => number
+  /**
+   * Whether this tab is the one in front of the operator. Defaults to
+   * visible and focused. Tests pass their own to stand two windows up in one
+   * document, which has only one focus.
+   */
+  inFront?: () => boolean
 }
 
 export interface QuerySync {
@@ -147,73 +149,128 @@ export function createQuerySync(options: QuerySyncOptions = {}): QuerySync {
   const source = sourceId()
   let seq = 0
   let pending = false
-  let echoUntil = 0
   let lastRefreshAt = now()
+  let trailing: ReturnType<typeof setTimeout> | undefined
 
-  const hidden = () => document.visibilityState === "hidden"
+  const inFront =
+    options.inFront ?? (() => document.visibilityState !== "hidden" && document.hasFocus())
+
+  const refreshed = () => {
+    lastRefreshAt = now()
+    if (trailing !== undefined) {
+      clearTimeout(trailing)
+      trailing = undefined
+    }
+  }
+
+  /**
+   * Applies a held clear if this tab is now the one in front, or `used` says
+   * the operator just pressed something in it. True when it did.
+   */
+  const applyPending = (used = false): boolean => {
+    if (!pending || !(used || inFront())) return false
+    pending = false
+    store.clear()
+    refreshed()
+    return true
+  }
 
   const transport = (options.transport ?? browserTransport)((message) => {
     // A tab never reacts to itself. BroadcastChannel already skips the
     // posting object, but a second sync in the same document (or a transport
     // that echoes) would not.
     if (message.source === source) return
-
-    // A hidden tab holds the clear until it is shown. Clearing now would
-    // refetch pages nobody is looking at, and worse, a routed page in that
-    // tab would reconcile the server back to its own URL's app, undoing the
-    // switch the operator just made in the tab they are actually using.
-    if (hidden()) {
-      pending = true
-      return
-    }
-    store.clear()
-    lastRefreshAt = now()
-    echoUntil = lastRefreshAt + ECHO_WINDOW_MS
+    // Usually this tab is not in front (the operator is in the one that
+    // sent the message) and the clear waits for focus. See the module docs.
+    pending = true
+    applyPending()
   })
 
-  // Set on the way out, so only a real return from hidden counts. A browser
-  // that fires "visible" twice gets one revalidation, not two.
-  let away = hidden()
+  const revalidate = () => {
+    const wait = lastRefreshAt + REVALIDATE_MIN_INTERVAL_MS - now()
+    if (wait <= 0) {
+      store.revalidate()
+      refreshed()
+      return
+    }
+    if (trailing !== undefined) return
+    trailing = setTimeout(() => {
+      trailing = undefined
+      if (!inFront()) {
+        // Gone again. The interval is spent, so the next return revalidates
+        // straight away.
+        away = true
+        return
+      }
+      store.revalidate()
+      refreshed()
+    }, wait)
+  }
 
-  const onVisibilityChange = () => {
-    if (hidden()) {
-      away = true
+  // Set on the way out (hidden or blurred), so only a real return counts. A
+  // browser that fires "visible" and "focus" together, or either one twice,
+  // gets one revalidation, not two.
+  let away = !inFront()
+
+  const onReturn = () => {
+    // Visible but not focused yet. The focus event that follows does the
+    // work; doing it now would let a window behind the operator's reconcile.
+    if (!inFront()) return
+    if (applyPending()) {
+      // A known change beats a guess, and a clear refetches everything a
+      // revalidation would.
+      away = false
       return
     }
     if (!away) return
     away = false
-
-    if (pending) {
-      pending = false
-      lastRefreshAt = now()
-      // A known change beats a guess, and a clear refetches everything a
-      // revalidation would, so this replaces it rather than adding to it.
-      // Not marked as an echo either: this tab is the one in front of the
-      // operator now, and whatever it does next (its URL reconciling the
-      // server, say) is news the other tabs should hear.
-      store.clear()
-      return
-    }
-
-    if (now() - lastRefreshAt < REVALIDATE_MIN_INTERVAL_MS) return
-    lastRefreshAt = now()
-    store.revalidate()
+    revalidate()
   }
+
+  const onVisibilityChange = () => {
+    if (document.visibilityState === "hidden") away = true
+    else onReturn()
+  }
+  const onBlur = () => {
+    away = true
+  }
+  // Belt and braces for the write path. Clicking into a window focuses it
+  // before the click lands, but the order of window focus against pointer
+  // events is the browser's business. A capturing pointerdown or keydown
+  // runs before any click or submit handler on the page, so a held clear is
+  // always applied before the operator's first action in this tab. It does
+  // not wait on hasFocus: an operator pressing something here is using this
+  // tab whatever the focus bookkeeping says.
+  const onInput = () => {
+    // The clear stands in for this return's revalidation, as in onReturn.
+    if (applyPending(true)) away = false
+  }
+
   document.addEventListener("visibilitychange", onVisibilityChange)
+  window.addEventListener("focus", onReturn)
+  window.addEventListener("blur", onBlur)
+  window.addEventListener("pointerdown", onInput, true)
+  window.addEventListener("keydown", onInput, true)
 
   return {
     clear() {
       store.clear()
-      lastRefreshAt = now()
+      refreshed()
       // This clear covers whatever another tab asked for while we were away.
       pending = false
-      const echo = now() < echoUntil
-      echoUntil = 0
-      if (echo) return
+      // Always told. Whatever made this clear (a picker, a different person
+      // signed in, a routed page reconciling the server to its URL) happened
+      // in the tab in front, or was this tab's own business, and the server
+      // has moved for every tab either way.
       transport?.post({ kind: "clear", source, seq: ++seq })
     },
     dispose() {
       document.removeEventListener("visibilitychange", onVisibilityChange)
+      window.removeEventListener("focus", onReturn)
+      window.removeEventListener("blur", onBlur)
+      window.removeEventListener("pointerdown", onInput, true)
+      window.removeEventListener("keydown", onInput, true)
+      if (trailing !== undefined) clearTimeout(trailing)
       transport?.close()
     },
   }
