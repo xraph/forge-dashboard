@@ -909,8 +909,9 @@ function ancestorNamespaces(path) {
  * tuple's object type at the nearest namespace up the tuple's chain (the
  * evaluator's findResourceType) governs it; none anywhere in the chain and
  * the tuple is not checked. One that governs must declare the relation, and
- * that relation must list the subject: "user" for user:x, "group#member" for
- * group:x#member, and neither for the other. lookup(ns, name) answers for a
+ * that relation must allow the subject: "user" for user:x, "group#member" for
+ * group:x#member, and neither for the other. A relation that lists no
+ * subject types allows any subject; it must still be declared. lookup(ns, name) answers for a
  * resource type, or null. Returns the refusal's text, or null.
  */
 function undeclaredTupleMessage(t, lookup) {
@@ -938,8 +939,8 @@ function undeclaredTupleMessage(t, lookup) {
     return head + `${type} declares no relation ${goQuote(t.relation)} (its relations are ${list(names)})`
   }
   const allowed = rel.allowedSubjects ?? []
-  if (allowed.includes(spec)) return null
-  if (allowed.length === 0) return head + `relation ${goQuote(t.relation)} of ${type} allows no subject type, so it cannot hold ${goQuote(spec)}`
+  // An empty list puts no limit on the subject type.
+  if (allowed.length === 0 || allowed.includes(spec)) return null
   return head + `relation ${goQuote(t.relation)} of ${type} allows subjects ${list(allowed)}, not ${goQuote(spec)}`
 }
 
