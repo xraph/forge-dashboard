@@ -938,3 +938,5 @@ The docs page `integration/dashboard.mdx` now describes the React plugin. We cou
 - the removals.
 
 The last slice 4 residual is closed too: the upload tray caps its list at 12rem and scrolls (forge-dashboard aa2c9cc). We checked it in the shell with twelve rows.
+
+Update, 2026-10-07: forge v1.12.0 is out, and its dashboard packages import neither templ nor forgeui. Trove's extension moved to it (trove 9e424f0), and `go mod tidy` took both out of the module graph. The two open items above about templ and forgeui are closed. Both modules build and pass their tests, and lint is unchanged at the 21 older issues.
