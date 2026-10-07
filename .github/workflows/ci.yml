@@ -36,7 +36,10 @@ jobs:
 
       - run: pnpm lint
 
-      - run: pnpm test
+      # Two packages at a time, not turbo's default of ten. Every package's
+      # vitest starts its own workers, and ten at once on a 4-vCPU runner ran
+      # chronicle tests that take a second or two locally past 20s.
+      - run: pnpm turbo test --concurrency=2
 
       # example-next's proxy route needs a forge target to build, and nothing
       # is listening in CI, so this only has to parse. turbo.json declares it
