@@ -16,7 +16,7 @@ import { Timestamp } from "@forge-go/dashboard-kit/components/timestamp"
 import { RotationReasonBadge } from "../badges"
 import { KeyCell, WindowCell } from "../components/rotation-cells"
 import { formatDuration, ROTATION_REASONS } from "../format"
-import { replaceKeyIdParam, useKeyIdParam, useKeyName } from "../key-filter"
+import { useKeyIdParam, useKeyName, useSetKeyIdParam } from "../key-filter"
 import type { RotationItem, RotationsList } from "../types"
 
 const PAGE_SIZE = 25
@@ -168,10 +168,11 @@ function KeyFilterChip({ keyId, onClear }: { keyId: string; onClear: () => void 
 /**
  * Every rotation across keys, newest first, or one key's when the address
  * names it (`?keyId=`, from that key's page). The key lives only in the
- * address: clearing it takes it out of there too, in place.
+ * address, and clearing it is a navigation, so the host's router sees it.
  */
 export const RotationsPage: ComponentType<PluginPageProps> = () => {
   const keyId = useKeyIdParam()
+  const setKeyId = useSetKeyIdParam("/rotations")
   // The offset belongs to the key it was paged under. A different key, from
   // the address or the chip, starts again at the first page, and coming back
   // to a key does not bring back the page left there. Adjusted during
@@ -228,7 +229,7 @@ export const RotationsPage: ComponentType<PluginPageProps> = () => {
       />
 
       {keyId !== "" && (
-        <KeyFilterChip keyId={keyId} onClear={() => replaceKeyIdParam("")} />
+        <KeyFilterChip keyId={keyId} onClear={() => setKeyId("")} />
       )}
 
       <QueryBoundary title="Rotations" query={list} skeletonRows={5}>

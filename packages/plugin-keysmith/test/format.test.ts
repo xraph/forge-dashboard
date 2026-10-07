@@ -258,6 +258,14 @@ describe("formatErrorRate", () => {
     expect(formatErrorRate(0.12345)).toBe("12.3%")
   })
 
+  it("never shows errors as 0.0% when there were some", () => {
+    // 1 in 5,000 is 0.02%, which one decimal would round to nothing.
+    expect(formatErrorRate(1 / 5000)).toBe("<0.1%")
+    expect(formatErrorRate(0.0004999)).toBe("<0.1%")
+    expect(formatErrorRate(0.0005)).toBe("0.1%")
+    expect(formatErrorRate(0)).toBe("0.0%")
+  })
+
   it("says there were no requests when there is no rate", () => {
     expect(formatErrorRate(null)).toBe("no requests")
   })

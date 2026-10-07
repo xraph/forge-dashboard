@@ -25,7 +25,7 @@ import {
   USAGE_RANGES,
   type UsageRangeId,
 } from "../format"
-import { replaceKeyIdParam, useKeyIdParam, useKeyName } from "../key-filter"
+import { useKeyIdParam, useKeyName, useSetKeyIdParam } from "../key-filter"
 import type {
   KeysList,
   UsageBucket,
@@ -247,6 +247,7 @@ export const UsagePage: ComponentType<PluginPageProps> = () => {
   // The key lives in the address (`?keyId=`), so a key's page can open this
   // one with it chosen. Only the key: range, view and page stay in state.
   const keyId = useKeyIdParam()
+  const setKeyId = useSetKeyIdParam("/usage")
   const [view, setView] = useState<"chart" | "table">("chart")
   // One-based, matching ResourceTable's PaginationState. The page belongs to
   // the key it was paged under: a different key starts again at page one,
@@ -300,9 +301,10 @@ export const UsagePage: ComponentType<PluginPageProps> = () => {
     setNow(Date.now())
     setPage(1)
   }
-  // In place, not a new history entry: Back leaves Usage, not the last key.
+  // A navigation, so the host's router (and the search it carries into every
+  // link) has the key you chose. Back returns to the key before.
   function changeKey(value: string) {
-    replaceKeyIdParam(value)
+    setKeyId(value)
     setNow(Date.now())
   }
 

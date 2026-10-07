@@ -347,7 +347,13 @@ const percent = new Intl.NumberFormat("en-US", {
   maximumFractionDigits: 1,
 })
 
-/** An error rate to one decimal, "0.5%", or "no requests" when there is none. */
+/**
+ * An error rate to one decimal, "0.5%", or "no requests" when there is none.
+ * A rate above zero that one decimal would round away reads "<0.1%": a range
+ * with a few 4xx in it is not a clean one.
+ */
 export function formatErrorRate(rate: number | null): string {
-  return rate === null ? "no requests" : percent.format(rate)
+  if (rate === null) return "no requests"
+  if (rate > 0 && rate < 0.0005) return "<0.1%"
+  return percent.format(rate)
 }

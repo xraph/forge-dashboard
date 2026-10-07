@@ -47,6 +47,8 @@ import type {
   RotationItem,
   RotationsList,
   Settings,
+  UsageBucket,
+  UsagePeriod,
   UsageSeries,
 } from "../types"
 
@@ -55,18 +57,32 @@ import type {
 // Recharts there too. The chart loads in its own chunk, inside a Suspense,
 // once a key with recorded usage asks for it. A chunk that will not load (a
 // deploy replaced it, the network dropped) costs the chart, not the page.
+// Both answers take the key's Usage link, which only the fallback uses.
+interface KeyChartProps {
+  buckets: UsageBucket[]
+  period: UsagePeriod
+  usageHref: string
+}
+
 const UsageChart = lazy(() =>
   import("../components/usage-chart")
-    .then((m) => ({ default: m.UsageChart }))
+    .then((m) => ({
+      default: ({ buckets, period }: KeyChartProps) => (
+        <m.UsageChart buckets={buckets} period={period} compact />
+      ),
+    }))
     .catch(() => ({ default: ChartUnavailable })),
 )
 
-/** In place of the chart when its chunk would not load. */
-function ChartUnavailable() {
+/**
+ * In place of the chart when its chunk would not load. Absolute, like Open
+ * usage: a relative link would pick up whatever search the router carries.
+ */
+function ChartUnavailable({ usageHref }: KeyChartProps) {
   return (
     <p className="text-sm text-muted-foreground">
       Chart unavailable.{" "}
-      <PluginLink to="/usage" className="underline underline-offset-4">
+      <PluginLink to={usageHref} className="underline underline-offset-4">
         See it on Usage
       </PluginLink>
       .
@@ -500,7 +516,11 @@ function UsageSection({ keyId }: { keyId: string }) {
                   </div>
                 }
               >
-                <UsageChart buckets={buckets} period={data.period} compact />
+                <UsageChart
+                  buckets={buckets}
+                  period={data.period}
+                  usageHref={usageForKey(keyId)}
+                />
               </Suspense>
             </>
           )

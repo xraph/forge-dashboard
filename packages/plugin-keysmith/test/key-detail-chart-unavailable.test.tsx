@@ -92,7 +92,8 @@ describe("KeyDetailPage usage when the chart cannot load", () => {
 
     const line = await within(s).findByText(/^Chart unavailable\./)
     const link = within(line).getByRole("link")
-    expect(link.getAttribute("href")).toBe("/usage")
+    // This key's usage, absolute like the section's own Open usage link.
+    expect(link.getAttribute("href")).toBe("/@keysmith/usage?keyId=akey_billing")
 
     expect(within(s).queryByRole("status", { name: "Loading the usage chart" })).toBeNull()
     expect(s.querySelector("[data-chart]")).toBeNull()

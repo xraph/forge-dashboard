@@ -10,6 +10,7 @@ import {
   failingClient,
   recordingQueryClient,
   renderPage,
+  renderRoutedPage,
   stubClient,
 } from "./harness"
 
@@ -503,7 +504,7 @@ describe("RotationsPage with a key in the address", () => {
 
   it("asks nothing about a key when the address names none", async () => {
     const { client, sent } = keyedClient(() => LIST)
-    renderPage(RotationsPage, client)
+    renderRoutedPage(RotationsPage, client)
     await screen.findByText("Partner sandbox")
     expect(sent.some((s) => s.intent === "keys.detail")).toBe(false)
     expect(screen.queryByRole("group", { name: "Key filter" })).toBeNull()
@@ -512,7 +513,7 @@ describe("RotationsPage with a key in the address", () => {
   it("narrows the list to that key and names it from keys.detail", async () => {
     openAt("?keyId=akey_billing")
     const { client, sent } = keyedClient(() => ({ items: [MANUAL], hasMore: false }))
-    renderPage(RotationsPage, client)
+    renderRoutedPage(RotationsPage, client)
     await within(keyFilter()).findByText("Billing service")
     expect(listCalls(sent)[0]).toEqual({ limit: 25, offset: 0, keyId: "akey_billing" })
     expect(sent.find((s) => s.intent === "keys.detail")?.params).toEqual({
@@ -527,7 +528,7 @@ describe("RotationsPage with a key in the address", () => {
       () => ({ items: [GONE], hasMore: false }),
       new ContractError("NOT_FOUND", "key not found"),
     )
-    renderPage(RotationsPage, client)
+    renderRoutedPage(RotationsPage, client)
     await screen.findByText("1 rotation")
     const id = await within(keyFilter()).findByText("akey_deleted")
     expect(id.className).toMatch(/font-mono/)
@@ -540,7 +541,7 @@ describe("RotationsPage with a key in the address", () => {
     const { client, sent } = keyedClient((params) =>
       params.keyId ? { items: [MANUAL], hasMore: false } : LIST,
     )
-    renderPage(RotationsPage, client)
+    const { router } = renderRoutedPage(RotationsPage, client)
     await within(keyFilter()).findByText("Billing service")
     const length = window.history.length
 
@@ -549,7 +550,44 @@ describe("RotationsPage with a key in the address", () => {
     expect(listCalls(sent).at(-1)).toEqual({ limit: 25, offset: 0 })
     expect(screen.queryByRole("group", { name: "Key filter" })).toBeNull()
     expect(window.location.search).toBe("")
-    expect(window.history.length).toBe(length)
+    // Through the router, one entry per change, so Back brings the key back.
+    expect(router.navigations).toEqual(["/@keysmith/rotations"])
+    expect(window.history.length).toBe(length + 1)
+  })
+
+  it("leaves the host nothing stale to carry once the key is cleared", async () => {
+    openAt("?keyId=akey_billing")
+    const { client } = keyedClient((params) =>
+      params.keyId ? { items: [MANUAL], hasMore: false } : LIST,
+    )
+    const { router } = renderRoutedPage(RotationsPage, client)
+    await within(keyFilter()).findByText("Billing service")
+    const sidebar = () => screen.getByRole("link", { name: "Sidebar rotations" })
+    expect(sidebar().getAttribute("href")).toBe("/@keysmith/rotations?keyId=akey_billing")
+
+    fireEvent.click(screen.getByRole("button", { name: "Clear the key filter" }))
+    await screen.findByText("Partner sandbox")
+    // The sidebar is built from the router's search. Had the URL been written
+    // behind the router's back, it would still carry the cleared key.
+    await waitFor(() => expect(router.search).toBe(""))
+    expect(sidebar().getAttribute("href")).toBe("/@keysmith/rotations")
+  })
+
+  it("brings the key back on Back after a clear", async () => {
+    openAt("?keyId=akey_billing")
+    const { client, sent } = keyedClient((params) =>
+      params.keyId ? { items: [MANUAL], hasMore: false } : LIST,
+    )
+    renderRoutedPage(RotationsPage, client)
+    await within(keyFilter()).findByText("Billing service")
+    fireEvent.click(screen.getByRole("button", { name: "Clear the key filter" }))
+    await screen.findByText("Partner sandbox")
+
+    act(() => window.history.back())
+    const chip = await screen.findByRole("group", { name: "Key filter" })
+    await within(chip).findByText("Billing service")
+    expect(window.location.search).toBe("?keyId=akey_billing")
+    expect(listCalls(sent).at(-1)).toEqual({ limit: 25, offset: 0, keyId: "akey_billing" })
   })
 
   it("keeps the key while paging and filtering by reason", async () => {
@@ -559,7 +597,7 @@ describe("RotationsPage with a key in the address", () => {
         ? { items: [MANUAL], hasMore: true }
         : { items: [{ ...MANUAL, id: "krot_9", reason: "policy" }], hasMore: false },
     )
-    renderPage(RotationsPage, client)
+    renderRoutedPage(RotationsPage, client)
     await within(keyFilter()).findByText("Billing service")
 
     fireEvent.click(screen.getByRole("button", { name: "Next page" }))
@@ -583,7 +621,7 @@ describe("RotationsPage with a key in the address", () => {
         ? { items: [MANUAL], hasMore: true }
         : { items: [POLICY], hasMore: false },
     )
-    renderPage(RotationsPage, client)
+    renderRoutedPage(RotationsPage, client)
     await within(keyFilter()).findByText("Billing service")
     fireEvent.click(screen.getByRole("button", { name: "Next page" }))
     await screen.findByText("Reporting export")
@@ -605,7 +643,7 @@ describe("RotationsPage with a key in the address", () => {
   it("says the key has not been rotated, and says so apart from a reason that matches nothing", async () => {
     openAt("?keyId=akey_billing")
     const { client } = keyedClient(() => ({ items: [], hasMore: false }))
-    renderPage(RotationsPage, client)
+    renderRoutedPage(RotationsPage, client)
     expect(await screen.findByText("This key has not been rotated.")).toBeTruthy()
     expect(screen.queryByText("No rotations yet.")).toBeNull()
 

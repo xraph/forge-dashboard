@@ -7,6 +7,7 @@ import {
   queryStore,
 } from "@forge-go/dashboard-plugin"
 import type { PluginPageProps, ScopedClient } from "@forge-go/dashboard-plugin"
+import { FakeHost } from "./fake-host"
 
 /**
  * `queryStore` is a module-level singleton, so an entry one test writes
@@ -154,4 +155,38 @@ export function renderPage(
       <Page params={params} />
     </PluginProvider>
   )
+}
+
+/** What the stand-in router has been told, as the host would see it. */
+export interface RouterState {
+  /** Every path handed to navigate, in order. */
+  navigations: string[]
+  /** The router's own idea of the current search, "?keyId=..." or "". */
+  search: string
+}
+
+/**
+ * Renders one plugin page inside a stand-in router (test/fake-host.tsx), at
+ * whatever address the test has already put in window.location. Returns what
+ * the router has been told.
+ */
+export function renderRoutedPage(
+  Page: ComponentType<PluginPageProps>,
+  client: ScopedClient,
+  params: PluginPageProps["params"] = {},
+) {
+  const router: RouterState = { navigations: [], search: "" }
+  const result = render(
+    <PluginProvider client={client}>
+      <FakeHost
+        onNavigate={(to) => router.navigations.push(to)}
+        onSearch={(search) => {
+          router.search = search
+        }}
+      >
+        <Page params={params} />
+      </FakeHost>
+    </PluginProvider>,
+  )
+  return { ...result, router }
 }

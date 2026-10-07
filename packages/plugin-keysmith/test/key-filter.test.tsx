@@ -9,10 +9,10 @@ import type { PluginLinkProps } from "@forge-go/dashboard-plugin"
 import keysmithPlugin from "../src/index"
 import {
   KEYSMITH_MOUNT,
-  replaceKeyIdParam,
   rotationsForKey,
   usageForKey,
   useKeyIdParam,
+  useSetKeyIdParam,
 } from "../src/key-filter"
 
 afterEach(() => {
@@ -69,13 +69,10 @@ describe("useKeyIdParam", () => {
     expect(renderHook(() => useKeyIdParam()).result.current).toBe("")
   })
 
-  it("follows a replace and the browser's back and forward", () => {
+  it("follows the browser's back and forward", () => {
     window.history.replaceState(null, "", "/@keysmith/usage")
     const { result } = renderHook(() => useKeyIdParam())
     expect(result.current).toBe("")
-
-    act(() => replaceKeyIdParam("akey_partner"))
-    expect(result.current).toBe("akey_partner")
 
     act(() => {
       window.history.replaceState(null, "", "/@keysmith/usage?keyId=akey_other")
@@ -85,34 +82,59 @@ describe("useKeyIdParam", () => {
   })
 })
 
-describe("replaceKeyIdParam", () => {
-  it("replaces the entry rather than adding one, and keeps the router's state", () => {
-    window.history.replaceState({ idx: 3, key: "k" }, "", "/@keysmith/usage")
-    const length = window.history.length
-    replaceKeyIdParam("akey_partner")
-    expect(window.location.pathname).toBe("/@keysmith/usage")
-    expect(window.location.search).toBe("?keyId=akey_partner")
-    expect(window.history.length).toBe(length)
-    expect(window.history.state).toEqual({ idx: 3, key: "k" })
+/**
+ * useSetKeyIdParam under a router that records where it was sent and, like
+ * react-router, writes the address as it goes.
+ */
+function setterUnder(path: "/rotations" | "/usage") {
+  const sent: string[] = []
+  const nav = {
+    Link: ({ to, children }: PluginLinkProps) => <a href={to}>{children}</a>,
+    navigate: (to: string) => {
+      sent.push(to)
+      window.history.pushState(null, "", to)
+    },
+    resolve: (to: string) => `/@keysmith${to}`,
+  }
+  const { result } = renderHook(
+    () => ({ set: useSetKeyIdParam(path), keyId: useKeyIdParam() }),
+    {
+      wrapper: ({ children }) => (
+        <NavigationProvider value={nav}>{children}</NavigationProvider>
+      ),
+    },
+  )
+  return { result, sent }
+}
+
+describe("useSetKeyIdParam", () => {
+  it("goes through the router to the absolute page, so the host sees the new key", () => {
+    window.history.replaceState(null, "", "/@keysmith/usage")
+    const { result, sent } = setterUnder("/usage")
+    act(() => result.current.set("akey_partner"))
+    expect(sent).toEqual(["/@keysmith/usage?keyId=akey_partner"])
+    expect(result.current.keyId).toBe("akey_partner")
   })
 
   it("leaves every other query parameter where it was", () => {
-    window.history.replaceState(null, "", "/@keysmith/usage?env=prod#top")
-    replaceKeyIdParam("akey_partner")
-    const search = new URLSearchParams(window.location.search)
+    window.history.replaceState(null, "", "/@keysmith/rotations?env=prod&keyId=akey_a")
+    const { result, sent } = setterUnder("/rotations")
+    act(() => result.current.set("akey_b"))
+    const search = new URLSearchParams(sent[0]!.slice(sent[0]!.indexOf("?")))
     expect(search.get("env")).toBe("prod")
-    expect(search.get("keyId")).toBe("akey_partner")
-    expect(window.location.hash).toBe("#top")
+    expect(search.get("keyId")).toBe("akey_b")
   })
 
   it("drops keyId entirely for every key, not keyId=", () => {
-    window.history.replaceState(null, "", "/@keysmith/usage?env=prod&keyId=akey_partner")
-    replaceKeyIdParam("")
-    expect(window.location.search).toBe("?env=prod")
+    window.history.replaceState(null, "", "/@keysmith/rotations?env=prod&keyId=akey_a")
+    const first = setterUnder("/rotations")
+    act(() => first.result.current.set(""))
+    expect(first.sent).toEqual(["/@keysmith/rotations?env=prod"])
 
-    window.history.replaceState(null, "", "/@keysmith/usage?keyId=akey_partner")
-    replaceKeyIdParam("")
-    expect(window.location.search).toBe("")
-    expect(window.location.href.endsWith("/@keysmith/usage")).toBe(true)
+    window.history.replaceState(null, "", "/@keysmith/usage?keyId=akey_a")
+    const second = setterUnder("/usage")
+    act(() => second.result.current.set(""))
+    expect(second.sent).toEqual(["/@keysmith/usage"])
+    expect(second.result.current.keyId).toBe("")
   })
 })

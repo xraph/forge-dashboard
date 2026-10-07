@@ -1,5 +1,5 @@
 import { useSyncExternalStore } from "react"
-import { useQuery } from "@forge-go/dashboard-plugin"
+import { useNavigateTo, useQuery } from "@forge-go/dashboard-plugin"
 import type { KeyDetail } from "./types"
 
 /**
@@ -34,7 +34,8 @@ export function usageForKey(id: string): string {
   return withKey("/usage", id)
 }
 
-// replaceState fires no event, so a replace made here tells its readers itself.
+// Told after every change made through useSetKeyIdParam, so a reader never
+// waits on the host to re-render it.
 const listeners = new Set<() => void>()
 
 function subscribe(onChange: () => void): () => void {
@@ -56,27 +57,36 @@ function readKeyId(): string {
  * The plugin API gives a page route params and no search, so this reads
  * `window.location.search`, as Trove's browser does. A navigation through the
  * host's router re-renders the page and the snapshot is read again; back and
- * forward fire `popstate`; `replaceKeyIdParam` tells its readers directly.
+ * forward fire `popstate`; `useSetKeyIdParam` tells its readers directly.
  */
 export function useKeyIdParam(): string {
   return useSyncExternalStore(subscribe, readKeyId, () => "")
 }
 
 /**
- * Puts a key id in the address, or takes it out for "", in place: no new
- * history entry, so Back still leaves the page. Every other query parameter
- * stays as it was, and so does the router's history state.
+ * Sets the key on one of this plugin's pages, or takes it off for "".
+ *
+ * Through the host's router, never a bare history write. The host carries
+ * the router's search into every sidebar link and every resolved path, so a
+ * key written behind its back comes back the moment you click one of them,
+ * even after you cleared it. The price is a history entry per change, which
+ * also means Back steps through the keys you chose.
+ *
+ * The path is absolute for the reason the links above are, and every other
+ * query parameter stays as it was.
  */
-export function replaceKeyIdParam(id: string): void {
-  const url = new URL(window.location.href)
-  if (id === "") url.searchParams.delete(PARAM)
-  else url.searchParams.set(PARAM, id)
-  window.history.replaceState(
-    window.history.state,
-    "",
-    `${url.pathname}${url.search}${url.hash}`,
-  )
-  for (const listener of listeners) listener()
+export function useSetKeyIdParam(
+  path: "/rotations" | "/usage",
+): (id: string) => void {
+  const navigateTo = useNavigateTo()
+  return (id: string) => {
+    const search = new URLSearchParams(window.location.search)
+    if (id === "") search.delete(PARAM)
+    else search.set(PARAM, id)
+    const query = search.toString()
+    navigateTo(`${KEYSMITH_MOUNT}${path}${query ? `?${query}` : ""}`)
+    for (const listener of listeners) listener()
+  }
 }
 
 /**

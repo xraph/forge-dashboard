@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest"
-import { fireEvent, screen, waitFor, within } from "@testing-library/react"
+import { act, fireEvent, screen, waitFor, within } from "@testing-library/react"
 import { ContractError } from "@forge-go/dashboard-plugin"
 import type { ScopedClient } from "@forge-go/dashboard-plugin"
 import { UsagePage } from "../src/pages/usage"
@@ -21,7 +21,7 @@ import type {
   UsageRecords,
   UsageSeries,
 } from "../src/types"
-import { failingClient, renderPage } from "./harness"
+import { failingClient, renderPage, renderRoutedPage } from "./harness"
 
 /*
  * vitest.config pins TZ=America/Chicago, so every UTC expectation below
@@ -378,7 +378,7 @@ describe("UsagePage", () => {
   it("offers every key by name and narrows the chart and the records to the chosen one", async () => {
     freezeAt("2026-10-05T14:20:00Z")
     const { client, sent } = usageClient()
-    renderPage(UsagePage, client)
+    renderRoutedPage(UsagePage, client)
     await screen.findByText("Partner sandbox", { selector: "option" })
 
     expect(paramsOf(sent, "keys.list")[0]).toEqual({ limit: 100 })
@@ -408,11 +408,11 @@ describe("UsagePage", () => {
     expect(paramsOf(sent, "usage.series").at(-1)).not.toHaveProperty("keyId")
   })
 
-  it("writes the chosen key into the address, replacing the entry, and drops it for every key", async () => {
+  it("writes the chosen key into the address through the router, and drops it for every key", async () => {
     window.history.replaceState(null, "", "/@keysmith/usage")
     const length = window.history.length
     const { client } = usageClient()
-    renderPage(UsagePage, client)
+    const { router } = renderRoutedPage(UsagePage, client)
     await screen.findByText("Partner sandbox", { selector: "option" })
     fireEvent.change(screen.getByLabelText("Key"), {
       target: { value: "akey_partner" },
@@ -420,12 +420,53 @@ describe("UsagePage", () => {
     await screen.findByRole("group", { name: /Requests per hour/ })
     expect(window.location.pathname).toBe("/@keysmith/usage")
     expect(window.location.search).toBe("?keyId=akey_partner")
-    expect(window.history.length).toBe(length)
+    // One entry per change: the router stays in step, and Back undoes it.
+    expect(window.history.length).toBe(length + 1)
 
     fireEvent.change(screen.getByLabelText("Key"), { target: { value: "" } })
     await screen.findByRole("group", { name: /Requests per hour/ })
     expect(window.location.search).toBe("")
-    expect(window.history.length).toBe(length)
+    expect(window.history.length).toBe(length + 2)
+    expect(router.navigations).toEqual([
+      "/@keysmith/usage?keyId=akey_partner",
+      "/@keysmith/usage",
+    ])
+  })
+
+  it("leaves the host nothing stale to carry after switching key", async () => {
+    window.history.replaceState(null, "", "/@keysmith/usage?keyId=akey_billing")
+    const { client } = usageClient()
+    const { router } = renderRoutedPage(UsagePage, client)
+    await screen.findByText("Partner sandbox", { selector: "option" })
+    const sidebar = () => screen.getByRole("link", { name: "Sidebar rotations" })
+    expect(sidebar().getAttribute("href")).toBe("/@keysmith/rotations?keyId=akey_billing")
+
+    fireEvent.change(screen.getByLabelText("Key"), { target: { value: "akey_partner" } })
+    await waitFor(() => expect(router.search).toBe("?keyId=akey_partner"))
+    expect(sidebar().getAttribute("href")).toBe("/@keysmith/rotations?keyId=akey_partner")
+
+    fireEvent.change(screen.getByLabelText("Key"), { target: { value: "" } })
+    await waitFor(() => expect(router.search).toBe(""))
+    expect(sidebar().getAttribute("href")).toBe("/@keysmith/rotations")
+  })
+
+  it("goes back to the key before on Back", async () => {
+    window.history.replaceState(null, "", "/@keysmith/usage?keyId=akey_billing")
+    const { client, sent } = usageClient()
+    renderRoutedPage(UsagePage, client)
+    await screen.findByText("Partner sandbox", { selector: "option" })
+    fireEvent.change(screen.getByLabelText("Key"), { target: { value: "akey_partner" } })
+    await waitFor(() =>
+      expect((screen.getByLabelText("Key") as HTMLSelectElement).value).toBe("akey_partner"),
+    )
+
+    act(() => window.history.back())
+    await waitFor(() =>
+      expect((screen.getByLabelText("Key") as HTMLSelectElement).value).toBe("akey_billing"),
+    )
+    await waitFor(() =>
+      expect(paramsOf(sent, "usage.series").at(-1)).toMatchObject({ keyId: "akey_billing" }),
+    )
   })
 
   it("puts nothing but the key id in the address", async () => {
@@ -501,7 +542,7 @@ describe("UsagePage", () => {
     const { client } = usageClient({
       detail: { key: far, policy: null, metadata: {}, previousKeys: [] },
     })
-    renderPage(UsagePage, client)
+    renderRoutedPage(UsagePage, client)
     await screen.findByText("Nightly export", { selector: "option" })
     fireEvent.change(screen.getByLabelText("Key"), { target: { value: "" } })
     await waitFor(() =>
@@ -514,7 +555,7 @@ describe("UsagePage", () => {
     const { client, sent } = usageClient({
       records: () => ({ items: [record({})], total: 26 }),
     })
-    renderPage(UsagePage, client)
+    renderRoutedPage(UsagePage, client)
     await screen.findByText("/v1/invoices")
     fireEvent.click(screen.getByRole("button", { name: /Next/ }))
     await screen.findByText(/Page 2 of 2/)
