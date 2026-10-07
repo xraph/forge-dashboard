@@ -4350,7 +4350,8 @@ function parseSchemaSource(src) {
       errf(cur, "expected `:` after relation name")
       return null
     }
-    // A relation may allow no subject type at all (`relation x:` and nothing after).
+    // A relation may list no subject types (`relation x:` and nothing after). An
+    // empty list puts no limit on the subject type.
     if (cur.kind !== "IDENT" && cur.kind !== "STRING") return def
     for (;;) {
       const type = name()
