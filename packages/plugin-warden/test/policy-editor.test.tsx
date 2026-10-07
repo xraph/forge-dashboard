@@ -299,6 +299,19 @@ describe("PolicyEditor", () => {
       expect(button.disabled).toBe(true)
     })
 
+    it("shows a bound with fractional seconds as sent, and leaves it out of the patch untouched", async () => {
+      const notBefore = "2026-10-07T10:00:00.123456789Z"
+      const notAfter = "2099-07-01T05:00:00.5Z"
+      const { updates } = renderEditor({ notBefore, notAfter })
+      expect(input("In effect from").value).toBe(notBefore)
+      expect(input("In effect until").value).toBe(notAfter)
+      const button = screen.getByRole("button", { name: "Save changes" }) as HTMLButtonElement
+      expect(button.disabled).toBe(true)
+      change(labelled("Name"), "office-hours")
+      await save()
+      expect(updates()).toEqual([{ id: "pol_01", name: "office-hours" }])
+    })
+
     it("refuses a priority that is not a whole number, and sends nothing", async () => {
       const { updates } = renderEditor()
       change(labelled("Priority"), "2.5")
