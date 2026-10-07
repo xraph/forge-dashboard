@@ -293,7 +293,9 @@ function ExpiringList({
         Assignments that expire within the next {window}, in every namespace of
         this tenant, earliest expiry first. Assignments that have already
         expired but are still stored are listed too, ahead of the rest: they
-        grant nothing, and they stay until they are deleted.
+        grant nothing, and they stay until they are deleted. Maintenance
+        deletes them: warden&apos;s background maintenance loop, or Run
+        maintenance on the Config page for this tenant.
       </p>
       <QueryBoundary title="Expiring assignments" query={feed} skeletonRows={5}>
         {(data) => {

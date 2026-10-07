@@ -245,6 +245,18 @@ describe("WardenRelationsPage", () => {
       expect(screen.queryByText(EXPLAINED)).toBeNull()
     })
 
+    it("says nothing about withheld marks on an empty page", async () => {
+      // With no rows there is no relation the sentence could be about.
+      renderPage(
+        WardenRelationsPage,
+        client({
+          "relations.list": { ...RELATIONS, items: [], total: 0, marksWithheld: true },
+        })
+      )
+      await screen.findByText("No relations yet.")
+      expect(screen.queryByText(WITHHELD)).toBeNull()
+    })
+
     it("says nothing about withheld marks when the server checked the rows", async () => {
       renderPage(
         WardenRelationsPage,

@@ -542,8 +542,9 @@ export function WardenRelationsPage() {
               )}
               {/* Without read on warden:resourcetype the server checks no
                   row, so an unmarked row here says nothing about whether
-                  the tuple conforms. Silence would read as "all conform". */}
-              {withheld && (
+                  the tuple conforms. Silence would read as "all conform".
+                  An empty page has no relations to speak of. */}
+              {withheld && rows.length > 0 && (
                 <p className="text-sm text-muted-foreground">
                   These relations were not checked against their resource
                   types, because you cannot read resource types. A relation

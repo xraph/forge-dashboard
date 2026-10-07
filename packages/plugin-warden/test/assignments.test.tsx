@@ -993,7 +993,7 @@ describe("WardenAssignmentsPage", () => {
       await showExpiring()
       expect(
         await screen.findByText(
-          "Assignments that expire within the next 7 days, in every namespace of this tenant, earliest expiry first. Assignments that have already expired but are still stored are listed too, ahead of the rest: they grant nothing, and they stay until they are deleted."
+          "Assignments that expire within the next 7 days, in every namespace of this tenant, earliest expiry first. Assignments that have already expired but are still stored are listed too, ahead of the rest: they grant nothing, and they stay until they are deleted. Maintenance deletes them: warden's background maintenance loop, or Run maintenance on the Config page for this tenant."
         )
       ).toBeTruthy()
     })
