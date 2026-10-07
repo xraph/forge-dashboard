@@ -48,6 +48,83 @@ describe("QueryBoundary", () => {
     )
     expect(screen.getByText("2 users")).toBeTruthy()
   })
+
+  it("swaps in the skeleton on a refetch by default, even with data in hand", () => {
+    render(
+      <QueryBoundary title="Users" query={{ loading: true, refetch: () => {}, data: { total: 2 } }}>
+        {(data) => <p>{data.total} users</p>}
+      </QueryBoundary>,
+    )
+    expect(screen.getByRole("status", { name: "Loading Users" })).toBeTruthy()
+    expect(screen.queryByText("2 users")).toBeNull()
+  })
+
+  it("keeps rendering the data through a refetch when asked, marked busy", () => {
+    render(
+      <QueryBoundary
+        keepPreviousData
+        title="Users"
+        query={{ loading: true, refetch: () => {}, data: { total: 2 } }}
+      >
+        {(data) => <p>{data.total} users</p>}
+      </QueryBoundary>,
+    )
+    expect(screen.getByText("2 users")).toBeTruthy()
+    expect(screen.queryByRole("status", { name: "Loading Users" })).toBeNull()
+    expect(screen.getByText("2 users").parentElement?.getAttribute("aria-busy")).toBe("true")
+  })
+
+  it("still shows the skeleton on a first load with keepPreviousData", () => {
+    render(
+      <QueryBoundary keepPreviousData title="Users" query={{ loading: true, refetch: () => {} }}>
+        {() => <p>never</p>}
+      </QueryBoundary>,
+    )
+    expect(screen.getByRole("status", { name: "Loading Users" })).toBeTruthy()
+    expect(screen.queryByText("never")).toBeNull()
+  })
+
+  it("does not remount the children, or drop their focus, when a refetch starts and ends", () => {
+    const view = (loading: boolean) => (
+      <QueryBoundary
+        keepPreviousData
+        title="Users"
+        query={{ loading, refetch: () => {}, data: { total: 2 } }}
+      >
+        {() => <input aria-label="search" />}
+      </QueryBoundary>
+    )
+    const { rerender } = render(view(false))
+    const input = screen.getByLabelText("search")
+    input.focus()
+    rerender(view(true))
+    expect(screen.getByLabelText("search")).toBe(input)
+    expect(document.activeElement).toBe(input)
+    expect(input.parentElement?.getAttribute("aria-busy")).toBe("true")
+    rerender(view(false))
+    expect(screen.getByLabelText("search")).toBe(input)
+    expect(document.activeElement).toBe(input)
+    expect(input.parentElement?.getAttribute("aria-busy")).toBe("false")
+  })
+
+  it("shows the error card for a settled failure even with data and keepPreviousData", () => {
+    render(
+      <QueryBoundary
+        keepPreviousData
+        title="Users"
+        query={{
+          loading: false,
+          refetch: () => {},
+          data: { total: 2 },
+          error: { code: "TRANSPORT", message: "down" },
+        }}
+      >
+        {(data) => <p>{data.total} users</p>}
+      </QueryBoundary>,
+    )
+    expect(screen.getByRole("alert").textContent).toContain("TRANSPORT")
+    expect(screen.queryByText("2 users")).toBeNull()
+  })
 })
 
 describe("CommandAlert", () => {

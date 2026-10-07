@@ -32,6 +32,22 @@ export interface QueryBoundaryProps<T> {
   skeletonRows?: number
   children: (data: T) => ReactNode
   className?: string
+  /**
+   * When true and the query already holds data, a refetch keeps rendering
+   * `children` instead of swapping in the skeleton, and the boundary marks
+   * itself `aria-busy` while the request is in flight. Defaults to false, so
+   * the skeleton still replaces everything on every load.
+   *
+   * Reach for it where the children hold state the reader is working in: the
+   * skeleton unmounts them, which drops focus and in-progress input, and a
+   * list that refetches after a write should not blink out first.
+   *
+   * With this on, the data renders inside a wrapper element that stays put
+   * across loading and settled, so the children are never remounted. The
+   * wrapper uses `display: contents` and takes no `className`. A refetch
+   * that fails still ends in the error card, the same as without the prop.
+   */
+  keepPreviousData?: boolean
 }
 
 /**
@@ -54,7 +70,16 @@ export function QueryBoundary<T>({
   skeletonRows = 3,
   children,
   className,
+  keepPreviousData = false,
 }: QueryBoundaryProps<T>) {
+  if (keepPreviousData && query.data !== undefined && (query.loading || !query.error)) {
+    return (
+      <div aria-busy={query.loading} className="contents">
+        {children(query.data)}
+      </div>
+    )
+  }
+
   if (query.loading) {
     return (
       <div
