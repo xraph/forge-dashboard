@@ -37,7 +37,7 @@ function items(s: TrafficStats) {
   const latency = formatMs(s.avgLatencyMs)
   const lookups = s.cacheHits + s.cacheMisses
   return [
-    { label: "Requests", value: formatCount(s.totalRequests), hint: `${formatCount(s.totalErrors)} errors` },
+    { label: "Requests", value: formatCount(s.totalRequests), hint: `${formatCount(s.totalErrors)} ${s.totalErrors === 1 ? "error" : "errors"}` },
     latency == null
       ? { label: "Latency", value: NOT_MEASURED, hint: "No upstream has answered yet" }
       : {

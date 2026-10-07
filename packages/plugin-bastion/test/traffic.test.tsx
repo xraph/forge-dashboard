@@ -57,6 +57,12 @@ describe("BastionTrafficPage", () => {
     expect(await within(await screen.findByText("Cache").then((el) => el.closest("[data-slot='card']") as HTMLElement)).findByText("3 hits, 7 misses")).toBeTruthy()
   })
 
+  it("says 1 error, not 1 errors, in the Requests hint", async () => {
+    renderPage(BastionTrafficPage, stubClient({ "traffic.stats": stats({ totalErrors: 1 }) }))
+    await screen.findByText("3,131")
+    expect(within(card("1 error")).getByText("Requests")).toBeTruthy()
+  })
+
   it("renders the error card when the query fails", async () => {
     renderPage(BastionTrafficPage, failingClient(new ContractError("INTERNAL", "down")))
     expect(await screen.findByText(/Traffic unavailable/)).toBeTruthy()

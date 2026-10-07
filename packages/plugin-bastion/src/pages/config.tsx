@@ -25,7 +25,8 @@ function Section({ s }: { s: ConfigSection }) {
         <NoneCell label="settings" />
       ) : (
         <DescriptionList
-          items={s.settings.map((x) => ({ term: x.key, value: <span className="font-mono text-xs">{x.value}</span> }))}
+          items={s.settings.map((x) => ({ term: x.key, value: x.value === "" ? <NoneCell label="value" /> : <span className="font-mono text-xs">{x.value}</span>,
+          }))}
         />
       )}
     </section>

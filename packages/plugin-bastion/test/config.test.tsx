@@ -33,4 +33,12 @@ describe("BastionConfigPage", () => {
     expect(within(section("Timeouts")).queryByText(/Enabled|Disabled/)).toBeNull()
     expect(within(section("Empty")).getByLabelText("no settings")).toBeTruthy()
   })
+
+  it("says so when a setting's value is empty", async () => {
+    renderPage(BastionConfigPage, stubClient({
+      "config.detail": { sections: [{ id: "admin", title: "Admin", enabled: null, settings: [{ key: "Base path", value: "" }] }] },
+    }))
+    await screen.findByRole("heading", { name: /^Admin/ })
+    expect(within(section("Admin")).getByLabelText("no value")).toBeTruthy()
+  })
 })

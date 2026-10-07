@@ -21,6 +21,7 @@ describe("BastionApiExplorerPage", () => {
     expect(within(billing).getByText("connection refused")).toBeTruthy()
     expect(within(screen.getByText("orders").closest("tr") as HTMLElement).getByLabelText("no error")).toBeTruthy()
     expect(screen.getByText("2 services")).toBeTruthy()
+    expect(within(screen.getByText("1 of 2").closest("[data-slot='card']") as HTMLElement).getByText("Healthy")).toBeTruthy()
   })
 
   it("starts a refresh and says it runs in the background", async () => {

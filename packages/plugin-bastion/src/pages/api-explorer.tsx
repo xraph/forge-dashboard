@@ -63,6 +63,7 @@ export const BastionApiExplorerPage: ComponentType<PluginPageProps> = () => {
                 items={[
                   { label: "Paths", value: formatCount(s.totalPaths) },
                   { label: "Services", value: s.total },
+                  { label: "Healthy", value: `${s.services.filter((x) => x.healthy).length} of ${s.total}` },
                   { label: "Last refresh", value: s.lastRefresh ? new Date(s.lastRefresh).toLocaleString() : "Never" },
                 ]}
               />
