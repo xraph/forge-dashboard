@@ -871,9 +871,62 @@ The final review of the whole slice found a few more things. We fixed the ones t
 - Minimum versions. MongoDB 5.0 or later, because `Series` uses `$dateTrunc` (the pipeline update that normalises old documents needs 4.2). PostgreSQL 12 or later, for `date_trunc` with a time zone.
 - Migration locks. The Postgres migration rewrites `nexus_usage_records` under an ACCESS EXCLUSIVE lock, and builds three more indexes on top. On a large table that means downtime, so plan for it.
 - Removed API. `model.CostEstimate`, `EstimateCost` and `EstimateCostFromTokens` are gone. Use `model.Cost`.
-- Amount precision. Amounts are bounded to 18 decimal places, which is what Postgres `NUMERIC(38,18)` keeps. `money.Parse` and `ParseLenient` refuse a 19th place instead of letting a backend round it.
+- Amount precision. Amounts are bounded to 18 decimal places, which is what Postgres `NUMERIC(38,18)` keeps. `money.Parse` and `ParseLenient` refuse a 19th place instead of letting a backend round it. Computed amounts are rounded to 18 places in `PerMillion` since slice 2 (Task 1), so the bound holds for every amount, parsed or computed.
 - Writer guarantee. `usage.Service.Record` now normalises every record before the store sees it, and unknown costs stay unknown even for a writer that leaves the status out. A record that says `unpriced_model` and carries a cost is refused.
 - Carry to slice 2: `settle` labels errors `unpriced_model` and marks a failed stream `ok`. Slice 2 has to define the status for error, blocked and refused rows.
 - Carry to slice 2: the `ollama` and `lmstudio` placeholder price of `0.00001` has to be decided before `model.Cost` is wired in. Wire it first and local models come out priced.
 
 Two things from the spec that still stand, and one that we didn't do. The provider token-reporting gaps are real: cost is list price over the tokens a provider reports, so cache, thinking and Gemini embedding tokens are still missing. And the spec asked for a price test in each provider module. We didn't write 29 of them. Task 2 carried every price literal over as the same text and diffed the before and after, 166 lines each way with an empty diff, which proves the same fact. If you want the tests anyway, add them in slice 2.
+
+## What slice 2 found that slice 3 must know
+
+Slice 2 made the gateway record, price and attribute every request. It also found that the default pipeline never ran its usage stage at all, which no test noticed because each one drove a middleware on its own. Everything below is what you need before you plan enforcement (gateway keys, per-tenant quotas, budgets, a pluggable Limiter).
+
+The gateway-level tests in `gateway_usage_test.go` send real requests through `Engine` and a memory store, and they passed on the first run. They found no new gap in the slice. Two of them are worth knowing by name, because they would have caught the dead pipeline: `TestACompletionIsRecordedPricedAndAttributed` and `TestCustomMiddlewareAboveTheCallRunsPerAttempt`.
+
+How a request is classified. The usage stage decides this once, after the request has finished, so you can read it as a table.
+
+| What happened | Outcome | Pricing status | Cost |
+|---|---|---|---|
+| Served, tokens reported, model listed | `ok` | `priced` | list price over the tokens |
+| Served, model not in the price book | `ok` | `unpriced_model` | nil |
+| Served, zero tokens reported, price is not Free | `ok` | `unknown` | nil |
+| Served by a Free model | `ok` | `priced` | exactly `$0` |
+| Cache hit, or stream replayed from the cache | `cached` | `cached` | `$0` |
+| Input guard block | `blocked` | `not_charged` | `$0` |
+| Output guard block with usage | `blocked` | `priced` | from the blocked response's tokens |
+| Output guard block without usage (a stream guard) | `blocked` | `unknown` | nil |
+| A block with an empty or unknown phase | `blocked` | treated as output | never `$0` |
+| Refusal (`pipeline.Refusal`) | `refused` | `not_charged` | `$0` |
+| Error after a provider was chosen | `error` | `unknown` | nil |
+| Error before any provider was chosen | `error` | `not_charged` | `$0` |
+
+`not_charged` and `unknown` are new statuses. The rule behind the table is the one from the constraints: an unknown cost is nil, never `$0`. A block that happened after the provider answered was paid for, so it must not read as free.
+
+What your enforcement code plugs into:
+
+- `pipeline.Refusal` is the interface your refusals implement (`RefusalCode()` and `StatusCode()`). Return one from any stage below usage and the usage stage records it as `refused` at `$0` under that code. You don't touch usage to get a row.
+- Insert errors are counted on the usage stage, `Gateway.UsageInsertErrors()`, not on `usage.Service` as the spec said. Inserts are async and fail inside the stage, and a new method on `usage.Service` would break every implementer. If you want a `Stats` method on the service later, add it then.
+- The identity stage (priority 30) refuses ids that disagree or don't parse, and puts the tenant and key on the request. Stages that wrap it read the request fields, not the context.
+- Stage order is request_id 5, tracing 10, usage 15, timeout 20, identity 30, stream_lifecycle 60, guardrail 150, transform 200, alias 250, cache 280, retry 340, custom middleware by priority, then provider_call, which is always last. Put an enforcement stage after identity (it needs the tenant) and before cache, or a cache hit skips your quota check. A custom stage below retry runs once per attempt, and retry retries every error, a refusal included.
+- The stream lifecycle `QuotaResolver` is still unwired. Wire it in slice 3.
+
+Things that changed under you:
+
+- Pipeline embeddings always failed, because the capability was spelled `embed` where the check wanted `embeddings`. Fixed, so embeddings are recorded and priced now.
+- `Builder.Build` returns `(Service, error)` now, and `NewHeaders` is gone along with its middleware. Both are v1 breaks for `MIGRATION.md`. The gateway sets no `X-Nexus-*` response headers and never did; the docs that promised them are corrected.
+- Local models (`ollama`, `lmstudio`) cost exactly `$0` through `Pricing.Free` and the `provider.FreeOfCharge` interface. The `0.00001` placeholder is gone. The `models.list` contract and the React page must read `free` first, because a free model still serializes its per-million prices as `0` and would read as unpriced.
+- Explicit `WithGatewayOption`s now beat the extension config. The extension used to append config-derived options after yours, so `WithUsageEnabled(false)` and `WithLogger` were silently overridden, and so were `BasePath`, `Timeout`, `MaxRetries` and `RateLimit`.
+- A hand-built `Config{}` passed to `WithConfig` has `EnableUsage` false, so that gateway records nothing. `WithConfig` replaces the whole config; start from `DefaultConfig()`. If this keeps biting, make it a `*bool` in slice 4 with the contract.
+
+Loose ends we left on purpose:
+
+- `WithPipeline` users who leave out the identity stage get tenant-less cache keys, so tenants can share cached answers. Document it on `NewCache`, or fall back to `pipeline.TenantID(ctx)` in the key.
+- The end of the pipeline chain still returns an empty response with a nil error if a third-party Terminal calls `next`. A Terminal shouldn't, but nothing stops it.
+- A `Shutdown` that times out leaves the flush waiter parked until pending inserts drain. That is bounded by the 10 second insert timeout.
+- A stream the client abandons can still be recorded as `ok`, because the race between `Next` and `Close` decides. The cost is right (unknown when no tokens arrived).
+- Guard block rows hardcode status 400.
+- Retry has no idea which errors are worth retrying. A request with no provider registered waits out the full 1.5 seconds of backoff before it fails, which is why one gateway test takes that long.
+- Stream cache tests reuse one request for the miss and the replay, and the identity tests don't cover key disagreement or an embedding with the id only in context.
+- `Series.Unpriced` counts `unknown` as unpriced now, to agree with `Summary`. Memory `FindByPrefix` and the other backends still disagree on key status, as noted in the slice 1 section.
+- `WithGatewayOption(WithConfig(...))` replaces config-derived values too. Worth a line in the extension docs in slice 7.
