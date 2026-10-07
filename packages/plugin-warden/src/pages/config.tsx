@@ -25,6 +25,14 @@ export interface ConfigDetail {
   requireTenant: boolean
   evaluateAllModels: boolean
   checkLogQueueSize: number
+  /**
+   * The retention and interval in whole seconds, rounded up, so a positive
+   * value never reads 0. Absent from a server older than these fields; the
+   * page then falls back to the hours and minutes below, which are rounded
+   * down (a retention under an hour reads 0 there).
+   */
+  checkLogRetentionSeconds?: number
+  maintenanceIntervalSeconds?: number
   checkLogRetentionHours: number
   maintenanceIntervalMinutes: number
   /**
@@ -40,6 +48,42 @@ export interface ConfigDetail {
 interface MaintenanceResult {
   assignmentsPurged: number
   checkLogsPurged: number
+}
+
+function plural(n: number, unit: string): string {
+  return `${n} ${unit}${n === 1 ? "" : "s"}`
+}
+
+/** Whole seconds, in the largest unit that divides them evenly. */
+function formatSeconds(seconds: number): string {
+  if (seconds % 86400 === 0) return plural(seconds / 86400, "day")
+  if (seconds % 3600 === 0) return plural(seconds / 3600, "hour")
+  if (seconds % 60 === 0) return plural(seconds / 60, "minute")
+  return plural(seconds, "second")
+}
+
+/**
+ * The check log retention. 0 seconds means the engine keeps every entry. A
+ * server older than the seconds field sends whole hours rounded down, where
+ * 0 is either no retention or one under an hour, so the page says both.
+ */
+function retentionText(c: ConfigDetail): string {
+  if (c.checkLogRetentionSeconds !== undefined) {
+    return c.checkLogRetentionSeconds > 0 ? formatSeconds(c.checkLogRetentionSeconds) : "Kept forever"
+  }
+  return c.checkLogRetentionHours > 0
+    ? `${plural(c.checkLogRetentionHours, "hour")}, rounded down`
+    : "Under an hour, or kept forever"
+}
+
+/** The maintenance interval, read the same way as the retention. */
+function intervalText(c: ConfigDetail): string {
+  if (c.maintenanceIntervalSeconds !== undefined) {
+    return c.maintenanceIntervalSeconds > 0 ? formatSeconds(c.maintenanceIntervalSeconds) : "Off"
+  }
+  return c.maintenanceIntervalMinutes > 0
+    ? `${plural(c.maintenanceIntervalMinutes, "minute")}, rounded down`
+    : "Under a minute, or off"
 }
 
 /**
@@ -237,17 +281,11 @@ export function WardenConfigPage() {
                 },
                 {
                   term: "Check log retention",
-                  value:
-                    c.checkLogRetentionHours > 0
-                      ? `${c.checkLogRetentionHours} hours`
-                      : "Kept forever",
+                  value: retentionText(c),
                 },
                 {
                   term: "Maintenance interval",
-                  value:
-                    c.maintenanceIntervalMinutes > 0
-                      ? `${c.maintenanceIntervalMinutes} minutes`
-                      : "Off",
+                  value: intervalText(c),
                 },
               ]}
             />

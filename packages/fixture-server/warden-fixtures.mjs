@@ -259,6 +259,11 @@ function seedWardenState() {
       requireTenant: true,
       evaluateAllModels: false,
       checkLogQueueSize: 4096,
+      // Go sends the retention and interval exactly in whole seconds
+      // (rounded up), and keeps the hours and minutes, rounded down, for
+      // older clients.
+      checkLogRetentionSeconds: 7776000,
+      maintenanceIntervalSeconds: 3600,
       checkLogRetentionHours: 2160,
       maintenanceIntervalMinutes: 60,
       // What a real engine with these settings and the extension's defaults
@@ -6149,9 +6154,9 @@ export const wardenHandlers = {
         (a) => !a.expiresAt || Date.parse(a.expiresAt) > nowMs
       )
       let checkLogsPurged = 0
-      const retentionHours = warden.config.checkLogRetentionHours
-      if (retentionHours > 0) {
-        const cutoffMs = nowMs - retentionHours * 3600_000
+      const retentionSeconds = warden.config.checkLogRetentionSeconds
+      if (retentionSeconds > 0) {
+        const cutoffMs = nowMs - retentionSeconds * 1000
         const logsBefore = warden.checkLogs.length
         warden.checkLogs = warden.checkLogs.filter((e) => Date.parse(e.createdAt) >= cutoffMs)
         checkLogsPurged = logsBefore - warden.checkLogs.length

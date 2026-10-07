@@ -18,6 +18,8 @@ const CONFIG = {
   requireTenant: true,
   evaluateAllModels: false,
   checkLogQueueSize: 4096,
+  checkLogRetentionSeconds: 7776000,
+  maintenanceIntervalSeconds: 3600,
   checkLogRetentionHours: 2160,
   maintenanceIntervalMinutes: 60,
 }
@@ -81,6 +83,72 @@ describe("WardenConfigPage", () => {
     await screen.findByText("RBAC")
     expect(screen.queryByRole("region", { name: "Plugins" })).toBeNull()
     expect(screen.queryByText(/no authorization plugins/i)).toBeNull()
+  })
+
+  it("shows the retention and interval in exact units", async () => {
+    renderPage(WardenConfigPage, stubClient({ "config.detail": CONFIG }))
+    expect(await screen.findByText("90 days")).toBeTruthy()
+    expect(screen.getByText("1 hour")).toBeTruthy()
+  })
+
+  /**
+   * The hours field rounds down, so a 30 minute retention reads 0 there.
+   * The page used to call that "Kept forever", which is the opposite of a
+   * retention that purges every half hour's entries.
+   */
+  it("never calls a retention under an hour kept forever", async () => {
+    renderPage(
+      WardenConfigPage,
+      stubClient({
+        "config.detail": {
+          ...CONFIG,
+          checkLogRetentionSeconds: 1800,
+          checkLogRetentionHours: 0,
+          maintenanceIntervalSeconds: 45,
+          maintenanceIntervalMinutes: 0,
+        },
+      })
+    )
+    expect(await screen.findByText("30 minutes")).toBeTruthy()
+    expect(screen.getByText("45 seconds")).toBeTruthy()
+    expect(screen.queryByText("Kept forever")).toBeNull()
+    expect(screen.queryByText("Off")).toBeNull()
+  })
+
+  it("says kept forever and off only for a zero", async () => {
+    renderPage(
+      WardenConfigPage,
+      stubClient({
+        "config.detail": {
+          ...CONFIG,
+          checkLogRetentionSeconds: 0,
+          checkLogRetentionHours: 0,
+          maintenanceIntervalSeconds: 0,
+          maintenanceIntervalMinutes: 0,
+        },
+      })
+    )
+    expect(await screen.findByText("Kept forever")).toBeTruthy()
+    expect(screen.getByText("Off")).toBeTruthy()
+  })
+
+  /**
+   * A server older than the seconds fields sends whole hours and minutes,
+   * rounded down. There 0 can mean either no retention or one under an
+   * hour, and the page cannot tell which.
+   */
+  it("hedges a zero from a server that reports whole hours only", async () => {
+    const older: Record<string, unknown> = {
+      ...CONFIG,
+      checkLogRetentionHours: 0,
+      maintenanceIntervalMinutes: 90,
+    }
+    delete older.checkLogRetentionSeconds
+    delete older.maintenanceIntervalSeconds
+    renderPage(WardenConfigPage, stubClient({ "config.detail": older }))
+    expect(await screen.findByText("Under an hour, or kept forever")).toBeTruthy()
+    expect(screen.getByText("90 minutes, rounded down")).toBeTruthy()
+    expect(screen.queryByText("Kept forever")).toBeNull()
   })
 
   it("does not warn when check logging is on", async () => {
