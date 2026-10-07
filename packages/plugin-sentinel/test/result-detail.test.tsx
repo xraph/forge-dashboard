@@ -48,6 +48,19 @@ describe("ResultDetailPage", () => {
     expect(screen.getByText("$0.0031")).toBeTruthy()
   })
 
+  it("says a scorer errored, not failed, when it could not judge the case", async () => {
+    open(
+      resultDetail({
+        status: "error",
+        scorerResults: [{ scorerName: "judge", score: 0, passed: false, reason: "scorer error: model unavailable", errored: true }],
+      }),
+    )
+    const table = await screen.findByRole("region", { name: "1 scorer" })
+    const row = within(table).getAllByRole("row")[1]
+    expect(within(row).getByText("Errored")).toBeTruthy()
+    expect(within(row).queryByText("Failed")).toBeNull()
+  })
+
   it("says how each scorer judged the case, with its reason and dimension", async () => {
     open()
     const table = await screen.findByRole("region", { name: "2 scorers" })

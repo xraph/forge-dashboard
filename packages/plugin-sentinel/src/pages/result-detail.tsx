@@ -31,8 +31,14 @@ function scorerColumns(hidden: boolean): Column<ScorerResult & { key: string }>[
       id: "verdict",
       header: "Verdict",
       // Most scorers pass on most cases, so a pass recedes and a fail is the
-      // thing to find.
-      cell: (s) => <Badge variant={s.passed ? "outline" : "destructive"}>{s.passed ? "Passed" : "Failed"}</Badge>,
+      // thing to find. A scorer that could not judge the case did not fail
+      // it, so it reads Errored, in default like an errored result.
+      cell: (s) =>
+        s.errored ? (
+          <Badge variant="default">Errored</Badge>
+        ) : (
+          <Badge variant={s.passed ? "outline" : "destructive"}>{s.passed ? "Passed" : "Failed"}</Badge>
+        ),
     },
     { id: "score", header: "Score", align: "end", className: "tabular-nums", cell: (s) => formatScore(s.score) },
     {

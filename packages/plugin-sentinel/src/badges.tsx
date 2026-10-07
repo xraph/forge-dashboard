@@ -80,22 +80,33 @@ export function ResultStatusBadge({ status }: { status: ResultStatus }) {
   return <Badge variant={s.variant}>{s.label}</Badge>
 }
 
+const VERDICT = {
+  passed: { mark: "✓", word: "passed", variant: "outline" },
+  failed: { mark: "✗", word: "failed", variant: "destructive" },
+  errored: { mark: "!", word: "errored", variant: "default" },
+} as const
+
 /**
  * Each scorer's verdict on one result, as the result page shows them: a pass
- * recedes in outline, a fail is destructive. The mark and the word carry the
- * verdict too, so colour is never the only signal.
+ * recedes in outline, a fail is destructive, and a scorer that could not
+ * judge the case takes default, as an errored result does. The mark is the
+ * signal that is not colour; the word is for screen readers. The list role
+ * is explicit because Safari drops it from a list styled without bullets.
  */
 export function ScorerVerdicts({ verdicts }: { verdicts: ScorerVerdict[] }) {
   return (
-    <ul aria-label="Scorer verdicts" className="flex flex-wrap gap-1">
-      {verdicts.map((v, i) => (
-        <li key={`${i}-${v.name}`}>
-          <Badge variant={v.passed ? "outline" : "destructive"} className="font-mono">
-            <span aria-hidden="true">{v.passed ? "✓" : "✗"}</span> {v.name}
-            <span className="sr-only">{v.passed ? " passed" : " failed"}</span>
-          </Badge>
-        </li>
-      ))}
+    <ul role="list" aria-label="Scorer verdicts" className="flex flex-wrap gap-1">
+      {verdicts.map((v, i) => {
+        const s = VERDICT[v.errored ? "errored" : v.passed ? "passed" : "failed"]
+        return (
+          <li key={`${i}-${v.name}`}>
+            <Badge variant={s.variant} className="font-mono">
+              <span aria-hidden="true">{s.mark}</span> {v.name}
+              <span className="sr-only">{` ${s.word}`}</span>
+            </Badge>
+          </li>
+        )
+      })}
     </ul>
   )
 }

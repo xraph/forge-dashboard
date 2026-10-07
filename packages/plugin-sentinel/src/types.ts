@@ -215,6 +215,8 @@ export interface ResultRow {
 export interface ScorerVerdict {
   name: string
   passed: boolean
+  /** The scorer could not judge the case, which is not failing it. */
+  errored?: boolean
 }
 
 export interface ResultCounts {
@@ -236,6 +238,8 @@ export interface ScorerResult {
   reason: string
   dimension?: string
   details?: Record<string, unknown>
+  /** The scorer could not judge the case. passed is false, but the output was not failed. */
+  errored?: boolean
 }
 
 export interface TraceStep {

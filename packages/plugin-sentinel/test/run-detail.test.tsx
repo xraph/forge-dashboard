@@ -176,8 +176,26 @@ describe("RunDetailPage", () => {
     const verdicts = within(rows[1]).getByRole("list", { name: "Scorer verdicts" })
     const items1 = within(verdicts).getAllByRole("listitem")
     expect(items1.map((li) => li.textContent)).toEqual(["✗ contains failed", "✓ judge passed"])
-    expect(items1[0].querySelector("[data-slot=badge]")?.className).toContain("destructive")
+    // The variant's own background: every badge's base classes mention destructive.
+    expect(items1[0].querySelector("[data-slot=badge]")?.className).toContain("bg-destructive/10")
+    expect(items1[1].querySelector("[data-slot=badge]")?.className).not.toContain("bg-destructive/10")
     expect(within(rows[2]).getByLabelText("no scorer verdicts")).toBeTruthy()
+  })
+
+  it("marks a scorer that could not judge the case as errored, not failed", async () => {
+    const items = [resultRow({ status: "error", scorers: [{ name: "judge", passed: false, errored: true }] })]
+    renderNavPage(RunDetailPage, stubClient({ ...answers(), "runs.results": { items, counts: { pass: 0, fail: 0, error: 1 } } }), {
+      id: RUN_ID,
+    })
+    const table = await screen.findByRole("region", { name: "1 result" })
+    const verdicts = within(table).getByRole("list", { name: "Scorer verdicts" })
+    // Explicit, because Safari drops the list role from a list styled without bullets.
+    expect(verdicts.getAttribute("role")).toBe("list")
+    const item = within(verdicts).getByRole("listitem")
+    expect(item.textContent).toBe("! judge errored")
+    const badge = item.querySelector("[data-slot=badge]")?.className
+    expect(badge).toContain("bg-primary")
+    expect(badge).not.toContain("bg-destructive/10")
   })
 
   it("asks for one status when its chip is pressed, and for all again when it is pressed twice", async () => {
