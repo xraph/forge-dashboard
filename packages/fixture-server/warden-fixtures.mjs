@@ -4480,6 +4480,10 @@ function parseSchemaSource(src) {
       advance()
       let setResource = false
       let setAction = false
+      // Mirrors dsl/parser.go: a field named with a value that is not a
+      // name (action = 123) stays empty and is never taken from the name.
+      let badResource = false
+      let badAction = false
       while (!atEnd("}")) {
         switch (cur.kind) {
           case "resource": {
@@ -4489,7 +4493,10 @@ function parseSchemaSource(src) {
             if (v !== null) {
               d.resource = v
               setResource = true
-            } else errf(cur, "expected resource identifier")
+            } else {
+              errf(cur, "expected resource identifier")
+              badResource = true
+            }
             break
           }
           case "IDENT": {
@@ -4499,7 +4506,10 @@ function parseSchemaSource(src) {
               if (cur.kind === "IDENT" || cur.kind === "STRING") {
                 d.action = cur.value
                 setAction = true
-              } else errf(cur, "expected action identifier")
+              } else {
+                errf(cur, "expected action identifier")
+                badAction = true
+              }
               advance()
             } else {
               errf(cur, `unknown permission attribute ${goQuote(key)}`)
@@ -4526,7 +4536,10 @@ function parseSchemaSource(src) {
       // Mirrors fillFromName in dsl/parser.go: a block that sets only one
       // of resource and action takes the other from the name, and is
       // refused (the other left empty) when the name does not hold it.
-      if (setResource && !setAction) {
+      if (badResource || badAction) {
+        if (badResource) d.resource = ""
+        if (badAction) d.action = ""
+      } else if (setResource && !setAction) {
         if (d.name.startsWith(d.resource + ":")) {
           d.action = d.name.slice(d.resource.length + 1)
         } else {
@@ -5119,9 +5132,19 @@ function resolveSchema(prog) {
     }
     return undefined
   }
+  // A parent found outside the role's own namespace is refused: the store
+  // keeps only its slug, and the engine looks that up in the role's own
+  // namespace only.
   for (const role of prog.roles) {
-    if (role.parent !== "" && !lookupParent(role)) {
+    if (role.parent === "") continue
+    const parent = lookupParent(role)
+    if (!parent) {
       errf(role.pos, `role ${goQuote(role.slug)} references unknown parent ${goQuote(role.parent)} (in namespace ${goQuote(role.ns)})`)
+    } else if (parent.ns !== role.ns) {
+      errf(
+        role.pos,
+        `role ${goQuote(role.slug)} names parent ${goQuote(role.parent)}, which is in namespace ${goQuote(parent.ns)}, not the role's own namespace ${goQuote(role.ns)}; a role inherits only from a parent in its own namespace, so declare the parent there`
+      )
     }
   }
 
@@ -5136,8 +5159,10 @@ function resolveSchema(prog) {
     if (s === 2) return
     state.set(role, 1)
     if (role.parent !== "") {
+      // A parent in another namespace was refused above and is not an
+      // edge the engine follows.
       const parent = lookupParent(role)
-      if (parent) dfs(parent, [...path, role])
+      if (parent && parent.ns === role.ns) dfs(parent, [...path, role])
     }
     state.set(role, 2)
   }
