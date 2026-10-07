@@ -191,6 +191,81 @@ describe("CaseDetailPage", () => {
     expect((sent[0].payload as { tags: string[] }).tags).toEqual(["billing", "urgent", "vip"])
   })
 
+  it("shows a case's metadata as text, never as markup", async () => {
+    const c = testCase({ metadata: { source: HOSTILE, owner: "support" } })
+    const { container } = renderNavPage(CaseDetailPage, stubClient(answers(c)), { id: SUITE_ID, caseId: CASE_ID })
+    const meta = await screen.findByLabelText("Metadata", { selector: "pre" })
+    expect(meta.textContent).toBe(JSON.stringify({ source: HOSTILE, owner: "support" }, null, 2))
+    expect(container.querySelector("img")).toBeNull()
+  })
+
+  it("has no metadata section for a case with none", async () => {
+    renderNavPage(CaseDetailPage, stubClient(answers()), { id: SUITE_ID, caseId: CASE_ID })
+    await screen.findByRole("heading", { level: 1, name: "Reset password" })
+    expect(screen.queryByRole("heading", { name: "Metadata" })).toBeNull()
+  })
+
+  it("prefills the context without its attack type, says the attack type is kept, and sends no context untouched", async () => {
+    const c = leakageCase()
+    const { client, sent } = recordingCommandClient(answers(c), { "cases.update": c })
+    renderNavPage(CaseDetailPage, client, { id: SUITE_ID, caseId: c.id })
+    await screen.findByRole("heading", { level: 1, name: "leakage_direct_request" })
+    fireEvent.click(screen.getByRole("button", { name: "Edit" }))
+    const dialog = screen.getByRole("dialog")
+    const field = within(dialog).getByLabelText("Context") as HTMLTextAreaElement
+    expect(JSON.parse(field.value)).toEqual({ variant: "direct_request" })
+    expect(within(dialog).getByText("The attack type, leakage, is kept. No edit can change it.")).toBeTruthy()
+    fireEvent.click(within(dialog).getByRole("button", { name: "Save case" }))
+    await waitFor(() => expect(sent.length).toBe(1))
+    expect(sent[0].payload).not.toHaveProperty("context")
+  })
+
+  it("sends an edited context as an object", async () => {
+    const c = testCase()
+    const { client, sent } = recordingCommandClient(answers(c), { "cases.update": c })
+    renderNavPage(CaseDetailPage, client, { id: SUITE_ID, caseId: CASE_ID })
+    await screen.findByRole("heading", { level: 1, name: "Reset password" })
+    fireEvent.click(screen.getByRole("button", { name: "Edit" }))
+    const dialog = screen.getByRole("dialog")
+    expect((within(dialog).getByLabelText("Context") as HTMLTextAreaElement).value).toBe("")
+    expect(within(dialog).queryByText(/The attack type/)).toBeNull()
+    fireEvent.change(within(dialog).getByLabelText("Context"), { target: { value: '{"region": "eu"}' } })
+    fireEvent.click(within(dialog).getByRole("button", { name: "Save case" }))
+    await waitFor(() => expect(sent.length).toBe(1))
+    expect((sent[0].payload as { context: unknown }).context).toEqual({ region: "eu" })
+  })
+
+  it("sends an emptied context as an empty object", async () => {
+    const c = testCase({ context: { region: "eu" } })
+    const { client, sent } = recordingCommandClient(answers(c), { "cases.update": c })
+    renderNavPage(CaseDetailPage, client, { id: SUITE_ID, caseId: CASE_ID })
+    await screen.findByRole("heading", { level: 1, name: "Reset password" })
+    fireEvent.click(screen.getByRole("button", { name: "Edit" }))
+    const dialog = screen.getByRole("dialog")
+    fireEvent.change(within(dialog).getByLabelText("Context"), { target: { value: "  " } })
+    fireEvent.click(within(dialog).getByRole("button", { name: "Save case" }))
+    await waitFor(() => expect(sent.length).toBe(1))
+    expect((sent[0].payload as { context: unknown }).context).toEqual({})
+  })
+
+  it("refuses a context that is not a JSON object, marks the field and sends nothing", async () => {
+    const c = testCase()
+    const { client, sent } = recordingCommandClient(answers(c), { "cases.update": c })
+    renderNavPage(CaseDetailPage, client, { id: SUITE_ID, caseId: CASE_ID })
+    await screen.findByRole("heading", { level: 1, name: "Reset password" })
+    fireEvent.click(screen.getByRole("button", { name: "Edit" }))
+    const dialog = screen.getByRole("dialog")
+    const field = within(dialog).getByLabelText("Context")
+    fireEvent.change(field, { target: { value: "{region" } })
+    fireEvent.click(within(dialog).getByRole("button", { name: "Save case" }))
+    expect(within(dialog).getByRole("alert").textContent).toBe("The context is not valid JSON.")
+    expect(field.getAttribute("aria-invalid")).toBe("true")
+    fireEvent.change(field, { target: { value: '["eu"]' } })
+    fireEvent.click(within(dialog).getByRole("button", { name: "Save case" }))
+    expect(within(dialog).getByRole("alert").textContent).toBe("The context must be a JSON object.")
+    expect(sent).toHaveLength(0)
+  })
+
   it("links to the suite the case belongs to, not the one in the URL", async () => {
     const own = "suite_01j9se00000000000000000099"
     const c = testCase({ suiteId: own })

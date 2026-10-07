@@ -32,8 +32,10 @@ const CREATE_REQUIRED = "a case needs a name and an input"
 const NAME_REQUIRED = "a case needs a name"
 const INPUT_REQUIRED = "a case needs an input"
 const SUBSTRING_REQUIRED = "a not_contains scorer needs a non-empty substring"
+const CONTEXT_NOT_JSON = "The context is not valid JSON."
+const CONTEXT_NOT_OBJECT = "The context must be a JSON object."
 
-type Problem = "name" | "input" | "scenario" | "scorers"
+type Problem = "name" | "input" | "scenario" | "scorers" | "context"
 
 function fieldFor(message: string | undefined): Problem | null {
   if (!message) return null
@@ -41,6 +43,9 @@ function fieldFor(message: string | undefined): Problem | null {
   if (message === INPUT_REQUIRED) return "input"
   if (message === CREATE_REQUIRED) return "name"
   if (message.startsWith("unknown scenario type")) return "scenario"
+  if (message === CONTEXT_NOT_JSON || message === CONTEXT_NOT_OBJECT || message.startsWith("invalid payload: context")) {
+    return "context"
+  }
   if (message.startsWith('scorer "') || message.startsWith("Scorer ") || message === SUBSTRING_REQUIRED) {
     return "scorers"
   }
@@ -88,6 +93,28 @@ function parseConfig(text: string, position: number): { config: Record<string, u
   return { config: value as Record<string, unknown> }
 }
 
+/**
+ * The context as the field shows it: pretty JSON without attack_type, which
+ * no write can change (the server keeps the stored one), or empty for none.
+ */
+function contextText(testCase: TestCase | undefined): string {
+  const rest = Object.fromEntries(Object.entries(testCase?.context ?? {}).filter(([k]) => k !== "attack_type"))
+  return Object.keys(rest).length === 0 ? "" : JSON.stringify(rest, null, 2)
+}
+
+/** The context field as an object, or the reason it cannot be sent. */
+function parseContext(text: string): { context: Record<string, unknown> } | { problem: string } {
+  if (text.trim() === "") return { context: {} }
+  let value: unknown
+  try {
+    value = JSON.parse(text)
+  } catch {
+    return { problem: CONTEXT_NOT_JSON }
+  }
+  if (value === null || typeof value !== "object" || Array.isArray(value)) return { problem: CONTEXT_NOT_OBJECT }
+  return { context: value as Record<string, unknown> }
+}
+
 /** "billing, churn" as the tags the server stores. */
 function parseTags(text: string): string[] {
   return text
@@ -107,7 +134,7 @@ export interface CaseFormDialogProps {
 
 /**
  * Creates or edits a case: its name, input, expected output, scenario type,
- * tags and scorers. Both commands answer the saved case and invalidate the
+ * tags, context and scorers. Both commands answer the saved case and invalidate the
  * case list (and the suite's counts), so pages refresh through
  * `meta.invalidates`.
  *
@@ -172,6 +199,11 @@ function CaseForm({
   const [initialTags] = useState(() => (testCase?.tags ?? []).join(", "))
   const [tags, setTags] = useState(initialTags)
   const [scorers, setScorers] = useState<ScorerRow[]>(() => rowsFrom(testCase))
+  // Like the tags: an untouched context is not sent, so whatever the store
+  // holds (a mongo nested value need not survive a JSON round trip) stays.
+  const [initialContext] = useState(() => contextText(testCase))
+  const [contextField, setContextField] = useState(initialContext)
+  const attackType = typeof testCase?.context.attack_type === "string" ? testCase.context.attack_type : undefined
   const [problem, setProblem] = useState<string | null>(null)
   const sending = useRef(false)
 
@@ -200,6 +232,12 @@ function CaseForm({
       if ("problem" in parsed) return setProblem(parsed.problem)
       built.push({ name: row.name, config: parsed.config })
     }
+    let context: Record<string, unknown> | undefined
+    if (contextField !== initialContext) {
+      const parsed = parseContext(contextField)
+      if ("problem" in parsed) return setProblem(parsed.problem)
+      context = parsed.context
+    }
     setProblem(null)
     const fields = {
       name: name.trim(),
@@ -208,6 +246,7 @@ function CaseForm({
       scenarioType: scenario,
       tags: testCase && tags === initialTags ? testCase.tags : parseTags(tags),
       scorers: built,
+      ...(context !== undefined && { context }),
     }
     sending.current = true
     let saved: TestCase | undefined
@@ -287,6 +326,25 @@ function CaseForm({
             onChange={(e) => setTags(e.target.value)}
           />
           <FieldDescription>Separated by commas.</FieldDescription>
+        </Field>
+        <Field>
+          <Label htmlFor={id("context")}>Context</Label>
+          <Textarea
+            id={id("context")}
+            rows={3}
+            spellCheck={false}
+            className="font-mono text-xs"
+            value={contextField}
+            placeholder="{}"
+            {...invalidProps("context")}
+            onChange={(e) => setContextField(e.target.value)}
+          />
+          <FieldDescription>
+            A JSON object every scorer gets with the case. A run sets latency_ms and cost itself.
+          </FieldDescription>
+          {attackType !== undefined && (
+            <FieldDescription>{`The attack type, ${attackType}, is kept. No edit can change it.`}</FieldDescription>
+          )}
         </Field>
         <fieldset className="flex flex-col gap-3" aria-describedby={invalid === "scorers" ? id("error") : undefined}>
           <legend className="text-sm font-medium">Scorers</legend>

@@ -160,6 +160,14 @@ function CaseDetailBody({ caseId }: { caseId: string }) {
                 <PlainText value={JSON.stringify(c.context, null, 2)} label="Context" />
               </section>
             )}
+            {Object.keys(c.metadata).length > 0 && (
+              <section aria-labelledby="sentinel-case-metadata" className="flex flex-col gap-2">
+                <h2 id="sentinel-case-metadata" className="text-sm font-medium">
+                  Metadata
+                </h2>
+                <PlainText value={JSON.stringify(c.metadata, null, 2)} label="Metadata" />
+              </section>
+            )}
           </div>
         )}
       </SettledBoundary>

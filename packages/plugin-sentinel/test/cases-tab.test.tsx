@@ -51,6 +51,20 @@ describe("CasesTab, adding a case", () => {
     expect(sent).toEqual([])
   })
 
+  it("adds a case with a context when one is typed", async () => {
+    const { client, sent } = recordingCommandClient(ANSWERS, { "cases.create": testCase({ id: "tcase_new" }) })
+    renderTab(client)
+    await screen.findByText("1 case")
+    fireEvent.click(screen.getByRole("button", { name: "Add case" }))
+    const dialog = screen.getByRole("dialog")
+    fireEvent.change(within(dialog).getByLabelText("Name"), { target: { value: "Refunds" } })
+    fireEvent.change(within(dialog).getByLabelText("Input"), { target: { value: "Can I get a refund?" } })
+    fireEvent.change(within(dialog).getByLabelText("Context"), { target: { value: '{"region": "eu"}' } })
+    fireEvent.click(within(dialog).getByRole("button", { name: "Add case" }))
+    await waitFor(() => expect(sent.length).toBe(1))
+    expect((sent[0].payload as { context: unknown }).context).toEqual({ region: "eu" })
+  })
+
   it("adds a case with its tags and a scorer's config, keeping the input as written", async () => {
     const { client, sent } = recordingCommandClient(ANSWERS, { "cases.create": testCase({ id: "tcase_new" }) })
     renderTab(client)
