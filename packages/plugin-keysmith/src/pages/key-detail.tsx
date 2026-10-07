@@ -26,6 +26,7 @@ import {
   rangeBounds,
   rotationMasked,
 } from "../format"
+import { rotationsForKey, usageForKey } from "../key-filter"
 import { EndGraceDialog } from "../components/end-grace-dialog"
 import {
   KeyStateActions,
@@ -384,8 +385,8 @@ function KeyDetailView({
 const SECTION_LINK = "text-sm underline underline-offset-4"
 
 /**
- * The key's newest rotations, newest first, with a link to every rotation.
- * The Rotations page lists every key's, so the link names that.
+ * The key's newest rotations, newest first, with a link to all of them: the
+ * Rotations page, narrowed to this key.
  */
 function RotationHistorySection({ keyId }: { keyId: string }) {
   const list = useQuery<RotationsList>("rotations.list", {
@@ -396,7 +397,11 @@ function RotationHistorySection({ keyId }: { keyId: string }) {
     <Section
       title="Rotation history"
       action={
-        <PluginLink to="/rotations" aria-label="View all rotations" className={SECTION_LINK}>
+        <PluginLink
+          to={rotationsForKey(keyId)}
+          aria-label="View all rotations of this key"
+          className={SECTION_LINK}
+        >
           View all
         </PluginLink>
       }
@@ -467,7 +472,7 @@ function UsageSection({ keyId }: { keyId: string }) {
     <Section
       title="Usage"
       action={
-        <PluginLink to="/usage" className={SECTION_LINK}>
+        <PluginLink to={usageForKey(keyId)} className={SECTION_LINK}>
           Open usage
         </PluginLink>
       }

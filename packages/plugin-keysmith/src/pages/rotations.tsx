@@ -2,6 +2,7 @@ import { useState } from "react"
 import type { ComponentType } from "react"
 import { useQuery } from "@forge-go/dashboard-plugin"
 import type { PluginPageProps } from "@forge-go/dashboard-plugin"
+import { Badge } from "@forge-go/dashboard-kit/components/badge"
 import { Button } from "@forge-go/dashboard-kit/components/button"
 import { FilterBar } from "@forge-go/dashboard-kit/components/filter-bar"
 import { NoneCell } from "@forge-go/dashboard-kit/components/none-cell"
@@ -15,6 +16,7 @@ import { Timestamp } from "@forge-go/dashboard-kit/components/timestamp"
 import { RotationReasonBadge } from "../badges"
 import { KeyCell, WindowCell } from "../components/rotation-cells"
 import { formatDuration, ROTATION_REASONS } from "../format"
+import { replaceKeyIdParam, useKeyIdParam, useKeyName } from "../key-filter"
 import type { RotationItem, RotationsList } from "../types"
 
 const PAGE_SIZE = 25
@@ -132,18 +134,61 @@ function Pager({
   )
 }
 
+/**
+ * The key a key's page sent you here with, by name, and the way to stop
+ * filtering by it. The id stands in, in mono, when keys.detail cannot name
+ * the key: still loading, refused, or the key is gone.
+ */
+function KeyFilterChip({ keyId, onClear }: { keyId: string; onClear: () => void }) {
+  const name = useKeyName(keyId, true)
+  return (
+    <div role="group" aria-label="Key filter" className="flex flex-wrap gap-1">
+      <Badge variant="outline" className="gap-1 pr-0.5 text-xs">
+        Key{" "}
+        {name === undefined ? (
+          <span className="font-mono">{keyId}</span>
+        ) : (
+          <span>{name}</span>
+        )}
+        <Button
+          type="button"
+          variant="ghost"
+          size="icon-xs"
+          className="size-4"
+          aria-label="Clear the key filter"
+          onClick={onClear}
+        >
+          <span aria-hidden="true">×</span>
+        </Button>
+      </Badge>
+    </div>
+  )
+}
+
+/**
+ * Every rotation across keys, newest first, or one key's when the address
+ * names it (`?keyId=`, from that key's page). The key lives only in the
+ * address: clearing it takes it out of there too, in place.
+ */
 export const RotationsPage: ComponentType<PluginPageProps> = () => {
-  const [offset, setOffset] = useState(0)
+  const keyId = useKeyIdParam()
+  // The offset belongs to the key it was paged under. A different key, from
+  // the address or the chip, starts again at the first page, and coming back
+  // to a key does not bring back the page left there. Adjusted during
+  // render, React's supported way to reset state from a changed input.
+  const [paging, setPaging] = useState({ keyId, offset: 0 })
+  if (paging.keyId !== keyId) setPaging({ keyId, offset: 0 })
+  const offset = paging.keyId === keyId ? paging.offset : 0
+  const setOffset = (next: number) => setPaging({ keyId, offset: next })
   const [reason, setReason] = useState("")
 
   // An empty filter is left out of the params rather than sent as "".
   const list = useQuery<RotationsList>("rotations.list", {
     limit: PAGE_SIZE,
     offset,
+    ...(keyId !== "" && { keyId }),
     ...(reason !== "" && { reason }),
   })
-
-  const filtered = reason !== ""
 
   // A new filter means a new result set, and page 3 of it may not exist.
   function changeReason(value: string) {
@@ -152,10 +197,15 @@ export const RotationsPage: ComponentType<PluginPageProps> = () => {
   }
 
   function emptyMessage(): string {
-    // Three kinds of empty: a later page whose rows have gone, none matching,
-    // and none yet. Say which one this is.
+    // Kinds of empty: a later page whose rows have gone, none matching, and
+    // none yet. Say which one this is.
     if (offset > 0) return "No rotations on this page."
-    return filtered ? "No rotations match this reason." : "No rotations yet."
+    if (keyId !== "") {
+      return reason !== ""
+        ? "No rotations of this key match this reason."
+        : "This key has not been rotated."
+    }
+    return reason !== "" ? "No rotations match this reason." : "No rotations yet."
   }
 
   return (
@@ -176,6 +226,10 @@ export const RotationsPage: ComponentType<PluginPageProps> = () => {
           },
         ]}
       />
+
+      {keyId !== "" && (
+        <KeyFilterChip keyId={keyId} onClear={() => replaceKeyIdParam("")} />
+      )}
 
       <QueryBoundary title="Rotations" query={list} skeletonRows={5}>
         {(data) => {

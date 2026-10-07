@@ -593,12 +593,13 @@ describe("KeyDetailPage rotation history", () => {
     expect(within(s).queryByRole("list")).toBeNull()
   })
 
-  it("links to every rotation", async () => {
+  it("links to every rotation of this key, on the Rotations page", async () => {
     await renderWith({})
     const link = within(section("Rotation history")).getByRole("link", {
-      name: "View all rotations",
+      name: "View all rotations of this key",
     })
-    expect(link.getAttribute("href")).toBe("/rotations")
+    expect(link.textContent).toBe("View all")
+    expect(link.getAttribute("href")).toBe("/@keysmith/rotations?keyId=akey_billing")
   })
 
   it("says only the newest ten are shown when there are more", async () => {
@@ -674,10 +675,10 @@ describe("KeyDetailPage usage", () => {
     expect(within(s).queryByText(/over 7 UTC days/)).toBeNull()
   })
 
-  it("links to the Usage page", async () => {
+  it("links to the Usage page with this key chosen", async () => {
     await renderWith({})
     const link = within(section("Usage")).getByRole("link", { name: "Open usage" })
-    expect(link.getAttribute("href")).toBe("/usage")
+    expect(link.getAttribute("href")).toBe("/@keysmith/usage?keyId=akey_billing")
   })
 
   it("draws the small chart for this key once its chunk has loaded", async () => {

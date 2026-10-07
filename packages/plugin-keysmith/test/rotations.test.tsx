@@ -1,11 +1,11 @@
-import { describe, expect, it } from "vitest"
-import { fireEvent, screen, within } from "@testing-library/react"
+import { afterEach, describe, expect, it } from "vitest"
+import { act, fireEvent, screen, waitFor, within } from "@testing-library/react"
 import { ContractError } from "@forge-go/dashboard-plugin"
 import type { ScopedClient } from "@forge-go/dashboard-plugin"
 import { formatTimestamp } from "@forge-go/dashboard-kit/lib/format"
 import { RotationsPage } from "../src/pages/rotations"
 import { keyPath } from "../src/format"
-import type { RotationItem, RotationsList } from "../src/types"
+import type { KeyDetail, RotationItem, RotationsList } from "../src/types"
 import {
   failingClient,
   recordingQueryClient,
@@ -429,5 +429,192 @@ describe("RotationsPage", () => {
     )
     expect(await screen.findByText(/rotations store is down/)).toBeTruthy()
     expect(screen.queryByRole("table")).toBeNull()
+  })
+})
+
+// ---------------------------------------------------------------------------
+// A key carried in from its page: /rotations?keyId=<id>
+
+const BILLING_DETAIL: KeyDetail = {
+  key: {
+    id: "akey_billing",
+    name: "Billing service",
+    prefix: "sk",
+    hint: "a3f8",
+    environment: "live",
+    state: "active",
+    effectiveState: "active",
+    expiryPending: false,
+    expiresSoon: false,
+    scopes: [],
+    createdAt: "2026-08-01T00:00:00Z",
+    updatedAt: "2026-08-01T00:00:00Z",
+  },
+  policy: null,
+  metadata: {},
+  previousKeys: [],
+}
+
+/**
+ * Answers rotations.list by its params and keys.detail with `detail`, or
+ * refuses keys.detail when `detail` is a ContractError. Records every read.
+ */
+function keyedClient(
+  list: (params: Record<string, unknown>) => RotationsList,
+  detail: KeyDetail | ContractError = BILLING_DETAIL,
+): { client: ScopedClient; sent: { intent: string; params: Record<string, unknown> }[] } {
+  const sent: { intent: string; params: Record<string, unknown> }[] = []
+  return {
+    sent,
+    client: {
+      extension: "keysmith",
+      query: async (intent: string, params?: Record<string, unknown>) => {
+        sent.push({ intent, params: params ?? {} })
+        if (intent === "rotations.list") return list(params ?? {})
+        if (intent === "keys.detail") {
+          if (detail instanceof ContractError) throw detail
+          return detail
+        }
+        throw new ContractError("NOT_FOUND", `no handler for intent "${intent}"`)
+      },
+      command: async () => {
+        throw new ContractError("NOT_FOUND", "no commands")
+      },
+    } as ScopedClient,
+  }
+}
+
+function listCalls(sent: { intent: string; params: Record<string, unknown> }[]) {
+  return sent.filter((s) => s.intent === "rotations.list").map((s) => s.params)
+}
+
+function keyFilter(): HTMLElement {
+  return screen.getByRole("group", { name: "Key filter" })
+}
+
+describe("RotationsPage with a key in the address", () => {
+  afterEach(() => {
+    window.history.replaceState(null, "", "/")
+  })
+
+  function openAt(search: string) {
+    window.history.replaceState(null, "", `/@keysmith/rotations${search}`)
+  }
+
+  it("asks nothing about a key when the address names none", async () => {
+    const { client, sent } = keyedClient(() => LIST)
+    renderPage(RotationsPage, client)
+    await screen.findByText("Partner sandbox")
+    expect(sent.some((s) => s.intent === "keys.detail")).toBe(false)
+    expect(screen.queryByRole("group", { name: "Key filter" })).toBeNull()
+  })
+
+  it("narrows the list to that key and names it from keys.detail", async () => {
+    openAt("?keyId=akey_billing")
+    const { client, sent } = keyedClient(() => ({ items: [MANUAL], hasMore: false }))
+    renderPage(RotationsPage, client)
+    await within(keyFilter()).findByText("Billing service")
+    expect(listCalls(sent)[0]).toEqual({ limit: 25, offset: 0, keyId: "akey_billing" })
+    expect(sent.find((s) => s.intent === "keys.detail")?.params).toEqual({
+      id: "akey_billing",
+    })
+    expect(within(keyFilter()).getByText(/^Key/)).toBeTruthy()
+  })
+
+  it("shows the key's id in mono when keys.detail cannot name it", async () => {
+    openAt("?keyId=akey_deleted")
+    const { client } = keyedClient(
+      () => ({ items: [GONE], hasMore: false }),
+      new ContractError("NOT_FOUND", "key not found"),
+    )
+    renderPage(RotationsPage, client)
+    await screen.findByText("1 rotation")
+    const id = await within(keyFilter()).findByText("akey_deleted")
+    expect(id.className).toMatch(/font-mono/)
+    // The refusal names nothing the page needs; it is not an error card.
+    expect(screen.queryByText(/key not found/)).toBeNull()
+  })
+
+  it("clears the key from the list and from the address", async () => {
+    openAt("?keyId=akey_billing")
+    const { client, sent } = keyedClient((params) =>
+      params.keyId ? { items: [MANUAL], hasMore: false } : LIST,
+    )
+    renderPage(RotationsPage, client)
+    await within(keyFilter()).findByText("Billing service")
+    const length = window.history.length
+
+    fireEvent.click(screen.getByRole("button", { name: "Clear the key filter" }))
+    await screen.findByText("Partner sandbox")
+    expect(listCalls(sent).at(-1)).toEqual({ limit: 25, offset: 0 })
+    expect(screen.queryByRole("group", { name: "Key filter" })).toBeNull()
+    expect(window.location.search).toBe("")
+    expect(window.history.length).toBe(length)
+  })
+
+  it("keeps the key while paging and filtering by reason", async () => {
+    openAt("?keyId=akey_billing")
+    const { client, sent } = keyedClient((params) =>
+      params.offset === 0
+        ? { items: [MANUAL], hasMore: true }
+        : { items: [{ ...MANUAL, id: "krot_9", reason: "policy" }], hasMore: false },
+    )
+    renderPage(RotationsPage, client)
+    await within(keyFilter()).findByText("Billing service")
+
+    fireEvent.click(screen.getByRole("button", { name: "Next page" }))
+    await screen.findByText("Rotations 26 to 26")
+    expect(listCalls(sent).at(-1)).toEqual({ limit: 25, offset: 25, keyId: "akey_billing" })
+
+    fireEvent.change(screen.getByLabelText("Reason"), { target: { value: "manual" } })
+    await screen.findByText("Rotations 1 to 1, more on the next page")
+    expect(listCalls(sent).at(-1)).toEqual({
+      limit: 25,
+      offset: 0,
+      keyId: "akey_billing",
+      reason: "manual",
+    })
+  })
+
+  it("goes back to the first page when the key is cleared", async () => {
+    openAt("?keyId=akey_billing")
+    const { client, sent } = keyedClient((params) =>
+      params.offset === 0
+        ? { items: [MANUAL], hasMore: true }
+        : { items: [POLICY], hasMore: false },
+    )
+    renderPage(RotationsPage, client)
+    await within(keyFilter()).findByText("Billing service")
+    fireEvent.click(screen.getByRole("button", { name: "Next page" }))
+    await screen.findByText("Reporting export")
+
+    fireEvent.click(screen.getByRole("button", { name: "Clear the key filter" }))
+    await screen.findByText("Rotations 1 to 1, more on the next page")
+    expect(listCalls(sent).at(-1)).toEqual({ limit: 25, offset: 0 })
+
+    // The same key again, from the address: its first page, not the one left.
+    act(() => {
+      window.history.replaceState(null, "", "/@keysmith/rotations?keyId=akey_billing")
+      window.dispatchEvent(new PopStateEvent("popstate"))
+    })
+    await within(keyFilter()).findByText("Billing service")
+    await screen.findByText("Rotations 1 to 1, more on the next page")
+    expect(listCalls(sent).at(-1)).toEqual({ limit: 25, offset: 0, keyId: "akey_billing" })
+  })
+
+  it("says the key has not been rotated, and says so apart from a reason that matches nothing", async () => {
+    openAt("?keyId=akey_billing")
+    const { client } = keyedClient(() => ({ items: [], hasMore: false }))
+    renderPage(RotationsPage, client)
+    expect(await screen.findByText("This key has not been rotated.")).toBeTruthy()
+    expect(screen.queryByText("No rotations yet.")).toBeNull()
+
+    fireEvent.change(screen.getByLabelText("Reason"), { target: { value: "compromise" } })
+    expect(
+      await screen.findByText("No rotations of this key match this reason."),
+    ).toBeTruthy()
+    await waitFor(() =>
+      expect(screen.queryByText("This key has not been rotated.")).toBeNull(),
+    )
   })
 })

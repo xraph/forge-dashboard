@@ -23,6 +23,7 @@ import {
   USAGE_RANGES,
   type UsageRangeId,
 } from "../format"
+import { replaceKeyIdParam, useKeyIdParam, useKeyName } from "../key-filter"
 import type {
   KeysList,
   UsageBucket,
@@ -34,8 +35,8 @@ import type {
 
 const PAGE_SIZE = 25
 
-// The key filter's names. 100 is the contract's page cap; a tenant with more
-// keys can still reach the rest from a key's own page.
+// The key filter's names. 100 is the contract's page cap; a key past it
+// arrives from its own page's "Open usage", and is named by keys.detail.
 const KEY_PARAMS = { limit: 100 }
 
 const ALL_KEYS = { value: "", label: "All keys" }
@@ -209,10 +210,18 @@ function SeriesView({
 
 export const UsagePage: ComponentType<PluginPageProps> = () => {
   const [range, setRange] = useState<UsageRangeId>("24h")
-  const [keyId, setKeyId] = useState("")
+  // The key lives in the address (`?keyId=`), so a key's page can open this
+  // one with it chosen. Only the key: range, view and page stay in state.
+  const keyId = useKeyIdParam()
   const [view, setView] = useState<"chart" | "table">("chart")
-  // One-based, matching ResourceTable's PaginationState.
-  const [page, setPage] = useState(1)
+  // One-based, matching ResourceTable's PaginationState. The page belongs to
+  // the key it was paged under: a different key starts again at page one,
+  // and so does coming back to a key. Adjusted during render, React's
+  // supported way to reset state from a changed input.
+  const [paging, setPaging] = useState({ keyId, page: 1 })
+  if (paging.keyId !== keyId) setPaging({ keyId, page: 1 })
+  const page = paging.keyId === keyId ? paging.page : 1
+  const setPage = (next: number) => setPaging({ keyId, page: next })
   // Pinned, so the window does not slide under a page being read. A new
   // filter takes a new reading of the clock.
   const [now, setNow] = useState(() => Date.now())
@@ -221,9 +230,18 @@ export const UsagePage: ComponentType<PluginPageProps> = () => {
   // Names only. A failed or slow read leaves "All keys" as the one choice
   // and never holds up the chart.
   const keys = useQuery<KeysList>("keys.list", KEY_PARAMS)
+  const listed = keys.data?.keys ?? []
+  // A key from the address that the list does not hold (past the first 100,
+  // or the list is still loading or failed) is still the chosen one, so it
+  // gets an option of its own: named once the list has settled without it,
+  // by its id until then or when keys.detail cannot say.
+  const unlisted = keyId !== "" && !listed.some((k) => k.id === keyId)
+  const settled = keys.data !== undefined || keys.error !== undefined
+  const unlistedName = useKeyName(keyId, unlisted && settled)
   const keyOptions = [
     ALL_KEYS,
-    ...(keys.data?.keys ?? []).map((k) => ({ value: k.id, label: k.name })),
+    ...listed.map((k) => ({ value: k.id, label: k.name })),
+    ...(unlisted ? [{ value: keyId, label: unlistedName ?? keyId }] : []),
   ]
 
   // An unset key is left out of the params rather than sent as "".
@@ -242,18 +260,16 @@ export const UsagePage: ComponentType<PluginPageProps> = () => {
     ...forKey,
   })
 
-  // The filters live in component state, not the URL, so no key id ends up
-  // in the address bar or its history.
   function changeRange(value: string) {
     if (!isRangeId(value)) return
     setRange(value)
     setNow(Date.now())
     setPage(1)
   }
+  // In place, not a new history entry: Back leaves Usage, not the last key.
   function changeKey(value: string) {
-    setKeyId(value)
+    replaceKeyIdParam(value)
     setNow(Date.now())
-    setPage(1)
   }
 
   return (

@@ -13,6 +13,7 @@ import {
   USAGE_RANGES,
 } from "../src/format"
 import type {
+  KeyDetail,
   KeySummary,
   KeysList,
   UsageBucket,
@@ -257,6 +258,8 @@ type Answers = {
   series?: (params: Record<string, unknown>) => UsageSeries
   records?: (params: Record<string, unknown>) => UsageRecords
   keys?: KeysList
+  /** keys.detail's answer, or the error it throws. Refused when absent. */
+  detail?: KeyDetail | ContractError
 }
 
 /** Answers the three reads the page makes, and records every one with its params. */
@@ -277,6 +280,10 @@ function usageClient(answers: Answers = {}): {
         if (intent === "usage.series") return series(params ?? {})
         if (intent === "usage.records") return records(params ?? {})
         if (intent === "keys.list") return keys
+        if (intent === "keys.detail" && answers.detail !== undefined) {
+          if (answers.detail instanceof ContractError) throw answers.detail
+          return answers.detail
+        }
         throw new ContractError("NOT_FOUND", `no handler for intent "${intent}"`)
       },
       command: async () => {
@@ -317,6 +324,7 @@ function rowWith(table: HTMLElement, text: string): HTMLElement {
 describe("UsagePage", () => {
   afterEach(() => {
     vi.useRealTimers()
+    window.history.replaceState(null, "", "/")
   })
 
   function freezeAt(iso: string) {
@@ -390,8 +398,9 @@ describe("UsagePage", () => {
     expect(paramsOf(sent, "usage.series").at(-1)).not.toHaveProperty("keyId")
   })
 
-  it("keeps key ids out of the address bar", async () => {
-    const before = window.location.href
+  it("writes the chosen key into the address, replacing the entry, and drops it for every key", async () => {
+    window.history.replaceState(null, "", "/@keysmith/usage")
+    const length = window.history.length
     const { client } = usageClient()
     renderPage(UsagePage, client)
     await screen.findByText("Partner sandbox", { selector: "option" })
@@ -399,7 +408,120 @@ describe("UsagePage", () => {
       target: { value: "akey_partner" },
     })
     await screen.findByRole("group", { name: /Requests per hour/ })
-    expect(window.location.href).toBe(before)
+    expect(window.location.pathname).toBe("/@keysmith/usage")
+    expect(window.location.search).toBe("?keyId=akey_partner")
+    expect(window.history.length).toBe(length)
+
+    fireEvent.change(screen.getByLabelText("Key"), { target: { value: "" } })
+    await screen.findByRole("group", { name: /Requests per hour/ })
+    expect(window.location.search).toBe("")
+    expect(window.history.length).toBe(length)
+  })
+
+  it("puts nothing but the key id in the address", async () => {
+    window.history.replaceState(null, "", "/@keysmith/usage")
+    const { client } = usageClient({
+      records: () => ({ items: [record({})], total: 26 }),
+    })
+    renderPage(UsagePage, client)
+    await screen.findByText("/v1/invoices")
+    fireEvent.change(screen.getByLabelText("Range"), { target: { value: "7d" } })
+    fireEvent.click(await screen.findByRole("button", { name: "Table" }))
+    fireEvent.click(await screen.findByRole("button", { name: /Next/ }))
+    await screen.findByText(/Page 2 of 2/)
+    expect(window.location.search).toBe("")
+  })
+
+  it("starts from the key in the address", async () => {
+    freezeAt("2026-10-05T14:20:00Z")
+    window.history.replaceState(null, "", "/@keysmith/usage?keyId=akey_partner")
+    const { client, sent } = usageClient()
+    renderPage(UsagePage, client)
+    await screen.findByText("Partner sandbox", { selector: "option" })
+    expect((screen.getByLabelText("Key") as HTMLSelectElement).value).toBe("akey_partner")
+    expect(paramsOf(sent, "usage.series")[0]).toEqual({
+      period: "hourly",
+      after: "2026-10-04T15:00:00Z",
+      before: "2026-10-05T15:00:00Z",
+      keyId: "akey_partner",
+    })
+    expect(paramsOf(sent, "usage.records")[0]).toMatchObject({ keyId: "akey_partner" })
+    // The key is in the first 100, so its name is already known.
+    expect(paramsOf(sent, "keys.detail")).toEqual([])
+  })
+
+  it("shows a key past the first 100 as the chosen one, named by keys.detail", async () => {
+    window.history.replaceState(null, "", "/@keysmith/usage?keyId=akey_far")
+    const far = key({ id: "akey_far", name: "Nightly export", hint: "0f0f" })
+    const { client, sent } = usageClient({
+      keys: { keys: KEYS.keys, total: 150 },
+      detail: { key: far, policy: null, metadata: {}, previousKeys: [] },
+    })
+    renderPage(UsagePage, client)
+    await screen.findByText("Nightly export", { selector: "option" })
+    const select = screen.getByLabelText("Key") as HTMLSelectElement
+    expect(select.value).toBe("akey_far")
+    expect(
+      within(select).getAllByRole("option").map((o) => o.textContent),
+    ).toEqual(["All keys", "Billing service", "Partner sandbox", "Nightly export"])
+    expect(paramsOf(sent, "keys.detail")).toEqual([{ id: "akey_far" }])
+    expect(paramsOf(sent, "usage.series")[0]).toMatchObject({ keyId: "akey_far" })
+  })
+
+  it("labels a key it cannot name by its id, and keeps it chosen", async () => {
+    window.history.replaceState(null, "", "/@keysmith/usage?keyId=akey_far")
+    const { client, sent } = usageClient({
+      detail: new ContractError("NOT_FOUND", "key not found"),
+    })
+    renderPage(UsagePage, client)
+    await waitFor(() => expect(paramsOf(sent, "keys.detail")).toHaveLength(1))
+    const select = screen.getByLabelText("Key") as HTMLSelectElement
+    await waitFor(() =>
+      expect(
+        within(select).getAllByRole("option").map((o) => o.textContent),
+      ).toEqual(["All keys", "Billing service", "Partner sandbox", "akey_far"]),
+    )
+    expect(select.value).toBe("akey_far")
+    expect(screen.queryByText(/key not found/)).toBeNull()
+  })
+
+  it("drops a key past the first 100 from the options once you choose every key", async () => {
+    window.history.replaceState(null, "", "/@keysmith/usage?keyId=akey_far")
+    const far = key({ id: "akey_far", name: "Nightly export" })
+    const { client } = usageClient({
+      detail: { key: far, policy: null, metadata: {}, previousKeys: [] },
+    })
+    renderPage(UsagePage, client)
+    await screen.findByText("Nightly export", { selector: "option" })
+    fireEvent.change(screen.getByLabelText("Key"), { target: { value: "" } })
+    await waitFor(() =>
+      expect(screen.queryByText("Nightly export", { selector: "option" })).toBeNull(),
+    )
+    expect(window.location.search).toBe("")
+  })
+
+  it("goes back to the first page of records when the key changes", async () => {
+    const { client, sent } = usageClient({
+      records: () => ({ items: [record({})], total: 26 }),
+    })
+    renderPage(UsagePage, client)
+    await screen.findByText("/v1/invoices")
+    fireEvent.click(screen.getByRole("button", { name: /Next/ }))
+    await screen.findByText(/Page 2 of 2/)
+
+    fireEvent.change(screen.getByLabelText("Key"), { target: { value: "akey_partner" } })
+    await screen.findByText(/Page 1 of 2/)
+    expect(paramsOf(sent, "usage.records").at(-1)).toMatchObject({
+      keyId: "akey_partner",
+      offset: 0,
+    })
+
+    // And back to every key: page one of it, not the page left behind there.
+    fireEvent.change(screen.getByLabelText("Key"), { target: { value: "" } })
+    await screen.findByText(/Page 1 of 2/)
+    const last = paramsOf(sent, "usage.records").at(-1)
+    expect(last).toMatchObject({ offset: 0 })
+    expect(last).not.toHaveProperty("keyId")
   })
 
   it("says usage appears once the application calls RecordUsage, and draws no chart", async () => {
