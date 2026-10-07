@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest"
-import { fireEvent, screen, within } from "@testing-library/react"
+import { fireEvent, screen, waitFor, within } from "@testing-library/react"
 import { SuiteDetailPage } from "../src/pages/suite-detail"
 import { config, run, suite, SUITE_ID, trend, trendPoint } from "./fixtures"
 import { recordingFullClient, renderNavPage, stubClient } from "./harness"
@@ -77,6 +77,22 @@ describe("Runs tab trend", () => {
     expect(screen.getByText("latest 0.60")).toBeTruthy()
     expect(screen.getByText("latest 0.70")).toBeTruthy()
     expect(screen.getByText("Not measured in these runs: skill, behavior, cognition, communication, perception.")).toBeTruthy()
+  })
+
+  it("draws a dot for a score with no measured neighbour, so it is not an empty strip", async () => {
+    open(
+      trend({
+        points: [
+          trendPoint(21, { dimensionScores: { persona: 0.8 } }),
+          trendPoint(23, { dimensionScores: { persona: 0.7, skill: 0.4 } }),
+          trendPoint(25, { dimensionScores: { persona: 0.6 } }),
+        ],
+      }),
+    )
+    const skill = await screen.findByRole("img", { name: "skill over 3 runs, not measured in 2" })
+    await waitFor(() => expect(skill.querySelectorAll("circle")).toHaveLength(1))
+    const persona = screen.getByRole("img", { name: "persona over 3 runs" })
+    expect(persona.querySelectorAll("circle")).toHaveLength(0)
   })
 
   it("shows a missing dimension score as none in the table", async () => {

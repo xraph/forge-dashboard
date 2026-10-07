@@ -40,11 +40,18 @@ export function ChartFrame({
   )
 }
 
-/** A short stroke in a series' colour, the way a legend keys a line. */
-export function LineKey({ color, label }: { color: string; label: string }) {
+/**
+ * A short stroke in a series' colour, the way a legend keys a line: 2px for a
+ * data line, 1px for a reference line, as each is drawn.
+ */
+export function LineKey({ color, label, thin = false }: { color: string; label: string; thin?: boolean }) {
   return (
     <span className="inline-flex items-center gap-1.5 text-xs text-muted-foreground">
-      <span aria-hidden className="h-0.5 w-4 rounded-full" style={{ backgroundColor: color }} />
+      <span
+        aria-hidden
+        className={`inline-block w-4 ${thin ? "h-px" : "h-0.5 rounded-full"}`}
+        style={{ backgroundColor: color }}
+      />
       {label}
     </span>
   )

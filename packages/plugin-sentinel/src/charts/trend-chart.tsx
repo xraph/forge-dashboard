@@ -65,10 +65,11 @@ export default function TrendChart({
       <div className="flex flex-wrap gap-4">
         <LineKey color="var(--foreground)" label="Pass rate" />
         <LineKey color="var(--muted-foreground)" label="Avg score" />
-        {baseline && <LineKey color="var(--border)" label={`Baseline "${baseline.name}"`} />}
+        {baseline && <LineKey color="var(--muted-foreground)" label={`Baseline "${baseline.name}"`} thin />}
       </div>
       <ChartContainer config={config} className="aspect-auto h-56 w-full">
-        <LineChart data={rows} margin={{ top: 12, right: 84, bottom: 0, left: 0 }} accessibilityLayer={false}>
+        {/* The right margin holds the end labels ("Avg score 0.53", "Baseline 0.88"). */}
+        <LineChart data={rows} margin={{ top: 12, right: 104, bottom: 0, left: 0 }} accessibilityLayer={false}>
           <CartesianGrid vertical={false} stroke="var(--border)" />
           <XAxis
             dataKey="index"
