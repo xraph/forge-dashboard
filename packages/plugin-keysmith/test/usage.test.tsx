@@ -309,6 +309,16 @@ function cellOf(row: HTMLElement, table: HTMLElement, column: string): HTMLEleme
   return within(row).getAllByRole("cell")[index]!
 }
 
+/** The range summary as [term, value] pairs, in order. */
+function summaryOf(): [string, string][] {
+  const summary = screen.getByLabelText("Range summary")
+  const terms = within(summary).getAllByRole("term").map((t) => t.textContent ?? "")
+  const values = within(summary)
+    .getAllByRole("definition")
+    .map((d) => d.textContent ?? "")
+  return terms.map((t, i) => [t, values[i] ?? ""])
+}
+
 function recordsTable(): HTMLElement {
   return screen.getByRole("table", { name: /requests?$/ })
 }
@@ -559,6 +569,64 @@ describe("UsagePage", () => {
     renderPage(UsagePage, client)
     await screen.findByRole("group", { name: /Requests per hour/ })
     expect(screen.queryByText("No requests in this range.")).toBeNull()
+  })
+
+  it("sums up the range above the chart: requests, error rate, 5xx and weighted latency", async () => {
+    const { client } = usageClient()
+    renderPage(UsagePage, client)
+    await screen.findByRole("group", { name: /Requests per hour/ })
+    // 10 + 0 + 1,200 requests; 2 + 1 + 3 errors of them; latency weighted by
+    // requests, (12 x 10 + 40 x 1,200) / 1,210, rounded to 40.
+    expect(summaryOf()).toEqual([
+      ["Requests", "1,210"],
+      ["Error rate", "0.5%"],
+      ["5xx", "4"],
+      ["Avg latency", "40 ms"],
+    ])
+    // Above the chart, not under it.
+    const summary = screen.getByLabelText("Range summary")
+    const chart = screen.getByRole("group", { name: /Requests per hour/ })
+    expect(
+      summary.compareDocumentPosition(chart) & Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy()
+
+    // Still there behind the Table toggle: it sums the range, not the chart.
+    fireEvent.click(screen.getByRole("button", { name: "Table" }))
+    expect(summaryOf()).toEqual([
+      ["Requests", "1,210"],
+      ["Error rate", "0.5%"],
+      ["5xx", "4"],
+      ["Avg latency", "40 ms"],
+    ])
+  })
+
+  it("says there were no requests where a range of zeros has no rate or latency", async () => {
+    const { client } = usageClient({
+      series: () => ({
+        period: "hourly",
+        buckets: BUCKETS.map((b) => bucket(b.start)),
+        recorded: true,
+      }),
+      records: () => ({ items: [], total: 0 }),
+    })
+    renderPage(UsagePage, client)
+    await screen.findByText("No requests in this range.")
+    expect(summaryOf()).toEqual([
+      ["Requests", "0"],
+      ["Error rate", "no requests"],
+      ["5xx", "0"],
+      ["Avg latency", "no requests"],
+    ])
+  })
+
+  it("shows no summary until usage is recorded", async () => {
+    const { client } = usageClient({
+      series: () => ({ period: "hourly", buckets: [], recorded: false }),
+      records: () => ({ items: [], total: 0 }),
+    })
+    renderPage(UsagePage, client)
+    await screen.findByText("No usage recorded yet.")
+    expect(screen.queryByLabelText("Range summary")).toBeNull()
   })
 
   it("shows the same buckets as a table behind the Table toggle", async () => {

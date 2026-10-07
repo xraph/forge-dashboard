@@ -1,15 +1,17 @@
 import { describe, expect, it } from "vitest"
 import {
   formatDuration,
+  formatErrorRate,
   formatRateLimit,
   keyPath,
   maskedKey,
   policyPath,
   rotationMasked,
   splitDuration,
+  summarizeUsage,
   toSeconds,
 } from "../src/format"
-import type { RotationItem } from "../src/types"
+import type { RotationItem, UsageBucket } from "../src/types"
 
 describe("maskedKey", () => {
   it("shows prefix and environment, then only the hint", () => {
@@ -187,5 +189,76 @@ describe("formatRateLimit", () => {
     expect(formatRateLimit({ rateLimit: 100, rateLimitWindowSeconds: null })).toBe(
       "100 with no window",
     )
+  })
+})
+
+function bucket(over: Partial<UsageBucket>): UsageBucket {
+  return {
+    start: "2026-10-05T12:00:00Z",
+    requests: 0,
+    clientErrors: 0,
+    serverErrors: 0,
+    succeeded: 0,
+    avgLatencyMs: null,
+    ...over,
+  }
+}
+
+describe("summarizeUsage", () => {
+  it("adds up requests and 5xx, and counts 4xx and 5xx as errors", () => {
+    const summary = summarizeUsage([
+      bucket({ requests: 10, succeeded: 7, clientErrors: 2, serverErrors: 1, avgLatencyMs: 12 }),
+      bucket({}),
+      bucket({ requests: 1200, succeeded: 1197, serverErrors: 3, avgLatencyMs: 40 }),
+    ])
+    expect(summary.requests).toBe(1210)
+    expect(summary.serverErrors).toBe(4)
+    expect(summary.errorRate).toBeCloseTo(6 / 1210, 10)
+  })
+
+  it("weights each bucket's latency by its requests, not each bucket the same", () => {
+    // A plain mean of 12 and 40 is 26. The 1,200 requests at 40 ms dominate.
+    const summary = summarizeUsage([
+      bucket({ requests: 10, succeeded: 10, avgLatencyMs: 12 }),
+      bucket({ requests: 1200, succeeded: 1200, avgLatencyMs: 40 }),
+    ])
+    expect(summary.avgLatencyMs).toBeCloseTo((12 * 10 + 40 * 1200) / 1210, 10)
+  })
+
+  it("leaves out a bucket with no latency to give", () => {
+    const summary = summarizeUsage([
+      bucket({ requests: 5, succeeded: 5, avgLatencyMs: null }),
+      bucket({ requests: 10, succeeded: 10, avgLatencyMs: 30 }),
+    ])
+    expect(summary.requests).toBe(15)
+    expect(summary.avgLatencyMs).toBe(30)
+  })
+
+  it("has no rate and no latency when nothing was asked", () => {
+    expect(summarizeUsage([bucket({}), bucket({})])).toEqual({
+      requests: 0,
+      errorRate: null,
+      serverErrors: 0,
+      avgLatencyMs: null,
+    })
+    expect(summarizeUsage([])).toEqual({
+      requests: 0,
+      errorRate: null,
+      serverErrors: 0,
+      avgLatencyMs: null,
+    })
+  })
+})
+
+describe("formatErrorRate", () => {
+  it("shows a percentage to one decimal", () => {
+    expect(formatErrorRate(6 / 1210)).toBe("0.5%")
+    expect(formatErrorRate(0)).toBe("0.0%")
+    expect(formatErrorRate(1)).toBe("100.0%")
+    expect(formatErrorRate(0.12345)).toBe("12.3%")
+  })
+
+  it("says there were no requests when there is no rate", () => {
+    expect(formatErrorRate(null)).toBe("no requests")
   })
 })

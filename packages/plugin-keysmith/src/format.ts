@@ -4,6 +4,7 @@ import type {
   PolicyDetail,
   RotationItem,
   RotationReason,
+  UsageBucket,
   UsagePeriod,
 } from "./types"
 
@@ -301,4 +302,52 @@ export function formatCount(n: number): string {
 /** Latency in whole milliseconds, as the contract sends it: "12 ms". */
 export function formatLatency(ms: number): string {
   return `${count.format(ms)} ms`
+}
+
+/** A range of usage in four numbers, as the Usage page's summary line says it. */
+export interface UsageSummary {
+  requests: number
+  /** 4xx and 5xx over requests, 0 to 1; null when there were no requests. */
+  errorRate: number | null
+  serverErrors: number
+  /**
+   * Each bucket's average weighted by its requests, so a busy hour counts for
+   * more than a quiet one; null when no bucket had requests to average.
+   */
+  avgLatencyMs: number | null
+}
+
+/** Sums a series' buckets into the range's summary. */
+export function summarizeUsage(buckets: readonly UsageBucket[]): UsageSummary {
+  let requests = 0
+  let errors = 0
+  let serverErrors = 0
+  let latencyTotal = 0
+  let latencyRequests = 0
+  for (const b of buckets) {
+    requests += b.requests
+    errors += b.clientErrors + b.serverErrors
+    serverErrors += b.serverErrors
+    if (b.requests > 0 && b.avgLatencyMs !== null) {
+      latencyTotal += b.avgLatencyMs * b.requests
+      latencyRequests += b.requests
+    }
+  }
+  return {
+    requests,
+    errorRate: requests > 0 ? errors / requests : null,
+    serverErrors,
+    avgLatencyMs: latencyRequests > 0 ? latencyTotal / latencyRequests : null,
+  }
+}
+
+const percent = new Intl.NumberFormat("en-US", {
+  style: "percent",
+  minimumFractionDigits: 1,
+  maximumFractionDigits: 1,
+})
+
+/** An error rate to one decimal, "0.5%", or "no requests" when there is none. */
+export function formatErrorRate(rate: number | null): string {
+  return rate === null ? "no requests" : percent.format(rate)
 }

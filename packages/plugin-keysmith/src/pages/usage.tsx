@@ -16,10 +16,12 @@ import { UsageChart } from "../components/usage-chart"
 import {
   bucketTitle,
   formatCount,
+  formatErrorRate,
   formatLatency,
   formatUtcMinute,
   keyPath,
   rangeBounds,
+  summarizeUsage,
   USAGE_RANGES,
   type UsageRangeId,
 } from "../format"
@@ -147,6 +149,37 @@ const recordColumns: Column<UsageRecordItem>[] = [
   },
 ]
 
+/**
+ * The whole range in one line, from the same buckets the chart draws. Latency
+ * is weighted by requests: a bucket of ten requests does not count the same
+ * as one of a thousand.
+ */
+function RangeSummary({ buckets }: { buckets: readonly UsageBucket[] }) {
+  const s = summarizeUsage(buckets)
+  const items: [string, string][] = [
+    ["Requests", formatCount(s.requests)],
+    ["Error rate", formatErrorRate(s.errorRate)],
+    ["5xx", formatCount(s.serverErrors)],
+    [
+      "Avg latency",
+      s.avgLatencyMs === null ? "no requests" : formatLatency(Math.round(s.avgLatencyMs)),
+    ],
+  ]
+  return (
+    <dl
+      aria-label="Range summary"
+      className="flex flex-wrap items-baseline gap-x-5 gap-y-1 text-sm"
+    >
+      {items.map(([term, value]) => (
+        <div key={term} className="flex items-baseline gap-1.5">
+          <dt className="text-muted-foreground">{term}</dt>
+          <dd className="tabular-nums">{value}</dd>
+        </div>
+      ))}
+    </dl>
+  )
+}
+
 /** The chart, or the same buckets as a table, under a toggle that keeps one label. */
 function SeriesView({
   data,
@@ -188,6 +221,7 @@ function SeriesView({
           Table
         </Button>
       </div>
+      <RangeSummary buckets={buckets} />
       {quiet && (
         <p className="text-sm text-muted-foreground">
           No requests in this range.
