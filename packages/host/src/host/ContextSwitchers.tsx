@@ -1,11 +1,12 @@
 import { useId } from "react"
 import { useLocation, useNavigate } from "react-router"
-import { useCommand, useQuery, queryStore, mountPath, urlValueOf } from "@forge-go/dashboard-plugin"
+import { useCommand, useQuery, mountPath, urlValueOf } from "@forge-go/dashboard-plugin"
 import type { ContextDimension, ForgePlugin } from "@forge-go/dashboard-plugin"
 import {
   NativeSelect,
   NativeSelectOption,
 } from "@forge-go/dashboard-kit/components/native-select"
+import { clearQueries } from "./query-sync"
 
 /**
  * Where a routed dimension's own picker send you when you switch apps from
@@ -68,8 +69,9 @@ function Dimension({
     // Everything, not just what meta.invalidates named. The cookie changed, so
     // every read in the dashboard is now a question about a different app, and
     // the server has no way to enumerate that. This is the one place the store
-    // throws away more than it was told to.
-    queryStore.clear()
+    // throws away more than it was told to. The other tabs of this origin
+    // share the cookie, so clearQueries tells them as well.
+    clearQueries()
   }
 
   return (

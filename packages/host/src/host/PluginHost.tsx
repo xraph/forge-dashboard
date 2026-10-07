@@ -55,6 +55,7 @@ import { contextSearch, withContext } from "./context-search"
 import { ContextControl } from "./ContextControl"
 import { RoutedPage, RoutedPicker, routeSegmentPattern } from "./RoutedScope"
 import { NotFoundPanel } from "./NotFoundPanel"
+import { clearQueries, useQuerySync } from "./query-sync"
 import { AuthRoutes, SignedInRedirect } from "../auth/AuthRoutes"
 import { isAuthPath } from "../auth/routes"
 import type { AuthScreens } from "../auth/routes"
@@ -555,6 +556,10 @@ export function PluginHost({
   const navigate = useNavigate()
   const [state, setState] = useState<CapabilitiesState>({ status: "loading" })
 
+  // Tells this origin's other tabs whenever this one clears its query store,
+  // and clears this one when they do. See query-sync.ts.
+  useQuerySync()
+
   // Bound on purpose: an unbound `fetch` called as a plain function throws
   // "Illegal invocation" in the browser, because it needs `window` as its
   // receiver.
@@ -660,7 +665,9 @@ export function PluginHost({
       lastIdentityRef.current !== null &&
       lastIdentityRef.current.subject !== identitySubject
     ) {
-      queryStore.clear()
+      // The session cookie is the origin's, so the other tabs are now
+      // signed in as this person too. clearQueries tells them.
+      clearQueries()
     }
     lastIdentityRef.current = { subject: identitySubject }
   }, [identitySubject, session.resolved])

@@ -8,7 +8,6 @@ import {
 } from "react-router"
 import {
   mountPath,
-  queryStore,
   urlValueOf,
   useCommand,
   useQuery,
@@ -25,6 +24,7 @@ import {
 } from "@forge-go/dashboard-kit/components/alert"
 import { Spinner } from "@forge-go/dashboard-kit/components/spinner"
 import { TriangleAlertIcon } from "@forge-go/dashboard-kit/icons"
+import { clearQueries } from "./query-sync"
 
 /**
  * The route param name a `path`-routed dimension owns, e.g. "app". Callers
@@ -157,8 +157,8 @@ function useReconcile(
       setSwitched(matched.id)
       // Every cached answer is about the option that was current a moment
       // ago. See queryStore.clear's own docs for why invalidates alone is
-      // not enough.
-      queryStore.clear()
+      // not enough. clearQueries also tells this origin's other tabs.
+      clearQueries()
       onSwitchedRef.current?.()
     })
     // switchTo is a fresh object every render (useCommand's own contract);
