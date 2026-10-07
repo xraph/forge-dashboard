@@ -536,3 +536,171 @@ Prove it: `find . -name '*.templ' -not -path './_*'` returns nothing, and
 
 Loaders, chunker internals, the MMR, hybrid and reranker maths, and Fabriq stay
 untested by this work. `MIGRATION.md` says so in plain words.
+
+## What slice 1 found that slice 2 must know
+
+Slice 1 is done: the Go engine and store half is on weave `main`, and all four backends (memory, SQLite, Postgres, Mongo) pass the same conformance suite with no skips. This section is for whoever writes the React plugin. Read the shapes first, then the behaviours, because a few of them are not what the plan said.
+
+### The wire shapes, copied from the code
+
+These are the Go structs as they stand, tags included. Field names on the wire are exactly the json tags.
+
+```go
+// engine/engine.go
+type ScoredChunk struct {
+	Chunk *chunk.Chunk `json:"chunk"`
+	Score float64      `json:"score"`
+	// Hydrated is true when Chunk was read back from the metadata store by
+	// ID, so every field on it is real.
+	Hydrated bool `json:"hydrated"`
+	// Orphaned is true when the vector store returned a chunk ID that has no
+	// row in the metadata store. The hit keeps its rank and its text.
+	Orphaned bool `json:"orphaned,omitempty"`
+}
+
+// engine/compare.go
+type CompareHit struct {
+	ScoredChunk
+	Rank        int     `json:"rank"`
+	VectorRank  int     `json:"vector_rank"`
+	VectorScore float64 `json:"vector_score"`
+}
+
+type CompareResult struct {
+	Hits            []CompareHit    `json:"hits"`
+	LeftOut         []CompareHit    `json:"left_out"`
+	Window          int             `json:"window"`
+	VectorMatches   int             `json:"vector_matches"`
+	BestVectorScore float64         `json:"best_vector_score"`
+	Reordered       bool            `json:"reordered"`
+	SameSearch      bool            `json:"same_search"`
+	Score           weave.ScoreKind `json:"score"`
+	RetrieverMillis float64         `json:"retriever_ms"`
+	VectorMillis    float64         `json:"vector_ms"`
+}
+
+// engine/assemble.go
+type AssembledContext struct {
+	Context       string `json:"context"`
+	TotalTokens   int    `json:"total_tokens"`
+	MaxTokens     int    `json:"max_tokens"`
+	Included      []int  `json:"included"`
+	FirstExcluded int    `json:"first_excluded"`
+	TokenCounter  string `json:"token_counter"`
+}
+
+type ChunkRef struct {
+	ChunkID id.ChunkID `json:"chunk_id"`
+	Score   float64    `json:"score"`
+}
+
+// engine/components.go
+type Component struct {
+	weave.ComponentInfo
+	Type         string   `json:"type,omitempty"`
+	Configured   bool     `json:"configured"`
+	ContentTypes []string `json:"content_types,omitempty"`
+	Dimensions   int      `json:"dimensions,omitempty"`
+}
+
+type Components struct {
+	Loader       Component       `json:"loader"`
+	Chunker      Component       `json:"chunker"`
+	Embedder     Component       `json:"embedder"`
+	VectorStore  Component       `json:"vector_store"`
+	Retriever    Component       `json:"retriever"`
+	Score        weave.ScoreKind `json:"score"`
+	TenantFilter string          `json:"tenant_filter"`
+}
+
+// component.go (package weave)
+type ComponentInfo struct {
+	Kind         string            `json:"kind"`
+	Params       map[string]string `json:"params,omitempty"`
+	Score        ScoreKind         `json:"score,omitempty"`
+	TenantFilter string            `json:"tenant_filter,omitempty"`
+	Children     []ComponentInfo   `json:"children,omitempty"`
+}
+
+type ScoreKind string
+
+const (
+	ScoreCosine           ScoreKind = "cosine"
+	ScoreVectorSimilarity ScoreKind = "vector_similarity"
+	ScoreMMR              ScoreKind = "mmr_relevance"
+	ScoreRRF              ScoreKind = "rrf"
+	ScoreRerank           ScoreKind = "rerank"
+	ScoreUnknown          ScoreKind = "unknown"
+)
+
+// engine/extensions.go
+type ExtensionInfo struct {
+	Name  string   `json:"name"`
+	Hooks []string `json:"hooks"`
+}
+```
+
+Two things about those shapes trip people up. `CompareHit` embeds `ScoredChunk` with no tag, so on the wire a hit is one flat object: `chunk`, `score`, `hydrated`, `orphaned`, `rank`, `vector_rank`, `vector_score`. And `Component` embeds `ComponentInfo` the same way, so `kind`, `params`, `score`, `tenant_filter` and `children` sit beside `type` and `configured`. Neither wraps anything under a key of its own.
+
+`ScoredChunk.chunk` is the full `chunk.Chunk`, which has no vector field. The no-vectors rule holds without any stripping.
+
+### Behaviours that differ from the plan
+
+Reordered and LeftOut are per query, whatever the retriever kind. The plan said `Reordered` is true for every non-similarity retriever. The controller ruled otherwise and the spec wins: `LeftOut` is the raw-window hits that are not in the final list and whose vector rank is better than the worst vector rank among the final hits (any rank counts if a final hit has vector rank 0), in vector order, capped at `TopK`. `Reordered` is true when some hit's `rank` differs from its `vector_rank`, or when `left_out` is not empty. An MMR retriever that happens to return raw order for one query reports `reordered: false`. So the page shows "No reordering" when `reordered` is false, and it names the retriever kind from `system.components`, never from the compare result. `same_search` is true when no retriever is configured, because both sides then come from one vector search and cannot disagree.
+
+A hit has three possible states, and the page has to draw all three. Hydrated is the normal one. Orphaned means the vector store returned a chunk ID with no row in the metadata store (`hydrated` false, `orphaned` true). Unidentified means `hydrated` false and `orphaned` false: a custom retriever set no chunk ID, or returned a nil chunk, so `chunk` can be `null`. Both odd cases keep their rank. Don't drop them from the table.
+
+Assembly skips a hit that does not fit and carries on, so a later, smaller hit can still get in. That means `included` is not a prefix. The page dims each row from `included`, and the budget line sits above the row at `first_excluded`. `first_excluded` also covers a hit with no chunk, not only a budget overrun, and it is `-1` when everything made it in. Marker `[n]` in `context` is hit `included[n-1]`. The token count is `chars/4`, and `token_counter` says so.
+
+`RetrieveCompare` emits no retrieval hooks. It also needs the engine's own embedder and vector store, so a retriever-only engine is refused. Don't wire the compare panel to anything that counts retrievals.
+
+Tenant filter semantics are now pinned on all four store backends and on retrieval. A nil tenant means every tenant. A pointer to `""` means only untenanted rows. The contract has to keep that difference: an absent `tenant` query parameter is not the same request as `tenant=`.
+
+Store additions, all covered by the conformance suite on every backend:
+
+- List filters for collections and documents have `SortDesc`, newest first with ties broken by id. The default stays ascending.
+- Document counts take `Search` and `UpdatedBefore`, so the list and its count agree.
+- Chunk listing pages by document or by collection, ordered by document, then chunk index.
+- SQL search treats `%`, `_` and `\` as literal characters. Before this, a search for `50%` was a wildcard on SQLite and Postgres.
+- A duplicate document (same content) and a duplicate collection name (on create or on rename) return `weave.ErrDuplicateDocument` and `weave.ErrCollectionAlreadyExists` on every backend. The contract should map both to a conflict, not a 500.
+- SQLite pages by offset without a limit.
+
+### Findings for MIGRATION.md
+
+Two items that slices 2 and 3 should carry into the migration notes.
+
+`pipeline/steps.go` leaves `tenant_id` out of the vector metadata for untenanted rows. The engine does not read that key for those rows today, so nothing breaks, but anything that filters vector metadata on `tenant_id = ""` would find nothing.
+
+Weave's own HTTP retrieve route now returns hydrated hits, with chunk IDs present, because `Retrieve` reads each hit back by ID. Clients that relied on the old thin hits get more fields than before. That costs one `GetChunk` per hit, which is fine at `TopK` scale and worth a batch getter if `TopK` grows.
+
+### What the plan did not predict
+
+- All three database backends dropped `created_at` and `updated_at` on read. The mappers never copied them across, so every collection and document came back with a zero time. Fixed first (`e22df42`), because the new sort and the stalled-document cutoff both depend on it.
+- Postgres document filters did not work at all. Every list and count with a filter failed with `could not determine data type of parameter $1 (SQLSTATE 42P18)`, because the clauses used literal `$N` placeholders. Mongo's search compiled the user's text as a regular expression, so `(` was an error.
+- SQLite cannot take `OFFSET` without `LIMIT`, and the grove driver silently drops a negative limit. The store now sends `math.MaxInt32` as the limit when a caller gives an offset and no limit.
+- `go mod tidy` is not clean on `main`, and was not before this slice. It wants to drop about 25 unrelated indirect requirements. Slice 1 only moved `github.com/jackc/pgx/v5` to the direct block by hand and left the rest. Someone should decide on a whole-module tidy separately.
+- A freshly started Mongo container accepts TCP before `mongod` is ready, so the first conformance run against a two-minute-old container timed out on server selection. A re-run seconds later was fine. If you see that in CI, wait before you retry.
+- The default `golangci-lint` run holds a lock, and four tasks could not lint at all. The findings they carried (one `unnamedResult`, two `shadow`, two `prealloc`) are cleared in the last commit below, and the fresh-cache run now reports `0 issues`.
+
+### Commits
+
+Weave `main`, in the order they landed. Task numbers are the plan's.
+
+| Task | Commit |
+| --- | --- |
+| 1 | `e22df42`, `973f5b4` |
+| 2 | `6eb3640`, `f422820` |
+| 3 | `d3e58a3` |
+| 4 | `05a4946` |
+| 5 | `9f53ef9`, `69642e5` |
+| 6 | `685d6a5`, `8cd67ac` |
+| 7 | `4cd3339` |
+| 8 | `06f5f67` |
+| 9 | `2ed6e0b` |
+| 10 | `cb83e3e` |
+| 11 | `d0542c1`, `14ec06d` |
+| 12 | `bfe9f79`, `2eedaf0` |
+| 13 | `2a1f10c` |
+| 14 | `5621a2c` |
+
+Task 1 also carries `973f5b4`, the test helpers that refuse ports 5432 and 27017 however the DSN spells them. Task 14 is the lint clean-up, `chore: clear the lint the slice left behind`. Nothing is pushed.
