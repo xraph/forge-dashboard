@@ -12,13 +12,14 @@ import { Timestamp } from "@forge-go/dashboard-kit/components/timestamp"
 import { BaselinesList } from "../components/baselines-list"
 import { CasesTab } from "../components/cases-tab"
 import { PromptsTab } from "../components/prompts-tab"
+import { RedTeamTab } from "../components/redteam-tab"
 import { RunsTab } from "../components/runs-tab"
 import { SettledBoundary } from "../components/settled-boundary"
 import { SuiteFormDialog } from "../components/suite-form-dialog"
 import { baselinePath, formatScore, plural, suiteTabPath, temperatureLabel, versionPath } from "../format"
 import type { Suite } from "../types"
 
-const TABS = ["cases", "runs", "prompts", "baselines"] as const
+const TABS = ["cases", "runs", "prompts", "baselines", "redteam"] as const
 type SuiteTab = (typeof TABS)[number]
 
 function isTab(value: string | undefined): value is SuiteTab {
@@ -94,6 +95,7 @@ function SuiteDetailBody({ suiteId, tab }: { suiteId: string; tab: SuiteTab }) {
             <TabsTrigger value="runs">Runs</TabsTrigger>
             <TabsTrigger value="prompts">Prompts</TabsTrigger>
             <TabsTrigger value="baselines">Baselines</TabsTrigger>
+            <TabsTrigger value="redteam">Red team</TabsTrigger>
           </TabsList>
           <TabsContent value="cases">
             <CasesTab suiteId={suiteId} />
@@ -106,6 +108,9 @@ function SuiteDetailBody({ suiteId, tab }: { suiteId: string; tab: SuiteTab }) {
           </TabsContent>
           <TabsContent value="baselines">
             <BaselinesList suiteId={suiteId} />
+          </TabsContent>
+          <TabsContent value="redteam">
+            <RedTeamTab suiteId={suiteId} />
           </TabsContent>
         </Tabs>
       )}

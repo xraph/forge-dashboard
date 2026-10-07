@@ -7,6 +7,7 @@ import { PageHeader } from "@forge-go/dashboard-kit/components/page-header"
 import { StatGrid } from "@forge-go/dashboard-kit/components/stat-grid"
 import { Timestamp } from "@forge-go/dashboard-kit/components/timestamp"
 import { RunStateBadge } from "../badges"
+import { RedTeamReportSection } from "../components/redteam-report"
 import { ResultsSection } from "../components/results-section"
 import { RunCharts } from "../components/run-charts"
 import { CancelRunDialog, SaveBaselineDialog } from "../components/run-dialogs"
@@ -121,6 +122,7 @@ function RunDetailBody({ runId }: { runId: string }) {
             />
           )}
           <RunCharts runId={runId} run={detail.data.run} regression={regression} />
+          <RedTeamReportSection runId={runId} running={running} />
           <ResultsSection
             runId={runId}
             status={status}
