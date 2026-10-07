@@ -1,7 +1,11 @@
 import { useEffect, useMemo, useState } from "react"
 import type { ReactNode } from "react"
 import { NavigationProvider, PluginLink } from "@forge-go/dashboard-plugin"
-import type { Navigation, PluginLinkProps } from "@forge-go/dashboard-plugin"
+import type {
+  NavigateOptions,
+  Navigation,
+  PluginLinkProps,
+} from "@forge-go/dashboard-plugin"
 
 function currentPath(): string {
   return `${window.location.pathname}${window.location.search}`
@@ -12,22 +16,28 @@ function searchOf(path: string): string {
   return at < 0 ? "" : path.slice(at)
 }
 
+/** One navigate call, as the stand-in router received it. */
+export interface Navigated {
+  to: string
+  replace: boolean
+}
+
 /**
  * A stand-in for the shell's router, just enough of it to matter here.
  *
- * Like react-router it pushes a history entry per navigate, follows back and
- * forward through popstate, and re-renders the page on every change. Like the
- * host it builds every scope-relative link as the plugin's mount plus the
- * path plus the CURRENT search, and so does the sidebar: "Sidebar rotations"
- * is that sidebar link. A URL written behind the router's back (a bare
- * history.replaceState) leaves its search, and so that link, stale.
+ * Like react-router it pushes a history entry per navigate, or replaces the
+ * current one when asked to, follows back and forward through popstate, and
+ * re-renders the page on every change. Like the host it carries only context
+ * params into the links it builds, and keysmith routes no context dimension,
+ * so a scope-relative link is the plugin's mount plus the path and nothing
+ * of the page's own query. "Sidebar rotations" is such a link.
  */
 export function FakeHost({
   onNavigate,
   onSearch,
   children,
 }: {
-  onNavigate: (to: string) => void
+  onNavigate: (navigated: Navigated) => void
   onSearch: (search: string) => void
   children: ReactNode
 }) {
@@ -46,14 +56,16 @@ export function FakeHost({
           {content}
         </a>
       ),
-      navigate: (to: string) => {
-        onNavigate(to)
-        window.history.pushState(null, "", to)
+      navigate: (to: string, options?: NavigateOptions) => {
+        const replace = options?.replace === true
+        onNavigate({ to, replace })
+        if (replace) window.history.replaceState(null, "", to)
+        else window.history.pushState(null, "", to)
         setPath(to)
       },
-      resolve: (to: string) => `/@keysmith${to}${search}`,
+      resolve: (to: string) => `/@keysmith${to}`,
     }),
-    [onNavigate, search],
+    [onNavigate],
   )
   return (
     <NavigationProvider value={nav}>

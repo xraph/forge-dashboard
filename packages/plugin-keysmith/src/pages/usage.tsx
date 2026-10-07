@@ -301,8 +301,8 @@ export const UsagePage: ComponentType<PluginPageProps> = () => {
     setNow(Date.now())
     setPage(1)
   }
-  // A navigation, so the host's router (and the search it carries into every
-  // link) has the key you chose. Back returns to the key before.
+  // A navigation, so the host's router has the key you chose. It replaces
+  // the entry, so Back leaves the page rather than stepping through keys.
   function changeKey(value: string) {
     setKeyId(value)
     setNow(Date.now())

@@ -8,6 +8,7 @@ import {
 } from "@forge-go/dashboard-plugin"
 import type { PluginPageProps, ScopedClient } from "@forge-go/dashboard-plugin"
 import { FakeHost } from "./fake-host"
+import type { Navigated } from "./fake-host"
 
 /**
  * `queryStore` is a module-level singleton, so an entry one test writes
@@ -159,8 +160,8 @@ export function renderPage(
 
 /** What the stand-in router has been told, as the host would see it. */
 export interface RouterState {
-  /** Every path handed to navigate, in order. */
-  navigations: string[]
+  /** Every navigate call, in order, and whether it replaced. */
+  navigations: Navigated[]
   /** The router's own idea of the current search, "?keyId=..." or "". */
   search: string
 }
@@ -179,7 +180,7 @@ export function renderRoutedPage(
   const result = render(
     <PluginProvider client={client}>
       <FakeHost
-        onNavigate={(to) => router.navigations.push(to)}
+        onNavigate={(navigated) => router.navigations.push(navigated)}
         onSearch={(search) => {
           router.search = search
         }}

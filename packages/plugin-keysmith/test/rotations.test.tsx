@@ -550,12 +550,12 @@ describe("RotationsPage with a key in the address", () => {
     expect(listCalls(sent).at(-1)).toEqual({ limit: 25, offset: 0 })
     expect(screen.queryByRole("group", { name: "Key filter" })).toBeNull()
     expect(window.location.search).toBe("")
-    // Through the router, one entry per change, so Back brings the key back.
-    expect(router.navigations).toEqual(["/@keysmith/rotations"])
-    expect(window.history.length).toBe(length + 1)
+    // Through the router, replacing the entry, so Back leaves the page.
+    expect(router.navigations).toEqual([{ to: "/@keysmith/rotations", replace: true }])
+    expect(window.history.length).toBe(length)
   })
 
-  it("leaves the host nothing stale to carry once the key is cleared", async () => {
+  it("keeps the router in step, and the sidebar never carries the key", async () => {
     openAt("?keyId=akey_billing")
     const { client } = keyedClient((params) =>
       params.keyId ? { items: [MANUAL], hasMore: false } : LIST,
@@ -563,19 +563,20 @@ describe("RotationsPage with a key in the address", () => {
     const { router } = renderRoutedPage(RotationsPage, client)
     await within(keyFilter()).findByText("Billing service")
     const sidebar = () => screen.getByRole("link", { name: "Sidebar rotations" })
-    expect(sidebar().getAttribute("href")).toBe("/@keysmith/rotations?keyId=akey_billing")
+    expect(router.search).toBe("?keyId=akey_billing")
+    // The host carries context only, and the key is the page's own.
+    expect(sidebar().getAttribute("href")).toBe("/@keysmith/rotations")
 
     fireEvent.click(screen.getByRole("button", { name: "Clear the key filter" }))
     await screen.findByText("Partner sandbox")
-    // The sidebar is built from the router's search. Had the URL been written
-    // behind the router's back, it would still carry the cleared key.
     await waitFor(() => expect(router.search).toBe(""))
     expect(sidebar().getAttribute("href")).toBe("/@keysmith/rotations")
   })
 
-  it("brings the key back on Back after a clear", async () => {
-    openAt("?keyId=akey_billing")
-    const { client, sent } = keyedClient((params) =>
+  it("leaves the page on Back after a clear, without stepping back to the key", async () => {
+    window.history.replaceState(null, "", "/@keysmith/keys")
+    window.history.pushState(null, "", "/@keysmith/rotations?keyId=akey_billing")
+    const { client } = keyedClient((params) =>
       params.keyId ? { items: [MANUAL], hasMore: false } : LIST,
     )
     renderRoutedPage(RotationsPage, client)
@@ -584,10 +585,8 @@ describe("RotationsPage with a key in the address", () => {
     await screen.findByText("Partner sandbox")
 
     act(() => window.history.back())
-    const chip = await screen.findByRole("group", { name: "Key filter" })
-    await within(chip).findByText("Billing service")
-    expect(window.location.search).toBe("?keyId=akey_billing")
-    expect(listCalls(sent).at(-1)).toEqual({ limit: 25, offset: 0, keyId: "akey_billing" })
+    await waitFor(() => expect(window.location.pathname).toBe("/@keysmith/keys"))
+    expect(window.location.search).toBe("")
   })
 
   it("keeps the key while paging and filtering by reason", async () => {

@@ -5,7 +5,7 @@ import {
   PluginLink,
   mountPath,
 } from "@forge-go/dashboard-plugin"
-import type { PluginLinkProps } from "@forge-go/dashboard-plugin"
+import type { NavigateOptions, PluginLinkProps } from "@forge-go/dashboard-plugin"
 import keysmithPlugin from "../src/index"
 import {
   KEYSMITH_MOUNT,
@@ -83,16 +83,19 @@ describe("useKeyIdParam", () => {
 })
 
 /**
- * useSetKeyIdParam under a router that records where it was sent and, like
- * react-router, writes the address as it goes.
+ * useSetKeyIdParam under a router that records where it was sent, and how,
+ * and, like react-router, writes the address as it goes.
  */
 function setterUnder(path: "/rotations" | "/usage") {
   const sent: string[] = []
+  const options: (NavigateOptions | undefined)[] = []
   const nav = {
     Link: ({ to, children }: PluginLinkProps) => <a href={to}>{children}</a>,
-    navigate: (to: string) => {
+    navigate: (to: string, opts?: NavigateOptions) => {
       sent.push(to)
-      window.history.pushState(null, "", to)
+      options.push(opts)
+      if (opts?.replace) window.history.replaceState(null, "", to)
+      else window.history.pushState(null, "", to)
     },
     resolve: (to: string) => `/@keysmith${to}`,
   }
@@ -104,7 +107,7 @@ function setterUnder(path: "/rotations" | "/usage") {
       ),
     },
   )
-  return { result, sent }
+  return { result, sent, options }
 }
 
 describe("useSetKeyIdParam", () => {
@@ -114,6 +117,22 @@ describe("useSetKeyIdParam", () => {
     act(() => result.current.set("akey_partner"))
     expect(sent).toEqual(["/@keysmith/usage?keyId=akey_partner"])
     expect(result.current.keyId).toBe("akey_partner")
+  })
+
+  it("replaces the entry, so Back leaves the page instead of stepping through keys", () => {
+    window.history.replaceState(null, "", "/@keysmith/usage")
+    const length = window.history.length
+    const { result, sent, options } = setterUnder("/usage")
+    act(() => result.current.set("akey_partner"))
+    act(() => result.current.set("akey_billing"))
+    act(() => result.current.set(""))
+    expect(sent).toEqual([
+      "/@keysmith/usage?keyId=akey_partner",
+      "/@keysmith/usage?keyId=akey_billing",
+      "/@keysmith/usage",
+    ])
+    expect(options).toEqual([{ replace: true }, { replace: true }, { replace: true }])
+    expect(window.history.length).toBe(length)
   })
 
   it("leaves every other query parameter where it was", () => {

@@ -15,10 +15,9 @@ const PARAM = "keyId"
 /**
  * A link that carries a key in its query.
  *
- * Absolute on purpose. The host's link resolver appends the CURRENT search to
- * every scope-relative path, so "/usage?keyId=a" from a page already at
- * "?keyId=b" would come out as "?keyId=a?keyId=b". A path starting with the
- * scope sigil is passed through untouched.
+ * Absolute on purpose. A path starting with the scope sigil goes through the
+ * host's resolver untouched, so the link is exactly the one written here.
+ * Keysmith routes no context dimension, so the resolver has nothing to add.
  */
 function withKey(path: string, id: string): string {
   return `${KEYSMITH_MOUNT}${path}?${new URLSearchParams({ [PARAM]: id })}`
@@ -66,11 +65,14 @@ export function useKeyIdParam(): string {
 /**
  * Sets the key on one of this plugin's pages, or takes it off for "".
  *
- * Through the host's router, never a bare history write. The host carries
- * the router's search into every sidebar link and every resolved path, so a
- * key written behind its back comes back the moment you click one of them,
- * even after you cleared it. The price is a history entry per change, which
- * also means Back steps through the keys you chose.
+ * Through the host's router, never a bare history write: a URL written
+ * behind react-router's back leaves its location stale, and the next thing
+ * built from it brings the old key back.
+ *
+ * It replaces the current entry. Choosing a key tidies the page you are on,
+ * so Back leaves the page instead of stepping through every key you tried.
+ * The links that land on a filtered page (rotationsForKey, usageForKey) are
+ * ordinary links and still push.
  *
  * The path is absolute for the reason the links above are, and every other
  * query parameter stays as it was.
@@ -84,7 +86,9 @@ export function useSetKeyIdParam(
     if (id === "") search.delete(PARAM)
     else search.set(PARAM, id)
     const query = search.toString()
-    navigateTo(`${KEYSMITH_MOUNT}${path}${query ? `?${query}` : ""}`)
+    navigateTo(`${KEYSMITH_MOUNT}${path}${query ? `?${query}` : ""}`, {
+      replace: true,
+    })
     for (const listener of listeners) listener()
   }
 }

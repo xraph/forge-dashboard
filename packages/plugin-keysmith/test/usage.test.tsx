@@ -420,53 +420,54 @@ describe("UsagePage", () => {
     await screen.findByRole("group", { name: /Requests per hour/ })
     expect(window.location.pathname).toBe("/@keysmith/usage")
     expect(window.location.search).toBe("?keyId=akey_partner")
-    // One entry per change: the router stays in step, and Back undoes it.
-    expect(window.history.length).toBe(length + 1)
+    // The router stays in step, and the entry is replaced, not added.
+    expect(window.history.length).toBe(length)
 
     fireEvent.change(screen.getByLabelText("Key"), { target: { value: "" } })
     await screen.findByRole("group", { name: /Requests per hour/ })
     expect(window.location.search).toBe("")
-    expect(window.history.length).toBe(length + 2)
+    expect(window.history.length).toBe(length)
     expect(router.navigations).toEqual([
-      "/@keysmith/usage?keyId=akey_partner",
-      "/@keysmith/usage",
+      { to: "/@keysmith/usage?keyId=akey_partner", replace: true },
+      { to: "/@keysmith/usage", replace: true },
     ])
   })
 
-  it("leaves the host nothing stale to carry after switching key", async () => {
+  it("keeps the router in step, and the sidebar never carries the key", async () => {
     window.history.replaceState(null, "", "/@keysmith/usage?keyId=akey_billing")
     const { client } = usageClient()
     const { router } = renderRoutedPage(UsagePage, client)
     await screen.findByText("Partner sandbox", { selector: "option" })
     const sidebar = () => screen.getByRole("link", { name: "Sidebar rotations" })
-    expect(sidebar().getAttribute("href")).toBe("/@keysmith/rotations?keyId=akey_billing")
+    expect(sidebar().getAttribute("href")).toBe("/@keysmith/rotations")
 
     fireEvent.change(screen.getByLabelText("Key"), { target: { value: "akey_partner" } })
     await waitFor(() => expect(router.search).toBe("?keyId=akey_partner"))
-    expect(sidebar().getAttribute("href")).toBe("/@keysmith/rotations?keyId=akey_partner")
+    expect(sidebar().getAttribute("href")).toBe("/@keysmith/rotations")
 
     fireEvent.change(screen.getByLabelText("Key"), { target: { value: "" } })
     await waitFor(() => expect(router.search).toBe(""))
     expect(sidebar().getAttribute("href")).toBe("/@keysmith/rotations")
   })
 
-  it("goes back to the key before on Back", async () => {
-    window.history.replaceState(null, "", "/@keysmith/usage?keyId=akey_billing")
-    const { client, sent } = usageClient()
+  it("leaves the page on Back, without stepping through the keys chosen", async () => {
+    window.history.replaceState(null, "", "/@keysmith/keys")
+    window.history.pushState(null, "", "/@keysmith/usage?keyId=akey_billing")
+    const { client } = usageClient()
     renderRoutedPage(UsagePage, client)
     await screen.findByText("Partner sandbox", { selector: "option" })
     fireEvent.change(screen.getByLabelText("Key"), { target: { value: "akey_partner" } })
     await waitFor(() =>
       expect((screen.getByLabelText("Key") as HTMLSelectElement).value).toBe("akey_partner"),
     )
+    fireEvent.change(screen.getByLabelText("Key"), { target: { value: "" } })
+    await waitFor(() =>
+      expect((screen.getByLabelText("Key") as HTMLSelectElement).value).toBe(""),
+    )
 
     act(() => window.history.back())
-    await waitFor(() =>
-      expect((screen.getByLabelText("Key") as HTMLSelectElement).value).toBe("akey_billing"),
-    )
-    await waitFor(() =>
-      expect(paramsOf(sent, "usage.series").at(-1)).toMatchObject({ keyId: "akey_billing" }),
-    )
+    await waitFor(() => expect(window.location.pathname).toBe("/@keysmith/keys"))
+    expect(window.location.search).toBe("")
   })
 
   it("puts nothing but the key id in the address", async () => {
