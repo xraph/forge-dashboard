@@ -244,7 +244,7 @@ func (u USD) String() string            // full precision, no exponent
 ```
 
 It marshals to JSON as a string (`"0.000123"`), implements `sql.Scanner` and
-`driver.Valuer`, and marshals to BSON as `Decimal128`.
+`driver.Valuer`, and marshals to BSON as `Decimal128`. (superseded: see "What slice 1 found")
 
 **The breaking change.** These change type to `money.USD`, keeping their JSON
 names (the values become strings):
@@ -291,7 +291,7 @@ was called). `Summary` gains `UnpricedRequests int`.
 **Store fixes.**
 
 - Every finder returns a typed `store.ErrNotFound` instead of `(nil, nil)`,
-  which removes the panic class in the services at its source.
+  which removes the panic class in the services at its source. (superseded: see "What slice 1 found")
 - Memory: `Summary` computed for real, `Query` honours every filter and the
   cursor, `MonthlySpend` and `DailyRequests` bounded to the period, and no
   method hands out its internal slice.
@@ -515,7 +515,7 @@ traffic says "no traffic in the last 15 minutes".
 Postgres foreign keys block it once keys or usage exist) and cache clear
 (Redis `Clear` is a no-op). Both are recorded with their reasons.
 
-**Errors.** `store.ErrNotFound` maps to `NOT_FOUND`, validation to
+**Errors.** `store.ErrNotFound` (superseded: see "What slice 1 found") maps to `NOT_FOUND`, validation to
 `BAD_REQUEST`, a slug clash to `CONFLICT`, cancellation to retryable
 `UNAVAILABLE`. Anything else is logged with its intent and answered as
 `INTERNAL` with "an internal error occurred". Raw error text never reaches
@@ -861,7 +861,19 @@ Carry-forward items for the later slices:
 - `ollama` and `lmstudio` list a placeholder price of `0.00001` ("effectively zero"), so local models come out priced at a tiny amount instead of unpriced. That is a product question for Rex.
 - `money.Parse` accepts negative amounts, so a negative budget can be saved. The slice 4 contract must refuse one: `tenants.update` rejects a budget below zero.
 - `($1 = '' OR tenant_id = $1)` in the Postgres and SQLite aggregates can't use the tenant index under a generic or prepared plan. When `MonthlySpend` and `DailyRequests` back per-request budget checks (slice 3), build the `WHERE` clause conditionally, the way Mongo's `tenantMatch` already does.
-- The Postgres cursor orders on `id COLLATE "C"`, which can't use a primary key index built with the default collation on a non-C database. Add an `id COLLATE "C"` index, or a column collation, before the request log grows.
+- The Postgres cursor orders on `id COLLATE "C"`, which can't use a primary key index built with the default collation on a non-C database. The slice 1 migration now creates an `id COLLATE "C"` index on the usage, tenant and key tables, so this one is done.
 - `grpcsrv` and `_examples/grpc` replace `nexus` with the root checkout, so they needed their own `go mod tidy` for `shopspring/decimal` (commit 024ee78). The 32 provider modules replace it the same way and are tidied too (commit 4ff44e2, 30 of them with a new go.sum that holds only the decimal lines). `GOWORK=off go vet` passes in all of them, and it will fail again the next time a module gains a dependency without its own tidy.
+
+The final review of the whole slice found a few more things. We fixed the ones that were code (nexus commits 18394fd, 3aacda8 and 8ba3759). The rest are for the release and for slice 2.
+
+- Release checklist. All 32 `providers/*/go.mod` files still require nexus `v1.6.2`, which has no `money` package. Tag nexus first, then bump every provider's require to that tag, then tag the providers. Tag them in the other order and `go get` breaks for anyone who uses a provider on its own.
+- Stop the old replicas first. An old binary keeps inserting rows after the new one has migrated. We made those rows read as unpriced (the Postgres and SQLite default, and the Mongo read rule), but a cache hit written by an old binary reads as unpriced too, not as cached $0. Before the first new replica migrates, stop the old ones.
+- Minimum versions. MongoDB 5.0 or later, because `Series` uses `$dateTrunc` (the pipeline update that normalises old documents needs 4.2). PostgreSQL 12 or later, for `date_trunc` with a time zone.
+- Migration locks. The Postgres migration rewrites `nexus_usage_records` under an ACCESS EXCLUSIVE lock, and builds three more indexes on top. On a large table that means downtime, so plan for it.
+- Removed API. `model.CostEstimate`, `EstimateCost` and `EstimateCostFromTokens` are gone. Use `model.Cost`.
+- Amount precision. Amounts are bounded to 18 decimal places, which is what Postgres `NUMERIC(38,18)` keeps. `money.Parse` and `ParseLenient` refuse a 19th place instead of letting a backend round it.
+- Writer guarantee. `usage.Service.Record` now normalises every record before the store sees it, and unknown costs stay unknown even for a writer that leaves the status out. A record that says `unpriced_model` and carries a cost is refused.
+- Carry to slice 2: `settle` labels errors `unpriced_model` and marks a failed stream `ok`. Slice 2 has to define the status for error, blocked and refused rows.
+- Carry to slice 2: the `ollama` and `lmstudio` placeholder price of `0.00001` has to be decided before `model.Cost` is wired in. Wire it first and local models come out priced.
 
 Two things from the spec that still stand, and one that we didn't do. The provider token-reporting gaps are real: cost is list price over the tokens a provider reports, so cache, thinking and Gemini embedding tokens are still missing. And the spec asked for a price test in each provider module. We didn't write 29 of them. Task 2 carried every price literal over as the same text and diffed the before and after, 166 lines each way with an empty diff, which proves the same fact. If you want the tests anyway, add them in slice 2.
