@@ -10,6 +10,7 @@ function answers(overrides: Record<string, unknown> = {}) {
     "suites.detail": suite(),
     "config.get": config(),
     "runs.list": { items: [run()], hasMore: false },
+    "runs.trend": { points: [] },
     ...overrides,
   }
 }

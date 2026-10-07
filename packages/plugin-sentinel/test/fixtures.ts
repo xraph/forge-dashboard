@@ -4,17 +4,21 @@
 import type {
   Baseline,
   BaselineDetail,
+  Comparison,
   Overview,
   PromptVersion,
   PromptVersionDetail,
   Regression,
   ResultDetail,
   ResultRow,
+  RedTeamReport,
   Run,
   RunDetail,
   SentinelConfig,
   Suite,
   TestCase,
+  Trend,
+  TrendPoint,
 } from "../src/types"
 
 export const SUITE_ID = "suite_01j9se00000000000000000001"
@@ -292,6 +296,105 @@ export function overview(overrides: Partial<Overview> = {}): Overview {
       },
     ],
     targetsRegistered: true,
+    ...overrides,
+  }
+}
+
+/** A completed run's point on the trend; `day` is the day of September it ran. */
+export function trendPoint(day: number, overrides: Partial<TrendPoint> = {}): TrendPoint {
+  const dd = String(day).padStart(2, "0")
+  return {
+    runId: `run_01j9se000000000000000002${dd}`,
+    createdAt: `2026-09-${dd}T12:00:00Z`,
+    passRate: 0.75,
+    avgScore: 0.7,
+    dimensionScores: { persona: 0.8, trait: 0.7 },
+    totalCost: 0.004,
+    settings: { passThreshold: 0.7, regressionThreshold: 0.05 },
+    ...overrides,
+  }
+}
+
+/** Three runs, the last of which did not measure trait. */
+export function trend(overrides: Partial<Trend> = {}): Trend {
+  return {
+    points: [
+      trendPoint(21, { passRate: 0.875 }),
+      trendPoint(23, { passRate: 0.75 }),
+      trendPoint(25, { passRate: 0.5, avgScore: 0.55, dimensionScores: { persona: 0.6 } }),
+    ],
+    baseline: { id: BASELINE_ID, name: "Release 1.4", passRate: 0.875 },
+    ...overrides,
+  }
+}
+
+export const OTHER_RUN_ID = "run_01j9se00000000000000000049"
+
+/** Run A (older, the baseline's run) against run B (this one), one case each way only in a side. */
+export function comparison(overrides: Partial<Comparison> = {}): Comparison {
+  return {
+    a: run({
+      id: OTHER_RUN_ID,
+      passRate: 0.875,
+      avgScore: 0.9,
+      dimensionScores: { persona: 0.88, trait: 0.7 },
+      createdAt: "2026-09-20T10:00:00Z",
+    }),
+    b: run(),
+    deltas: [
+      { metric: "pass_rate", a: 0.875, b: 0.75, delta: -0.125 },
+      { metric: "avg_score", a: 0.9, b: 0.8125, delta: -0.0875 },
+      { metric: "avg_latency_ms", a: 700, b: 640, delta: -60 },
+      { metric: "total_cost", a: 0.01, b: 0.0123, delta: 0.0023 },
+    ],
+    dimensionDeltas: { persona: -0.06 },
+    dimensionsOnlyIn: { a: ["trait"], b: [] },
+    cases: [
+      {
+        caseId: CASE_ID,
+        caseName: "Reset password",
+        a: resultRow({ id: "result_a_1", status: "pass", score: 1 }),
+        b: resultRow({ id: "result_b_1", status: "fail", score: 0.6 }),
+      },
+      {
+        caseId: "tcase_01j9se00000000000000000004",
+        caseName: "Refund window",
+        a: resultRow({ id: "result_a_2", caseId: "tcase_01j9se00000000000000000004", caseName: "Refund window", status: "pass", score: 0.9 }),
+        b: resultRow({ id: "result_b_2", caseId: "tcase_01j9se00000000000000000004", caseName: "Refund window", status: "pass", score: 0.9 }),
+      },
+      {
+        caseId: "tcase_01j9se00000000000000000005",
+        caseName: "Old case",
+        a: resultRow({ id: "result_a_3", caseId: "tcase_01j9se00000000000000000005", caseName: "Old case", status: "pass", score: 1 }),
+      },
+      {
+        caseId: "tcase_01j9se00000000000000000103",
+        caseName: "leakage_direct_request",
+        b: resultRow({
+          id: "result_b_4",
+          caseId: "tcase_01j9se00000000000000000103",
+          caseName: "leakage_direct_request",
+          status: "fail",
+          score: 0,
+          redTeam: { attackType: "leakage" },
+        }),
+      },
+    ],
+    ...overrides,
+  }
+}
+
+export function redTeamReport(overrides: Partial<RedTeamReport> = {}): RedTeamReport {
+  return {
+    judgedBy: ["judge", "not_contains"],
+    byType: [
+      { attackType: "injection", total: 2, bypassed: 2, unscored: 0 },
+      { attackType: "jailbreak", total: 2, bypassed: 0, unscored: 1 },
+      { attackType: "leakage", total: 5, bypassed: 3, unscored: 0 },
+    ],
+    total: 9,
+    bypassed: 5,
+    unscored: 1,
     ...overrides,
   }
 }

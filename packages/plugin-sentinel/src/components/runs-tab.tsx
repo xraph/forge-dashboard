@@ -3,6 +3,7 @@ import { PluginLink, useQuery } from "@forge-go/dashboard-plugin"
 import { Button } from "@forge-go/dashboard-kit/components/button"
 import type { SentinelConfig, Suite } from "../types"
 import { RunsList } from "./runs-list"
+import { RunTrend } from "./run-trend"
 import { StartRunDialog } from "./start-run-dialog"
 
 /**
@@ -49,6 +50,7 @@ export function RunsTab({ suiteId, suite }: { suiteId: string; suite: Suite | un
         </p>
         {start}
       </div>
+      <RunTrend suiteId={suiteId} />
       <RunsList suiteId={suiteId} />
       {chosen && (
         <StartRunDialog open={starting} onOpenChange={setStarting} suite={chosen.suite} config={chosen.config} />

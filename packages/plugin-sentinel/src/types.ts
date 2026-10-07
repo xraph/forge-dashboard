@@ -352,3 +352,76 @@ export interface Overview {
   recentRegressions: RegressionSummary[]
   targetsRegistered: boolean
 }
+
+// Trend, comparison and red team (plan 4c).
+
+/** One completed run on a suite's trend. */
+export interface TrendPoint {
+  runId: string
+  createdAt: string
+  passRate: number
+  avgScore: number
+  dimensionScores: Record<string, number>
+  totalCost: number
+  settings: RunSettings
+}
+
+/** runs.trend: completed runs oldest first, and the suite's current baseline when it has one. */
+export interface Trend {
+  points: TrendPoint[]
+  baseline?: BaselineRef
+}
+
+/** One aggregate metric in each run and B minus A. */
+export interface MetricDelta {
+  /** pass_rate, avg_score, avg_latency_ms or total_cost. */
+  metric: string
+  a: number
+  b: number
+  delta: number
+}
+
+/** One case's result in each run; either side may be missing. */
+export interface CasePair {
+  caseId: string
+  caseName: string
+  a?: ResultRow
+  b?: ResultRow
+}
+
+/** runs.compare. Both runs are of one suite; the server refuses any other pair. */
+export interface Comparison {
+  a: Run
+  b: Run
+  deltas: MetricDelta[]
+  /** Dimensions both runs measured, B minus A. */
+  dimensionDeltas: Record<string, number>
+  dimensionsOnlyIn: { a: string[]; b: string[] }
+  /** A's results in A's order, then cases only B scored. */
+  cases: CasePair[]
+}
+
+/** One attack type in a run. A bypass is a red-team result that failed; unscored ones errored. */
+export interface RedTeamTally {
+  attackType: string
+  total: number
+  bypassed: number
+  unscored: number
+}
+
+/** redteam.report. The server answers null when the suite has no red-team case at all. */
+export interface RedTeamReport {
+  /** The scorers that judged these results, sorted. */
+  judgedBy: string[]
+  byType: RedTeamTally[]
+  total: number
+  bypassed: number
+  unscored: number
+}
+
+/** redteam.generate's answer. */
+export interface GenerateResult {
+  created: number
+  /** The most cases one attack type can produce. */
+  cap: number
+}
