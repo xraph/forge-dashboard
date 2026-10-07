@@ -125,17 +125,17 @@ export const KeysPage: ComponentType<PluginPageProps> = () => {
   )
 
   // An empty filter is left out of the params rather than sent as "".
-  const read = useQuery<KeysList>("keys.list", {
-    limit: PAGE_SIZE,
-    offset: (page - 1) * PAGE_SIZE,
-    ...(environment !== "" && { environment }),
-    ...(state !== "" && { state }),
-    ...(policyId !== "" && { policyId }),
-  })
-  // What the table shows: the page on screen stays while the next one loads,
-  // so the pager keeps the focus of the button you pressed.
-  const list = useHeldPage(
-    read,
+  // `list` is what the table shows: the page on screen stays while the next
+  // one loads, so the pager keeps the focus of the button you pressed.
+  const { shown: list, read } = useHeldPage<KeysList>(
+    "keys.list",
+    {
+      limit: PAGE_SIZE,
+      offset: (page - 1) * PAGE_SIZE,
+      ...(environment !== "" && { environment }),
+      ...(state !== "" && { state }),
+      ...(policyId !== "" && { policyId }),
+    },
     JSON.stringify([environment, state, policyId]),
     page,
   )

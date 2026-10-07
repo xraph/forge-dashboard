@@ -573,6 +573,28 @@ describe("RotationsPage while a page loads", () => {
     await screen.findByText("Reporting export")
   })
 
+  it("drops the held page when the store is cleared while the next page loads", async () => {
+    const { client, release } = heldClient({ items: [MANUAL], hasMore: true })
+    renderPage(RotationsPage, client)
+    fireEvent.click(await screen.findByRole("button", { name: "Next page" }))
+    // Page two is in flight and page one is held, as intended.
+    await waitFor(() => expect(document.querySelector('[aria-busy="true"]')).not.toBeNull())
+    expect(screen.getByText("Billing service")).toBeTruthy()
+
+    // An app or environment switch lands now. The store blanks page two and
+    // reissues it for the new app; page one's rows belong to the old app.
+    act(() => queryStore.clear())
+    expect(await screen.findByRole("status", { name: "Loading Rotations" })).toBeTruthy()
+    expect(screen.queryByText("Billing service")).toBeNull()
+
+    // The first page-two read was superseded and settles into nothing. The
+    // reissued one answers for the new app.
+    await release({ items: [COMPROMISE], hasMore: true })
+    await release({ items: [POLICY], hasMore: false })
+    await screen.findByText("Reporting export")
+    expect(screen.queryByText("Billing service")).toBeNull()
+  })
+
   it("shows the skeleton, not the old rows, for a new reason", async () => {
     const { client, release } = heldClient({ items: [MANUAL], hasMore: true })
     renderPage(RotationsPage, client)

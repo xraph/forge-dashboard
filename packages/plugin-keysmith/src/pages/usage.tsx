@@ -290,14 +290,15 @@ export const UsagePage: ComponentType<PluginPageProps> = () => {
   })
   // The page on screen stays while the next one loads, so the pager keeps
   // the focus of the button you pressed. A new key or range is a new list.
-  const records = useHeldPage(
-    useQuery<UsageRecords>("usage.records", {
+  const { shown: records } = useHeldPage<UsageRecords>(
+    "usage.records",
+    {
       limit: PAGE_SIZE,
       offset: (page - 1) * PAGE_SIZE,
       after: bounds.after,
       before: bounds.before,
       ...forKey,
-    }),
+    },
     JSON.stringify([keyId, bounds.after, bounds.before]),
     page,
   )

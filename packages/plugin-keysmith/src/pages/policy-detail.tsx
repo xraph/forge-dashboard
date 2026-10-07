@@ -93,14 +93,14 @@ function PolicyDetailBody({ id }: { id: string }) {
   // One-based, matching ResourceTable's PaginationState. Held here, above the
   // boundary, so a refetch of the policy does not send the table to page 1.
   const [page, setPage] = useState(1)
-  const read = useQuery<KeysList>("keys.list", {
-    policyId: id,
-    limit: PAGE_SIZE,
-    offset: (page - 1) * PAGE_SIZE,
-  })
-  // What the table shows: the page on screen stays while the next one loads,
-  // so the pager keeps the focus of the button you pressed.
-  const keys = useHeldPage(read, id, page)
+  // `keys` is what the table shows: the page on screen stays while the next
+  // one loads, so the pager keeps the focus of the button you pressed.
+  const { shown: keys, read } = useHeldPage<KeysList>(
+    "keys.list",
+    { policyId: id, limit: PAGE_SIZE, offset: (page - 1) * PAGE_SIZE },
+    id,
+    page,
+  )
   // Keys revoked or moved elsewhere can leave the page past the end. Step back
   // to the last page that exists, as the keys list does. From the page's own
   // answer, never the held one.

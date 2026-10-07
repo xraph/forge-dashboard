@@ -1,6 +1,5 @@
 import { useState } from "react"
 import type { ComponentType } from "react"
-import { useQuery } from "@forge-go/dashboard-plugin"
 import type { PluginPageProps } from "@forge-go/dashboard-plugin"
 import { Badge } from "@forge-go/dashboard-kit/components/badge"
 import { Button } from "@forge-go/dashboard-kit/components/button"
@@ -187,13 +186,14 @@ export const RotationsPage: ComponentType<PluginPageProps> = () => {
   // An empty filter is left out of the params rather than sent as "".
   // The page on screen stays while the next one loads, so the pager keeps
   // the focus of the button you pressed.
-  const list = useHeldPage(
-    useQuery<RotationsList>("rotations.list", {
+  const { shown: list } = useHeldPage<RotationsList>(
+    "rotations.list",
+    {
       limit: PAGE_SIZE,
       offset,
       ...(keyId !== "" && { keyId }),
       ...(reason !== "" && { reason }),
-    }),
+    },
     JSON.stringify([keyId, reason]),
     offset,
   )
