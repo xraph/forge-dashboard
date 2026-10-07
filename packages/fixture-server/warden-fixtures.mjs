@@ -904,6 +904,48 @@ function ancestorNamespaces(path) {
   return out
 }
 
+/**
+ * Mirrors resourcetype.CheckTupleDeclared. The resource type named after the
+ * tuple's object type at the nearest namespace up the tuple's chain (the
+ * evaluator's findResourceType) governs it; none anywhere in the chain and
+ * the tuple is not checked. One that governs must declare the relation, and
+ * that relation must list the subject: "user" for user:x, "group#member" for
+ * group:x#member, and neither for the other. lookup(ns, name) answers for a
+ * resource type, or null. Returns the refusal's text, or null.
+ */
+function undeclaredTupleMessage(t, lookup) {
+  let rt = null
+  let at = ""
+  for (const ns of ancestorNamespaces(t.namespacePath)) {
+    rt = lookup(ns, t.objectType)
+    if (rt) {
+      at = ns
+      break
+    }
+  }
+  if (!rt) return null
+  const where = (ns) => (ns === "" ? "the tenant root" : `namespace ${goQuote(ns)}`)
+  const subjectRelation = t.subjectRelation ?? ""
+  const spec = subjectRelation === "" ? t.subjectType : t.subjectType + "#" + subjectRelation
+  const subjectId = subjectRelation === "" ? t.subjectId : t.subjectId + "#" + subjectRelation
+  const head = `tuple ${t.objectType}:${t.objectId}#${t.relation}@${t.subjectType}:${subjectId} in ${where(t.namespacePath)} is refused: `
+  const type = `resource type ${goQuote(rt.name)} in ${where(at)}`
+  const list = (names) => names.map(goQuote).join(", ")
+  const rel = (rt.relations ?? []).find((r) => r.name === t.relation)
+  if (!rel) {
+    const names = (rt.relations ?? []).map((r) => r.name)
+    if (names.length === 0) return head + `${type} declares no relation ${goQuote(t.relation)} (it declares no relations)`
+    return head + `${type} declares no relation ${goQuote(t.relation)} (its relations are ${list(names)})`
+  }
+  const allowed = rel.allowedSubjects ?? []
+  if (allowed.includes(spec)) return null
+  if (allowed.length === 0) return head + `relation ${goQuote(t.relation)} of ${type} allows no subject type, so it cannot hold ${goQuote(spec)}`
+  return head + `relation ${goQuote(t.relation)} of ${type} allows subjects ${list(allowed)}, not ${goQuote(spec)}`
+}
+
+/** The stored resource type named name at exactly ns, or null. */
+const storedResourceType = (ns, name) => warden.resourceTypes.find((x) => x.namespacePath === ns && x.name === name) ?? null
+
 /** nsHasPrefix in the memory store: the prefix itself and everything below it. */
 function nsHasPrefix(path, prefix) {
   return prefix === "" || path === prefix || path.startsWith(prefix + "/")
@@ -5328,6 +5370,44 @@ function runSchemaApplier(prog, prune, write, source) {
     if (diags.length > 0) return { diags }
   }
 
+  // checkRelations: a tuple the apply would write that its governing
+  // resource type does not declare is refused before anything is written,
+  // against the resource types as the apply leaves them: the source's
+  // declaration where it has one, none where prune deletes the stored one,
+  // the store otherwise. A tuple already stored is a no-op and not checked.
+  {
+    const planned = new Map(
+      prog.resourceTypes.map((rt) => [
+        schemaKey(rt.ns, rt.name),
+        {
+          name: rt.name,
+          relations: rt.relations.map((rel) => ({
+            name: rel.name,
+            allowedSubjects: rel.allowedSubjects.map((s) => (s.relation === "" ? s.type : s.type + "#" + s.relation)),
+          })),
+        },
+      ])
+    )
+    const lookup = (ns, name) => {
+      const declared = planned.get(schemaKey(ns, name))
+      if (declared) return declared
+      if (prune && covers(ns)) return null
+      return storedResourceType(ns, name)
+    }
+    const diags = []
+    for (const t of prog.relations) {
+      const stored = warden.relations.some(
+        (x) =>
+          x.namespacePath === t.ns && x.objectType === t.objectType && x.objectId === t.objectId && x.relation === t.relation &&
+          x.subjectType === t.subjectType && x.subjectId === t.subjectId && (x.subjectRelation ?? "") === t.subjectRelation
+      )
+      if (stored) continue
+      const message = undeclaredTupleMessage({ ...t, namespacePath: t.ns }, lookup)
+      if (message) diags.push({ line: t.pos.line, col: t.pos.col, message })
+    }
+    if (diags.length > 0) return { diags }
+  }
+
   // ---- resource types ----
   {
     const declared = new Set()
@@ -6568,6 +6648,11 @@ export const wardenHandlers = {
       const namespacePath = payload.namespacePath ?? ""
       validateNamespace(namespacePath)
       const subjectRelation = payload.subjectRelation ?? ""
+      // The resource type governing the object type, if there is one, must
+      // declare the relation and allow the subject. Go checks before the
+      // write, so this refusal comes before the duplicate's CONFLICT.
+      const undeclared = undeclaredTupleMessage({ ...payload, namespacePath, subjectRelation }, storedResourceType)
+      if (undeclared) throw badRequest(undeclared)
       const dup = warden.relations.some(
         (t) =>
           t.namespacePath === namespacePath &&
