@@ -1,6 +1,6 @@
 import { Badge } from "@forge-go/dashboard-kit/components/badge"
 import { scenarioLabel } from "./format"
-import type { Regression, ResultStatus, RunState } from "./types"
+import type { Regression, ResultStatus, RunState, ScorerVerdict } from "./types"
 
 // Badge colour is an attention budget (PLAYBOOK, convention 5). The mappings
 // below are the spec's "Badges" table, with its reasons:
@@ -78,6 +78,26 @@ const RESULT_STATUS: Record<ResultStatus, { label: string; variant: "outline" | 
 export function ResultStatusBadge({ status }: { status: ResultStatus }) {
   const s = RESULT_STATUS[status] ?? { label: status, variant: "default" as const }
   return <Badge variant={s.variant}>{s.label}</Badge>
+}
+
+/**
+ * Each scorer's verdict on one result, as the result page shows them: a pass
+ * recedes in outline, a fail is destructive. The mark and the word carry the
+ * verdict too, so colour is never the only signal.
+ */
+export function ScorerVerdicts({ verdicts }: { verdicts: ScorerVerdict[] }) {
+  return (
+    <ul aria-label="Scorer verdicts" className="flex flex-wrap gap-1">
+      {verdicts.map((v, i) => (
+        <li key={`${i}-${v.name}`}>
+          <Badge variant={v.passed ? "outline" : "destructive"} className="font-mono">
+            <span aria-hidden="true">{v.passed ? "✓" : "✗"}</span> {v.name}
+            <span className="sr-only">{v.passed ? " passed" : " failed"}</span>
+          </Badge>
+        </li>
+      ))}
+    </ul>
+  )
 }
 
 /** The verdict a regression answer earns, in words a person scans for. */

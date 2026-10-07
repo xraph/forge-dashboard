@@ -207,6 +207,14 @@ export interface ResultRow {
   redTeam?: RedTeamRef
   /** The target's or a scorer's error text. */
   error?: string
+  /** Each scorer's verdict, in the order they ran. Reasons are on results.detail. */
+  scorers: ScorerVerdict[]
+}
+
+/** One scorer's pass or fail on a result. */
+export interface ScorerVerdict {
+  name: string
+  passed: boolean
 }
 
 export interface ResultCounts {

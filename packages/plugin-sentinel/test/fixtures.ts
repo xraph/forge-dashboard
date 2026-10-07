@@ -232,6 +232,10 @@ export function resultRow(overrides: Partial<ResultRow> = {}): ResultRow {
     tokensUsed: 412,
     cost: 0.0031,
     dimensionScores: {},
+    scorers: [
+      { name: "contains", passed: false },
+      { name: "judge", passed: true },
+    ],
     ...overrides,
   }
 }

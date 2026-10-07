@@ -162,6 +162,24 @@ describe("RunDetailPage", () => {
     expect(within(rows[2]).getByLabelText("no baseline score")).toBeTruthy()
   })
 
+  it("lists each case's scorers with their verdicts, in words as well as colour", async () => {
+    const items = [
+      resultRow(),
+      resultRow({ id: "result_01j9se00000000000000000061", caseId: NEW_CASE, caseName: "Refund policy", status: "pass", score: 1, scorers: [] }),
+    ]
+    renderNavPage(RunDetailPage, stubClient({ ...answers(), "runs.results": { items, counts: { pass: 3, fail: 1, error: 0 } } }), {
+      id: RUN_ID,
+    })
+    const table = await screen.findByRole("region", { name: "4 results" })
+    expect(within(table).getByRole("columnheader", { name: "Scorers" })).toBeTruthy()
+    const rows = within(table).getAllByRole("row")
+    const verdicts = within(rows[1]).getByRole("list", { name: "Scorer verdicts" })
+    const items1 = within(verdicts).getAllByRole("listitem")
+    expect(items1.map((li) => li.textContent)).toEqual(["✗ contains failed", "✓ judge passed"])
+    expect(items1[0].querySelector("[data-slot=badge]")?.className).toContain("destructive")
+    expect(within(rows[2]).getByLabelText("no scorer verdicts")).toBeTruthy()
+  })
+
   it("asks for one status when its chip is pressed, and for all again when it is pressed twice", async () => {
     const { client, queries } = recordingFullClient(answers())
     renderNavPage(RunDetailPage, client, { id: RUN_ID })

@@ -6,7 +6,7 @@ import {
   ResourceTable,
   type Column,
 } from "@forge-go/dashboard-kit/components/resource-table"
-import { RedTeamBadge, ResultStatusBadge } from "../badges"
+import { RedTeamBadge, ResultStatusBadge, ScorerVerdicts } from "../badges"
 import { fellPast, formatCost, formatCount, formatDelta, formatLatency, formatScore, plural, resultPath } from "../format"
 import type { BaselineDetail, ResultCounts, ResultRow, ResultStatus, RunResults } from "../types"
 import { RUN_POLL_MS } from "./runs-list"
@@ -65,6 +65,12 @@ function columns(runId: string, baseline: BaselineScores | null, threshold: numb
     { id: "status", header: "Status", cell: (r) => <ResultStatusBadge status={r.status} /> },
     { id: "score", header: "Score", align: "end", className: "tabular-nums", cell: (r) => formatScore(r.score) },
     ...(baseline ? [changeColumn(baseline, threshold)] : []),
+    {
+      id: "scorers",
+      header: "Scorers",
+      cell: (r) =>
+        r.scorers.length === 0 ? <NoneCell label="scorer verdicts" /> : <ScorerVerdicts verdicts={r.scorers} />,
+    },
     { id: "latency", header: "Latency", align: "end", className: "tabular-nums", cell: (r) => formatLatency(r.latencyMs) },
     { id: "tokens", header: "Tokens", align: "end", className: "tabular-nums", cell: (r) => formatCount(r.tokensUsed) },
     { id: "cost", header: "Cost reported", align: "end", className: "tabular-nums", cell: (r) => formatCost(r.cost) },
