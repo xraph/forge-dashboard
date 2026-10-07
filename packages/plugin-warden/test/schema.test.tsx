@@ -798,6 +798,23 @@ describe("WardenSchemaPage: refusals stay in the dialog", () => {
     ).toBeTruthy()
   })
 
+  it("a half apply stopped by the cap does not send the operator to plan again to see what remains", async () => {
+    // A member arrived between apply's own dry run and its write pass. A plan
+    // runs the same cap check, so planning again shows the same refusal.
+    const { dialog } = await refused(
+      new ContractError(
+        "INTERNAL",
+        'the apply stopped part way: update role small: "Small" has 3 members, so its cap cannot be lowered to 2'
+      )
+    )
+    expect(
+      await within(dialog).findByText(
+        'The apply stopped with an error: update role small: "Small" has 3 members, so its cap cannot be lowered to 2. Changes written before the error are kept. A plan runs the same cap check, so remove members from the role or raise the cap in the source before you plan again.'
+      )
+    ).toBeTruthy()
+    expect(within(dialog).queryByText(/plan again to see what remains/)).toBeNull()
+  })
+
   it("any other error shows its own message", async () => {
     const { dialog } = await refused(
       new ContractError("PERMISSION_DENIED", "missing permission manage on warden:policy")
@@ -843,7 +860,7 @@ describe("WardenSchemaPage: refusals stay in the dialog", () => {
     expect(button("Apply")).toHaveProperty("disabled", true)
   })
 
-  it("keeps the plan after a cap refusal: the digest still matches, so it applies once the role has room", async () => {
+  it("keeps the plan after a cap refusal, which says nothing about the digest the server checks on every apply", async () => {
     const { dialog } = await refused(CAP_REFUSAL)
     await within(dialog).findByText(/cannot be lowered/)
     fireEvent.click(within(dialog).getByRole("button", { name: "Cancel" }))

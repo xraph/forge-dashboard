@@ -607,15 +607,16 @@ describe("WardenRoleDetailPage", () => {
       )
     })
 
-    it("says the cap is checked on assignment and lowering it removes nobody", async () => {
-      // roles.update stores MaxMembers without counting anyone, and the only
-      // guard is assignments.create. An operator lowering the cap to trim a
-      // role must not believe that doing so revoked anybody.
+    it("says where the cap is checked, the bootstrap exception, and that it cannot go below the holders", async () => {
+      // The dashboard and REST assignment creates check the cap; warden's
+      // BootstrapAdmin does not. Every role write (this form, REST, a schema
+      // apply) refuses a cap below the live members, so the form must not
+      // read as if a cap could be set under the people who hold the role.
       renderPage(WardenRoleDetailPage, recording().client, { id: "role_01hq" })
       await openEdit()
       expect(
         screen.getByText(
-          "Leave it empty for no limit. Clearing a cap you had removes it. The cap is checked when this dashboard assigns a subject. Lowering it removes nobody who already holds the role."
+          "Leave it empty for no limit. Clearing a cap you had removes it. The cap is checked when a subject is assigned here or through warden's REST API; warden's bootstrap admin assignment skips it. You can't set it below the number of subjects who hold the role now."
         )
       ).toBeTruthy()
     })

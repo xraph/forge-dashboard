@@ -190,8 +190,10 @@ export function WardenPermissionDetailPage({ params }: PluginPageProps) {
  * namespace. So a role grants this permission's check without attaching it
  * when it inherits it from a parent role (resolveInheritedRoleObjects), holds
  * a wildcard such as `document:*`, or attaches another permission with the
- * same resource and action under another name or in another namespace. None
- * of those shows here, so nothing on this table may claim to be every role
+ * same resource and action under another name or in another namespace. The
+ * comparison is of the joined string, not the pair, and no write refuses a
+ * colon in a resource or an action, so (warden, role:manage) grants the same
+ * check as (warden:role, manage). None of those shows here, so nothing on this table may claim to be every role
  * that grants the check, and an empty table does not mean no role grants it.
  *
  * The count is what the server returned, never a page's worth of it:

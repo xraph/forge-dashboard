@@ -554,8 +554,10 @@ function EditForm({ role, onDone }: { role: RoleDetail; onDone: () => void }) {
         />
         <p className="text-xs text-muted-foreground">
           Leave it empty for no limit. Clearing a cap you had removes it. The
-          cap is checked when this dashboard assigns a subject. Lowering it
-          removes nobody who already holds the role.
+          cap is checked when a subject is assigned here or through
+          warden&apos;s REST API; warden&apos;s bootstrap admin assignment
+          skips it. You can&apos;t set it below the number of subjects who
+          hold the role now.
         </p>
       </div>
       <div className="flex items-center gap-2">

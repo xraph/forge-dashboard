@@ -55,6 +55,9 @@ interface Planned {
 const NO_DIAGNOSTICS: SchemaDiagnostic[] = []
 const SHOWN_DELETIONS = 5
 const HALF_APPLY = "the apply stopped part way"
+// The tail of warden's cap refusal (assignment.CapBelowMembersError), which a
+// half apply wraps as "update role <slug>: <refusal>".
+const CAP_REFUSAL = /has \d+ members, so its cap cannot be lowered to \d+$/
 
 function count(n: number, one: string, many: string): string {
   return `${n} ${n === 1 ? one : many}`
@@ -87,6 +90,12 @@ function refusal(error: ContractError): string {
       .replace(/^:\s*/, "")
       .replace(/\.+$/, "")
     const stopped = rest === "" ? "The apply stopped part way" : `The apply stopped with an error: ${rest}`
+    // A member arrived after apply's own dry run passed, and the write pass
+    // refused the cap. A plan runs that same check, so planning again would
+    // only show the refusal, not what remains.
+    if (CAP_REFUSAL.test(rest)) {
+      return `${stopped}. Changes written before the error are kept. A plan runs the same cap check, so remove members from the role or raise the cap in the source before you plan again.`
+    }
     return `${stopped}. Changes written before the error are kept; plan again to see what remains.`
   }
   return error.message
@@ -97,10 +106,12 @@ function refusal(error: ContractError): string {
  * moved on (`CONFLICT` with reason "schema_changed"), the apply stopped part
  * way, or the server rejected the source it was sent (`BAD_REQUEST`).
  *
- * Any other `CONFLICT`, the member cap among them, keeps the plan. Its digest
- * still matches what apply plans, so the same plan applies once the refusal
- * clears (a member leaves the role), and the server checks the digest on
- * every apply, so a kept plan can never write a diff that was not shown.
+ * Any other `CONFLICT`, the member cap among them, keeps the plan. A cap
+ * refusal says nothing about the digest: apply's dry run refuses before the
+ * digest is compared. The server checks the digest on every apply, so a kept
+ * plan can never write a diff that was not shown. If the schema also changed,
+ * the first apply that gets past the cap is refused as "schema_changed" and
+ * spends the plan then.
  */
 function spendsPlan(error: ContractError): boolean {
   return (
