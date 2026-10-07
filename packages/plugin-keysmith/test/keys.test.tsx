@@ -84,6 +84,27 @@ const MOBILE = key({
 
 const LIST = { keys: [BILLING, REPORTING, WEBHOOK, PARTNER, MOBILE], total: 5 }
 
+const POLICIES = {
+  policies: [
+    {
+      id: "kpol_standard",
+      name: "Standard",
+      maxKeyLifetimeSeconds: null,
+      graceSeconds: null,
+      allowedScopes: [],
+    },
+    {
+      id: "kpol_strict",
+      name: "Strict",
+      maxKeyLifetimeSeconds: 86400,
+      graceSeconds: 0,
+      allowedScopes: ["billing:read"],
+    },
+  ],
+  hasMore: false,
+  rateLimiterConfigured: false,
+}
+
 /** A client whose keys.list answer depends on the params it was sent. */
 function stubClientByParams(
   answer: (params: Record<string, unknown>) => unknown,
@@ -119,6 +140,7 @@ describe("KeysPage", () => {
     expect(first?.params).toEqual({ limit: 25, offset: 0 })
     expect(first?.params).not.toHaveProperty("environment")
     expect(first?.params).not.toHaveProperty("state")
+    expect(first?.params).not.toHaveProperty("policyId")
   })
 
   it("reads the server total in the caption", async () => {
@@ -386,6 +408,104 @@ describe("KeysPage", () => {
         .map((o) => o.textContent)
     expect(options("Environment")).toEqual(["All", "Live", "Test", "Staging"])
     expect(options("State")).toEqual(["All", "Active", "Suspended", "Revoked", "Expired"])
+  })
+
+  it("filters by policy, offering each by name, sending its id and resetting to page one", async () => {
+    const { client, sent } = recordingQueryClient({
+      "keys.list": { keys: LIST.keys, total: 60 },
+      "policies.list": POLICIES,
+    })
+    renderPage(KeysPage, client)
+    await screen.findByText("Strict", { selector: "option" })
+    const options = within(screen.getByLabelText("Policy"))
+      .getAllByRole("option")
+      .map((o) => [o.getAttribute("value"), o.textContent])
+    expect(options).toEqual([
+      ["", "All"],
+      ["kpol_standard", "Standard"],
+      ["kpol_strict", "Strict"],
+    ])
+
+    fireEvent.click(screen.getByRole("button", { name: "Next page" }))
+    await screen.findByText(/Page 2 of 3/)
+
+    fireEvent.change(screen.getByLabelText("Policy"), {
+      target: { value: "kpol_strict" },
+    })
+    await screen.findByText(/Page 1 of 3/)
+    const calls = sent.filter((s) => s.intent === "keys.list").map((s) => s.params)
+    expect(calls).toContainEqual({ limit: 25, offset: 0, policyId: "kpol_strict" })
+
+    // Back to All: no policyId at all, not an empty string.
+    fireEvent.change(screen.getByLabelText("Policy"), { target: { value: "" } })
+    await screen.findByText(/Page 1 of 3/)
+    const last = sent.filter((s) => s.intent === "keys.list").at(-1)
+    expect(last?.params).toEqual({ limit: 25, offset: 0 })
+  })
+
+  it("combines the policy with the other filters", async () => {
+    const { client, sent } = recordingQueryClient({
+      "keys.list": LIST,
+      "policies.list": POLICIES,
+    })
+    renderPage(KeysPage, client)
+    await screen.findByText("Strict", { selector: "option" })
+    fireEvent.change(screen.getByLabelText("Environment"), { target: { value: "live" } })
+    fireEvent.change(screen.getByLabelText("Policy"), { target: { value: "kpol_standard" } })
+    await screen.findByText("Reporting export")
+    const params = sent.filter((s) => s.intent === "keys.list").map((s) => s.params)
+    expect(params).toContainEqual({
+      limit: 25,
+      offset: 0,
+      environment: "live",
+      policyId: "kpol_standard",
+    })
+  })
+
+  it("offers only All for the policy when policies.list fails, and still lists keys", async () => {
+    renderPage(KeysPage, stubClient({ "keys.list": LIST }))
+    await screen.findByText("Reporting export")
+    const policiesKey = queryStore.keyOf("keysmith", "policies.list", {
+      limit: 200,
+    })
+    await waitFor(() =>
+      expect(queryStore.snapshot(policiesKey).error).toBeTruthy(),
+    )
+    expect(
+      within(screen.getByLabelText("Policy"))
+        .getAllByRole("option")
+        .map((o) => o.textContent),
+    ).toEqual(["All"])
+  })
+
+  it("says no keys match when a policy finds nothing, and keeps the filter", async () => {
+    const client: ScopedClient = {
+      extension: "keysmith",
+      query: async (intent: string, params?: Record<string, unknown>) => {
+        if (intent === "policies.list") return POLICIES
+        if (intent !== "keys.list") {
+          throw new ContractError("NOT_FOUND", `no handler for intent "${intent}"`)
+        }
+        return params?.policyId === "kpol_strict"
+          ? { keys: [], total: 0 }
+          : { keys: LIST.keys, total: 5 }
+      },
+      command: async () => {
+        throw new ContractError("NOT_FOUND", "no commands")
+      },
+    } as ScopedClient
+    renderPage(KeysPage, client)
+    await screen.findByText("Strict", { selector: "option" })
+    fireEvent.change(screen.getByLabelText("Policy"), {
+      target: { value: "kpol_strict" },
+    })
+    expect(await screen.findByText("No keys match these filters.")).toBeTruthy()
+    expect(screen.queryByText("No API keys yet.")).toBeNull()
+    // A filter that matches nothing is not the moment to offer a key.
+    expect(screen.getAllByRole("button", { name: "Create key" })).toHaveLength(1)
+    expect((screen.getByLabelText("Policy") as HTMLSelectElement).value).toBe(
+      "kpol_strict",
+    )
   })
 
   it("pages to offset 25 on page two", async () => {

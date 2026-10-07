@@ -99,10 +99,11 @@ export const KeysPage: ComponentType<PluginPageProps> = () => {
   const [page, setPage] = useState(1)
   const [environment, setEnvironment] = useState("")
   const [state, setState] = useState("")
+  const [policyId, setPolicyId] = useState("")
   const [creating, setCreating] = useState(false)
 
-  // Names only. A failed or slow read leaves the ids showing, and never
-  // holds up the key list itself.
+  // Names only. A failed or slow read leaves the ids showing and the policy
+  // filter at All, and never holds up the key list itself.
   const policies = useQuery<PoliciesList>("policies.list", POLICY_PARAMS)
   const policyData = policies.data
   const columns = useMemo(
@@ -112,6 +113,15 @@ export const KeysPage: ComponentType<PluginPageProps> = () => {
       ),
     [policyData],
   )
+  // Names shown, ids sent. A policy past the first 200 cannot be picked here;
+  // its own page lists its keys.
+  const policyOptions = useMemo(
+    () => [
+      ALL,
+      ...(policyData?.policies ?? []).map((p) => ({ value: p.id, label: p.name })),
+    ],
+    [policyData],
+  )
 
   // An empty filter is left out of the params rather than sent as "".
   const list = useQuery<KeysList>("keys.list", {
@@ -119,6 +129,7 @@ export const KeysPage: ComponentType<PluginPageProps> = () => {
     offset: (page - 1) * PAGE_SIZE,
     ...(environment !== "" && { environment }),
     ...(state !== "" && { state }),
+    ...(policyId !== "" && { policyId }),
   })
 
   // The data can shrink under the page being viewed (keys deleted elsewhere),
@@ -139,7 +150,7 @@ export const KeysPage: ComponentType<PluginPageProps> = () => {
     if (last !== page) setPage(last)
   }
 
-  const filtered = environment !== "" || state !== ""
+  const filtered = environment !== "" || state !== "" || policyId !== ""
 
   // A new filter means a new result set, and page 3 of it may not exist.
   function changeEnvironment(value: string) {
@@ -148,6 +159,10 @@ export const KeysPage: ComponentType<PluginPageProps> = () => {
   }
   function changeState(value: string) {
     setState(value)
+    setPage(1)
+  }
+  function changePolicy(value: string) {
+    setPolicyId(value)
     setPage(1)
   }
 
@@ -175,6 +190,13 @@ export const KeysPage: ComponentType<PluginPageProps> = () => {
               value: state,
               options: [ALL, ...STATES],
               onChange: changeState,
+            },
+            {
+              id: "policy",
+              label: "Policy",
+              value: policyId,
+              options: policyOptions,
+              onChange: changePolicy,
             },
           ]}
         />
