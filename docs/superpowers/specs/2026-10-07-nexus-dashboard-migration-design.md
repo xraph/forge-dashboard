@@ -894,9 +894,14 @@ How a request is classified. The usage stage decides this once, after the reques
 | Served by a Free model | `ok` | `priced` | exactly `$0` |
 | Cache hit, or stream replayed from the cache | `cached` | `cached` | `$0` |
 | Input guard block | `blocked` | `not_charged` | `$0` |
-| Output guard block with usage | `blocked` | `priced` | from the blocked response's tokens |
-| Output guard block without usage (a stream guard) | `blocked` | `unknown` | nil |
-| A block with an empty or unknown phase | `blocked` | treated as output | never `$0` |
+| Stream guard block, some tokens seen | `blocked` | `priced` | from the tokens seen so far |
+| Stream guard block, no tokens seen | `blocked` | `unknown` | nil |
+| Stream guard block during a cache replay | `blocked` | `cached` | `$0` |
+| Output guard block with usage (non-stream) | `blocked` | `priced` | from the blocked response's tokens |
+| Output guard block without usage (non-stream) | `blocked` | `unknown` | nil |
+| A block with an empty or unknown phase | `blocked` | treated as output | charged or unknown, never assumed free |
+| Failed stream, some tokens seen | `error` | `priced` | from the tokens seen so far |
+| Failed stream, no tokens seen | `error` | `unknown` | nil |
 | Refusal (`pipeline.Refusal`) | `refused` | `not_charged` | `$0` |
 | Error after a provider was chosen | `error` | `unknown` | nil |
 | Error before any provider was chosen | `error` | `not_charged` | `$0` |
@@ -926,7 +931,7 @@ Loose ends we left on purpose:
 - A `Shutdown` that times out leaves the flush waiter parked until pending inserts drain. That is bounded by the 10 second insert timeout.
 - A stream the client abandons can still be recorded as `ok`, because the race between `Next` and `Close` decides. The cost is right (unknown when no tokens arrived).
 - Guard block rows hardcode status 400.
-- Retry has no idea which errors are worth retrying. A request with no provider registered waits out the full 1.5 seconds of backoff before it fails, which is why one gateway test takes that long.
+- Retry has no idea which errors are worth retrying. A request with no provider registered waits out the full 1.5 seconds of backoff before it fails. Two gateway tests take about 1.5 seconds for that reason: the retry test, where two failures are retried on purpose, and the failures test, where the no-provider case is retried by default.
 - Stream cache tests reuse one request for the miss and the replay, and the identity tests don't cover key disagreement or an embedding with the id only in context.
 - `Series.Unpriced` counts `unknown` as unpriced now, to agree with `Summary`. Memory `FindByPrefix` and the other backends still disagree on key status, as noted in the slice 1 section.
 - `WithGatewayOption(WithConfig(...))` replaces config-derived values too. Worth a line in the extension docs in slice 7.
