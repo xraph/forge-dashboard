@@ -1,14 +1,17 @@
 @import "@forge-go/dashboard-kit/globals.css";
 
 /*
- * dashboard-kit/globals.css only declares `@source "../**\/*.{ts,tsx}"`,
- * which is relative to that file and therefore only scans dashboard-kit's
- * own package. That is enough for apps/shell and apps/playground because
- * they run through @tailwindcss/vite, which scans Vite's whole module graph
- * regardless of @source. This app runs through @tailwindcss/postcss instead
- * (Next has no equivalent auto-detection), so every other workspace package
- * that renders Tailwind-styled markup has to be named explicitly or its
- * classes never make it into the generated stylesheet.
+ * dashboard-kit/globals.css only declares `@source "../**\/*.{ts,tsx}"`.
+ * That path is relative to the kit's own file, so it scans the kit package
+ * and nothing else. Every app has to list the other workspace packages it
+ * renders with @source lines of its own, whether it runs through
+ * @tailwindcss/postcss like this one or @tailwindcss/vite like apps/shell
+ * and apps/playground. Leave a package out and a class that only appears
+ * inside it never reaches the generated stylesheet. The Vite plugin doesn't
+ * scan the module graph for you: a shell build without its plugin-sentinel
+ * line came out missing the classes only that package uses, which is why
+ * apps/shell/src/styles.css carries a list like the one below. If you render
+ * a new workspace package here, add a line for it.
  */
 @source "../../../packages/host/src/**/*.{ts,tsx}";
 @source "../../../packages/plugin/src/**/*.{ts,tsx}";
