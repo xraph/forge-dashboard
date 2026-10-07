@@ -998,22 +998,40 @@ function parseRFC3339(text) {
 }
 
 /**
- * guardMemberCap in members.go. Three rules that are easy to get backwards:
+ * guardMemberCap in members.go (assignment.CheckMemberCap). Three rules that are easy to get backwards:
  * MaxMembers 0 (or unset) is UNLIMITED; only LIVE assignments occupy a seat;
  * and a member is a distinct (subjectKind, subjectId), not a row, so a
  * subject who already holds the role live is never refused.
  */
 function guardMemberCap(role, subjectKind, subjectId, nowMs) {
   if (!(role.maxMembers > 0)) return
-  const members = new Set()
-  for (const a of warden.assignments) {
-    if (a.roleId === role.id && isLive(a, nowMs)) {
-      members.add(JSON.stringify([a.subjectKind, a.subjectId]))
-    }
-  }
+  const members = liveMembers(role.id, nowMs)
   if (members.has(JSON.stringify([subjectKind, subjectId]))) return
   if (members.size < role.maxMembers) return
   throw conflict(`${q(role.name)} is capped at ${role.maxMembers} members and already has ${members.size}`)
+}
+
+/** assignment.LiveMembers: the distinct (kind, id) pairs holding roleId live at nowMs. */
+function liveMembers(roleId, nowMs) {
+  const members = new Set()
+  for (const a of warden.assignments) {
+    if (a.roleId === roleId && isLive(a, nowMs)) members.add(JSON.stringify([a.subjectKind, a.subjectId]))
+  }
+  return members
+}
+
+/**
+ * assignment.CheckCapLowering: the CapBelowMembersError text when moving the
+ * role's cap from oldCap to newCap lowers it to a positive number below its
+ * live member count, or "" when the change passes. A cap of 0 or below is
+ * unlimited, so clearing, raising, keeping it, or moving between unlimited
+ * values passes without counting; unlimited to a positive cap is a lowering.
+ */
+function capLoweringRefusal(role, oldCap, newCap, nowMs) {
+  if (!(newCap > 0) || (oldCap > 0 && newCap >= oldCap)) return ""
+  const n = liveMembers(role.id, nowMs).size
+  if (n <= newCap) return ""
+  return `${q(role.name)} has ${n} members, so its cap cannot be lowered to ${newCap}`
 }
 
 // ---------------------------------------------------------------------------
@@ -2204,14 +2222,49 @@ function fieldResolves(field) {
   return prefix === "action" && suffix === "name"
 }
 
-// Fields resolveField returns as a plain string on every request, so the value
-// is never nil, even when it is empty. Only exists and not_exists have a fixed
-// outcome on them.
+// alwaysPresentFields: the fields resolveField returns as a plain string on
+// every request, so the value is never nil, even when it is empty. Being
+// present fixes exists and not_exists on these. Check refusing some of them
+// when empty fixes neq "" as well (REQUIRED_FIELDS below), and those two
+// rules plus values that match any string are all this port classifies.
+// Other shapes on a required field are fixed too and are not classified:
+// eq "", in [""] and regex ^$ are always false, and not_in [""] is always
+// true.
 const ALWAYS_PRESENT_FIELDS = new Set(["subject.kind", "subject.id", "resource.type", "resource.id", "action.name"])
 
-// The patterns known to match every string. "^.*$" is absent on purpose: the
-// dot does not match a newline, so it fails on a value that contains one.
-const MATCH_EVERYTHING_REGEX = new Set(["", ".*", "^.*", ".*$"])
+// requiredFields: the fields Engine.Check refuses to evaluate when empty
+// (engine.go's prepareCheck: subject ID, action name, resource type), so on
+// every check warden evaluates they are never "".
+const REQUIRED_FIELDS = new Set(["subject.id", "action.name", "resource.type"])
+
+// matchEveryRegex: the anchored patterns recognised as matching every
+// string. Patterns with no empty-width assertion are judged by
+// regexMatchesEverything instead. "^.*$" is absent on purpose: without (?s)
+// the dot does not match a newline, so it fails on a value containing one.
+const MATCH_EVERY_REGEX = new Set(["^", "$", "^.*", ".*$"])
+
+// The parsed nodes that are Go's empty-width ops: ^ and \A (bot), $ and \z
+// (eot), \b (wb), \B (nwb). The parser maps (?m)^ and (?m)$ to bot and eot
+// too, which is still an assertion, as OpBeginLine and OpEndLine are in Go.
+const EMPTY_WIDTH_NODES = new Set(["bot", "eot", "wb", "nwb"])
+
+function hasEmptyWidthAssertion(node) {
+  return EMPTY_WIDTH_NODES.has(node.t) || childrenOf(node).some(hasEmptyWidthAssertion)
+}
+
+/**
+ * regexMatchesEverything in policy_analysis.go: true for MATCH_EVERY_REGEX,
+ * and for a pattern with no empty-width assertion that matches "", because
+ * that empty match does not depend on what surrounds it, so MatchString finds
+ * it at the start of any value. Where this port cannot settle the pattern (an
+ * "unknown" compile, or matching out of steps) it claims nothing.
+ */
+function regexMatchesEverything(pattern) {
+  if (MATCH_EVERY_REGEX.has(pattern)) return true
+  const compiled = compileGoRegex(pattern)
+  if (compiled.status !== "ok" || hasEmptyWidthAssertion(compiled.tree)) return false
+  return goRegexMatches(compiled.tree, "") === true
+}
 
 /** listOf: a list is the only shape in() accepts; each item prints as fmt.Sprint does. */
 function goListOf(v) {
@@ -2275,11 +2328,16 @@ function classifyCondition(c) {
   if (c.operator === "contains" || c.operator === "starts_with" || c.operator === "ends_with") {
     if (goSprint(c.value) === "") return { problem: "alwaysTrue", reason: "matchesAnything" }
   } else if (c.operator === "regex") {
-    if (MATCH_EVERYTHING_REGEX.has(goSprint(c.value))) return { problem: "alwaysTrue", reason: "matchesAnything" }
+    if (regexMatchesEverything(goSprint(c.value))) return { problem: "alwaysTrue", reason: "matchesAnything" }
   }
   if (ALWAYS_PRESENT_FIELDS.has(c.field)) {
     if (c.operator === "exists") return { problem: "alwaysTrue", reason: "alwaysPresent" }
     if (c.operator === "not_exists") return { problem: "alwaysFalse", reason: "alwaysPresent" }
+  }
+  // neq compares fmt.Sprint of both sides, and a required field is never
+  // empty on a check warden evaluates. No reason fits, so none is given.
+  if (REQUIRED_FIELDS.has(c.field) && c.operator === "neq" && goSprint(c.value) === "") {
+    return { problem: "alwaysTrue", reason: "" }
   }
   switch (c.operator) {
     case "in":
@@ -2762,8 +2820,10 @@ function projectPolicyDetail(p, nowNs) {
     }),
     obligations: [...p.obligations],
   }
-  if (p.notBefore !== null) out.notBefore = formatGoTime(p.notBefore)
-  if (p.notAfter !== null) out.notAfter = formatGoTime(p.notAfter)
+  // rfc3339Ptr: full precision (time.RFC3339Nano), so a bound with a
+  // fraction shows the instant EffectiveAt compares.
+  if (p.notBefore !== null) out.notBefore = formatRFC3339Nano(p.notBefore)
+  if (p.notAfter !== null) out.notAfter = formatRFC3339Nano(p.notAfter)
   out.subjectsUnrestricted = a.subjectsUnrestricted
   out.actionsUnrestricted = a.actionsUnrestricted
   out.resourcesUnrestricted = a.resourcesUnrestricted
@@ -5397,6 +5457,18 @@ function runSchemaApplier(prog, prune, write, source) {
         res.noOps++
         continue
       }
+      // A cap lowered below the role's live members stops the apply, in a dry
+      // run too. dsl wraps it as "update role <slug>: ..."; mapWardenError
+      // sends only the refusal (CONFLICT, no reason) from a plan or apply's
+      // dry run, and a write pass reports the whole chain as a half apply.
+      if (rowChanged) {
+        const refusal = capLoweringRefusal(existing, existing.maxMembers ?? 0, r.maxMembers, Date.now())
+        if (refusal) {
+          const err = conflict(refusal)
+          err.chain = `update role ${r.slug}: ${refusal}`
+          throw err
+        }
+      }
       // A grant-only change is written with the grants below; the row is left alone.
       if (write && rowChanged) {
         Object.assign(existing, { name, description: r.description, isSystem: r.isSystem, isDefault: r.isDefault, maxMembers: r.maxMembers, parentSlug, updatedAt: now() })
@@ -5566,7 +5638,10 @@ function decodeBool(v, struct, field) {
   return v
 }
 
-const schemaChanged = () => conflict("the schema changed since you planned: plan again")
+// errSchemaChanged. details.reason is how the page tells it from the cap
+// refusal apply's own dry run can return, which is CONFLICT with no reason.
+const schemaChanged = () =>
+  new WardenFixtureError(409, "CONFLICT", "the schema changed since you planned: plan again", { reason: "schema_changed" })
 
 function schemaExport(params) {
   const prefix = decodeString(params?.namespacePrefix, "SchemaExportInput", "namespacePrefix")
@@ -5619,7 +5694,7 @@ function schemaApply(payload) {
   } catch (err) {
     // The dry run passed, so anything that fails now failed after other
     // writes, and the store has no transaction: a half apply, not a refusal.
-    throw new WardenFixtureError(500, "INTERNAL", "the apply stopped part way: " + err.message)
+    throw new WardenFixtureError(500, "INTERNAL", "the apply stopped part way: " + (err.chain ?? err.message))
   }
   const { res } = written
   return {
@@ -6082,6 +6157,11 @@ export const wardenHandlers = {
       }
       if (payload.name !== undefined && payload.name === "") {
         throw badRequest("a role's name cannot be empty")
+      }
+      // guardCapLowering, against the role as stored, before the parent check.
+      if (payload.maxMembers !== undefined) {
+        const refusal = capLoweringRefusal(r, r.maxMembers ?? 0, payload.maxMembers, Date.now())
+        if (refusal) throw conflict(refusal)
       }
       if (payload.parentSlug !== undefined) {
         checkParent(r.namespacePath, r.slug, payload.parentSlug)
