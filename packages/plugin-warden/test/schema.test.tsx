@@ -720,6 +720,11 @@ describe("WardenSchemaPage: results, diverged with nothing written", () => {
 })
 
 describe("WardenSchemaPage: refusals stay in the dialog", () => {
+  const SCHEMA_CHANGED = new ContractError("CONFLICT", "the schema changed since you planned: plan again", {
+    reason: "schema_changed",
+  })
+  const CAP_REFUSAL = new ContractError("CONFLICT", '"Small" has 3 members, so its cap cannot be lowered to 2')
+
   async function refused(error: ContractError) {
     const made = await mount({
       plan: () => VALID,
@@ -734,12 +739,29 @@ describe("WardenSchemaPage: refusals stay in the dialog", () => {
     return { dialog, ...made }
   }
 
-  it("CONFLICT says the schema changed and to plan again", async () => {
-    const { dialog } = await refused(new ContractError("CONFLICT", "the schema changed since you planned: plan again"))
+  it("CONFLICT for a schema that changed says so and to plan again", async () => {
+    const { dialog } = await refused(SCHEMA_CHANGED)
     expect(
       await within(dialog).findByText("The schema changed since you planned. Plan again to see the current diff.")
     ).toBeTruthy()
     expect(screen.getByRole("alertdialog")).toBe(dialog)
+  })
+
+  it("any other CONFLICT, such as a member cap, shows its own message and not that the schema changed", async () => {
+    // Apply's dry run refuses a cap lowered below the role's live members
+    // with a CONFLICT and no reason. The schema did not change, and planning
+    // again gives the same refusal.
+    const { dialog } = await refused(CAP_REFUSAL)
+    expect(
+      await within(dialog).findByText('"Small" has 3 members, so its cap cannot be lowered to 2')
+    ).toBeTruthy()
+    expect(within(dialog).queryByText(/The schema changed/)).toBeNull()
+  })
+
+  it("a CONFLICT with some other reason is not read as a schema change", async () => {
+    const { dialog } = await refused(new ContractError("CONFLICT", "moved", { reason: "stale" }))
+    expect(await within(dialog).findByText("moved")).toBeTruthy()
+    expect(within(dialog).queryByText(/The schema changed/)).toBeNull()
   })
 
   it("INTERNAL from a half apply says the apply stopped, and that what was written is kept", async () => {
@@ -768,14 +790,14 @@ describe("WardenSchemaPage: refusals stay in the dialog", () => {
   })
 
   it("does not reload the export or show a result after a refusal", async () => {
-    const { dialog, sent } = await refused(new ContractError("CONFLICT", "x"))
+    const { dialog, sent } = await refused(SCHEMA_CHANGED)
     await within(dialog).findByText("The schema changed since you planned. Plan again to see the current diff.")
     expect(sent.filter((s) => s.intent === "schema.export")).toHaveLength(1)
     expect(screen.queryByText(/^Applied:/)).toBeNull()
   })
 
-  it("spends the plan after a conflict", async () => {
-    const { dialog } = await refused(new ContractError("CONFLICT", "x"))
+  it("spends the plan after the schema changed", async () => {
+    const { dialog } = await refused(SCHEMA_CHANGED)
     await within(dialog).findByText(/^The schema changed since you planned/)
     fireEvent.click(within(dialog).getByRole("button", { name: "Cancel" }))
     await waitFor(() => expect(screen.queryByRole("alertdialog")).toBeNull())
@@ -796,6 +818,14 @@ describe("WardenSchemaPage: refusals stay in the dialog", () => {
     fireEvent.click(within(dialog).getByRole("button", { name: "Cancel" }))
     await waitFor(() => expect(screen.queryByRole("alertdialog")).toBeNull())
     expect(button("Apply")).toHaveProperty("disabled", true)
+  })
+
+  it("keeps the plan after a cap refusal: the digest still matches, so it applies once the role has room", async () => {
+    const { dialog } = await refused(CAP_REFUSAL)
+    await within(dialog).findByText(/cannot be lowered/)
+    fireEvent.click(within(dialog).getByRole("button", { name: "Cancel" }))
+    await waitFor(() => expect(screen.queryByRole("alertdialog")).toBeNull())
+    expect(button("Apply")).toHaveProperty("disabled", false)
   })
 
   it("keeps the plan after a refusal that says nothing changed", async () => {

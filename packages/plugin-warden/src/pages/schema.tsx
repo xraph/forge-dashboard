@@ -64,9 +64,19 @@ function changesOf(plan: SchemaPlan): number {
   return plan.created.length + plan.updated.length + plan.deleted.length
 }
 
+/**
+ * The refusal for a digest that no longer matches what apply plans now.
+ * schema.apply has a second CONFLICT, without this reason: its own dry run
+ * refuses a member cap lowered below the role's live members, which is a
+ * membership change, not a schema change, and planning again does not clear.
+ */
+function schemaChanged(error: ContractError): boolean {
+  return error.code === "CONFLICT" && error.details?.reason === "schema_changed"
+}
+
 /** What the confirmation says when the apply was refused, inside the dialog. */
 function refusal(error: ContractError): string {
-  if (error.code === "CONFLICT") {
+  if (schemaChanged(error)) {
     return "The schema changed since you planned. Plan again to see the current diff."
   }
   if (error.code === "INTERNAL" && error.message.startsWith(HALF_APPLY)) {
@@ -84,12 +94,17 @@ function refusal(error: ContractError): string {
 
 /**
  * A refusal after which the same plan would only be refused again: the store
- * moved on (`CONFLICT`), the apply stopped part way, or the server rejected
- * the source it was sent (`BAD_REQUEST`).
+ * moved on (`CONFLICT` with reason "schema_changed"), the apply stopped part
+ * way, or the server rejected the source it was sent (`BAD_REQUEST`).
+ *
+ * Any other `CONFLICT`, the member cap among them, keeps the plan. Its digest
+ * still matches what apply plans, so the same plan applies once the refusal
+ * clears (a member leaves the role), and the server checks the digest on
+ * every apply, so a kept plan can never write a diff that was not shown.
  */
 function spendsPlan(error: ContractError): boolean {
   return (
-    error.code === "CONFLICT" ||
+    schemaChanged(error) ||
     error.code === "BAD_REQUEST" ||
     (error.code === "INTERNAL" && error.message.startsWith(HALF_APPLY))
   )
