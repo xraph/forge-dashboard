@@ -890,9 +890,12 @@ How a request is classified. The usage stage decides this once, after the reques
 |---|---|---|---|
 | Served, tokens reported, model listed | `ok` | `priced` | list price over the tokens |
 | Served, model not in the price book | `ok` | `unpriced_model` | nil |
-| Served, zero tokens reported, price is not Free | `ok` | `unknown` | nil |
+| Served, no tokens of the kinds the price applies to, price is not Free (a completion that reports only a total counts) | `ok` | `unknown` | nil |
+| Embedding that reports only a total (Voyage) | `ok` | `priced` | embedding price over the total |
 | Served by a Free model | `ok` | `priced` | exactly `$0` |
 | Cache hit, or stream replayed from the cache | `cached` | `cached` | `$0` |
+| Output guard block of a cache hit (non-stream) | `blocked` | `cached` | `$0` |
+| Failed stream during a cache replay | `cached` | `cached` | `$0` |
 | Input guard block | `blocked` | `not_charged` | `$0` |
 | Stream guard block, some tokens seen | `blocked` | `priced` | from the tokens seen so far |
 | Stream guard block, no tokens seen | `blocked` | `unknown` | nil |
@@ -903,6 +906,7 @@ How a request is classified. The usage stage decides this once, after the reques
 | Failed stream, some tokens seen | `error` | `priced` | from the tokens seen so far |
 | Failed stream, no tokens seen | `error` | `unknown` | nil |
 | Refusal (`pipeline.Refusal`) | `refused` | `not_charged` | `$0` |
+| Identity refusal (`ErrInvalidIdentity`: `invalid_request`, 400) | `refused` | `not_charged` | `$0`, recorded with no tenant and no key |
 | Error after a provider was chosen | `error` | `unknown` | nil |
 | Error before any provider was chosen | `error` | `not_charged` | `$0` |
 
@@ -912,7 +916,7 @@ What your enforcement code plugs into:
 
 - `pipeline.Refusal` is the interface your refusals implement (`RefusalCode()` and `StatusCode()`). Return one from any stage below usage and the usage stage records it as `refused` at `$0` under that code. You don't touch usage to get a row.
 - Insert errors are counted on the usage stage, `Gateway.UsageInsertErrors()`, not on `usage.Service` as the spec said. Inserts are async and fail inside the stage, and a new method on `usage.Service` would break every implementer. If you want a `Stats` method on the service later, add it then.
-- The identity stage (priority 30) refuses ids that disagree or don't parse, and puts the tenant and key on the request. Stages that wrap it read the request fields, not the context.
+- The identity stage (priority 30) refuses ids that disagree or don't parse, and puts the tenant and key on the request. Its error is a `pipeline.Refusal` now. Stages that wrap it can't see the context it sets, so usage reads the tenant and key from the context it was given first and falls back to the request fields.
 - Stage order is request_id 5, tracing 10, usage 15, timeout 20, identity 30, stream_lifecycle 60, guardrail 150, transform 200, alias 250, cache 280, retry 340, custom middleware by priority, then provider_call, which is always last. Put an enforcement stage after identity (it needs the tenant) and before cache, or a cache hit skips your quota check. A custom stage below retry runs once per attempt, and retry retries every error, a refusal included.
 - The stream lifecycle `QuotaResolver` is still unwired. Wire it in slice 3.
 
@@ -926,7 +930,6 @@ Things that changed under you:
 
 Loose ends we left on purpose:
 
-- `WithPipeline` users who leave out the identity stage get tenant-less cache keys, so tenants can share cached answers. Document it on `NewCache`, or fall back to `pipeline.TenantID(ctx)` in the key.
 - The end of the pipeline chain still returns an empty response with a nil error if a third-party Terminal calls `next`. A Terminal shouldn't, but nothing stops it.
 - A `Shutdown` that times out leaves the flush waiter parked until pending inserts drain. That is bounded by the 10 second insert timeout.
 - A stream the client abandons can still be recorded as `ok`, because the race between `Next` and `Close` decides. The cost is right (unknown when no tokens arrived).
@@ -935,3 +938,19 @@ Loose ends we left on purpose:
 - Stream cache tests reuse one request for the miss and the replay, and the identity tests don't cover key disagreement or an embedding with the id only in context.
 - `Series.Unpriced` counts `unknown` as unpriced now, to agree with `Summary`. Memory `FindByPrefix` and the other backends still disagree on key status, as noted in the slice 1 section.
 - `WithGatewayOption(WithConfig(...))` replaces config-derived values too. Worth a line in the extension docs in slice 7.
+
+What the final review changed. The gateway tests passed, but the final review still found three paths that recorded the wrong amount, plus a shutdown that could lose records and two tenant gaps. All of them are fixed on nexus main, and each fix has a test that failed without it:
+
+- A cache hit is known only from `StateCacheHit`. The cache copies a response on a hit and before it stores one, so a hit can no longer mark a charged miss as cached, and an output guard's redaction never reaches the stored entry.
+- `Shutdown` closes the usage stage, then flushes, and returns the flush error joined with the store's close error. It also logs how many records were still pending. A stream counts as pending from the moment it opens, so a stream still open at shutdown is waited for (until your context ends). A record that would start after the stage closed is dropped, counted in `UsageInsertErrors` and logged with its request id. With nothing pending, `Shutdown` returns nil even on an expired context.
+- The cache key uses the request's tenant and falls back to the context's. When the two disagree, the request bypasses the cache entirely. `NewCache` says tenant isolation depends on this.
+- Gemini and Vertex embeddings report zero tokens now, since the number of inputs was never a token count. They record as `unknown` until those providers decode real counts.
+
+Deferred to slice 3 or `MIGRATION.md`:
+
+- M4: a caller-supplied request id that isn't a `req_` TypeID stays in the context but isn't recorded.
+- M6: the tracing span (priority 10) reads the tenant from the context before identity runs, so in-process callers who set it on the request get spans with no tenant.
+- M8: the auto-discovered `WithDatabase` is appended after your `WithGatewayOption`s, so it beats an explicit one.
+- M9: Postgres usage rows keep the tenant foreign key, so a well-formed but unknown tenant is served and then its record is lost. Slice 3's unknown-tenant refusals should record unattributed.
+- M10: `Engine.Complete` with `Stream: true` drops the stream without closing it, so there's no record and the stream counts as pending until shutdown gives up on it.
+- M11: every insert gets its own goroutine. During a store outage those pile up without a bound on their number; a worker queue with a drop counter would cap it.
