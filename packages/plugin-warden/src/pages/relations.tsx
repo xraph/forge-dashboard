@@ -66,6 +66,12 @@ export interface RelationsList {
   total: number
   limit: number
   offset: number
+  /**
+   * True when the caller may not read resource types, so no row was checked
+   * against its resource type and none carries `undeclared`. Absent from a
+   * server older than the marks, which checks nothing either way.
+   */
+  marksWithheld?: boolean
 }
 
 const PAGE_SIZE = 25
@@ -508,13 +514,16 @@ export function WardenRelationsPage() {
           // The server's total, never rows.length: rows is one page.
           const caption = `${data.total} ${data.total === 1 ? "relation" : "relations"}`
           const anyMarked = rows.some((r) => r.undeclared)
+          const withheld = data.marksWithheld === true
           return (
             <>
               {/* Only when this page shows a mark. Checks do not consult
                   declarations: the direct check, the expression evaluator
                   and the graph walker read stored tuples as they are
                   (warden engine.go evaluateReBAC, dsl/eval.go,
-                  graph_walker.go), so a marked tuple still counts. The mark
+                  graph_walker.go); the expression evaluator reads a
+                  resource type's permissions only, never its relations or
+                  allowed subjects. So a marked tuple still counts. The mark
                   is judged from the tuple's own namespace only, the write
                   check's rule. A check in a child namespace can read the
                   tuple under that namespace's resource type, which this
@@ -525,10 +534,20 @@ export function WardenRelationsPage() {
                   declare. The resource type is the one that governs the
                   object type from the tuple's own namespace, the rule the
                   write check uses, and the reason shown is why that check
-                  would refuse the tuple now. Checks do not consult
-                  declarations, so warden still evaluates a marked tuple. To
-                  clear a mark, delete the tuple or declare it on the
-                  resource type.
+                  would refuse the tuple now. Checks do not consult the
+                  resource type's relations or allowed subjects, so warden
+                  still evaluates a marked tuple. To clear a mark, delete the
+                  tuple or declare it on the resource type.
+                </p>
+              )}
+              {/* Without read on warden:resourcetype the server checks no
+                  row, so an unmarked row here says nothing about whether
+                  the tuple conforms. Silence would read as "all conform". */}
+              {withheld && (
+                <p className="text-sm text-muted-foreground">
+                  These relations were not checked against their resource
+                  types, because you cannot read resource types. A relation
+                  shown here may still break its resource type.
                 </p>
               )}
               <ResourceTable<RelationSummary>

@@ -196,7 +196,9 @@ describe("WardenRelationsPage", () => {
       ),
     }
     const EXPLAINED =
-      /Checks do not consult declarations, so warden still evaluates a marked tuple/
+      /Checks do not consult the resource type's relations or allowed subjects, so warden still evaluates a marked tuple/
+    const WITHHELD =
+      /These relations were not checked against their resource types, because you cannot read resource types\./
 
     it("marks the tuple with the reason, muted, and leaves the others bare", async () => {
       renderPage(WardenRelationsPage, client({ "relations.list": MARKED }))
@@ -227,6 +229,30 @@ describe("WardenRelationsPage", () => {
       await screen.findByText(PLAIN)
       expect(screen.queryByText("Undeclared")).toBeNull()
       expect(screen.queryByText(EXPLAINED)).toBeNull()
+      expect(screen.queryByText(WITHHELD)).toBeNull()
+    })
+
+    it("says the relations were not checked when the marks are withheld", async () => {
+      // A caller without read on warden:resourcetype gets rows with no
+      // marks. Unmarked must not read as conforming, so the page says so.
+      renderPage(
+        WardenRelationsPage,
+        client({ "relations.list": { ...RELATIONS, marksWithheld: true } })
+      )
+      await screen.findByText(PLAIN)
+      expect(screen.getByText(WITHHELD)).toBeTruthy()
+      expect(screen.queryByText("Undeclared")).toBeNull()
+      expect(screen.queryByText(EXPLAINED)).toBeNull()
+    })
+
+    it("says nothing about withheld marks when the server checked the rows", async () => {
+      renderPage(
+        WardenRelationsPage,
+        client({ "relations.list": { ...MARKED, marksWithheld: false } })
+      )
+      await rowOf(USERSET)
+      expect(screen.queryByText(WITHHELD)).toBeNull()
+      expect(screen.getByText(EXPLAINED)).toBeTruthy()
     })
   })
 

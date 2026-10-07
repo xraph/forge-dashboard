@@ -6651,7 +6651,10 @@ export const wardenHandlers = {
         if (params?.[field]) rows = rows.filter((t) => (t[field] ?? "") === params[field])
       }
       const page = pageOf([...rows].sort(byCreated), params)
-      return { ...page, items: page.items.map(projectTuple) }
+      // marksWithheld is true in Go when the caller may not read resource
+      // types, and then no row carries undeclared. The fixture viewer holds
+      // every grant (as in subjects.detail), so the marks are never withheld.
+      return { ...page, items: page.items.map(projectTuple), marksWithheld: false }
     },
   },
   "relations.expand": {
