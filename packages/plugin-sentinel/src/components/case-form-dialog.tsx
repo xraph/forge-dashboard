@@ -140,9 +140,9 @@ export interface CaseFormDialogProps {
 
 /**
  * Creates or edits a case: its name, input, expected output, scenario type,
- * tags, context and scorers. Both commands answer the saved case and invalidate the
- * case list (and the suite's counts), so pages refresh through
- * `meta.invalidates`.
+ * tags, context and scorers. Both commands answer the saved case and
+ * invalidate the case list (and the suite's counts), so pages refresh
+ * through `meta.invalidates`.
  *
  * A red-team case's leakage check carries the system prompt as its substring,
  * and the server never sends it. Its scorer row says how long it is, and
