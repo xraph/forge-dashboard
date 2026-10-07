@@ -31,11 +31,12 @@ const theme = EditorView.theme({
 })
 
 /**
- * Two prompts compared in one read-only view, as plain text with long lines
+ * Two texts compared in one read-only view, as plain text with long lines
  * wrapped: what was removed, what was added, and unchanged stretches folded
- * away. Loaded lazily by the prompt version page, so `@codemirror/merge` is
- * not in the shell's entry chunk. Copied in shape from plugin-vault's
- * json-diff, without the JSON language.
+ * away. Prompts on the prompt version page, outputs on the comparison page;
+ * both reach it lazily, from lazy routes, so `@codemirror/merge` is not in the
+ * shell's entry chunk. Copied in shape from plugin-vault's json-diff, without
+ * the JSON language.
  */
 export default function PromptDiff({ was, now, label }: PromptDiffProps) {
   const host = useRef<HTMLDivElement>(null)
@@ -65,3 +66,4 @@ export default function PromptDiff({ was, now, label }: PromptDiffProps) {
   }, [was, now, label])
   return <div ref={host} className="max-h-[32rem] overflow-auto rounded-md border" />
 }
+

@@ -10,6 +10,7 @@ import { RunStateBadge } from "../badges"
 import { RedTeamReportSection } from "../components/redteam-report"
 import { ResultsSection } from "../components/results-section"
 import { RunCharts } from "../components/run-charts"
+import { CompareDialog } from "../components/compare-dialog"
 import { CancelRunDialog, SaveBaselineDialog } from "../components/run-dialogs"
 import { RUN_POLL_MS } from "../components/runs-list"
 import { SettledBoundary } from "../components/settled-boundary"
@@ -45,6 +46,7 @@ function RunDetailBody({ runId }: { runId: string }) {
   const [status, setStatus] = useState<ResultStatus | "">("")
   const [saving, setSaving] = useState(false)
   const [cancelling, setCancelling] = useState(false)
+  const [comparing, setComparing] = useState(false)
   const [target, setTarget] = useState<Run | null>(null)
   // Another baseline or threshold, for this view only. The run's own answer
   // stays in runs.detail; runs.regression answers the chosen one.
@@ -81,6 +83,15 @@ function RunDetailBody({ runId }: { runId: string }) {
                   title={`Run ${shortRunId(run.id)}`}
                   actions={
                     <>
+                      <Button
+                        variant="outline"
+                        onClick={() => {
+                          setTarget(run)
+                          setComparing(true)
+                        }}
+                      >
+                        Compare with…
+                      </Button>
                       {answer.state !== "noBaseline" && saveButton}
                       {run.state === "running" && (
                         <Button
@@ -137,6 +148,7 @@ function RunDetailBody({ runId }: { runId: string }) {
         <>
           <SaveBaselineDialog open={saving} onOpenChange={setSaving} runId={target.id} />
           <CancelRunDialog open={cancelling} onOpenChange={setCancelling} run={target} />
+          <CompareDialog open={comparing} onOpenChange={setComparing} run={target} />
         </>
       )}
     </section>
@@ -236,3 +248,4 @@ function ScoredWith({ run }: { run: Run }) {
     </p>
   )
 }
+

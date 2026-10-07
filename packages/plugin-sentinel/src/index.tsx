@@ -97,6 +97,8 @@ export type {
  * wraps every page in `Suspense`, so a lazy route is legal.
  */
 const PromptVersionPage = lazy(() => import("./pages/prompt-version"))
+/** The comparison opens output diffs, so it is a lazy route for the same reason. */
+const ComparePage = lazy(() => import("./pages/compare"))
 
 /**
  * The first-party UI for the `sentinel` extension: evaluation suites, their
@@ -157,13 +159,14 @@ export const sentinelPlugin = definePlugin({
     // No nav entries for the detail pages: a sidebar link to "a suite" with
     // none chosen points nowhere. They are reached from row links.
     { path: "/suites/:id", element: SuiteDetailPage },
-    // The tab in the address: runs, prompts or baselines.
+    // The tab in the address: runs, prompts, baselines or redteam.
     { path: "/suites/:id/:tab", element: SuiteDetailPage },
     { path: "/suites/:id/cases/:caseId", element: CaseDetailPage },
     { path: "/suites/:id/prompts/:versionId", element: PromptVersionPage },
     { path: "/runs", element: RunsPage },
     { path: "/runs/:id", element: RunDetailPage },
     { path: "/runs/:id/results/:resultId", element: ResultDetailPage },
+    { path: "/runs/:id/compare/:otherId", element: ComparePage },
     { path: "/baselines", element: BaselinesPage },
     { path: "/baselines/:id", element: BaselineDetailPage },
     { path: "/setup", element: SetupPage },
@@ -171,3 +174,4 @@ export const sentinelPlugin = definePlugin({
 })
 
 export default sentinelPlugin
+
