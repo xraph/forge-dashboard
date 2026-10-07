@@ -288,6 +288,20 @@ export class QueryStore {
     this.staleTimes.clear()
     this.dropOrReissue(keys, true)
   }
+
+  /**
+   * Asks the server again about everything, without assuming anything changed.
+   *
+   * The host calls this when a tab that was hidden comes back. Something may
+   * have moved the context while nobody was looking (an org switched in
+   * another tool, say), but nothing says it did, so this is `invalidate`
+   * across every extension and not `clear`: a watched key keeps its rows on
+   * screen while the refetch runs, an unwatched one is dropped, and the
+   * server's caching hints stand.
+   */
+  revalidate(): void {
+    this.dropOrReissue([...this.records.keys()], false)
+  }
 }
 
 /**

@@ -273,6 +273,31 @@ describe("QueryStore", () => {
     expect(store.snapshot(b).data).toBeUndefined()
   })
 
+  it("revalidates every watched key in place and drops the unwatched ones", async () => {
+    const watched = store.keyOf("auth", "users.list")
+    const idle = store.keyOf("streaming-contract", "stats")
+    const watchedFetcher = vi.fn().mockResolvedValue({ tag: "org-a" })
+    const idleFetcher = vi.fn().mockResolvedValue({ totalRooms: 0 })
+    store.read(watched, watchedFetcher, 60_000)
+    store.read(idle, idleFetcher, 60_000)
+    await vi.waitFor(() => expect(store.snapshot(idle).data).toBeTruthy())
+    store.subscribe(watched, () => {})
+    store.noteStaleTime("auth", "users.list", 60_000)
+
+    store.revalidate()
+
+    // Across every extension, unlike invalidate, and stale-while-revalidate,
+    // unlike clear: the rows stay up while the refetch runs.
+    expect(watchedFetcher).toHaveBeenCalledTimes(2)
+    expect(store.snapshot(watched).data).toEqual({ tag: "org-a" })
+    expect(store.snapshot(watched).loading).toBe(true)
+    expect(idleFetcher).toHaveBeenCalledOnce()
+    expect(store.snapshot(idle).data).toBeUndefined()
+    // Nothing about the context is known to have changed, so the server's
+    // caching hints stand.
+    expect(store.staleTimeFor("auth", "users.list")).toBe(60_000)
+  })
+
   it("returns one stable snapshot object per key so useSyncExternalStore does not loop", async () => {
     const key = store.keyOf("auth", "users.list")
     store.read(key, () => Promise.resolve({ users: [] }), 60_000)
