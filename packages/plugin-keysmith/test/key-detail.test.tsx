@@ -1279,6 +1279,37 @@ describe("KeyDetailPage rotate through the refetch", () => {
     expect(storeText()).not.toContain(RAW_KEY)
   })
 
+  it("keeps the new key on screen through a context switch, and sends keys.rotate once", async () => {
+    const host = hostLikeClient(detail({ previousKeys: [] }), {
+      "keys.rotate": {
+        answer: ROTATED,
+        invalidates: ["keys.list", "keys.detail", "rotations.list", "overview"],
+        next: AFTER,
+      },
+    })
+    renderPage(KeyDetailPage, host.client, { id: "akey_billing" })
+    await screen.findByRole("heading", { level: 1, name: "Billing service" })
+
+    fireEvent.click(screen.getByRole("button", { name: "Rotate key" }))
+    const form = await screen.findByRole("dialog", { name: "Rotate key" })
+    fireEvent.click(within(form).getByRole("button", { name: "Rotate key" }))
+    await screen.findByRole("dialog", { name: "Save your new key" })
+    host.releaseReads()
+
+    // Unlike an invalidation, a switch blanks the page's data while it
+    // reloads. The dialog with the only copy of the key must not go with it.
+    act(() => queryStore.clear())
+    await screen.findByRole("status", { name: "Loading Key", hidden: true })
+    expect(screen.getByRole("dialog", { name: "Save your new key" }).textContent).toContain(RAW_KEY)
+
+    host.releaseReads()
+    await waitFor(() =>
+      expect(screen.queryByRole("status", { name: "Loading Key", hidden: true })).toBeNull(),
+    )
+    expect(screen.getByRole("dialog", { name: "Save your new key" }).textContent).toContain(RAW_KEY)
+    expect(host.sent.map((s) => s.intent)).toEqual(["keys.rotate"])
+  })
+
   it("keeps the new key on screen when the refetch after the rotation fails", async () => {
     const host = hostLikeClient(
       detail({ previousKeys: [] }),

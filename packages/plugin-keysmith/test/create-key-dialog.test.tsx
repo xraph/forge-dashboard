@@ -813,6 +813,20 @@ describe("CreateKeyDialog reveal", () => {
     expect(screen.getByRole("dialog").textContent).toContain(RAW_KEY)
   })
 
+  it("keeps the key up through a context switch, and sends keys.create once", async () => {
+    const { client, sent } = standard()
+    mount(client)
+    await submitNamed()
+    await screen.findByText("This is the only time Keysmith will show it.")
+
+    // The lists under the dialog blank and reload for the new context.
+    act(() => queryStore.clear())
+    expect(screen.getByRole("dialog").textContent).toContain(RAW_KEY)
+    await act(async () => {})
+    expect(screen.getByRole("dialog").textContent).toContain(RAW_KEY)
+    expect(sent.filter((s) => s.intent === "keys.create")).toHaveLength(1)
+  })
+
   it("forgets the key after Done and goes to the new key's page", async () => {
     const { client } = standard()
     const { navigate } = mount(client)
