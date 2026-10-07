@@ -1,5 +1,6 @@
 import { useState } from "react"
 import { PluginLink, useCommand, useQuery } from "@forge-go/dashboard-plugin"
+import { Badge } from "@forge-go/dashboard-kit/components/badge"
 import { Button, buttonVariants } from "@forge-go/dashboard-kit/components/button"
 import { ConfirmDialog } from "@forge-go/dashboard-kit/components/confirm-dialog"
 import { FilterBar } from "@forge-go/dashboard-kit/components/filter-bar"
@@ -49,6 +50,14 @@ export interface RelationSummary {
   subjectRelation?: string
   createdBy?: string
   createdAt: string
+  /**
+   * Set when the resource type governing the tuple's object type, found from
+   * the tuple's own namespace, does not declare the tuple: the reason the
+   * write check (resourcetype.CheckTupleDeclared) would refuse it now.
+   * Absent when it conforms, when no resource type governs it, and always
+   * from a server older than the field, so absent shows nothing.
+   */
+  undeclared?: string
 }
 
 /** Mirrors the Go `RelationsListResponse`: PageMeta embedded beside items. */
@@ -398,7 +407,24 @@ export function WardenRelationsPage() {
       // copies into a check or a DSL file. Six columns would make them
       // reassemble it. The parts stay separate as filters, where narrowing
       // on whichever end you know is the point.
-      cell: (r) => tupleString(r),
+      cell: (r) =>
+        r.undeclared ? (
+          <span className="flex flex-col gap-1">
+            <span>{tupleString(r)}</span>
+            {/* Muted, not destructive: the tuple still counts at check
+                time, so this is a note about the schema, not an error. */}
+            <span className="flex flex-wrap items-baseline gap-1.5 font-sans font-normal">
+              <Badge variant="outline" className="text-muted-foreground">
+                Undeclared
+              </Badge>
+              <span className="text-xs whitespace-normal text-muted-foreground">
+                {r.undeclared}
+              </span>
+            </span>
+          </span>
+        ) : (
+          tupleString(r)
+        ),
       className: "font-mono text-xs font-medium",
     },
     {
@@ -481,47 +507,71 @@ export function WardenRelationsPage() {
           const rows = data.items ?? []
           // The server's total, never rows.length: rows is one page.
           const caption = `${data.total} ${data.total === 1 ? "relation" : "relations"}`
+          const anyMarked = rows.some((r) => r.undeclared)
           return (
-            <ResourceTable<RelationSummary>
-              columns={columns}
-              rows={rows}
-              rowKey={(r) => r.id}
-              caption={caption}
-              emptyMessage={emptyListMessage(
-                "relations",
-                filterPattern(filters),
-                namespace.value
+            <>
+              {/* Only when this page shows a mark. Checks do not consult
+                  declarations: the direct check, the expression evaluator
+                  and the graph walker read stored tuples as they are
+                  (warden engine.go evaluateReBAC, dsl/eval.go,
+                  graph_walker.go), so a marked tuple still counts. The mark
+                  is judged from the tuple's own namespace only, the write
+                  check's rule. A check in a child namespace can read the
+                  tuple under that namespace's resource type, which this
+                  mark does not judge. */}
+              {anyMarked && (
+                <p className="text-sm text-muted-foreground">
+                  Undeclared marks a tuple its resource type does not
+                  declare. The resource type is the one that governs the
+                  object type from the tuple's own namespace, the rule the
+                  write check uses, and the reason shown is why that check
+                  would refuse the tuple now. Checks do not consult
+                  declarations, so warden still evaluates a marked tuple. To
+                  clear a mark, delete the tuple or declare it on the
+                  resource type.
+                </p>
               )}
-              pagination={{ page, pageSize: data.limit, total: data.total }}
-              onPageChange={setPage}
-              rowActions={(r) => (
-                <>
-                  <PluginLink
-                    to={relationGraphPath({
-                      objectType: r.objectType,
-                      objectId: r.objectId,
-                      relation: r.relation,
-                      namespace: r.namespacePath,
-                    })}
-                    aria-label={`Graph ${r.objectType}:${r.objectId}#${r.relation}`}
-                    className="text-sm underline underline-offset-4"
-                  >
-                    Graph
-                  </PluginLink>
-                  <Button
-                    variant="destructive"
-                    size="sm"
-                    aria-label={`Delete ${tupleString(r)}`}
-                    onClick={() => {
-                      remove.reset()
-                      setDeleting(r)
-                    }}
-                  >
-                    Delete
-                  </Button>
-                </>
-              )}
-            />
+              <ResourceTable<RelationSummary>
+                columns={columns}
+                rows={rows}
+                rowKey={(r) => r.id}
+                caption={caption}
+                emptyMessage={emptyListMessage(
+                  "relations",
+                  filterPattern(filters),
+                  namespace.value
+                )}
+                pagination={{ page, pageSize: data.limit, total: data.total }}
+                onPageChange={setPage}
+                rowActions={(r) => (
+                  <>
+                    <PluginLink
+                      to={relationGraphPath({
+                        objectType: r.objectType,
+                        objectId: r.objectId,
+                        relation: r.relation,
+                        namespace: r.namespacePath,
+                      })}
+                      aria-label={`Graph ${r.objectType}:${r.objectId}#${r.relation}`}
+                      className="text-sm underline underline-offset-4"
+                    >
+                      Graph
+                    </PluginLink>
+                    <Button
+                      variant="destructive"
+                      size="sm"
+                      aria-label={`Delete ${tupleString(r)}`}
+                      onClick={() => {
+                        remove.reset()
+                        setDeleting(r)
+                      }}
+                    >
+                      Delete
+                    </Button>
+                  </>
+                )}
+              />
+            </>
           )
         }}
       </QueryBoundary>

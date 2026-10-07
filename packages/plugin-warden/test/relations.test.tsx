@@ -182,6 +182,54 @@ describe("WardenRelationsPage", () => {
     expect(screen.queryByText(/not in scope for a check in a child/i)).toBeNull()
   })
 
+  describe("tuples that break their resource type", () => {
+    // The Go list sets undeclared on a stored tuple its governing resource
+    // type does not declare, with the reason the write check would give
+    // today. A tuple written before the check, or before its resource type
+    // changed, can carry one.
+    const REASON =
+      'resource type "document" in the tenant root declares no relation "editor" (its relations are "owner", "viewer")'
+    const MARKED = {
+      ...RELATIONS,
+      items: RELATIONS.items.map((r) =>
+        r.id === "rel_userset" ? { ...r, undeclared: REASON } : r
+      ),
+    }
+    const EXPLAINED =
+      /Checks do not consult declarations, so warden still evaluates a marked tuple/
+
+    it("marks the tuple with the reason, muted, and leaves the others bare", async () => {
+      renderPage(WardenRelationsPage, client({ "relations.list": MARKED }))
+      const marked = await rowOf(USERSET)
+      const reason = within(marked).getByText(REASON)
+      expect(reason.className).toContain("text-muted-foreground")
+      expect(within(marked).getByText("Undeclared")).toBeTruthy()
+      // The tuple string stays whole and copyable beside the mark.
+      expect(within(marked).getByText(USERSET).textContent).toBe(USERSET)
+      expect(within(await rowOf(PLAIN)).queryByText("Undeclared")).toBeNull()
+      expect(within(await rowOf(OTHER)).queryByText("Undeclared")).toBeNull()
+    })
+
+    it("says a marked tuple is still evaluated, and by which rule it is marked", async () => {
+      renderPage(WardenRelationsPage, client({ "relations.list": MARKED }))
+      await rowOf(USERSET)
+      expect(screen.getByText(EXPLAINED)).toBeTruthy()
+      expect(
+        screen.getByText(
+          /from the tuple's own namespace, the rule the write check uses/
+        )
+      ).toBeTruthy()
+    })
+
+    it("shows no mark and no explanation when no tuple on the page is marked", async () => {
+      // Also what an older server looks like: it never sends the field.
+      renderPage(WardenRelationsPage, client())
+      await screen.findByText(PLAIN)
+      expect(screen.queryByText("Undeclared")).toBeNull()
+      expect(screen.queryByText(EXPLAINED)).toBeNull()
+    })
+  })
+
   it("offers no edit control, and says why", async () => {
     // relation.Store exposes no update, so there is nothing to offer. The
     // page says so rather than leaving the absence unexplained.

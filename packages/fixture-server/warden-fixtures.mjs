@@ -915,6 +915,23 @@ function ancestorNamespaces(path) {
  * resource type, or null. Returns the refusal's text, or null.
  */
 function undeclaredTupleMessage(t, lookup) {
+  const reason = undeclaredTupleReason(t, lookup)
+  if (reason === null) return null
+  const subjectRelation = t.subjectRelation ?? ""
+  const subjectId = subjectRelation === "" ? t.subjectId : t.subjectId + "#" + subjectRelation
+  return `tuple ${t.objectType}:${t.objectId}#${t.relation}@${t.subjectType}:${subjectId} in ${namespacePhrase(t.namespacePath)} is refused: ` + reason
+}
+
+function namespacePhrase(ns) {
+  return ns === "" ? "the tenant root" : `namespace ${goQuote(ns)}`
+}
+
+/**
+ * Mirrors UndeclaredTupleError.Reason: the refusal without its "tuple ... is
+ * refused: " head, which is true of a stored tuple too. relations.list marks
+ * a stored tuple with it. Null when the tuple conforms or nothing governs it.
+ */
+function undeclaredTupleReason(t, lookup) {
   let rt = null
   let at = ""
   for (const ns of ancestorNamespaces(t.namespacePath)) {
@@ -925,23 +942,20 @@ function undeclaredTupleMessage(t, lookup) {
     }
   }
   if (!rt) return null
-  const where = (ns) => (ns === "" ? "the tenant root" : `namespace ${goQuote(ns)}`)
   const subjectRelation = t.subjectRelation ?? ""
   const spec = subjectRelation === "" ? t.subjectType : t.subjectType + "#" + subjectRelation
-  const subjectId = subjectRelation === "" ? t.subjectId : t.subjectId + "#" + subjectRelation
-  const head = `tuple ${t.objectType}:${t.objectId}#${t.relation}@${t.subjectType}:${subjectId} in ${where(t.namespacePath)} is refused: `
-  const type = `resource type ${goQuote(rt.name)} in ${where(at)}`
+  const type = `resource type ${goQuote(rt.name)} in ${namespacePhrase(at)}`
   const list = (names) => names.map(goQuote).join(", ")
   const rel = (rt.relations ?? []).find((r) => r.name === t.relation)
   if (!rel) {
     const names = (rt.relations ?? []).map((r) => r.name)
-    if (names.length === 0) return head + `${type} declares no relation ${goQuote(t.relation)} (it declares no relations)`
-    return head + `${type} declares no relation ${goQuote(t.relation)} (its relations are ${list(names)})`
+    if (names.length === 0) return `${type} declares no relation ${goQuote(t.relation)} (it declares no relations)`
+    return `${type} declares no relation ${goQuote(t.relation)} (its relations are ${list(names)})`
   }
   const allowed = rel.allowedSubjects ?? []
   // An empty list puts no limit on the subject type.
   if (allowed.length === 0 || allowed.includes(spec)) return null
-  return head + `relation ${goQuote(t.relation)} of ${type} allows subjects ${list(allowed)}, not ${goQuote(spec)}`
+  return `relation ${goQuote(t.relation)} of ${type} allows subjects ${list(allowed)}, not ${goQuote(spec)}`
 }
 
 /** The stored resource type named name at exactly ns, or null. */
@@ -1081,7 +1095,11 @@ function capLoweringRefusal(role, oldCap, newCap, nowMs) {
 // Relations
 // ---------------------------------------------------------------------------
 
-/** projectTuple. subjectRelation and createdBy are omitempty. */
+/**
+ * projectTuple. subjectRelation, createdBy and undeclared are omitempty.
+ * undeclared is the Go list's mark: the reason the resource type governing
+ * the tuple from its own namespace does not declare it.
+ */
 function projectTuple(t) {
   const out = {
     id: t.id,
@@ -1095,6 +1113,8 @@ function projectTuple(t) {
   if (t.subjectRelation) out.subjectRelation = t.subjectRelation
   if (t.createdBy) out.createdBy = t.createdBy
   out.createdAt = rfc3339(t.createdAt)
+  const undeclared = undeclaredTupleReason(t, storedResourceType)
+  if (undeclared) out.undeclared = undeclared
   return out
 }
 
@@ -6742,7 +6762,9 @@ export const wardenHandlers = {
   },
   "resourceTypes.create": {
     kind: "command",
-    invalidates: ["resourceTypes.list", "resourceTypes.graph", "overview.stats", "namespaces.list"],
+    // relations.list marks the tuples their governing resource type does
+    // not declare, so every resource type write can add or clear a mark.
+    invalidates: ["resourceTypes.list", "resourceTypes.graph", "overview.stats", "namespaces.list", "relations.list"],
     handler: (payload) => {
       if (!payload?.name) throw badRequest("a resource type needs a name")
       const namespacePath = payload.namespacePath ?? ""
@@ -6774,7 +6796,7 @@ export const wardenHandlers = {
   },
   "resourceTypes.update": {
     kind: "command",
-    invalidates: ["resourceTypes.list", "resourceTypes.detail", "resourceTypes.graph"],
+    invalidates: ["resourceTypes.list", "resourceTypes.detail", "resourceTypes.graph", "relations.list"],
     handler: (payload) => {
       requireId("rtype", "resource type", payload?.id)
       const rt = warden.resourceTypes.find((x) => x.id === payload.id)
@@ -6806,7 +6828,7 @@ export const wardenHandlers = {
   },
   "resourceTypes.delete": {
     kind: "command",
-    invalidates: ["resourceTypes.list", "resourceTypes.detail", "resourceTypes.graph", "overview.stats", "namespaces.list"],
+    invalidates: ["resourceTypes.list", "resourceTypes.detail", "resourceTypes.graph", "overview.stats", "namespaces.list", "relations.list"],
     handler: (payload) => {
       requireId("rtype", "resource type", payload?.id)
       const i = warden.resourceTypes.findIndex((x) => x.id === payload.id)
