@@ -1,15 +1,15 @@
 import { useState } from "react"
 import type { ComponentType } from "react"
-import { PluginLink, useCommand, useQuery } from "@forge-go/dashboard-plugin"
+import { PluginLink, useQuery } from "@forge-go/dashboard-plugin"
 import type { PluginPageProps } from "@forge-go/dashboard-plugin"
-import { Button, buttonVariants } from "@forge-go/dashboard-kit/components/button"
-import { CommandAlert } from "@forge-go/dashboard-kit/components/query-boundary"
+import { buttonVariants } from "@forge-go/dashboard-kit/components/button"
 import { FilterBar } from "@forge-go/dashboard-kit/components/filter-bar"
 import { PageHeader } from "@forge-go/dashboard-kit/components/page-header"
 import { QueryBoundary } from "@forge-go/dashboard-kit/components/query-boundary"
 import { ResourceTable, type Column } from "@forge-go/dashboard-kit/components/resource-table"
 import { TagList } from "@forge-go/dashboard-kit/components/tag-list"
 import { EnabledBadge, ProtocolBadge, SourceBadge } from "../badges"
+import { RefreshDiscovery } from "../components/refresh-discovery"
 import { routePath } from "../keys"
 import type { RouteSummary, RoutesList } from "../types"
 
@@ -65,36 +65,18 @@ export const BastionRoutesPage: ComponentType<PluginPageProps> = () => {
     ...(protocol === "" ? {} : { protocol }),
   })
 
-  const refresh = useCommand<{ ok: boolean }>("discovery.refresh")
-  const [refreshed, setRefreshed] = useState(false)
-
-  async function refreshDiscovery() {
-    setRefreshed(false)
-    const r = await refresh.execute()
-    if (r !== undefined) setRefreshed(true)
-  }
-
-  const refreshError =
-    refresh.error?.code === "CONFLICT" && refresh.error.details?.reason === "discoveryOff"
-      ? { code: refresh.error.code, message: "Discovery is switched off in the gateway config, so there is nothing to refresh." }
-      : refresh.error
-
   return (
     <section className="flex flex-col gap-4">
       <PageHeader
         title="Routes"
         description="Every route in match order: manual routes from config or this dashboard, and routes discovery found."
         actions={
-          <div className="flex gap-2">
-            <Button variant="outline" disabled={refresh.loading} onClick={() => void refreshDiscovery()}>
-              {refresh.loading ? "Refreshing…" : "Refresh discovery"}
-            </Button>
+          <div className="flex items-start gap-2">
+            <RefreshDiscovery />
             <NewRouteLink />
           </div>
         }
       />
-      <CommandAlert title="Could not refresh discovery" error={refreshError} />
-      {refreshed ? <p role="status" className="text-sm text-muted-foreground">Discovery refreshed.</p> : null}
       <FilterBar
         filters={[
           { id: "source", label: "Source", value: source, options: SOURCE_OPTIONS, onChange: setSource },
