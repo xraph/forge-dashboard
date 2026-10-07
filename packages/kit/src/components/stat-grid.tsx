@@ -11,14 +11,45 @@ export interface StatItem {
   /** Formatted by the caller. This block does no unit or date formatting. */
   value: string | number
   hint?: string
+  /**
+   * Emphasis for the card: a ring and a coloured value, from the kit's own
+   * tone tokens. Defaults to `"default"`, which adds nothing. Reach for
+   * `"danger"` or `"warning"` only when the number is the thing to act on.
+   */
+  tone?: StatTone
 }
 
-export function Stat({ label, value, hint }: StatItem) {
+export type StatTone = "default" | "warning" | "danger" | "success"
+
+// Written out in full, not built from a variable: Tailwind finds classes by
+// reading this file.
+const TONE_CARD: Record<StatTone, string | undefined> = {
+  default: undefined,
+  warning: "ring-warning/50",
+  danger: "ring-destructive/50",
+  success: "ring-success/50",
+}
+
+const TONE_VALUE: Record<StatTone, string | undefined> = {
+  default: undefined,
+  warning: "text-warning-foreground",
+  danger: "text-destructive",
+  success: "text-success-foreground",
+}
+
+export function Stat({ label, value, hint, tone = "default" }: StatItem) {
   return (
-    <Card size="sm">
+    <Card size="sm" data-tone={tone} className={TONE_CARD[tone]}>
       <CardHeader>
         <CardDescription>{label}</CardDescription>
-        <CardTitle className="text-2xl tabular-nums">{value}</CardTitle>
+        <CardTitle
+          className={cn(
+            "text-2xl tabular-nums",
+            TONE_VALUE[tone]
+          )}
+        >
+          {value}
+        </CardTitle>
         {hint && <CardDescription className="text-xs">{hint}</CardDescription>}
       </CardHeader>
     </Card>
