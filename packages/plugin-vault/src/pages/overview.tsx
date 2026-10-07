@@ -23,6 +23,16 @@ export interface OverviewStats {
   rotationOverdue: number
   rotationWithoutRotator: number
   rotationFailures24h: number
+  /**
+   * Versions stored without encryption, and versions vault never recorded
+   * either way (written before it kept track). Both count every version of
+   * every secret, the current one included.
+   */
+  plaintextVersions: number
+  unrecordedVersions: number
+  /** Secrets whose expiry has passed, and secrets expiring within 30 days. */
+  expiredSecrets: number
+  expiringSecrets: number
   encryptionEnabled: boolean
   /** "" when no key is configured. */
   encryptionAlgorithm: string
@@ -59,6 +69,22 @@ function problems(s: OverviewStats): Problem[] {
       to: "/secrets",
     })
   }
+  if (s.expiredSecrets > 0) {
+    const n = s.expiredSecrets
+    out.push({
+      id: "expired",
+      text: `${n} ${n === 1 ? "secret has" : "secrets have"} expired.`,
+      to: "/secrets?expiry=expired",
+    })
+  }
+  if (s.expiringSecrets > 0) {
+    const n = s.expiringSecrets
+    out.push({
+      id: "expiring",
+      text: `${n} ${n === 1 ? "secret expires" : "secrets expire"} within 30 days.`,
+      to: "/secrets?expiry=30d",
+    })
+  }
   if (s.rotationOverdue > 0) {
     const n = s.rotationOverdue
     out.push({
@@ -88,9 +114,13 @@ function problems(s: OverviewStats): Problem[] {
 
 /**
  * The encryption line. It says what happens to NEW secrets, and it never says
- * the vault is encrypted while an existing secret is stored in the clear:
- * adding a key later does not encrypt what was stored before it, and neither
- * does replacing a value: the earlier versions keep their plaintext.
+ * the vault is encrypted while a stored version is in the clear: adding a key
+ * later does not encrypt what was stored before it, and neither does
+ * replacing a value, which leaves the earlier versions as they were.
+ *
+ * The counts are real, so nothing here says they cannot be counted. A version
+ * vault never recorded is reported as exactly that, not folded into either
+ * figure.
  */
 function EncryptionLine({ stats }: { stats: OverviewStats }) {
   if (!stats.encryptionEnabled) {
@@ -101,14 +131,23 @@ function EncryptionLine({ stats }: { stats: OverviewStats }) {
     )
   }
   const how = stats.encryptionAlgorithm ? ` with ${stats.encryptionAlgorithm}` : ""
+  const parts = [`New secrets are encrypted${how}.`]
   if (stats.unencryptedSecrets > 0) {
-    return (
-      <p className="text-sm text-muted-foreground">
-        {`New secrets are encrypted${how}. Secrets stored without encryption stay that way. Replacing a value encrypts the new version, but earlier versions keep the plaintext until the secret is deleted.`}
-      </p>
+    parts.push("Secrets stored without encryption stay that way until their values are replaced.")
+  }
+  if (stats.plaintextVersions > 0) {
+    const n = stats.plaintextVersions
+    parts.push(
+      `${n} earlier ${n === 1 ? "version is" : "versions are"} stored without encryption. Replacing a value does not encrypt them.`
     )
   }
-  return <p className="text-sm text-muted-foreground">{`New secrets are encrypted${how}.`}</p>
+  if (stats.unrecordedVersions > 0) {
+    const n = stats.unrecordedVersions
+    parts.push(
+      `Vault can't tell how ${n} older ${n === 1 ? "version was" : "versions were"} stored.`
+    )
+  }
+  return <p className="text-sm text-muted-foreground">{parts.join(" ")}</p>
 }
 
 export const OverviewPage: ComponentType<PluginPageProps> = () => {

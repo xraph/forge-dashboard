@@ -58,9 +58,21 @@ const DETAIL = {
 
 const VERSIONS = {
   versions: [
-    { id: "v3", version: 3, createdBy: "usr_1", createdAt: "2026-09-23T10:00:00Z" },
-    { id: "v2", version: 2, createdAt: "2026-09-21T10:00:00Z" },
-    { id: "v1", version: 1, createdBy: "usr_2", createdAt: "2026-09-20T10:00:00Z" },
+    {
+      id: "v3",
+      version: 3,
+      createdBy: "usr_1",
+      createdAt: "2026-09-23T10:00:00Z",
+      encryption: "encrypted",
+    },
+    { id: "v2", version: 2, createdAt: "2026-09-21T10:00:00Z", encryption: "plaintext" },
+    {
+      id: "v1",
+      version: 1,
+      createdBy: "usr_2",
+      createdAt: "2026-09-20T10:00:00Z",
+      encryption: "unknown",
+    },
   ],
 }
 
@@ -206,8 +218,11 @@ describe("SecretDetailPage metadata", () => {
   })
 
   it("says plainly that an unencrypted secret is unencrypted, and never calls it secure", async () => {
+    // No versions: this is about the secret's own line, and a version row's
+    // "Encrypted" would trip the no-claims check below.
     renderDetail(
-      harness({ ...DETAIL, secret: { ...SECRET, encryptionAlg: "" } }).client
+      harness({ ...DETAIL, secret: { ...SECRET, encryptionAlg: "" } }, {}, { versions: [] })
+        .client
     )
     await screen.findByRole("heading", { name: KEY })
     expect(screen.getByText("Not encrypted")).toBeTruthy()
@@ -271,6 +286,32 @@ describe("SecretDetailPage versions", () => {
         (el.textContent ?? "").trim() !== ""
     )
     expect(between.length).toBeGreaterThan(0)
+  })
+
+  it("shows each version's encryption: encrypted, not encrypted, or unknown", async () => {
+    renderDetail(harness().client)
+    await screen.findByText(/Versions \(3\)/)
+    const items = screen.getAllByRole("listitem")
+    const rowOf = (v: string) =>
+      items.find((li) => (li.textContent ?? "").startsWith(v)) as HTMLElement
+
+    const encrypted = within(rowOf("v3")).getByText("Encrypted")
+    expect(encrypted.getAttribute("data-slot")).toBe("badge")
+    // The class list always names aria-invalid:border-destructive, so the
+    // variant is told apart by the classes only it carries.
+    expect(encrypted.className).toMatch(/border-border/)
+
+    const plain = within(rowOf("v2")).getByText("Not encrypted")
+    expect(plain.getAttribute("data-slot")).toBe("badge")
+    expect(plain.className).toMatch(/bg-destructive\/10/)
+
+    const unknown = within(rowOf("v1")).getByText("Unknown")
+    expect(unknown.getAttribute("data-slot")).toBe("badge")
+    expect(unknown.className).toMatch(/bg-secondary/)
+    expect(unknown.getAttribute("title")).toMatch(/before vault recorded/)
+    // A row with a known state carries no such explanation.
+    expect(encrypted.getAttribute("title")).toBeNull()
+    expect(plain.getAttribute("title")).toBeNull()
   })
 
   it("keeps the count live for a single version", async () => {

@@ -36,7 +36,12 @@ import {
 } from "@forge-go/dashboard-kit/components/radio-group"
 import { TagList } from "@forge-go/dashboard-kit/components/tag-list"
 import { Timestamp } from "@forge-go/dashboard-kit/components/timestamp"
-import { EncryptionBadge, PolicyStatusBadge, RotatorBadge } from "../badges"
+import {
+  EncryptionBadge,
+  PolicyStatusBadge,
+  RotatorBadge,
+  VersionEncryptionBadge,
+} from "../badges"
 import { RecentActivity } from "../components/recent-activity"
 import { toRFC3339 } from "../datetime"
 import { formatInterval } from "../interval"
@@ -58,6 +63,8 @@ interface SecretVersion {
   version: number
   createdBy?: string
   createdAt: string
+  /** "encrypted", "plaintext", or "unknown" for a row vault never recorded. */
+  encryption: "encrypted" | "plaintext" | "unknown"
 }
 
 interface VersionsResponse {
@@ -267,6 +274,7 @@ function VersionTimeline({
                       label="creation time"
                       className="text-muted-foreground"
                     />
+                    <VersionEncryptionBadge encryption={v.encryption} />
                   </li>
                 ))}
               </ol>

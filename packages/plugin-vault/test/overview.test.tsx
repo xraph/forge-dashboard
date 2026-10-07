@@ -17,6 +17,10 @@ function stats(over: Partial<OverviewStats> = {}): OverviewStats {
     rotationOverdue: 0,
     rotationWithoutRotator: 0,
     rotationFailures24h: 0,
+    plaintextVersions: 0,
+    unrecordedVersions: 0,
+    expiredSecrets: 0,
+    expiringSecrets: 0,
     encryptionEnabled: true,
     encryptionAlgorithm: "AES-256-GCM",
     recentActivity: [],
@@ -33,6 +37,10 @@ const UNENCRYPTED = /secrets? (is|are) stored without encryption\./
 const OVERDUE = /rotation polic(y|ies) (is|are) overdue\./
 const NO_ROTATOR = /enabled polic(y|ies) (has|have) no rotator and will never rotate\./
 const FAILED = /rotation attempts? failed in the last 24 hours\./
+const EXPIRED = /secrets? (has|have) expired\./
+const EXPIRING = /secrets? expires? within 30 days\./
+const PLAINTEXT_VERSIONS = /earlier versions? (is|are) stored without encryption/
+const UNRECORDED = /Vault can't tell how/
 
 describe("OverviewPage", () => {
   it("asks overview.stats with no parameters", async () => {
@@ -140,9 +148,76 @@ describe("OverviewPage", () => {
     expect(screen.queryByText("New secrets are encrypted with AES-256-GCM.")).toBeNull()
     expect(
       screen.getByText(
-        "New secrets are encrypted with AES-256-GCM. Secrets stored without encryption stay that way. Replacing a value encrypts the new version, but earlier versions keep the plaintext until the secret is deleted."
+        "New secrets are encrypted with AES-256-GCM. Secrets stored without encryption stay that way until their values are replaced."
       )
     ).toBeTruthy()
+  })
+
+  it("lists expired secrets, linked to the expired filter", async () => {
+    show({ expiredSecrets: 2 })
+    const line = await screen.findByText("2 secrets have expired.")
+    expect(line.closest("a")?.getAttribute("href")).toBe("/secrets?expiry=expired")
+    expect(screen.getByText("Needs attention")).toBeTruthy()
+    expect(screen.queryByText(EXPIRING)).toBeNull()
+    expect(screen.queryByText(NOTHING)).toBeNull()
+  })
+
+  it("lists secrets expiring within 30 days, linked to the 30 day filter", async () => {
+    show({ expiringSecrets: 1 })
+    const line = await screen.findByText("1 secret expires within 30 days.")
+    expect(line.closest("a")?.getAttribute("href")).toBe("/secrets?expiry=30d")
+    expect(screen.queryByText(EXPIRED)).toBeNull()
+    expect(screen.queryByText(NOTHING)).toBeNull()
+  })
+
+  it("uses the right plural for one expired and several expiring", async () => {
+    show({ expiredSecrets: 1, expiringSecrets: 3 })
+    expect(await screen.findByText("1 secret has expired.")).toBeTruthy()
+    expect(screen.getByText("3 secrets expire within 30 days.")).toBeTruthy()
+  })
+
+  it("hides both expiry lines at zero", async () => {
+    show()
+    await screen.findByText(NOTHING)
+    expect(screen.queryByText(EXPIRED)).toBeNull()
+    expect(screen.queryByText(EXPIRING)).toBeNull()
+  })
+
+  it("names the earlier versions stored without encryption", async () => {
+    show({ plaintextVersions: 3 })
+    const line = await screen.findByText(PLAINTEXT_VERSIONS)
+    expect(line.textContent).toContain("3 earlier versions are stored without encryption")
+    expect(line.textContent).not.toMatch(/can't count|cannot count|can't be counted/i)
+    // Plaintext remains, so the line is not a bare claim that all is encrypted.
+    expect(screen.queryByText("New secrets are encrypted with AES-256-GCM.")).toBeNull()
+    expect(screen.queryByText(UNRECORDED)).toBeNull()
+  })
+
+  it("uses the singular for one earlier plaintext version", async () => {
+    show({ plaintextVersions: 1 })
+    const line = await screen.findByText(PLAINTEXT_VERSIONS)
+    expect(line.textContent).toContain("1 earlier version is stored without encryption")
+  })
+
+  it("adds the versions vault never recorded", async () => {
+    show({ plaintextVersions: 3, unrecordedVersions: 5 })
+    const line = await screen.findByText(UNRECORDED)
+    expect(line.textContent).toContain("3 earlier versions are stored without encryption")
+    expect(line.textContent).toContain("Vault can't tell how 5 older versions were stored.")
+  })
+
+  it("uses the singular for one unrecorded version", async () => {
+    show({ unrecordedVersions: 1 })
+    const line = await screen.findByText(UNRECORDED)
+    expect(line.textContent).toContain("Vault can't tell how 1 older version was stored.")
+    expect(screen.queryByText(PLAINTEXT_VERSIONS)).toBeNull()
+  })
+
+  it("shows neither version sentence at zero", async () => {
+    show()
+    expect(await screen.findByText("New secrets are encrypted with AES-256-GCM.")).toBeTruthy()
+    expect(screen.queryByText(PLAINTEXT_VERSIONS)).toBeNull()
+    expect(screen.queryByText(UNRECORDED)).toBeNull()
   })
 
   it("says so in the destructive tone when no key is configured", async () => {

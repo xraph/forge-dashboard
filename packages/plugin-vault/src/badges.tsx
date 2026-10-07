@@ -56,6 +56,33 @@ export function EncryptionBadge({ alg }: { alg: string }) {
   return <Badge variant="outline">{alg}</Badge>
 }
 
+/**
+ * One version row's encryption, from the server's `encryption` field. Not
+ * the secret-level badge above: a version records how IT was stored, and
+ * replacing a value never re-stores the earlier ones.
+ *
+ * "encrypted" is `outline`, the ordinary state. "plaintext" is `destructive`,
+ * the one an operator opens the page to find. "unknown" is `secondary`: vault
+ * never recorded how the row was stored, which is a gap in what is known, not
+ * a fault, and the title says why.
+ */
+export function VersionEncryptionBadge({ encryption }: { encryption: string }) {
+  if (encryption === "plaintext") {
+    return <Badge variant="destructive">Not encrypted</Badge>
+  }
+  if (encryption === "encrypted") {
+    return <Badge variant="outline">Encrypted</Badge>
+  }
+  return (
+    <Badge
+      variant="secondary"
+      title="This version was stored before vault recorded how versions are stored, so it cannot say."
+    >
+      Unknown
+    </Badge>
+  )
+}
+
 export function PolicyStatusBadge({ enabled }: { enabled: boolean }) {
   return (
     <Badge variant={enabled ? "outline" : "secondary"}>

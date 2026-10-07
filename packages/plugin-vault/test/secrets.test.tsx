@@ -1,5 +1,5 @@
-import { describe, expect, it } from "vitest"
-import { fireEvent, screen, within } from "@testing-library/react"
+import { afterEach, describe, expect, it } from "vitest"
+import { fireEvent, screen, waitFor, within } from "@testing-library/react"
 import { ContractError } from "@forge-go/dashboard-plugin"
 import { SecretsPage } from "../src/pages/secrets"
 import { secretPath } from "../src/keys"
@@ -41,6 +41,17 @@ const ENCRYPTED = {
 const MIXED = {
   secrets: [secret(), secret({ id: "sec_03", key: "legacy", encryptionAlg: "" })],
   total: 2,
+}
+
+afterEach(() => {
+  window.history.replaceState(null, "", "/")
+})
+
+const select = () => screen.getByLabelText("Expiry") as HTMLSelectElement
+
+const lastParams = (sent: { intent: string; params?: unknown }[]) => {
+  const all = sent.filter((i) => i.intent === "secrets.list")
+  return all[all.length - 1]?.params as Record<string, unknown>
 }
 
 describe("SecretsPage", () => {
@@ -168,5 +179,89 @@ describe("SecretsPage", () => {
         "Values are write-only: you can set and replace them here, never read them back."
       )
     ).toBeTruthy()
+  })
+})
+
+describe("SecretsPage expiry filter", () => {
+  it("offers All, Expired and the two windows, on All", async () => {
+    renderPage(SecretsPage, stubClient({ "secrets.list": ENCRYPTED }))
+    await screen.findByText("api-token")
+    const options = Array.from(select().options).map((o) => [o.value, o.textContent])
+    expect(options).toEqual([
+      ["", "All"],
+      ["expired", "Expired"],
+      ["7d", "Expires within 7 days"],
+      ["30d", "Expires within 30 days"],
+    ])
+    expect(select().value).toBe("")
+  })
+
+  it("sends expiry when chosen, sends none for All, and goes back to page one", async () => {
+    const { client, sent } = recordingQueryClient({
+      "secrets.list": { secrets: ENCRYPTED.secrets, total: 31 },
+    })
+    renderPage(SecretsPage, client)
+    await screen.findByText("api-token")
+    fireEvent.click(screen.getByRole("button", { name: "Next page" }))
+    await screen.findByText(/Page 2 of 2/)
+    expect(lastParams(sent)).toEqual({ limit: 25, offset: 25 })
+
+    fireEvent.change(select(), { target: { value: "7d" } })
+    await waitFor(() => expect(lastParams(sent)).toEqual({ expiry: "7d", limit: 25, offset: 0 }))
+    await screen.findByText(/Page 1 of 2/)
+
+    fireEvent.change(select(), { target: { value: "" } })
+    await waitFor(() => expect(lastParams(sent)).toEqual({ limit: 25, offset: 0 }))
+  })
+
+  it("seeds the select and the query from ?expiry= in the URL", async () => {
+    window.history.replaceState(null, "", "/secrets?expiry=expired")
+    const { client, sent } = recordingQueryClient({ "secrets.list": ENCRYPTED })
+    renderPage(SecretsPage, client)
+    await screen.findByText("api-token")
+    expect(select().value).toBe("expired")
+    expect(sent.filter((i) => i.intent === "secrets.list")[0]?.params).toEqual({
+      expiry: "expired",
+      limit: 25,
+      offset: 0,
+    })
+  })
+
+  it("drops an expiry the select does not offer", async () => {
+    window.history.replaceState(null, "", "/secrets?expiry=soon")
+    const { client, sent } = recordingQueryClient({ "secrets.list": ENCRYPTED })
+    renderPage(SecretsPage, client)
+    await screen.findByText("api-token")
+    expect(select().value).toBe("")
+    expect(sent.filter((i) => i.intent === "secrets.list")[0]?.params).toEqual({
+      limit: 25,
+      offset: 0,
+    })
+  })
+
+  it("writes the choice to the URL, keeps other params, and removes it for All", async () => {
+    window.history.replaceState(null, "", "/secrets?tab=x")
+    renderPage(SecretsPage, stubClient({ "secrets.list": ENCRYPTED }))
+    await screen.findByText("api-token")
+    fireEvent.change(select(), { target: { value: "30d" } })
+    await waitFor(() => expect(window.location.search).toBe("?tab=x&expiry=30d"))
+    fireEvent.change(select(), { target: { value: "" } })
+    await waitFor(() => expect(window.location.search).toBe("?tab=x"))
+  })
+
+  it("says no secret matches under a filter, and offers no New secret there", async () => {
+    window.history.replaceState(null, "", "/secrets?expiry=expired")
+    renderPage(SecretsPage, stubClient({ "secrets.list": { secrets: [], total: 0 } }))
+    expect(await screen.findByText("No secrets match this expiry filter.")).toBeTruthy()
+    expect(screen.queryByText("No secrets yet.")).toBeNull()
+    expect(screen.getByText("0 secrets")).toBeTruthy()
+    // Only the header's link: the empty state does not push creating one.
+    expect(screen.getAllByRole("link", { name: "New secret" })).toHaveLength(1)
+  })
+
+  it("keeps the control while the filtered list is empty", async () => {
+    renderPage(SecretsPage, stubClient({ "secrets.list": { secrets: [], total: 0 } }))
+    await screen.findByText("No secrets yet.")
+    expect(select()).toBeTruthy()
   })
 })
