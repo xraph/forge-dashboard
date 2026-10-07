@@ -4458,7 +4458,9 @@ function parseSchemaSource(src) {
       return null
     }
     const d = { name: cur.value, ns: "", resource: "", action: "", description: "", isSystem: false, pos: at }
-    const colon = d.name.indexOf(":")
+    // Mirrors dsl/parser.go: the name splits at its last ':', because a
+    // resource may hold one (warden:role) and an action may not.
+    const colon = d.name.lastIndexOf(":")
     if (colon >= 0) {
       d.resource = d.name.slice(0, colon)
       d.action = d.name.slice(colon + 1)
@@ -4476,22 +4478,28 @@ function parseSchemaSource(src) {
       if (!accept(")")) errf(cur, "expected `)` to close permission shorthand")
     } else if (cur.kind === "{") {
       advance()
+      let setResource = false
+      let setAction = false
       while (!atEnd("}")) {
         switch (cur.kind) {
           case "resource": {
             advance()
             if (!accept("=")) errf(cur, "expected `=` after `resource`")
             const v = name()
-            if (v !== null) d.resource = v
-            else errf(cur, "expected resource identifier")
+            if (v !== null) {
+              d.resource = v
+              setResource = true
+            } else errf(cur, "expected resource identifier")
             break
           }
           case "IDENT": {
             const key = advance().value
             if (!accept("=")) errf(cur, `expected \`=\` after ${goQuote(key)}`)
             if (key === "action") {
-              if (cur.kind === "IDENT" || cur.kind === "STRING") d.action = cur.value
-              else errf(cur, "expected action identifier")
+              if (cur.kind === "IDENT" || cur.kind === "STRING") {
+                d.action = cur.value
+                setAction = true
+              } else errf(cur, "expected action identifier")
               advance()
             } else {
               errf(cur, `unknown permission attribute ${goQuote(key)}`)
@@ -4515,6 +4523,30 @@ function parseSchemaSource(src) {
         }
       }
       expect("}")
+      // Mirrors fillFromName in dsl/parser.go: a block that sets only one
+      // of resource and action takes the other from the name, and is
+      // refused (the other left empty) when the name does not hold it.
+      if (setResource && !setAction) {
+        if (d.name.startsWith(d.resource + ":")) {
+          d.action = d.name.slice(d.resource.length + 1)
+        } else {
+          errf(
+            at,
+            `permission ${goQuote(d.name)} sets resource ${goQuote(d.resource)} and no action, and its name does not start with ${goQuote(d.resource + ":")}, so the action cannot be taken from the name; set action too`
+          )
+          d.action = ""
+        }
+      } else if (setAction && !setResource) {
+        if (d.name.endsWith(":" + d.action)) {
+          d.resource = d.name.slice(0, d.name.length - d.action.length - 1)
+        } else {
+          errf(
+            at,
+            `permission ${goQuote(d.name)} sets action ${goQuote(d.action)} and no resource, and its name does not end with ${goQuote(":" + d.action)}, so the resource cannot be taken from the name; set resource too`
+          )
+          d.resource = ""
+        }
+      }
     }
     return d
   }
@@ -5341,6 +5373,24 @@ function runSchemaApplier(prog, prune, write, source) {
 
   const grantDiags = prog.roles.flatMap((r) => desiredGrants(r).diags)
   if (grantDiags.length > 0) return { diags: grantDiags }
+
+  // checkPermissionActions: the engine joins resource and action with ':',
+  // so a ':' action is refused before anything is written, unless the store
+  // already holds that permission with exactly this resource and action.
+  {
+    const diags = []
+    for (const p of prog.permissions) {
+      if (!p.action.includes(":")) continue
+      const existing = warden.permissions.find((x) => x.namespacePath === p.ns && x.name === p.name)
+      if (existing && existing.resource === p.resource && existing.action === p.action) continue
+      diags.push({
+        line: p.pos.line,
+        col: p.pos.col,
+        message: `permission ${goQuote(p.name)}: action ${goQuote(p.action)} contains ':': the engine joins resource and action with ':', so an action may not contain one`,
+      })
+    }
+    if (diags.length > 0) return { diags }
+  }
 
   // checkSystem (ApplyOptions.ProtectSystem, which the contract always
   // sets): every change to a system role or permission is refused before
