@@ -300,6 +300,7 @@ export function createBastionHandlers(FixtureError) {
         sections: [
           { id: "gateway", title: "Gateway", enabled: true, settings: [{ key: "Base path", value: "/gw" }, { key: "Routes in config", value: "1" }] },
           { id: "circuitBreaker", title: "Circuit breaker", enabled: true, settings: [{ key: "Failure threshold", value: "5" }, { key: "Reset timeout", value: "30s" }, { key: "Half-open probes", value: "3" }] },
+          { id: "healthCheck", title: "Health checks", enabled: true, settings: [{ key: "Interval", value: "10s" }, { key: "Timeout", value: "5s" }, { key: "Path", value: "/health" }, { key: "Failure threshold", value: "3" }, { key: "Success threshold", value: "2" }, { key: "Passive checks", value: "true" }] },
           { id: "retry", title: "Retry", enabled: true, note: "Nothing in the proxy calls the retry policy, so no request is retried whatever this says.", settings: [{ key: "Max attempts", value: "3" }] },
           { id: "caching", title: "Response cache", enabled: false, note: "Nothing writes to the cache, so every lookup misses whatever this says.", settings: [{ key: "Default TTL", value: "5m0s" }] },
           { id: "tls", title: "Upstream TLS", enabled: true, settings: [{ key: "Client key", value: "set" }, { key: "CA certificate", value: "not set" }] },
