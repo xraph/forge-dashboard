@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest"
+import { afterEach, describe, expect, it, vi } from "vitest"
 import { fireEvent, screen, waitFor, within } from "@testing-library/react"
 import { RelayDeliveriesPage } from "../src/pages/deliveries"
 import type { DeliverySummary } from "../src/types"
@@ -133,25 +133,46 @@ describe("RelayDeliveriesPage", () => {
 
   // Fixed once when chosen. Recomputed every render it would change the
   // params, and the cache key, on every render.
-  it("fixes the created window when it is chosen", async () => {
-    const { client, queried } = scriptedClient({
-      ...common,
-      "deliveries.list": { complete: true, deliveries: [] },
+  //
+  // Only Date is faked, so timers and promises behave. The window is exact
+  // against a clock that does not move. Against the real one it was a bound
+  // of 50ms on how long the render and the change took, which a machine
+  // under load overshoots.
+  describe("created window", () => {
+    afterEach(() => {
+      vi.useRealTimers()
     })
-    renderPage(RelayDeliveriesPage, client)
-    await screen.findByText(/Nothing has been sent yet/)
-    const before = Date.now()
-    fireEvent.change(screen.getByLabelText("Created"), {
-      target: { value: "hour" },
+
+    it("fixes the created window when it is chosen", async () => {
+      const chosenAt = Date.parse("2026-10-02T10:00:00Z")
+      vi.useFakeTimers({ toFake: ["Date"] })
+      vi.setSystemTime(chosenAt)
+      const { client, queried } = scriptedClient({
+        ...common,
+        "deliveries.list": { complete: true, deliveries: [] },
+      })
+      renderPage(RelayDeliveriesPage, client)
+      await screen.findByText(/Nothing has been sent yet/)
+      fireEvent.change(screen.getByLabelText("Created"), {
+        target: { value: "hour" },
+      })
+      await waitFor(() => expect(lastListParams(queried)?.from).toBeDefined())
+      expect(lastListParams(queried)?.from).toBe(
+        new Date(chosenAt - 3_600_000).toISOString()
+      )
+
+      // Time passes and the page renders again. A window recomputed on each
+      // render would move with the clock; a fixed one does not.
+      vi.setSystemTime(chosenAt + 60_000)
+      fireEvent.change(screen.getByLabelText("State"), {
+        target: { value: "failed" },
+      })
+      await waitFor(() => expect(lastListParams(queried)?.state).toBe("failed"))
+      const withFrom = queried.filter(
+        (q) => q.intent === "deliveries.list" && q.params.from
+      )
+      expect(new Set(withFrom.map((q) => q.params.from)).size).toBe(1)
     })
-    await waitFor(() => expect(lastListParams(queried)?.from).toBeDefined())
-    const from = Date.parse(String(lastListParams(queried)?.from))
-    expect(before - from).toBeGreaterThanOrEqual(3_600_000 - 50)
-    expect(before - from).toBeLessThan(3_600_000 + 5_000)
-    const withFrom = queried.filter(
-      (q) => q.intent === "deliveries.list" && q.params.from
-    )
-    expect(new Set(withFrom.map((q) => q.params.from)).size).toBe(1)
   })
 
   it("says a search that stopped short found nothing yet, not that there is nothing", async () => {
