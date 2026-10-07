@@ -261,7 +261,9 @@ function seedWardenState() {
       checkLogQueueSize: 4096,
       // Go sends the retention and interval exactly in whole seconds
       // (rounded up), and keeps the hours and minutes, rounded down, for
-      // older clients.
+      // older clients. A switched-off retention or interval (negative
+      // through the extension, 0 or negative on an engine built directly)
+      // is 0 in all four, never negative.
       checkLogRetentionSeconds: 7776000,
       maintenanceIntervalSeconds: 3600,
       checkLogRetentionHours: 2160,
@@ -6142,7 +6144,9 @@ export const wardenHandlers = {
     handler: () => {
       // Go runs RunTenantMaintenance for the caller's tenant: that tenant's
       // expired assignments and, when the retention is above zero, its check
-      // log entries older than the retention window. This fixture holds one
+      // log entries older than the retention window. A switched-off
+      // retention reaches config.detail as 0 seconds, so the check below
+      // purges no check log entries for it, the same as Go. This fixture holds one
       // tenant, the caller's, so every row here is in scope.
       //
       // A fixture that accepts a write and changes nothing hides the bug it

@@ -111,11 +111,16 @@ describe("WardenConfigPage", () => {
     )
     expect(await screen.findByText("30 minutes")).toBeTruthy()
     expect(screen.getByText("45 seconds")).toBeTruthy()
-    expect(screen.queryByText("Kept forever")).toBeNull()
-    expect(screen.queryByText("Off")).toBeNull()
+    expect(screen.queryByText(/^Off/)).toBeNull()
   })
 
-  it("says kept forever and off only for a zero", async () => {
+  /**
+   * Warden sends a switched-off retention or interval as 0 in every field.
+   * Through the extension that is a negative setting (0 there means the
+   * default); on an engine built directly it is 0 or negative. Either way
+   * maintenance purges no check log entries by age, or runs no loop.
+   */
+  it("says off only for a zero", async () => {
     renderPage(
       WardenConfigPage,
       stubClient({
@@ -128,8 +133,10 @@ describe("WardenConfigPage", () => {
         },
       })
     )
-    expect(await screen.findByText("Kept forever")).toBeTruthy()
+    expect(await screen.findByText("Off, no entries are purged by age")).toBeTruthy()
     expect(screen.getByText("Off")).toBeTruthy()
+    expect(screen.queryByText(/kept forever/i)).toBeNull()
+    expect(screen.queryByText(/-\d/)).toBeNull()
   })
 
   /**
@@ -146,9 +153,9 @@ describe("WardenConfigPage", () => {
     delete older.checkLogRetentionSeconds
     delete older.maintenanceIntervalSeconds
     renderPage(WardenConfigPage, stubClient({ "config.detail": older }))
-    expect(await screen.findByText("Under an hour, or kept forever")).toBeTruthy()
+    expect(await screen.findByText("Under an hour, or off")).toBeTruthy()
     expect(screen.getByText("90 minutes, rounded down")).toBeTruthy()
-    expect(screen.queryByText("Kept forever")).toBeNull()
+    expect(screen.queryByText(/^Off/)).toBeNull()
   })
 
   it("does not warn when check logging is on", async () => {
@@ -192,7 +199,8 @@ describe("WardenConfigPage", () => {
    * maintenance.run purges the caller's tenant only (warden's
    * RunTenantMaintenance). The dialog used to say it ran across every
    * tenant, which stopped being true. The check log clause is conditional
-   * because a retention of zero keeps every entry.
+   * because a switched-off retention purges no entries. "Set" would be
+   * wrong there: a negative retention is set, and it is off.
    */
   it("says the maintenance run covers this tenant only", async () => {
     const { client } = recordingCommandClient(
@@ -205,7 +213,7 @@ describe("WardenConfigPage", () => {
     const dialog = await screen.findByRole("alertdialog")
     expect(dialog.textContent).toContain("this tenant's assignments that have already expired")
     expect(dialog.textContent).toContain(
-      "when a check log retention is set, this tenant's check log entries older than it"
+      "when a check log retention is in effect, this tenant's check log entries older than it"
     )
     expect(dialog.textContent).toContain("Other tenants are not touched.")
     expect(dialog.textContent).not.toMatch(/every tenant/i)

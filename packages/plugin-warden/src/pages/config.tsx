@@ -27,9 +27,11 @@ export interface ConfigDetail {
   checkLogQueueSize: number
   /**
    * The retention and interval in whole seconds, rounded up, so a positive
-   * value never reads 0. Absent from a server older than these fields; the
-   * page then falls back to the hours and minutes below, which are rounded
-   * down (a retention under an hour reads 0 there).
+   * value never reads 0. 0 means off: warden sends a switched-off retention
+   * or interval as 0 in all four fields, never as a negative number. Absent
+   * from a server older than these fields; the page then falls back to the
+   * hours and minutes below, which are rounded down (a retention under an
+   * hour reads 0 there).
    */
   checkLogRetentionSeconds?: number
   maintenanceIntervalSeconds?: number
@@ -63,17 +65,21 @@ function formatSeconds(seconds: number): string {
 }
 
 /**
- * The check log retention. 0 seconds means the engine keeps every entry. A
- * server older than the seconds field sends whole hours rounded down, where
- * 0 is either no retention or one under an hour, so the page says both.
+ * The check log retention. 0 seconds means purging is off: maintenance
+ * deletes no entries by age (an erasure can still remove some, so the page
+ * does not promise they are kept forever). A server older than the seconds
+ * field sends whole hours rounded down, where 0 is either off or a
+ * retention under an hour, so the page says both.
  */
 function retentionText(c: ConfigDetail): string {
   if (c.checkLogRetentionSeconds !== undefined) {
-    return c.checkLogRetentionSeconds > 0 ? formatSeconds(c.checkLogRetentionSeconds) : "Kept forever"
+    return c.checkLogRetentionSeconds > 0
+      ? formatSeconds(c.checkLogRetentionSeconds)
+      : "Off, no entries are purged by age"
   }
   return c.checkLogRetentionHours > 0
     ? `${plural(c.checkLogRetentionHours, "hour")}, rounded down`
-    : "Under an hour, or kept forever"
+    : "Under an hour, or off"
 }
 
 /** The maintenance interval, read the same way as the retention. */
@@ -304,7 +310,7 @@ export function WardenConfigPage() {
         open={confirmingRun}
         onOpenChange={(open) => !open && setConfirmingRun(false)}
         title="Run maintenance now?"
-        description="Purges this tenant's assignments that have already expired and, when a check log retention is set, this tenant's check log entries older than it. Other tenants are not touched."
+        description="Purges this tenant's assignments that have already expired and, when a check log retention is in effect, this tenant's check log entries older than it. Other tenants are not touched."
         confirmLabel="Run"
         pending={runMaintenance.loading}
         onConfirm={() => void doRun()}
