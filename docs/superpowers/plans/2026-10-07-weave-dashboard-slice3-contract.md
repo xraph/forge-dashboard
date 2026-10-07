@@ -2,19 +2,20 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Give Weave a `weave` contract contributor that answers the 17 intents the React dashboard reads and writes, register it from the Forge extension, and pass the extension's YAML config to the engine.
+**Goal:** Remove every trace of templ from Weave (record the old dashboard in `MIGRATION.md`, delete `dashboard/`, move to forge v1.12.0 so templ and forgeui leave the module graph), then give Weave a `weave` contract contributor that answers the 17 intents the React dashboard reads and writes, register it from the Forge extension, and pass the extension's YAML config to the engine.
 
 **Architecture:** A new package `extension/contract` holds an embedded `manifest.yaml`, one `Register` function, and one handler file per area (system, collections, documents, chunks, retrieval). Every handler calls engine methods only, never the store, so the dashboard and Weave's HTTP API share every fix. The extension implements `ContractContributorAware` by calling `contract.Register`; nothing in production code imports forge's root `extensions/dashboard` package.
 
-**Tech Stack:** Go 1.26, forge v1.11.2 (`extensions/dashboard/contract`, `.../dispatcher`, `.../loader`, `.../transport` in tests), grove v1.7.0, the slice 1 engine.
+**Tech Stack:** Go 1.26, forge v1.12.0 (`extensions/dashboard/contract`, `.../dispatcher`, `.../loader`, `.../transport` in tests), grove v1.7.0, the slice 1 engine.
 
-**Spec:** `docs/superpowers/specs/2026-10-07-weave-dashboard-migration-design.md` in the forge-dashboard repo. Read "The contract package", "The 17 intents" table, "Retrieval", and the whole of "What slice 1 found that slice 2 must know" before Task 1.
+**Spec:** `docs/superpowers/specs/2026-10-07-weave-dashboard-migration-design.md` in the forge-dashboard repo. Read "The contract package", "The 17 intents" table, "Retrieval", and the whole of "What slice 1 found that slice 2 must know" before Task 2.
 
 ## Global Constraints
 
 - Repo `/Users/rexraphael/Work/xraph/forgery/weave`, branch `main`, no worktrees. Shared checkout: `git add <exact files>` then `git commit --only -m "..." -- <exact paths>`, then `git show --stat HEAD`. Never `add -A`, `add .`, a directory, `--amend`, `stash`, `reset`, `restore`, `clean`, `checkout`, `switch`, `push`. `_project_files/` and `.superpowers/` are not yours.
 - Commit messages: conventional prefix, plain English, no em or en dashes, NO `Co-Authored-By`, no AI attribution.
-- forge v1.11.2, not v1.12.0, in this slice. v1.12.0 removed `extensions/dashboard/contributor`, which Weave's templ `dashboard/` package still imports; the move to v1.12.0 happens in slice 5, after the templ deletion. The contract core (dispatcher, loader, registry) is byte-identical between the two versions.
+- Rex's instruction (2026-10-07): all templ goes in this slice. The templ `dashboard/` is already dead code (xraph/weave#39 unwired it), so deleting it loses nothing at runtime. Order: write `MIGRATION.md` while the pages exist, delete `dashboard/` as its own commit, then move to forge v1.12.0 (which removed `extensions/dashboard/contributor` and no longer pulls templ or forgeui through `dashboard/auth`). After Task 2, `find . -name '*.templ' -not -path './_*'` is empty and `go.mod`/`go.sum` contain no `a-h/templ`, `xraph/forgeui` or `tailwind-merge-go`.
+- `go mod tidy` is run once, in Task 2, and its whole result is committed: with templ gone it is the tool that removes templ, forgeui and the requirements only they and older forge versions needed. The commit body lists every module it removed.
 - Production code never imports `github.com/xraph/forge/extensions/dashboard` (the root package): its `auth` subpackage pulls in templ. Import only `.../dashboard/contract` and `.../dashboard/contract/dispatcher` (and `.../loader`). The `ContractContributorAware` assertion lives in a `_test.go` file.
 - The contributor name, the extension name and the plugin's `extension` are all `weave`.
 - Wire field names are snake_case, copied from Weave's own JSON tags. Request and response types defined here use snake_case too.
@@ -28,47 +29,125 @@
 
 ## Review Focus
 
-1. A failed ingest (the embedder errors after the document row exists) must answer `state: failed` with the stored error, never a contract error that hides the document; a duplicate must answer `CONFLICT`. Pinned in Task 5.
-2. An unparseable ID must be `BAD_REQUEST` and a well-formed ID that does not exist must be `NOT_FOUND`, on every by-ID intent, never `INTERNAL`. Pinned in Tasks 4, 5, 6.
-3. `tenant: ""` through the contract must reach the engine as an exact filter (only untenanted rows), and an absent `tenant` must mean every tenant. Pinned in Task 4 (lists) and Task 7 (retrieval).
-4. An unrecognised internal error must never reach the client with its text (it can carry a DSN or a host). Pinned in Task 2.
-5. Retrieval on a deployment with no embedder or vector store must answer `UNAVAILABLE` saying so, not `INTERNAL`. Pinned in Task 7.
+1. A failed ingest (the embedder errors after the document row exists) must answer `state: failed` with the stored error, never a contract error that hides the document; a duplicate must answer `CONFLICT`. Pinned in Task 6.
+2. An unparseable ID must be `BAD_REQUEST` and a well-formed ID that does not exist must be `NOT_FOUND`, on every by-ID intent, never `INTERNAL`. Pinned in Tasks 5, 6, 7.
+3. `tenant: ""` through the contract must reach the engine as an exact filter (only untenanted rows), and an absent `tenant` must mean every tenant. Pinned in Task 5 (lists) and Task 8 (retrieval).
+4. An unrecognised internal error must never reach the client with its text (it can carry a DSN or a host). Pinned in Task 3.
+5. Retrieval on a deployment with no embedder or vector store must answer `UNAVAILABLE` saying so, not `INTERNAL`. Pinned in Task 8.
 
 ---
 
-### Task 1: Move to forge v1.11.2 and grove v1.7.0
+### Task 1: Record the templ dashboard, then delete it
+
+**Files:**
+- Create: `MIGRATION.md`
+- Delete: `dashboard/` (27 `.templ` files, 27 generated `*_templ.go`, `contributor.go`, `data.go`, `manifest.go`, `plugin_iface.go`, `forge.contributor.yaml`, `shared/`, and everything else under it)
+
+Follow `packages/plugin/PLAYBOOK.md` "Retiring the templ dashboard" in the forge-dashboard repo, steps 1 to 5, in order: the inventory has to be written while the sources still exist.
+
+- [ ] **Step 1: Walk every templ source and write the inventory**
+
+Read every file under `dashboard/` (pages, components, widgets, settings, shared, `contributor.go`, `data.go`, `manifest.go`, `plugin_iface.go`, `forge.contributor.yaml`). A checklist compiled from the same sources on 2026-10-07 is in the spec's "What the 12 templ pages show" section and in the plan-writer's notes; use them to check you missed nothing, never instead of reading the sources.
+
+Invoke the `rex-voice` skill, then write `MIGRATION.md` at the repo root, then run it through `humanizer` in embedded mode. No em or en dashes. Shape it like `forgery/trove/MIGRATION.md` (read that first). It must contain:
+
+- an opening that says what moved where: Weave's dashboard now lives in the Forge dashboard's React shell as `@forge-go/dashboard-plugin-weave`, reading the `weave` contract contributor in `extension/contract`, and the templ package is gone; that xraph/weave#39 stopped registering it and this commit set deletes it;
+- "What you need to do": nothing changes in Weave's own API; `Extension.DashboardContributor()` is gone (removed in #39); an import of `github.com/xraph/weave/dashboard` must go; Weave needs forge v1.12.0; add the plugin to the shell;
+- the full inventory, one section per page (Overview, Collections, Collection detail, Collection form, Documents, Document detail, Chunks, Chunk detail, Retrieval, Pipeline, Loaders, Extensions), plus Widgets, Settings, the plugin hooks in `plugin_iface.go`, the nav and topbar from `manifest.go` and `forge.contributor.yaml`: every column, stat, action, filter, form field, badge, empty state and nav item;
+- for EVERY item, its fate: **moved** (to which React page or contract intent in the spec), **changed** (how and why), or **dropped** (with the reason). Reasons the spec already gives: the three widgets (Overview covers them; plugins have no widget slot), the settings panel (a read-only copy of Pipeline config), the five templ plugin hooks (nothing implements them, each returns `templ.Component`), the "searchable" capability (declared, never implemented), the hard-coded Loaders list (replaced by content types probed from each loader's `Supports`), the strategy select on retrieval (the engine ignores it), the per-stage "Active" badges (always Active regardless);
+- the templ dashboard's own defects, so nobody mistakes them for features: create, edit and delete called routes that do not exist; the delete dialog's success handler throws; "recent" lists showed the oldest rows; Postgres state counts were always 0; collection doc and chunk counts were always 0; retrieval results never linked to a chunk or document; errors were swallowed everywhere;
+- a "Still open" list: pgvector paths untested (no vector extension in the test image), Fabriq's tie order and tenant filter unverified, the pipeline package omits `tenant_id` for untenanted rows, the strategy parameter is still ignored, reindex re-embeds and never re-chunks, source text is not stored, an overlap of 0 cannot be set (the engine reads 0 as the default);
+- a note that the React pages are being built (slices 2 and 4 of the migration) and this file's "moved" entries name what they will show; slice 5 confirms each one after the browser walk.
+
+- [ ] **Step 2: Find everything that imports the dashboard package**
+
+```bash
+grep -rn '"github.com/xraph/weave/dashboard' --include='*.go' . | grep -v '^./dashboard/'
+```
+
+Expected: no output (#39 removed the only importer). If anything prints, stop and report it.
+
+- [ ] **Step 3: Commit the inventory alone**
+
+```bash
+git add MIGRATION.md
+git commit --only -m "docs: record what the templ dashboard did before it goes" -- MIGRATION.md
+git show --stat HEAD
+```
+
+- [ ] **Step 4: Delete the directory and prove it**
+
+```bash
+git rm -r -q dashboard
+find . -name '*.templ' -not -path './_*'
+go build ./... && go vet ./... && go test -count=1 ./...
+```
+
+Expected: `find` prints nothing; build, vet and tests pass (forge is still v1.10.0 here, which is fine: nothing outside `dashboard/` used the removed packages).
+
+`git rm -r dashboard` stages exactly the tracked files under that path and nothing else; confirm with `git status --short` that every staged line starts with `D  dashboard/` before committing.
+
+- [ ] **Step 5: Commit the deletion as its own commit**
+
+```bash
+git commit --only -m "chore: delete the templ dashboard" -- dashboard
+git show --stat HEAD | tail -3
+```
+
+Expected: only deletions under `dashboard/`.
+
+---
+
+### Task 2: Move to forge v1.12.0 and grove v1.7.0, and drop templ and forgeui
 
 **Files:**
 - Modify: `go.mod`, `go.sum`
 
-This was proven on a scratch copy of 0d29d1b: `go get` changes forge, grove and its three drivers, go-utils (v1.2.2 to v1.3.0) and confy (indirect, v1.0.2 to v1.0.3), and `go build`, `go vet`, `go test ./...` all pass.
+Proven on a scratch copy of 0d29d1b with `dashboard/` deleted: the bump plus `go mod tidy` removes `github.com/a-h/templ`, `github.com/xraph/forgeui`, `github.com/Oudwins/tailwind-merge-go` and `nhooyr.io/websocket`, and the stale OpenTelemetry exporter, gRPC, genproto, zap and multierr requirements; `go build`, `go vet` and `go test ./...` pass.
 
-- [ ] **Step 1: Bump**
+- [ ] **Step 1: Bump and tidy**
 
 ```bash
-go get github.com/xraph/forge@v1.11.2 github.com/xraph/grove@v1.7.0 github.com/xraph/grove/drivers/pgdriver@v1.7.0 github.com/xraph/grove/drivers/sqlitedriver@v1.7.0 github.com/xraph/grove/drivers/mongodriver@v1.7.0
+go get github.com/xraph/forge@v1.12.0 github.com/xraph/grove@v1.7.0 github.com/xraph/grove/drivers/pgdriver@v1.7.0 github.com/xraph/grove/drivers/sqlitedriver@v1.7.0 github.com/xraph/grove/drivers/mongodriver@v1.7.0
+go mod tidy
 ```
 
-- [ ] **Step 2: Check the diff is only those moves**
+- [ ] **Step 2: Prove templ and forgeui are gone**
 
-Run: `git diff go.mod`
-Expected: forge v1.10.0 to v1.11.2, grove and the three drivers v1.6.3 to v1.7.0, go-utils v1.2.2 to v1.3.0, confy v1.0.2 to v1.0.3 (indirect). Nothing removed. If anything else moved, stop and report it. Do NOT run `go mod tidy` (it also removes about 25 unrelated stale requirements, which is out of scope).
+```bash
+grep -nE 'a-h/templ|xraph/forgeui|tailwind-merge-go' go.mod go.sum
+find . -name '*.templ' -not -path './_*'
+find . -name '*_templ.go' -not -path './_*'
+```
+
+Expected: all three print nothing. Then `git diff go.mod` and write down every module removed or moved, for the commit body.
 
 - [ ] **Step 3: Gate**
 
-With the test databases running (see constraints file), run `go build ./... && go vet ./... && go test -count=1 ./...`.
+With the test databases running and both DSNs exported: `go build ./... && go vet ./... && go test -count=1 ./...`.
 Expected: all `ok`, store conformance 0 SKIP.
 
 - [ ] **Step 4: Commit**
 
+The message body lists what tidy removed (one module per line, no dashes as punctuation):
+
 ```bash
-git commit --only -m "chore(deps): move to forge v1.11.2 and grove v1.7.0" -- go.mod go.sum
+git commit --only -F - -- go.mod go.sum <<'MSG'
+chore(deps): move to forge v1.12.0 and drop templ and forgeui
+
+forge v1.12.0 no longer pulls templ or forgeui through its dashboard
+packages, and the templ dashboard is gone, so neither is in the module
+graph any more. Tidy also removed requirements only they and older
+forge releases needed:
+
+<one removed module per line, copied from git diff go.mod>
+MSG
 git show --stat HEAD
 ```
 
 ---
 
-### Task 2: The contract's foundation
+### Task 3: The contract's foundation
 
 **Files:**
 - Create: `extension/contract/manifest.yaml`
@@ -283,7 +362,7 @@ func command[I, O any](intent string, fn func(context.Context, I, contract.Princ
 	}}
 }
 
-// bindings lists every intent this package answers. Tasks 3 to 7 add to it.
+// bindings lists every intent this package answers. Tasks 4 to 8 add to it.
 func bindings(deps Deps) []binding {
 	return []binding{}
 }
@@ -810,11 +889,11 @@ git commit --only -m "feat(contract): lay the weave contract's foundation" -- ex
 git show --stat HEAD
 ```
 
-Some helpers (`forEachStore`, `mustIngest`, `failingEmbedder`, `principal`, `mustCollection`) are unused until later tasks; if lint flags them `unused`, that is expected until Task 7 and Task 9's gate clears it.
+Some helpers (`forEachStore`, `mustIngest`, `failingEmbedder`, `principal`, `mustCollection`) are unused until later tasks; if lint flags them `unused`, that is expected until Task 8 and Task 10's gate clears it.
 
 ---
 
-### Task 3: system.overview and system.components
+### Task 4: system.overview and system.components
 
 **Files:**
 - Create: `extension/contract/rows.go`
@@ -823,7 +902,7 @@ Some helpers (`forEachStore`, `mustIngest`, `failingEmbedder`, `principal`, `mus
 - Modify: `extension/contract/contract.go` (bindings)
 
 **Interfaces:**
-- Consumes: Task 2 (`Deps`, `query`, `mapError`, `emptyIfNil`), engine `CountCollections`, `CountDocuments`, `CountChunks`, `ListDocuments`, `GetCollection`, `Components`, `Config`, `DescribeExtensions`.
+- Consumes: Task 3 (`Deps`, `query`, `mapError`, `emptyIfNil`), engine `CountCollections`, `CountDocuments`, `CountChunks`, `ListDocuments`, `GetCollection`, `Components`, `Config`, `DescribeExtensions`.
 - Produces in rows.go: `type stateCounts struct{ Pending, Processing, Ready, Failed int64 }` (json `pending`, `processing`, `ready`, `failed`), `countStates(ctx, e *engine.Engine, colID id.CollectionID, tenant *string) (stateCounts, error)`, `type documentRow struct{ *document.Document; CollectionName string "collection_name"; Stalled bool "stalled" }`, `type nameCache`, `newNameCache(e *engine.Engine) *nameCache`, `(*nameCache).name(ctx, colID) string`, `(Deps).documentRow(ctx, cache *nameCache, d *document.Document) documentRow`, `type tenantInput struct{ Tenant *string "tenant" }`.
 - Produces: `type overviewOutput`, `type componentsOutput`, `type engineConfig` (fields below).
 
@@ -1148,7 +1227,7 @@ git show --stat HEAD
 
 ---
 
-### Task 4: Collections
+### Task 5: Collections
 
 **Files:**
 - Create: `extension/contract/handlers_collections.go`
@@ -1156,7 +1235,7 @@ git show --stat HEAD
 - Modify: `extension/contract/contract.go` (bindings)
 
 **Interfaces:**
-- Consumes: Tasks 2-3 (`page`, `listOutput`, `stateCounts`, `countStates`, `parseCollectionID`, `mapError`), engine `ListCollections`, `CountCollections`, `CountDocuments`, `CountChunks`, `GetCollection`, `CreateCollection`, `UpdateCollection`, `DeleteCollection`, `ReindexCollection`, `Config`, `Components`.
+- Consumes: Tasks 3-4 (`page`, `listOutput`, `stateCounts`, `countStates`, `parseCollectionID`, `mapError`), engine `ListCollections`, `CountCollections`, `CountDocuments`, `CountChunks`, `GetCollection`, `CreateCollection`, `UpdateCollection`, `DeleteCollection`, `ReindexCollection`, `Config`, `Components`.
 - Produces: `type collectionRow struct{ *collection.Collection; DocumentCount int64 "document_count"; ChunkCount int64 "chunk_count" }`, `type collectionDetail struct{ collectionRow; DocumentsByState stateCounts "documents_by_state"; Stalled int64 "stalled" }`, `type idInput struct{ ID string "id" }`, `type idOutput struct{ ID string "id" }`, handlers `collectionsListHandler`, `collectionsGetHandler`, `collectionsCreateHandler`, `collectionsUpdateHandler`, `collectionsDeleteHandler`, `collectionsReindexHandler`.
 
 - [ ] **Step 1: Write the failing tests**
@@ -1570,7 +1649,7 @@ git show --stat HEAD
 
 ---
 
-### Task 5: Documents
+### Task 6: Documents
 
 **Files:**
 - Create: `extension/contract/handlers_documents.go`
@@ -1578,7 +1657,7 @@ git show --stat HEAD
 - Modify: `extension/contract/contract.go` (bindings)
 
 **Interfaces:**
-- Consumes: Tasks 2-4 (`page`, `listOutput`, `documentRow`, `nameCache`, `idInput`, `idOutput`, `parse*ID`, `optionalCollectionID`), engine `ListDocuments`, `CountDocuments`, `GetDocument`, `ListChunks`, `CountChunks`, `Ingest`, `DeleteDocument`.
+- Consumes: Tasks 3-5 (`page`, `listOutput`, `documentRow`, `nameCache`, `idInput`, `idOutput`, `parse*ID`, `optionalCollectionID`), engine `ListDocuments`, `CountDocuments`, `GetDocument`, `ListChunks`, `CountChunks`, `Ingest`, `DeleteDocument`.
 - Produces: `maxIngestBytes = 1 << 20`, `spanCap = 5000`, `type span`, `type spansOutput`, `type ingestInput`, `type ingestOutput`, handlers `documentsListHandler`, `documentsGetHandler`, `documentsSpansHandler`, `documentsIngestHandler`, `documentsDeleteHandler`.
 
 - [ ] **Step 1: Write the failing tests**
@@ -1916,7 +1995,7 @@ Append to `bindings`:
 Run: `go test ./extension/contract/ -run TestDocuments -count=1 -v 2>&1 | grep -E '^(\s*--- |ok|FAIL)'`
 Expected: all PASS (memory and sqlite for the round trip).
 
-If `documents.delete` of a missing ID answers something other than `NOT_FOUND`, check `engine.DeleteDocument`: it deletes vectors and chunks before the document, and the store's `DeleteDocument` returns `ErrDocumentNotFound`; the round-trip test covers the present case and Task 8's walk covers a missing one.
+If `documents.delete` of a missing ID answers something other than `NOT_FOUND`, check `engine.DeleteDocument`: it deletes vectors and chunks before the document, and the store's `DeleteDocument` returns `ErrDocumentNotFound`; the round-trip test covers the present case and Task 9's walk covers a missing one.
 
 ```bash
 git add extension/contract/handlers_documents.go extension/contract/handlers_documents_test.go
@@ -1926,7 +2005,7 @@ git show --stat HEAD
 
 ---
 
-### Task 6: Chunks
+### Task 7: Chunks
 
 **Files:**
 - Create: `extension/contract/handlers_chunks.go`
@@ -1934,7 +2013,7 @@ git show --stat HEAD
 - Modify: `extension/contract/contract.go` (bindings)
 
 **Interfaces:**
-- Consumes: Tasks 2-5, engine `ListChunks`, `CountChunks`, `GetChunk`, `GetDocument`.
+- Consumes: Tasks 3-6, engine `ListChunks`, `CountChunks`, `GetChunk`, `GetDocument`.
 - Produces: `type chunksListInput`, `type chunkDetail struct{ Chunk *chunk.Chunk "chunk"; DocumentTitle string "document_title"; PreviousID string "previous_id"; NextID string "next_id" }`, handlers `chunksListHandler`, `chunksGetHandler`.
 
 - [ ] **Step 1: Write the failing tests**
@@ -2127,7 +2206,7 @@ git show --stat HEAD
 
 ---
 
-### Task 7: Retrieval
+### Task 8: Retrieval
 
 **Files:**
 - Create: `extension/contract/handlers_retrieval.go`
@@ -2135,7 +2214,7 @@ git show --stat HEAD
 - Modify: `extension/contract/contract.go` (bindings)
 
 **Interfaces:**
-- Consumes: Tasks 2-6, engine `RetrieveCompare(ctx, query, engine.CompareParams) (*engine.CompareResult, error)`, `Assemble(ctx, []engine.ScoredChunk, engine.AssembleParams) (*engine.AssembledContext, error)`, `AssembleRefs(ctx, []engine.ChunkRef, engine.AssembleParams) (*engine.AssembledContext, []engine.ScoredChunk, error)`, `Components()`, `Config()`.
+- Consumes: Tasks 3-7, engine `RetrieveCompare(ctx, query, engine.CompareParams) (*engine.CompareResult, error)`, `Assemble(ctx, []engine.ScoredChunk, engine.AssembleParams) (*engine.AssembledContext, error)`, `AssembleRefs(ctx, []engine.ChunkRef, engine.AssembleParams) (*engine.AssembledContext, []engine.ScoredChunk, error)`, `Components()`, `Config()`.
 - Produces: `maxQueryBytes = 8 << 10`, `maxTopK = 50`, `defaultMaxTokens = 4096`, `maxMaxTokens = 32768`, `maxAssembleRefs = 50`, `type runInput`, `type runOutput struct{ Result *engine.CompareResult "result"; Context *engine.AssembledContext "context" }`, `type assembleInput struct{ Hits []engine.ChunkRef "hits"; MaxTokens int "max_tokens" }`, handlers `retrievalRunHandler`, `retrievalAssembleHandler`.
 
 - [ ] **Step 1: Write the failing tests**
@@ -2394,7 +2473,7 @@ git show --stat HEAD
 
 ---
 
-### Task 8: Cross-cutting guarantees
+### Task 9: Cross-cutting guarantees
 
 **Files:**
 - Create: `extension/contract/bindings_test.go`
@@ -2616,7 +2695,7 @@ func TestNoResponseCarriesAVector(t *testing.T) {
 - [ ] **Step 4: Run all three, then commit**
 
 Run: `go test ./extension/contract/ -run 'TestEveryDeclaredIntentIsBound|TestCommandInvalidatesReachTheClient|TestNoResponseCarriesAVector' -count=1 -v 2>&1 | grep -E '^(\s*--- |ok|FAIL)'`
-Expected: PASS. If the transport answers `ok: false` for a missing CSRF or idempotency check in this forge version, read `transport/http.go` in forge v1.11.2 for what the envelope needs and adjust `serve`, not the assertions.
+Expected: PASS. If the transport answers `ok: false` for a missing CSRF or idempotency check in this forge version, read `transport/http.go` in forge v1.12.0 for what the envelope needs and adjust `serve`, not the assertions.
 
 ```bash
 git add extension/contract/bindings_test.go extension/contract/transport_test.go extension/contract/novectors_test.go
@@ -2626,7 +2705,7 @@ git show --stat HEAD
 
 ---
 
-### Task 9: Register from the extension and hand the engine its config
+### Task 10: Register from the extension and hand the engine its config
 
 **Files:**
 - Create: `extension/dashboard_contract.go`
@@ -2829,10 +2908,10 @@ If `e.Logger()` panics on an extension that never ran `Register` (the second tes
 Run: `go test ./extension/... -count=1 -v 2>&1 | grep -E '^(\s*--- |ok|FAIL)'`
 Expected: all PASS.
 
-Check no production file imports forge's dashboard root (the templ `dashboard/` package is excluded; slice 5 deletes it):
+Check no production file imports forge's dashboard root:
 
 ```bash
-grep -rln '"github.com/xraph/forge/extensions/dashboard"' --include='*.go' . | grep -v '_test.go$' | grep -v '^./dashboard/' | grep -v '^./_project_files/'
+grep -rln '"github.com/xraph/forge/extensions/dashboard"' --include='*.go' . | grep -v '_test.go$' | grep -v '^./_project_files/'
 ```
 
 Expected: no output.
@@ -2845,7 +2924,7 @@ git show --stat HEAD
 
 ---
 
-### Task 10: Gate the slice and hand the wire to slice 2
+### Task 11: Gate the slice and hand the wire to slice 2
 
 **Files:**
 - Modify: `docs/superpowers/specs/2026-10-07-weave-dashboard-migration-design.md` in the forge-dashboard repo
@@ -2864,7 +2943,7 @@ Invoke `rex-voice`, draft, run through `humanizer` in embedded mode. No em or en
 - that an overlap of 0 on create means "the default" (the engine treats 0 that way), so the form cannot set overlap to 0;
 - that `documents.ingest` answers `state: failed` with `error` for a failed ingest, and `CONFLICT` for a duplicate;
 - that lists are newest first;
-- the forge version: v1.11.2 until slice 5 moves to v1.12.0;
+- the forge version (v1.12.0) and that templ is gone from Weave, with the `MIGRATION.md` commit and the deletion commit;
 - the slice's commit hashes.
 
 ```bash
