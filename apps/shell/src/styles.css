@@ -1,0 +1,16 @@
+@import "@forge-go/dashboard-kit/globals.css";
+
+@source "../../../packages/host/src";
+@source "../../../packages/plugin-core/src";
+@source "../../../packages/plugin-authsome/src";
+@source "../../../packages/plugin-streaming/src";
+@source "../../../packages/plugin-relay/src";
+@source "../../../packages/plugin-warden/src";
+@source "../../../packages/plugin-vault/src";
+@source "../../../packages/plugin-ledger/src";
+@source "../../../packages/plugin-bastion/src";
+@source "../../../packages/plugin-chronicle/src";
+@source "../../../packages/plugin-keysmith/src";
+@source "../../../packages/plugin-herald/src";
+@source "../../../packages/plugin-trove/src";
+@source "../../../packages/plugin-sentinel/src";
