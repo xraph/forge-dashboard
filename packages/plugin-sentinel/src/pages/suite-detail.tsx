@@ -15,9 +15,11 @@ import { PromptsTab } from "../components/prompts-tab"
 import { RedTeamTab } from "../components/redteam-tab"
 import { RunsTab } from "../components/runs-tab"
 import { SettledBoundary } from "../components/settled-boundary"
+import { StaleNotice } from "../components/stale-notice"
 import { SuiteFormDialog } from "../components/suite-form-dialog"
 import { baselinePath, formatScore, plural, suiteTabPath, temperatureLabel, versionPath } from "../format"
 import type { Suite } from "../types"
+import { useSettled } from "../use-settled"
 
 const TABS = ["cases", "runs", "prompts", "baselines", "redteam"] as const
 type SuiteTab = (typeof TABS)[number]
@@ -38,7 +40,10 @@ export const SuiteDetailPage: ComponentType<PluginPageProps> = ({ params }) => {
 }
 
 function SuiteDetailBody({ suiteId, tab }: { suiteId: string; tab: SuiteTab }) {
-  const suite = useQuery<Suite>("suites.detail", { suiteId })
+  // Edits, case writes, starting a run and deleting a baseline all invalidate
+  // this read. If that refresh fails, the page keeps the suite it had, so the
+  // tabs and any dialog open in one stay put (useSettled).
+  const suite = useSettled(useQuery<Suite>("suites.detail", { suiteId }))
   const navigate = useNavigateTo()
   // Dialogs live here, outside the boundary: edits and case writes
   // invalidate suites.detail, and nothing typed should vanish while it
@@ -49,6 +54,7 @@ function SuiteDetailBody({ suiteId, tab }: { suiteId: string; tab: SuiteTab }) {
   const [target, setTarget] = useState<Suite | null>(null)
   return (
     <section className="flex flex-col gap-6">
+      {suite.stale && <StaleNotice what="this suite" error={suite.error} onRetry={suite.refetch} />}
       <SettledBoundary title="Suite" query={suite} skeletonRows={4}>
         {(s) => (
           <div className="flex flex-col gap-4">
@@ -82,8 +88,8 @@ function SuiteDetailBody({ suiteId, tab }: { suiteId: string; tab: SuiteTab }) {
           </div>
         )}
       </SettledBoundary>
-      {/* A suite that failed to load has no tabs: each would fail the same way. */}
-      {!suite.error && (
+      {/* A suite that never loaded has no tabs: each would fail the same way. */}
+      {(suite.data !== undefined || !suite.error) && (
         <Tabs
           value={tab}
           onValueChange={(value) => {

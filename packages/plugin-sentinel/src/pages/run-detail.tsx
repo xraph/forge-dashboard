@@ -14,6 +14,7 @@ import { CompareDialog } from "../components/compare-dialog"
 import { CancelRunDialog, SaveBaselineDialog } from "../components/run-dialogs"
 import { RUN_POLL_MS } from "../components/runs-list"
 import { SettledBoundary } from "../components/settled-boundary"
+import { StaleNotice } from "../components/stale-notice"
 import { VerdictBand } from "../components/verdict-band"
 import { ViewAgainst, type ViewChoice } from "../components/view-against"
 import {
@@ -27,6 +28,7 @@ import {
   versionPath,
 } from "../format"
 import type { Regression, ResultStatus, Run, RunDetail } from "../types"
+import { useSettled } from "../use-settled"
 
 /** /runs/:id. Guards the id, then keys the body on it. */
 export const RunDetailPage: ComponentType<PluginPageProps> = ({ params }) => {
@@ -36,7 +38,9 @@ export const RunDetailPage: ComponentType<PluginPageProps> = ({ params }) => {
 }
 
 function RunDetailBody({ runId }: { runId: string }) {
-  const detail = useQuery<RunDetail>("runs.detail", { runId })
+  // A failed poll keeps the page as it was and keeps polling (useSettled):
+  // the operator is watching a run, and one lost request should not end that.
+  const detail = useSettled(useQuery<RunDetail>("runs.detail", { runId }))
   const running = detail.data?.run.state === "running"
   // Three seconds while the run is running and the tab is visible, nothing
   // once it finishes. The results section polls itself on the same rule.
@@ -61,6 +65,7 @@ function RunDetailBody({ runId }: { runId: string }) {
     viewed?.baseline && viewed.baseline.id !== own?.baseline?.id ? "chosen for this view" : "current baseline"
   return (
     <section className="flex flex-col gap-6">
+      {detail.stale && <StaleNotice what="this run" error={detail.error} onRetry={detail.refetch} />}
       <SettledBoundary title="Run" query={detail} skeletonRows={6}>
         {({ run, regression: ownAnswer }) => {
           const answer = regression ?? ownAnswer

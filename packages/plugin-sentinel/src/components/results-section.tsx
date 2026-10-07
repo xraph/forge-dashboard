@@ -1,4 +1,4 @@
-import { useEffect, useRef } from "react"
+import { useEffect, useRef, useState } from "react"
 import { PluginLink, usePoll, useQuery } from "@forge-go/dashboard-plugin"
 import { Button } from "@forge-go/dashboard-kit/components/button"
 import { NoneCell } from "@forge-go/dashboard-kit/components/none-cell"
@@ -8,7 +8,7 @@ import {
 } from "@forge-go/dashboard-kit/components/resource-table"
 import { RedTeamBadge, ResultStatusBadge } from "../badges"
 import { fellPast, formatCost, formatCount, formatDelta, formatLatency, formatScore, plural, resultPath } from "../format"
-import type { BaselineDetail, ResultRow, ResultStatus, RunResults } from "../types"
+import type { BaselineDetail, ResultCounts, ResultRow, ResultStatus, RunResults } from "../types"
 import { RUN_POLL_MS } from "./runs-list"
 import { SettledBoundary } from "./settled-boundary"
 
@@ -81,6 +81,10 @@ function columns(runId: string, baseline: BaselineScores | null, threshold: numb
  * Polling stops when the run stops, so the section reads once more on that
  * edge: a case that finished between the last two polls would otherwise be
  * missing from the table while the run's own counts include it.
+ *
+ * The chips sit outside the read's boundary and keep the last counts they
+ * were given: choosing a status changes the read, and the chips (and the
+ * focus on the one just pressed) must not vanish while it loads.
  */
 export function ResultsSection({
   runId,
@@ -104,6 +108,8 @@ export function ResultsSection({
   usePoll(() => {
     if (running) results.refetch()
   }, RUN_POLL_MS)
+  const [counts, setCounts] = useState<ResultCounts | null>(results.data?.counts ?? null)
+  if (results.data && results.data.counts !== counts) setCounts(results.data.counts)
   const { refetch } = results
   const wasRunning = useRef(running)
   useEffect(() => {
@@ -128,32 +134,34 @@ export function ResultsSection({
           {`The baseline's saved scores could not be read, so there is no change to show. ${baseline.error.message}`}
         </p>
       )}
+      {counts && (
+        <div role="group" aria-label="Show results by status" className="flex flex-wrap gap-2">
+          <Button
+            variant={status === "" ? "default" : "outline"}
+            size="sm"
+            aria-pressed={status === ""}
+            onClick={() => onStatusChange("")}
+          >
+            {`All ${counts.pass + counts.fail + counts.error}`}
+          </Button>
+          {CHIPS.map((c) => (
+            <Button
+              key={c.status}
+              variant={status === c.status ? "default" : "outline"}
+              size="sm"
+              aria-pressed={status === c.status}
+              onClick={() => onStatusChange(status === c.status ? "" : c.status)}
+            >
+              {`${c.label} ${counts[c.status]}`}
+            </Button>
+          ))}
+        </div>
+      )}
       <SettledBoundary title="Results" query={results} skeletonRows={5}>
         {(data) => {
           const total = data.counts.pass + data.counts.fail + data.counts.error
           return (
             <div className="flex flex-col gap-3">
-              <div role="group" aria-label="Show results by status" className="flex flex-wrap gap-2">
-                <Button
-                  variant={status === "" ? "default" : "outline"}
-                  size="sm"
-                  aria-pressed={status === ""}
-                  onClick={() => onStatusChange("")}
-                >
-                  {`All ${total}`}
-                </Button>
-                {CHIPS.map((c) => (
-                  <Button
-                    key={c.status}
-                    variant={status === c.status ? "default" : "outline"}
-                    size="sm"
-                    aria-pressed={status === c.status}
-                    onClick={() => onStatusChange(status === c.status ? "" : c.status)}
-                  >
-                    {`${c.label} ${data.counts[c.status]}`}
-                  </Button>
-                ))}
-              </div>
               <ResourceTable<ResultRow>
                 columns={columns(runId, scores, threshold)}
                 rows={data.items}

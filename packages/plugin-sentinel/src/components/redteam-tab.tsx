@@ -69,16 +69,20 @@ export function RedTeamTab({ suiteId }: { suiteId: string }) {
         </p>
       )}
       {run && (
-        <div className="flex flex-col gap-1">
-          <p className="text-sm text-muted-foreground">
-            {"From the newest completed run, "}
-            <PluginLink to={runPath(run.id)}>
-              <span className="font-mono text-xs">{shortRunId(run.id)}</span>
-            </PluginLink>
-            .
-          </p>
-          <RedTeamReportSection runId={run.id} title="In the newest completed run" />
-        </div>
+        <RedTeamReportSection
+          key={run.id}
+          runId={run.id}
+          title="In the newest completed run"
+          intro={
+            <p className="text-sm text-muted-foreground">
+              {"From the newest completed run, "}
+              <PluginLink to={runPath(run.id)}>
+                <span className="font-mono text-xs">{shortRunId(run.id)}</span>
+              </PluginLink>
+              .
+            </p>
+          }
+        />
       )}
       <SettledBoundary title="Red-team cases" query={cases} skeletonRows={4}>
         {(data) => {
