@@ -738,6 +738,39 @@ describe("PolicyDetailPage keys through a refetch", () => {
     expect(last(host.keysParams())).toEqual({ policyId: ID, limit: 25, offset: 25 })
   })
 
+  it("keeps the keys and the pager, and the pager keeps focus, while the next page loads", async () => {
+    const waiting: ((list: KeysList) => void)[] = []
+    const client = {
+      extension: "keysmith",
+      query: (intent: string, params?: Record<string, unknown>) => {
+        if (intent === "policies.detail") return Promise.resolve(MANY)
+        if (intent === "scopes.list") return Promise.resolve(SCOPES)
+        if (intent === "keys.list") {
+          if (params?.offset === 0) return Promise.resolve({ ...KEYS, total: 30 })
+          return new Promise<KeysList>((resolve) => waiting.push(resolve))
+        }
+        return Promise.reject(new ContractError("NOT_FOUND", `no handler for intent "${intent}"`))
+      },
+      command: async () => {
+        throw new ContractError("NOT_FOUND", "no commands")
+      },
+    } as unknown as ScopedClient
+    mount(client)
+    await screen.findByRole("heading", { level: 1, name: "Standard" })
+    const next = await screen.findByRole("button", { name: "Next page" })
+    next.focus()
+    fireEvent.click(next)
+
+    await waitFor(() => expect(document.querySelector('[aria-busy="true"]')).not.toBeNull())
+    expect(screen.getByRole("link", { name: "Billing service" })).toBeTruthy()
+    expect(screen.queryByRole("status", { name: "Loading Keys" })).toBeNull()
+    expect(screen.getByRole("button", { name: "Next page" })).toBe(next)
+    expect(document.activeElement).toBe(next)
+
+    await act(async () => waiting.shift()!({ keys: [LATE], total: 30 }))
+    expect(await screen.findByRole("link", { name: "Late reporter" })).toBeTruthy()
+  })
+
   it("steps back a page when keys leave the page it was on", async () => {
     let total = 30
     const host = hostLikeClient(MANY, {}, {

@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it } from "vitest"
 import { act, fireEvent, screen, waitFor, within } from "@testing-library/react"
-import { ContractError } from "@forge-go/dashboard-plugin"
+import { ContractError, queryStore } from "@forge-go/dashboard-plugin"
 import type { ScopedClient } from "@forge-go/dashboard-plugin"
 import { formatTimestamp } from "@forge-go/dashboard-kit/lib/format"
 import { RotationsPage } from "../src/pages/rotations"
@@ -492,6 +492,106 @@ function listCalls(sent: { intent: string; params: Record<string, unknown> }[]) 
 function keyFilter(): HTMLElement {
   return screen.getByRole("group", { name: "Key filter" })
 }
+
+/**
+ * A client whose first page answers at once and whose later reads wait for
+ * the test to release them, so a test can look at the page mid-load.
+ */
+function heldClient(first: RotationsList) {
+  const waiting: ((list: RotationsList) => void)[] = []
+  let calls = 0
+  const client = {
+    extension: "keysmith",
+    query: (intent: string) => {
+      if (intent !== "rotations.list") {
+        return Promise.reject(new ContractError("NOT_FOUND", `no handler for intent "${intent}"`))
+      }
+      calls += 1
+      if (calls === 1) return Promise.resolve(first)
+      return new Promise<RotationsList>((resolve) => waiting.push(resolve))
+    },
+    command: async () => {
+      throw new ContractError("NOT_FOUND", "no commands")
+    },
+  } as unknown as ScopedClient
+  return {
+    client,
+    release: (list: RotationsList) => act(async () => waiting.shift()!(list)),
+  }
+}
+
+describe("RotationsPage while a page loads", () => {
+  it("keeps the table and the pager, and the pager keeps focus, while the next page loads", async () => {
+    const { client, release } = heldClient({ items: [MANUAL], hasMore: true })
+    renderPage(RotationsPage, client)
+    const next = await screen.findByRole("button", { name: "Next page" })
+    next.focus()
+    fireEvent.click(next)
+
+    // Page two is in flight. The rows on screen stay, marked busy, and the
+    // button you pressed is the same element, still focused.
+    const busy = await waitFor(() => {
+      const el = document.querySelector('[aria-busy="true"]')
+      expect(el).not.toBeNull()
+      return el as HTMLElement
+    })
+    expect(within(busy).getByText("Billing service")).toBeTruthy()
+    expect(screen.queryByRole("status", { name: "Loading Rotations" })).toBeNull()
+    expect(screen.getByRole("button", { name: "Next page" })).toBe(next)
+    expect(document.activeElement).toBe(next)
+
+    await release({ items: [POLICY], hasMore: false })
+    await screen.findByText("Reporting export")
+    expect(screen.queryByText("Billing service")).toBeNull()
+    expect(document.querySelector('[aria-busy="true"]')).toBeNull()
+  })
+
+  it("keeps the page on screen through a refetch of the same page", async () => {
+    const { client, release } = heldClient({ items: [MANUAL], hasMore: true })
+    renderPage(RotationsPage, client)
+    const next = await screen.findByRole("button", { name: "Next page" })
+
+    act(() => queryStore.invalidate("keysmith", ["rotations.list"]))
+    await waitFor(() => expect(document.querySelector('[aria-busy="true"]')).not.toBeNull())
+    expect(screen.getByRole("button", { name: "Next page" })).toBe(next)
+
+    await release({ items: [MANUAL, COMPROMISE], hasMore: true })
+    await screen.findByText("Partner sandbox")
+    expect(screen.getByRole("button", { name: "Next page" })).toBe(next)
+  })
+
+  it("shows the skeleton, not the old rows, for a new reason", async () => {
+    const { client, release } = heldClient({ items: [MANUAL], hasMore: true })
+    renderPage(RotationsPage, client)
+    await screen.findByText("Billing service")
+
+    fireEvent.change(screen.getByLabelText("Reason"), { target: { value: "policy" } })
+    expect(await screen.findByRole("status", { name: "Loading Rotations" })).toBeTruthy()
+    expect(screen.queryByText("Billing service")).toBeNull()
+
+    await release({ items: [POLICY], hasMore: false })
+    await screen.findByText("Reporting export")
+  })
+
+  it("shows the error card when the next page fails, not the page before it", async () => {
+    let calls = 0
+    const client = {
+      extension: "keysmith",
+      query: async () => {
+        calls += 1
+        if (calls === 1) return { items: [MANUAL], hasMore: true }
+        throw new ContractError("UNAVAILABLE", "store is down")
+      },
+      command: async () => {
+        throw new ContractError("NOT_FOUND", "no commands")
+      },
+    } as unknown as ScopedClient
+    renderPage(RotationsPage, client)
+    fireEvent.click(await screen.findByRole("button", { name: "Next page" }))
+    expect(await screen.findByText("UNAVAILABLE: store is down")).toBeTruthy()
+    expect(screen.queryByText("Billing service")).toBeNull()
+  })
+})
 
 describe("RotationsPage with a key in the address", () => {
   afterEach(() => {

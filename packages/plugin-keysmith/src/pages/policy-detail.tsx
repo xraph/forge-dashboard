@@ -36,6 +36,7 @@ import {
   rateLimiterLine,
 } from "../enforcement"
 import { formatDuration, formatRateLimit, keyPath, maskedKey } from "../format"
+import { useHeldPage } from "../held-page"
 import type {
   KeysList,
   KeySummary,
@@ -92,15 +93,19 @@ function PolicyDetailBody({ id }: { id: string }) {
   // One-based, matching ResourceTable's PaginationState. Held here, above the
   // boundary, so a refetch of the policy does not send the table to page 1.
   const [page, setPage] = useState(1)
-  const keys = useQuery<KeysList>("keys.list", {
+  const read = useQuery<KeysList>("keys.list", {
     policyId: id,
     limit: PAGE_SIZE,
     offset: (page - 1) * PAGE_SIZE,
   })
+  // What the table shows: the page on screen stays while the next one loads,
+  // so the pager keeps the focus of the button you pressed.
+  const keys = useHeldPage(read, id)
   // Keys revoked or moved elsewhere can leave the page past the end. Step back
-  // to the last page that exists, as the keys list does.
-  const total = keys.data?.total
-  const rowCount = keys.data?.keys?.length
+  // to the last page that exists, as the keys list does. From the page's own
+  // answer, never the held one.
+  const total = read.data?.total
+  const rowCount = read.data?.keys?.length
   if (page > 1 && total !== undefined && total > 0 && rowCount === 0) {
     const last = Math.max(1, Math.ceil(total / PAGE_SIZE))
     if (last !== page) setPage(last)
@@ -321,7 +326,7 @@ function PolicyDetailView({
 
       <Section title="Keys using this policy">
         <Line>{keysLine(data.keysUsing, data.keysBlockingDelete)}</Line>
-        <QueryBoundary title="Keys" query={keys} skeletonRows={3}>
+        <QueryBoundary title="Keys" query={keys} skeletonRows={3} keepPreviousData>
           {(list) => (
             <ResourceTable<KeySummary>
               columns={keyColumns}

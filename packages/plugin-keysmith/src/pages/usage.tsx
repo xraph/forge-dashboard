@@ -25,6 +25,7 @@ import {
   USAGE_RANGES,
   type UsageRangeId,
 } from "../format"
+import { useHeldPage } from "../held-page"
 import { useKeyIdParam, useKeyName, useSetKeyIdParam } from "../key-filter"
 import type {
   KeysList,
@@ -287,13 +288,18 @@ export const UsagePage: ComponentType<PluginPageProps> = () => {
     before: bounds.before,
     ...forKey,
   })
-  const records = useQuery<UsageRecords>("usage.records", {
-    limit: PAGE_SIZE,
-    offset: (page - 1) * PAGE_SIZE,
-    after: bounds.after,
-    before: bounds.before,
-    ...forKey,
-  })
+  // The page on screen stays while the next one loads, so the pager keeps
+  // the focus of the button you pressed. A new key or range is a new list.
+  const records = useHeldPage(
+    useQuery<UsageRecords>("usage.records", {
+      limit: PAGE_SIZE,
+      offset: (page - 1) * PAGE_SIZE,
+      after: bounds.after,
+      before: bounds.before,
+      ...forKey,
+    }),
+    JSON.stringify([keyId, bounds.after, bounds.before]),
+  )
 
   function changeRange(value: string) {
     if (!isRangeId(value)) return
@@ -352,7 +358,12 @@ export const UsagePage: ComponentType<PluginPageProps> = () => {
           <h2 id="usage-records" className="text-base font-medium">
             Requests
           </h2>
-          <QueryBoundary title="Usage records" query={records} skeletonRows={5}>
+          <QueryBoundary
+            title="Usage records"
+            query={records}
+            skeletonRows={5}
+            keepPreviousData
+          >
             {(data) => {
               const rows = data.items ?? []
               return (

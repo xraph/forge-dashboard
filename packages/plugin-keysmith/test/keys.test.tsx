@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest"
-import { fireEvent, screen, waitFor, within } from "@testing-library/react"
+import { act, fireEvent, screen, waitFor, within } from "@testing-library/react"
 import { ContractError, queryStore } from "@forge-go/dashboard-plugin"
 import type { ScopedClient } from "@forge-go/dashboard-plugin"
 import { KeysPage } from "../src/pages/keys"
@@ -595,5 +595,67 @@ describe("KeysPage", () => {
     )
     expect(await screen.findByText(/keys store is down/)).toBeTruthy()
     expect(screen.queryByRole("table")).toBeNull()
+  })
+})
+
+describe("KeysPage while a page loads", () => {
+  it("keeps the table and the pager, and the pager keeps focus, while the next page loads", async () => {
+    const waiting: ((list: unknown) => void)[] = []
+    const client = {
+      extension: "keysmith",
+      query: (intent: string, params?: Record<string, unknown>) => {
+        if (intent !== "keys.list") {
+          return Promise.reject(new ContractError("NOT_FOUND", `no handler for intent "${intent}"`))
+        }
+        if (params?.offset === 0) return Promise.resolve({ keys: [BILLING], total: 30 })
+        return new Promise((resolve) => waiting.push(resolve))
+      },
+      command: async () => {
+        throw new ContractError("NOT_FOUND", "no commands")
+      },
+    } as unknown as ScopedClient
+    renderPage(KeysPage, client)
+    const next = await screen.findByRole("button", { name: "Next page" })
+    next.focus()
+    fireEvent.click(next)
+
+    await waitFor(() => expect(document.querySelector('[aria-busy="true"]')).not.toBeNull())
+    expect(screen.getByText("Billing service")).toBeTruthy()
+    expect(screen.queryByRole("status", { name: "Loading API keys" })).toBeNull()
+    expect(screen.getByRole("button", { name: "Next page" })).toBe(next)
+    expect(document.activeElement).toBe(next)
+
+    await act(async () => waiting.shift()!({ keys: [REPORTING], total: 30 }))
+    await screen.findByText("Reporting export")
+    expect(screen.queryByText("Billing service")).toBeNull()
+  })
+
+  it("keeps the rows through a refetch after a write", async () => {
+    let calls = 0
+    const waiting: ((list: unknown) => void)[] = []
+    const client = {
+      extension: "keysmith",
+      query: (intent: string) => {
+        if (intent !== "keys.list") {
+          return Promise.reject(new ContractError("NOT_FOUND", `no handler for intent "${intent}"`))
+        }
+        calls += 1
+        if (calls === 1) return Promise.resolve({ keys: [BILLING], total: 30 })
+        return new Promise((resolve) => waiting.push(resolve))
+      },
+      command: async () => {
+        throw new ContractError("NOT_FOUND", "no commands")
+      },
+    } as unknown as ScopedClient
+    renderPage(KeysPage, client)
+    const next = await screen.findByRole("button", { name: "Next page" })
+
+    act(() => queryStore.invalidate("keysmith", ["keys.list"]))
+    await waitFor(() => expect(document.querySelector('[aria-busy="true"]')).not.toBeNull())
+    expect(screen.getByText("Billing service")).toBeTruthy()
+    expect(screen.getByRole("button", { name: "Next page" })).toBe(next)
+
+    await act(async () => waiting.shift()!({ keys: [BILLING, REPORTING], total: 31 }))
+    await screen.findByText("Reporting export")
   })
 })

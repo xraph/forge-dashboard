@@ -16,6 +16,7 @@ import { Timestamp } from "@forge-go/dashboard-kit/components/timestamp"
 import { RotationReasonBadge } from "../badges"
 import { KeyCell, WindowCell } from "../components/rotation-cells"
 import { formatDuration, ROTATION_REASONS } from "../format"
+import { useHeldPage } from "../held-page"
 import { useKeyIdParam, useKeyName, useSetKeyIdParam } from "../key-filter"
 import type { RotationItem, RotationsList } from "../types"
 
@@ -184,12 +185,17 @@ export const RotationsPage: ComponentType<PluginPageProps> = () => {
   const [reason, setReason] = useState("")
 
   // An empty filter is left out of the params rather than sent as "".
-  const list = useQuery<RotationsList>("rotations.list", {
-    limit: PAGE_SIZE,
-    offset,
-    ...(keyId !== "" && { keyId }),
-    ...(reason !== "" && { reason }),
-  })
+  // The page on screen stays while the next one loads, so the pager keeps
+  // the focus of the button you pressed.
+  const list = useHeldPage(
+    useQuery<RotationsList>("rotations.list", {
+      limit: PAGE_SIZE,
+      offset,
+      ...(keyId !== "" && { keyId }),
+      ...(reason !== "" && { reason }),
+    }),
+    JSON.stringify([keyId, reason]),
+  )
 
   // A new filter means a new result set, and page 3 of it may not exist.
   function changeReason(value: string) {
@@ -232,7 +238,12 @@ export const RotationsPage: ComponentType<PluginPageProps> = () => {
         <KeyFilterChip keyId={keyId} onClear={() => setKeyId("")} />
       )}
 
-      <QueryBoundary title="Rotations" query={list} skeletonRows={5}>
+      <QueryBoundary
+        title="Rotations"
+        query={list}
+        skeletonRows={5}
+        keepPreviousData
+      >
         {(data) => {
           const rows = data.items ?? []
           return (

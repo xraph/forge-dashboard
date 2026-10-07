@@ -16,6 +16,7 @@ import { Timestamp } from "@forge-go/dashboard-kit/components/timestamp"
 import { KeyStateBadge } from "../badges"
 import { CreateKeyDialog } from "../components/create-key-dialog"
 import { ENVIRONMENTS, keyPath, maskedKey, policyPath, STATES } from "../format"
+import { useHeldPage } from "../held-page"
 import type { KeysList, KeySummary, PoliciesList } from "../types"
 
 const PAGE_SIZE = 25
@@ -124,13 +125,16 @@ export const KeysPage: ComponentType<PluginPageProps> = () => {
   )
 
   // An empty filter is left out of the params rather than sent as "".
-  const list = useQuery<KeysList>("keys.list", {
+  const read = useQuery<KeysList>("keys.list", {
     limit: PAGE_SIZE,
     offset: (page - 1) * PAGE_SIZE,
     ...(environment !== "" && { environment }),
     ...(state !== "" && { state }),
     ...(policyId !== "" && { policyId }),
   })
+  // What the table shows: the page on screen stays while the next one loads,
+  // so the pager keeps the focus of the button you pressed.
+  const list = useHeldPage(read, JSON.stringify([environment, state, policyId]))
 
   // The data can shrink under the page being viewed (keys deleted elsewhere),
   // leaving a page past the end: rows empty, total still positive. Step back
@@ -138,8 +142,10 @@ export const KeysPage: ComponentType<PluginPageProps> = () => {
   // adjust state from data, so no frame shows the empty page. Only when that
   // page is a different one: an empty last page would otherwise set the page
   // it is already on and render forever.
-  const total = list.data?.total
-  const rowCount = list.data?.keys?.length
+  // The page's own answer, never the held one: the page before it is not
+  // evidence that this one ran past the end.
+  const total = read.data?.total
+  const rowCount = read.data?.keys?.length
   if (
     page > 1 &&
     total !== undefined &&
@@ -206,7 +212,12 @@ export const KeysPage: ComponentType<PluginPageProps> = () => {
         </p>
       </div>
 
-      <QueryBoundary title="API keys" query={list} skeletonRows={5}>
+      <QueryBoundary
+        title="API keys"
+        query={list}
+        skeletonRows={5}
+        keepPreviousData
+      >
         {(data) => {
           const rows = data.keys ?? []
           // The server's total, never the page length.
@@ -236,6 +247,8 @@ export const KeysPage: ComponentType<PluginPageProps> = () => {
         }}
       </QueryBoundary>
 
+      {/* Outside the boundary, keepPreviousData or not: it shows a raw key,
+          and nothing holding one sits under a boundary. */}
       <CreateKeyDialog open={creating} onOpenChange={setCreating} />
     </section>
   )

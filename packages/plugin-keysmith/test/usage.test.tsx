@@ -778,6 +778,32 @@ describe("UsagePage", () => {
     })
   })
 
+  it("keeps the records and the pager, and the pager keeps focus, while the next page loads", async () => {
+    const waiting: ((records: UsageRecords) => void)[] = []
+    const { client } = usageClient({
+      records: (params) =>
+        params.offset === 0
+          ? { items: [record({})], total: 26 }
+          : (new Promise<UsageRecords>((resolve) => waiting.push(resolve)) as unknown as UsageRecords),
+    })
+    renderPage(UsagePage, client)
+    await screen.findByText("/v1/invoices")
+    const next = screen.getByRole("button", { name: "Next page" })
+    next.focus()
+    fireEvent.click(next)
+
+    await waitFor(() => expect(document.querySelector('[aria-busy="true"]')).not.toBeNull())
+    expect(screen.getByText("/v1/invoices")).toBeTruthy()
+    expect(screen.queryByRole("status", { name: "Loading Usage records" })).toBeNull()
+    expect(screen.getByRole("button", { name: "Next page" })).toBe(next)
+    expect(document.activeElement).toBe(next)
+
+    await act(async () =>
+      waiting.shift()!({ items: [record({ id: "kusg_26", endpoint: "/v1/page-two" })], total: 26 }),
+    )
+    expect(await screen.findByText("/v1/page-two")).toBeTruthy()
+  })
+
   it("goes back to the first page of records when the range changes", async () => {
     const { client, sent } = usageClient({
       records: () => ({ items: [record({})], total: 26 }),
