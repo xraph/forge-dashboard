@@ -442,17 +442,43 @@ describe("CreateKeyDialog expiry", () => {
   // The invariant behind `max`, written with its own local arithmetic: the
   // last date whose local end of day is not after now + lifetime. It must hold
   // in every zone, and across clock changes, where a day is 23 or 25 hours.
-  async function maxFor(now: Date, policy: string): Promise<string> {
-    vi.setSystemTime(now)
-    queryStore.clear()
+  //
+  // Mounting the dialog is what costs: a full render with its query provider,
+  // and this sweep needs a few hundred "now" values. So the page is mounted
+  // once, and each "now" closes and reopens the dialog, which remounts the
+  // form and so reads the clock afresh. Both policies are read off the same
+  // opening. The policies come from the query cache after the first answer.
+  async function sweep(
+    opened: Date[],
+    policies: string[],
+    check: (now: Date, policy: string, max: string) => void
+  ) {
     const { client } = standard()
-    const view = mount(client)
+    // The first opening reads the clock as it mounts.
+    vi.setSystemTime(opened[0])
+    mount(client)
     await dialog()
     await screen.findByRole("option", { name: "Standard" })
-    fill("Policy", policy)
-    const max = (screen.getByLabelText(/^Expiry/) as HTMLInputElement).max
-    view.unmount()
-    return max
+    let first = true
+    for (const now of opened) {
+      vi.setSystemTime(now)
+      if (!first) {
+        fireEvent.keyDown(document.body, { key: "Escape" })
+        await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull())
+        fireEvent.click(screen.getByText("Open the dialog"))
+        await dialog()
+        await screen.findByRole("option", { name: "Standard" })
+      }
+      first = false
+      for (const policy of policies) {
+        fill("Policy", policy)
+        check(
+          now,
+          policy,
+          (screen.getByLabelText(/^Expiry/) as HTMLInputElement).max
+        )
+      }
+    }
   }
 
   function endOfDay(value: string, plusDays = 0): number {
@@ -481,17 +507,17 @@ describe("CreateKeyDialog expiry", () => {
         opened.push(new Date(2026, 0, 1 + day, hour, 30, 0))
       }
     }
-    const lifetimes = { kpol_standard: 90 * 86400, kpol_short: 7 * 86400 }
-    for (const now of opened) {
-      for (const [policy, seconds] of Object.entries(lifetimes)) {
-        const limit = now.getTime() + seconds * 1000
-        const max = await maxFor(now, policy)
-        const label = `${now.toString()} ${policy} -> ${max}`
-        expect(endOfDay(max) <= limit, label).toBe(true)
-        // And it is the latest such date, so a valid day is not given up.
-        expect(endOfDay(max, 1) > limit, label).toBe(true)
-      }
+    const lifetimes: Record<string, number> = {
+      kpol_standard: 90 * 86400,
+      kpol_short: 7 * 86400,
     }
+    await sweep(opened, Object.keys(lifetimes), (now, policy, max) => {
+      const limit = now.getTime() + lifetimes[policy] * 1000
+      const label = `${now.toString()} ${policy} -> ${max}`
+      expect(endOfDay(max) <= limit, label).toBe(true)
+      // And it is the latest such date, so a valid day is not given up.
+      expect(endOfDay(max, 1) > limit, label).toBe(true)
+    })
   }, 60_000)
 
   it("clears a date the newly chosen policy would refuse", async () => {
