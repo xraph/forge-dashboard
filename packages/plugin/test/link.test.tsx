@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest"
 import { act, render, renderHook, screen } from "@testing-library/react"
-import type { ReactNode } from "react"
+import { cloneElement, type ReactNode } from "react"
 import { NavigationProvider, PluginLink, useNavigateTo } from "../src/link"
 import type { Navigation, PluginLinkProps } from "../src/link"
 
@@ -20,6 +20,14 @@ describe("PluginLink", () => {
     // the same whether or not a host is present.
     expect(link.getAttribute("href")).toBe("/@auth/users/u1")
     expect(link.getAttribute("data-router")).toBeNull()
+  })
+
+  it("accepts children supplied by a composed control", () => {
+    render(cloneElement(<PluginLink to="/routes/example/edit" />, {
+      "aria-label": "Edit route",
+      children: <svg aria-hidden="true" />,
+    }))
+    expect(screen.getByRole("link", { name: "Edit route" }).querySelector("svg")).toBeTruthy()
   })
 
   it("uses the host's router link when there is one", () => {

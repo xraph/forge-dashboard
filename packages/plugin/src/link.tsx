@@ -95,7 +95,7 @@ export function NavigationProvider({
  * work to look at one user. Twenty-one call sites across two plugins were doing
  * exactly that before this existed.
  */
-export function PluginLink({ to, children, className, ...rest }: PluginLinkProps) {
+export function PluginLink({ to, children, className, ...rest }: Omit<PluginLinkProps, "children"> & { children?: ReactNode }) {
   const nav = useContext(NavigationContext)
   const href = nav?.resolve && !isAbsolute(to) ? nav.resolve(to) : to
 
