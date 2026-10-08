@@ -1,4 +1,5 @@
 import type { ReactNode } from "react"
+import "../styles/density.css"
 import { cn } from "@forge-go/dashboard-kit/lib/utils"
 
 export interface PageHeaderProps {
@@ -27,6 +28,7 @@ export function PageHeader({
   return (
     <div
       data-slot="page-header"
+      data-density={density}
       className={cn(
         "flex flex-wrap items-start justify-between gap-2",
         className
