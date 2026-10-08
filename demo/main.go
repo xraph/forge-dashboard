@@ -42,6 +42,14 @@ func main() {
 		log.Fatalf("register ctrlplane demo: %v", err)
 	}
 
+	if err := registerShieldDemo(app, dashExt.(*dashboard.Extension)); err != nil {
+		log.Fatalf("register shield demo: %v", err)
+	}
+
+	if err := registerCortexDemo(app, dashExt.(*dashboard.Extension)); err != nil {
+		log.Fatalf("register Cortex demo: %v", err)
+	}
+
 	if err := app.RegisterExtension(dashExt); err != nil {
 		log.Fatalf("register dashboard extension: %v", err)
 	}

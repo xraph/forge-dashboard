@@ -4,11 +4,19 @@ go 1.26.0
 
 require (
 	github.com/xraph/authsome v0.0.0-00010101000000-000000000000
+	github.com/xraph/cortex v1.6.1
 	github.com/xraph/ctrlplane v0.0.0-00010101000000-000000000000
 	github.com/xraph/forge v1.12.3
 	github.com/xraph/forge/extensions/streaming v1.12.0
 	github.com/xraph/go-utils v1.3.0
 	github.com/xraph/warden v1.6.2
+)
+
+require (
+	github.com/xraph/cortex/sentinel v1.6.1 // indirect
+	github.com/xraph/nexus v1.6.4 // indirect
+	github.com/xraph/sentinel v1.6.3 // indirect
+	github.com/xraph/weave v1.6.3 // indirect
 )
 
 require (
@@ -74,7 +82,7 @@ require (
 	github.com/jackc/pgx/v5 v5.11.0 // indirect
 	github.com/jackc/puddle/v2 v2.2.2 // indirect
 	github.com/json-iterator/go v1.1.12 // indirect
-	github.com/klauspost/compress v1.19.2 // indirect
+	github.com/klauspost/compress v1.20.0 // indirect
 	github.com/leodido/go-urn v1.5.0 // indirect
 	github.com/mattn/go-colorable v0.1.15 // indirect
 	github.com/mattn/go-isatty v0.0.24 // indirect
@@ -104,6 +112,7 @@ require (
 	github.com/xdg-go/stringprep v1.0.4 // indirect
 	github.com/xlab/treeprint v1.2.0 // indirect
 	github.com/xraph/confy v1.0.3 // indirect
+	github.com/xraph/cortex/extension v1.6.1
 	github.com/xraph/forge/extensions/auth v1.11.1 // indirect
 	github.com/xraph/grove v1.7.1
 	github.com/xraph/grove/drivers/mongodriver v1.7.1 // indirect
@@ -111,6 +120,7 @@ require (
 	github.com/xraph/grove/drivers/sqlitedriver v1.7.1
 	github.com/xraph/keysmith v1.6.2 // indirect
 	github.com/xraph/ledger v1.6.1 // indirect
+	github.com/xraph/shield v1.6.3
 	github.com/xraph/vessel v1.0.4 // indirect
 	github.com/youmark/pkcs8 v0.0.0-20240726163527-a2c0da244d78 // indirect
 	go.jetify.com/typeid/v2 v2.0.0-alpha.3 // indirect
@@ -127,7 +137,7 @@ require (
 	go.uber.org/atomic v1.11.0 // indirect
 	go.yaml.in/yaml/v2 v2.4.4 // indirect
 	go.yaml.in/yaml/v3 v3.0.5 // indirect
-	golang.org/x/crypto v0.55.0 // indirect
+	golang.org/x/crypto v0.56.0 // indirect
 	golang.org/x/exp v0.0.0-20260727155853-b88d891fe743 // indirect
 	golang.org/x/net v0.58.0 // indirect
 	golang.org/x/oauth2 v0.36.0 // indirect
@@ -149,10 +159,10 @@ require (
 	k8s.io/klog/v2 v2.140.0 // indirect
 	k8s.io/kube-openapi v0.0.0-20260721132016-d427ff9ee9ad // indirect
 	k8s.io/utils v0.0.0-20260707023825-cf1189d6abe3 // indirect
-	modernc.org/libc v1.68.0 // indirect
+	modernc.org/libc v1.75.7 // indirect
 	modernc.org/mathutil v1.7.1 // indirect
-	modernc.org/memory v1.11.0 // indirect
-	modernc.org/sqlite v1.46.1 // indirect
+	modernc.org/memory v1.12.1 // indirect
+	modernc.org/sqlite v1.58.0 // indirect
 	sigs.k8s.io/json v0.0.0-20250730193827-2d320260d730 // indirect
 	sigs.k8s.io/kustomize/api v0.21.1 // indirect
 	sigs.k8s.io/kustomize/kyaml v0.21.1 // indirect
@@ -191,3 +201,11 @@ replace github.com/xraph/authsome => ../../forgery/authsome
 replace github.com/xraph/ctrlplane => ../../controlplane
 
 replace github.com/xraph/warden => ../../forgery/warden
+
+replace github.com/xraph/shield => ../../forgery/shield
+
+replace github.com/xraph/cortex => ../../forgery/cortex
+
+replace github.com/xraph/cortex/extension => ../../forgery/cortex/extension
+
+replace github.com/xraph/cortex/sentinel => ../../forgery/cortex/sentinel
