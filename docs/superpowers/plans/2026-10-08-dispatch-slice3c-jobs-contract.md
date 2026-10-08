@@ -10,6 +10,22 @@
 
 **Spec:** ../specs/2026-10-07-dispatch-dashboard-migration-design.md
 
+## Execution result
+
+Implemented in Dispatch commits `ae3d5f5`, `5dda028` and `134460b`. Direct handler
+and registration tests pass under race. The shared job identity suite passed on
+memory, SQLite, PostgreSQL 16, Redis 7 and MongoDB 7 with no backend skips. Full
+build and unit tests, ordinary lint and integration-scoped contract lint pass.
+The independent final reviewer approved this slice without findings and reran the
+extension race suite with readonly module mode.
+
+The app-only filter test was strengthened to exact IDs and order. Local test
+variables were renamed to satisfy shadow lint. The runtime dashboard interface
+test required additional transitive dependencies in the concurrently modified
+module files, which remain unstaged. Clean committed dependency reproducibility
+remains a final migration check. Other domains and browser verification remain
+outside this slice.
+
 ## Global constraints
 
 - Main primary checkout only. Preserve concurrent changes. Exact-path local commits, no push/worktree/branch/clone.
