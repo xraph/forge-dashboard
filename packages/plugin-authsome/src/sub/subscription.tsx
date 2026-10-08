@@ -10,48 +10,29 @@ import { Badge } from "@forge-go/dashboard-kit/components/badge"
 import { Button } from "@forge-go/dashboard-kit/components/button"
 import { PageHeader } from "@forge-go/dashboard-kit/components/page-header"
 import { ConfirmDialog } from "@forge-go/dashboard-kit/components/confirm-dialog"
-import { DescriptionList } from "@forge-go/dashboard-kit/components/detail-layout"
+import { DescriptionList } from "../components/presentation"
 import { NoneCell } from "@forge-go/dashboard-kit/components/none-cell"
 import { Timestamp } from "@forge-go/dashboard-kit/components/timestamp"
 import {
   CommandAlert,
   QueryBoundary,
 } from "@forge-go/dashboard-kit/components/query-boundary"
+import { ZeroState } from "@forge-go/dashboard-kit/components/zero-state"
+import { CreditCard } from "@forge-go/dashboard-kit/icons"
+import { Panel } from "../components/presentation"
+import { PageLink } from "../components/presentation"
 import {
-  ResourceTable,
-  type Column,
-} from "@forge-go/dashboard-kit/components/resource-table"
-
-/**
- * The subscription sub-plugin, and mostly a record of what it does not build.
- *
- * The legacy dashboard's subscription page is a whole billing product: five
- * nav entries, invoices, coupons, a feature catalog, subscription lifecycle,
- * plan pricing and tier editing. Every one of those is an HTMX form post
- * handled directly in `dashboard.go`, and none of them reaches the dispatcher.
- * Verified against `plugins/subscription/contract/`, there are five intents
- * and two of them are commands:
- *
- *   plans.list                       -> { plans: PlanSummary[] }   no input, no paging
- *   plans.detail({ id })              -> PlanDetail                 PlanSummary + features?
- *   plans.archive({ id })             -> { ok }
- *   plans.activate({ id })            -> { ok }
- *   subscriptions.list({ tenantId })  -> { subscriptions: SubscriptionSummary[] }
- *
- * So `/plans` lists and `/plans/:id` reads, with archive and activate as the
- * only writes on the page. There is no `plans.create` intent, no pricing
- * intent and no feature intent, so this ships no editor: a plan detail page
- * with a pricing form that has nothing to submit to would be worse than not
- * having one at all. The plans list carries a single line pointing operators
- * back at the legacy dashboard for invoices, coupons and subscription changes,
- * because an operator who finds Plans here and concludes billing has moved
- * would otherwise go looking for invoices and find nothing.
- *
- * `subscriptions.list` requires a `tenantId` and answers an EMPTY LIST when
- * given none, with no error. A tab that forgets the parameter renders "no
- * subscriptions" and looks entirely correct doing it, so `SubscriptionOrgTab`
- * and `SubscriptionUserSection` both refuse to query at all without one.
- */
+  PlanCreatePage,
+  PlanEditPage,
+  SubscriptionsPage,
+  InvoicesPage,
+  CouponsPage,
+  BillingFeaturesPage,
+  SubscriptionDetailPage,
+  InvoiceDetailPage,
+} from "./billing"
+import { ResourceTable, type Column } from "../components/presentation"
+import { formatMinorMoney } from "./money"
 
 export interface PlanSummary {
   id: string
@@ -61,19 +42,33 @@ export interface PlanSummary {
   currency?: string
   status: string
   trialDays?: number
+  baseAmount?: number
+  billingPeriod?: string
 }
 
 export interface PlanFeature {
+  id?: string
   key: string
   name: string
   type: string
   limit: number
   period: string
+  softLimit?: boolean
+  catalogId?: string
+}
+
+export interface PriceTier {
+  featureKey: string
+  type: string
+  upTo: number
+  unitAmount: number
+  flatAmount: number
 }
 
 /** `plans.detail`. PlanDetail embeds PlanSummary in Go, so the JSON is flat. */
 export interface PlanDetail extends PlanSummary {
   features?: PlanFeature[]
+  tiers?: PriceTier[]
 }
 
 export interface SubscriptionSummary {
@@ -83,6 +78,7 @@ export interface SubscriptionSummary {
   status: string
   currentPeriodStart?: string
   currentPeriodEnd?: string
+  cancelAt?: string
 }
 
 interface PlansListResponse {
@@ -174,7 +170,14 @@ export function PlansPage() {
 
   return (
     <section className="flex flex-col gap-4">
-      <PageHeader title="Plans" />
+      <PageHeader
+        title="Plans"
+        actions={
+          <PageLink to="/plans/new" primary>
+            New plan
+          </PageLink>
+        }
+      />
       {/*
         plans.list takes no input and answers its whole collection, same as
         orgs.list. There is no cursor and nothing here to page.
@@ -220,16 +223,6 @@ export function PlansPage() {
           )
         }}
       </QueryBoundary>
-
-      {/*
-        There is no plans.create intent, no pricing intent and no feature
-        intent, so this line is the whole answer to "where did billing go"
-        rather than a form with nothing behind it.
-      */}
-      <p className="text-sm text-muted-foreground">
-        Invoices, coupons and subscription changes are managed in the legacy
-        dashboard.
-      </p>
 
       <ConfirmDialog
         open={target !== null}
@@ -292,9 +285,13 @@ function PlanDetailBody({ id }: { id: string }) {
           const caption = `${features.length} ${features.length === 1 ? "feature" : "features"}`
           return (
             <>
-              <PageHeader title={plan.name} description={plan.slug} />
-              {/* Read-only. There is no pricing intent and no feature intent: a
-                  form here would have nothing to submit to. */}
+              <PageHeader
+                title={plan.name}
+                description={plan.slug}
+                actions={
+                  <PageLink to={`/plans/${plan.id}/edit`}>Edit plan</PageLink>
+                }
+              />
               <DescriptionList
                 items={[
                   {
@@ -328,6 +325,12 @@ function PlanDetailBody({ id }: { id: string }) {
                     ),
                   },
                   {
+                    term: "Base price",
+                    value: plan.baseAmount
+                      ? `${formatMinorMoney(plan.baseAmount, plan.currency ?? "usd")} / ${plan.billingPeriod}`
+                      : "Free",
+                  },
+                  {
                     term: "Description",
                     value: plan.description ?? <NoneCell label="description" />,
                   },
@@ -340,6 +343,51 @@ function PlanDetailBody({ id }: { id: string }) {
                 caption={caption}
                 emptyMessage="No features on this plan."
               />
+              {!!plan.tiers?.length && (
+                <ResourceTable<PriceTier>
+                  columns={[
+                    {
+                      id: "feature",
+                      header: "Feature",
+                      cell: (tier) => tier.featureKey,
+                    },
+                    {
+                      id: "type",
+                      header: "Tier type",
+                      cell: (tier) => tier.type,
+                    },
+                    {
+                      id: "upTo",
+                      header: "Up to",
+                      cell: (tier) => tier.upTo || "Unlimited",
+                    },
+                    {
+                      id: "unit",
+                      header: "Unit amount",
+                      cell: (tier) =>
+                        formatMinorMoney(
+                          tier.unitAmount,
+                          plan.currency ?? "usd"
+                        ),
+                    },
+                    {
+                      id: "flat",
+                      header: "Flat amount",
+                      cell: (tier) =>
+                        formatMinorMoney(
+                          tier.flatAmount,
+                          plan.currency ?? "usd"
+                        ),
+                    },
+                  ]}
+                  rows={plan.tiers}
+                  rowKey={(tier) =>
+                    `${tier.featureKey}-${tier.type}-${tier.upTo}-${tier.unitAmount}-${tier.flatAmount}`
+                  }
+                  caption={`${plan.tiers.length} pricing tiers`}
+                  emptyMessage="No pricing tiers."
+                />
+              )}
             </>
           )
         }}
@@ -394,9 +442,19 @@ function SubscriptionsForTenant({ tenantId }: { tenantId: string }) {
         const subscriptions = data.subscriptions ?? []
         if (subscriptions.length === 0) {
           return (
-            <p className="text-sm text-muted-foreground">
-              No active subscription.
-            </p>
+            <ZeroState
+              title="No subscriptions"
+              body="No subscription is linked to this account."
+              illustration={<CreditCard className="size-6 stroke-[1.5]" />}
+              action={
+                <PluginLink
+                  to="/plans"
+                  className="text-sm underline underline-offset-4"
+                >
+                  View plans
+                </PluginLink>
+              }
+            />
           )
         }
 
@@ -409,15 +467,15 @@ function SubscriptionsForTenant({ tenantId }: { tenantId: string }) {
             {subscriptions.map((subscription) => (
               <div
                 key={subscription.id}
-                className="flex flex-col gap-1 rounded-md border p-3 text-sm"
+                className="flex flex-wrap items-center justify-between gap-3 rounded-md border px-4 py-3 text-sm"
               >
-                <div className="flex items-center gap-2">
+                <div className="flex flex-wrap items-center gap-2">
                   <span className="font-medium">
                     {planName(subscription.planId)}
                   </span>
                   <SubscriptionStatusBadge status={subscription.status} />
                 </div>
-                <div className="text-muted-foreground">
+                <div className="text-xs text-muted-foreground">
                   Period ends{" "}
                   <Timestamp
                     value={subscription.currentPeriodEnd}
@@ -444,7 +502,97 @@ function SubscriptionsForTenant({ tenantId }: { tenantId: string }) {
  */
 export function SubscriptionOrgTab({ orgId }: { orgId?: string }) {
   if (!orgId) return null
-  return <SubscriptionsForTenant tenantId={orgId} />
+  return (
+    <Panel
+      title="Subscriptions"
+      description="Plans linked to this organization"
+    >
+      <SubscriptionsForTenant tenantId={orgId} />
+    </Panel>
+  )
+}
+
+export function SubscriptionOrgSummary({
+  orgId,
+  onOpenTab,
+}: {
+  orgId?: string
+  onOpenTab?: (key: string) => void
+}) {
+  if (!orgId) return null
+  return <SubscriptionOrgSummaryContent orgId={orgId} onOpenTab={onOpenTab} />
+}
+
+function SubscriptionOrgSummaryContent({
+  orgId,
+  onOpenTab,
+}: {
+  orgId: string
+  onOpenTab?: (key: string) => void
+}) {
+  const query = useQuery<SubscriptionsListResponse>("subscriptions.list", {
+    tenantId: orgId,
+  })
+  const plansQuery = useQuery<PlansListResponse>("plans.list")
+
+  return (
+    <Panel
+      title="Billing"
+      actions={
+        onOpenTab && (
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => onOpenTab("subscription:billing")}
+          >
+            View billing
+          </Button>
+        )
+      }
+    >
+      <QueryBoundary title="Billing" query={query} skeletonRows={1}>
+        {(data) => {
+          const subscriptions = data.subscriptions ?? []
+          const current =
+            subscriptions.find(
+              (item) => item.status === "active" || item.status === "trialing"
+            ) ?? subscriptions[0]
+          if (!current)
+            return (
+              <ZeroState
+                title="No subscription linked"
+                body="Open billing to review this organization's subscriptions."
+                illustration={<CreditCard className="size-6 stroke-[1.5]" />}
+                className="border-0 bg-transparent p-0"
+              />
+            )
+          const name =
+            plansQuery.data?.plans.find((plan) => plan.id === current.planId)
+              ?.name ?? current.planId
+          return (
+            <div className="flex min-w-0 items-center gap-3">
+              <div
+                aria-hidden="true"
+                className="flex size-9 shrink-0 items-center justify-center rounded-md bg-muted text-muted-foreground"
+              >
+                <CreditCard className="size-4" />
+              </div>
+              <div className="min-w-0 flex-1">
+                <div className="truncate font-medium">{name}</div>
+                <div className="text-xs text-muted-foreground">
+                  {subscriptions.length}{" "}
+                  {subscriptions.length === 1
+                    ? "subscription"
+                    : "subscriptions"}
+                </div>
+              </div>
+              <SubscriptionStatusBadge status={current.status} />
+            </div>
+          )
+        }}
+      </QueryBoundary>
+    </Panel>
+  )
 }
 
 /**
@@ -463,14 +611,61 @@ export const subscriptionSubPlugin = defineSubPlugin({
   extension: "subscription",
   host: "authsome",
   label: "Subscription",
-  nav: [{ label: "Plans", to: "/plans", group: "Configuration", priority: 2 }],
+  nav: [
+    {
+      label: "Plans",
+      to: "/plans",
+      group: "Billing",
+      priority: 0,
+      cluster: { label: "Billing", icon: <CreditCard /> },
+    },
+    {
+      label: "Subscriptions",
+      to: "/billing/subscriptions",
+      group: "Billing",
+      priority: 1,
+      cluster: { label: "Billing", icon: <CreditCard /> },
+    },
+    {
+      label: "Invoices",
+      to: "/billing/invoices",
+      group: "Billing",
+      priority: 2,
+      cluster: { label: "Billing", icon: <CreditCard /> },
+    },
+    {
+      label: "Coupons",
+      to: "/billing/coupons",
+      group: "Billing",
+      priority: 3,
+      cluster: { label: "Billing", icon: <CreditCard /> },
+    },
+    {
+      label: "Feature catalog",
+      to: "/billing/features",
+      group: "Billing",
+      priority: 4,
+      cluster: { label: "Billing", icon: <CreditCard /> },
+    },
+  ],
   routes: [
     { path: "/plans", element: PlansPage },
+    { path: "/plans/new", element: PlanCreatePage },
+    { path: "/plans/:id/edit", element: PlanEditPage },
     { path: "/plans/:id", element: PlanDetailPage },
+    { path: "/billing/subscriptions", element: SubscriptionsPage },
+    { path: "/billing/subscriptions/:id", element: SubscriptionDetailPage },
+    { path: "/billing/invoices", element: InvoicesPage },
+    { path: "/billing/invoices/:id", element: InvoiceDetailPage },
+    { path: "/billing/coupons", element: CouponsPage },
+    { path: "/billing/features", element: BillingFeaturesPage },
   ],
   // Reads nothing of its host's. Every intent it uses is its own.
   hostIntents: [],
   contributions: {
+    "org.detail.summary": [
+      { id: "billing-summary", priority: 10, render: SubscriptionOrgSummary },
+    ],
     "org.detail.tabs": [
       {
         id: "billing",

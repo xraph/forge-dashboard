@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest"
-import { screen, waitFor } from "@testing-library/react"
+import { fireEvent, screen, waitFor } from "@testing-library/react"
+import { vi } from "vitest"
 import { subscriptionSubPlugin } from "../../src/sub/subscription"
 import { renderContribution, renderSubPage, subStubClient } from "./harness"
 
@@ -59,31 +60,26 @@ describe("plans", () => {
     ).toBeNull()
   })
 
-  it("offers no create, and no editing of any kind", async () => {
+  it("links to plan creation", async () => {
     renderSubPage(pageAt("/plans"), {
       client: subStubClient({ "plans.list": plans }).client,
       hostClient: subStubClient({}).client,
       allowed: [],
     })
     await waitFor(() => expect(screen.getByText("Pro")).toBeTruthy())
-    // There is no plans.create intent, no pricing intent and no feature
-    // intent. A form with nothing to submit to is worse than no form.
-    expect(screen.queryByRole("button", { name: /create plan/i })).toBeNull()
-    expect(screen.queryByRole("button", { name: /add feature/i })).toBeNull()
+    expect(
+      screen.getByRole("link", { name: /new plan/i }).getAttribute("href")
+    ).toBe("/plans/new")
   })
 
-  it("says where the rest of billing lives", async () => {
+  it("does not send operators to the legacy billing dashboard", async () => {
     renderSubPage(pageAt("/plans"), {
       client: subStubClient({ "plans.list": plans }).client,
       hostClient: subStubClient({}).client,
       allowed: [],
     })
     await waitFor(() => expect(screen.getByText("Pro")).toBeTruthy())
-    // An operator who finds Plans here and concludes billing has moved will
-    // go looking for invoices and find nothing.
-    expect(
-      screen.getByText(/invoices, coupons and subscription changes/i)
-    ).toBeTruthy()
+    expect(screen.queryByText(/legacy dashboard/i)).toBeNull()
   })
 
   it("shows a plan's features read-only", async () => {
@@ -200,6 +196,42 @@ describe("SubscriptionOrgTab", () => {
     // SubscriptionSummary carries planId and no plan name. plans.list is the
     // only way to turn one into the other, and "p1" tells an operator nothing.
     await waitFor(() => expect(screen.getByText("Pro")).toBeTruthy())
+  })
+})
+
+describe("SubscriptionOrgSummary", () => {
+  const contribution =
+    subscriptionSubPlugin.contributions["org.detail.summary"]![0]
+
+  it("shows the current plan and opens the organization billing tab", async () => {
+    const onOpenTab = vi.fn()
+    renderContribution(contribution, {
+      slot: "org.detail.summary",
+      client: subStubClient({
+        "subscriptions.list": {
+          subscriptions: [
+            { id: "s1", tenantId: "o1", planId: "p1", status: "active" },
+          ],
+        },
+        "plans.list": plans,
+      }).client,
+      hostClient: subStubClient({}).client,
+      params: { orgId: "o1", onOpenTab },
+    })
+    await waitFor(() => expect(screen.getByText("Pro")).toBeTruthy())
+    fireEvent.click(screen.getByRole("button", { name: "View billing" }))
+    expect(onOpenTab).toHaveBeenCalledWith("subscription:billing")
+  })
+
+  it("does not query or render without an organization id", () => {
+    const own = subStubClient({})
+    const { container } = renderContribution(contribution, {
+      slot: "org.detail.summary",
+      client: own.client,
+      hostClient: subStubClient({}).client,
+    })
+    expect(own.intents).toEqual([])
+    expect(container.textContent).toBe("")
   })
 })
 

@@ -51,6 +51,7 @@ describe("authsomeSubPlugins", () => {
     const known = new Set([
       "overview.widgets",
       "user.detail.sections",
+      "org.detail.summary",
       "org.detail.sections",
       "org.detail.tabs",
       "org.create.fields",
