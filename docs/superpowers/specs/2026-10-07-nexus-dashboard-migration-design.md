@@ -1,7 +1,8 @@
 # Nexus dashboard: templ to React shell
 
-Status: written design approved on 2026-10-07. Slices 1 to 3 and the Slice 3
-follow-ups are implemented. Slice 4, the Go dashboard contract, is next.
+Status: written design approved on 2026-10-07. Slices 1 to 5, including their
+review fixes, are implemented. Slice 6 adds write flows and usage charts. The
+full migration and templ retirement remain open.
 
 Two repositories, both worked on `main`, no worktrees:
 
@@ -216,12 +217,10 @@ Settled in conversation on 2026-10-07.
    operator administers, not the operator's own scope. No handler reads
    `Principal.Claims`.
 7. **Cursor paging, no totals, money as decimal strings, absent as `null`.**
-8. **Templ is deleted after browser verification**, then forge moves to
-   `v1.12.0` in the commit after. No forge release has both `contributor`
-   (which `dashboard/` needs) and a transport that delivers
-   `meta.invalidates` (`v1.10.0` through `v1.11.1` drop it; `v1.12.0` drops
-   `contributor`). So the contract is built and unit-tested on `v1.10.0`, the
-   React side is verified against fixtures, and the bump lands last.
+8. **Templ is deleted after browser verification.** Forge moved to `v1.12.3`
+   during Slice 4 at the user's request on 2026-10-08. The disconnected legacy
+   contributor files are build-ignored so the contract can use the current
+   dispatcher. The templ sources remain as migration reference until Slice 7.
 
 ## The Go half
 
@@ -750,9 +749,9 @@ In the playbook's order:
    module. None exist today.
 4. Delete `dashboard/`, every generated `*_templ.go` and the stray
    `.DS_Store`, as its own commit.
-5. In the next commit, bump forge to `v1.12.0`, run `go mod tidy` (templ and
-   forgeui drop out; nothing else needs them), and add the transport test that
-   posts a command envelope and asserts `meta.invalidates` reaches the client.
+5. In the next commit, run `go mod tidy` to remove unused templ dependencies.
+   Keep Forge at the requested `v1.12.3`; Slice 4 already verified command
+   invalidations and secret replay through its real transport.
 6. Prove it: `find . -name '*.templ'` returns nothing; `go build ./... && go
    test ./...` pass in the workspace; every nested module builds and vets with
    `GOWORK=off`; golangci-lint on a fresh cache reports nothing.
@@ -1258,3 +1257,37 @@ tenant edits or key rotations using different idempotency keys was not changed.
 React pages, complete fixtures, write dialogs, chart verification, desktop and
 narrow browser checks, and the separate templ retirement are still outstanding.
 This slice completes the Go contract, not the migration.
+
+
+## What slice 5 found that slice 6 must know
+
+The read plugin, stateful fixtures and both host integrations are implemented.
+There are ten read routes and all 18 fixture intents. Usage is lazy and currently
+uses exact-value tables. Tenant forms, key commands, charts and templ retirement
+remain open.
+
+The Go request log now returns nullable `tenantName` and `keyPrefix`. Renaming a
+tenant invalidates `usage.records` as well as key projections. The review caught
+detached accumulated pages retaining old names: request history now restarts its
+sequence when the query store forgets an earlier page. A multiple-page rename
+regression failed with 25 stale names, then passed after the fix.
+
+Use the existing key and tenant filters for paged selections. A blank optional
+scope must be omitted; an explicit blank deep-link scope is rejected. The key
+history link carries both IDs through the host router. Every request row includes
+its correlation ID, so you can find the gateway record that produced it.
+
+Verification: 28 React tests, package typecheck and lint, eight fixture tests,
+18 HTTP intents and 12 HTTP spot checks passed. All ten routes were checked at
+1440 by 1000 and 390 by 844, with separate captures for loading, errors/retry,
+filtered empty results, collection off and open access. Browser clicks verified
+the key-history link and loading 25 more records. The Next production build and
+shell Vite bundle passed; the combined shell build was blocked by concurrent
+design-preview type errors. The full fixture verifier had 49 Shield failures
+and no Nexus failures. BASELINE records chunk sizes and these limits.
+
+One minor remains in fixtures: JavaScript accepts invalid calendar timestamps
+such as February 30 by normalization, while Go rejects them. This does not change
+the production parser. Installed-host authorization and durable distributed
+idempotency remain deployment checks. The original `dataviz` skill is unavailable;
+Slice 6 records the replacement chart guidance before implementing charts.

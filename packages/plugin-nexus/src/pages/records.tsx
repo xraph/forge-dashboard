@@ -1,6 +1,11 @@
 import { IconButton } from "@forge-go/dashboard-kit/components/icon-button"
 import { useState, useSyncExternalStore } from "react"
-import { PluginLink, useQuery } from "@forge-go/dashboard-plugin"
+import {
+  PluginLink,
+  queryStore,
+  usePluginClient,
+  useQuery,
+} from "@forge-go/dashboard-plugin"
 import { Button } from "@forge-go/dashboard-kit/components/button"
 import { Input } from "@forge-go/dashboard-kit/components/input"
 import { NativeSelect } from "@forge-go/dashboard-kit/components/native-select"
@@ -38,15 +43,36 @@ function RecordRows({
   filters: Filters
   clear: () => void
 }) {
+  const client = usePluginClient()
   const [cursor, setCursor] = useState<string>()
-  const query = useQuery<UsageRecords>("usage.records", {
+  const paramsFor = (pageCursor?: string) => ({
     ...filters,
-    ...(cursor ? { cursor } : {}),
+    ...(pageCursor ? { cursor: pageCursor } : {}),
     limit: 25,
   })
+  const query = useQuery<UsageRecords>("usage.records", paramsFor(cursor))
   const [pages, setPages] = useState<Record<string, UsageRecords>>({})
   const pageKey = cursor ?? "first"
-  if (query.data && !query.error && pages[pageKey] !== query.data)
+  // An invalidation drops unwatched pages. Restart at the first page instead
+  // of combining their detached rows with a refreshed later page.
+  const forgotten = Object.entries(pages).some(([key, page]) => {
+    const storeKey = queryStore.keyOf(
+      client.extension,
+      "usage.records",
+      paramsFor(key === "first" ? undefined : key)
+    )
+    const cached = queryStore.snapshot<UsageRecords>(storeKey).data
+    return key === pageKey ? cached === undefined : cached !== page
+  })
+  if (forgotten) {
+    setCursor(undefined)
+    setPages({})
+  } else if (
+    query.data &&
+    !query.loading &&
+    !query.error &&
+    pages[pageKey] !== query.data
+  )
     setPages({ ...pages, [pageKey]: query.data })
   const items = [
     ...new Map(
@@ -185,18 +211,29 @@ function RecordRows({
                     : "Send a request through the gateway to see its cost and outcome here."
                 }
                 action={
-                  <IconButton variant="outline" onClick={
+                  <IconButton
+                    variant="outline"
+                    onClick={
                       Object.keys(filters).length ? clear : query.refetch
-                    } label={Object.keys(filters).length
-                      ? "Clear filters"
-                      : "Refresh requests"} />
+                    }
+                    label={
+                      Object.keys(filters).length
+                        ? "Clear filters"
+                        : "Refresh requests"
+                    }
+                  />
                 }
               />
             )}
             <div className="flex items-center justify-between gap-2 text-xs text-muted-foreground">
               <span>{items.length} requests shown</span>
               {value.nextCursor && (
-                <IconButton variant="outline" disabled={query.loading} onClick={() => setCursor(value.nextCursor)} label="Load more requests" />
+                <IconButton
+                  variant="outline"
+                  disabled={query.loading}
+                  onClick={() => setCursor(value.nextCursor)}
+                  label="Load more requests"
+                />
               )}
             </div>
           </>
@@ -338,7 +375,12 @@ function RecordsFilterPage({ search }: { search: string }) {
           Apply filters
         </Button>
         {Object.keys(filters).length > 0 && (
-          <IconButton type="button" variant="ghost" onClick={clear} label="Clear filters" />
+          <IconButton
+            type="button"
+            variant="ghost"
+            onClick={clear}
+            label="Clear filters"
+          />
         )}
       </form>
       {error && (

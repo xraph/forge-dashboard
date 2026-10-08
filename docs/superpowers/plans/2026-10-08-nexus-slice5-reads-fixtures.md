@@ -64,46 +64,46 @@ Create `packages/plugin-nexus/{package.json,tsconfig.json,eslint.config.js,vites
 using the established plugin package settings. Create `src/{types.ts,money.ts,badges.tsx}`,
 `src/components/{money.tsx,cursor-pager.tsx,tenant-filter.tsx}` and test harness files.
 
-- [ ] Write exact-money tests for zero, negative sign handling, large integers,
+- [x] Write exact-money tests for zero, negative sign handling, large integers,
   sub-cent values and long fractional tails. Test grouping and split cents without
   `Number`, `parseFloat` or implicit numeric coercion of an amount.
-- [ ] Define explicit camelCase types from the shipped DTOs. Nullable metrics stay
+- [x] Define explicit camelCase types from the shipped DTOs. Nullable metrics stay
   nullable, arrays stay arrays and key types have no raw/hash field except the
   separate command result type reserved for Slice 6.
-- [ ] Implement exact formatting with string operations. Use BigInt scale alignment
+- [x] Implement exact formatting with string operations. Use BigInt scale alignment
   for comparison/share math only when needed; never round a displayed amount.
-- [ ] Implement the spec's status/outcome badge mappings using kit variants.
-- [ ] Add local cursor controls with previous/next semantics and no invented total.
+- [x] Implement the spec's status/outcome badge mappings using kit variants.
+- [x] Add local cursor controls with previous/next semantics and no invented total.
   The package does not import another plugin's components.
-- [ ] Build a tenant selector that can search and load more than the first page.
+- [x] Build a tenant selector that can search and load more than the first page.
   Its all-tenant choice omits the request field. Keep hooks unconditional and use
   query `enabled` for reads that need a validated route identifier.
-- [ ] Verify focused tests, typecheck and lint. Commit the package foundation.
+- [x] Verify focused tests, typecheck and lint. Commit the package foundation.
 
 ## Task 2: Stateful fixtures for the complete contract
 
 Create `nexus-fixtures.mjs` and standalone Node tests before touching the shared server.
 Export `createNexusHandlers(FixtureError)` and `resetNexus()`.
 
-- [ ] Seed active, suspended and disabled tenants; active, expired and revoked keys;
+- [x] Seed active, suspended and disabled tenants; active, expired and revoked keys;
   priced, cached, refused, blocked and unpriced usage; exact sub-cent prices; and a
   tenant consuming 85 percent of its budget. All amounts are strings.
-- [ ] Implement all 12 queries with the real DTO shapes, stable ordering and cursors.
+- [x] Implement all 12 queries with the real DTO shapes, stable ordering and cursors.
   Apply every supplied filter before paging. Validate tenant/key identities, key
   ownership, periods, buckets, outcomes and time bounds like the Go contract.
-- [ ] Implement all six writes. Tenant updates merge dirty nested fields and preserve
+- [x] Implement all six writes. Tenant updates merge dirty nested fields and preserve
   both metadata maps. Cache null resets inheritance. Reject duplicate slugs, negative
   limits/budgets, bad scopes and past expiry. Rotate revokes the old key immediately.
-- [ ] Return a generated raw key only in create/rotate results. Persist only a display
+- [x] Return a generated raw key only in create/rotate results. Persist only a display
   prefix, never the raw value or hash. Verify reads and exported fixture state cannot
   recover a generated secret. Use the shared fixture server's replay protection where
   available, and model the shipped secret conflict behavior explicitly if needed.
-- [ ] Keep accounting exact through BigInt-based decimal arithmetic. Unknown costs
+- [x] Keep accounting exact through BigInt-based decimal arithmetic. Unknown costs
   remain null; free/cached/not-charged records use known zero; sum only priced values.
-- [ ] Honor `FIXTURE_NEXUS_USAGE_OFF=1` and `FIXTURE_NEXUS_OPEN_GATEWAY=1` with explicit
+- [x] Honor `FIXTURE_NEXUS_USAGE_OFF=1` and `FIXTURE_NEXUS_OPEN_GATEWAY=1` with explicit
   unavailable metrics and posture. Fixtures must not present disabled collection as
   zero traffic.
-- [ ] Run Node tests covering write-then-read, all validation branches, pagination,
+- [x] Run Node tests covering write-then-read, all validation branches, pagination,
   scope isolation, field preservation, secret nonretention and exact aggregation.
   Commit the standalone fixture files.
 
@@ -111,42 +111,42 @@ Export `createNexusHandlers(FixtureError)` and `resetNexus()`.
 
 Create `src/pages/{overview.tsx,gateway.tsx,models.tsx,settings.tsx}` and their tests.
 
-- [ ] Overview shows HTTP authentication posture, limiter kind, collection, configured
+- [x] Overview shows HTTP authentication posture, limiter kind, collection, configured
   guards/cache and compact alerts for open access, usage-off, insert errors and limiter
   errors. Counts use the server's totals and unpriced requests remain beside spend.
-- [ ] Gateway shows actual stages with the terminal marked, inspection unavailability,
+- [x] Gateway shows actual stages with the terminal marked, inspection unavailability,
   routing strategy/caveats, guards, cache completion/stream kinds and untracked size,
   aliases, transforms and enforcement limits. Preserve execution order where it matters.
-- [ ] Models/providers expose exact price strings, free/unpriced distinction, capabilities,
+- [x] Models/providers expose exact price strings, free/unpriced distinction, capabilities,
   context/output limits, and the observed 15-minute traffic window. Zero traffic differs
   from collection-off. Queries never request health pings.
-- [ ] Settings show only the projected effective configuration. No bootstrap credentials
+- [x] Settings show only the projected effective configuration. No bootstrap credentials
   or editable controls for an unsupported command.
-- [ ] Use QueryBoundary and ZeroState with retry/next actions. Test real query calls and
+- [x] Use QueryBoundary and ZeroState with retry/next actions. Test real query calls and
   rendered domain values under populated, empty, error and usage-off fixtures.
-- [ ] Run package checks and commit these read pages.
+- [x] Run package checks and commit these read pages.
 
 ## Task 4: Tenant, key and usage reads
 
 Create `src/pages/{tenants.tsx,tenant-detail.tsx,keys.tsx,key-detail.tsx,usage.tsx,records.tsx}`
 and their tests. Usage remains lazy and has exact tables in this slice.
 
-- [ ] Tenant list has status/search controls, stable cursor navigation, exact spend and
+- [x] Tenant list has status/search controls, stable cursor navigation, exact spend and
   budget, and clear unlimited quotas. Detail shows consumption and limits, config with
   stored-but-unenforced labels, metadata and tenant-scoped keys.
-- [ ] Key list defaults to active, scopes by tenant and shows prefix, tenant name, scopes,
+- [x] Key list defaults to active, scopes by tenant and shows prefix, tenant name, scopes,
   effective status, expiry and last use. Detail supports expired and revoked resources.
   Preserve the difference between missing resource and denied access.
-- [ ] Usage has tenant and period filters above its summary and exact series/aggregate
+- [x] Usage has tenant and period filters above its summary and exact series/aggregate
   tables. Outcome counts retain all five states. Keep the previous successful scope
   visible while the next loads, labelled busy; errors must not masquerade as new data.
-- [ ] Request log scopes tenant/key/provider/model/outcome/time, with cursor load-more and
+- [x] Request log scopes tenant/key/provider/model/outcome/time, with cursor load-more and
   no fake total. Show exact or unavailable cost, outcome reason and milliseconds. Reset
   accumulated rows and cursor when any filter changes.
-- [ ] Test filter-to-request mapping, late responses, pagination, zero vs null, missing IDs,
+- [x] Test filter-to-request mapping, late responses, pagination, zero vs null, missing IDs,
   and every empty-state explanation. Render action controls only when their flow exists;
   Slice 6 will add creation/edit/reveal routes and commands.
-- [ ] Run package checks and commit read flows.
+- [x] Run package checks and commit read flows.
 
 ## Task 5: Plugin and host wiring
 
@@ -154,18 +154,18 @@ Create `src/index.tsx` with `extension: "nexus"`, namespace/label Nexus and the 
 Gateway, Customers and Spend nav groups. Keep usage lazy and avoid importing its module
 elsewhere. Only implemented routes are declared at this stage.
 
-- [ ] Test plugin resolution for installed, absent and unconfigured contributors, plus
+- [x] Test plugin resolution for installed, absent and unconfigured contributors, plus
   route ownership and lazy usage loading. Exercise pages through the shared host harness.
-- [ ] Wire shell package/import/plugins/styles, then example-next dependency/config/style/
+- [x] Wire shell package/import/plugins/styles, then example-next dependency/config/style/
   transpilePackages using targeted patches. Install with pnpm without rewriting unrelated
   lockfile changes into the commit.
-- [ ] Register fixtures in the shared server's import, contributor list, reset and inventory.
+- [x] Register fixtures in the shared server's import, contributor list, reset and inventory.
   Add Nexus HTTP verification without changing other contributor behavior.
-- [ ] Run package tests/typecheck/lint, fixture tests and HTTP verification, shell build and
+- [x] Run package tests/typecheck/lint, fixture tests and HTTP verification, shell build and
   example-next checks. Measure the eager/lazy chunks and record them in BASELINE.md with
   the current command and environment.
-- [ ] Check every read route at desktop and narrow widths against the fixture host. Save
+- [x] Check every read route at desktop and narrow widths against the fixture host. Save
   screenshots and record loading/error/empty/usage-off results, not just navigation success.
-- [ ] Obtain one independent final review, fix important findings with regression tests and
+- [x] Obtain one independent final review, fix important findings with regression tests and
   update the spec with the Slice 6 handoff. Full migration remains open until write flows,
   chart verification, both key dialogs and separate templ retirement pass their gates.

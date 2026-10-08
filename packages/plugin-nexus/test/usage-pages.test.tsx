@@ -158,3 +158,26 @@ it("a late next page cannot append rows after the outcome changes", async () => 
   expect(screen.getByText("15 requests shown")).toBeTruthy()
   expect(screen.queryByText("Unknown cost")).toBeNull()
 })
+
+it("reloads the accumulated request sequence after tenant-label invalidation", async () => {
+  const { queryStore } = await import("@forge-go/dashboard-plugin")
+  const tenantId = answer<UsageRecords>("usage.records").items[0].tenantId!
+  const { client } = fixtureClient()
+  renderWithClient(<RecordsPage />, client)
+  fireEvent.click(
+    await screen.findByRole("button", { name: "Load more requests" })
+  )
+  await screen.findByText("50 requests shown")
+  await act(async () => {
+    answer("tenants.update", { id: tenantId, name: "Orbit Renamed" })
+    queryStore.invalidate("nexus", ["usage.records"])
+  })
+  await waitFor(() =>
+    expect(screen.queryAllByText("Orbit Labs")).toHaveLength(0)
+  )
+  expect(screen.getAllByText("Orbit Renamed").length).toBeGreaterThan(0)
+  expect(screen.getByText("25 requests shown")).toBeTruthy()
+  fireEvent.click(screen.getByRole("button", { name: "Load more requests" }))
+  await screen.findByText("50 requests shown")
+  expect(screen.queryAllByText("Orbit Labs")).toHaveLength(0)
+})
