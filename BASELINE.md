@@ -770,3 +770,20 @@ shell's `styles.css` scans every plugin package's sources either way.
 
 The chunk hashes named here are from this build. Any edit to the entry changes
 them, so search by chunk name if you repeat the counts.
+
+## Shield editor (2026-10-08)
+
+A production Vite build of the current shell emits Shield's structured editor
+as a separate `editor-*.js` chunk: 11.65 kB raw, 4.15 kB gzip. CodeMirror stays
+behind the editor's dynamic import; overview and record routes do not import it.
+The shared CodeMirror chunk is 296.22 kB raw, 95.70 kB gzip and is also lazy.
+The whole shell entry is 1,543.59 kB raw, 403.13 kB gzip across the current plugin
+composition. This is a measurement, not a passing bundle-budget claim.
+
+Command: `pnpm --filter @forge-go/dashboard-shell exec vite build --outDir
+/tmp/shield-icon-shell-build`. The ordinary shell build remains blocked by existing
+concurrent errors in `src/design-preview/DashboardPreview.tsx` at lines 878/885.
+
+The final entry is `index-Cvp7epr0.js`. Its static import closure contains 30
+chunks; Shield's `editor-DqURcWUZ.js` and the shared CodeMirror
+`dist-DTPZDTh4.js` are outside that closure and are not modulepreloaded.

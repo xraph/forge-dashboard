@@ -17,6 +17,16 @@ TypeScript 6, pnpm 10.21.0, Vitest and the shared dashboard kit.
 
 **Spec:** `../specs/2026-10-08-shield-dashboard-migration-design.md`.
 
+## Execution status
+
+The administrative migration is implemented on main. Shield's legacy dashboard
+is retired. Final evidence, three review fixes and qualification limits are in
+`../../reviews/2026-10-08-shield-dashboard.md`. The full Shield suite, all three
+store backends, 18 React tests and 117 live HTTP requests pass. The ordinary
+shell build and eight host tests remain blocked by concurrent files outside
+Shield ownership. Representative desktop/narrow browser journeys pass; the
+entire route matrix and production identity deployment remain unqualified.
+
 ## Global constraints
 
 - Work directly on `main` in the primary checkouts. No branches or worktrees.
@@ -429,5 +439,5 @@ removing them; migrate those consumers through contracts and React slots.
   Chronicle is required. No checked-in demo files changed in this audit.
 - [x] Review the existing shell against that demo at 1280x720 and 390x844.
   Shield is absent from capabilities, so Shield flows remain unverified.
-- [ ] Implement and live-review Shield. This request produces the design and
-  execution plan; the new Shield dashboard does not yet exist.
+- [x] Implement Shield and review representative live workflows. The evidence
+  record distinguishes completed checks from the remaining qualification limits.

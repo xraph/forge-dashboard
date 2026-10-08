@@ -301,3 +301,46 @@ so you can curl a command without minting a real token first.
 - `startupcheck.go`: the in-process check that warns loudly at startup if
   the compiled forge checkout is missing `ContributorCapability.Configured`
   (see "Which forge checkout you need" above).
+
+## Shield administration
+
+Set `DEMO_SHIELD=true` to register the real Shield extension. Startup fails if
+its SQLite database or audit file cannot open. Shield has no synthetic fallback.
+You can run a persistent local review with:
+
+```sh
+PORT=8201 DEMO_SHIELD=true \
+  DEMO_SHIELD_DB=/tmp/forge-dashboard-shield-review.db \
+  DEMO_SHIELD_AUDIT=/tmp/forge-dashboard-shield-review.audit.jsonl \
+  GOWORK=off go run -mod=readonly .
+```
+
+Start the shell from the dashboard root:
+
+```sh
+FORGE_DASHBOARD_BACKEND=http://127.0.0.1:8201 \
+  pnpm --filter @forge-go/dashboard-shell dev --host 127.0.0.1 --port 5201
+```
+
+Open `http://127.0.0.1:5201/@shield`. The local development identity maps to the
+fixed `shield-demo` tenant and `shield-console` app. `DEMO_SHIELD_ROLE` accepts
+`admin`, `reader` or `denied`; it defaults to `admin`. This identity is for a
+loopback development server. Production hosts must supply authenticated scope
+and permission claims or their own trusted actor resolver.
+
+Seed configuration is persistent and idempotent. Historical scans and reports
+are labelled examples. Shield's six evaluation layers are unfinished, report
+generation is unavailable, and settings are read-only. Saving a configuration
+does not establish protection. PII responses contain metadata only.
+
+Retention requires a sensitive administrator and the configured audit adapter.
+The server reviews at most 100 expired token IDs with an immutable cutoff and a
+five-minute preview. Confirmation deletes only that selection. It records a
+synchronous audit entry before deletion and a completion entry afterward.
+
+Run `node demo/shield-verify.mjs http://127.0.0.1:8201` from the dashboard root
+for real HTTP acceptance. It creates and removes only configuration named for
+that run and leaves seeded PII intact. The separate
+`node packages/fixture-server/shield-verify.mjs` starts its own synthetic server
+and exercises all 67 intents; that is development contract coverage, not live
+Shield qualification.
