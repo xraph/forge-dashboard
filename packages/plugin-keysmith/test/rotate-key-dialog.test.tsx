@@ -26,6 +26,7 @@ import {
   failingClient,
   recordingCommandClient,
   secretCommandClient,
+  unlockedWithFirstError,
 } from "./harness"
 
 // Obviously fake. A realistic-looking key never goes in a test.
@@ -819,6 +820,35 @@ describe("RotateKeyDialog idempotency", () => {
     expect((await screen.findByRole("alert")).textContent).toBe(
       "this key changed while you were acting on it. Reload and try again."
     )
+  })
+
+  it("closes on Cancel pressed as soon as an error shows", async () => {
+    const server = secretServer()
+    mount(server.client)
+    await dialog()
+    server.loseNextAnswer()
+    const unlocked = unlockedWithFirstError()
+    fireEvent.click(rotateButton())
+    await screen.findByRole("alert")
+
+    // No wait: the commit that shows the error is the one that unlocks.
+    expect(await unlocked).toBe(true)
+    fireEvent.click(screen.getByRole("button", { name: "Cancel" }))
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull())
+  })
+
+  it("closes on Escape pressed as soon as an error shows", async () => {
+    const server = secretServer()
+    mount(server.client)
+    await dialog()
+    server.loseNextAnswer()
+    const unlocked = unlockedWithFirstError()
+    fireEvent.click(rotateButton())
+    await screen.findByRole("alert")
+
+    expect(await unlocked).toBe(true)
+    fireEvent.keyDown(document.body, { key: "Escape" })
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull())
   })
 
   it("mints a new key after a context switch", async () => {

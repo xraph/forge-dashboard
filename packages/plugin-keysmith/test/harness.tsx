@@ -1,6 +1,6 @@
 import type { ComponentType } from "react"
 import { beforeEach } from "vitest"
-import { render } from "@testing-library/react"
+import { render, screen } from "@testing-library/react"
 import {
   ContractError,
   PluginProvider,
@@ -274,4 +274,20 @@ export function renderRoutedPage(
     </PluginProvider>,
   )
   return { ...result, router }
+}
+
+/**
+ * Whether the Close button was already back when an error first reached the
+ * page. It watches the DOM from before the press, so it sees the commit that
+ * showed the error before anything else gets to run, an effect included.
+ */
+export function unlockedWithFirstError(): Promise<boolean> {
+  return new Promise((resolve) => {
+    const observer = new MutationObserver(() => {
+      if (document.querySelector('[role="alert"]') === null) return
+      observer.disconnect()
+      resolve(screen.queryByRole("button", { name: "Close" }) !== null)
+    })
+    observer.observe(document.body, { childList: true, subtree: true })
+  })
 }

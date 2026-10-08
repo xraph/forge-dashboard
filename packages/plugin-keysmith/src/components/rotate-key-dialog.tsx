@@ -1,4 +1,4 @@
-import { useEffect, useId, useRef, useState } from "react"
+import { useEffect, useId, useLayoutEffect, useRef, useState } from "react"
 import type { FormEvent } from "react"
 import {
   queryStore,
@@ -226,10 +226,16 @@ function RotateKeyForm({
   const sending = useRef(false)
 
   const locked = rotate.loading || revealed !== null || finished
-  useEffect(() => {
+  // A layout effect, not a passive one. React runs it inside the commit that
+  // changed `locked` and renders the root again before the browser paints or
+  // handles the next event, so the root never acts on an old value. A passive
+  // effect runs after the paint. An answer arriving from the network left a
+  // gap there: the error was on screen while the root still hid the Close
+  // button and refused Cancel and Escape.
+  useLayoutEffect(() => {
     onLockedChange(locked)
   }, [locked, onLockedChange])
-  useEffect(() => () => onLockedChange(false), [onLockedChange])
+  useLayoutEffect(() => () => onLockedChange(false), [onLockedChange])
 
   const shown: Grace =
     mode === "custom"

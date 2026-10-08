@@ -24,7 +24,11 @@ import type {
   PoliciesList,
   ScopesList,
 } from "../src/types"
-import { recordingCommandClient, secretCommandClient } from "./harness"
+import {
+  recordingCommandClient,
+  secretCommandClient,
+  unlockedWithFirstError,
+} from "./harness"
 
 // Obviously fake. A realistic-looking key never goes in a test.
 const RAW_KEY = `sk_test_${"0123456789abcdef".repeat(2)}a3f8`
@@ -1087,12 +1091,13 @@ describe("CreateKeyDialog idempotency", () => {
     mount(server.client)
     await screen.findByRole("checkbox", { name: "billing:read" })
     server.loseNextAnswer()
+    const unlocked = unlockedWithFirstError()
     await submitNamed()
     await screen.findByRole("alert")
-    // The dialog unlocks in an effect after the error renders. Its Close
-    // button comes back with it, and a Cancel before then is refused.
-    await screen.findByRole("button", { name: "Close" })
 
+    // No wait for the Close button: the commit that shows the error is the
+    // one that unlocks the dialog.
+    expect(await unlocked).toBe(true)
     fireEvent.click(screen.getByRole("button", { name: "Cancel" }))
     await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull())
     fireEvent.click(screen.getByRole("button", { name: "Open the dialog" }))
@@ -1100,6 +1105,20 @@ describe("CreateKeyDialog idempotency", () => {
     await submitNamed()
     await screen.findByText("This is the only time Keysmith will show it.")
     expect(server.sent[1].idempotencyKey).not.toBe(server.sent[0].idempotencyKey)
+  })
+
+  it("closes on Escape pressed as soon as an error shows", async () => {
+    const server = secretServer()
+    mount(server.client)
+    await screen.findByRole("checkbox", { name: "billing:read" })
+    server.loseNextAnswer()
+    const unlocked = unlockedWithFirstError()
+    await submitNamed()
+    await screen.findByRole("alert")
+
+    expect(await unlocked).toBe(true)
+    fireEvent.keyDown(document.body, { key: "Escape" })
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull())
   })
 
   it("mints a new key for the next key after a reveal", async () => {
