@@ -73,4 +73,11 @@ describe("weavePlugin", () => {
     expect(nav?.priority).toBe(20)
     expect(weavePlugin.routes.map((r) => r.path)).toContain("/documents")
   })
+
+  it("routes a document's page lazily", () => {
+    const route = weavePlugin.routes.find((r) => r.path === "/documents/:id")
+    expect(route).toBeDefined()
+    // A React.lazy component is an object with the lazy marker, not a function.
+    expect(typeof route?.element).toBe("object")
+  })
 })
