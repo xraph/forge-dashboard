@@ -305,6 +305,7 @@ const INPUT = {
   "trove::cas.unpin": { hash: `sha256:${"b2".repeat(32)}` },
   ...SENTINEL_INPUT,
   ...HERALD_INPUT,
+  ...WEAVE_INPUT,
 }
 
 /**
