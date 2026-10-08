@@ -1,8 +1,8 @@
 import { describe, expect, it } from "vitest"
-import { fireEvent, screen, waitFor, within } from "@testing-library/react"
-import { ContractError } from "@forge-go/dashboard-plugin"
+import { act, fireEvent, screen, waitFor, within } from "@testing-library/react"
+import { ContractError, queryStore } from "@forge-go/dashboard-plugin"
 import { CollectionDetailPage } from "../src/pages/collection-detail"
-import { renderWithNavigate, scriptedClient } from "./harness"
+import { invalidatingClient, renderWithNavigate, scriptedClient } from "./harness"
 
 const ID = "col_01k70000000000000000000001"
 
@@ -141,6 +141,20 @@ describe("CollectionDetailPage", () => {
     fireEvent.click(within(dialog).getByRole("button", { name: "Delete collection" }))
     expect(await within(dialog).findByText("collection not found")).toBeTruthy()
     expect(navigate).not.toHaveBeenCalled()
+  })
+
+  it("keeps an open dialog through a refetch of the collection", async () => {
+    const { client } = invalidatingClient({
+      "collections.get": (_input, call) => (call === 0 ? DETAIL : new Promise(() => {})),
+      "documents.list": DOCS,
+    })
+    renderWithNavigate(CollectionDetailPage, client, { id: ID })
+    await openDialog("Reindex")
+    act(() => {
+      queryStore.invalidate("weave", ["collections.get"])
+    })
+    expect(screen.getByRole("alertdialog")).toBeTruthy()
+    expect(screen.getByRole("heading", { name: "support-articles" })).toBeTruthy()
   })
 
   it("shows an error card for a collection that doesn't exist", async () => {

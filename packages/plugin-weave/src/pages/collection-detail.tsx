@@ -72,7 +72,7 @@ export const CollectionDetailPage: ComponentType<PluginPageProps> = ({ params })
   }
 
   return (
-    <QueryBoundary title="Collection" query={detail} skeletonRows={8}>
+    <QueryBoundary title="Collection" query={detail} skeletonRows={8} keepPreviousData>
       {(c) => (
         <section className="flex flex-col gap-6">
           <PageHeader
