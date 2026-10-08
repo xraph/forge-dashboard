@@ -161,6 +161,50 @@ describe("createScopedClient", () => {
     expect((viaEnvelope as ContractError).details).toBeUndefined()
   })
 
+  // forge's dispatcher answers an idempotency conflict as HTTP 500 with the
+  // reason in details and, for a command still running, retryable set. A page
+  // tells those apart by the reason, so both branches keep both fields.
+  it("keeps the server's retryable flag and details.reason on both failure branches", async () => {
+    const envelope = {
+      ok: false,
+      envelope: "v1",
+      error: {
+        code: "CONFLICT",
+        message: "the same command is still running under this idempotency key",
+        details: { reason: "idempotency.still_running" },
+        retryable: true,
+      },
+    }
+
+    const viaStatus = await createScopedClient(BASE, "keysmith", mockFetch(envelope, 500))
+      .query("keys.create")
+      .catch((e: unknown) => e)
+    const viaEnvelope = await createScopedClient(BASE, "keysmith", mockFetch(envelope))
+      .query("keys.create")
+      .catch((e: unknown) => e)
+
+    for (const err of [viaStatus, viaEnvelope]) {
+      expect(err).toBeInstanceOf(ContractError)
+      expect((err as ContractError).retryable).toBe(true)
+      expect((err as ContractError).details).toEqual({ reason: "idempotency.still_running" })
+    }
+  })
+
+  it("leaves retryable undefined when the server does not send it", async () => {
+    const envelope = { ok: false, envelope: "v1", error: { code: "NOT_FOUND", message: "nope" } }
+
+    const viaStatus = await createScopedClient(BASE, "relay", mockFetch(envelope, 404))
+      .query("x.y")
+      .catch((e: unknown) => e)
+    const viaEnvelope = await createScopedClient(BASE, "relay", mockFetch(envelope))
+      .query("x.y")
+      .catch((e: unknown) => e)
+
+    expect((viaStatus as ContractError).retryable).toBeUndefined()
+    expect((viaEnvelope as ContractError).retryable).toBeUndefined()
+    expect(new ContractError("TRANSPORT", "lost").retryable).toBeUndefined()
+  })
+
   // A `Response` whose body is empty (no content at all) rejects `res.json()`
   // rather than resolving to something with no `error` field - this is the
   // bare 403 the auth middleware sends (Task 1), and any other endpoint that

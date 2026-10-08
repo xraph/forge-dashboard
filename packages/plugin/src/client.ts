@@ -23,17 +23,44 @@ export interface ContractEnvelopeRequest {
  * send `{field: "tenant_id"}`), so a page can put the message next to the
  * input it belongs to. Undefined when the server sent none, and always
  * undefined on TRANSPORT, which never heard from the contract layer.
+ *
+ * `details.reason`, when a server sends one, is a stable name for why the
+ * request failed (forge's dispatcher says `idempotency.already_ran` and the
+ * like). Read it in preference to the message, whose wording is free to
+ * change.
+ *
+ * `retryable` is `contract.Error.Retryable`: the server's word that the same
+ * request may succeed if sent again. Undefined when the server did not say so,
+ * which the wire cannot tell apart from false.
  */
 export class ContractError extends Error {
   readonly code: string
   readonly details?: Record<string, unknown>
+  readonly retryable?: boolean
 
-  constructor(code: string, message: string, details?: Record<string, unknown>) {
+  constructor(
+    code: string,
+    message: string,
+    details?: Record<string, unknown>,
+    retryable?: boolean,
+  ) {
     super(message)
     this.name = "ContractError"
     this.code = code
     this.details = details
+    this.retryable = retryable
   }
+}
+
+/**
+ * The wire's `error` object, as much of it as the client reads. Mirrors
+ * `contract.Error` in `contract/errors.go`.
+ */
+interface WireError {
+  code: string
+  message: string
+  details?: Record<string, unknown>
+  retryable?: boolean
 }
 
 /**
@@ -253,11 +280,9 @@ export function createScopedClient(
    */
   async function parseErrorBody(
     res: Response,
-  ): Promise<{
-    error?: { code?: string; message?: string; details?: Record<string, unknown> }
-  } | null> {
+  ): Promise<{ error?: Partial<WireError> } | null> {
     return ((await res.json?.()?.catch(() => null)) ?? null) as {
-      error?: { code?: string; message?: string; details?: Record<string, unknown> }
+      error?: Partial<WireError>
     } | null
   }
 
@@ -329,6 +354,7 @@ export function createScopedClient(
           body.error.code,
           body.error.message ?? "contract request failed",
           body.error.details,
+          body.error.retryable,
         )
       }
       throw new ContractError("TRANSPORT", `contract request failed with HTTP ${res.status}`)
@@ -344,7 +370,7 @@ export function createScopedClient(
       ok: boolean
       data?: T
       meta?: ResponseMeta
-      error?: { code: string; message: string; details?: Record<string, unknown> }
+      error?: WireError
     } | null
 
     if (!envelope) {
@@ -359,6 +385,7 @@ export function createScopedClient(
         envelope.error?.code ?? "UNKNOWN",
         envelope.error?.message ?? "contract request failed",
         envelope.error?.details,
+        envelope.error?.retryable,
       )
     }
 
