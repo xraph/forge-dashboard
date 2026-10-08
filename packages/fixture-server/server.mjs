@@ -47,6 +47,7 @@ import { createBastionHandlers, resetBastion } from "./bastion-fixtures.mjs"
 import { createKeysmithHandlers, resetKeysmith } from "./keysmith-fixtures.mjs"
 import { createSentinelHandlers, resetSentinel } from "./sentinel-fixtures.mjs"
 import { createHeraldHandlers, resetHerald } from "./herald-fixtures.mjs"
+import { createWeaveHandlers, resetWeave } from "./weave-fixtures.mjs"
 
 // ---------------------------------------------------------------------------
 // Config
@@ -2853,6 +2854,7 @@ const CONTRIBUTORS = [
   { name: "bastion", envPrefix: "BASTION", handlers: createBastionHandlers(FixtureError) },
   { name: "sentinel", envPrefix: "SENTINEL", handlers: createSentinelHandlers(FixtureError) },
   { name: "herald", envPrefix: "HERALD", handlers: createHeraldHandlers(FixtureError) },
+  { name: "weave", envPrefix: "WEAVE", handlers: createWeaveHandlers(FixtureError) },
   ...SETTINGS_ONLY_EXTENSIONS.map((extension) => ({
     name: extension,
     envPrefix: extension.toUpperCase(),
@@ -3126,6 +3128,7 @@ function handleReset(res) {
   resetBastion()
   resetSentinel()
   resetHerald()
+  resetWeave()
   csrfTokens.clear()
   idempotencyStore.clear()
   return sendJSON(res, 200, { ok: true })
