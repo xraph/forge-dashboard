@@ -78,12 +78,10 @@ describe("DeniedScreen", () => {
 
   it("surfaces a failed sign-out and does not call back", async () => {
     const onSignedOut = vi.fn()
-    const failingCommand = vi
-      .fn()
-      .mockRejectedValue({
-        code: "TRANSPORT",
-        message: "could not reach the server",
-      })
+    const failingCommand = vi.fn().mockRejectedValue({
+      code: "TRANSPORT",
+      message: "could not reach the server",
+    })
     render(
       <PluginProvider client={client(failingCommand)}>
         <DeniedScreen

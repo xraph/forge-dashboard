@@ -79,6 +79,65 @@ describe("navGroups", () => {
     expect(identity?.contributed).toBe(true)
   })
 
+  it("folds related ready sub-plugin links into one branch under their group label", () => {
+    const risk = defineSubPlugin({
+      extension: "riskengine",
+      host: "auth",
+      nav: [
+        {
+          label: "Risk Engine",
+          to: "/security/risk",
+          group: "Security",
+          priority: 0,
+          cluster: { label: "Threat detection" },
+        },
+      ],
+      routes: [{ path: "/security/risk", element: Noop }],
+    })
+    const anomaly = defineSubPlugin({
+      extension: "anomaly",
+      host: "auth",
+      nav: [
+        {
+          label: "Anomaly Detection",
+          to: "/security/anomaly",
+          group: "Security",
+          priority: 1,
+          cluster: { label: "Threat detection" },
+        },
+      ],
+      routes: [{ path: "/security/anomaly", element: Noop }],
+    })
+
+    const security = navGroups(auth, [risk, anomaly], "platform").find(
+      (group) => group.label === "Security"
+    )
+    const branch = security?.items.find(
+      (item) => item.label === "Threat detection"
+    )
+    expect(branch?.children?.map((child) => child.label)).toEqual([
+      "Risk Engine",
+      "Anomaly Detection",
+    ])
+    expect(branch?.children?.map((child) => child.href)).toEqual([
+      "/@auth/platform/security/risk",
+      "/@auth/platform/security/anomaly",
+    ])
+    expect(security?.items.some((item) => item.label === "Credentials")).toBe(
+      true
+    )
+
+    const single = navGroups(auth, [risk], "platform").find(
+      (group) => group.label === "Security"
+    )
+    expect(single?.items.some((item) => item.label === "Risk Engine")).toBe(
+      true
+    )
+    expect(
+      single?.items.some((item) => item.label === "Threat detection")
+    ).toBe(false)
+  })
+
   it("adds a group the host does not have when only a sub-plugin uses it", () => {
     const waitlist = defineSubPlugin({
       extension: "waitlist",

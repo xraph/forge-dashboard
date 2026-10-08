@@ -165,3 +165,40 @@ describe("ScopeSwitcher glyph", () => {
     ).toHaveLength(3)
   })
 })
+
+describe("ScopeSwitcher root destination", () => {
+  it("names the root without inventing a namespace", () => {
+    render(
+      <SidebarProvider>
+        <ScopeSwitcher
+          scopes={scopes}
+          onSelect={() => {}}
+          home={{ label: "Forge", onSelect: () => {} }}
+        />
+      </SidebarProvider>
+    )
+    expect(
+      screen.getByRole("button", { name: /Forge Application dashboard/ })
+    ).toBeTruthy()
+    expect(screen.queryByText("@forge")).toBeNull()
+  })
+
+  it("returns to the root through its own callback", () => {
+    const onHome = vi.fn()
+    const onScope = vi.fn()
+    render(
+      <SidebarProvider>
+        <ScopeSwitcher
+          scopes={scopes}
+          activeId="auth"
+          onSelect={onScope}
+          home={{ label: "Forge", onSelect: onHome }}
+        />
+      </SidebarProvider>
+    )
+    fireEvent.click(screen.getByRole("button", { name: /Auth/ }))
+    fireEvent.click(screen.getByRole("menuitem", { name: "Forge" }))
+    expect(onHome).toHaveBeenCalledOnce()
+    expect(onScope).not.toHaveBeenCalled()
+  })
+})
