@@ -1,5 +1,6 @@
 import { definePlugin } from "@forge-go/dashboard-plugin"
-import { HouseIcon, WorkflowIcon } from "@forge-go/dashboard-kit/icons"
+import { HouseIcon, LibraryIcon, WorkflowIcon } from "@forge-go/dashboard-kit/icons"
+import { CollectionsPage } from "./pages/collections"
 import { OverviewPage } from "./pages/overview"
 import { PipelinePage } from "./pages/pipeline"
 
@@ -17,14 +18,16 @@ export const weavePlugin = definePlugin({
   label: "Weave",
   nav: [
     { label: "Overview", to: "/", priority: -10, icon: <HouseIcon />, group: "RAG" },
+    { label: "Collections", to: "/collections", priority: 10, icon: <LibraryIcon />, group: "RAG" },
     { label: "Pipeline", to: "/pipeline", priority: 40, icon: <WorkflowIcon />, group: "RAG" },
   ],
   routes: [
     { path: "/", element: OverviewPage },
+    { path: "/collections", element: CollectionsPage },
     { path: "/pipeline", element: PipelinePage },
   ],
 })
 
-export { OverviewPage, PipelinePage }
+export { CollectionsPage, OverviewPage, PipelinePage }
 
 export default weavePlugin
