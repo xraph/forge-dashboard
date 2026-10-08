@@ -10,7 +10,7 @@ Cortex scope is an ordered hierarchy of at most three levels (`cortex/scope.go`)
 
 Stable TypeIDs are route identities. Names used by composition references stay immutable through the dashboard. Updates use pointer fields to preserve omitted values. Read the row before patching, preserve timestamps/scope and validate nested values and referenced records. Writes call engine methods, especially prompt synchronization, cancellation and checkpoint resolution. Return canonical errors and invalidate every affected query through manifest metadata.
 
-`RunAgent` echoes without an LLM. The UI names that limitation and requires an explicit echo demonstration request, separate from model execution. Registered LLM, knowledge and safety adapters are reported separately from available remote providers. Sentinel's auto-evaluation hook is TODO. The old safety adapter swallows errors and performs bounded post-filtering; it cannot supply a trustworthy complete scan result. Keep external model, safety and knowledge data behind scoped provider interfaces and report unavailable providers visibly.
+`RunAgent` echoes without an LLM. The contract refuses execution without an LLM. The persistent demo installs a labelled deterministic local completion provider; it still uses the real engine and store. Registered LLM, knowledge and safety adapters are reported separately from available remote providers. Sentinel's auto-evaluation hook is TODO. The old safety adapter swallows errors and performs bounded post-filtering; it cannot supply a trustworthy complete scan result. Keep external model, safety and knowledge data behind scoped provider interfaces and report unavailable providers visibly.
 
 Runtime `UpdateConfig` is in-memory and unsynchronized. Settings show actual runtime values, with no Save action until a persistent synchronized configuration service is supplied. This is a deliberate correction to the old form and is recorded in the inventory.
 
@@ -37,3 +37,13 @@ Badges: enabled and completed use outline; disabled, created and paused use seco
 The initial root test invocation passed core, engine, SQLite and PostgreSQL. MongoDB failed to start on Docker's Linux 7.0.14 kernel because the image rejects kernels 6.19 and newer by default. Record that as blocked, not a passing backend qualification.
 
 Both primary checkouts are on main. Cortex is clean with two pre-existing local commits. All local feature/fix branch patches are already included in main and all fetched feature/fix tips are ancestors, so no replay is needed. There are no extra worktrees to remove. Shared dashboard edits belong to other chats and remain untouched.
+
+## Implementation review, 2026-10-08
+
+Slices 1 through 5 are implemented and committed. The local HTTP suite passes for all six nested configuration types and the runtime workflows, including persisted operator message identity. Browser review covers navigation, saved editors, agent edit/save, streamed chat, approval/resume, prompt assembly and independent comparison sessions. Agent detail and playground fit at 390px without page overflow.
+
+Cortex plugin typecheck, lint and 7 tests pass. The shared plugin has 237 passing tests. The demo's SQLite restart tests pass, as do extension and engine race checks. Vite bundling succeeds. The full shell build is blocked by the concurrent design preview's AppSidebar props/type errors, and the full workspace test run has host setup failures outside Cortex (the Shield refresh repair now passes). See Cortex's `MIGRATION.md` for commands, logs and the complete ledger.
+
+Slices 6 and 7 remain open for full qualification and retirement. Nexus, Weave and Shield access adapters are covered locally; production credentials and live external grants are not configured. MongoDB also remains blocked by the recorded container/kernel issue. Keep the legacy templ package until those gates close, then remove it in a separate verified commit.
+
+The final density pass uses shared icon buttons with tooltips for secondary actions and compact comparison panes. Keyboard tooltip focus, desktop layout and 390px wrapping were browser-reviewed. Main submissions and confirmation decisions retain text. The focused UI commit is `319bdf1`.
