@@ -1,0 +1,405 @@
+import type { Action, Field, Resource } from "./types"
+const name: Field = { key: "name", label: "Name", required: true }
+const services: Field = {
+  key: "services",
+  label: "Services",
+  type: "services",
+  required: true,
+}
+const kind: Field = {
+  key: "kind",
+  label: "Workload kind",
+  type: "select",
+  options: ["deployment", "stateful_set"],
+}
+const strategy: Field = {
+  key: "strategy",
+  label: "Strategy",
+  type: "select",
+  options: ["rolling", "recreate", "blue_green", "canary"],
+}
+const json = (key: string, title: string): Field => ({
+  key,
+  label: title,
+  type: "json",
+})
+const action = (
+  key: string,
+  verb: string,
+  title: string,
+  destructive = false
+): Action => ({ intent: `${key}.${verb}`, label: title, destructive })
+const remove = (key: string): Action => ({
+  ...action(key, "delete", "Delete", true),
+  description:
+    "This removes the selected resource. Teardown failures remain visible so you can retry.",
+})
+export const resources: Record<string, Resource> = {
+  workloads: {
+    key: "workloads",
+    title: "Workloads",
+    singular: "Workload",
+    columns: [
+      "name",
+      "state",
+      "replica_count",
+      "provider_name",
+      "region",
+      "image",
+      "created_at",
+    ],
+    fields: [
+      "id",
+      "tenant_id",
+      "slug",
+      "state",
+      "kind",
+      "replica_count",
+      "previous_replicas",
+      "provider_name",
+      "region",
+      "datacenter_id",
+      "current_release_id",
+      "template_id",
+      "created_at",
+      "updated_at",
+      "paused_at",
+    ],
+    filters: ["state", "provider_name", "region"],
+    create: [
+      name,
+      { key: "provider_name", label: "Provider", required: true },
+      { key: "region", label: "Region" },
+      kind,
+      { key: "replicas", label: "Replicas", type: "number", value: 1 },
+      services,
+    ],
+    edit: [name, services, json("labels", "Labels")],
+    actions: [
+      action("workloads", "restart", "Restart"),
+      action("workloads", "pause", "Pause", true),
+      action("workloads", "resume", "Resume"),
+      {
+        ...action("workloads", "scale", "Scale"),
+        fields: [
+          {
+            key: "replicas",
+            label: "Desired replicas",
+            type: "number",
+            required: true,
+          },
+        ],
+      },
+      {
+        ...action("workloads", "deploy", "Deploy"),
+        nested: true,
+        fields: [services, strategy, { key: "notes", label: "Notes" }],
+      },
+      remove("workloads"),
+    ],
+  },
+  instances: {
+    key: "instances",
+    title: "Instances",
+    singular: "Instance",
+    columns: [
+      "name",
+      "state",
+      "provider_name",
+      "region",
+      "image",
+      "created_at",
+    ],
+    fields: [
+      "id",
+      "tenant_id",
+      "slug",
+      "state",
+      "kind",
+      "provider_name",
+      "region",
+      "datacenter_id",
+      "provider_ref",
+      "current_release",
+      "created_at",
+      "updated_at",
+      "suspended_at",
+    ],
+    filters: ["state", "provider", "label"],
+    actions: [
+      action("instances", "start", "Start"),
+      action("instances", "stop", "Stop", true),
+      action("instances", "restart", "Restart"),
+      {
+        ...action("instances", "suspend", "Suspend", true),
+        fields: [{ key: "reason", label: "Reason", required: true }],
+      },
+      action("instances", "unsuspend", "Unsuspend"),
+      remove("instances"),
+    ],
+  },
+  templates: {
+    key: "templates",
+    title: "Templates",
+    singular: "Template",
+    columns: [
+      "name",
+      "description",
+      "default_kind",
+      "default_strategy",
+      "image",
+      "created_at",
+    ],
+    fields: [
+      "id",
+      "tenant_id",
+      "description",
+      "default_kind",
+      "default_strategy",
+      "notes",
+      "created_at",
+      "updated_at",
+    ],
+    create: [
+      name,
+      { key: "description", label: "Description" },
+      { ...kind, key: "default_kind" },
+      { ...strategy, key: "default_strategy" },
+      services,
+      json("labels", "Labels"),
+      { key: "notes", label: "Notes" },
+      json("variables", "Variables"),
+      {
+        ...json("source", "Deployment source"),
+        hint: "Use a services, helm, manifests or argocd source supported by the provider.",
+      },
+    ],
+    actions: [remove("templates")],
+  },
+  datacenters: {
+    key: "datacenters",
+    title: "Datacenters",
+    singular: "Datacenter",
+    columns: [
+      "name",
+      "provider_name",
+      "region",
+      "zone",
+      "status",
+      "instance_count",
+      "created_at",
+    ],
+    fields: [
+      "id",
+      "tenant_id",
+      "slug",
+      "provider_name",
+      "region",
+      "zone",
+      "status",
+      "created_at",
+      "updated_at",
+    ],
+    filters: ["status", "provider", "region"],
+    create: [
+      name,
+      { key: "provider_name", label: "Provider", required: true },
+      { key: "region", label: "Region", required: true },
+      { key: "zone", label: "Zone" },
+      {
+        key: "location",
+        label: "Location",
+        type: "group",
+        children: [
+          { key: "country", label: "Country" },
+          { key: "city", label: "City" },
+          { key: "latitude", label: "Latitude", type: "number" },
+          { key: "longitude", label: "Longitude", type: "number" },
+        ],
+      },
+      {
+        key: "capacity",
+        label: "Capacity limits",
+        type: "group",
+        children: [
+          { key: "max_instances", label: "Maximum instances", type: "number" },
+          {
+            key: "max_cpu_millis",
+            label: "Maximum CPU millis",
+            type: "number",
+          },
+          { key: "max_memory_mb", label: "Maximum memory MB", type: "number" },
+        ],
+      },
+      json("bootstrap_services", "Bootstrap services"),
+    ],
+    actions: [
+      {
+        intent: "datacenters.status",
+        label: "Change status",
+        fields: [
+          {
+            key: "status",
+            label: "Status",
+            type: "select",
+            options: ["active", "maintenance", "draining", "offline"],
+          },
+        ],
+      },
+      remove("datacenters"),
+    ],
+  },
+  tenants: {
+    key: "tenants",
+    title: "Tenants",
+    singular: "Tenant",
+    columns: ["name", "slug", "plan", "status", "created_at"],
+    fields: [
+      "id",
+      "external_id",
+      "slug",
+      "plan",
+      "status",
+      "created_at",
+      "updated_at",
+    ],
+    filters: ["status"],
+    create: [name, { key: "plan", label: "Plan", value: "free" }],
+    actions: [
+      {
+        ...action("tenants", "suspend", "Suspend", true),
+        fields: [{ key: "reason", label: "Reason", required: true }],
+      },
+      action("tenants", "unsuspend", "Unsuspend"),
+      remove("tenants"),
+    ],
+  },
+  providers: {
+    key: "providers",
+    title: "Providers",
+    singular: "Provider",
+    columns: ["name", "region", "healthy", "capabilities"],
+    fields: ["name", "region", "healthy", "checked_at", "message"],
+    actions: [
+      { intent: "providers.test", label: "Test health" },
+      {
+        intent: "providers.purge",
+        label: "Purge resources",
+        destructive: true,
+        description:
+          "Delete workloads and orphan instances on this provider in the authenticated tenant. Partial failures stop the purge and report what was removed.",
+      },
+    ],
+  },
+  workers: {
+    key: "workers",
+    title: "Workers",
+    singular: "Worker",
+    columns: [
+      "name",
+      "running",
+      "interval",
+      "last_run",
+      "run_count",
+      "last_error",
+    ],
+    fields: [
+      "name",
+      "running",
+      "interval",
+      "last_run",
+      "run_count",
+      "last_error",
+    ],
+  },
+  deployments: {
+    key: "deployments",
+    title: "Deployments",
+    singular: "Deployment",
+    columns: [
+      "instance_id",
+      "image",
+      "strategy",
+      "state",
+      "initiator",
+      "started_at",
+    ],
+    fields: [
+      "id",
+      "tenant_id",
+      "instance_id",
+      "release_id",
+      "strategy",
+      "state",
+      "initiator",
+      "error",
+      "started_at",
+      "finished_at",
+      "created_at",
+    ],
+    actions: [action("deployments", "cancel", "Cancel", true)],
+  },
+  releases: {
+    key: "releases",
+    title: "Releases",
+    singular: "Release",
+    columns: [
+      "version",
+      "image",
+      "active",
+      "notes",
+      "commit_sha",
+      "created_at",
+    ],
+    fields: [
+      "id",
+      "instance_id",
+      "version",
+      "active",
+      "notes",
+      "commit_sha",
+      "created_at",
+    ],
+  },
+}
+resources.templates.edit = resources.templates.create
+resources.datacenters.edit = resources.datacenters.create?.filter(
+  (field) => !["provider_name", "region"].includes(field.key)
+)
+export const deployFields: Field[] = [
+  services,
+  strategy,
+  { key: "commit_sha", label: "Commit SHA" },
+  { key: "notes", label: "Notes" },
+]
+export const domainFields: Field[] = [
+  { key: "hostname", label: "Hostname", required: true },
+  { key: "tls_enabled", label: "TLS enabled", type: "checkbox" },
+]
+export const routeFields: Field[] = [
+  { key: "path", label: "Path", required: true, value: "/" },
+  { key: "port", label: "Port", type: "number", required: true, value: 8080 },
+  {
+    key: "protocol",
+    label: "Protocol",
+    type: "select",
+    options: ["http", "tcp", "grpc"],
+  },
+  { key: "service_name", label: "Service name" },
+  { key: "hostname", label: "Hostname" },
+  { key: "weight", label: "Weight", type: "number", value: 100 },
+  { key: "strip_prefix", label: "Strip prefix", type: "checkbox" },
+  { key: "rewrite_redirects", label: "Rewrite redirects", type: "checkbox" },
+  {
+    key: "rewrite_cookie_path",
+    label: "Rewrite cookie path",
+    type: "checkbox",
+  },
+  { key: "upstream_origin", label: "Upstream origin" },
+  {
+    key: "tls_verify",
+    label: "Verify upstream TLS",
+    type: "checkbox",
+    value: true,
+  },
+]
