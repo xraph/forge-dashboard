@@ -154,7 +154,9 @@ describe("CollectionDetailPage", () => {
       queryStore.invalidate("weave", ["collections.get"])
     })
     expect(screen.getByRole("alertdialog")).toBeTruthy()
-    expect(screen.getByRole("heading", { name: "support-articles" })).toBeTruthy()
+    // The open dialog marks the page behind it aria-hidden, so look past that.
+    expect(screen.getByRole("heading", { name: "support-articles", hidden: true })).toBeTruthy()
+    expect(screen.queryByRole("status", { name: "Loading Collection", hidden: true })).toBeNull()
   })
 
   it("shows an error card for a collection that doesn't exist", async () => {
