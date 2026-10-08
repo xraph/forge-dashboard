@@ -22,7 +22,7 @@ export const ChunkDetailPage: ComponentType<PluginPageProps> = ({ params }) => {
         <section className="flex flex-col gap-6">
           <PageHeader
             title={`Chunk ${chunk.index}`}
-            description={document_title !== "" ? `Of ${document_title}` : "Its document has been deleted."}
+            description={document_title !== "" ? `Of ${document_title}` : "Its document is untitled or has been deleted. Open it to find out."}
           />
           <section className="flex flex-col gap-2">
             <h2 className="text-sm font-medium">Text</h2>
@@ -33,17 +33,16 @@ export const ChunkDetailPage: ComponentType<PluginPageProps> = ({ params }) => {
               { term: "ID", value: <Id value={chunk.id} /> },
               {
                 term: "Document",
-                value:
-                  document_title !== "" ? (
-                    <PluginLink to={documentPath(chunk.document_id)} className="underline-offset-4 hover:underline">
-                      {document_title}
-                    </PluginLink>
-                  ) : (
-                    <span className="flex flex-wrap items-center gap-2">
-                      <span className="text-sm text-muted-foreground">document deleted</span>
-                      <Id value={chunk.document_id} />
-                    </span>
-                  ),
+                value: (
+                  <span className="flex flex-wrap items-center gap-2">
+                    <IdLink to={documentPath(chunk.document_id)} value={chunk.document_id} />
+                    {document_title !== "" ? (
+                      <span className="text-sm font-medium">{document_title}</span>
+                    ) : (
+                      <span className="text-sm text-muted-foreground">untitled, or deleted</span>
+                    )}
+                  </span>
+                ),
               },
               { term: "Collection", value: <IdLink to={collectionPath(chunk.collection_id)} value={chunk.collection_id} /> },
               { term: "Tenant", value: chunk.tenant_id !== "" ? <Id value={chunk.tenant_id} /> : <NoneCell label="tenant" /> },

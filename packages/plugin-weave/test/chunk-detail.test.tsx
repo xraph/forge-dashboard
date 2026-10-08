@@ -34,7 +34,8 @@ describe("ChunkDetailPage", () => {
   it("names its document, its offsets and its token estimate", async () => {
     const { client } = scriptedClient({ "chunks.get": detail() })
     renderPage(ChunkDetailPage, client, { id: CHUNK })
-    expect((await screen.findByRole("link", { name: "Refund policy" })).getAttribute("href")).toBe(`/documents/${DOC}`)
+    expect(await screen.findByText("Refund policy")).toBeTruthy()
+    expect(screen.getByRole("link", { name: DOC }).getAttribute("href")).toBe(`/documents/${DOC}`)
     expect(screen.getByText("160 to 352")).toBeTruthy()
     expect(screen.getByText(/about 48 tokens \(characters ÷ 4\)/)).toBeTruthy()
     expect(screen.getByText("section")).toBeTruthy()
@@ -53,12 +54,14 @@ describe("ChunkDetailPage", () => {
     expect(await screen.findByLabelText("no previous chunk")).toBeTruthy()
   })
 
-  it("opens a chunk whose document is gone, and says so rather than linking it", async () => {
+  it("says an empty title means untitled or deleted, and still links the document", async () => {
     const { client } = scriptedClient({ "chunks.get": detail({ document_title: "" }) })
     renderPage(ChunkDetailPage, client, { id: CHUNK })
-    expect(await screen.findByText("document deleted")).toBeTruthy()
-    expect(screen.queryByRole("link", { name: "Refund policy" })).toBeNull()
-    expect(screen.getByText(DOC).className).toContain("font-mono")
+    expect(await screen.findByText("untitled, or deleted")).toBeTruthy()
+    expect(screen.queryByText("document deleted")).toBeNull()
+    const link = screen.getByRole("link", { name: DOC })
+    expect(link.getAttribute("href")).toBe(`/documents/${DOC}`)
+    expect(link.className).toContain("font-mono")
   })
 
   it("shows an error card for a chunk that doesn't exist", async () => {
