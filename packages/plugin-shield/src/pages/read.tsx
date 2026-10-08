@@ -1,6 +1,7 @@
 import { useRef, useState } from "react"
 import {
   PluginLink,
+  PluginSlot,
   useCommand,
   useNavigateTo,
   usePoll,
@@ -85,8 +86,29 @@ export function columns(collection: Collection): Column<Row>[] {
             ? "Framework"
             : "Name",
       cell: (r) => (
-        <PluginLink to={path(collection, r.id)} className="font-medium">
-          {String(r.name ?? r.framework ?? r.id)}
+        <PluginLink
+          to={path(collection, r.id)}
+          className="font-medium"
+          aria-label={String(r.name ?? r.framework ?? r.id)}
+        >
+          <span title={r.id}>
+            {String(
+              r.name ??
+                r.framework ??
+                (r.id.length > 18
+                  ? `${r.id.slice(0, 9)}…${r.id.slice(-6)}`
+                  : r.id)
+            )}
+          </span>{" "}
+          {typeof r.metadata === "object" &&
+            r.metadata !== null &&
+            String((r.metadata as Record<string, unknown>).source).includes(
+              "example"
+            ) && (
+              <span className="ml-2 rounded bg-muted px-1 text-[10px] font-normal text-muted-foreground">
+                Example
+              </span>
+            )}
         </PluginLink>
       ),
     },
@@ -274,7 +296,6 @@ export function CollectionPage({
   )
 }
 export function OverviewPage() {
-  const caps = useQuery<Capabilities>("capabilities")
   const overview = useQuery<Overview>("overview")
   const scans = useQuery<Page>("scans.list", { limit: 5, offset: 0 })
   usePoll(overview.refetch)
@@ -294,19 +315,6 @@ export function OverviewPage() {
         }
       />
       <CoverageNotice />
-      <QueryBoundary title="Shield scope" query={caps}>
-        {(c) => (
-          <div className="flex flex-wrap gap-x-5 gap-y-1 text-xs text-muted-foreground">
-            <span>
-              Tenant <code>{c.scope.tenant_id}</code>
-            </span>
-            <span>
-              App <code>{c.scope.app_id}</code>
-            </span>
-            <span>{c.can_manage ? "Manage access" : "Read access"}</span>
-          </div>
-        )}
-      </QueryBoundary>
       <QueryBoundary
         title="Configuration summary"
         query={overview}
@@ -343,7 +351,9 @@ export function OverviewPage() {
             <ResourceTable
               emptyMessage="No records in this scope."
               rows={p.items}
-              columns={columns("scans")}
+              columns={columns("scans").filter(
+                (c) => !["pii_count", "profile_used"].includes(c.id)
+              )}
               rowKey={(r) => r.id}
             />
           ) : (
@@ -354,6 +364,7 @@ export function OverviewPage() {
           )
         }
       </QueryBoundary>
+      <PluginSlot name="shield.overview.widgets" />
       <RefreshStatus query={scans} />
     </section>
   )
@@ -397,9 +408,15 @@ function DetailActions({
         size="sm"
         variant="outline"
         disabled={toggle.loading}
-        onClick={() =>
-          void toggle.execute({ id: row.id, enabled: !row.enabled })
-        }
+        onClick={async () => {
+          if (busy.current) return
+          busy.current = true
+          try {
+            await toggle.execute({ id: row.id, enabled: !row.enabled })
+          } finally {
+            busy.current = false
+          }
+        }}
       >
         {row.enabled ? "Disable" : "Enable"}
       </Button>
@@ -438,8 +455,8 @@ function Assignments({ id, caps }: { id: string; caps: Capabilities }) {
   const assign = useCommand("policies.assign")
   const unassign = useCommand("policies.unassign")
   return (
-    <section className="rounded-md border p-3">
-      <h2 className="mb-2 text-sm font-medium">Tenant assignment</h2>
+    <section className="rounded-md border px-3 py-2">
+      <h2 className="mb-1.5 text-xs font-medium">Tenant assignment</h2>
       <QueryBoundary query={q} title="Policy assignment">
         {(a) => (
           <div className="flex flex-wrap items-center gap-3 text-sm">
@@ -484,8 +501,8 @@ function ReferenceUsage({
     name: row.name,
   })
   return (
-    <section className="rounded-md border p-3">
-      <h2 className="mb-2 text-sm font-medium">Referenced by profiles</h2>
+    <section className="rounded-md border px-3 py-2">
+      <h2 className="mb-1.5 text-xs font-medium">Referenced by profiles</h2>
       <QueryBoundary title="Profile references" query={q}>
         {(refs) =>
           refs.length ? (
@@ -510,6 +527,77 @@ function ReferenceUsage({
     </section>
   )
 }
+function RecordFields({ row }: { row: Row }) {
+  const entries = Object.entries(row).filter(
+    ([k]) =>
+      ![
+        "id",
+        "name",
+        "enabled",
+        "app_id",
+        "tenant_id",
+        "created_at",
+        "updated_at",
+      ].includes(k)
+  )
+  const empty = (v: unknown) =>
+    v === null ||
+    v === undefined ||
+    v === "" ||
+    (typeof v === "object" && Object.keys(v).length === 0)
+  const populated = entries.filter(([, v]) => !empty(v))
+  const scalar = populated.filter(([, v]) => typeof v !== "object")
+  const structured = populated.filter(([, v]) => typeof v === "object")
+  const missing = entries.filter(([, v]) => empty(v))
+  return (
+    <div className="grid min-w-0 gap-2">
+      {scalar.length > 0 && (
+        <dl className="grid min-w-0 gap-x-6 gap-y-2 rounded-md border px-3 py-2 sm:grid-cols-2">
+          {scalar.map(([key, value]) => (
+            <div
+              key={key}
+              className="grid min-w-0 grid-cols-[7rem_minmax(0,1fr)] items-baseline gap-2"
+            >
+              <dt className="text-xs text-muted-foreground">{label(key)}</dt>
+              <dd className="min-w-0 text-xs">
+                <Value value={value} field={key} />
+              </dd>
+            </div>
+          ))}
+        </dl>
+      )}
+      {structured.length > 0 && (
+        <div className="grid min-w-0 items-start gap-2 sm:grid-cols-2">
+          {structured.map(([key, value]) => (
+            <section
+              key={key}
+              className="grid min-w-0 gap-2 rounded-md border p-2.5"
+            >
+              <h2 className="text-xs font-medium">
+                {label(key)}
+                {Array.isArray(value) && (
+                  <span className="ml-1.5 text-muted-foreground">
+                    {value.length}
+                  </span>
+                )}
+              </h2>
+              <Value value={value} field={key} />
+            </section>
+          ))}
+        </div>
+      )}
+      {missing.length > 0 && (
+        <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground">
+          {missing.map(([key]) => (
+            <span key={key}>
+              {label(key)} <span className="opacity-60">None</span>
+            </span>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
 export function DetailPage({
   collection,
   params,
@@ -518,9 +606,10 @@ export function DetailPage({
   const caps = useQuery<Capabilities>("capabilities")
   const q = useQuery<Row>(`${collection}.detail`, { id })
   usePoll(q.refetch)
+  const [tokenOffset, setTokenOffset] = useState(0)
   const tokens = useQuery<Page>(
     "pii.byScan",
-    { id, limit: 25, offset: 0 },
+    { id, limit: 25, offset: tokenOffset },
     { enabled: collection === "scans" }
   )
   const editable = collections.includes(
@@ -564,32 +653,7 @@ export function DetailPage({
               {editable && <Status enabled={row.enabled} />}
               <Timestamp value={row.created_at} label="created" />
             </div>
-            <dl className="grid min-w-0 gap-3 rounded-md border p-3">
-              {Object.entries(row)
-                .filter(
-                  ([k]) =>
-                    ![
-                      "id",
-                      "name",
-                      "enabled",
-                      "created_at",
-                      "updated_at",
-                    ].includes(k)
-                )
-                .map(([key, value]) => (
-                  <div
-                    key={key}
-                    className="grid min-w-0 gap-2 border-b pb-3 last:border-0 last:pb-0 sm:grid-cols-[9rem_minmax(0,1fr)]"
-                  >
-                    <dt className="text-xs font-medium text-muted-foreground">
-                      {label(key)}
-                    </dt>
-                    <dd className="min-w-0">
-                      <Value value={value} field={key} />
-                    </dd>
-                  </div>
-                ))}
-            </dl>
+            <RecordFields row={row} />
             {editable &&
               collection !== "profiles" &&
               collection !== "policies" && (
@@ -605,7 +669,7 @@ export function DetailPage({
         <QueryBoundary title="PII metadata" query={tokens}>
           {(page) => (
             <section>
-              <h2 className="mb-2 text-sm font-medium">PII metadata</h2>
+              <h2 className="mb-1.5 text-xs font-medium">PII metadata</h2>
               {page.items.length ? (
                 <ResourceTable
                   emptyMessage="No records in this scope."
@@ -637,9 +701,16 @@ export function DetailPage({
                   body="No tokens are stored for this scan."
                 />
               )}
+              <Pager page={page} onChange={setTokenOffset} />
             </section>
           )}
         </QueryBoundary>
+      )}
+      {collection === "scans" && (
+        <PluginSlot name="shield.scan.detail" params={{ scanId: id }} />
+      )}
+      {collection === "profiles" && (
+        <PluginSlot name="shield.profile.detail" params={{ profileId: id }} />
       )}
     </section>
   )
@@ -667,6 +738,7 @@ export function SettingsPage() {
           />
         )}
       </QueryBoundary>
+      <PluginSlot name="shield.settings" />
     </section>
   )
 }

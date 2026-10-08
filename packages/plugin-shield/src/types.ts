@@ -31,6 +31,11 @@ export interface Field {
   type: string
   options?: string[]
   fields?: Field[]
+  max_length?: number
+  max_items?: number
+  json_bytes_max?: number
+  minimum?: number
+  maximum?: number
   required?: boolean
 }
 export interface Capabilities {
@@ -74,6 +79,7 @@ export const path = (collection: string, id?: string) =>
 export const singular = (value: string) =>
   ({
     awareness: "awareness",
+    reflexes: "reflex",
     policies: "policy",
     boundaries: "boundary",
     strategies: "strategy",

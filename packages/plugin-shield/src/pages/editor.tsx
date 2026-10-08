@@ -148,6 +148,11 @@ function JsonField({
         )}
         onChange={(text) => {
           try {
+            if (
+              new TextEncoder().encode(text).length >
+              (field.json_bytes_max ?? 16384)
+            )
+              throw new Error("JSON exceeds the field limit")
             const parsed: unknown = JSON.parse(text)
             if (
               field.type === "json" &&
@@ -162,8 +167,8 @@ function JsonField({
           } catch {
             const message =
               field.type === "json"
-                ? "Enter a valid JSON object"
-                : "Enter a valid JSON value"
+                ? "Enter a valid JSON object up to 16 KiB"
+                : "Enter a valid JSON value up to 16 KiB"
             setError(message)
             onValidity(fieldPath, message)
           }
@@ -196,7 +201,7 @@ function StructuredArray({
   const [keys, setKeys] = useState(() => items.map((_, i) => `${id}-${i}`))
   const nextKey = useRef(items.length)
   return (
-    <fieldset className="col-span-full grid min-w-0 gap-2 rounded-md border p-3">
+    <fieldset className="col-span-full grid min-w-0 gap-2 rounded-md border p-2.5">
       <legend className="px-1 text-sm font-medium">{title}</legend>
       {items.length === 0 && (
         <span className="text-xs text-muted-foreground">
@@ -247,7 +252,7 @@ function StructuredArray({
         type="button"
         size="sm"
         variant="outline"
-        disabled={items.length >= 64}
+        disabled={items.length >= (field.max_items ?? 64)}
         className="w-fit"
         onClick={() => {
           setKeys([...keys, `${id}-${nextKey.current++}`])
@@ -287,7 +292,7 @@ function FieldControl({
     )
   if (field.type === "references")
     return (
-      <fieldset className="grid gap-2 rounded-md border p-3">
+      <fieldset className="grid gap-2 rounded-md border p-2.5">
         <legend className="px-1 text-sm font-medium">{title}</legend>
         {items.map((item, index) => (
           <div
@@ -318,7 +323,7 @@ function FieldControl({
           size="sm"
           variant="outline"
           className="w-fit"
-          disabled={items.length >= 64}
+          disabled={items.length >= (field.max_items ?? 64)}
           onClick={() => onChange([...items, ""])}
         >
           Add {singular(field.label)}
@@ -409,14 +414,16 @@ function FieldControl({
             : "text"
         }
         min={
-          field.type === "number" || field.type === "integer" ? 0 : undefined
+          field.minimum ??
+          (field.type === "number" || field.type === "integer" ? 0 : undefined)
         }
         max={
-          field.type === "number"
+          field.maximum ??
+          (field.type === "number"
             ? 1
             : field.type === "integer"
               ? 1000000
-              : undefined
+              : undefined)
         }
         step={
           field.type === "number"
@@ -425,7 +432,7 @@ function FieldControl({
               ? 1
               : undefined
         }
-        maxLength={512}
+        maxLength={field.max_length ?? 512}
         value={String(value ?? "")}
         onChange={(e) =>
           onChange(
@@ -513,7 +520,7 @@ export function EditorForm({
   return (
     <form
       onSubmit={(event) => void submit(event)}
-      className="grid min-w-0 gap-3"
+      className="grid min-w-0 gap-2"
     >
       <CommandAlert error={error} title="Could not save configuration" />
       {errors && (
@@ -528,11 +535,12 @@ export function EditorForm({
           ))}
         </ul>
       )}
-      <div className="grid min-w-0 gap-3 rounded-md border p-3 sm:grid-cols-2">
+      <div className="grid min-w-0 gap-2 rounded-md border p-2.5 sm:grid-cols-2">
         <div className="grid gap-1.5">
           <Label htmlFor="shield-name">Name *</Label>
           <Input
             id="shield-name"
+            className="h-8 text-xs"
             required
             maxLength={128}
             value={String(draft.name ?? "")}
@@ -553,6 +561,7 @@ export function EditorForm({
           <Label htmlFor="shield-description">Description</Label>
           <Textarea
             id="shield-description"
+            className="min-h-12"
             rows={2}
             maxLength={4096}
             value={String(draft.description ?? "")}
@@ -571,7 +580,7 @@ export function EditorForm({
           . The server assigns this scope.
         </p>
       )}
-      <div className="grid min-w-0 gap-3 sm:grid-cols-2">
+      <div className="grid min-w-0 gap-2 sm:grid-cols-2">
         {schema.map((field) => (
           <FieldControl
             key={field.key}
@@ -583,7 +592,7 @@ export function EditorForm({
           />
         ))}
       </div>
-      <details className="rounded-md border p-3">
+      <details className="rounded-md border p-2.5">
         <summary className="cursor-pointer text-sm font-medium">
           Metadata JSON
         </summary>
@@ -668,7 +677,7 @@ export default function EditorPage({
       />
     )
   return (
-    <section className="flex min-w-0 flex-col gap-3">
+    <section className="flex min-w-0 flex-col gap-2">
       <PageHeader title={`${id ? "Edit" : "New"} ${singular(collection)}`} />
       <CoverageNotice />
       <QueryBoundary title="Editor permissions" query={caps}>

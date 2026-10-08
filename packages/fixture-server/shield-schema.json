@@ -1,0 +1,576 @@
+{
+  "awareness": [
+    {
+      "key": "focus",
+      "label": "focus",
+      "type": "select",
+      "options": [
+        "pii",
+        "topic",
+        "sentiment",
+        "intent",
+        "language",
+        "custom"
+      ],
+      "required": true,
+      "max_length": 512
+    },
+    {
+      "key": "action",
+      "label": "action",
+      "type": "select",
+      "options": [
+        "redact",
+        "flag",
+        "block",
+        "vault"
+      ],
+      "required": true,
+      "max_length": 512
+    },
+    {
+      "key": "detectors",
+      "label": "detectors",
+      "type": "array",
+      "fields": [
+        {
+          "key": "name",
+          "label": "name",
+          "type": "text",
+          "max_length": 512
+        },
+        {
+          "key": "focus",
+          "label": "focus",
+          "type": "select",
+          "options": [
+            "pii",
+            "topic",
+            "sentiment",
+            "intent",
+            "language",
+            "custom"
+          ],
+          "required": true,
+          "max_length": 512
+        },
+        {
+          "key": "patterns",
+          "label": "patterns",
+          "type": "tags",
+          "max_items": 64
+        },
+        {
+          "key": "config",
+          "label": "config",
+          "type": "json",
+          "json_bytes_max": 16384
+        }
+      ],
+      "max_items": 64
+    }
+  ],
+  "boundaries": [
+    {
+      "key": "response",
+      "label": "response",
+      "type": "textarea",
+      "max_length": 4096
+    },
+    {
+      "key": "limits",
+      "label": "limits",
+      "type": "array",
+      "fields": [
+        {
+          "key": "scope",
+          "label": "scope",
+          "type": "select",
+          "options": [
+            "topic",
+            "action",
+            "data",
+            "output",
+            "custom"
+          ],
+          "required": true,
+          "max_length": 512
+        },
+        {
+          "key": "deny",
+          "label": "deny",
+          "type": "tags",
+          "max_items": 64
+        },
+        {
+          "key": "allow",
+          "label": "allow",
+          "type": "tags",
+          "max_items": 64
+        },
+        {
+          "key": "use_allow",
+          "label": "use allow",
+          "type": "boolean"
+        }
+      ],
+      "max_items": 64
+    }
+  ],
+  "instincts": [
+    {
+      "key": "category",
+      "label": "category",
+      "type": "select",
+      "options": [
+        "injection",
+        "exfiltration",
+        "manipulation",
+        "jailbreak"
+      ],
+      "required": true,
+      "max_length": 512
+    },
+    {
+      "key": "sensitivity",
+      "label": "sensitivity",
+      "type": "select",
+      "options": [
+        "paranoid",
+        "cautious",
+        "balanced",
+        "relaxed",
+        "permissive"
+      ],
+      "required": true,
+      "max_length": 512
+    },
+    {
+      "key": "action",
+      "label": "action",
+      "type": "select",
+      "options": [
+        "block",
+        "flag",
+        "alert"
+      ],
+      "required": true,
+      "max_length": 512
+    },
+    {
+      "key": "strategies",
+      "label": "strategies",
+      "type": "array",
+      "fields": [
+        {
+          "key": "name",
+          "label": "name",
+          "type": "text",
+          "max_length": 512
+        },
+        {
+          "key": "weight",
+          "label": "weight",
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        },
+        {
+          "key": "config",
+          "label": "config",
+          "type": "json",
+          "json_bytes_max": 16384
+        }
+      ],
+      "max_items": 64
+    }
+  ],
+  "judgments": [
+    {
+      "key": "domain",
+      "label": "domain",
+      "type": "select",
+      "options": [
+        "grounding",
+        "relevance",
+        "consistency",
+        "compliance",
+        "custom"
+      ],
+      "required": true,
+      "max_length": 512
+    },
+    {
+      "key": "threshold",
+      "label": "threshold",
+      "type": "number",
+      "minimum": 0,
+      "maximum": 1
+    },
+    {
+      "key": "action",
+      "label": "action",
+      "type": "select",
+      "options": [
+        "flag",
+        "block",
+        "warn"
+      ],
+      "required": true,
+      "max_length": 512
+    },
+    {
+      "key": "assessors",
+      "label": "assessors",
+      "type": "array",
+      "fields": [
+        {
+          "key": "name",
+          "label": "name",
+          "type": "text",
+          "max_length": 512
+        },
+        {
+          "key": "domain",
+          "label": "domain",
+          "type": "select",
+          "options": [
+            "grounding",
+            "relevance",
+            "consistency",
+            "compliance",
+            "custom"
+          ],
+          "required": true,
+          "max_length": 512
+        },
+        {
+          "key": "weight",
+          "label": "weight",
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        },
+        {
+          "key": "requires_context",
+          "label": "requires context",
+          "type": "boolean"
+        },
+        {
+          "key": "config",
+          "label": "config",
+          "type": "json",
+          "json_bytes_max": 16384
+        }
+      ],
+      "max_items": 64
+    }
+  ],
+  "policies": [
+    {
+      "key": "rules",
+      "label": "rules",
+      "type": "array",
+      "fields": [
+        {
+          "key": "check_type",
+          "label": "check type",
+          "type": "select",
+          "options": [
+            "instinct",
+            "awareness",
+            "boundary",
+            "values",
+            "judgment",
+            "reflex"
+          ],
+          "required": true,
+          "max_length": 512
+        },
+        {
+          "key": "condition",
+          "label": "condition",
+          "type": "text",
+          "max_length": 512
+        },
+        {
+          "key": "action",
+          "label": "action",
+          "type": "select",
+          "options": [
+            "block",
+            "flag",
+            "redact"
+          ],
+          "required": true,
+          "max_length": 512
+        },
+        {
+          "key": "error_message",
+          "label": "error message",
+          "type": "textarea",
+          "max_length": 4096
+        },
+        {
+          "key": "priority",
+          "label": "priority",
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 1000000
+        }
+      ],
+      "max_items": 64
+    }
+  ],
+  "profiles": [
+    {
+      "key": "instincts",
+      "label": "instincts",
+      "type": "array",
+      "fields": [
+        {
+          "key": "instinct_name",
+          "label": "instinct name",
+          "type": "reference",
+          "max_length": 512
+        },
+        {
+          "key": "sensitivity",
+          "label": "sensitivity",
+          "type": "select",
+          "options": [
+            "paranoid",
+            "cautious",
+            "balanced",
+            "relaxed",
+            "permissive"
+          ],
+          "max_length": 512
+        }
+      ],
+      "max_items": 64
+    },
+    {
+      "key": "awareness",
+      "label": "awareness",
+      "type": "array",
+      "fields": [
+        {
+          "key": "awareness_name",
+          "label": "awareness name",
+          "type": "reference",
+          "max_length": 512
+        }
+      ],
+      "max_items": 64
+    },
+    {
+      "key": "judgments",
+      "label": "judgments",
+      "type": "array",
+      "fields": [
+        {
+          "key": "judgment_name",
+          "label": "judgment name",
+          "type": "reference",
+          "max_length": 512
+        },
+        {
+          "key": "threshold",
+          "label": "threshold",
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        }
+      ],
+      "max_items": 64
+    },
+    {
+      "key": "boundaries",
+      "label": "boundaries",
+      "type": "references",
+      "max_items": 64
+    },
+    {
+      "key": "values",
+      "label": "values",
+      "type": "references",
+      "max_items": 64
+    },
+    {
+      "key": "reflexes",
+      "label": "reflexes",
+      "type": "references",
+      "max_items": 64
+    }
+  ],
+  "reflexes": [
+    {
+      "key": "priority",
+      "label": "priority",
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 1000000
+    },
+    {
+      "key": "triggers",
+      "label": "triggers",
+      "type": "array",
+      "fields": [
+        {
+          "key": "type",
+          "label": "type",
+          "type": "select",
+          "options": [
+            "on_score",
+            "on_finding",
+            "on_pattern",
+            "on_context",
+            "on_rate",
+            "always"
+          ],
+          "required": true,
+          "max_length": 512
+        },
+        {
+          "key": "pattern",
+          "label": "pattern",
+          "type": "text",
+          "max_length": 512
+        },
+        {
+          "key": "threshold",
+          "label": "threshold",
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        },
+        {
+          "key": "window",
+          "label": "window",
+          "type": "text",
+          "max_length": 512
+        }
+      ],
+      "max_items": 64
+    },
+    {
+      "key": "actions",
+      "label": "actions",
+      "type": "array",
+      "fields": [
+        {
+          "key": "type",
+          "label": "type",
+          "type": "select",
+          "options": [
+            "block",
+            "redact",
+            "flag",
+            "rewrite",
+            "escalate",
+            "log",
+            "throttle"
+          ],
+          "required": true,
+          "max_length": 512
+        },
+        {
+          "key": "target",
+          "label": "target",
+          "type": "text",
+          "max_length": 512
+        },
+        {
+          "key": "value",
+          "label": "value",
+          "type": "json_value",
+          "json_bytes_max": 16384
+        },
+        {
+          "key": "fallback",
+          "label": "fallback",
+          "type": "textarea",
+          "max_length": 4096
+        }
+      ],
+      "max_items": 64
+    }
+  ],
+  "values": [
+    {
+      "key": "severity",
+      "label": "severity",
+      "type": "select",
+      "options": [
+        "info",
+        "warning",
+        "error",
+        "critical"
+      ],
+      "required": true,
+      "max_length": 512
+    },
+    {
+      "key": "action",
+      "label": "action",
+      "type": "select",
+      "options": [
+        "block",
+        "flag",
+        "warn"
+      ],
+      "required": true,
+      "max_length": 512
+    },
+    {
+      "key": "rules",
+      "label": "rules",
+      "type": "array",
+      "fields": [
+        {
+          "key": "principle",
+          "label": "principle",
+          "type": "select",
+          "options": [
+            "toxicity",
+            "brand_safety",
+            "honesty",
+            "respect",
+            "safety",
+            "privacy",
+            "custom"
+          ],
+          "required": true,
+          "max_length": 512
+        },
+        {
+          "key": "threshold",
+          "label": "threshold",
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        },
+        {
+          "key": "categories",
+          "label": "categories",
+          "type": "tags",
+          "max_items": 64
+        },
+        {
+          "key": "guidelines",
+          "label": "guidelines",
+          "type": "tags",
+          "max_items": 64
+        },
+        {
+          "key": "config",
+          "label": "config",
+          "type": "json",
+          "json_bytes_max": 16384
+        }
+      ],
+      "max_items": 64
+    }
+  ]
+}

@@ -1,5 +1,9 @@
 import type { ReactNode } from "react"
-import { PluginLink, type QueryState } from "@forge-go/dashboard-plugin"
+import {
+  PluginLink,
+  useQuery,
+  type QueryState,
+} from "@forge-go/dashboard-plugin"
 import { Badge } from "@forge-go/dashboard-kit/components/badge"
 import {
   Button,
@@ -9,18 +13,24 @@ import { NoneCell } from "@forge-go/dashboard-kit/components/none-cell"
 import { Timestamp } from "@forge-go/dashboard-kit/components/timestamp"
 import { TagList } from "@forge-go/dashboard-kit/components/tag-list"
 import { ZeroState } from "@forge-go/dashboard-kit/components/zero-state"
-import { label, type Page } from "../types"
+import { label, singular, type Capabilities, type Page } from "../types"
 export function CoverageNotice() {
+  const caps = useQuery<Capabilities>("capabilities")
   return (
     <div
       role="note"
-      className="flex flex-wrap items-baseline gap-x-3 gap-y-1 rounded-md border border-amber-500/30 bg-amber-500/5 px-3 py-2 text-xs"
+      className="flex flex-wrap items-baseline gap-x-3 gap-y-1 rounded-md border border-border bg-muted/20 px-3 py-2 text-xs"
     >
       <span className="font-medium">Safety evaluation is unavailable</span>
       <span className="text-muted-foreground">
-        Six evaluation layers are unfinished. Saved configuration and recorded
-        decisions do not establish protection.
+        Six layers unfinished. Configuration and history only.
       </span>
+      {caps.data && (
+        <span className="text-muted-foreground">
+          Tenant <code>{caps.data.scope.tenant_id}</code> · App{" "}
+          <code>{caps.data.scope.app_id}</code>
+        </span>
+      )}
     </div>
   )
 }
@@ -48,7 +58,7 @@ export function NewLink({ collection }: { collection: string }) {
       to={`/${collection}/new`}
       className={buttonVariants({ size: "sm" })}
     >
-      New {label(collection).toLowerCase().replace(/s$/, "")}
+      New {singular(collection)}
     </PluginLink>
   )
 }
@@ -142,9 +152,9 @@ export function Value({
     if (value.every((v) => typeof v === "string"))
       return <TagList values={value as string[]} label={field} />
     return (
-      <div className="grid gap-2">
+      <div className="grid gap-1.5">
         {value.map((v, i) => (
-          <div key={i} className="rounded-md border p-2">
+          <div key={i} className="rounded border bg-muted/20 px-2 py-1.5">
             <Value value={v} field={field} />
           </div>
         ))}
@@ -159,7 +169,7 @@ export function Value({
           className="grid min-w-0 grid-cols-[minmax(5rem,8rem)_minmax(0,1fr)] gap-3"
         >
           <dt className="text-xs text-muted-foreground">{label(k)}</dt>
-          <dd className="min-w-0 text-sm">
+          <dd className="min-w-0 text-xs">
             <Value value={v} field={k} />
           </dd>
         </div>

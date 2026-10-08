@@ -4,6 +4,7 @@ import { render } from "@testing-library/react"
 import {
   ContractError,
   PluginProvider,
+  NavigationProvider,
   queryStore,
 } from "@forge-go/dashboard-plugin"
 import type { PluginPageProps, ScopedClient } from "@forge-go/dashboard-plugin"
@@ -157,7 +158,18 @@ export function renderPage(
 ) {
   return render(
     <PluginProvider client={client}>
-      <Page params={params} />
+      <NavigationProvider
+        value={{
+          Link: ({ to, children, ...props }) => (
+            <a href={to} {...props}>
+              {children}
+            </a>
+          ),
+          navigate: () => {},
+        }}
+      >
+        <Page params={params} />
+      </NavigationProvider>
     </PluginProvider>
   )
 }

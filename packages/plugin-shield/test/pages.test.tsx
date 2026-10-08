@@ -149,3 +149,29 @@ it("names structured additions correctly", () => {
   )
   expect(screen.getByRole("button", { name: "Add strategy" })).toBeTruthy()
 })
+
+it("prevents overlapping structured form submissions", async () => {
+  let release: (() => void) | undefined
+  const sent: unknown[] = []
+  renderPage(
+    () => (
+      <EditorForm
+        collection="boundaries"
+        capabilities={caps}
+        initial={{ id: "x", name: "x", enabled: true }}
+        pending={false}
+        onSubmit={async (row) => {
+          sent.push(row)
+          await new Promise<void>((resolve) => {
+            release = resolve
+          })
+        }}
+      />
+    ),
+    stubClient({})
+  )
+  fireEvent.click(screen.getByRole("button", { name: "Save configuration" }))
+  fireEvent.click(screen.getByRole("button", { name: "Save configuration" }))
+  expect(sent).toHaveLength(1)
+  release?.()
+})
