@@ -76,12 +76,17 @@ function RecordRows({
                 columns={[
                   {
                     id: "time",
-                    header: "Time",
+                    header: "Time / request",
                     cell: (r) => (
-                      <Timestamp
-                        value={r.createdAt ?? undefined}
-                        label="request time"
-                      />
+                      <div>
+                        <Timestamp
+                          value={r.createdAt ?? undefined}
+                          label="request time"
+                        />
+                        <p className="font-mono text-xs text-muted-foreground">
+                          {r.requestId ?? "Request ID unavailable"}
+                        </p>
+                      </div>
                     ),
                   },
                   {
