@@ -136,12 +136,12 @@ func TestSummaryReadsPropagateOutagesAndCorruptRecords(t *testing.T){
 -	return fromWorkerEntity(&e)
 -}
 -
--// ListWorkers
+-// ListWorkers returns all registered workers.
 +	if e.ID != workerID.String() { return nil, fmt.Errorf("dispatch/redis: worker identity mismatch for key %s", workerID) }
 +	return fromWorkerEntity(&e)
 +}
 +
-+// ListWorkers
++// ListWorkers returns all registered workers.
 --- a/store/redis/cluster.go
 +++ b/store/redis/cluster.go
 @@
@@ -181,12 +181,12 @@ func TestSummaryReadsPropagateOutagesAndCorruptRecords(t *testing.T){
 -	return fromCronEntity(&e)
 -}
 -
--// ListCrons
+-// ListCrons returns all cron entries.
 +	if e.ID != entryID.String() { return nil, fmt.Errorf("dispatch/redis: cron identity mismatch for key %s", entryID) }
 +	return fromCronEntity(&e)
 +}
 +
-+// ListCrons
++// ListCrons returns all cron entries.
 --- a/store/redis/cron.go
 +++ b/store/redis/cron.go
 @@
@@ -313,3 +313,23 @@ func TestInspectionReportsEffectiveWorkerHeartbeatAndStaleThreshold(t *testing.T
 - [ ] One fresh final reviewer checks this slice and all five focus cases.
 - [ ] Fix consequential findings with failing regressions and verified results. No second review.
 - [ ] Record evidence and remaining contract/browser work in this plan and MIGRATION.md.
+
+## Execution result
+
+Both tasks are complete: `bc6edfa` fixes Redis operational reads, and `1c4e319`
+exposes worker timing through Inspection. Seventeen failing outage/corruption
+cases reproduced the original behavior. All 36 affected Redis tests/subtests then
+passed under race with no skips. Inspection tests verify zero, negative, normal
+and long heartbeat intervals without changing the job heartbeat setting.
+
+Full build/unit and engine/extension race suites pass. Ordinary lint has no issues;
+integration-tag lint retains only the existing Redis test shadow at
+`store_test.go:54`. The unit suite's only test skip is the Trove memory driver's
+unsupported range-read case. The final reviewer approved without findings and
+did not rerun tests or lint.
+
+Review boundaries stand: these timings belong to the serving process; remote
+heartbeat intervals and process death cannot be inferred. Counts validate their
+identity/filter projection without decoding job payloads. Concurrent dependency
+changes were not included, and affected Redis tests do not establish broader
+backend or browser qualification. Remaining operational contract handlers follow.
