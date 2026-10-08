@@ -1,6 +1,8 @@
 import { lazy } from "react"
 import { definePlugin } from "@forge-go/dashboard-plugin"
-import { FileTextIcon, HouseIcon, LibraryIcon, WorkflowIcon } from "@forge-go/dashboard-kit/icons"
+import { FileTextIcon, HouseIcon, LayersIcon, LibraryIcon, WorkflowIcon } from "@forge-go/dashboard-kit/icons"
+import { ChunkDetailPage } from "./pages/chunk-detail"
+import { ChunksPage } from "./pages/chunks"
 import { CollectionCreatePage } from "./pages/collection-create"
 import { CollectionDetailPage } from "./pages/collection-detail"
 import { CollectionEditPage } from "./pages/collection-edit"
@@ -33,6 +35,7 @@ export const weavePlugin = definePlugin({
     { label: "Overview", to: "/", priority: -10, icon: <HouseIcon />, group: "RAG" },
     { label: "Collections", to: "/collections", priority: 10, icon: <LibraryIcon />, group: "RAG" },
     { label: "Documents", to: "/documents", priority: 20, icon: <FileTextIcon />, group: "RAG" },
+    { label: "Chunks", to: "/chunks", priority: 30, icon: <LayersIcon />, group: "RAG" },
     { label: "Pipeline", to: "/pipeline", priority: 40, icon: <WorkflowIcon />, group: "RAG" },
   ],
   routes: [
@@ -44,10 +47,12 @@ export const weavePlugin = definePlugin({
     { path: "/collections/:id/ingest", element: IngestPage },
     { path: "/documents", element: DocumentsPage },
     { path: "/documents/:id", element: DocumentDetailPage },
+    { path: "/chunks", element: ChunksPage },
+    { path: "/chunks/:id", element: ChunkDetailPage },
     { path: "/pipeline", element: PipelinePage },
   ],
 })
 
-export { CollectionCreatePage, CollectionDetailPage, CollectionEditPage, CollectionsPage, DocumentsPage, IngestPage, OverviewPage, PipelinePage }
+export { ChunkDetailPage, ChunksPage, CollectionCreatePage, CollectionDetailPage, CollectionEditPage, CollectionsPage, DocumentsPage, IngestPage, OverviewPage, PipelinePage }
 
 export default weavePlugin

@@ -80,4 +80,13 @@ describe("weavePlugin", () => {
     // A React.lazy component is an object with the lazy marker, not a function.
     expect(typeof route?.element).toBe("object")
   })
+
+  it("puts Chunks fifth in the RAG group and routes a chunk's page", () => {
+    const nav = weavePlugin.nav?.find((n) => n.label === "Chunks")
+    expect(nav?.to).toBe("/chunks")
+    expect(nav?.priority).toBe(30)
+    const paths = weavePlugin.routes.map((r) => r.path)
+    expect(paths).toContain("/chunks")
+    expect(paths).toContain("/chunks/:id")
+  })
 })
