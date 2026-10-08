@@ -45,6 +45,8 @@ export default function JsonView({
       state: EditorState.create({
         doc: text,
         extensions: [
+          // Keep carriage returns in the document, including mixed line endings.
+          EditorState.lineSeparator.of("\n"),
           lineNumbers(),
           codeFolding(),
           foldGutter(),

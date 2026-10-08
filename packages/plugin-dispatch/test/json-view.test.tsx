@@ -14,3 +14,15 @@ it("keeps the editor read only while preserving source text", () => {
   unmount()
   expect(destroy).toHaveBeenCalledOnce()
 })
+
+it.each(["\r\n", "\r", "\n\r\n\r"])(
+  "preserves original JSON line separators %j",
+  (separator) => {
+    const text = "{" + separator + '  "price":1.2300' + separator + "}"
+    const { unmount } = render(<JsonView text={text} label="Original JSON" />)
+    const view = EditorView.findFromDOM(screen.getByLabelText("Original JSON"))!
+    expect(view.state.doc.toString()).toBe(text)
+    expect(view.state.sliceDoc()).toBe(text)
+    unmount()
+  }
+)
