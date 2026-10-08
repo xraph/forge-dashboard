@@ -68,6 +68,7 @@
   },
   "exports": {
     "./globals.css": "./src/styles/globals.css",
+    "./preview.css": "./src/styles/preview.css",
     "./icons": "./src/icons.ts",
     "./lib/*": "./src/lib/*.ts",
     "./components/*": "./src/components/*.tsx",
