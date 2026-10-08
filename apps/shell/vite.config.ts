@@ -28,7 +28,10 @@ export default defineConfig({
     // keeps every request same-origin, so there is no CORS to configure and
     // no cookie to mark SameSite=None just to make dev work.
     proxy: {
-      "/dashboard": { target: "http://localhost:8099", changeOrigin: true },
+      "/dashboard": {
+        target: process.env.FORGE_DASHBOARD_BACKEND ?? "http://localhost:8099",
+        changeOrigin: true,
+      },
     },
   },
 })
