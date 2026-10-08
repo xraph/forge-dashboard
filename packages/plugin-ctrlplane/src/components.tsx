@@ -101,7 +101,7 @@ export function Value({ name, value }: { name: string; value: unknown }) {
   if (typeof value === "object")
     return (
       <details>
-        <summary className="cursor-pointer text-xs">
+        <summary className="cursor-pointer py-1 text-xs">
           Inspect {label(name).toLowerCase()}
         </summary>
         <JsonView value={value} title={label(name)} />
@@ -157,18 +157,14 @@ export function StructuredServices({
     <div className="space-y-2">
       {services.map((service, index) => (
         <div className="space-y-2 rounded-md border p-2" key={index}>
-          <div className="grid gap-2 sm:grid-cols-3">
+          <div
+            className={`grid gap-2 ${deploy ? "grid-cols-1 sm:grid-cols-[8rem_minmax(0,1fr)]" : "grid-cols-[minmax(0,1fr)_7rem] sm:grid-cols-[8rem_7rem_minmax(0,1fr)]"}`}
+          >
             <Input
               aria-label={`Service ${index + 1} name`}
               placeholder="Service name"
               value={text(service.name)}
               onChange={(e) => patch(index, "name", e.target.value)}
-            />
-            <Input
-              aria-label={`Service ${index + 1} image`}
-              placeholder="Image"
-              value={text(service.image)}
-              onChange={(e) => patch(index, "image", e.target.value)}
             />
             {!deploy && (
               <select
@@ -182,6 +178,13 @@ export function StructuredServices({
                 ))}
               </select>
             )}
+            <Input
+              className={deploy ? undefined : "col-span-2 sm:col-span-1"}
+              aria-label={`Service ${index + 1} image`}
+              placeholder="Image"
+              value={text(service.image)}
+              onChange={(e) => patch(index, "image", e.target.value)}
+            />
           </div>
           <div className="flex flex-wrap items-center gap-2">
             {!deploy &&
@@ -203,7 +206,7 @@ export function StructuredServices({
                 </label>
               ))}
             <Button
-              size="sm"
+              size="xs"
               variant="ghost"
               type="button"
               onClick={() => onChange(services.filter((_, i) => i !== index))}
@@ -212,7 +215,7 @@ export function StructuredServices({
             </Button>
           </div>
           <details>
-            <summary className="cursor-pointer text-xs">
+            <summary className="cursor-pointer py-1 text-xs">
               {deploy
                 ? "Environment and health check"
                 : "Environment, ports, secrets and config files"}
@@ -260,7 +263,7 @@ export function StructuredServices({
         </div>
       ))}
       <Button
-        size="sm"
+        size="xs"
         variant="outline"
         type="button"
         onClick={() =>
@@ -329,12 +332,15 @@ export function Fields({
   setValues: (value: Row) => void
 }) {
   return (
-    <div className="space-y-3">
+    <div className="grid grid-cols-1 gap-x-3 gap-y-2 sm:grid-cols-2">
       {fields.map((field) => (
-        <div key={field.key} className="space-y-1">
+        <div
+          key={field.key}
+          className={`space-y-1 ${["group", "services", "json"].includes(field.type ?? "") || field.key === "notes" ? "sm:col-span-2" : ""}`}
+        >
           {field.type !== "json" && (
             <label
-              className="text-sm font-medium"
+              className="text-xs font-medium"
               htmlFor={`ctrlplane-${field.key}`}
             >
               {field.label}
@@ -529,7 +535,7 @@ export function CommandButton({
   return (
     <>
       <Button
-        size="sm"
+        size="xs"
         variant={action.destructive ? "outline" : "secondary"}
         onClick={() => {
           command.reset()

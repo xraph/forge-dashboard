@@ -48,6 +48,8 @@ export interface ResourceTableProps<Row> {
   pagination?: PaginationState
   onPageChange?: (page: number) => void
   className?: string
+  /** Compact spacing keeps operational lists close to their actions. */
+  density?: "comfortable" | "compact"
 }
 
 const ARIA_SORT = { asc: "ascending", desc: "descending" } as const
@@ -77,6 +79,7 @@ export function ResourceTable<Row>({
   pagination,
   onPageChange,
   className,
+  density = "comfortable",
 }: ResourceTableProps<Row>) {
   if (rows.length === 0) {
     return (
@@ -104,7 +107,11 @@ export function ResourceTable<Row>({
     : 1
 
   return (
-    <div className={cn("flex flex-col gap-3", className)}>
+    <div
+      data-slot="resource-table"
+      data-density={density}
+      className={cn("flex flex-col gap-3", className)}
+    >
       {/*
         Horizontal scroll lives on the vendored Table's own container, not on
         the page. A wide table must not make the whole dashboard scroll

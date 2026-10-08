@@ -5,7 +5,6 @@ import {
   useNavigateTo,
   useQuery,
 } from "@forge-go/dashboard-plugin"
-import { StatGrid } from "@forge-go/dashboard-kit/components/stat-grid"
 import { PageHeader } from "@forge-go/dashboard-kit/components/page-header"
 import { ResourceTable } from "@forge-go/dashboard-kit/components/resource-table"
 import {
@@ -29,7 +28,8 @@ import { deployFields, domainFields, resources, routeFields } from "./resources"
 import { identity, label, mainImage, record, rows, text } from "./types"
 import type { Field, Listing, PageProps, Row } from "./types"
 
-const linkClass = "font-medium underline underline-offset-2"
+const linkClass =
+  "text-sm font-medium underline-offset-2 hover:underline focus-visible:rounded-sm focus-visible:outline-2 focus-visible:outline-ring"
 function resourceLink(kind: string, row: Row) {
   return `/${kind}/${encodeURIComponent(identity(row))}`
 }
@@ -62,6 +62,7 @@ export function DataTable({
         </p>
       )}
       <ResourceTable
+        density="compact"
         rows={items}
         rowKey={(row) =>
           identity(row) || text(row.timestamp) || JSON.stringify(row)
@@ -148,10 +149,10 @@ export function ResourceList({
     cursor,
   })
   return (
-    <div className="space-y-3">
+    <div className="space-y-2">
       {embedded ? (
         <div className="flex flex-wrap items-center justify-between gap-2">
-          <h2 className="text-base font-medium">{resource.title}</h2>
+          <h2 className="text-sm font-medium">{resource.title}</h2>
           <PluginLink to={`/${kind}/create`} className={linkClass}>
             Create {resource.singular.toLowerCase()}
           </PluginLink>
@@ -269,7 +270,7 @@ function SectionContent({
   })
   return (
     <div className="space-y-2">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-wrap items-center justify-between gap-2">
         <h2 className="text-sm font-medium">{section.label}</h2>
         <Button size="sm" variant="ghost" onClick={query.refetch}>
           Refresh {section.label.toLowerCase()}
@@ -279,16 +280,18 @@ function SectionContent({
         {(data) =>
           section.intent === "system.stats" ? (
             <>
-              <StatGrid
-                className="grid-cols-1 gap-2 sm:grid-cols-3"
-                items={Object.entries(record(data)).map(([key, value]) => ({
-                  label: label(key),
-                  value: text(value),
-                }))}
-              />
+              <dl className="flex flex-wrap items-center gap-x-6 gap-y-2 border-y py-2 text-xs">
+                {Object.entries(record(data)).map(([key, value]) => (
+                  <div key={key} className="flex items-baseline gap-2">
+                    <dt className="text-muted-foreground">{label(key)}</dt>
+                    <dd className="font-mono text-sm font-medium tabular-nums">
+                      {text(value)}
+                    </dd>
+                  </div>
+                ))}
+              </dl>
               <p className="text-xs text-muted-foreground">
-                Global instance and healthy-provider counters are unavailable in
-                the current admin service.
+                Global instance and health totals unavailable.
               </p>
             </>
           ) : section.columns ? (
@@ -331,7 +334,7 @@ export function ResourceDetail({ kind, params }: PageProps & { kind: string }) {
     params?.section ? label(params.section) : "Info"
   )
   return (
-    <div className="space-y-3">
+    <div className="space-y-2">
       <PageHeader
         title={resource.singular}
         actions={
@@ -668,7 +671,7 @@ export function ResourceDetail({ kind, params }: PageProps & { kind: string }) {
               </div>
               <div role="tabpanel">
                 {!section ? (
-                  <div className="space-y-3">
+                  <div className="space-y-2">
                     <Details row={row} fields={resource.fields} />
                     {Object.entries(row)
                       .filter(
@@ -795,7 +798,7 @@ export function ResourceEditor({ kind, params }: PageProps & { kind: string }) {
   )
   const fields = (edit ? resources[kind].edit : resources[kind].create) ?? []
   return (
-    <div className="space-y-3">
+    <div className="space-y-2">
       <PageHeader
         title={`${edit ? "Edit" : "Create"} ${resources[kind].singular.toLowerCase()}`}
         actions={
@@ -849,7 +852,7 @@ function EditorForm({
   }
   return (
     <form
-      className="max-w-3xl space-y-3"
+      className="max-w-4xl space-y-3"
       onSubmit={(e) => {
         e.preventDefault()
         void save()
@@ -871,7 +874,7 @@ function EditorForm({
 export function SelectionPage({ surface }: { surface: string }) {
   const query = useQuery<Listing>("instances.list", { limit: 50 })
   return (
-    <div className="space-y-3">
+    <div className="space-y-2">
       <PageHeader
         title={label(surface)}
         description="Choose an instance to inspect and manage its resources."
@@ -902,7 +905,7 @@ function WorkloadHealthRow({ row }: { row: Row }) {
   return (
     <QueryBoundary title={`Health for ${text(row.name)}`} query={query}>
       {(health) => (
-        <div className="flex flex-wrap items-center gap-3 border-b py-2 text-sm">
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-1 border-b py-1.5 text-xs">
           <PluginLink to={resourceLink("workloads", row)} className={linkClass}>
             {text(row.name)}
           </PluginLink>
@@ -928,8 +931,7 @@ function WorkloadHealthSummary() {
         <div>
           <h2 className="text-sm font-medium">Workload health</h2>
           <p className="text-xs text-muted-foreground">
-            Up to 20 workloads in the authenticated tenant. Missing checks
-            remain unknown.
+            Up to 20 workloads. Missing checks remain unknown.
           </p>
           {rows(data).length ? (
             rows(data).map((row) => (
@@ -952,7 +954,7 @@ function WorkloadHealthSummary() {
 export function HealthPage() {
   const query = useQuery<Row>("health.summary", { limit: 100 })
   return (
-    <div className="space-y-3">
+    <div className="space-y-2">
       <PageHeader
         title="Health"
         description="Unknown means no passing evidence is available. Counts cover the current bounded instance sample."
@@ -1023,7 +1025,7 @@ export function LogPage({ kind }: { kind: "audit" | "events" }) {
     limit: 100,
   })
   return (
-    <div className="space-y-3">
+    <div className="space-y-2">
       <PageHeader
         title={kind === "audit" ? "Audit log" : "Recent events"}
         description={
@@ -1080,7 +1082,7 @@ export function LogPage({ kind }: { kind: "audit" | "events" }) {
 export function ConfigPage() {
   const query = useQuery<Row>("config.detail")
   return (
-    <div className="space-y-3">
+    <div className="space-y-2">
       <PageHeader
         title="Settings"
         description="Read-only configuration. A configured flag does not establish live connectivity."
@@ -1094,21 +1096,11 @@ export function ConfigPage() {
 export function OverviewPage() {
   const session = useQuery<Row>("session.detail")
   return (
-    <div className="space-y-3">
-      <PageHeader
-        title="Ctrlplane"
-        description="Deploy workloads and inspect their replicas."
-      />
+    <div className="space-y-2">
+      <PageHeader title="Ctrlplane" />
       <QueryBoundary title="Session" query={session}>
         {(data) => (
           <>
-            <p className="text-xs text-muted-foreground">
-              Tenant{" "}
-              <span className="font-mono">
-                {text(data.tenant_id) || "system scope"}
-              </span>{" "}
-              · {text(data.subject)}
-            </p>
             {data.admin === true && (
               <SectionContent
                 section={{ label: "System overview", intent: "system.stats" }}
