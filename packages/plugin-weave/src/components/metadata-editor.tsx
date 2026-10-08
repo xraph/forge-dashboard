@@ -12,17 +12,22 @@ export function rowsOf(metadata: Record<string, string> | undefined): MetadataRo
     .map((key) => ({ key, value: metadata![key] }))
 }
 
-/** The map the rows describe, or the reason they don't describe one. */
+/**
+ * The map the rows describe, or the reason they don't describe one. Entries
+ * are collected in a Map and turned into an object at the end, so a key such
+ * as "constructor" is not mistaken for a duplicate and "__proto__" becomes an
+ * own property instead of being dropped.
+ */
 export function metadataOf(rows: MetadataRow[]): { metadata: Record<string, string> } | { error: string } {
-  const metadata: Record<string, string> = {}
+  const entries = new Map<string, string>()
   for (const row of rows) {
     const key = row.key.trim()
     if (key === "" && row.value === "") continue
     if (key === "") return { error: "Every value needs a key." }
-    if (key in metadata) return { error: `The key "${key}" appears twice.` }
-    metadata[key] = row.value
+    if (entries.has(key)) return { error: `The key "${key}" appears twice.` }
+    entries.set(key, row.value)
   }
-  return { metadata }
+  return { metadata: Object.fromEntries(entries) }
 }
 
 /** Key and value pairs. Weave stores metadata as strings. */

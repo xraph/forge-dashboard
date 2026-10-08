@@ -16,6 +16,24 @@ describe("metadataOf", () => {
   })
 })
 
+describe("metadataOf and keys that exist on every object", () => {
+  it("accepts a key named like an Object.prototype member", () => {
+    expect(metadataOf([{ key: "constructor", value: "x" }])).toEqual({ metadata: { constructor: "x" } })
+    expect(metadataOf([{ key: "toString", value: "y" }, { key: "valueOf", value: "z" }])).toEqual({ metadata: { toString: "y", valueOf: "z" } })
+  })
+
+  it("keeps a __proto__ key as an own key", () => {
+    const result = metadataOf([{ key: "__proto__", value: "x" }])
+    if (!("metadata" in result)) throw new Error("expected a metadata map")
+    expect(Object.keys(result.metadata)).toContain("__proto__")
+    expect(Object.getPrototypeOf(result.metadata)).toBe(Object.prototype)
+  })
+
+  it("still refuses one of those keys given twice", () => {
+    expect(metadataOf([{ key: "constructor", value: "1" }, { key: "constructor", value: "2" }])).toEqual({ error: 'The key "constructor" appears twice.' })
+  })
+})
+
 describe("rowsOf", () => {
   it("sorts by key", () => {
     expect(rowsOf({ b: "2", a: "1" })).toEqual([{ key: "a", value: "1" }, { key: "b", value: "2" }])
