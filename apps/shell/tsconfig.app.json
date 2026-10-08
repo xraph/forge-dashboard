@@ -26,5 +26,6 @@
       "@forge-go/dashboard-kit/*": ["../../packages/kit/src/*"]
     }
   },
-  "include": ["src"]
+  // The design preview has its own entry and typecheck configuration.
+  "include": ["src/main.tsx", "src/**/*.d.ts"]
 }

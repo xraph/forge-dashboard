@@ -1,4 +1,4 @@
-import { Button } from "@forge-go/dashboard-kit/components/button"
+import { IconButton } from "@forge-go/dashboard-kit/components/icon-button"
 import { Input } from "@forge-go/dashboard-kit/components/input"
 import { Label } from "@forge-go/dashboard-kit/components/label"
 import { createMetadataRow } from "./setup-model"
@@ -53,6 +53,7 @@ export function MetadataEditor({
                 aria-invalid={Boolean(keyError)}
                 disabled={disabled}
                 id={keyId}
+                name={`${path}.${index}.key`}
                 onChange={(event) => update(index, "key", event.target.value)}
                 value={row.key}
               />
@@ -69,6 +70,7 @@ export function MetadataEditor({
                 aria-invalid={Boolean(valueError)}
                 disabled={disabled}
                 id={valueId}
+                name={`${path}.${index}.value`}
                 onChange={(event) => update(index, "value", event.target.value)}
                 value={row.value}
               />
@@ -78,19 +80,16 @@ export function MetadataEditor({
                 </p>
               ) : null}
             </div>
-            <Button
-              aria-label={`Remove metadata row ${index + 1}`}
+            <IconButton
+              label={`Remove metadata row ${index + 1}`}
               className="self-end"
               disabled={disabled}
               onClick={() =>
                 onChange(rows.filter((_, rowIndex) => rowIndex !== index))
               }
-              size="sm"
               type="button"
               variant="ghost"
-            >
-              Remove
-            </Button>
+            />
           </div>
         )
       })}
@@ -98,16 +97,14 @@ export function MetadataEditor({
       {errors[path] ? (
         <p className="text-xs text-destructive">{errors[path]}</p>
       ) : null}
-      <Button
+      <IconButton
+        label="Add metadata"
         className="self-start"
         disabled={disabled || rows.length >= 20}
         onClick={() => onChange([...rows, createRow()])}
-        size="sm"
         type="button"
         variant="outline"
-      >
-        Add metadata
-      </Button>
+      />
     </div>
   )
 }

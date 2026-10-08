@@ -23,6 +23,7 @@ export interface AuthLayoutProps {
   footer?: ReactNode
   className?: string
   size?: "default" | "wide"
+  density?: "default" | "compact"
 }
 
 /**
@@ -41,6 +42,7 @@ export function AuthLayout({
   footer,
   className,
   size = "default",
+  density = "default",
 }: AuthLayoutProps) {
   const dark = useDocumentTheme() === "dark"
 
@@ -86,7 +88,12 @@ export function AuthLayout({
         </div>
       </aside>
 
-      <main className="relative flex min-h-[calc(100svh-10rem)] flex-1 items-center justify-center px-6 py-10 sm:px-10 lg:min-h-svh lg:px-16 lg:py-16">
+      <main
+        className={cn(
+          "relative flex min-h-[calc(100svh-10rem)] flex-1 items-center justify-center px-6 sm:px-10 lg:min-h-svh lg:px-16",
+          density === "compact" ? "py-8 lg:py-10" : "py-10 lg:py-16"
+        )}
+      >
         <Button
           aria-label={dark ? "Use light theme" : "Use dark theme"}
           className="absolute top-5 right-5 text-muted-foreground sm:top-6 sm:right-6 lg:top-8 lg:right-8"
@@ -112,7 +119,13 @@ export function AuthLayout({
               {description}
             </p>
           ) : null}
-          <div className="mt-8 [&_form_button]:h-11 [&_form_input]:h-11">
+          <div
+            className={
+              density === "compact"
+                ? "mt-5 [&_form_button]:h-9 [&_form_input]:h-9"
+                : "mt-8 [&_form_button]:h-11 [&_form_input]:h-11"
+            }
+          >
             {children}
           </div>
           {footer ? (
