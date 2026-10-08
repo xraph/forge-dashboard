@@ -30,4 +30,11 @@ describe("weavePlugin", () => {
     expect(weavePlugin.namespace).toBe("weave")
     expect(weavePlugin.label).toBe("Weave")
   })
+
+  it("puts Overview first in the RAG group at /", () => {
+    const overview = weavePlugin.nav?.find((n) => n.label === "Overview")
+    expect(overview?.to).toBe("/")
+    expect(overview?.group).toBe("RAG")
+    expect(weavePlugin.routes.map((r) => r.path)).toContain("/")
+  })
 })

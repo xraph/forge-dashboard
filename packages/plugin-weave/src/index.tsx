@@ -1,4 +1,6 @@
 import { definePlugin } from "@forge-go/dashboard-plugin"
+import { HouseIcon } from "@forge-go/dashboard-kit/icons"
+import { OverviewPage } from "./pages/overview"
 
 /**
  * The first-party UI for the `weave` extension.
@@ -12,8 +14,10 @@ export const weavePlugin = definePlugin({
   extension: "weave",
   namespace: "weave",
   label: "Weave",
-  nav: [],
-  routes: [],
+  nav: [{ label: "Overview", to: "/", priority: -10, icon: <HouseIcon />, group: "RAG" }],
+  routes: [{ path: "/", element: OverviewPage }],
 })
+
+export { OverviewPage }
 
 export default weavePlugin
