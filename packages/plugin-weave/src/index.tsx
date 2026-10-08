@@ -1,6 +1,6 @@
 import { lazy } from "react"
 import { definePlugin } from "@forge-go/dashboard-plugin"
-import { FileTextIcon, HouseIcon, LayersIcon, LibraryIcon, WorkflowIcon } from "@forge-go/dashboard-kit/icons"
+import { FileTextIcon, HouseIcon, LayersIcon, LibraryIcon, ScanSearchIcon, WorkflowIcon } from "@forge-go/dashboard-kit/icons"
 import { ChunkDetailPage } from "./pages/chunk-detail"
 import { ChunksPage } from "./pages/chunks"
 import { CollectionCreatePage } from "./pages/collection-create"
@@ -11,6 +11,7 @@ import { DocumentsPage } from "./pages/documents"
 import { IngestPage } from "./pages/ingest"
 import { OverviewPage } from "./pages/overview"
 import { PipelinePage } from "./pages/pipeline"
+import { RetrievalPage } from "./pages/retrieval"
 
 /**
  * The document page. Lazy, so the chunk reader's virtualiser never reaches
@@ -33,6 +34,7 @@ export const weavePlugin = definePlugin({
   label: "Weave",
   nav: [
     { label: "Overview", to: "/", priority: -10, icon: <HouseIcon />, group: "RAG" },
+    { label: "Retrieval", to: "/retrieval", priority: 0, icon: <ScanSearchIcon />, group: "RAG" },
     { label: "Collections", to: "/collections", priority: 10, icon: <LibraryIcon />, group: "RAG" },
     { label: "Documents", to: "/documents", priority: 20, icon: <FileTextIcon />, group: "RAG" },
     { label: "Chunks", to: "/chunks", priority: 30, icon: <LayersIcon />, group: "RAG" },
@@ -40,6 +42,7 @@ export const weavePlugin = definePlugin({
   ],
   routes: [
     { path: "/", element: OverviewPage },
+    { path: "/retrieval", element: RetrievalPage },
     { path: "/collections", element: CollectionsPage },
     { path: "/collections/new", element: CollectionCreatePage },
     { path: "/collections/:id", element: CollectionDetailPage },
@@ -53,6 +56,6 @@ export const weavePlugin = definePlugin({
   ],
 })
 
-export { ChunkDetailPage, ChunksPage, CollectionCreatePage, CollectionDetailPage, CollectionEditPage, CollectionsPage, DocumentsPage, IngestPage, OverviewPage, PipelinePage }
+export { ChunkDetailPage, ChunksPage, CollectionCreatePage, CollectionDetailPage, CollectionEditPage, CollectionsPage, DocumentsPage, IngestPage, OverviewPage, PipelinePage, RetrievalPage }
 
 export default weavePlugin

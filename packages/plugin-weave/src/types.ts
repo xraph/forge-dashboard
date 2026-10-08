@@ -232,7 +232,7 @@ export interface AssembledContext {
   max_tokens: number
   /** Positions in the hits that were assembled. Not a prefix. */
   included: number[]
-  /** -1 when everything fit. */
+  /** The first hit that was not included (a hit with no chunk counts), or -1 when every hit was. */
   first_excluded: number
   token_counter: string
 }

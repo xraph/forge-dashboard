@@ -89,4 +89,16 @@ describe("weavePlugin", () => {
     expect(paths).toContain("/chunks")
     expect(paths).toContain("/chunks/:id")
   })
+
+  it("puts Retrieval second in the RAG group", () => {
+    const nav = weavePlugin.nav?.find((n) => n.label === "Retrieval")
+    expect(nav?.to).toBe("/retrieval")
+    expect(nav?.priority).toBe(0)
+    expect(weavePlugin.routes.map((r) => r.path)).toContain("/retrieval")
+  })
+
+  it("lists the nav in the spec's order", () => {
+    const order = [...(weavePlugin.nav ?? [])].sort((a, b) => (a.priority ?? 0) - (b.priority ?? 0)).map((n) => n.label)
+    expect(order).toEqual(["Overview", "Retrieval", "Collections", "Documents", "Chunks", "Pipeline"])
+  })
 })
