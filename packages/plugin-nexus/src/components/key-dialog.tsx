@@ -233,6 +233,7 @@ function KeyForm({
           </p>
           <Button
             type="button"
+            nativeButton={false}
             render={<PluginLink to="/keys" />}
             onClick={onDone}
           >

@@ -67,6 +67,7 @@ export function TenantDetailPage({ params }: PluginPageProps) {
                 <IconButton
                   label="Edit tenant"
                   icon={PencilIcon}
+                  nativeButton={false}
                   render={<PluginLink to={`/tenants/${query.data.id}/edit`} />}
                 />
                 <TenantStatusActions key={query.data.id} tenant={query.data} />

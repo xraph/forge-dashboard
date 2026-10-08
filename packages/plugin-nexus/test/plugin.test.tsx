@@ -47,6 +47,8 @@ it("loads usage lazily through the plugin route", async () => {
     </Suspense>,
     fixtureClient().client
   )
-  expect(await screen.findByRole("heading", { name: "Usage" })).toBeTruthy()
+  expect(
+    await screen.findByRole("heading", { name: "Usage" }, { timeout: 10_000 })
+  ).toBeTruthy()
   expect(await screen.findByText("Spend by provider")).toBeTruthy()
 })

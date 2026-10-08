@@ -137,7 +137,11 @@ export function TenantsPage() {
       <PageHeader
         title="Tenants"
         actions={
-          <Button size="sm" render={<PluginLink to="/tenants/new" />}>
+          <Button
+            size="sm"
+            nativeButton={false}
+            render={<PluginLink to="/tenants/new" />}
+          >
             Create tenant
           </Button>
         }
