@@ -14,7 +14,7 @@
 
 - Contributor name is exactly `warden`. Plugin `extension` field must match it. A mismatch renders nothing and logs nothing.
 - Contract DTOs are camelCase. Never return a warden domain struct (snake_case) on the wire.
-- Every list intent takes `limit` and `offset` and returns `{items, total, limit, offset}`. No cursors.
+- Every intent that pages a stored collection takes `limit` and `offset` and returns `{items, total, limit, offset}`. No cursors anywhere. This binds the browsable resource lists (roles, permissions, assignments, relations, resource types, policies, check logs). It does NOT bind two other shapes: a derived set with no stored rows to page (`namespaces.list`, which scans for distinct values and returns a flat array), and a fixed-size feed that is a widget rather than a browsable list (`overview.recentChecks`, which takes `limit` only). The framework's own `audit.list` is `limit`-only for the same reason.
 - Namespace filter fields are `*string`: `nil` means every namespace, `""` means the tenant root, a path means that namespace.
 - Optional update fields are pointers, including `*[]string` for lists that can be emptied.
 - Every command declares `meta.invalidates` in the manifest.
@@ -145,7 +145,7 @@ func countCheckLogs(t *testing.T, eng *Engine, s *memory.Store) int {
 	t.Helper()
 	// The writer batches on a 250ms interval; give it room to flush.
 	time.Sleep(400 * time.Millisecond)
-	n, err := s.CountCheckLogs(context.Background(), &checklogQueryFilterForTenant("t1"))
+	n, err := s.CountCheckLogs(context.Background(), checklogFilterForTenant("t1"))
 	if err != nil {
 		t.Fatalf("count check logs: %v", err)
 	}
@@ -222,11 +222,13 @@ func TestDryRunNeitherReadsNorWritesCache(t *testing.T) {
 }
 ```
 
-The `checklogQueryFilterForTenant` helper does not exist. Add it at the bottom of the same file:
+The `checklogFilterForTenant` helper does not exist. Add it at the bottom of the same file:
 
 ```go
-func checklogQueryFilterForTenant(tenantID string) checklog.QueryFilter {
-	return checklog.QueryFilter{TenantID: tenantID}
+// Returns a pointer: CountCheckLogs takes *QueryFilter, and Go cannot take
+// the address of a function call result.
+func checklogFilterForTenant(tenantID string) *checklog.QueryFilter {
+	return &checklog.QueryFilter{TenantID: tenantID}
 }
 ```
 
@@ -1658,9 +1660,6 @@ func TestMaintenanceRunReportsZeroWhenNothingExpired(t *testing.T) {
 	}
 }
 
-func TestMaintenanceRunPurgesAnExpiredAssignment() {
-}
-
 func TestMaintenanceRunPurgesExpiredAssignments(t *testing.T) {
 	s := memory.New()
 	seedAllow(t, s)
@@ -1720,8 +1719,6 @@ func TestCacheInvalidateRejectsAHalfSpecifiedSubject(t *testing.T) {
 	}
 }
 ```
-
-Delete the stray empty `TestMaintenanceRunPurgesAnExpiredAssignment()` stub above before running; it is left in this plan only to be removed, and a plan that shipped it would be a plan with a placeholder in it.
 
 - [ ] **Step 2: Run the tests to verify they fail**
 
@@ -2435,7 +2432,9 @@ describe("WardenOverviewPage", () => {
     ]) {
       expect(await screen.findByText(label)).toBeTruthy()
     }
-    expect(await screen.findByText("3")).toBeTruthy()
+    // Not findByText("3"): roles and permissions are both 3 in this
+    // fixture, and findByText throws when more than one node matches.
+    expect(screen.getAllByText("3").length).toBe(2)
   })
 
   it("carries a live row count on the recent checks caption", async () => {
@@ -2755,8 +2754,8 @@ describe("useNamespaceFilter", () => {
         <Probe />
       </PluginProvider>
     )
-    expect(await screen.findByTestId("value")).toHaveTextContent("all")
-    expect(screen.getByTestId("param")).toHaveTextContent("{}")
+    expect((await screen.findByTestId("value")).textContent).toBe("all")
+    expect(screen.getByTestId("param").textContent).toBe("{}")
   })
 
   it("offers every namespace the query returned", async () => {
@@ -2765,7 +2764,7 @@ describe("useNamespaceFilter", () => {
         <Probe />
       </PluginProvider>
     )
-    expect(await screen.findByTestId("options")).toHaveTextContent(
+    expect((await screen.findByTestId("options")).textContent).toBe(
       "All namespaces|Tenant root|eng"
     )
   })
@@ -2779,7 +2778,7 @@ describe("useNamespaceFilter", () => {
         <Probe />
       </PluginProvider>
     )
-    expect(await screen.findByTestId("options")).toHaveTextContent(
+    expect((await screen.findByTestId("options")).textContent).toBe(
       "All namespaces|Tenant root"
     )
   })
