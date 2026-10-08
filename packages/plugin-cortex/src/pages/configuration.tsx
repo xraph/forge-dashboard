@@ -388,6 +388,47 @@ function Clone({ resource, row }: { resource: Resource; row: ConfigRecord }) {
     </>
   )
 }
+function DeleteConfiguration({
+  resource,
+  row,
+}: {
+  resource: Resource
+  row: ConfigRecord
+}) {
+  const [open, setOpen] = useState(false),
+    command = useCommand(`${resource}.delete`),
+    navigate = useNavigateTo()
+  return (
+    <>
+      <Button
+        size="sm"
+        variant="outline"
+        onClick={() => {
+          command.reset()
+          setOpen(true)
+        }}
+      >
+        Delete
+      </Button>
+      <ConfirmDialog
+        open={open}
+        onOpenChange={setOpen}
+        title={`Delete ${row.name}?`}
+        description="This removes the saved configuration. Referenced configurations cannot be deleted."
+        confirmLabel="Delete"
+        pending={command.loading}
+        onConfirm={async () => {
+          if ((await command.execute({ id: row.id })) !== undefined) {
+            setOpen(false)
+            navigate(`/${resource}`, { replace: true })
+          }
+        }}
+      >
+        <CommandAlert error={command.error} title="Delete failed" />
+      </ConfirmDialog>
+    </>
+  )
+}
 function AgentActivity({ agent }: { agent: Agent }) {
   const q = useQuery<Page<Run>>("runs.list", {
     agent_id: agent.id,
@@ -519,6 +560,7 @@ export function ConfigDetail({
                       >
                         Edit {spec.singular.toLowerCase()}
                       </PluginLink>
+                      <DeleteConfiguration resource={resource} row={row} />
                     </>
                   )}
                 </>

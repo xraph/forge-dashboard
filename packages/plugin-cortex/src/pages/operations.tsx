@@ -884,6 +884,68 @@ export function SessionPage({ id }: { id: string }) {
     </section>
   )
 }
+function IntegrationSummary() {
+  const knowledge = useQuery<{
+    available: boolean
+    total?: number
+    summary?: { collections: number; documents: number; chunks: number }
+  }>("knowledge.list", { limit: 1, offset: 0 })
+  const safety = useQuery<{
+    available: boolean
+    summary?: {
+      total: number
+      blocked: number
+      allowed: number
+      flagged: number
+    }
+  }>("safety.scans", { limit: 1, offset: 0 })
+  return (
+    <div className="grid gap-2 text-xs sm:grid-cols-2">
+      <QueryBoundary
+        title="Knowledge summary"
+        query={knowledge}
+        skeletonRows={1}
+        keepPreviousData
+      >
+        {(data) => (
+          <div className="flex flex-wrap items-center gap-x-3 gap-y-1 rounded-md border px-3 py-2">
+            <PluginLink to="/knowledge" className="font-medium underline">
+              Knowledge
+            </PluginLink>
+            <span className="text-muted-foreground">
+              {!data.available
+                ? "Provider not installed"
+                : data.summary
+                  ? `${data.summary.collections} collections · ${data.summary.documents} documents · ${data.summary.chunks} chunks`
+                  : "Summary not supplied"}
+            </span>
+          </div>
+        )}
+      </QueryBoundary>
+      <QueryBoundary
+        title="Safety summary"
+        query={safety}
+        skeletonRows={1}
+        keepPreviousData
+      >
+        {(data) => (
+          <div className="flex flex-wrap items-center gap-x-3 gap-y-1 rounded-md border px-3 py-2">
+            <PluginLink to="/safety/scans" className="font-medium underline">
+              Safety scans
+            </PluginLink>
+            <span className="text-muted-foreground">
+              {data.available && data.summary
+                ? `${data.summary.total} scans · ${data.summary.blocked} blocked · ${data.summary.flagged} flagged · ${data.summary.allowed} allowed · ${data.summary.total ? ((100 * data.summary.blocked) / data.summary.total).toFixed(1) + "% block rate" : "No block rate yet"}`
+                : data.available
+                  ? "Summary not supplied"
+                  : "Provider not installed"}
+            </span>
+          </div>
+        )}
+      </QueryBoundary>
+    </div>
+  )
+}
 export function OverviewPage() {
   const stats = useQuery<Record<string, number>>("overview.stats"),
     runtime = useQuery<Runtime>("runtime.detail"),
@@ -931,6 +993,7 @@ export function OverviewPage() {
           />
         )}
       </QueryBoundary>
+      <IntegrationSummary />
       <QueryBoundary title="Pending approvals" query={checks} keepPreviousData>
         {(data) => (
           <div className="flex flex-col gap-2">
