@@ -1,6 +1,8 @@
 import { ForgeDashboard } from "@forge-go/dashboard-host"
 import { configFromWindow } from "@forge-go/dashboard-runtime"
+import cortexPlugin from "@forge-go/dashboard-plugin-cortex"
 import ctrlplanePlugin from "@forge-go/dashboard-plugin-ctrlplane"
+import shieldPlugin from "@forge-go/dashboard-plugin-shield"
 import corePlugin from "@forge-go/dashboard-plugin-core"
 import authsomePlugin, {
   authsomeSubPlugins,
@@ -32,6 +34,8 @@ const config = { basePath: injected.basePath ?? "/dashboard", ...injected }
 const plugins = [
   corePlugin,
   ctrlplanePlugin,
+  cortexPlugin,
+  shieldPlugin,
   streamingPlugin,
   authsomePlugin,
   wardenPlugin,

@@ -14,3 +14,9 @@
 @source "../../../packages/plugin-herald/src";
 @source "../../../packages/plugin-trove/src";
 @source "../../../packages/plugin-sentinel/src";
+
+@source "../../../packages/plugin-ctrlplane/src";
+
+@source "../../../packages/plugin-cortex/src";
+
+@source "../../../packages/plugin-shield/src";

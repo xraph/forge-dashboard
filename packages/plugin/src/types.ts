@@ -222,6 +222,19 @@ export const SLOT_NAMES = [
   "org.detail.tabs",
   "org.create.fields",
   "settings.tabs",
+  "shield.overview.widgets",
+  "shield.scan.detail",
+  "shield.profile.detail",
+  "shield.settings",
+  "cortex.overview.widgets",
+  "cortex.settings.tabs",
+  "cortex.agent.detail.sections",
+  "cortex.persona.detail.sections",
+  "cortex.run.detail.sections",
+  "cortex.chat.toolbar",
+  "cortex.chat.message.actions",
+  "cortex.playground.panels",
+  "cortex.playground.tabs",
 ] as const
 
 export type SlotName = (typeof SLOT_NAMES)[number]
