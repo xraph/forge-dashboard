@@ -1,3 +1,4 @@
+import { IconButton } from "@forge-go/dashboard-kit/components/icon-button"
 import { useEffect, useId, useRef, useState } from "react"
 import type { FormEvent } from "react"
 import { useCommand, useQuery } from "@forge-go/dashboard-plugin"
@@ -386,16 +387,7 @@ function CaseForm({
                       ))}
                     </NativeSelect>
                   </Field>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    aria-label={`Remove scorer ${i + 1}`}
-                    disabled={row.redacted !== undefined}
-                    onClick={() => setScorers((rows) => rows.filter((r) => r.key !== row.key))}
-                  >
-                    Remove
-                  </Button>
+                  <IconButton type="button" variant="outline" disabled={row.redacted !== undefined} onClick={() => setScorers((rows) => rows.filter((r) => r.key !== row.key))} label={`Remove scorer ${i + 1}`} />
                 </div>
                 <Field>
                   <Label htmlFor={id(`config-${row.key}`)}>{`Scorer ${i + 1} config`}</Label>
@@ -417,18 +409,9 @@ function CaseForm({
               </div>
             )
           })}
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            className="self-start"
-            disabled={registered.length === 0}
-            onClick={() =>
+          <IconButton type="button" variant="outline" className="self-start" disabled={registered.length === 0} onClick={() =>
               setScorers((rows) => [...rows, { key: nextKey(), name: registered[0] ?? "", configText: "" }])
-            }
-          >
-            Add scorer
-          </Button>
+            } label="Add scorer" />
           {config.error && (
             <p className="text-xs text-muted-foreground">The registered scorers could not be loaded right now.</p>
           )}

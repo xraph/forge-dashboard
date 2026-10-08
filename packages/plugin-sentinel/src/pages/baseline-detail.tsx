@@ -1,8 +1,8 @@
+import { IconButton } from "@forge-go/dashboard-kit/components/icon-button"
 import { useState } from "react"
 import type { ComponentType } from "react"
 import { PluginLink, useNavigateTo, useQuery } from "@forge-go/dashboard-plugin"
 import type { PluginPageProps } from "@forge-go/dashboard-plugin"
-import { Button } from "@forge-go/dashboard-kit/components/button"
 import { DescriptionList } from "@forge-go/dashboard-kit/components/detail-layout"
 import { PageHeader } from "@forge-go/dashboard-kit/components/page-header"
 import {
@@ -41,15 +41,10 @@ function BaselineDetailBody({ baselineId }: { baselineId: string }) {
                   : `A past baseline of ${b.suiteName}. Runs are not compared with it.`
               }
               actions={
-                <Button
-                  variant="outline"
-                  onClick={() => {
+                <IconButton variant="outline" onClick={() => {
                     setTarget(b)
                     setDeleting(true)
-                  }}
-                >
-                  Delete
-                </Button>
+                  }} label="Delete" />
               }
             />
             <DescriptionList

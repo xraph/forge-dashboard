@@ -1,3 +1,4 @@
+import { IconButton } from "@forge-go/dashboard-kit/components/icon-button"
 import { useState } from "react"
 import type { ComponentType, FormEvent } from "react"
 import { Button } from "@forge-go/dashboard-kit/components/button"
@@ -147,16 +148,11 @@ function DeleteAction({ policy, onDeleted }: { policy: PolicySummary; onDeleted:
 
   return (
     <div>
-      <Button
-        variant="outline"
-        onClick={() => {
+      <IconButton variant="outline" onClick={() => {
           // Reset on open, not on close: the state that matters is what the operator is looking at now.
           del.reset()
           setOpen(true)
-        }}
-      >
-        Delete policy
-      </Button>
+        }} label="Delete policy" />
       <ConfirmDialog
         open={open}
         // Escape and an outside click would hide the result of a delete still in flight.

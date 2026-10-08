@@ -1,6 +1,6 @@
+import { IconButton } from "@forge-go/dashboard-kit/components/icon-button"
 import { useState } from "react"
 import { useQuery } from "@forge-go/dashboard-plugin"
-import { Button } from "@forge-go/dashboard-kit/components/button"
 import { plural } from "../format"
 import type { Baseline, BaselinesList as BaselinesData } from "../types"
 import { BaselinesTable } from "./baselines-table"
@@ -26,16 +26,10 @@ export function BaselinesList({ suiteId }: { suiteId?: string }) {
             caption={`${plural(data.items.length, "baseline", "baselines")}, newest first`}
             emptyMessage="No baselines yet. Save one from a completed run's page, and later runs are compared with it."
             actions={(b) => (
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => {
+              <IconButton variant="ghost" onClick={() => {
                   setTarget(b)
                   setDeleting(true)
-                }}
-              >
-                {`Delete ${b.name}`}
-              </Button>
+                }} label={`Delete ${b.name}`} />
             )}
           />
         )}

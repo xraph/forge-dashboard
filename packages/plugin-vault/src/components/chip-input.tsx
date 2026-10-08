@@ -1,7 +1,7 @@
+import { IconButton } from "@forge-go/dashboard-kit/components/icon-button"
 import { useState } from "react"
 import type { ClipboardEvent, KeyboardEvent } from "react"
 import { Badge } from "@forge-go/dashboard-kit/components/badge"
-import { Button } from "@forge-go/dashboard-kit/components/button"
 import { Input } from "@forge-go/dashboard-kit/components/input"
 
 export interface ChipInputProps {
@@ -87,16 +87,7 @@ export function ChipInput({
             <li key={value}>
               <Badge variant="outline" className="gap-1 pr-0.5 font-mono text-xs">
                 {value}
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="icon-xs"
-                  className="size-4"
-                  aria-label={`Remove ${noun} ${value}`}
-                  onClick={() => onChange(values.filter((v) => v !== value))}
-                >
-                  <span aria-hidden="true">×</span>
-                </Button>
+                <IconButton type="button" variant="ghost" onClick={() => onChange(values.filter((v) => v !== value))} label={`Remove ${noun} ${value}`} />
               </Badge>
             </li>
           ))}

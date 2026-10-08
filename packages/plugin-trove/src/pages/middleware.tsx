@@ -1,3 +1,4 @@
+import { IconButton } from "@forge-go/dashboard-kit/components/icon-button"
 import { useState } from "react"
 import type { ComponentType, FormEvent } from "react"
 import { useQuery } from "@forge-go/dashboard-plugin"
@@ -82,9 +83,7 @@ export const MiddlewarePage: ComponentType<PluginPageProps> = () => {
           Test
         </Button>
         {tested ? (
-          <Button type="button" variant="outline" onClick={() => setTested(null)}>
-            Clear test
-          </Button>
+          <IconButton type="button" variant="outline" onClick={() => setTested(null)} label="Clear test" />
         ) : null}
       </form>
 

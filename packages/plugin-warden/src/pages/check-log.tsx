@@ -1,3 +1,4 @@
+import { IconButton } from "@forge-go/dashboard-kit/components/icon-button"
 import { useState, type FormEvent } from "react"
 import { useQuery } from "@forge-go/dashboard-plugin"
 import { Alert, AlertDescription } from "@forge-go/dashboard-kit/components/alert"
@@ -283,9 +284,7 @@ export function WardenCheckLogPage() {
           />
         </span>
         <Button type="submit">Apply</Button>
-        <Button type="button" variant="outline" onClick={clear}>
-          Clear
-        </Button>
+        <IconButton type="button" variant="outline" onClick={clear} label="Clear" />
       </form>
 
       <p className="text-sm text-muted-foreground">

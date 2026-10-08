@@ -1,7 +1,7 @@
+import { IconButton } from "@forge-go/dashboard-kit/components/icon-button"
 import { useState } from "react"
 import { PluginLink, useCommand, useNavigateTo, useQuery } from "@forge-go/dashboard-plugin"
 import type { PluginPageProps } from "@forge-go/dashboard-plugin"
-import { Button, buttonVariants } from "@forge-go/dashboard-kit/components/button"
 import { DescriptionList, DetailLayout } from "@forge-go/dashboard-kit/components/detail-layout"
 import { NoneCell } from "@forge-go/dashboard-kit/components/none-cell"
 import { PageHeader } from "@forge-go/dashboard-kit/components/page-header"
@@ -125,21 +125,13 @@ function PlanDetailView({ plan }: { plan: Plan }) {
         description={plan.description || undefined}
         actions={
           <>
-            <PluginLink to={planEditPath(plan.id)} className={buttonVariants({ variant: "outline" })}>
-              Edit
-            </PluginLink>
+            <IconButton label="Edit" nativeButton={false} role="link" render={<PluginLink to={planEditPath(plan.id)} />} />
             {plan.status === "active" ? (
-              <Button variant="outline" onClick={() => openDialog("archive")}>
-                Archive
-              </Button>
+              <IconButton variant="outline" onClick={() => openDialog("archive")} label="Archive" />
             ) : (
-              <Button variant="outline" onClick={() => openDialog("activate")}>
-                Activate
-              </Button>
+              <IconButton variant="outline" onClick={() => openDialog("activate")} label="Activate" />
             )}
-            <Button variant="destructive" onClick={() => openDialog("delete")}>
-              Delete
-            </Button>
+            <IconButton variant="destructive" onClick={() => openDialog("delete")} label="Delete" />
           </>
         }
       />

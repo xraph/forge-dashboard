@@ -1,6 +1,6 @@
+import { IconButton } from "@forge-go/dashboard-kit/components/icon-button"
 import { useState } from "react"
 import { useCommand } from "@forge-go/dashboard-plugin"
-import { Button } from "@forge-go/dashboard-kit/components/button"
 import { CommandAlert } from "@forge-go/dashboard-kit/components/query-boundary"
 
 /** Rescans discovery. Used by the routes and services pages. */
@@ -21,9 +21,7 @@ export function RefreshDiscovery() {
 
   return (
     <div className="flex flex-col items-end gap-2">
-      <Button variant="outline" disabled={refresh.loading} onClick={() => void run()}>
-        {refresh.loading ? "Refreshing…" : "Refresh discovery"}
-      </Button>
+      <IconButton variant="outline" disabled={refresh.loading} onClick={() => void run()} label={refresh.loading ? "Refreshing…" : "Refresh discovery"} />
       <CommandAlert title="Could not refresh discovery" error={error} />
       {refreshed ? (
         <p role="status" className="text-sm text-muted-foreground">

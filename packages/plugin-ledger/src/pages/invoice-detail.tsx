@@ -1,3 +1,4 @@
+import { IconButton } from "@forge-go/dashboard-kit/components/icon-button"
 import { useState, type ReactNode } from "react"
 import { ContractError, PluginLink, useCommand, usePluginClient, useQuery } from "@forge-go/dashboard-plugin"
 import type { PluginPageProps } from "@forge-go/dashboard-plugin"
@@ -327,9 +328,7 @@ function InvoiceDetailView({ detail }: { detail: InvoiceDetail }) {
               ) : (
                 <div className="flex flex-wrap gap-2">
                   {formats.map((f) => (
-                    <Button key={f} variant="outline" size="sm" disabled={exporting !== null} onClick={() => void exportAs(f)}>
-                      {exporting === f ? "Preparing…" : `Download ${f.toUpperCase()}`}
-                    </Button>
+                    <IconButton key={f} variant="outline" disabled={exporting !== null} onClick={() => void exportAs(f)} label={exporting === f ? "Preparing…" : `Download ${f.toUpperCase()}`} />
                   ))}
                 </div>
               )}

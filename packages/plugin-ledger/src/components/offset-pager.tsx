@@ -1,4 +1,4 @@
-import { Button } from "@forge-go/dashboard-kit/components/button"
+import { IconButton } from "@forge-go/dashboard-kit/components/icon-button"
 
 /**
  * Previous and Next for the contract's offset lists.
@@ -22,12 +22,8 @@ export function OffsetPager({
     <nav aria-label="Pagination" className="flex items-center justify-between gap-2 text-sm text-muted-foreground">
       <span>Page {page}</span>
       <span className="flex gap-2">
-        <Button variant="outline" size="sm" aria-label="Previous page" disabled={page <= 1} onClick={() => onPageChange(page - 1)}>
-          Previous
-        </Button>
-        <Button variant="outline" size="sm" aria-label="Next page" disabled={!hasMore} onClick={() => onPageChange(page + 1)}>
-          Next
-        </Button>
+        <IconButton variant="outline" disabled={page <= 1} onClick={() => onPageChange(page - 1)} label="Previous page" />
+        <IconButton variant="outline" disabled={!hasMore} onClick={() => onPageChange(page + 1)} label="Next page" />
       </span>
     </nav>
   )
@@ -36,8 +32,6 @@ export function OffsetPager({
 /** The way out of a page past the end of a list: one button, worded the same on every list. */
 export function BackToFirstPage({ onClick }: { onClick: () => void }) {
   return (
-    <Button variant="outline" onClick={onClick}>
-      Back to the first page
-    </Button>
+    <IconButton variant="outline" onClick={onClick} label="Back to the first page" />
   )
 }

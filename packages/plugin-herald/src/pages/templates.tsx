@@ -1,8 +1,9 @@
+import { IconButton } from "@forge-go/dashboard-kit/components/icon-button"
 import { useState } from "react"
 import type { ComponentType } from "react"
 import { PluginLink, useCommand, useQuery } from "@forge-go/dashboard-plugin"
 import type { PluginPageProps } from "@forge-go/dashboard-plugin"
-import { Button, buttonVariants } from "@forge-go/dashboard-kit/components/button"
+import { buttonVariants } from "@forge-go/dashboard-kit/components/button"
 import { ConfirmDialog } from "@forge-go/dashboard-kit/components/confirm-dialog"
 import { FilterBar } from "@forge-go/dashboard-kit/components/filter-bar"
 import { CommandAlert, QueryBoundary } from "@forge-go/dashboard-kit/components/query-boundary"
@@ -80,9 +81,7 @@ function TemplatesView({ startWithoutFallback }: { startWithoutFallback: boolean
         }
         actions={
           <div className="flex gap-2">
-            <Button variant="outline" onClick={openReset}>
-              Reset system templates
-            </Button>
+            <IconButton variant="outline" onClick={openReset} label="Reset system templates" />
             <NewTemplateLink />
           </div>
         }

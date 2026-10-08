@@ -1,8 +1,8 @@
+import { IconButton } from "@forge-go/dashboard-kit/components/icon-button"
 // Copied from plugin-relay, which copied it from plugin-authsome: plugin
 // packages do not depend on each other. This is the third copy, so it is owed
 // to kit; it stays here while kit carries another session's uncommitted edits.
 import { useCallback, useState } from "react"
-import { Button } from "@forge-go/dashboard-kit/components/button"
 
 /**
  * Remembers the cursors already visited so a cursor-paged list can go back.
@@ -80,24 +80,8 @@ export function CursorPager({
         {total === undefined ? `${shown} shown` : `${shown} of ${total}`}
       </span>
       <span className="flex gap-2">
-        <Button
-          variant="outline"
-          size="sm"
-          aria-label="Previous page"
-          disabled={!canGoBack}
-          onClick={onPrevious}
-        >
-          Previous
-        </Button>
-        <Button
-          variant="outline"
-          size="sm"
-          aria-label="Next page"
-          disabled={!nextCursor}
-          onClick={() => nextCursor && onNext(nextCursor)}
-        >
-          Next
-        </Button>
+        <IconButton variant="outline" disabled={!canGoBack} onClick={onPrevious} label="Previous page" />
+        <IconButton variant="outline" disabled={!nextCursor} onClick={() => nextCursor && onNext(nextCursor)} label="Next page" />
       </span>
     </nav>
   )

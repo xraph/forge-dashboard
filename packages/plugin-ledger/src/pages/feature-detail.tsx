@@ -1,7 +1,7 @@
+import { IconButton } from "@forge-go/dashboard-kit/components/icon-button"
 import { useState } from "react"
 import { PluginLink, useCommand, useNavigateTo, useQuery } from "@forge-go/dashboard-plugin"
 import type { PluginPageProps } from "@forge-go/dashboard-plugin"
-import { Button, buttonVariants } from "@forge-go/dashboard-kit/components/button"
 import { DescriptionList, DetailLayout } from "@forge-go/dashboard-kit/components/detail-layout"
 import { NoneCell } from "@forge-go/dashboard-kit/components/none-cell"
 import { PageHeader } from "@forge-go/dashboard-kit/components/page-header"
@@ -56,29 +56,17 @@ function FeatureDetailView({ feature }: { feature: CatalogFeature }) {
         actions={
           !readOnly && (
             <>
-              <PluginLink to={featureEditPath(feature.id)} className={buttonVariants({ variant: "outline" })}>
-                Edit
-              </PluginLink>
+              <IconButton label="Edit" nativeButton={false} role="link" render={<PluginLink to={featureEditPath(feature.id)} />} />
               {feature.status !== "archived" && (
-                <Button
-                  variant="outline"
-                  onClick={() => {
+                <IconButton variant="outline" onClick={() => {
                     archive.reset()
                     setPending("archive")
-                  }}
-                >
-                  Archive
-                </Button>
+                  }} label="Archive" />
               )}
-              <Button
-                variant="destructive"
-                onClick={() => {
+              <IconButton variant="destructive" onClick={() => {
                   remove.reset()
                   setPending("delete")
-                }}
-              >
-                Delete
-              </Button>
+                }} label="Delete" />
             </>
           )
         }

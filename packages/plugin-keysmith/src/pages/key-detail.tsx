@@ -1,11 +1,9 @@
+import { IconButton } from "@forge-go/dashboard-kit/components/icon-button"
 import { Suspense, lazy, useMemo, useState } from "react"
 import type { ComponentType, ReactNode } from "react"
 import { PluginLink, useQuery } from "@forge-go/dashboard-plugin"
 import type { PluginPageProps } from "@forge-go/dashboard-plugin"
-import {
-  Button,
-  buttonVariants,
-} from "@forge-go/dashboard-kit/components/button"
+import { buttonVariants } from "@forge-go/dashboard-kit/components/button"
 import {
   DescriptionList,
   DetailLayout,
@@ -340,7 +338,7 @@ function KeyDetailView({
           actions={
             anyAction ? (
               <>
-                {rotatable && <Button onClick={onRotate}>Rotate key</Button>}
+                {rotatable && <IconButton onClick={onRotate} label="Rotate key" />}
                 <KeyStateActions
                   summary={key}
                   onSuspend={onSuspend}

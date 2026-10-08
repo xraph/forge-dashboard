@@ -1,3 +1,4 @@
+import { IconButton } from "@forge-go/dashboard-kit/components/icon-button"
 import { useState } from "react"
 import { PluginLink, useCommand, useQuery } from "@forge-go/dashboard-plugin"
 import { Badge } from "@forge-go/dashboard-kit/components/badge"
@@ -244,21 +245,14 @@ export function WardenRolesPage() {
                   {/* No delete on a system role: the contract refuses it,
                       so the button would promise a rejection. */}
                   {!r.isSystem && (
-                    <Button
-                      variant="destructive"
-                      size="sm"
-                      aria-label={`Delete ${r.name}`}
-                      onClick={() => {
+                    <IconButton variant="destructive" onClick={() => {
                         // Reset at open, not at close: the operator is
                         // about to read whatever this dialog shows for THIS
                         // role, so a failure from a previous row must not
                         // be attributed to one they have not touched.
                         remove.reset()
                         setDeleting(r)
-                      }}
-                    >
-                      Delete
-                    </Button>
+                      }} label={`Delete ${r.name}`} />
                   )}
                 </>
               )}

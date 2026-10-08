@@ -1,9 +1,9 @@
+import { IconButton } from "@forge-go/dashboard-kit/components/icon-button"
 import { useRef } from "react"
 import type { RefObject } from "react"
 import { observeElementRect, useVirtualizer } from "@tanstack/react-virtual"
 import { PluginLink } from "@forge-go/dashboard-plugin"
 import { Alert, AlertDescription, AlertTitle } from "@forge-go/dashboard-kit/components/alert"
-import { Button } from "@forge-go/dashboard-kit/components/button"
 import { EmptyState } from "@forge-go/dashboard-kit/components/empty-state"
 import { NoneCell } from "@forge-go/dashboard-kit/components/none-cell"
 import { CommandAlert } from "@forge-go/dashboard-kit/components/query-boundary"
@@ -101,9 +101,7 @@ function ListingBody({
       <CommandAlert error={moreError} title="Could not load more" />
       {more ? (
         <div>
-          <Button variant="outline" size="sm" disabled={loadingMore} onClick={loadMore}>
-            {loadingMore ? "Loading…" : "Load more"}
-          </Button>
+          <IconButton variant="outline" disabled={loadingMore} onClick={loadMore} label={loadingMore ? "Loading…" : "Load more"} />
         </div>
       ) : null}
     </div>

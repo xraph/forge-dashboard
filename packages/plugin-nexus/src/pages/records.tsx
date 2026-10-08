@@ -1,3 +1,4 @@
+import { IconButton } from "@forge-go/dashboard-kit/components/icon-button"
 import { useState, useSyncExternalStore } from "react"
 import { PluginLink, useQuery } from "@forge-go/dashboard-plugin"
 import { Button } from "@forge-go/dashboard-kit/components/button"
@@ -179,31 +180,18 @@ function RecordRows({
                     : "Send a request through the gateway to see its cost and outcome here."
                 }
                 action={
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={
+                  <IconButton variant="outline" onClick={
                       Object.keys(filters).length ? clear : query.refetch
-                    }
-                  >
-                    {Object.keys(filters).length
+                    } label={Object.keys(filters).length
                       ? "Clear filters"
-                      : "Refresh requests"}
-                  </Button>
+                      : "Refresh requests"} />
                 }
               />
             )}
             <div className="flex items-center justify-between gap-2 text-xs text-muted-foreground">
               <span>{items.length} requests shown</span>
               {value.nextCursor && (
-                <Button
-                  variant="outline"
-                  size="sm"
-                  disabled={query.loading}
-                  onClick={() => setCursor(value.nextCursor)}
-                >
-                  Load more requests
-                </Button>
+                <IconButton variant="outline" disabled={query.loading} onClick={() => setCursor(value.nextCursor)} label="Load more requests" />
               )}
             </div>
           </>
@@ -254,9 +242,7 @@ function RecordsFilterPage({ search }: { search: string }) {
         title="Invalid request-log scope"
         body="The address includes an invalid tenant or key. Clear the filters to choose a valid scope."
         action={
-          <Button variant="outline" size="sm" onClick={clear}>
-            Clear filters
-          </Button>
+          <IconButton variant="outline" onClick={clear} label="Clear filters" />
         }
       />
     )
@@ -347,9 +333,7 @@ function RecordsFilterPage({ search }: { search: string }) {
           Apply filters
         </Button>
         {Object.keys(filters).length > 0 && (
-          <Button type="button" variant="ghost" size="sm" onClick={clear}>
-            Clear filters
-          </Button>
+          <IconButton type="button" variant="ghost" onClick={clear} label="Clear filters" />
         )}
       </form>
       {error && (

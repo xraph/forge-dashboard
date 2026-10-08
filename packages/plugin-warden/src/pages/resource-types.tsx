@@ -1,3 +1,4 @@
+import { IconButton } from "@forge-go/dashboard-kit/components/icon-button"
 import { useState } from "react"
 import { PluginLink, useCommand, useQuery } from "@forge-go/dashboard-plugin"
 import { Button } from "@forge-go/dashboard-kit/components/button"
@@ -239,19 +240,12 @@ export function WardenResourceTypesPage() {
                     >
                       Details
                     </PluginLink>
-                    <Button
-                      variant="destructive"
-                      size="sm"
-                      aria-label={`Delete ${r.name}`}
-                      onClick={() => {
+                    <IconButton variant="destructive" onClick={() => {
                         // Reset at open, not at close: the operator is about
                         // to read whatever this dialog shows for THIS type.
                         remove.reset()
                         setDeleting(r)
-                      }}
-                    >
-                      Delete
-                    </Button>
+                      }} label={`Delete ${r.name}`} />
                   </>
                 )}
               />

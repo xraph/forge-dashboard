@@ -1,3 +1,4 @@
+import { IconButton } from "@forge-go/dashboard-kit/components/icon-button"
 import { useState } from "react"
 import type { CommandState } from "@forge-go/dashboard-plugin"
 import { PluginLink, useCommand, useQuery } from "@forge-go/dashboard-plugin"
@@ -177,12 +178,8 @@ export function RelayDLQPage() {
         description="Deliveries Relay gave up on. Replaying one sends the webhook again."
         actions={
           <>
-            <Button variant="outline" onClick={() => setBulkOpen(true)}>
-              Replay a time window
-            </Button>
-            <Button variant="outline" onClick={() => setPurgeOpen(true)}>
-              Delete old entries
-            </Button>
+            <IconButton variant="outline" onClick={() => setBulkOpen(true)} label="Replay a time window" />
+            <IconButton variant="outline" onClick={() => setPurgeOpen(true)} label="Delete old entries" />
           </>
         }
       />
@@ -229,14 +226,7 @@ export function RelayDLQPage() {
                 }
                 rowActions={(r) =>
                   r.replayedAt ? null : (
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      aria-label={`Replay ${r.eventType} to ${r.url}`}
-                      onClick={() => openReplay(r)}
-                    >
-                      Replay
-                    </Button>
+                    <IconButton variant="outline" onClick={() => openReplay(r)} label={`Replay ${r.eventType} to ${r.url}`} />
                   )
                 }
               />

@@ -1,7 +1,7 @@
+import { IconButton } from "@forge-go/dashboard-kit/components/icon-button"
 import { useId, useState } from "react"
 import type { ReactNode } from "react"
 import { usePoll, useQuery } from "@forge-go/dashboard-plugin"
-import { Button } from "@forge-go/dashboard-kit/components/button"
 import { Label } from "@forge-go/dashboard-kit/components/label"
 import {
   NativeSelect,
@@ -122,22 +122,8 @@ export function RunsList({
               />
               {(offset > 0 || data.hasMore) && (
                 <nav aria-label="Pages of runs" className="flex gap-2">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    disabled={offset === 0}
-                    onClick={() => setOffset(Math.max(0, offset - RUNS_PAGE))}
-                  >
-                    Newer runs
-                  </Button>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    disabled={!data.hasMore}
-                    onClick={() => setOffset(offset + RUNS_PAGE)}
-                  >
-                    Older runs
-                  </Button>
+                  <IconButton variant="outline" disabled={offset === 0} onClick={() => setOffset(Math.max(0, offset - RUNS_PAGE))} label="Newer runs" />
+                  <IconButton variant="outline" disabled={!data.hasMore} onClick={() => setOffset(offset + RUNS_PAGE)} label="Older runs" />
                 </nav>
               )}
             </div>

@@ -1,6 +1,6 @@
+import { IconButton } from "@forge-go/dashboard-kit/components/icon-button"
 import { useState } from "react"
 import { useCommand, useNavigateTo } from "@forge-go/dashboard-plugin"
-import { Button } from "@forge-go/dashboard-kit/components/button"
 import { ConfirmDialog } from "@forge-go/dashboard-kit/components/confirm-dialog"
 import { Input } from "@forge-go/dashboard-kit/components/input"
 import { Label } from "@forge-go/dashboard-kit/components/label"
@@ -75,9 +75,7 @@ export function SettingsTab({ template, settings, onChange }: { template: Templa
       </dl>
       <p className="text-xs text-muted-foreground">Slug and channel can't change: callers send by slug, and the pair is the template's identity. To change either, create a new template.</p>
       <div className="flex flex-col gap-2 border-t pt-4">
-        <Button type="button" variant="destructive" className="w-fit" onClick={openDelete}>
-          Delete template
-        </Button>
+        <IconButton type="button" variant="destructive" onClick={openDelete} label="Delete template" />
       </div>
       <ConfirmDialog
         open={confirming}

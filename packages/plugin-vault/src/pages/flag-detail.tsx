@@ -1,3 +1,4 @@
+import { IconButton } from "@forge-go/dashboard-kit/components/icon-button"
 import { useState } from "react"
 import type { ComponentType, FormEvent, ReactNode } from "react"
 import {
@@ -284,9 +285,7 @@ function FlagDetailView({ flagKey, data }: { flagKey: string; data: FlagDetail }
           actions={
             <>
               <FlagTypeBadge type={flag.type} />
-              <Button variant="destructive" onClick={openDelete}>
-                Delete
-              </Button>
+              <IconButton variant="destructive" onClick={openDelete} label="Delete" />
             </>
           }
         />
@@ -437,14 +436,7 @@ function FlagDetailView({ flagKey, data }: { flagKey: string; data: FlagDetail }
                     </>
                   }
                   actions={
-                    <Button
-                      variant="ghost"
-                      size="xs"
-                      aria-label={`Remove override for ${o.tenantId}`}
-                      onClick={() => openRemove(o.tenantId)}
-                    >
-                      Remove
-                    </Button>
+                    <IconButton variant="ghost" onClick={() => openRemove(o.tenantId)} label={`Remove override for ${o.tenantId}`} />
                   }
                 >
                   <span className="font-mono text-xs font-medium">{o.tenantId}</span>
@@ -464,15 +456,7 @@ function FlagDetailView({ flagKey, data }: { flagKey: string; data: FlagDetail }
           decided={marks?.decidedIndex !== undefined}
           actions={
             editingRules ? undefined : (
-              <Button
-                variant="outline"
-                size="sm"
-                disabled={type === undefined}
-                aria-describedby={type === undefined ? typeReasonId : undefined}
-                onClick={() => setEditingRules(true)}
-              >
-                Edit rules
-              </Button>
+              <IconButton variant="outline" disabled={type === undefined} aria-describedby={type === undefined ? typeReasonId : undefined} onClick={() => setEditingRules(true)} label="Edit rules" />
             )
           }
         >
@@ -681,16 +665,7 @@ function EditButton({
   disabledBecause?: string
 }) {
   return (
-    <Button
-      variant="ghost"
-      size="xs"
-      aria-label={label}
-      disabled={disabledBecause !== undefined}
-      aria-describedby={disabledBecause}
-      onClick={onClick}
-    >
-      Edit
-    </Button>
+    <IconButton variant="ghost" disabled={disabledBecause !== undefined} aria-describedby={disabledBecause} onClick={onClick} label={label} />
   )
 }
 

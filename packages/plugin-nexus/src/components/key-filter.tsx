@@ -1,3 +1,4 @@
+import { IconButton } from "@forge-go/dashboard-kit/components/icon-button"
 import { useState } from "react"
 import { useQuery } from "@forge-go/dashboard-plugin"
 import { Button } from "@forge-go/dashboard-kit/components/button"
@@ -63,9 +64,7 @@ function KeyOptions({
             choose={choose}
           />
         ) : (
-          <Button variant="outline" size="sm" onClick={() => setMore(true)}>
-            Load more keys
-          </Button>
+          <IconButton variant="outline" onClick={() => setMore(true)} label="Load more keys" />
         ))}
     </>
   )
@@ -101,9 +100,7 @@ export function KeyFilter({
       <PopoverContent align="start" className="gap-2">
         <PopoverTitle>API key</PopoverTitle>
         <div className="flex max-h-72 flex-col gap-1 overflow-y-auto">
-          <Button variant="ghost" size="sm" onClick={() => choose()}>
-            All keys
-          </Button>
+          <IconButton variant="ghost" onClick={() => choose()} label="All keys" />
           {open && (
             <KeyOptions key={tenantId} tenantId={tenantId} choose={choose} />
           )}

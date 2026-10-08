@@ -1,3 +1,4 @@
+import { IconButton } from "@forge-go/dashboard-kit/components/icon-button"
 import { useState, type FormEvent } from "react"
 import { PluginLink, useCommand, useQuery } from "@forge-go/dashboard-plugin"
 import { Badge } from "@forge-go/dashboard-kit/components/badge"
@@ -265,9 +266,7 @@ export function WardenPermissionsPage() {
           />
         </span>
         <Button type="submit">Apply</Button>
-        <Button type="button" variant="outline" onClick={clear}>
-          Clear
-        </Button>
+        <IconButton type="button" variant="outline" onClick={clear} label="Clear" />
       </form>
 
       {creating && (
@@ -303,21 +302,14 @@ export function WardenPermissionsPage() {
                   {/* No delete on a system permission: the contract refuses
                       it, so offering the button would promise a rejection. */}
                   {!p.isSystem && (
-                    <Button
-                      variant="destructive"
-                      size="sm"
-                      aria-label={`Delete ${p.name}`}
-                      onClick={() => {
+                    <IconButton variant="destructive" onClick={() => {
                         // Reset at open, not at close: the operator is about
                         // to read whatever this dialog shows for THIS
                         // permission, so a failure from a previous row must
                         // not be attributed to one they have not touched.
                         remove.reset()
                         setDeleting(p)
-                      }}
-                    >
-                      Delete
-                    </Button>
+                      }} label={`Delete ${p.name}`} />
                   )}
                 </>
               )}

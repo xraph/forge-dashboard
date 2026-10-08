@@ -1,3 +1,4 @@
+import { IconButton } from "@forge-go/dashboard-kit/components/icon-button"
 import { Fragment, useEffect, useRef, useState, type KeyboardEvent, type ReactNode } from "react"
 import {
   usePluginClient,
@@ -1025,9 +1026,7 @@ export function PolicyEditor({
                 setSubjectRefused(false)
               }}
             />
-            <Button type="button" size="xs" variant="outline" onClick={addSubject}>
-              Add subject
-            </Button>
+            <IconButton type="button" variant="outline" onClick={addSubject} label="Add subject" />
           </span>
           {subjectRefused && <Issue part="new-subject">{EMPTY_SUBJECT}</Issue>}
           {fieldIssues.subjects?.map((m) => (
@@ -1117,17 +1116,9 @@ export function PolicyEditor({
                     ))}
                   </NativeSelect>
                   <ValueInput row={r} n={n} onChange={(next) => editRow(i, next)} />
-                  <Button
-                    type="button"
-                    size="icon-xs"
-                    variant="ghost"
-                    aria-label={`Remove condition ${n}`}
-                    onClick={() =>
+                  <IconButton type="button" variant="ghost" onClick={() =>
                       edit({ conditions: state.conditions.filter((_, j) => j !== i) })
-                    }
-                  >
-                    <XIcon aria-hidden="true" />
-                  </Button>
+                    } label={`Remove condition ${n}`} />
                 </span>
                 {issues?.map((m) => (
                   <Issue key={m} part={`condition-${i}`}>
@@ -1146,21 +1137,14 @@ export function PolicyEditor({
         <dd>
           <span className="flex flex-col gap-1">
             <span>
-              <Button
-                type="button"
-                size="xs"
-                variant="outline"
-                onClick={() =>
+              <IconButton type="button" variant="outline" onClick={() =>
                   edit({
                     conditions: [
                       ...state.conditions,
                       { key: nextRowKey++, field: "", operator: "eq", items: [], text: "" },
                     ],
                   })
-                }
-              >
-                Add condition
-              </Button>
+                } label="Add condition" />
             </span>
             {rows.length === 0 && <Muted>no conditions, so it applies whenever it matches</Muted>}
           </span>
@@ -1178,15 +1162,7 @@ export function PolicyEditor({
               value={state.notBefore}
               onChange={(e) => edit({ notBefore: e.target.value })}
             />
-            <Button
-              type="button"
-              size="xs"
-              variant="ghost"
-              disabled={state.notBefore === ""}
-              onClick={() => edit({ notBefore: "" })}
-            >
-              Clear start
-            </Button>
+            <IconButton type="button" variant="ghost" disabled={state.notBefore === ""} onClick={() => edit({ notBefore: "" })} label="Clear start" />
           </span>
           <span className="flex flex-wrap items-center gap-2">
             <Muted>until</Muted>
@@ -1198,15 +1174,7 @@ export function PolicyEditor({
               value={state.notAfter}
               onChange={(e) => edit({ notAfter: e.target.value })}
             />
-            <Button
-              type="button"
-              size="xs"
-              variant="ghost"
-              disabled={state.notAfter === ""}
-              onClick={() => edit({ notAfter: "" })}
-            >
-              Clear end
-            </Button>
+            <IconButton type="button" variant="ghost" disabled={state.notAfter === ""} onClick={() => edit({ notAfter: "" })} label="Clear end" />
           </span>
           <span className="text-xs text-muted-foreground">
             RFC3339, like 2026-06-01T09:00:00Z. An empty bound is no bound.

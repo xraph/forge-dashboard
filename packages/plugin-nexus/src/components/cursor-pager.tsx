@@ -1,5 +1,5 @@
+import { IconButton } from "@forge-go/dashboard-kit/components/icon-button"
 import { useCallback, useState } from "react"
-import { Button } from "@forge-go/dashboard-kit/components/button"
 
 export function useCursorStack() {
   const [stack, setStack] = useState<string[]>([])
@@ -35,22 +35,8 @@ export function CursorPager({
     >
       <span>{shown} shown</span>
       <span className="flex gap-2">
-        <Button
-          variant="outline"
-          size="sm"
-          disabled={!canGoBack || busy}
-          onClick={onPrevious}
-        >
-          Previous page
-        </Button>
-        <Button
-          variant="outline"
-          size="sm"
-          disabled={!nextCursor || busy}
-          onClick={() => nextCursor && onNext(nextCursor)}
-        >
-          Next page
-        </Button>
+        <IconButton variant="outline" disabled={!canGoBack || busy} onClick={onPrevious} label="Previous page" />
+        <IconButton variant="outline" disabled={!nextCursor || busy} onClick={() => nextCursor && onNext(nextCursor)} label="Next page" />
       </span>
     </nav>
   )

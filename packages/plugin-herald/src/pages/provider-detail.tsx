@@ -1,8 +1,9 @@
+import { IconButton } from "@forge-go/dashboard-kit/components/icon-button"
 import { useState } from "react"
 import type { ComponentType } from "react"
 import { PluginLink, useCommand, useNavigateTo, useQuery } from "@forge-go/dashboard-plugin"
 import type { PluginPageProps } from "@forge-go/dashboard-plugin"
-import { Button, buttonVariants } from "@forge-go/dashboard-kit/components/button"
+import { buttonVariants } from "@forge-go/dashboard-kit/components/button"
 import { ConfirmDialog } from "@forge-go/dashboard-kit/components/confirm-dialog"
 import { DescriptionList, DetailLayout } from "@forge-go/dashboard-kit/components/detail-layout"
 import { NoneCell } from "@forge-go/dashboard-kit/components/none-cell"
@@ -110,15 +111,11 @@ function ProviderBody({ id }: { id: string }) {
         actions={
           loaded && (
             <div className="flex flex-wrap gap-2">
-              <PluginLink to={providerEditPath(loaded.id)} className={buttonVariants({ variant: "outline" })}>
-                Edit
-              </PluginLink>
+              <IconButton label="Edit" nativeButton={false} role="link" render={<PluginLink to={providerEditPath(loaded.id)} />} />
               <PluginLink to={providerSendTestPath(loaded.id)} className={buttonVariants({ variant: "outline" })}>
                 Send a test through this provider
               </PluginLink>
-              <Button variant="destructive" onClick={() => openDelete(loaded)}>
-                Delete
-              </Button>
+              <IconButton variant="destructive" onClick={() => openDelete(loaded)} label="Delete" />
             </div>
           )
         }

@@ -1,3 +1,4 @@
+import { IconButton } from "@forge-go/dashboard-kit/components/icon-button"
 import { useState, type ComponentType } from "react"
 import { Button } from "@forge-go/dashboard-kit/components/button"
 import { Input } from "@forge-go/dashboard-kit/components/input"
@@ -117,9 +118,7 @@ export const EventsPage: ComponentType<PluginPageProps> = () => {
           <Button type="submit">Apply filters</Button>
           {/* Named apart from the empty state's "Clear filters" so both can be on screen at once. */}
           {active.length > 0 && (
-            <Button type="button" variant="outline" onClick={clear}>
-              Reset filters
-            </Button>
+            <IconButton type="button" variant="outline" onClick={clear} label="Reset filters" />
           )}
         </div>
       </form>

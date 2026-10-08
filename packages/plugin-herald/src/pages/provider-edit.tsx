@@ -1,3 +1,4 @@
+import { IconButton } from "@forge-go/dashboard-kit/components/icon-button"
 import { useState } from "react"
 import type { ComponentType, FormEvent } from "react"
 import { PluginLink, useCommand, useNavigateTo, useQuery } from "@forge-go/dashboard-plugin"
@@ -161,9 +162,7 @@ function EditForm({ provider, engine }: { provider: ProviderDetail; engine: Engi
                 <Button type="button" size="xs" variant="outline" onClick={() => setReplacing((r) => toggle(r, key))}>
                   {replacing.has(key) ? "Keep" : `Replace ${s.key}`}
                 </Button>
-                <Button type="button" size="xs" variant="ghost" onClick={() => setRemoving((r) => toggle(r, key))}>
-                  {removing.has(key) ? "Undo" : `Remove ${s.key}`}
-                </Button>
+                <IconButton type="button" variant="ghost" onClick={() => setRemoving((r) => toggle(r, key))} label={removing.has(key) ? "Undo" : `Remove ${s.key}`} />
                 {replacing.has(key) && !removing.has(key) && <SecretInput aria-label={`New value for ${s.key}`} name={key} secrets={secrets} />}
               </div>
             )
@@ -215,9 +214,7 @@ function EditForm({ provider, engine }: { provider: ProviderDetail; engine: Engi
                       <Button type="button" size="xs" variant="outline" disabled={removing.has(c.key)} onClick={() => setReplacing((r) => toggle(r, c.key))}>
                         {replacing.has(c.key) ? "Keep" : `Replace ${c.key}`}
                       </Button>
-                      <Button type="button" size="xs" variant="ghost" onClick={() => setRemoving((r) => toggle(r, c.key))}>
-                        {removing.has(c.key) ? "Undo" : `Remove ${c.key}`}
-                      </Button>
+                      <IconButton type="button" variant="ghost" onClick={() => setRemoving((r) => toggle(r, c.key))} label={removing.has(c.key) ? "Undo" : `Remove ${c.key}`} />
                     </div>
                     {replacing.has(c.key) && !removing.has(c.key) && (
                       <div className="mt-2">

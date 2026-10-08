@@ -1,3 +1,4 @@
+import { IconButton } from "@forge-go/dashboard-kit/components/icon-button"
 import { useState } from "react"
 import type { FormEvent } from "react"
 import { useQuery } from "@forge-go/dashboard-plugin"
@@ -93,14 +94,7 @@ export function ResolvePanel({
           <Button type="submit" disabled={result.loading}>
             Resolve
           </Button>
-          <Button
-            type="button"
-            variant="outline"
-            disabled={asked === null && text === ""}
-            onClick={clear}
-          >
-            Clear
-          </Button>
+          <IconButton type="button" variant="outline" disabled={asked === null && text === ""} onClick={clear} label="Clear" />
         </div>
       </form>
       {asked === null ? null : (

@@ -1,3 +1,4 @@
+import { IconButton } from "@forge-go/dashboard-kit/components/icon-button"
 import { useState, type ComponentType } from "react"
 import { Button } from "@forge-go/dashboard-kit/components/button"
 import { PageHeader } from "@forge-go/dashboard-kit/components/page-header"
@@ -81,12 +82,8 @@ function CheckpointsView({ streamId }: { streamId?: string }) {
             />
             {/* The store keeps no count, so there is no "page 2 of N": only whether another page exists. */}
             <div className="flex justify-end gap-2">
-              <Button variant="outline" disabled={offset === 0} onClick={() => setOffset(Math.max(0, offset - PAGE))}>
-                Previous page
-              </Button>
-              <Button variant="outline" disabled={!data.hasMore} onClick={() => setOffset(offset + PAGE)}>
-                Next page
-              </Button>
+              <IconButton variant="outline" disabled={offset === 0} onClick={() => setOffset(Math.max(0, offset - PAGE))} label="Previous page" />
+              <IconButton variant="outline" disabled={!data.hasMore} onClick={() => setOffset(offset + PAGE)} label="Next page" />
             </div>
           </>
         )

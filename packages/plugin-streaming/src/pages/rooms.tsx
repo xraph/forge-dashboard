@@ -1,3 +1,4 @@
+import { IconButton } from "@forge-go/dashboard-kit/components/icon-button"
 import { useState } from "react"
 import { PluginLink, useCommand, useQuery } from "@forge-go/dashboard-plugin"
 import { Badge } from "@forge-go/dashboard-kit/components/badge"
@@ -200,24 +201,10 @@ export function StreamingRoomsPage() {
               }
               emptyMessage="No rooms yet."
               rowActions={(room) => (
-                <Button
-                  variant="destructive"
-                  size="sm"
-                  aria-label={`Delete ${room.name}`}
-                  // `remove` is one hook shared by every row in this table, so
-                  // whatever it was holding for the last row acted on (an
-                  // error, in particular) is still there when this handler
-                  // runs. Reset here, at the moment the target changes, not
-                  // in the dialog's close handler - closing is not the only
-                  // way the dialog goes away, and it is what the operator is
-                  // about to look at that matters.
-                  onClick={() => {
+                <IconButton variant="destructive" onClick={() => {
                     remove.reset()
                     setPendingDelete(room)
-                  }}
-                >
-                  Delete
-                </Button>
+                  }} label={`Delete ${room.name}`} />
               )}
             />
           )

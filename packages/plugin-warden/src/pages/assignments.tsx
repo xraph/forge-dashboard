@@ -1,3 +1,4 @@
+import { IconButton } from "@forge-go/dashboard-kit/components/icon-button"
 import { useState, type FormEvent, type ReactNode } from "react"
 import { PluginLink, useCommand, useQuery, type QueryState } from "@forge-go/dashboard-plugin"
 import { Badge } from "@forge-go/dashboard-kit/components/badge"
@@ -529,17 +530,10 @@ export function WardenAssignmentsPage() {
 
   function deleteAction(a: AssignmentSummary) {
     return (
-      <Button
-        variant="destructive"
-        size="sm"
-        aria-label={`Delete ${subjectLabel(a)} from ${a.roleSlug || a.roleId}`}
-        onClick={() => {
+      <IconButton variant="destructive" onClick={() => {
           remove.reset()
           setDeleting(a)
-        }}
-      >
-        Delete
-      </Button>
+        }} label={`Delete ${subjectLabel(a)} from ${a.roleSlug || a.roleId}`} />
     )
   }
 
@@ -647,9 +641,7 @@ export function WardenAssignmentsPage() {
               />
             </span>
             <Button type="submit">Apply</Button>
-            <Button type="button" variant="outline" onClick={clearSubjectId}>
-              Clear
-            </Button>
+            <IconButton type="button" variant="outline" onClick={clearSubjectId} label="Clear" />
           </form>
 
           <QueryBoundary title="Assignments" query={list} skeletonRows={5}>

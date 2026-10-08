@@ -1,7 +1,7 @@
+import { IconButton } from "@forge-go/dashboard-kit/components/icon-button"
 import { useCallback, useEffect, useId, useRef, useState } from "react"
 import { useCommand } from "@forge-go/dashboard-plugin"
 import type { ContractError } from "@forge-go/dashboard-plugin"
-import { Button } from "@forge-go/dashboard-kit/components/button"
 import { ConfirmDialog } from "@forge-go/dashboard-kit/components/confirm-dialog"
 import { Label } from "@forge-go/dashboard-kit/components/label"
 import { Textarea } from "@forge-go/dashboard-kit/components/textarea"
@@ -52,19 +52,13 @@ export function KeyStateActions({
   return (
     <>
       {offer.suspend && (
-        <Button variant="outline" onClick={onSuspend}>
-          Suspend
-        </Button>
+        <IconButton variant="outline" onClick={onSuspend} label="Suspend" />
       )}
       {offer.reactivate && (
-        <Button variant="outline" disabled={reactivating} onClick={onReactivate}>
-          Reactivate
-        </Button>
+        <IconButton variant="outline" disabled={reactivating} onClick={onReactivate} label="Reactivate" />
       )}
       {offer.revoke && (
-        <Button variant="destructive" onClick={onRevoke}>
-          Revoke
-        </Button>
+        <IconButton variant="destructive" onClick={onRevoke} label="Revoke" />
       )}
     </>
   )

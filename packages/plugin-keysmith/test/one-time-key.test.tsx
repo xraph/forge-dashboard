@@ -351,7 +351,7 @@ describe("OneTimeKey hide", () => {
     expect(toggle.getAttribute("aria-pressed")).toBe("false")
     fireEvent.click(toggle)
     // The label stays put; only the pressed state says which way it is.
-    expect(toggle.textContent).toBe("Hide key")
+    expect(toggle.getAttribute("aria-label")).toBe("Hide key")
     expect(toggle.getAttribute("aria-pressed")).toBe("true")
     expect(screen.queryByRole("button", { name: "Show" })).toBeNull()
     expect(container.textContent).not.toContain("0123456789abcdef")

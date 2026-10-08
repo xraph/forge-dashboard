@@ -1,3 +1,4 @@
+import { IconButton } from "@forge-go/dashboard-kit/components/icon-button"
 import { useState } from "react"
 import { PluginLink, useQuery } from "@forge-go/dashboard-plugin"
 import { Button } from "@forge-go/dashboard-kit/components/button"
@@ -83,17 +84,10 @@ export function PromptsTab({ suiteId }: { suiteId: string }) {
               emptyAction={create}
               rowActions={(v) =>
                 v.isCurrent ? null : (
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    aria-label={`Make version ${v.version} current`}
-                    onClick={() => {
+                  <IconButton variant="outline" onClick={() => {
                       setTarget(v)
                       setMaking(true)
-                    }}
-                  >
-                    Make current
-                  </Button>
+                    }} label={`Make version ${v.version} current`} />
                 )
               }
             />

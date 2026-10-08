@@ -1,7 +1,7 @@
+import { IconButton } from "@forge-go/dashboard-kit/components/icon-button"
 import type { ReactNode } from "react"
 import { PluginLink } from "@forge-go/dashboard-plugin"
 import { Badge } from "@forge-go/dashboard-kit/components/badge"
-import { Button } from "@forge-go/dashboard-kit/components/button"
 import {
   Card,
   CardHeader,
@@ -23,9 +23,7 @@ export const rate = (value: number | null) =>
   value === null ? "Unavailable" : `${(value * 100).toFixed(1)}%`
 export function Refresh({ onClick }: { onClick: () => void }) {
   return (
-    <Button size="sm" variant="outline" onClick={onClick}>
-      Refresh
-    </Button>
+    <IconButton variant="outline" onClick={onClick} label="Refresh" />
   )
 }
 export function Empty({

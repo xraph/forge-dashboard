@@ -1,5 +1,5 @@
+import { IconButton } from "@forge-go/dashboard-kit/components/icon-button"
 import { useCommand } from "@forge-go/dashboard-plugin"
-import { Button } from "@forge-go/dashboard-kit/components/button"
 import { DescriptionList } from "@forge-go/dashboard-kit/components/detail-layout"
 import { NoneCell } from "@forge-go/dashboard-kit/components/none-cell"
 import { CommandAlert } from "@forge-go/dashboard-kit/components/query-boundary"
@@ -60,9 +60,7 @@ export function SyncPanel({
       {!noProvider && <CommandAlert error={sync.error} title="Could not sync" />}
       {canSync && (
         <div>
-          <Button variant="outline" size="sm" disabled={sync.loading} onClick={() => void sync.execute({ id })}>
-            {sync.loading ? "Syncing…" : "Sync to provider"}
-          </Button>
+          <IconButton variant="outline" disabled={sync.loading} onClick={() => void sync.execute({ id })} label={sync.loading ? "Syncing…" : "Sync to provider"} />
         </div>
       )}
     </section>

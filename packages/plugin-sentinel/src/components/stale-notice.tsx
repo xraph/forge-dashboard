@@ -1,4 +1,4 @@
-import { Button } from "@forge-go/dashboard-kit/components/button"
+import { IconButton } from "@forge-go/dashboard-kit/components/icon-button"
 import type { ContractError } from "@forge-go/dashboard-plugin"
 
 /**
@@ -11,9 +11,7 @@ export function StaleNotice({ what, error, onRetry }: { what: string; error?: Co
       <span>
         {`Couldn't refresh ${what}${error ? `: ${error.message}` : ""}. Showing what was last read.`}
       </span>
-      <Button variant="outline" size="sm" onClick={onRetry}>
-        Try again
-      </Button>
+      <IconButton variant="outline" onClick={onRetry} label="Try again" />
     </div>
   )
 }

@@ -1,3 +1,4 @@
+import { IconButton } from "@forge-go/dashboard-kit/components/icon-button"
 import { useEffect, useRef, useState } from "react"
 import { PluginLink, useCommand, useNavigateTo, useQuery } from "@forge-go/dashboard-plugin"
 import type { PluginPageProps } from "@forge-go/dashboard-plugin"
@@ -97,22 +98,15 @@ export function WardenPermissionDetailPage({ params }: PluginPageProps) {
               !permission.isSystem &&
               !edit.editing && (
                 <>
-                  <Button variant="outline" ref={edit.triggerRef} onClick={edit.open}>
-                    Edit description
-                  </Button>
-                  <Button
-                    variant="destructive"
-                    onClick={() => {
+                  <IconButton variant="outline" ref={edit.triggerRef} onClick={edit.open} label="Edit description" />
+                  <IconButton variant="destructive" onClick={() => {
                       // Reset at open, not at close: the operator is about to
                       // read whatever this dialog shows for THIS permission, so
                       // a failure from an earlier attempt must not be
                       // attributed to it.
                       remove.reset()
                       setDeleting(true)
-                    }}
-                  >
-                    Delete
-                  </Button>
+                    }} label="Delete" />
                 </>
               )
             }

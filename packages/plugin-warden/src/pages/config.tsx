@@ -1,3 +1,4 @@
+import { IconButton } from "@forge-go/dashboard-kit/components/icon-button"
 import { useState } from "react"
 import { useCommand, useQuery } from "@forge-go/dashboard-plugin"
 import { Alert } from "@forge-go/dashboard-kit/components/alert"
@@ -221,19 +222,14 @@ export function WardenConfigPage() {
             >
               Run maintenance
             </Button>
-            <Button
-              variant="outline"
-              onClick={() => {
+            <IconButton variant="outline" onClick={() => {
                 // Same reasoning as the run-maintenance button above: reset
                 // at open, so a result from a previous clear is not read as
                 // belonging to this one.
                 clearCache.reset()
                 setClearResult(null)
                 setConfirmingClear(true)
-              }}
-            >
-              Clear cache
-            </Button>
+              }} label="Clear cache" />
           </div>
         }
       />

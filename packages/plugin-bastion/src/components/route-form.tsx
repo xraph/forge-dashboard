@@ -1,3 +1,4 @@
+import { IconButton } from "@forge-go/dashboard-kit/components/icon-button"
 import { useState } from "react"
 import type { FormEvent } from "react"
 import { PluginLink } from "@forge-go/dashboard-plugin"
@@ -244,16 +245,12 @@ export function RouteForm({ initial, submitLabel, pendingLabel, pending, error, 
               <Input id={`target-tags-${i}`} value={t.tags} onChange={(e) => setTarget(i, { tags: e.target.value })} />
             </div>
             {v.targets.length > 1 ? (
-              <Button type="button" variant="outline" onClick={() => set("targets", v.targets.filter((_, j) => j !== i))}>
-                {`Remove upstream ${i + 1}`}
-              </Button>
+              <IconButton type="button" variant="outline" onClick={() => set("targets", v.targets.filter((_, j) => j !== i))} label={`Remove upstream ${i + 1}`} />
             ) : null}
           </div>
         ))}
         <div>
-          <Button type="button" variant="outline" onClick={() => set("targets", [...v.targets, { url: "", weight: "", tags: "" }])}>
-            Add upstream
-          </Button>
+          <IconButton type="button" variant="outline" onClick={() => set("targets", [...v.targets, { url: "", weight: "", tags: "" }])} label="Add upstream" />
         </div>
         <FieldError show={field === "targets"} error={error} />
       </fieldset>

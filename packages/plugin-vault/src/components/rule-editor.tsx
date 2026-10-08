@@ -1,3 +1,4 @@
+import { IconButton } from "@forge-go/dashboard-kit/components/icon-button"
 import { useState } from "react"
 import type { CSSProperties } from "react"
 import {
@@ -159,15 +160,7 @@ function RuleRow({ rule, number, flagType, onChange, onRemove }: RowProps) {
             >
               {open ? "Done" : "Edit"}
             </CollapsibleTrigger>
-            <Button
-              type="button"
-              variant="ghost"
-              size="xs"
-              aria-label={`Remove rule ${number}`}
-              onClick={() => onRemove(rule.uid)}
-            >
-              Remove
-            </Button>
+            <IconButton type="button" variant="ghost" onClick={() => onRemove(rule.uid)} label={`Remove rule ${number}`} />
           </div>
         </div>
         <CollapsibleContent keepMounted className="border-t px-3 py-3">
@@ -351,9 +344,7 @@ export function RuleEditor({ flagKey, flagType, rules, onClose }: RuleEditorProp
           </DropdownMenuContent>
         </DropdownMenu>
         <span className="flex-1" />
-        <Button type="button" variant="outline" size="sm" disabled={saving} onClick={discard}>
-          Discard
-        </Button>
+        <IconButton type="button" variant="outline" disabled={saving} onClick={discard} label="Discard" />
         <Button
           type="button"
           size="sm"

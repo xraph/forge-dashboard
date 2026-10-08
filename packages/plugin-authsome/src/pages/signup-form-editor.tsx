@@ -1,3 +1,4 @@
+import { IconButton } from "@forge-go/dashboard-kit/components/icon-button"
 import { useState } from "react"
 import { useCommand, useNavigateTo, useQuery } from "@forge-go/dashboard-plugin"
 import { Button } from "@forge-go/dashboard-kit/components/button"
@@ -147,41 +148,16 @@ function EditorBody({ fields: initialFields }: { fields: FormField[] }) {
               <span className="text-xs text-muted-foreground">Order {field.order}</span>
             </div>
             <div className="flex gap-2">
-              <Button
-                variant="outline"
-                size="sm"
-                aria-label={`Move ${field.label || field.key || "field " + (i + 1)} up`}
-                onClick={() => moveUp(i)}
-                disabled={i === 0}
-              >
-                Move up
-              </Button>
-              <Button
-                variant="outline"
-                size="sm"
-                aria-label={`Move ${field.label || field.key || "field " + (i + 1)} down`}
-                onClick={() => moveDown(i)}
-                disabled={i === fields.length - 1}
-              >
-                Move down
-              </Button>
-              <Button
-                variant="destructive"
-                size="sm"
-                aria-label={`Remove ${field.label || field.key || "field " + (i + 1)}`}
-                onClick={() => removeField(i)}
-              >
-                Remove
-              </Button>
+              <IconButton variant="outline" onClick={() => moveUp(i)} disabled={i === 0} label={`Move ${field.label || field.key || "field " + (i + 1)} up`} />
+              <IconButton variant="outline" onClick={() => moveDown(i)} disabled={i === fields.length - 1} label={`Move ${field.label || field.key || "field " + (i + 1)} down`} />
+              <IconButton variant="destructive" onClick={() => removeField(i)} label={`Remove ${field.label || field.key || "field " + (i + 1)}`} />
             </div>
           </div>
         ))}
       </div>
 
       <div className="flex gap-2">
-        <Button variant="outline" onClick={addField}>
-          Add field
-        </Button>
+        <IconButton variant="outline" onClick={addField} label="Add field" />
         <Button onClick={() => void submit()} disabled={save.loading}>
           {save.loading ? "Saving…" : "Save"}
         </Button>
@@ -238,9 +214,7 @@ export function AuthSignupFormEditorPage() {
       <PageHeader
         title="Edit signup form"
         actions={
-          <Button variant="destructive" onClick={() => setDeleting(true)}>
-            Delete signup form
-          </Button>
+          <IconButton variant="destructive" onClick={() => setDeleting(true)} label="Delete signup form" />
         }
       />
       <QueryBoundary title="Signup form" query={query} skeletonRows={3}>

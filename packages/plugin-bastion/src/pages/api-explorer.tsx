@@ -1,8 +1,8 @@
+import { IconButton } from "@forge-go/dashboard-kit/components/icon-button"
 import { useState } from "react"
 import type { ComponentType } from "react"
 import { useCommand, useQuery } from "@forge-go/dashboard-plugin"
 import type { PluginPageProps } from "@forge-go/dashboard-plugin"
-import { Button } from "@forge-go/dashboard-kit/components/button"
 import { NoneCell } from "@forge-go/dashboard-kit/components/none-cell"
 import { PageHeader } from "@forge-go/dashboard-kit/components/page-header"
 import { CommandAlert, QueryBoundary } from "@forge-go/dashboard-kit/components/query-boundary"
@@ -71,9 +71,7 @@ export const BastionApiExplorerPage: ComponentType<PluginPageProps> = () => {
                 <a href={s.specPath} target="_blank" rel="noreferrer" className="text-sm underline">
                   Open the merged spec
                 </a>
-                <Button variant="outline" disabled={refresh.loading} onClick={() => void run()}>
-                  {refresh.loading ? "Refreshing…" : "Refresh specs"}
-                </Button>
+                <IconButton variant="outline" disabled={refresh.loading} onClick={() => void run()} label={refresh.loading ? "Refreshing…" : "Refresh specs"} />
               </div>
               <CommandAlert title="Could not refresh specs" error={refresh.error} />
               {started ? (

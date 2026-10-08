@@ -113,7 +113,7 @@ describe("BrowserPage layout", () => {
     const left = container.querySelectorAll<HTMLElement>('[data-slot="resizable-panel"]')[0]
     // The kit's table container is overflow-x-auto. The listing's own
     // scroller is the only element in the left panel that is overflow-auto.
-    const scrollers = Array.from(left.querySelectorAll<HTMLElement>("*")).filter((el) => el.className.split(/\s+/).includes("overflow-auto"))
+    const scrollers = Array.from(left.querySelectorAll<HTMLElement>("*")).filter((el) => el.classList.contains("overflow-auto"))
     return { group, left, scrollers }
   }
 

@@ -1,3 +1,4 @@
+import { IconButton } from "@forge-go/dashboard-kit/components/icon-button"
 import { useState } from "react"
 import type { FormEvent } from "react"
 import { useCommand } from "@forge-go/dashboard-plugin"
@@ -127,11 +128,7 @@ export function OverridesSection({
             >
               Change
             </Button>
-            <Button
-              variant="outline"
-              size="xs"
-              aria-label={`Revert to app default for ${o.tenantId}`}
-              onClick={() =>
+            <IconButton variant="outline" onClick={() =>
                 revert.request(
                   entry.key,
                   o.tenantId,
@@ -141,10 +138,7 @@ export function OverridesSection({
                     {"."}
                   </>,
                 )
-              }
-            >
-              Revert to app default
-            </Button>
+              } label={`Revert to app default for ${o.tenantId}`} />
           </>
         )}
       />

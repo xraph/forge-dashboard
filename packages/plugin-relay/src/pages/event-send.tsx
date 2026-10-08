@@ -1,3 +1,4 @@
+import { IconButton } from "@forge-go/dashboard-kit/components/icon-button"
 import { useId, useState } from "react"
 import { useCommand, useNavigateTo, useQuery } from "@forge-go/dashboard-plugin"
 import { Button } from "@forge-go/dashboard-kit/components/button"
@@ -180,13 +181,6 @@ function UseExample({
   const example = detail.data?.example
   if (example === undefined || example === null) return null
   return (
-    <Button
-      type="button"
-      variant="ghost"
-      size="sm"
-      onClick={() => onUse(prettyJSON(example))}
-    >
-      Use the example
-    </Button>
+    <IconButton type="button" variant="ghost" onClick={() => onUse(prettyJSON(example))} label="Use the example" />
   )
 }

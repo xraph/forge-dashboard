@@ -107,10 +107,10 @@ describe("ComparePage", () => {
     expect(reads).toEqual(expect.arrayContaining([{ runId: A, resultId: "result_a_1" }, { runId: B, resultId: "result_b_1" }]))
   })
 
-  it("labels each row's button briefly and moves to the outputs when a case is opened", async () => {
+  it("gives each row's icon an accessible name and moves to the outputs when a case is opened", async () => {
     open()
     const button = await screen.findByRole("button", { name: "Compare outputs of Old case" })
-    expect(button.textContent).toBe("Compare outputs")
+    expect(button.querySelector("svg")).toBeTruthy()
     fireEvent.click(button)
     expect(document.activeElement).toBe(screen.getByRole("heading", { name: "Outputs of Old case" }))
   })

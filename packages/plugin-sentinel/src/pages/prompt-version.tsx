@@ -1,7 +1,7 @@
+import { IconButton } from "@forge-go/dashboard-kit/components/icon-button"
 import { Suspense, lazy, useState } from "react"
 import { PluginLink, useQuery } from "@forge-go/dashboard-plugin"
 import type { PluginPageProps } from "@forge-go/dashboard-plugin"
-import { Button } from "@forge-go/dashboard-kit/components/button"
 import { DescriptionList } from "@forge-go/dashboard-kit/components/detail-layout"
 import { NoneCell } from "@forge-go/dashboard-kit/components/none-cell"
 import { PageHeader } from "@forge-go/dashboard-kit/components/page-header"
@@ -43,15 +43,10 @@ function PromptVersionBody({ versionId }: { versionId: string }) {
                 title={`Version ${v.version}`}
                 actions={
                   v.isCurrent ? undefined : (
-                    <Button
-                      variant="outline"
-                      onClick={() => {
+                    <IconButton variant="outline" onClick={() => {
                         setTarget(v)
                         setMaking(true)
-                      }}
-                    >
-                      Make current
-                    </Button>
+                      }} label="Make current" />
                   )
                 }
               />

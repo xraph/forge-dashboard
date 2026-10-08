@@ -1,3 +1,4 @@
+import { IconButton } from "@forge-go/dashboard-kit/components/icon-button"
 import { useCallback, useId, useRef, useState } from "react"
 import { useCommand, useQuery } from "@forge-go/dashboard-plugin"
 import type { ContractError } from "@forge-go/dashboard-plugin"
@@ -142,15 +143,7 @@ function EditableScopes({ summary, editing }: ScopesEditorProps) {
               className="inline-flex items-center gap-0.5 rounded-4xl border py-0.5 pr-0.5 pl-2"
             >
               <span className="font-mono text-xs">{name}</span>
-              <Button
-                variant="ghost"
-                size="icon-xs"
-                aria-label={`Remove ${name}`}
-                disabled={editing.busy}
-                onClick={() => editing.remove(name)}
-              >
-                <span aria-hidden="true">×</span>
-              </Button>
+              <IconButton variant="ghost" disabled={editing.busy} onClick={() => editing.remove(name)} label={`Remove ${name}`} />
             </li>
           ))}
         </ul>

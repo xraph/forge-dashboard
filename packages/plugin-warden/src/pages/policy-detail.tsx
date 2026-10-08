@@ -1,8 +1,8 @@
+import { IconButton } from "@forge-go/dashboard-kit/components/icon-button"
 import { useState } from "react"
 import { PluginLink, useCommand, useNavigateTo, useQuery } from "@forge-go/dashboard-plugin"
 import type { PluginPageProps } from "@forge-go/dashboard-plugin"
 import { Alert, AlertDescription } from "@forge-go/dashboard-kit/components/alert"
-import { Button } from "@forge-go/dashboard-kit/components/button"
 import { ConfirmDialog } from "@forge-go/dashboard-kit/components/confirm-dialog"
 import {
   DescriptionList,
@@ -325,25 +325,16 @@ export function WardenPolicyDetailPage({ params, editing = false }: PolicyPagePr
               description={policy.description || undefined}
               actions={
                 <>
-                  <Button variant="outline" onClick={() => navigate(`/policies/${id}/edit`)}>
-                    Edit
-                  </Button>
+                  <IconButton variant="outline" onClick={() => navigate(`/policies/${id}/edit`)} label="Edit" />
                   {policy.isActive && (
-                    <Button variant="outline" onClick={() => openToggle(false)}>
-                      Deactivate
-                    </Button>
+                    <IconButton variant="outline" onClick={() => openToggle(false)} label="Deactivate" />
                   )}
                   {/* Outline, not destructive: on this page colour means
                       "this overrides", and only the Deny heading carries it. */}
-                  <Button
-                    variant="outline"
-                    onClick={() => {
+                  <IconButton variant="outline" onClick={() => {
                       remove.reset()
                       setDeleting(true)
-                    }}
-                  >
-                    Delete
-                  </Button>
+                    }} label="Delete" />
                 </>
               }
             />
@@ -405,9 +396,7 @@ export function WardenPolicyDetailPage({ params, editing = false }: PolicyPagePr
                     >
                       <p>{state}</p>
                       {policy.state === "inactive" && (
-                        <Button size="sm" onClick={() => openToggle(true)}>
-                          Activate
-                        </Button>
+                        <IconButton onClick={() => openToggle(true)} label="Activate" />
                       )}
                     </div>
                   )}

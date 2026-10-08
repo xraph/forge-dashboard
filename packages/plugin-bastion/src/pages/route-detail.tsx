@@ -1,9 +1,9 @@
+import { IconButton } from "@forge-go/dashboard-kit/components/icon-button"
 import { useState } from "react"
 import type { ComponentType, ReactNode } from "react"
 import { PluginLink, useCommand, useNavigateTo, useQuery } from "@forge-go/dashboard-plugin"
 import type { PluginPageProps } from "@forge-go/dashboard-plugin"
 import { Badge } from "@forge-go/dashboard-kit/components/badge"
-import { Button, buttonVariants } from "@forge-go/dashboard-kit/components/button"
 import { ConfirmDialog } from "@forge-go/dashboard-kit/components/confirm-dialog"
 import { DescriptionList } from "@forge-go/dashboard-kit/components/detail-layout"
 import { NoneCell } from "@forge-go/dashboard-kit/components/none-cell"
@@ -145,13 +145,13 @@ function RouteDetailBody({ id }: { id: string }) {
                 actions={
                   d.editable ? (
                     <div className="flex gap-2">
-                      <PluginLink to={routeEditPath(d.id)} className={buttonVariants({ variant: "outline" })}>Edit</PluginLink>
+                      <IconButton label="Edit" nativeButton={false} role="link" render={<PluginLink to={routeEditPath(d.id)} />} />
                       {d.enabled ? (
-                        <Button variant="outline" onClick={() => open("disable")}>Disable</Button>
+                        <IconButton variant="outline" onClick={() => open("disable")} label="Disable" />
                       ) : (
-                        <Button variant="outline" disabled={setEnabled.loading} onClick={() => void toggle(d, true)}>Enable</Button>
+                        <IconButton variant="outline" disabled={setEnabled.loading} onClick={() => void toggle(d, true)} label="Enable" />
                       )}
-                      <Button variant="destructive" onClick={() => open("delete")}>Delete</Button>
+                      <IconButton variant="destructive" onClick={() => open("delete")} label="Delete" />
                     </div>
                   ) : undefined
                 }

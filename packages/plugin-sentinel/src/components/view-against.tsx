@@ -1,3 +1,4 @@
+import { IconButton } from "@forge-go/dashboard-kit/components/icon-button"
 import { useId, useState } from "react"
 import type { FormEvent } from "react"
 import { useQuery } from "@forge-go/dashboard-plugin"
@@ -95,9 +96,7 @@ export function ViewAgainst({
           Compare
         </Button>
         {choice && (
-          <Button type="button" variant="ghost" onClick={reset}>
-            Back to the run's own answer
-          </Button>
+          <IconButton type="button" variant="ghost" onClick={reset} label="Back to the run's own answer" />
         )}
       </div>
       {message ? (

@@ -1,6 +1,6 @@
+import { IconButton } from "@forge-go/dashboard-kit/components/icon-button"
 import { useEffect } from "react"
 import { useQuery } from "@forge-go/dashboard-plugin"
-import { Button } from "@forge-go/dashboard-kit/components/button"
 import { NativeSelect, NativeSelectOption } from "@forge-go/dashboard-kit/components/native-select"
 import { setActiveStore, useActiveStore } from "../store"
 import type { StoresList } from "../types"
@@ -28,9 +28,7 @@ export function StorePicker() {
         <span className="text-muted-foreground">
           Store list unavailable, showing <span className="font-mono text-xs">{active}</span>
         </span>
-        <Button variant="outline" size="sm" onClick={() => setActiveStore("")}>
-          Use default
-        </Button>
+        <IconButton variant="outline" onClick={() => setActiveStore("")} label="Use default" />
       </div>
     )
   }

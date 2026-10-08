@@ -1,3 +1,4 @@
+import { IconButton } from "@forge-go/dashboard-kit/components/icon-button"
 import { useState } from "react"
 import type { ComponentType, FormEvent } from "react"
 import {
@@ -228,9 +229,7 @@ function RotationDetailBody({ secretKey }: { secretKey: string }) {
               />
               {policy !== null && (
                 <div>
-                  <Button variant="destructive" onClick={openDelete}>
-                    Delete policy
-                  </Button>
+                  <IconButton variant="destructive" onClick={openDelete} label="Delete policy" />
                 </div>
               )}
             </section>
@@ -238,13 +237,7 @@ function RotationDetailBody({ secretKey }: { secretKey: string }) {
             <section className="flex flex-col gap-2">
               <h2 className="text-sm font-medium">Rotate now</h2>
               <div className="flex flex-wrap items-center gap-3">
-                <Button
-                  disabled={!data.rotatable}
-                  aria-describedby={data.rotatable ? undefined : "rotate-unavailable"}
-                  onClick={openRotate}
-                >
-                  Rotate now
-                </Button>
+                <IconButton disabled={!data.rotatable} aria-describedby={data.rotatable ? undefined : "rotate-unavailable"} onClick={openRotate} label="Rotate now" />
                 {!data.rotatable && (
                   <p id="rotate-unavailable" className="text-sm text-muted-foreground">
                     No rotator is registered for this secret. Rotators are registered in

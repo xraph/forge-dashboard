@@ -1,6 +1,6 @@
+import { IconButton } from "@forge-go/dashboard-kit/components/icon-button"
 import { PluginLink, useCommand, useNavigateTo, useQuery } from "@forge-go/dashboard-plugin"
 import type { PluginPageProps } from "@forge-go/dashboard-plugin"
-import { buttonVariants } from "@forge-go/dashboard-kit/components/button"
 import { PageHeader } from "@forge-go/dashboard-kit/components/page-header"
 import { QueryBoundary } from "@forge-go/dashboard-kit/components/query-boundary"
 import { SharedBadge } from "../badges"
@@ -65,9 +65,7 @@ function FeatureEditView({ id, feature: f }: { id: string; feature: CatalogFeatu
           <p className="flex items-center gap-2 text-sm text-muted-foreground">
             <SharedBadge /> Shared by every app on this server. It can be changed only with no app selected.
           </p>
-          <PluginLink to={featurePath(id)} className={buttonVariants({ variant: "outline" })}>
-            Back to the feature
-          </PluginLink>
+          <IconButton label="Back to the feature" nativeButton={false} role="link" render={<PluginLink to={featurePath(id)} />} />
         </div>
       ) : (
         <FeatureForm

@@ -1,3 +1,4 @@
+import { IconButton } from "@forge-go/dashboard-kit/components/icon-button"
 import { useState } from "react"
 import type { ComponentType, FormEvent } from "react"
 import { PluginLink, useCommand, useQuery } from "@forge-go/dashboard-plugin"
@@ -97,9 +98,7 @@ export const BucketsPage: ComponentType<PluginPageProps> = () => {
             caption={bucketCaption(data.buckets.length)}
             emptyMessage="No buckets in this store yet. Create one to start storing objects."
             rowActions={(b) => (
-              <Button variant="ghost" size="sm" aria-label={`Delete ${b.name}`} onClick={() => openDelete(b.name)}>
-                Delete
-              </Button>
+              <IconButton variant="ghost" onClick={() => openDelete(b.name)} label={`Delete ${b.name}`} />
             )}
           />
         )}

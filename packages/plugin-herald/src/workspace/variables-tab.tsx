@@ -1,5 +1,5 @@
+import { IconButton } from "@forge-go/dashboard-kit/components/icon-button"
 import { useEffect, useRef, useState } from "react"
-import { Button } from "@forge-go/dashboard-kit/components/button"
 import { Checkbox } from "@forge-go/dashboard-kit/components/checkbox"
 import { Input } from "@forge-go/dashboard-kit/components/input"
 import { plural } from "../format"
@@ -91,15 +91,9 @@ export function VariablesTab({ variables, onChange }: { variables: VariableWire[
                 <Input aria-label={`Description of ${nameOf(v, i)}`} value={v.description ?? ""} onChange={(e) => set(i, { description: e.target.value })} />
               </td>
               <td className="py-2 whitespace-nowrap">
-                <Button type="button" size="xs" variant="ghost" aria-label={`Move ${nameOf(v, i)} up`} disabled={i === 0} onClick={() => move(i, -1)}>
-                  Up
-                </Button>
-                <Button type="button" size="xs" variant="ghost" aria-label={`Move ${nameOf(v, i)} down`} disabled={i === variables.length - 1} onClick={() => move(i, 1)}>
-                  Down
-                </Button>
-                <Button type="button" size="xs" variant="ghost" data-remove-row aria-label={`Remove ${nameOf(v, i)}`} onClick={() => remove(i)}>
-                  Remove
-                </Button>
+                <IconButton type="button" variant="ghost" disabled={i === 0} onClick={() => move(i, -1)} label={`Move ${nameOf(v, i)} up`} />
+                <IconButton type="button" variant="ghost" disabled={i === variables.length - 1} onClick={() => move(i, 1)} label={`Move ${nameOf(v, i)} down`} />
+                <IconButton type="button" variant="ghost" data-remove-row onClick={() => remove(i)} label={`Remove ${nameOf(v, i)}`} />
               </td>
             </tr>
           ))}
@@ -112,9 +106,7 @@ export function VariablesTab({ variables, onChange }: { variables: VariableWire[
         ))}
       </datalist>
       <div className="flex flex-wrap items-center gap-3">
-        <Button type="button" size="sm" variant="outline" data-add-variable onClick={add}>
-          Add variable
-        </Button>
+        <IconButton type="button" variant="outline" data-add-variable onClick={add} label="Add variable" />
         <p className="text-xs text-muted-foreground">Edits here reach the preview straight away. Save writes them.</p>
       </div>
     </div>

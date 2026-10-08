@@ -1,3 +1,4 @@
+import { IconButton } from "@forge-go/dashboard-kit/components/icon-button"
 import { useRef, useState } from "react"
 import type { Dispatch, SetStateAction } from "react"
 import { ContractError, usePluginClient, useQuery } from "@forge-go/dashboard-plugin"
@@ -233,9 +234,7 @@ function Editor({ id, snap, setSnap, reloadError, onRetry }: { id: string; snap:
         }
         actions={
           <>
-            <Button type="button" variant="outline" disabled={changes.length === 0} onClick={() => setReviewing(true)}>
-              {changes.length === 0 ? "Review changes" : `Review ${plural(changes.length, "change")}`}
-            </Button>
+            <IconButton type="button" variant="outline" disabled={changes.length === 0} onClick={() => setReviewing(true)} label={changes.length === 0 ? "Review changes" : `Review ${plural(changes.length, "change")}`} />
             <Button type="button" disabled={!canSave} onClick={() => void saveAll()}>
               {save.saving ? "Saving…" : "Save"}
             </Button>
@@ -253,9 +252,7 @@ function Editor({ id, snap, setSnap, reloadError, onRetry }: { id: string; snap:
           <span>
             This template didn't reload: {reloadError.code}: {reloadError.message}. Your edits are still on the page.
           </span>
-          <Button type="button" size="xs" variant="outline" onClick={onRetry}>
-            Try again
-          </Button>
+          <IconButton type="button" variant="outline" onClick={onRetry} label="Try again" />
         </div>
       )}
       <Tabs value={tab} onValueChange={(value) => setTab(String(value))}>

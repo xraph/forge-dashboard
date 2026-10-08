@@ -1,3 +1,4 @@
+import { IconButton } from "@forge-go/dashboard-kit/components/icon-button"
 import { Plus, Reply, MailCheck } from "@forge-go/dashboard-kit/icons"
 import {
   ChevronLeft,
@@ -573,9 +574,7 @@ function OverlayForm({
         >
           Save overlay
         </Button>
-        <Button variant="outline" size="sm" onClick={onSaved}>
-          Close editor
-        </Button>
+        <IconButton variant="outline" onClick={onSaved} label="Close editor" />
       </div>
     </form>
   )

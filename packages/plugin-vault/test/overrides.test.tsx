@@ -258,12 +258,12 @@ describe("OverridesPage rows", () => {
     const buttons = within(row).getAllByRole("button")
     expect(buttons).toHaveLength(1)
     // There is no app default to go back to, so the button does not say so.
-    expect(buttons[0]?.textContent).toBe("Remove leftover override")
+    expect(buttons[0]?.querySelector("svg")).toBeTruthy()
     expect(buttons[0]?.getAttribute("aria-label")).toBe(
       "Remove leftover override for tenant wayne of gone/key",
     )
-    // A live row keeps the words it always had.
-    expect(within(rowOf("app/greeting")).getByRole("button").textContent).toBe(
+    // A live row still names the app default as its destination.
+    expect(within(rowOf("app/greeting")).getByRole("button").getAttribute("aria-label")).toContain(
       "Revert to app default",
     )
   })

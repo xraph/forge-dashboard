@@ -1,3 +1,4 @@
+import { IconButton } from "@forge-go/dashboard-kit/components/icon-button"
 import { useId, useState, type FormEvent } from "react"
 import { PluginLink, queryStore, useQuery } from "@forge-go/dashboard-plugin"
 import type { PluginPageProps } from "@forge-go/dashboard-plugin"
@@ -381,15 +382,7 @@ function BatchSection({
                   caption={`${rows.length} ${rows.length === 1 ? "check" : "checks"}`}
                   emptyMessage="The batch returned no results."
                   rowActions={(r) => (
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      aria-label={`Open in builder, line ${r.n}`}
-                      onClick={() => onOpen(r.item)}
-                    >
-                      Open in builder
-                    </Button>
+                    <IconButton type="button" variant="outline" onClick={() => onOpen(r.item)} label={`Open in builder, line ${r.n}`} />
                   )}
                 />
               </div>

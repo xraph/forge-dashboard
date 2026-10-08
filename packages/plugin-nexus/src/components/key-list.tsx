@@ -1,3 +1,4 @@
+import { IconButton } from "@forge-go/dashboard-kit/components/icon-button"
 import { PluginLink, useQuery } from "@forge-go/dashboard-plugin"
 import { QueryBoundary } from "@forge-go/dashboard-kit/components/query-boundary"
 import {
@@ -6,7 +7,6 @@ import {
 } from "@forge-go/dashboard-kit/components/resource-table"
 import { Timestamp } from "@forge-go/dashboard-kit/components/timestamp"
 import { KeyRoundIcon } from "@forge-go/dashboard-kit/icons"
-import { Button } from "@forge-go/dashboard-kit/components/button"
 import { KeyBadge } from "../badges"
 import { keyPath, tenantPath } from "../format"
 import type { APIKey, Page } from "../types"
@@ -93,9 +93,7 @@ export function KeyList({
               illustration={<KeyRoundIcon className="size-6" />}
               action={
                 onClear ? (
-                  <Button size="sm" variant="outline" onClick={onClear}>
-                    Clear filters
-                  </Button>
+                  <IconButton variant="outline" onClick={onClear} label="Clear filters" />
                 ) : (
                   <Refresh onClick={query.refetch} />
                 )

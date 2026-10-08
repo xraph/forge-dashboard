@@ -1,3 +1,4 @@
+import { IconButton } from "@forge-go/dashboard-kit/components/icon-button"
 import { useState } from "react"
 import type { FormEvent } from "react"
 import { PluginLink, useCommand, useNavigateTo, useQuery } from "@forge-go/dashboard-plugin"
@@ -47,16 +48,10 @@ export function ObjectActions({
     <div className="flex flex-col gap-2">
       <div className="flex flex-wrap gap-2">
         {head.presign.available ? (
-          <Button size="sm" variant="outline" onClick={() => setOpen("share")}>
-            Share link
-          </Button>
+          <IconButton variant="outline" onClick={() => setOpen("share")} label="Share link" />
         ) : null}
-        <Button size="sm" variant="outline" onClick={() => setOpen("copy")}>
-          Copy to
-        </Button>
-        <Button size="sm" variant="destructive" onClick={() => setOpen("delete")}>
-          Delete
-        </Button>
+        <IconButton variant="outline" onClick={() => setOpen("copy")} label="Copy to" />
+        <IconButton variant="destructive" onClick={() => setOpen("delete")} label="Delete" />
       </div>
       {!head.presign.available ? (
         <p className="text-xs text-muted-foreground">{head.presign.reason ?? "Share links are not available for this object."}</p>

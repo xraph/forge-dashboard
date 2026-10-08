@@ -1,3 +1,4 @@
+import { IconButton } from "@forge-go/dashboard-kit/components/icon-button"
 import { useState } from "react"
 import { useCommand, useQuery } from "@forge-go/dashboard-plugin"
 import type { PluginPageProps } from "@forge-go/dashboard-plugin"
@@ -401,7 +402,7 @@ export function WardenResourceTypeDetailPage({ params }: PluginPageProps) {
             <PageHeader
               title={rt.name}
               actions={
-                !editing && <Button onClick={() => setEditing(true)}>Edit</Button>
+                !editing && <IconButton onClick={() => setEditing(true)} label="Edit" />
               }
             />
 
@@ -790,26 +791,13 @@ function EditForm({
                 )
               }
             />
-            <Button
-              variant="ghost"
-              size="sm"
-              aria-label={`Remove relation ${i + 1}`}
-              onClick={() => setRelationRows((rows) => rows.filter((r) => r.key !== row.key))}
-            >
-              Remove
-            </Button>
+            <IconButton variant="ghost" onClick={() => setRelationRows((rows) => rows.filter((r) => r.key !== row.key))} label={`Remove relation ${i + 1}`} />
           </div>
         ))}
         <div>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() =>
+          <IconButton variant="outline" onClick={() =>
               setRelationRows((rows) => [...rows, { key: nextKey(), name: "", subjects: "" }])
-            }
-          >
-            Add relation
-          </Button>
+            } label="Add relation" />
         </div>
       </fieldset>
 
@@ -859,16 +847,9 @@ function EditForm({
                     )
                   }
                 />
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  aria-label={`Remove permission ${i + 1}`}
-                  onClick={() =>
+                <IconButton variant="ghost" onClick={() =>
                     setPermissionRows((rows) => rows.filter((p) => p.key !== row.key))
-                  }
-                >
-                  Remove
-                </Button>
+                  } label={`Remove permission ${i + 1}`} />
               </div>
               {/* The diagnostic sits against the expression that failed, not
                   in a banner: the whole value of having it is knowing which
@@ -898,18 +879,12 @@ function EditForm({
           )
         })}
         <div>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() =>
+          <IconButton variant="outline" onClick={() =>
               setPermissionRows((rows) => [
                 ...rows,
                 { key: nextKey(), name: "", expression: "" },
               ])
-            }
-          >
-            Add permission
-          </Button>
+            } label="Add permission" />
         </div>
       </fieldset>
 

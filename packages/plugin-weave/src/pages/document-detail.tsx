@@ -1,9 +1,9 @@
+import { IconButton } from "@forge-go/dashboard-kit/components/icon-button"
 import { useState } from "react"
 import type { ComponentType } from "react"
 import { PluginLink, useCommand, useNavigateTo, useQuery } from "@forge-go/dashboard-plugin"
 import type { PluginPageProps } from "@forge-go/dashboard-plugin"
 import { Alert, AlertDescription, AlertTitle } from "@forge-go/dashboard-kit/components/alert"
-import { Button } from "@forge-go/dashboard-kit/components/button"
 import { ConfirmDialog } from "@forge-go/dashboard-kit/components/confirm-dialog"
 import { DescriptionList } from "@forge-go/dashboard-kit/components/detail-layout"
 import { NoneCell } from "@forge-go/dashboard-kit/components/none-cell"
@@ -24,22 +24,15 @@ function CopyHash({ value }: { value: string }) {
   const [state, setState] = useState<"idle" | "copied" | "failed">("idle")
   return (
     <span className="inline-flex items-center gap-2">
-      <Button
-        type="button"
-        variant="outline"
-        size="sm"
-        aria-label="Copy the content hash"
-        onClick={async () => {
+      <IconButton type="button" variant="outline" onClick={async () => {
           try {
             await navigator.clipboard.writeText(value)
             setState("copied")
           } catch {
             setState("failed")
           }
-        }}
-      >
-        {state === "copied" ? "Copied" : "Copy"}
-      </Button>
+        }} label={state === "copied" ? "Copied content hash" : "Copy the content hash"} />
+      {state === "copied" ? <span role="status" className="sr-only">Content hash copied</span> : null}
       {state === "failed" ? (
         <span role="status" className="text-xs text-destructive">
           The browser refused the clipboard. Select the hash and copy it yourself.
@@ -73,15 +66,10 @@ export const DocumentDetailPage: ComponentType<PluginPageProps> = ({ params }) =
             title={d.title ?? "Untitled document"}
             description={d.source}
             actions={
-              <Button
-                variant="destructive"
-                onClick={() => {
+              <IconButton variant="destructive" onClick={() => {
                   remove.reset()
                   setConfirming(true)
-                }}
-              >
-                Delete
-              </Button>
+                }} label="Delete" />
             }
           />
 

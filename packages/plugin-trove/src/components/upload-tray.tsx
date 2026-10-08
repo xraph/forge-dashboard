@@ -1,3 +1,4 @@
+import { IconButton } from "@forge-go/dashboard-kit/components/icon-button"
 import { useEffect, useRef, useState } from "react"
 import type { DragEvent, ReactNode } from "react"
 import { usePluginClient } from "@forge-go/dashboard-plugin"
@@ -158,9 +159,7 @@ export function UploadTray() {
       <div className="flex items-center justify-between gap-2">
         <h3 className="text-sm font-medium">{`Uploads (${uploads.length})`}</h3>
         {finished ? (
-          <Button size="sm" variant="ghost" onClick={clearFinishedUploads}>
-            Clear finished
-          </Button>
+          <IconButton variant="ghost" onClick={clearFinishedUploads} label="Clear finished" />
         ) : null}
       </div>
       <ul className="flex flex-col gap-2 overflow-auto" style={{ maxHeight: "12rem" }}>
@@ -184,18 +183,12 @@ export function UploadTray() {
                 ) : null}
                 {u.state === "conflict" ? (
                   <>
-                    <Button size="sm" variant="outline" onClick={() => replaceUpload(u.id)}>
-                      Replace
-                    </Button>
-                    <Button size="sm" variant="ghost" onClick={() => dismissUpload(u.id)}>
-                      Skip
-                    </Button>
+                    <IconButton variant="outline" onClick={() => replaceUpload(u.id)} label="Replace" />
+                    <IconButton variant="ghost" onClick={() => dismissUpload(u.id)} label="Skip" />
                   </>
                 ) : null}
                 {["done", "failed", "cancelled"].includes(u.state) ? (
-                  <Button size="sm" variant="ghost" onClick={() => dismissUpload(u.id)}>
-                    Dismiss
-                  </Button>
+                  <IconButton variant="ghost" onClick={() => dismissUpload(u.id)} label="Dismiss" />
                 ) : null}
               </div>
             </li>

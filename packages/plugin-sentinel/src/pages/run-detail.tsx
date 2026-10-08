@@ -1,3 +1,4 @@
+import { IconButton } from "@forge-go/dashboard-kit/components/icon-button"
 import { Fragment, useState } from "react"
 import type { ComponentType, ReactNode } from "react"
 import { PluginLink, usePoll, useQuery } from "@forge-go/dashboard-plugin"
@@ -88,26 +89,16 @@ function RunDetailBody({ runId }: { runId: string }) {
                   title={`Run ${shortRunId(run.id)}`}
                   actions={
                     <>
-                      <Button
-                        variant="outline"
-                        onClick={() => {
+                      <IconButton variant="outline" onClick={() => {
                           setTarget(run)
                           setComparing(true)
-                        }}
-                      >
-                        Compare with…
-                      </Button>
+                        }} label="Compare with…" />
                       {answer.state !== "noBaseline" && saveButton}
                       {run.state === "running" && (
-                        <Button
-                          variant="outline"
-                          onClick={() => {
+                        <IconButton variant="outline" onClick={() => {
                             setTarget(run)
                             setCancelling(true)
-                          }}
-                        >
-                          Cancel run
-                        </Button>
+                          }} label="Cancel run" />
                       )}
                     </>
                   }

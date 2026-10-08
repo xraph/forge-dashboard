@@ -1,7 +1,7 @@
+import { IconButton } from "@forge-go/dashboard-kit/components/icon-button"
 import { useState } from "react"
 import { PluginLink, useCommand, useNavigateTo, useQuery } from "@forge-go/dashboard-plugin"
 import type { PluginPageProps } from "@forge-go/dashboard-plugin"
-import { Button, buttonVariants } from "@forge-go/dashboard-kit/components/button"
 import { DescriptionList } from "@forge-go/dashboard-kit/components/detail-layout"
 import { NoneCell } from "@forge-go/dashboard-kit/components/none-cell"
 import { PageHeader } from "@forge-go/dashboard-kit/components/page-header"
@@ -48,18 +48,11 @@ function CouponDetailView({ coupon }: { coupon: Coupon }) {
         description={coupon.name || undefined}
         actions={
           <>
-            <PluginLink to={couponEditPath(coupon.id)} className={buttonVariants({ variant: "outline" })}>
-              Edit
-            </PluginLink>
-            <Button
-              variant="destructive"
-              onClick={() => {
+            <IconButton label="Edit" nativeButton={false} role="link" render={<PluginLink to={couponEditPath(coupon.id)} />} />
+            <IconButton variant="destructive" onClick={() => {
                 remove.reset()
                 setDeleting(true)
-              }}
-            >
-              Delete
-            </Button>
+              }} label="Delete" />
           </>
         }
       />

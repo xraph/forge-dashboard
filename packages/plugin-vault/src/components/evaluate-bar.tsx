@@ -1,3 +1,4 @@
+import { IconButton } from "@forge-go/dashboard-kit/components/icon-button"
 import type { FormEvent, ReactNode } from "react"
 import { Button } from "@forge-go/dashboard-kit/components/button"
 import { Input } from "@forge-go/dashboard-kit/components/input"
@@ -96,9 +97,7 @@ export function EvaluateBar({
           >
             {busy ? "Evaluating…" : "Evaluate"}
           </Button>
-          <Button type="button" variant="outline" disabled={!canClear} onClick={onClear}>
-            Clear
-          </Button>
+          <IconButton type="button" variant="outline" disabled={!canClear} onClick={onClear} label="Clear" />
         </div>
       </form>
       {disabledReason === undefined ? null : (

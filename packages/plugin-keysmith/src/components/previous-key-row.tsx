@@ -1,4 +1,4 @@
-import { Button } from "@forge-go/dashboard-kit/components/button"
+import { IconButton } from "@forge-go/dashboard-kit/components/icon-button"
 import { Timestamp } from "@forge-go/dashboard-kit/components/timestamp"
 import type { KeyState } from "../types"
 
@@ -31,9 +31,7 @@ export function PreviousKeyRow({ masked, graceEnds, state, onEnd }: PreviousKeyR
         {state === "active" ? "keeps working until" : "window ends"}
       </span>
       <Timestamp value={graceEnds} label="cutoff" />
-      <Button variant="outline" size="sm" className="ml-auto" onClick={onEnd}>
-        End now
-      </Button>
+      <IconButton variant="outline" className="ml-auto" onClick={onEnd} label="End now" />
     </li>
   )
 }

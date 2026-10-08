@@ -1,3 +1,4 @@
+import { IconButton } from "@forge-go/dashboard-kit/components/icon-button"
 import { useState } from "react"
 import type { FormEvent } from "react"
 import { PluginLink } from "@forge-go/dashboard-plugin"
@@ -385,20 +386,12 @@ export function PlanForm({ mode, initial, submitLabel, pendingLabel, pending, er
                   Soft limit
                 </label>
               </div>
-              <Button type="button" variant="ghost" size="sm" aria-label={`Remove feature ${n}`} onClick={() => set("features", v.features.filter((_, j) => j !== i))}>
-                Remove
-              </Button>
+              <IconButton type="button" variant="ghost" onClick={() => set("features", v.features.filter((_, j) => j !== i))} label={`Remove feature ${n}`} />
             </div>
           )
         })}
         <div>
-          <Button
-            type="button"
-            variant="outline"
-            onClick={() => set("features", [...v.features, { key: "", name: "", type: "metered", limit: "0", unlimited: false, period: "monthly", soft_limit: false }])}
-          >
-            Add feature
-          </Button>
+          <IconButton type="button" variant="outline" onClick={() => set("features", [...v.features, { key: "", name: "", type: "metered", limit: "0", unlimited: false, period: "monthly", soft_limit: false }])} label="Add feature" />
         </div>
       </fieldset>
 
@@ -455,21 +448,12 @@ export function PlanForm({ mode, initial, submitLabel, pendingLabel, pending, er
                 <Label htmlFor={`tier-${n}-flat`}>Tier {n} flat fee</Label>
                 <Input id={`tier-${n}-flat`} inputMode="decimal" className="text-right tabular-nums" value={t.flat} onChange={(e) => setTier(i, { flat: e.target.value })} />
               </div>
-              <Button type="button" variant="ghost" size="sm" aria-label={`Remove tier ${n}`} onClick={() => set("tiers", v.tiers.filter((_, j) => j !== i))}>
-                Remove
-              </Button>
+              <IconButton type="button" variant="ghost" onClick={() => set("tiers", v.tiers.filter((_, j) => j !== i))} label={`Remove tier ${n}`} />
             </div>
           )
         })}
         <div>
-          <Button
-            type="button"
-            variant="outline"
-            disabled={featureKeys.length === 0}
-            onClick={() => set("tiers", [...v.tiers, { feature_key: featureKeys[0] ?? "", type: "graduated", up_to: "", unbounded: true, unit: "0", flat: "0" }])}
-          >
-            Add tier
-          </Button>
+          <IconButton type="button" variant="outline" disabled={featureKeys.length === 0} onClick={() => set("tiers", [...v.tiers, { feature_key: featureKeys[0] ?? "", type: "graduated", up_to: "", unbounded: true, unit: "0", flat: "0" }])} label="Add tier" />
         </div>
       </fieldset>
 

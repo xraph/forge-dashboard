@@ -1,3 +1,4 @@
+import { IconButton } from "@forge-go/dashboard-kit/components/icon-button"
 import { useEffect, useRef, useState } from "react"
 import type { ComponentType } from "react"
 import { useCommand, useQuery } from "@forge-go/dashboard-plugin"
@@ -93,14 +94,7 @@ export const ScopesPage: ComponentType<PluginPageProps> = () => {
                 emptyMessage="No scopes yet."
                 emptyAction={create}
                 rowActions={(s) => (
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    aria-label={`Delete ${s.name}`}
-                    onClick={() => startDeleting(s)}
-                  >
-                    Delete
-                  </Button>
+                  <IconButton variant="outline" onClick={() => startDeleting(s)} label={`Delete ${s.name}`} />
                 )}
               />
               {data.hasMore && (

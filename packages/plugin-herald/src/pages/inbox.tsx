@@ -1,8 +1,8 @@
+import { IconButton } from "@forge-go/dashboard-kit/components/icon-button"
 import { useState } from "react"
 import type { ComponentType } from "react"
 import { useCommand, useQuery } from "@forge-go/dashboard-plugin"
 import type { PluginPageProps } from "@forge-go/dashboard-plugin"
-import { Button } from "@forge-go/dashboard-kit/components/button"
 import { ConfirmDialog } from "@forge-go/dashboard-kit/components/confirm-dialog"
 import { Input } from "@forge-go/dashboard-kit/components/input"
 import { Label } from "@forge-go/dashboard-kit/components/label"
@@ -119,9 +119,7 @@ export const InboxPage: ComponentType<PluginPageProps> = () => {
           {(data) => (
             <div className="flex flex-col gap-3">
               <div className="flex items-center justify-end">
-                <Button variant="outline" size="sm" disabled={data.unread === 0} onClick={() => openMarkAll(userId, data.unread)}>
-                  Mark all read
-                </Button>
+                <IconButton variant="outline" disabled={data.unread === 0} onClick={() => openMarkAll(userId, data.unread)} label="Mark all read" />
               </div>
               <ResourceTable<NotificationWire>
                 columns={columns}
@@ -132,16 +130,12 @@ export const InboxPage: ComponentType<PluginPageProps> = () => {
                 rowActions={(n) => (
                   <>
                     {!n.read && (
-                      <Button size="xs" variant="outline" disabled={markRead.loading} aria-label={`Mark ${nameOf(n)} read`} onClick={() => {
+                      <IconButton variant="outline" disabled={markRead.loading} onClick={() => {
                           markRead.reset()
                           void markRead.execute({ id: n.id })
-                        }}>
-                        Mark read
-                      </Button>
+                        }} label={`Mark ${nameOf(n)} read`} />
                     )}
-                    <Button size="xs" variant="ghost" aria-label={`Delete ${nameOf(n)}`} onClick={() => openDelete(n)}>
-                      Delete
-                    </Button>
+                    <IconButton variant="ghost" onClick={() => openDelete(n)} label={`Delete ${nameOf(n)}`} />
                   </>
                 )}
               />

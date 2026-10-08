@@ -1,3 +1,4 @@
+import { IconButton } from "@forge-go/dashboard-kit/components/icon-button"
 import { useRef, useState } from "react"
 import type { FormEvent } from "react"
 import { useCommand, useQuery } from "@forge-go/dashboard-plugin"
@@ -164,9 +165,7 @@ export function LocaleRail({ template, selectedId, onSelect, dirtyIds, copyFrom,
                   )}
                   <div className="flex items-center gap-2">
                     <Switch size="sm" aria-label={`Live: ${labelOf(v)}`} checked={v.active} onCheckedChange={() => open("toggle", v)} />
-                    <Button type="button" size="xs" variant="ghost" aria-label={`Delete ${labelOf(v)}`} onClick={() => open("delete", v)}>
-                      Delete
-                    </Button>
+                    <IconButton type="button" variant="ghost" onClick={() => open("delete", v)} label={`Delete ${labelOf(v)}`} />
                   </div>
                 </li>
               )

@@ -1,3 +1,4 @@
+import { IconButton } from "@forge-go/dashboard-kit/components/icon-button"
 import { useEffect, useRef, useState } from "react"
 import type { ComponentType, ReactNode } from "react"
 import {
@@ -7,10 +8,7 @@ import {
   useQuery,
 } from "@forge-go/dashboard-plugin"
 import type { PluginPageProps, QueryState } from "@forge-go/dashboard-plugin"
-import {
-  Button,
-  buttonVariants,
-} from "@forge-go/dashboard-kit/components/button"
+import { buttonVariants } from "@forge-go/dashboard-kit/components/button"
 import { ConfirmDialog } from "@forge-go/dashboard-kit/components/confirm-dialog"
 import {
   DescriptionList,
@@ -253,12 +251,8 @@ function PolicyDetailView({
           description={policy.description}
           actions={
             <>
-              <Button variant="outline" onClick={onEdit}>
-                Edit
-              </Button>
-              <Button variant="destructive" disabled={blocked} onClick={onDelete}>
-                Delete
-              </Button>
+              <IconButton variant="outline" onClick={onEdit} label="Edit" />
+              <IconButton variant="destructive" disabled={blocked} onClick={onDelete} label="Delete" />
             </>
           }
         />

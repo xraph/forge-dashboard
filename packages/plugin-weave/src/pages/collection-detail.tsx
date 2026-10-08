@@ -1,9 +1,10 @@
+import { IconButton } from "@forge-go/dashboard-kit/components/icon-button"
 import { useState } from "react"
 import type { ComponentType } from "react"
 import { PluginLink, useCommand, useNavigateTo, useQuery } from "@forge-go/dashboard-plugin"
 import type { ContractError, PluginPageProps } from "@forge-go/dashboard-plugin"
 import { Alert, AlertDescription } from "@forge-go/dashboard-kit/components/alert"
-import { Button, buttonVariants } from "@forge-go/dashboard-kit/components/button"
+import { buttonVariants } from "@forge-go/dashboard-kit/components/button"
 import { ConfirmDialog } from "@forge-go/dashboard-kit/components/confirm-dialog"
 import { DescriptionList } from "@forge-go/dashboard-kit/components/detail-layout"
 import { NoneCell } from "@forge-go/dashboard-kit/components/none-cell"
@@ -83,15 +84,9 @@ export const CollectionDetailPage: ComponentType<PluginPageProps> = ({ params })
                 <PluginLink to={collectionIngestPath(c.id)} className={buttonVariants()}>
                   Ingest
                 </PluginLink>
-                <PluginLink to={collectionEditPath(c.id)} className={buttonVariants({ variant: "outline" })}>
-                  Edit
-                </PluginLink>
-                <Button variant="outline" onClick={() => open("reindex")}>
-                  Reindex
-                </Button>
-                <Button variant="destructive" onClick={() => open("delete")}>
-                  Delete
-                </Button>
+                <IconButton label="Edit" nativeButton={false} role="link" render={<PluginLink to={collectionEditPath(c.id)} />} />
+                <IconButton variant="outline" onClick={() => open("reindex")} label="Reindex" />
+                <IconButton variant="destructive" onClick={() => open("delete")} label="Delete" />
               </div>
             }
           />

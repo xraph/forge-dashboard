@@ -1,4 +1,4 @@
-import { Button } from "@forge-go/dashboard-kit/components/button"
+import { IconButton } from "@forge-go/dashboard-kit/components/icon-button"
 import { Input } from "@forge-go/dashboard-kit/components/input"
 
 export interface MetadataRow {
@@ -39,15 +39,11 @@ export function MetadataEditor({ rows, onChange }: { rows: MetadataRow[]; onChan
         <div key={i} className="flex items-center gap-2">
           <Input aria-label={`Metadata key ${i + 1}`} className="w-48 font-mono text-xs" spellCheck={false} value={row.key} onChange={(e) => set(i, { key: e.target.value })} />
           <Input aria-label={`Metadata value ${i + 1}`} className="flex-1" value={row.value} onChange={(e) => set(i, { value: e.target.value })} />
-          <Button type="button" variant="ghost" size="sm" aria-label={`Remove metadata field ${i + 1}`} onClick={() => onChange(rows.filter((_, j) => j !== i))}>
-            Remove
-          </Button>
+          <IconButton type="button" variant="ghost" onClick={() => onChange(rows.filter((_, j) => j !== i))} label={`Remove metadata field ${i + 1}`} />
         </div>
       ))}
       <div>
-        <Button type="button" variant="outline" size="sm" onClick={() => onChange([...rows, { key: "", value: "" }])}>
-          Add a field
-        </Button>
+        <IconButton type="button" variant="outline" onClick={() => onChange([...rows, { key: "", value: "" }])} label="Add a field" />
       </div>
     </div>
   )

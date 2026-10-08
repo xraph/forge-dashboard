@@ -67,7 +67,7 @@ describe("DocumentDetailPage", () => {
     expect((await screen.findByText(HASH)).className).toContain("font-mono")
     fireEvent.click(screen.getByRole("button", { name: "Copy the content hash" }))
     await waitFor(() => expect(writeText).toHaveBeenCalledWith(HASH))
-    expect(await screen.findByText("Copied")).toBeTruthy()
+    expect(await screen.findByRole("button", { name: "Copied content hash" })).toBeTruthy()
   })
 
   it("links its collection and names its size as the raw input", async () => {

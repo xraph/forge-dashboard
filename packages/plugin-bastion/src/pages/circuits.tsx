@@ -1,9 +1,9 @@
+import { IconButton } from "@forge-go/dashboard-kit/components/icon-button"
 import { Fragment, useState } from "react"
 import type { ComponentType } from "react"
 import { PluginLink, useCommand, usePoll, useQuery } from "@forge-go/dashboard-plugin"
 import type { PluginPageProps } from "@forge-go/dashboard-plugin"
 import { Badge } from "@forge-go/dashboard-kit/components/badge"
-import { Button } from "@forge-go/dashboard-kit/components/button"
 import { ConfirmDialog } from "@forge-go/dashboard-kit/components/confirm-dialog"
 import { PageHeader } from "@forge-go/dashboard-kit/components/page-header"
 import { CommandAlert, QueryBoundary } from "@forge-go/dashboard-kit/components/query-boundary"
@@ -68,9 +68,7 @@ export const BastionCircuitsPage: ComponentType<PluginPageProps> = () => {
       align: "end",
       cell: (c) =>
         c.tracked && c.state !== "closed" ? (
-          <Button variant="outline" onClick={() => open(c)}>
-            Reset
-          </Button>
+          <IconButton variant="outline" onClick={() => open(c)} label="Reset" />
         ) : null,
     },
   ]

@@ -1,7 +1,8 @@
+import { IconButton } from "@forge-go/dashboard-kit/components/icon-button"
 import { useState } from "react"
 import { PluginLink, useCommand, useQuery } from "@forge-go/dashboard-plugin"
 import { Badge } from "@forge-go/dashboard-kit/components/badge"
-import { Button, buttonVariants } from "@forge-go/dashboard-kit/components/button"
+import { Button } from "@forge-go/dashboard-kit/components/button"
 import { ConfirmDialog } from "@forge-go/dashboard-kit/components/confirm-dialog"
 import { FilterBar } from "@forge-go/dashboard-kit/components/filter-bar"
 import { Input } from "@forge-go/dashboard-kit/components/input"
@@ -315,21 +316,14 @@ function GraphPicker() {
       </div>
       <div>
         {complete ? (
-          <PluginLink
-            to={relationGraphPath({
+          <IconButton label="Show graph" nativeButton={false} role="link" render={<PluginLink to={relationGraphPath({
               objectType,
               objectId: objectId.trim(),
               relation,
               namespace,
-            })}
-            className={buttonVariants({ variant: "outline", size: "sm" })}
-          >
-            Show graph
-          </PluginLink>
+            })} />} />
         ) : (
-          <Button variant="outline" size="sm" disabled>
-            Show graph
-          </Button>
+          <IconButton variant="outline" disabled label="Show graph" />
         )}
       </div>
     </div>
@@ -577,17 +571,10 @@ export function WardenRelationsPage() {
                     >
                       Graph
                     </PluginLink>
-                    <Button
-                      variant="destructive"
-                      size="sm"
-                      aria-label={`Delete ${tupleString(r)}`}
-                      onClick={() => {
+                    <IconButton variant="destructive" onClick={() => {
                         remove.reset()
                         setDeleting(r)
-                      }}
-                    >
-                      Delete
-                    </Button>
+                      }} label={`Delete ${tupleString(r)}`} />
                   </>
                 )}
               />

@@ -225,7 +225,7 @@ describe("KeyStateActions", () => {
   }
 
   function names(): string[] {
-    return screen.queryAllByRole("button").map((b) => b.textContent ?? "")
+    return screen.queryAllByRole("button").map((b) => b.getAttribute("aria-label") ?? b.textContent ?? "")
   }
 
   it("offers Suspend and Revoke on an active key", () => {

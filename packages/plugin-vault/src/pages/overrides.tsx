@@ -1,3 +1,4 @@
+import { IconButton } from "@forge-go/dashboard-kit/components/icon-button"
 import { useState } from "react"
 import type { ComponentType, FormEvent } from "react"
 import { PluginLink, useQuery } from "@forge-go/dashboard-plugin"
@@ -164,9 +165,7 @@ export const OverridesPage: ComponentType<PluginPageProps> = () => {
           onChoose={() => choose("key", keyText)}
         />
         {choice === null ? null : (
-          <Button type="button" variant="outline" onClick={clear}>
-            Clear
-          </Button>
+          <IconButton type="button" variant="outline" onClick={clear} label="Clear" />
         )}
       </div>
 
@@ -193,15 +192,7 @@ export const OverridesPage: ComponentType<PluginPageProps> = () => {
                     : `No overrides for key ${choice.value}.`
                 }
                 rowActions={(o) => (
-                  <Button
-                    variant="outline"
-                    size="xs"
-                    aria-label={
-                      o.keyExists
-                        ? `Revert to app default for tenant ${o.tenantId} of ${o.key}`
-                        : `Remove leftover override for tenant ${o.tenantId} of ${o.key}`
-                    }
-                    onClick={() =>
+                  <IconButton variant="outline" onClick={() =>
                       o.keyExists
                         ? revert.request(
                             o.key,
@@ -215,10 +206,11 @@ export const OverridesPage: ComponentType<PluginPageProps> = () => {
                             `Tenant ${o.tenantId}'s override of ${o.key} is removed. That key no longer exists, so apps reading it fall back to their own default.`,
                             true,
                           )
-                    }
-                  >
-                    {o.keyExists ? "Revert to app default" : "Remove leftover override"}
-                  </Button>
+                    } label={
+                      o.keyExists
+                        ? `Revert to app default for tenant ${o.tenantId} of ${o.key}`
+                        : `Remove leftover override for tenant ${o.tenantId} of ${o.key}`
+                    } />
                 )}
                 pagination={{ page, pageSize: PAGE_SIZE, total: data.total }}
                 onPageChange={setPage}

@@ -1,5 +1,5 @@
+import { IconButton } from "@forge-go/dashboard-kit/components/icon-button"
 import { useMemo, useState } from "react"
-import { Button } from "@forge-go/dashboard-kit/components/button"
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@forge-go/dashboard-kit/components/collapsible"
 import { CommandAlert } from "@forge-go/dashboard-kit/components/query-boundary"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@forge-go/dashboard-kit/components/tabs"
@@ -159,9 +159,7 @@ export function ContentTab(props: ContentTabProps) {
         <div className="flex flex-col gap-1.5">
           <div className="flex items-center justify-between gap-2">
             <p className="text-sm font-medium">Sample data</p>
-            <Button type="button" size="xs" variant="ghost" onClick={props.onSampleRefill}>
-              Refill from variables
-            </Button>
+            <IconButton type="button" variant="ghost" onClick={props.onSampleRefill} label="Refill from variables" />
           </div>
           <CodeEditor key={`sample:${props.sampleKey}`} label="Sample data" initial={props.sampleText} language="json" onChange={props.onSampleChange} />
           {/* Always mounted, text set later: a live region announces what changes inside it. */}

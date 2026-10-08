@@ -1,3 +1,4 @@
+import { IconButton } from "@forge-go/dashboard-kit/components/icon-button"
 import { Suspense, lazy, useState } from "react"
 import type { ComponentType, FormEvent } from "react"
 import {
@@ -217,9 +218,7 @@ function ConfigDetailView({
             <ConfigTypeBadge type={entry.valueType} />
             {entry.knownType ? null : <UnsupportedTypeBadge />}
             {entry.valueMatchesType ? null : <WrongTypeBadge />}
-            <Button variant="destructive" onClick={openDelete}>
-              Delete
-            </Button>
+            <IconButton variant="destructive" onClick={openDelete} label="Delete" />
           </>
         }
       />
@@ -237,14 +236,7 @@ function ConfigDetailView({
                   ) : (
                     <span>{entry.description}</span>
                   )}
-                  <Button
-                    variant="ghost"
-                    size="xs"
-                    aria-label="Edit description"
-                    onClick={() => setEditingDescription(true)}
-                  >
-                    Edit
-                  </Button>
+                  <IconButton variant="ghost" onClick={() => setEditingDescription(true)} label="Edit description" />
                 </span>
               ),
             },
@@ -578,31 +570,14 @@ function VersionsTable({
             <span className="text-xs text-muted-foreground">This is the live version.</span>
           ) : (
             <>
-              <Button
-                variant="ghost"
-                size="xs"
-                aria-label={`Compare version ${v.version} with the current value`}
-                aria-pressed={compared === v.version}
-                onClick={() => onCompare(v.version)}
-              >
-                Compare
-              </Button>
-              <Button
-                variant="outline"
-                size="xs"
-                aria-label={`Roll back to version ${v.version}`}
-                disabled={!entry.knownType || !v.valueMatchesType || sameAsCurrent(v)}
-                aria-describedby={
+              <IconButton variant="ghost" aria-pressed={compared === v.version} onClick={() => onCompare(v.version)} label={`Compare version ${v.version} with the current value`} />
+              <IconButton variant="outline" disabled={!entry.knownType || !v.valueMatchesType || sameAsCurrent(v)} aria-describedby={
                   !entry.knownType
                     ? unsupportedId
                     : !v.valueMatchesType || sameAsCurrent(v)
                       ? `config-version-${v.version}-reason`
                       : undefined
-                }
-                onClick={() => onRollback(v.version)}
-              >
-                Roll back
-              </Button>
+                } onClick={() => onRollback(v.version)} label={`Roll back to version ${v.version}`} />
             </>
           )
         }

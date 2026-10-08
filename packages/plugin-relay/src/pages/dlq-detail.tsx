@@ -1,8 +1,8 @@
+import { IconButton } from "@forge-go/dashboard-kit/components/icon-button"
 import { useState } from "react"
 import type { PluginPageProps } from "@forge-go/dashboard-plugin"
 import { PluginLink, useCommand, useQuery } from "@forge-go/dashboard-plugin"
 import { Badge } from "@forge-go/dashboard-kit/components/badge"
-import { Button } from "@forge-go/dashboard-kit/components/button"
 import {
   DescriptionList,
   DetailLayout,
@@ -51,15 +51,10 @@ function DLQDetailView({ id }: { id: string }) {
               description={`Failed after ${e.attemptCount} ${e.attemptCount === 1 ? "attempt" : "attempts"} to ${e.url}`}
               actions={
                 e.replayedAt ? null : (
-                  <Button
-                    variant="destructive"
-                    onClick={() => {
+                  <IconButton variant="destructive" onClick={() => {
                       replay.reset()
                       setConfirming(true)
-                    }}
-                  >
-                    Replay
-                  </Button>
+                    }} label="Replay" />
                 )
               }
             />

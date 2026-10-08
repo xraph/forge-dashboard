@@ -1,3 +1,4 @@
+import { IconButton } from "@forge-go/dashboard-kit/components/icon-button"
 import { useState } from "react"
 import { useQuery } from "@forge-go/dashboard-plugin"
 import { Button } from "@forge-go/dashboard-kit/components/button"
@@ -34,13 +35,7 @@ function TenantOptions({
     return (
       <div role="alert">
         {query.error.message}{" "}
-        <Button
-          size="sm"
-          variant="outline"
-          onClick={() => void query.refetch()}
-        >
-          Retry tenants
-        </Button>
+        <IconButton variant="outline" onClick={() => void query.refetch()} label="Retry tenants" />
       </div>
     )
   if (!query.data) return <p role="status">Loading tenants…</p>
@@ -72,9 +67,7 @@ function TenantOptions({
             choose={choose}
           />
         ) : (
-          <Button variant="outline" size="sm" onClick={() => setMore(true)}>
-            Load more tenants
-          </Button>
+          <IconButton variant="outline" onClick={() => setMore(true)} label="Load more tenants" />
         ))}
     </>
   )
@@ -117,14 +110,7 @@ export function TenantFilter({
           onChange={(event) => setSearch(event.target.value)}
         />
         <div className="flex max-h-72 flex-col gap-1 overflow-y-auto">
-          <Button
-            size="sm"
-            variant="ghost"
-            className="justify-start"
-            onClick={() => choose()}
-          >
-            All tenants
-          </Button>
+          <IconButton variant="ghost" onClick={() => choose()} label="All tenants" />
           {open && (
             <TenantOptions key={search} search={search} choose={choose} />
           )}

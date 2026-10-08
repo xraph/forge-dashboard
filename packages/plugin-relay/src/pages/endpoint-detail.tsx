@@ -1,3 +1,4 @@
+import { IconButton } from "@forge-go/dashboard-kit/components/icon-button"
 import { useState } from "react"
 import type { PluginPageProps } from "@forge-go/dashboard-plugin"
 import { useCommand, useNavigateTo, useQuery } from "@forge-go/dashboard-plugin"
@@ -144,25 +145,13 @@ function EndpointDetailView({ id }: { id: string }) {
               actions={
                 <>
                   {!editing && (
-                    <Button variant="outline" onClick={startEditing}>
-                      Edit
-                    </Button>
+                    <IconButton variant="outline" onClick={startEditing} label="Edit" />
                   )}
-                  <Button
-                    variant="outline"
-                    disabled={setEnabled.loading}
-                    onClick={() =>
+                  <IconButton variant="outline" disabled={setEnabled.loading} onClick={() =>
                       void setEnabled.execute({ id, enabled: !ep.enabled })
-                    }
-                  >
-                    {ep.enabled ? "Disable" : "Enable"}
-                  </Button>
-                  <Button variant="outline" onClick={() => open("rotate")}>
-                    Rotate secret
-                  </Button>
-                  <Button variant="destructive" onClick={() => open("delete")}>
-                    Delete
-                  </Button>
+                    } label={ep.enabled ? "Disable" : "Enable"} />
+                  <IconButton variant="outline" onClick={() => open("rotate")} label="Rotate secret" />
+                  <IconButton variant="destructive" onClick={() => open("delete")} label="Delete" />
                 </>
               }
             />

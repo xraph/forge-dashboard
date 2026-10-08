@@ -1,3 +1,4 @@
+import { IconButton } from "@forge-go/dashboard-kit/components/icon-button"
 import { useState } from "react"
 import { PluginLink, useQuery } from "@forge-go/dashboard-plugin"
 import { PageHeader } from "@forge-go/dashboard-kit/components/page-header"
@@ -5,7 +6,6 @@ import { QueryBoundary } from "@forge-go/dashboard-kit/components/query-boundary
 import { ResourceTable } from "@forge-go/dashboard-kit/components/resource-table"
 import { Input } from "@forge-go/dashboard-kit/components/input"
 import { NativeSelect } from "@forge-go/dashboard-kit/components/native-select"
-import { Button } from "@forge-go/dashboard-kit/components/button"
 import { Timestamp } from "@forge-go/dashboard-kit/components/timestamp"
 import { UsersIcon } from "@forge-go/dashboard-kit/icons"
 import { TenantBadge } from "../badges"
@@ -103,13 +103,7 @@ function TenantRows({
               }
               illustration={<UsersIcon className="size-6" />}
               action={
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={search || status ? clear : query.refetch}
-                >
-                  {search || status ? "Clear filters" : "Refresh tenants"}
-                </Button>
+                <IconButton variant="outline" onClick={search || status ? clear : query.refetch} label={search || status ? "Clear filters" : "Refresh tenants"} />
               }
             />
           )}

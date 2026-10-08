@@ -1,3 +1,4 @@
+import { IconButton } from "@forge-go/dashboard-kit/components/icon-button"
 import { useEffect, useRef, useState } from "react"
 import { PluginLink, useCommand, useQuery } from "@forge-go/dashboard-plugin"
 import type { PluginPageProps } from "@forge-go/dashboard-plugin"
@@ -137,9 +138,7 @@ export function WardenRoleDetailPage({ params }: PluginPageProps) {
               !role.isSystem &&
               !edit.editing && (
                 <>
-                  <Button variant="outline" ref={edit.triggerRef} onClick={edit.open}>
-                    Edit
-                  </Button>
+                  <IconButton variant="outline" ref={edit.triggerRef} onClick={edit.open} label="Edit" />
                   <Button
                     variant="outline"
                     onClick={() => {
@@ -311,14 +310,7 @@ function GrantsTable({
             Details
           </PluginLink>
           {!role.isSystem && (
-            <Button
-              variant="destructive"
-              size="sm"
-              aria-label={`Revoke ${p.name}`}
-              onClick={() => onRevoke(p)}
-            >
-              Revoke
-            </Button>
+            <IconButton variant="destructive" onClick={() => onRevoke(p)} label={`Revoke ${p.name}`} />
           )}
         </>
       )}

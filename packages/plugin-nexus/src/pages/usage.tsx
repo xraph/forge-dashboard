@@ -1,6 +1,6 @@
+import { IconButton } from "@forge-go/dashboard-kit/components/icon-button"
 import { useState } from "react"
 import { useQuery } from "@forge-go/dashboard-plugin"
-import { Button } from "@forge-go/dashboard-kit/components/button"
 import { PageHeader } from "@forge-go/dashboard-kit/components/page-header"
 import { NativeSelect } from "@forge-go/dashboard-kit/components/native-select"
 import { QueryBoundary } from "@forge-go/dashboard-kit/components/query-boundary"
@@ -129,9 +129,7 @@ function UsageData({
           title="No requests in this period"
           body="Choose another tenant or period, or send a request through the gateway."
           action={
-            <Button size="sm" variant="outline" onClick={refresh}>
-              Refresh usage
-            </Button>
+            <IconButton variant="outline" onClick={refresh} label="Refresh usage" />
           }
         />
       ) : (

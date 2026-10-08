@@ -1,3 +1,4 @@
+import { IconButton } from "@forge-go/dashboard-kit/components/icon-button"
 import { useRef, useState } from "react"
 import type { ComponentType, FormEvent } from "react"
 import {
@@ -147,9 +148,7 @@ function SecretDetailBody({ secretKey }: { secretKey: string }) {
             actions={
               <div className="flex gap-2">
                 <Button onClick={openReplace}>Replace value</Button>
-                <Button variant="destructive" onClick={openDelete}>
-                  Delete
-                </Button>
+                <IconButton variant="destructive" onClick={openDelete} label="Delete" />
               </div>
             }
           />

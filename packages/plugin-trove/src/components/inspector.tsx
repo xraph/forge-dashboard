@@ -1,8 +1,8 @@
+import { IconButton } from "@forge-go/dashboard-kit/components/icon-button"
 import { useState } from "react"
 import type { ReactNode } from "react"
 import { useQuery, usePluginClient } from "@forge-go/dashboard-plugin"
 import type { ContractError } from "@forge-go/dashboard-plugin"
-import { Button } from "@forge-go/dashboard-kit/components/button"
 import { DescriptionList } from "@forge-go/dashboard-kit/components/detail-layout"
 import { EmptyState } from "@forge-go/dashboard-kit/components/empty-state"
 import { NoneCell } from "@forge-go/dashboard-kit/components/none-cell"
@@ -120,12 +120,8 @@ function InspectorActions({ store, bucket, objectKey }: { store: string; bucket:
   return (
     <div className="flex flex-col gap-2">
       <div className="flex flex-wrap gap-2">
-        <Button size="sm" disabled={downloading} onClick={() => void download()}>
-          {downloading ? "Starting…" : "Download"}
-        </Button>
-        <Button size="sm" variant="outline" onClick={() => void copyKey()}>
-          {copied === "copied" ? "Copied" : "Copy key"}
-        </Button>
+        <IconButton disabled={downloading} onClick={() => void download()} label={downloading ? "Starting…" : "Download"} />
+        <IconButton variant="outline" onClick={() => void copyKey()} label={copied === "copied" ? "Copied" : "Copy key"} />
       </div>
       <CommandAlert error={downloadError} title="Could not start the download" />
       {copied === "failed" ? (

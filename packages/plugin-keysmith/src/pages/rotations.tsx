@@ -1,3 +1,4 @@
+import { IconButton } from "@forge-go/dashboard-kit/components/icon-button"
 import { useState } from "react"
 import type { ComponentType } from "react"
 import type { PluginPageProps } from "@forge-go/dashboard-plugin"
@@ -112,24 +113,8 @@ function Pager({
       aria-label="Pagination"
       className="flex items-center justify-end gap-2 text-sm text-muted-foreground"
     >
-      <Button
-        variant="outline"
-        size="sm"
-        aria-label="Previous page"
-        disabled={offset === 0}
-        onClick={() => onOffsetChange(Math.max(0, offset - PAGE_SIZE))}
-      >
-        Previous
-      </Button>
-      <Button
-        variant="outline"
-        size="sm"
-        aria-label="Next page"
-        disabled={!hasMore}
-        onClick={() => onOffsetChange(offset + PAGE_SIZE)}
-      >
-        Next
-      </Button>
+      <IconButton variant="outline" disabled={offset === 0} onClick={() => onOffsetChange(Math.max(0, offset - PAGE_SIZE))} label="Previous page" />
+      <IconButton variant="outline" disabled={!hasMore} onClick={() => onOffsetChange(offset + PAGE_SIZE)} label="Next page" />
     </nav>
   )
 }
@@ -150,16 +135,7 @@ function KeyFilterChip({ keyId, onClear }: { keyId: string; onClear: () => void 
         ) : (
           <span>{name}</span>
         )}
-        <Button
-          type="button"
-          variant="ghost"
-          size="icon-xs"
-          className="size-4"
-          aria-label="Clear the key filter"
-          onClick={onClear}
-        >
-          <span aria-hidden="true">×</span>
-        </Button>
+        <IconButton type="button" variant="ghost" onClick={onClear} label="Clear the key filter" />
       </Badge>
     </div>
   )

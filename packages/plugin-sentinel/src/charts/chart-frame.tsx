@@ -1,6 +1,6 @@
+import { IconButton } from "@forge-go/dashboard-kit/components/icon-button"
 import { useId, useState } from "react"
 import type { ReactNode } from "react"
-import { Button } from "@forge-go/dashboard-kit/components/button"
 
 /**
  * A chart with its table beside it. Every chart here has a table view, so no
@@ -31,9 +31,7 @@ export function ChartFrame({
           </h2>
           {description && <p className="text-sm text-muted-foreground">{description}</p>}
         </div>
-        <Button variant="ghost" size="sm" onClick={() => setAsTable((on) => !on)}>
-          {asTable ? `Show ${title.toLowerCase()} as a chart` : `Show ${title.toLowerCase()} as a table`}
-        </Button>
+        <IconButton variant="ghost" onClick={() => setAsTable((on) => !on)} label={asTable ? `Show ${title.toLowerCase()} as a chart` : `Show ${title.toLowerCase()} as a table`} />
       </div>
       {asTable ? table : children}
     </section>

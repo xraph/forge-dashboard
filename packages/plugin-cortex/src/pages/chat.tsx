@@ -1,3 +1,4 @@
+import { IconButton } from "@forge-go/dashboard-kit/components/icon-button"
 import { Columns2, X, Eye, CircleStop } from "@forge-go/dashboard-kit/icons"
 import { ChevronLeft, ChevronRight } from "@forge-go/dashboard-kit/icons"
 import { useEffect, useState } from "react"
@@ -140,18 +141,11 @@ function LiveRun({
       <CommandAlert error={cancel.error} title="Stop failed" />
       <CommandAlert error={error} title="Live events failed" />
       {error && (
-        <Button
-          variant="outline"
-          size="sm"
-          className="w-fit"
-          onClick={() => {
+        <IconButton variant="outline" onClick={() => {
             setError(undefined)
             setEvents([])
             setRetry(retry + 1)
-          }}
-        >
-          Retry live events
-        </Button>
+          }} label="Retry live events" />
       )}
       {(!available || partial) && (
         <p role="status" className="text-xs text-muted-foreground">
@@ -530,14 +524,7 @@ function ChatPane({
           title="Execution provider check failed"
         />
         {runtime.error && (
-          <Button
-            size="xs"
-            variant="outline"
-            type="button"
-            onClick={() => void runtime.refetch()}
-          >
-            Retry execution provider check
-          </Button>
+          <IconButton variant="outline" type="button" onClick={() => void runtime.refetch()} label="Retry execution provider check" />
         )}
         <Code text={input} label={`${label} input`} onChange={setInput} />
         <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-muted-foreground">
@@ -571,14 +558,7 @@ function ChatPane({
         )}
       </form>
       {detail.data?.run.session_id && !session && (
-        <Button
-          size="xs"
-          variant="outline"
-          className="w-fit"
-          onClick={() => setSession(detail.data!.run.session_id!)}
-        >
-          Show saved session
-        </Button>
+        <IconButton variant="outline" onClick={() => setSession(detail.data!.run.session_id!)} label="Show saved session" />
       )}
       {runId && (
         <PluginLink to={`/runs/${runId}`} className="text-sm underline">

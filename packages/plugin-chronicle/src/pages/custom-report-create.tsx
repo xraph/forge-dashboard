@@ -1,3 +1,4 @@
+import { IconButton } from "@forge-go/dashboard-kit/components/icon-button"
 import { useRef, useState } from "react"
 import type { ComponentType, FormEvent } from "react"
 import { Button } from "@forge-go/dashboard-kit/components/button"
@@ -156,23 +157,14 @@ export const CustomReportCreatePage: ComponentType<PluginPageProps> = () => {
                 </div>
               ))}
               <div>
-                <Button type="button" variant="outline" size="sm" disabled={sections.length === 1} onClick={() => setSections((all) => all.filter((x) => x.key !== s.key))}>
-                  {`Remove section ${n}`}
-                </Button>
+                <IconButton type="button" variant="outline" disabled={sections.length === 1} onClick={() => setSections((all) => all.filter((x) => x.key !== s.key))} label={`Remove section ${n}`} />
               </div>
             </fieldset>
           )
         })}
         <div className="flex flex-col gap-1.5">
           <div>
-            <Button
-              type="button"
-              variant="outline"
-              disabled={sections.length >= LIMITS.customReportSections}
-              onClick={() => setSections((all) => [...all, blank(nextKey.current++)])}
-            >
-              Add section
-            </Button>
+            <IconButton type="button" variant="outline" disabled={sections.length >= LIMITS.customReportSections} onClick={() => setSections((all) => [...all, blank(nextKey.current++)])} label="Add section" />
           </div>
           <p className="text-xs text-muted-foreground">{`${sections.length} of ${LIMITS.customReportSections} sections.`}</p>
         </div>

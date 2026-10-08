@@ -1,8 +1,8 @@
+import { IconButton } from "@forge-go/dashboard-kit/components/icon-button"
 import { useEffect, useRef, useState } from "react"
 import type { ComponentType } from "react"
 import { PluginLink, useCommand, useNavigateTo, useQuery } from "@forge-go/dashboard-plugin"
 import type { PluginPageProps } from "@forge-go/dashboard-plugin"
-import { Button } from "@forge-go/dashboard-kit/components/button"
 import { ConfirmDialog } from "@forge-go/dashboard-kit/components/confirm-dialog"
 import { DescriptionList } from "@forge-go/dashboard-kit/components/detail-layout"
 import { NoneCell } from "@forge-go/dashboard-kit/components/none-cell"
@@ -63,24 +63,14 @@ function SuiteDetailBody({ suiteId, tab }: { suiteId: string; tab: SuiteTab }) {
               description={s.description || undefined}
               actions={
                 <>
-                  <Button
-                    variant="outline"
-                    onClick={() => {
+                  <IconButton variant="outline" onClick={() => {
                       setTarget(s)
                       setEditing(true)
-                    }}
-                  >
-                    Edit
-                  </Button>
-                  <Button
-                    variant="outline"
-                    onClick={() => {
+                    }} label="Edit" />
+                  <IconButton variant="outline" onClick={() => {
                       setTarget(s)
                       setDeleting(true)
-                    }}
-                  >
-                    Delete
-                  </Button>
+                    }} label="Delete" />
                 </>
               }
             />

@@ -1033,7 +1033,7 @@ describe("KeyDetailPage state actions", () => {
     if (!header) throw new Error("no header")
     return within(header as HTMLElement)
       .queryAllByRole("button")
-      .map((b) => b.textContent ?? "")
+      .map((b) => b.getAttribute("aria-label") ?? b.textContent ?? "")
   }
 
   it("offers Rotate, Suspend and Revoke on an active key", async () => {

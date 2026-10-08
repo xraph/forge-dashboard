@@ -1,9 +1,9 @@
+import { IconButton } from "@forge-go/dashboard-kit/components/icon-button"
 import { useState } from "react"
 import type { ComponentType, ReactNode } from "react"
 import { PluginLink, useQuery } from "@forge-go/dashboard-plugin"
 import type { PluginPageProps } from "@forge-go/dashboard-plugin"
 import { Badge } from "@forge-go/dashboard-kit/components/badge"
-import { Button } from "@forge-go/dashboard-kit/components/button"
 import { DescriptionList } from "@forge-go/dashboard-kit/components/detail-layout"
 import { NoneCell } from "@forge-go/dashboard-kit/components/none-cell"
 import { PageHeader } from "@forge-go/dashboard-kit/components/page-header"
@@ -187,9 +187,7 @@ function ResultDetailBody({ runId, resultId }: { runId: string; resultId: string
                       ? "Showing the scorers' reasons."
                       : "The scorers' reasons can quote the output, so they stay hidden with it."}
                   </p>
-                  <Button variant="outline" size="sm" onClick={() => setShowReasons((on) => !on)}>
-                    {showReasons ? "Hide scorer reasons" : "Show scorer reasons"}
-                  </Button>
+                  <IconButton variant="outline" onClick={() => setShowReasons((on) => !on)} label={showReasons ? "Hide scorer reasons" : "Show scorer reasons"} />
                 </div>
               )}
               <ResourceTable<ScorerResult & { key: string }>
@@ -313,18 +311,14 @@ function HiddenToolCalls({ count, attackType, children }: { count: number; attac
         <p className="text-sm text-muted-foreground">
           Tool calls in a red-team trace stay hidden until you ask for them: their arguments and results may carry the attack.
         </p>
-        <Button variant="outline" size="sm" onClick={() => setShown(true)}>
-          {`Show ${plural(count, "tool call", "tool calls")} (${attackType})`}
-        </Button>
+        <IconButton variant="outline" onClick={() => setShown(true)} label={`Show ${plural(count, "tool call", "tool calls")} (${attackType})`} />
       </div>
     )
   }
   return (
     <div className="flex flex-col gap-2">
       {children}
-      <Button variant="ghost" size="sm" className="self-start" onClick={() => setShown(false)}>
-        Hide tool calls
-      </Button>
+      <IconButton variant="ghost" className="self-start" onClick={() => setShown(false)} label="Hide tool calls" />
     </div>
   )
 }

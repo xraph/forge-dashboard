@@ -1,3 +1,4 @@
+import { IconButton } from "@forge-go/dashboard-kit/components/icon-button"
 import { useEffect, useRef, useState } from "react"
 import { PluginLink, useNavigateTo, useQuery } from "@forge-go/dashboard-plugin"
 import type { PluginPageProps } from "@forge-go/dashboard-plugin"
@@ -74,9 +75,7 @@ function CompareBody({ runId, otherId }: { runId: string; otherId: string }) {
       <PageHeader
         title="Compare runs"
         actions={
-          <Button variant="outline" onClick={() => navigate(comparePath(otherId, runId))}>
-            Swap A and B
-          </Button>
+          <IconButton variant="outline" onClick={() => navigate(comparePath(otherId, runId))} label="Swap A and B" />
         }
       />
       <SettledBoundary title="Comparison" query={comparison} skeletonRows={6}>
@@ -136,15 +135,7 @@ function CompareBody({ runId, otherId }: { runId: string; otherId: string }) {
                   }
                   emptyMessage={changedOnly ? "No case changed between these runs." : "Neither run scored a case."}
                   rowActions={(p) => (
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      aria-pressed={open === p.caseId}
-                      aria-label={`Compare outputs of ${p.caseName}`}
-                      onClick={() => setOpen(open === p.caseId ? null : p.caseId)}
-                    >
-                      Compare outputs
-                    </Button>
+                    <IconButton variant="ghost" aria-pressed={open === p.caseId} onClick={() => setOpen(open === p.caseId ? null : p.caseId)} label={`Compare outputs of ${p.caseName}`} />
                   )}
                 />
                 {pair && (

@@ -1,3 +1,4 @@
+import { IconButton } from "@forge-go/dashboard-kit/components/icon-button"
 import { useState } from "react"
 import type { ComponentType, FormEvent } from "react"
 import { PluginLink, useCommand, useQuery } from "@forge-go/dashboard-plugin"
@@ -80,12 +81,8 @@ function RuleCard({ rule, providers, onEdit, onDelete }: { rule: ScopeRule; prov
       <header className="flex flex-wrap items-center justify-between gap-2">
         <span className="text-sm font-medium">{rule.scope === "app" ? "This app" : <span className="font-mono text-xs">{rule.scopeId}</span>}</span>
         <span className="flex gap-2">
-          <Button size="xs" variant="outline" aria-label={`Edit ${who}`} onClick={onEdit}>
-            Edit
-          </Button>
-          <Button size="xs" variant="ghost" aria-label={`Delete ${who}`} onClick={onDelete}>
-            Delete
-          </Button>
+          <IconButton variant="outline" onClick={onEdit} label={`Edit ${who}`} />
+          <IconButton variant="ghost" onClick={onDelete} label={`Delete ${who}`} />
         </span>
       </header>
       <dl className="grid grid-cols-[8rem_1fr] gap-x-3 gap-y-1.5 text-sm">

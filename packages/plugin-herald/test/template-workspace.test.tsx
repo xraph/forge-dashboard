@@ -67,7 +67,7 @@ describe("TemplateWorkspacePage", () => {
     const saved = { ...EN, html: "<p>New</p>" }
     const { sent } = open((_i, call) => (call === 0 ? DETAIL : withVersion(DETAIL, saved)), { "versions.update": { answer: { version: saved }, invalidates: VERSION_WRITE } })
     fireEvent.change(await htmlEditor(), { target: { value: "<p>New</p>" } })
-    expect(review().textContent).toBe("Review 1 change")
+    expect(review().getAttribute("aria-label")).toBe("Review 1 change")
     fireEvent.click(save())
     await waitFor(() => expect(sent).toEqual([{ intent: "versions.update", payload: { templateId: TEMPLATE.id, versionId: EN.id, html: "<p>New</p>" } }]))
     expect(await screen.findByText("Saved.")).toBeTruthy()
@@ -83,7 +83,7 @@ describe("TemplateWorkspacePage", () => {
     await waitFor(() => expect(sent).toEqual([{ intent: "versions.update", payload: { templateId: TEMPLATE.id, versionId: FR.id, active: true } }]))
     await waitFor(() => expect(within(screen.getByRole("complementary", { name: "Locales" })).getAllByText("Live")).toHaveLength(3))
     expect((screen.getByLabelText("HTML (en)") as HTMLTextAreaElement).value).toBe("<p>Mine</p>")
-    expect(review().textContent).toBe("Review 1 change")
+    expect(review().getAttribute("aria-label")).toBe("Review 1 change")
   })
 
   it("shows another operator's text in an editor the page hasn't edited, and keeps the page's own edit", async () => {
@@ -97,7 +97,7 @@ describe("TemplateWorkspacePage", () => {
     fireEvent.click(within(screen.getByRole("alertdialog")).getByRole("button", { name: "Put live" }))
     await waitFor(() => expect(within(screen.getByRole("complementary", { name: "Locales" })).getAllByText("Live")).toHaveLength(3))
     await waitFor(() => expect((screen.getByLabelText("Text (en)") as HTMLTextAreaElement).value).toBe("Theirs, via the server"))
-    expect(review().textContent).toBe("Review 1 change")
+    expect(review().getAttribute("aria-label")).toBe("Review 1 change")
     fireEvent.click(within(screen.getByRole("region", { name: "Editor" })).getByRole("tab", { name: "HTML" }))
     expect((await screen.findByLabelText("HTML (en)") as HTMLTextAreaElement).value).toBe("<p>Mine</p>")
   })
@@ -137,7 +137,7 @@ describe("TemplateWorkspacePage", () => {
     expect(screen.getByText(/category must be auth/)).toBeTruthy()
     expect(screen.queryByText("Saved.")).toBeNull()
     expect(sent.map((s) => s.intent)).toEqual(["versions.update", "templates.update"])
-    await waitFor(() => expect(review().textContent).toBe("Review 1 change"))
+    await waitFor(() => expect(review().getAttribute("aria-label")).toBe("Review 1 change"))
     expect(save().disabled).toBe(false)
   })
 
@@ -207,7 +207,7 @@ describe("TemplateWorkspacePage", () => {
     fireEvent.click(within(screen.getByRole("alertdialog")).getByRole("button", { name: "Put live" }))
     expect(await screen.findByText(/This template didn't reload: UNAVAILABLE: store is down\. Your edits are still on the page\./)).toBeTruthy()
     expect((screen.getByLabelText("HTML (en)") as HTMLTextAreaElement).value).toBe("<p>Mine</p>")
-    expect(review().textContent).toBe("Review 1 change")
+    expect(review().getAttribute("aria-label")).toBe("Review 1 change")
   })
   it("advances only the fields it sent, so another editor's change to a different field is not undone", async () => {
     const theirs = { ...EN, html: "<p>New</p>", text: "Theirs" }
@@ -216,7 +216,7 @@ describe("TemplateWorkspacePage", () => {
     fireEvent.click(save())
     await waitFor(() => expect(sent).toEqual([{ intent: "versions.update", payload: { templateId: TEMPLATE.id, versionId: EN.id, html: "<p>New</p>" } }]))
     expect(await screen.findByText("Saved.")).toBeTruthy()
-    expect(review().textContent).toBe("Review changes")
+    expect(review().getAttribute("aria-label")).toBe("Review changes")
     expect((review() as HTMLButtonElement).disabled).toBe(true)
   })
 
@@ -246,7 +246,7 @@ describe("TemplateWorkspacePage", () => {
     fireEvent.change(await screen.findByLabelText("Name"), { target: { value: "Receipts" } })
     fireEvent.click(save())
     expect(await screen.findByText("Saved the en version. The rest is still unsaved.")).toBeTruthy()
-    await waitFor(() => expect(review().textContent).toBe("Review 1 change"))
+    await waitFor(() => expect(review().getAttribute("aria-label")).toBe("Review 1 change"))
   })
 
   it("shows a save that stops partway inside the Review dialog it was started from", async () => {

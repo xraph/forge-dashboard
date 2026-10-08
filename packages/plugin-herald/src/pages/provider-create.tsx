@@ -1,3 +1,4 @@
+import { IconButton } from "@forge-go/dashboard-kit/components/icon-button"
 import { useState } from "react"
 import type { ComponentType, FormEvent } from "react"
 import { PluginLink, useCommand, useNavigateTo } from "@forge-go/dashboard-plugin"
@@ -222,23 +223,14 @@ function CreateForm({ engine }: { engine: EngineInfoResponse }) {
                   <Input id={`row-value-${r.rowId}`} className="font-mono" value={r.value} onChange={(e) => updateRow(r.rowId, { value: e.target.value })} />
                 )}
               </div>
-              <Button type="button" variant="ghost" size="sm" onClick={() => setRows((prev) => prev.filter((x) => x.rowId !== r.rowId))}>
-                Remove
-              </Button>
+              <IconButton type="button" variant="ghost" onClick={() => setRows((prev) => prev.filter((x) => x.rowId !== r.rowId))} label="Remove" />
             </div>
           ))}
           <div>
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              onClick={() => {
+            <IconButton type="button" variant="outline" onClick={() => {
                 setRows((prev) => [...prev, { rowId: nextRow, key: "", secret: false, value: "" }])
                 setNextRow((n) => n + 1)
-              }}
-            >
-              Add a field
-            </Button>
+              }} label="Add a field" />
           </div>
         </fieldset>
       )}

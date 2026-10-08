@@ -1,3 +1,4 @@
+import { IconButton } from "@forge-go/dashboard-kit/components/icon-button"
 import { useState } from "react"
 import type { ComponentType } from "react"
 import { useCommand, useQuery } from "@forge-go/dashboard-plugin"
@@ -162,28 +163,15 @@ function CasEntries({ store }: { store: string }) {
               }
               rowActions={(e) =>
                 !e.indexed ? null : e.pinned ? (
-                  <Button variant="ghost" size="sm" aria-label={`Unpin ${e.hash}`} disabled={unpin.loading} onClick={() => void unpin.execute(withStore(store, { hash: e.hash }))}>
-                    Unpin
-                  </Button>
+                  <IconButton variant="ghost" disabled={unpin.loading} onClick={() => void unpin.execute(withStore(store, { hash: e.hash }))} label={`Unpin ${e.hash}`} />
                 ) : (
-                  <Button variant="ghost" size="sm" aria-label={`Pin ${e.hash}`} disabled={pin.loading} onClick={() => void pin.execute(withStore(store, { hash: e.hash }))}>
-                    Pin
-                  </Button>
+                  <IconButton variant="ghost" disabled={pin.loading} onClick={() => void pin.execute(withStore(store, { hash: e.hash }))} label={`Pin ${e.hash}`} />
                 )
               }
             />
             <div className="flex gap-2">
-              <Button variant="outline" size="sm" disabled={cursors.length === 0} onClick={() => setCursors((c) => c.slice(0, -1))}>
-                Previous page
-              </Button>
-              <Button
-                variant="outline"
-                size="sm"
-                disabled={data.nextCursor === null}
-                onClick={() => data.nextCursor !== null && setCursors((c) => [...c, data.nextCursor as string])}
-              >
-                Next page
-              </Button>
+              <IconButton variant="outline" disabled={cursors.length === 0} onClick={() => setCursors((c) => c.slice(0, -1))} label="Previous page" />
+              <IconButton variant="outline" disabled={data.nextCursor === null} onClick={() => data.nextCursor !== null && setCursors((c) => [...c, data.nextCursor as string])} label="Next page" />
             </div>
           </>
         )}

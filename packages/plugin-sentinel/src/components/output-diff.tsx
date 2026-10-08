@@ -1,6 +1,6 @@
+import { IconButton } from "@forge-go/dashboard-kit/components/icon-button"
 import { Suspense, lazy, useState } from "react"
 import { useQuery } from "@forge-go/dashboard-plugin"
-import { Button } from "@forge-go/dashboard-kit/components/button"
 import type { CasePair, ResultDetail } from "../types"
 import { PlainText } from "./plain-text"
 
@@ -36,9 +36,7 @@ export function OutputDiff({ pair, aRunId, bRunId }: { pair: CasePair; aRunId: s
         <p className="text-sm text-muted-foreground">
           Red-team output stays hidden until you ask for it: it may repeat the system prompt or carry the attack.
         </p>
-        <Button variant="outline" size="sm" onClick={() => setShown(true)}>
-          {`Show outputs (${attack})`}
-        </Button>
+        <IconButton variant="outline" onClick={() => setShown(true)} label={`Show outputs (${attack})`} />
       </div>
     )
   }

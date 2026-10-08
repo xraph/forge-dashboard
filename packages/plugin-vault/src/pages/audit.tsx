@@ -1,9 +1,9 @@
+import { IconButton } from "@forge-go/dashboard-kit/components/icon-button"
 import { useEffect, useRef, useState } from "react"
 import type { ComponentType } from "react"
 import { PluginLink, useQuery } from "@forge-go/dashboard-plugin"
 import type { PluginPageProps } from "@forge-go/dashboard-plugin"
 import { Badge } from "@forge-go/dashboard-kit/components/badge"
-import { Button } from "@forge-go/dashboard-kit/components/button"
 import { Checkbox } from "@forge-go/dashboard-kit/components/checkbox"
 import { FilterBar } from "@forge-go/dashboard-kit/components/filter-bar"
 import { Label } from "@forge-go/dashboard-kit/components/label"
@@ -295,19 +295,10 @@ export const AuditPage: ComponentType<PluginPageProps> = () => {
         <div className="flex flex-wrap gap-1">
           <Badge variant="outline" className="gap-1 pr-0.5 text-xs">
             {`Since ${formatTimestamp(since)}`}
-            <Button
-              type="button"
-              variant="ghost"
-              size="icon-xs"
-              className="size-4"
-              aria-label="Remove since filter"
-              onClick={() => {
+            <IconButton type="button" variant="ghost" onClick={() => {
                 setSince("")
                 setPage(1)
-              }}
-            >
-              <span aria-hidden="true">×</span>
-            </Button>
+              }} label="Remove since filter" />
           </Badge>
         </div>
       )}

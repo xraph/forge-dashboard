@@ -1,4 +1,4 @@
-import type { ComponentType, ReactNode } from "react"
+import type { ComponentType } from "react"
 import { beforeEach, vi } from "vitest"
 import { render } from "@testing-library/react"
 import {
@@ -7,7 +7,7 @@ import {
   PluginProvider,
   queryStore,
 } from "@forge-go/dashboard-plugin"
-import type { PluginPageProps, ScopedClient } from "@forge-go/dashboard-plugin"
+import type { PluginLinkProps, PluginPageProps, ScopedClient } from "@forge-go/dashboard-plugin"
 
 /**
  * `queryStore` is a module-level singleton, so an entry one test writes
@@ -187,8 +187,8 @@ export function renderWithNavigate(Page: ComponentType<PluginPageProps>, client:
     <PluginProvider client={client}>
       <NavigationProvider
         value={{
-          Link: ({ to, children, className }: { to: string; children: ReactNode; className?: string }) => (
-            <a href={to} className={className}>
+          Link: ({ to, children, ...rest }: PluginLinkProps) => (
+            <a href={to} {...rest}>
               {children}
             </a>
           ),
