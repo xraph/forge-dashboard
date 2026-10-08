@@ -15,7 +15,10 @@ window.matchMedia ??= ((query: string) => ({
   dispatchEvent: () => false,
 })) as unknown as typeof window.matchMedia
 
-const renderLink = (node: { label: string; href: string; icon?: React.ReactNode }, href: string) => (
+const renderLink = (
+  node: { label: string; href: string; icon?: React.ReactNode },
+  href: string
+) => (
   <a href={href}>
     {node.icon}
     <span>{node.label}</span>
@@ -23,30 +26,43 @@ const renderLink = (node: { label: string; href: string; icon?: React.ReactNode 
 )
 
 const items: RailItem[] = [
-  { id: "Identity", label: "Identity", href: "/@auth/p/users", icon: <svg data-testid="identity-icon" /> },
+  {
+    id: "Identity",
+    label: "Identity",
+    href: "/@auth/p/users",
+    icon: <svg data-testid="identity-icon" />,
+  },
   { id: "Billing", label: "Billing", href: "/@auth/p/plans" },
 ]
 
-function renderEntries(props: Partial<React.ComponentProps<typeof RailEntries>> = {}) {
+function renderEntries(
+  props: Partial<React.ComponentProps<typeof RailEntries>> = {}
+) {
   return render(
     <SidebarProvider>
-      <RailEntries items={items} activeId="Billing" renderLink={renderLink} {...props} />
-    </SidebarProvider>,
+      <RailEntries
+        items={items}
+        activeId="Billing"
+        renderLink={renderLink}
+        {...props}
+      />
+    </SidebarProvider>
   )
 }
 
 describe("RailEntries", () => {
   it("renders one link per item, in order, to its href", () => {
     renderEntries()
-    expect(screen.getAllByRole("link").map((a) => a.getAttribute("href"))).toEqual([
-      "/@auth/p/users",
-      "/@auth/p/plans",
-    ])
+    expect(
+      screen.getAllByRole("link").map((a) => a.getAttribute("href"))
+    ).toEqual(["/@auth/p/users", "/@auth/p/plans"])
   })
 
   it("keeps the query string on every link", () => {
     renderEntries({ search: "?env=staging" })
-    expect(screen.getByRole("link", { name: "Billing" }).getAttribute("href")).toBe("/@auth/p/plans?env=staging")
+    expect(
+      screen.getByRole("link", { name: "Billing" }).getAttribute("href")
+    ).toBe("/@auth/p/plans?env=staging")
   })
 
   it("marks the active item and nothing else", () => {
@@ -59,16 +75,21 @@ describe("RailEntries", () => {
     expect(identity.hasAttribute("data-active")).toBe(false)
   })
 
-  it("draws the item's icon, or an initial when there is none", () => {
+  it("draws the supplied icon or a shared destination icon without a letter fallback", () => {
     renderEntries()
     expect(screen.getByTestId("identity-icon")).toBeTruthy()
-    const glyph = screen.getByRole("link", { name: "Billing" }).querySelector('[data-slot="rail-glyph"]') as HTMLElement
-    expect(glyph.textContent).toBe("B")
+    const glyph = screen
+      .getByRole("link", { name: "Billing" })
+      .querySelector('[data-slot="rail-glyph"]') as HTMLElement
+    expect(glyph.querySelector("svg")).toBeTruthy()
+    expect(glyph.textContent).toBe("")
   })
 
   it("hides labels from sight when collapsed and shows them when expanded", () => {
     const collapsed = renderEntries()
-    expect(screen.getByRole("link", { name: "Billing" }).className).toContain("[&>span:last-child]:sr-only")
+    expect(screen.getByRole("link", { name: "Billing" }).className).toContain(
+      "[&>span:last-child]:sr-only"
+    )
     collapsed.unmount()
     renderEntries({ expanded: true })
     const link = screen.getByRole("link", { name: "Billing" })

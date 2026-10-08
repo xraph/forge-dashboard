@@ -1,3 +1,4 @@
+import { withNavigationIcons } from "@forge-go/dashboard-kit/components/navigation-icon"
 import { useState } from "react"
 import { ChevronRightIcon } from "lucide-react"
 import {
@@ -120,6 +121,7 @@ function NavigationBranch({
                 isActive={child.href === currentPath}
                 render={renderLink(child, `${child.href}${search}`)}
               >
+                {child.icon}
                 <span>{child.label}</span>
               </SidebarMenuSubButton>
             </SidebarMenuSubItem>
@@ -154,7 +156,7 @@ export function NavMain({ groups, ...props }: NavTreeProps) {
             {group.items.map((item, itemIndex) => (
               <NavigationBranch
                 key={`${itemIndex}:${item.href}`}
-                item={item}
+                item={withNavigationIcons(item)}
                 {...props}
                 currentPath={activePath}
               />

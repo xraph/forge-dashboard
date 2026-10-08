@@ -1,3 +1,4 @@
+import { withNavigationIcons } from "@forge-go/dashboard-kit/components/navigation-icon"
 import type { ReactElement, ReactNode } from "react"
 
 import {
@@ -91,7 +92,7 @@ export function NavTree({
           ) : null}
           <SidebarGroupContent>
             <SidebarMenu>
-              {group.items.map((item, itemIndex) => (
+              {group.items.map(withNavigationIcons).map((item, itemIndex) => (
                 <SidebarMenuItem key={`${itemIndex}:${item.href}`}>
                   <SidebarMenuButton
                     tooltip={item.label}

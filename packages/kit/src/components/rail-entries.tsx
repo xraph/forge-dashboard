@@ -1,3 +1,4 @@
+import { NavigationIcon } from "@forge-go/dashboard-kit/components/navigation-icon"
 import type { ReactElement, ReactNode } from "react"
 import { useRender } from "@base-ui/react/use-render"
 
@@ -20,19 +21,14 @@ export interface RailItem {
 
 export type RenderRailLink = (node: NavNode, href: string) => ReactElement
 
-// Spread, not index: a label that opens with an emoji is one code point and
-// two UTF-16 units, and `label[0]` would hand back half a surrogate pair.
-function initial(label: string): string {
-  const first = [...label.trim()][0]
-  return first ? first.toUpperCase() : "?"
-}
-
-/** The tile an entry's icon sits in, with an initial when there is no icon. */
+/** The tile for an explicit icon or a shared destination glyph. */
 export function RailGlyph({
   icon,
   label,
   className,
+  href,
 }: {
+  href?: string
   icon?: ReactNode
   label: string
   className?: string
@@ -43,10 +39,10 @@ export function RailGlyph({
       aria-hidden="true"
       className={cn(
         "grid size-4 shrink-0 place-items-center text-xs font-medium [&>svg]:size-4",
-        className,
+        className
       )}
     >
-      {icon ?? initial(label)}
+      {icon ?? <NavigationIcon label={label} href={href} />}
     </span>
   )
 }
@@ -61,7 +57,7 @@ function nodeFor(item: RailItem): NavNode {
   return {
     label: item.label,
     href: item.href,
-    icon: <RailGlyph icon={item.icon} label={item.label} />,
+    icon: <RailGlyph icon={item.icon} label={item.label} href={item.href} />,
   }
 }
 
@@ -72,7 +68,8 @@ const RAIL_LINK =
 // Sized like a SidebarMenuButton (h-8, p-2, a 16px icon) so the rail and the
 // secondary sidebar read at the same density.
 const RAIL_LINK_ICON = "w-8 justify-center [&>span:last-child]:sr-only"
-const RAIL_LINK_LABELLED = "w-full justify-start gap-2 px-2 [&>span:last-child]:truncate"
+const RAIL_LINK_LABELLED =
+  "w-full justify-start gap-2 px-2 [&>span:last-child]:truncate"
 
 function RailEntry({
   item,
@@ -92,7 +89,11 @@ function RailEntry({
   // merged onto it. The element's own props win where they are set.
   const element = useRender({
     defaultTagName: "a",
-    render: <TooltipTrigger render={renderLink(nodeFor(item), `${item.href}${search}`)} />,
+    render: (
+      <TooltipTrigger
+        render={renderLink(nodeFor(item), `${item.href}${search}`)}
+      />
+    ),
     props: {
       className: cn(RAIL_LINK, expanded ? RAIL_LINK_LABELLED : RAIL_LINK_ICON),
       "aria-current": active ? "page" : undefined,
@@ -133,7 +134,10 @@ export function RailEntries({
     <ul
       data-slot="rail-entries"
       aria-label={label}
-      className={cn("flex flex-col gap-1", expanded ? "items-stretch" : "items-center")}
+      className={cn(
+        "flex flex-col gap-1",
+        expanded ? "items-stretch" : "items-center"
+      )}
     >
       {items.map((item) => (
         <li key={item.id} className={expanded ? "w-full" : undefined}>
