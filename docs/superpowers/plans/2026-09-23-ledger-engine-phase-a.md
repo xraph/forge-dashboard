@@ -17,11 +17,14 @@
 - Tests use the standard library only. No testify. Table-driven, matching `types/money_test.go`.
 - `types.Money.Add` and `Subtract` **panic** on currency mismatch via `assertSameCurrency`. Any code path that combines two `Money` values from different sources must check currency first and return an error, never rely on the panic.
 - `MaxRedemptions == 0` means unlimited redemptions.
-- `PriceTier.UpTo == 0` means unbounded.
+- `PriceTier.UpTo <= 0` means unbounded. `-1` is the form the repository documents (README, docs/API.md, docs_test.go); `0` is accepted too. (Corrected during Tasks 2+3 review: the first draft said only `0`.)
+- Tier positions count TOTAL period usage. `ComputeOverage(tiers, usage, included, ...)` honours the allowance without giving it twice: graduated is `price(usage) - price(included)`. A ladder with no unbounded tier extends its last tier. `included < 0` means unlimited. Callers must run `invoice.ValidateTiers` first. Full rules: ledger rulings R1-R7.
 - Coupon stacking order: percentage coupons compute against subtotal first, then amount coupons subtract, then clamp at zero.
 - Migration versions continue the existing series. Next free: `20240101000009` for postgres and sqlite, `20240101000008` for mongo (mongo has no `add_provider_columns`).
 - Run `go build ./... && go test ./...` before every commit. Both must be clean.
 - Commit messages follow the repository's conventional-commit style. No `Co-Authored-By` trailers.
+- Tests in the repository root are `package ledger_test`, calling exported names as `ledger.New`, `ledger.WithPlugin`, `ledger.ErrCouponNotFound` and so on. `store/memory` imports `ledger`, so an internal `package ledger` test that imports it is an import cycle. Any code block below written as `package ledger` in a root `_test.go` file must be read with that correction. (Found in Task 7.)
+- No em dashes (U+2014) anywhere: code comments, test names, commit messages or prose. The repository owner forbids them. Use a comma, colon, full stop or parentheses. (Added during Task 9.)
 - **Never `git add -A` or `git add .`** in this repository. It carries three untracked files that are not part of this work: `IMPLEMENTATION_PLAN.md`, `_project-files/` and `implement_all.sh`. Stage explicit paths, every time. `IMPLEMENTATION_PLAN.md` is committed deliberately, once, by Task 11 and by nothing else.
 
 ## Unresolved: sub-cent unit pricing
@@ -415,6 +418,11 @@ func TestMoneyPercent(t *testing.T) {
 		{"over one hundred percent", USD(4900), 150, USD(7350)},
 		{"truncates rather than rounds", USD(101), 10, USD(10)},
 		{"negative percent negates", USD(4900), -10, USD(-490)},
+		// These two discriminate toward-zero from floor: a floor
+		// implementation returns -11 for both. The case above divides
+		// exactly, so on its own it pins no direction at all.
+		{"negative percent truncates toward zero", USD(101), -10, USD(-10)},
+		{"negative amount truncates toward zero", USD(-101), 10, USD(-10)},
 		{"preserves currency", EUR(19900), 50, EUR(9950)},
 	}
 
@@ -440,11 +448,12 @@ Expected: FAIL to compile, `m.Percent undefined (type Money has no field or meth
 In `types/money.go`, after `Divide`:
 
 ```go
-// Percent returns pct percent of the Money value, truncating toward zero.
+// Percent returns pct percent of the Money value.
 //
-// Integer-only: 10% of 101 cents is 10 cents, not 10.1. The truncation is
-// deliberate and always favours the payer. Callers that need the remainder
-// must compute it themselves.
+// Integer-only, truncating toward zero: 10% of 101 cents is 10 cents, and
+// 10% of -101 cents is -10 cents, not -11. Magnitude is never rounded up,
+// whatever the sign. Callers that need the remainder must compute it
+// themselves.
 func (m Money) Percent(pct int) Money {
 	return Money{Amount: m.Amount * int64(pct) / 100, Currency: m.Currency}
 }
@@ -454,7 +463,7 @@ func (m Money) Percent(pct int) Money {
 
 Run: `cd /Users/rexraphael/Work/xraph/forgery/ledger && go test ./types/ -run TestMoneyPercent -v`
 
-Expected: PASS, all 8 subtests.
+Expected: PASS, all 10 subtests.
 
 - [ ] **Step 5: Commit**
 
@@ -2160,6 +2169,145 @@ git commit -m "feat(ledger): validate and apply coupons to subscriptions"
 
 ---
 
+### Task 12: Atomic coupon redemption (executed after Task 7, before Task 8)
+
+Added during execution (ledger ruling R19). Task 7's review reproduced two defects in the
+apply path. (a) The redemption cap is checked by reading `TimesRedeemed` before writing,
+so concurrent applies near the cap over-redeem: a barrier probe redeemed a coupon capped
+at 1 five times. (b) The application row and the increment are two writes, so a failure
+between them leaves a discount attached and uncounted. A retry then gets
+`ErrCouponAlreadyApplied`, so the count never recovers.
+
+Both are fixed by one store method that redeems as a unit.
+
+**Files:**
+- Modify: `store/store.go`, `coupon/store.go` (interfaces)
+- Modify: `store/memory/store.go`, `store/sqlite/store.go`, `store/postgres/store.go`, `store/mongo/store.go`
+- Modify: `store/storetest/storetest.go` (subtests in `Run`)
+- Create: `store/sqlite/redeem_internal_test.go`
+- Modify: `coupon_apply.go`, `coupon_apply_test.go`
+
+**Interfaces:**
+- Consumes: the Task 4-6 store methods and their error helpers (unique-violation and FK mapping per backend); `Ledger.ApplyCoupon` from Task 7 as fixed.
+- Produces:
+  - `RedeemCoupon(ctx context.Context, subID id.SubscriptionID, couponID id.CouponID) error` on `store.Store`, and as `Redeem` on the narrow `coupon.Store`.
+
+**Semantics, identical on every backend:**
+1. A nil or non-`sub` `subID` → error wrapping `ledger.ErrInvalidInput`, before any storage access.
+2. Unknown coupon → `ledger.ErrCouponNotFound`.
+3. The pair is already applied → `ledger.ErrCouponAlreadyApplied`, and the count does not move.
+4. The coupon is at its cap (`MaxRedemptions > 0 && TimesRedeemed >= MaxRedemptions`) → `ledger.ErrCouponExhausted`, and NO application row is left behind.
+5. Success → exactly one application row, and `TimesRedeemed` incremented by exactly one.
+6. Any failure after the application insert → no application row remains and the count is unchanged.
+
+The cap is enforced by a CONDITIONAL increment, never by a read followed by a write:
+`UPDATE ledger_coupons SET times_redeemed = times_redeemed + 1, updated_at = ? WHERE id = ? AND (max_redemptions = 0 OR times_redeemed < max_redemptions)`.
+Zero rows affected, with the coupon known to exist, means exhausted.
+
+**Per backend:**
+- memory: the whole operation under one `s.mu.Lock()`.
+- sqlite and postgres: one transaction. `tx, err := s.sdb.BeginTxQuery(ctx, nil)` (`s.pg` on postgres) returns a transaction exposing `NewInsert`, `NewUpdate`, `NewSelect`, `Commit` and `Rollback`. Insert the application through `tx`, run the conditional increment through `tx`, commit only if exactly one row was affected, and roll back on every other path. Reuse the Task 4-6 helpers to map a unique violation on the insert to `ErrCouponAlreadyApplied` (and a postgres FK violation to `ErrCouponNotFound`). Defer a rollback guarded so it is a no-op after a successful commit.
+- mongo: multi-document transactions need a replica set and the harness cannot assume one. So insert the application (duplicate key → `ErrCouponAlreadyApplied`), then run the conditional increment as a single-document update with filter `{_id: couponID, $or: [{max_redemptions: 0}, {$expr: {$lt: ["$times_redeemed", "$max_redemptions"]}}]}`. On zero matched, delete the application just inserted and return `ErrCouponExhausted`. On an update error, delete it and return the error. If the compensating delete itself fails, return an error that names both failures. Say in the method's doc comment that this is compensating, not transactional, and why.
+
+`ApplyCoupon` and `IncrementCouponRedemptions` stay on the interface as low-level operations. Say in each doc comment that engine code redeems through `RedeemCoupon`.
+
+**Engine change.** `Ledger.ApplyCoupon` keeps every pre-check from Task 7, including the fast-path exhaustion check, and the plugin validators. It replaces its `ApplyCoupon` + `IncrementCouponRedemptions` pair with one `l.store.RedeemCoupon` call, then re-reads the coupon through `GetCouponByID` to return the current count. Rewrite the comment that claimed "a row without a count is recoverable". Review showed it is not.
+
+- [ ] **Step 1: Write the failing tests**
+
+Add to `store/storetest/storetest.go` and register each in `Run`. Use `uniqueSuffix()` for every coupon code and app id, and assert with `errors.Is`:
+
+- `RedeemCouponRecordsAndCounts`: redeem once → `ListAppliedCoupons` returns that coupon; `TimesRedeemed` is 1.
+- `RedeemCouponRespectsTheCap`: `MaxRedemptions` 2; redeem on sub1 and sub2 → nil; sub3 → `ErrCouponExhausted`; sub3's list is empty; `TimesRedeemed` is 2.
+- `RedeemCouponUnlimited`: `MaxRedemptions` 0 and `TimesRedeemed` created at 5 → redeem → nil, count 6.
+- `RedeemCouponDuplicate`: same pair twice → second is `ErrCouponAlreadyApplied`; count 1; list has one.
+- `RedeemCouponRejectsBadInput`: unknown coupon → `ErrCouponNotFound`; `id.Nil` → `ErrInvalidInput`; a plan id as the sub id → `ErrInvalidInput`; no rows and no count change in any case.
+- `RedeemCouponConcurrentCap`: `MaxRedemptions` 3; 12 goroutines redeem the SAME coupon onto 12 DIFFERENT subscriptions → exactly 3 nil, exactly 9 `ErrCouponExhausted` and no other error, `TimesRedeemed` exactly 3, and the 12 subscriptions' lists hold exactly 3 applications between them.
+
+Create `store/sqlite/redeem_internal_test.go` (internal package) pinning rule 6, the rollback:
+open a store the way the harness does, create a coupon, then install a trigger that makes the increment fail inside the transaction,
+
+```sql
+CREATE TRIGGER fail_increment BEFORE UPDATE ON ledger_coupons
+BEGIN SELECT RAISE(ABORT, 'forced failure'); END;
+```
+
+call `RedeemCoupon`, and assert a non-nil error, an EMPTY `ListAppliedCoupons` for that subscription (the insert was rolled back), and an unchanged `TimesRedeemed`. Then drop the trigger and assert a second `RedeemCoupon` succeeds, so the failure left nothing behind that blocks a retry. Do not do this on postgres: its scratch database is shared.
+
+Add to `coupon_apply_test.go` (package `ledger_test`):
+- `TestApplyCouponCannotExceedTheCapConcurrently`: a coupon with `MaxRedemptions` 3; 10 subscriptions on the same plan; 10 goroutines call `ApplyCoupon` concurrently → exactly 3 succeed, exactly 7 return `ErrCouponExhausted`, and the stored count is 3.
+
+- [ ] **Step 2: Run them to verify they fail**
+
+`go test ./store/... . -count=1` fails to compile until `RedeemCoupon` exists. After adding only the interface method and stubs, the concurrency tests must fail on behaviour: more than 3 succeed.
+
+- [ ] **Step 3: Implement** per the semantics and per-backend notes above.
+
+- [ ] **Step 4: Verify**
+
+`go build ./... && go vet ./... && go test ./... -count=1`, then `go test -race ./store/... . -count=3`, then postgres twice:
+`LEDGER_TEST_POSTGRES_DSN="postgres://twinos:twinos@localhost:5432/ledger_test?sslmode=disable" go test ./store/... -count=1`.
+Prove the cap is load-bearing: temporarily drop the `WHERE` condition on one SQL backend and confirm `RedeemCouponConcurrentCap` fails; restore.
+
+- [ ] **Step 5: Commit**
+
+```bash
+cd /Users/rexraphael/Work/xraph/forgery/ledger
+go build ./... && go test ./...
+git add store/ coupon/store.go coupon_apply.go coupon_apply_test.go
+git commit -m "fix(ledger): redeem coupons atomically so the cap holds under concurrency"
+```
+
+---
+
+### Task 13: Mongo backend conformance fixes (executed after Task 12, before Task 8)
+
+Added during execution (ledger rulings R21, R22). The conformance harness from Task 0,
+run against a live mongod, caught two pre-existing mongo bugs that fail identically on the
+commit before Phase A. Both were diagnosed in Task 12's report.
+
+**M-A. Plans without `Pricing.PlanID` cannot be read back.** `store/mongo/models.go:178`,
+`fromPlanModel`, parses `m.Pricing.PlanID` unconditionally. A `plan.Pricing` built without
+a `PlanID`, which is the normal construction, stores `""`, and the read fails. Sqlite and
+postgres read the same plan correctly.
+
+**M-B. `IngestBatch` silently drops usage events.** `store/mongo/store.go:330-345` inserts
+each event and skips any duplicate-key error "for idempotency". The unique index on
+`idempotency_key` is SPARSE. grove's insert path ignores the `omitempty` bson tag
+(`models.go:318`), so an event without a key is written with `""`. Sparse indexes still
+index a present empty string, so the second keyless event collides and is dropped with no
+error. Metered usage goes missing and customers are under-billed. Sqlite and postgres use a
+PARTIAL unique index `WHERE idempotency_key != ''` with `ON CONFLICT ... DO NOTHING`, which
+is the correct design. Mongo must match it.
+
+**Files:**
+- Modify: `store/mongo/models.go`, `store/mongo/store.go`, `store/mongo/migrations.go`
+- Modify: `store/storetest/storetest.go` (subtests in `Run`)
+
+**Fixes:**
+1. M-A: `fromPlanModel` treats an empty stored `PlanID` as `id.Nil` instead of failing. Audit EVERY `fromXModel` in `store/mongo/models.go` for the same shape: an id field that is legitimately optional (for example `plan.Feature.CatalogID`, `invoice.SubscriptionID` where applicable, provider ids) parsed unconditionally. Fix each the same way, and list them in the report. Do not relax a parse on an id that is genuinely required.
+2. M-B: replace the sparse unique index with a PARTIAL unique index on non-empty strings,
+   `partialFilterExpression: {idempotency_key: {$gt: ""}}` (`$gt ""` matches only non-empty strings, and type bracketing excludes null and missing). Give it a NEW index name. `store/mongo/Migrate()` builds indexes from `migrationIndexes()`, not from `migrations.go`, so change it there, and ALSO add the change to `migrations.go` so the two do not drift further. Because an index with the same keys and different options cannot be created over the old one, `Migrate` must first drop the old sparse index by its name, treating "index not found" as success, so it is idempotent on fresh and existing databases.
+3. M-B: keep the duplicate-skip in `IngestBatch`. It is now correct, because only a genuinely repeated non-empty key can collide.
+
+**Tests** (add to `Run`, so they run on every backend; `uniqueSuffix()` on tenant, app and keys):
+- `PlanRoundTripWithoutPricingPlanID`: a plan whose `Pricing.PlanID` is unset round-trips on every backend, and the read-back `Pricing.PlanID` is nil.
+- `IngestKeylessEventsAreAllCounted`: ingest 3 events with an EMPTY idempotency key for the same tenant, app and feature, quantities 1, 2 and 4 → `QueryUsage` returns 3 events, and `Aggregate` for the current period returns 7.
+- `IngestDuplicateKeyIsCountedOnce`: ingest 2 events sharing one non-empty key → counted once.
+- `IngestKeyedAndKeylessMix`: 2 keyless plus 2 events with distinct non-empty keys → all 4 counted.
+- The pre-existing `PlanRoundTrip` and `EmptyTenantIDBehavior` must now pass on mongo.
+- Mongo `Migrate` is idempotent: calling it twice on the same database succeeds, and after it the old sparse index is absent and the new partial one present (an internal mongo test, skipped without `LEDGER_TEST_MONGO_URI`).
+
+**Verification:**
+- `go build ./... && go vet ./... && go test ./... -count=1`
+- Postgres twice: `LEDGER_TEST_POSTGRES_DSN="postgres://twinos:twinos@localhost:5432/ledger_test?sslmode=disable" go test ./store/... -count=1`
+- Mongo against the live server on localhost:57017, which belongs to another session, ONLY through a uniquely named scratch database that you drop afterwards: `LEDGER_TEST_MONGO_URI="mongodb://localhost:57017/ledger_test_<random>" go test ./store/... -count=1`. The WHOLE mongo conformance suite must pass, including the two formerly failing subtests.
+- Prove M-B's test discriminates: revert to the sparse index and confirm `IngestKeylessEventsAreAllCounted` fails on mongo; restore.
+
+**Commit:** stage `store/`, message `fix(mongo): stop dropping keyless usage events and read plans without a pricing id`. No Co-Authored-By trailer.
+
+---
+
 ### Task 8: Seat quantities on subscriptions
 
 Gives `plan.FeatureSeat` the count it has never had. A seat count is a level rather than a flow, which is why it lives on the subscription row and not in the usage stream.
@@ -2301,6 +2449,7 @@ package ledger
 
 import (
 	"context"
+	"errors"
 	"strings"
 	"testing"
 	"time"
@@ -2630,6 +2779,30 @@ func TestGenerateInvoiceCalculatesTax(t *testing.T) {
 	}
 }
 
+// An invalid ladder must fail generation rather than bill $0 (ruling R4).
+func TestGenerateInvoiceRejectsAnInvalidTierLadder(t *testing.T) {
+	ctx := context.Background()
+	l, s, sub := billingFixture(t)
+	ingest(t, s, sub, "api_calls", 1500)
+
+	p, err := s.GetPlan(ctx, sub.PlanID)
+	if err != nil {
+		t.Fatalf("GetPlan: %v", err)
+	}
+	// Mixed tier types on one feature cannot be priced unambiguously.
+	p.Pricing.Tiers = append(p.Pricing.Tiers, plan.PriceTier{
+		FeatureKey: "api_calls", Type: plan.TierFlat, UpTo: 5000, FlatAmount: types.USD(900),
+	})
+	if err := s.UpdatePlan(ctx, p); err != nil {
+		t.Fatalf("UpdatePlan: %v", err)
+	}
+
+	_, err = l.GenerateInvoice(ctx, sub.ID)
+	if !errors.Is(err, invoice.ErrInvalidTiers) {
+		t.Fatalf("got %v, want an error wrapping invoice.ErrInvalidTiers", err)
+	}
+}
+
 // Review Focus 3.
 func TestGenerateInvoiceRejectsATaxCalculatorReturningTheWrongType(t *testing.T) {
 	ctx := context.Background()
@@ -2691,7 +2864,12 @@ Replace the body of `GenerateInvoice` in `ledger.go` from the metered-usage loop
 			continue
 		}
 
-		amount := invoice.ComputeOverage(tiersFor(tiers, pf.Key), used, pf.Limit, p.Currency)
+		featureTiers := tiersFor(tiers, pf.Key)
+		if vErr := invoice.ValidateTiers(featureTiers, p.Currency); vErr != nil {
+			return nil, fmt.Errorf("plan %s feature %q: %w", p.ID, pf.Key, vErr)
+		}
+
+		amount := invoice.ComputeOverage(featureTiers, used, pf.Limit, p.Currency)
 		if amount.IsZero() {
 			continue
 		}
@@ -2720,7 +2898,12 @@ Replace the body of `GenerateInvoice` in `ledger.go` from the metered-usage loop
 			continue
 		}
 
-		amount := invoice.ComputeOverage(tiersFor(tiers, pf.Key), seats, 0, p.Currency)
+		featureTiers := tiersFor(tiers, pf.Key)
+		if vErr := invoice.ValidateTiers(featureTiers, p.Currency); vErr != nil {
+			return nil, fmt.Errorf("plan %s feature %q: %w", p.ID, pf.Key, vErr)
+		}
+
+		amount := invoice.ComputeOverage(featureTiers, seats, 0, p.Currency)
 		if amount.IsZero() {
 			continue
 		}
@@ -2859,38 +3042,65 @@ git commit -m "feat(ledger): price overage, seats, discounts and tax when genera
 
 ### Task 10: The `UsageAggregator` and `PricingStrategy` hooks
 
-The last two registered-but-never-called hooks. Both get an invocation site here; neither has a consumer yet, which the plan records rather than hides.
+The last two registered-but-never-called hooks. Each gets a real call site inside
+`GenerateInvoice`, selected by name from metadata, with a fallback to the built-in path
+when the named plugin is not registered.
+
+**Rewritten before dispatch.** The first draft of this task added a `ComputeOverageWith`
+helper that nothing called, declared a `stubPricingStrategy` no test used, gave its stub
+aggregator a signature that does not satisfy the interface, and had the aggregator path
+query usage with no time bounds, so a plugin would have billed all-time usage. This
+version fixes all four. See ledger ruling R13.
 
 **Files:**
-- Modify: `plugin/registry.go` (add `GetUsageAggregator`)
-- Modify: `ledger.go` (add `aggregateUsage`, and route the `GenerateInvoice` metered loop through it)
-- Modify: `invoice/pricing.go` (add `ComputeOverageWith`)
+- Modify: `plugin/registry.go` (add `GetUsageAggregator` beside `GetPricingStrategy`)
 - Create: `plugin/registry_test.go`
+- Modify: `ledger.go` (add `aggregateUsage` and `priceFeature`; route both `GenerateInvoice` loops through them)
 - Modify: `invoice_generate_test.go` (append)
 
+Do NOT add `ComputeOverageWith` to `invoice/pricing.go`. `priceFeature` replaces it.
+
 **Interfaces:**
-- Consumes: `ComputeOverage` (Task 3), the `GenerateInvoice` body (Task 9).
+- Consumes: `invoice.ComputeOverage` and `invoice.ValidateTiers` (Tasks 2-3 as fixed), the `GenerateInvoice` body (Task 9), `plugin.Registry.GetPricingStrategy` (exists at `plugin/registry.go:493`).
 - Produces:
   - `func (r *Registry) GetUsageAggregator(name string) UsageAggregator`
-  - `func (l *Ledger) aggregateUsage(ctx context.Context, sub *subscription.Subscription, pf plan.Feature) (int64, error)` — unexported; consults a named aggregator from `pf.Metadata["aggregator"]`, falls back to `l.store.Aggregate`.
-  - `func ComputeOverageWith(strategy func(tiers []plan.PriceTier, qty int64, currency string) types.Money, tiers []plan.PriceTier, usage, included int64, currency string) types.Money`
+  - `func (l *Ledger) aggregateUsage(ctx context.Context, sub *subscription.Subscription, pf plan.Feature) (int64, error)` — unexported.
+  - `func (l *Ledger) priceFeature(p *plan.Plan, pf plan.Feature, featureTiers []plan.PriceTier, usage, included int64) (types.Money, error)` — unexported.
 
-- [ ] **Step 1: Write the failing test**
+**Selection rules.**
+- Aggregator: `pf.Metadata["aggregator"]`. Empty means the store's `Aggregate`. A name that is not registered logs a warning and falls back to the store.
+- Pricing strategy: `pf.Metadata["pricing_strategy"]`, else `p.Metadata["pricing_strategy"]`. Empty means `invoice.ComputeOverage`. A name that is not registered logs a warning and falls back.
+- A registered strategy is NOT called when `included < 0` (unlimited) or `usage <= included`; those return zero, exactly as the built-in path does.
+- A strategy's result must be a `types.Money` in the plan's currency (case-insensitive) and non-negative. Anything else fails generation with an error naming the strategy.
+
+**Aggregation window.** The aggregator path queries events in the subscription's billing
+period, `QueryOpts{FeatureKey: pf.Key, Start: sub.CurrentPeriodStart, End: sub.CurrentPeriodEnd}`.
+The store's own `Aggregate` uses the start of the calendar period relative to now, which
+is pre-existing behaviour this task does not change. The two agree for calendar-aligned
+subscriptions and differ otherwise. Task 11 records that in `MIGRATION.md`.
+
+- [ ] **Step 1: Write the failing tests**
 
 Create `plugin/registry_test.go`:
 
 ```go
 package plugin
 
-import "testing"
+import (
+	"context"
+	"testing"
+)
 
+// stubAggregator satisfies UsageAggregator exactly; see plugin.go:221-225.
 type stubAggregator struct{ name string }
 
 func (s *stubAggregator) Name() string           { return s.name }
 func (s *stubAggregator) AggregatorName() string { return s.name }
-func (s *stubAggregator) Aggregate(_ interface{}, _ []interface{}) (int64, error) {
-	return 0, nil
+func (s *stubAggregator) Aggregate(_ context.Context, events []interface{}) (int64, error) {
+	return int64(len(events)), nil
 }
+
+var _ UsageAggregator = (*stubAggregator)(nil)
 
 func TestGetUsageAggregatorByName(t *testing.T) {
 	r := NewRegistry()
@@ -2898,64 +3108,240 @@ func TestGetUsageAggregatorByName(t *testing.T) {
 	if got := r.GetUsageAggregator("absent"); got != nil {
 		t.Errorf("got %v for an unregistered name, want nil", got)
 	}
+
+	if err := r.Register(&stubAggregator{name: "count"}); err != nil {
+		t.Fatalf("Register: %v", err)
+	}
+	if got := r.GetUsageAggregator("count"); got == nil {
+		t.Error("got nil for a registered aggregator, want it returned by name")
+	}
 }
 ```
 
-The `Aggregate` signature on the stub must match `UsageAggregator` exactly; read `plugin/plugin.go:221-224` and correct the stub before running. If the stub does not satisfy the interface the registry will not store it and the test will mislead you.
-
-Append to `invoice_generate_test.go`:
+Append to `invoice_generate_test.go`. The stubs live in package `ledger`, so they
+implement the plugin interfaces structurally:
 
 ```go
-type stubPricingStrategy struct{ calls int }
+// countingAggregator returns a fixed total and records how many events it saw.
+type countingAggregator struct {
+	total int64
+	seen  int
+}
 
-func (s *stubPricingStrategy) Name() string         { return "stub-pricing" }
-func (s *stubPricingStrategy) StrategyName() string { return "stub-pricing" }
-func (s *stubPricingStrategy) Compute(_ []interface{}, _, _ int64, currency string) interface{} {
+func (a *countingAggregator) Name() string           { return "stub-agg" }
+func (a *countingAggregator) AggregatorName() string { return "stub-agg" }
+func (a *countingAggregator) Aggregate(_ context.Context, events []interface{}) (int64, error) {
+	a.seen = len(events)
+	return a.total, nil
+}
+
+type fixedStrategy struct {
+	result interface{}
+	calls  int
+}
+
+func (s *fixedStrategy) Name() string         { return "stub-pricing" }
+func (s *fixedStrategy) StrategyName() string { return "stub-pricing" }
+func (s *fixedStrategy) Compute(_ []interface{}, _, _ int64, _ string) interface{} {
 	s.calls++
-	return types.USD(12345)
+	return s.result
 }
 
-func TestComputeOverageWithDelegatesToAStrategy(t *testing.T) {
-	called := 0
-	strategy := func(_ []plan.PriceTier, qty int64, currency string) types.Money {
-		called++
-		return types.Money{Amount: qty * 7, Currency: currency}
+// hookFixture builds billingFixture's plan and subscription on a ledger that
+// carries the given plugins, and lets the caller edit the plan first.
+func hookFixture(t *testing.T, edit func(p *plan.Plan), plugins ...plugin.Plugin) (*Ledger, *memory.Store, *subscription.Subscription) {
+	t.Helper()
+	ctx := context.Background()
+
+	opts := make([]Option, 0, len(plugins))
+	for _, pl := range plugins {
+		opts = append(opts, WithPlugin(pl))
 	}
 
-	tiers := []plan.PriceTier{
-		{FeatureKey: "api_calls", Type: plan.TierGraduated, UpTo: 0, UnitAmount: types.USD(3)},
+	// Reuse billingFixture for the plan and subscription, then rebuild the
+	// ledger over the same store with the plugins attached.
+	_, s, sub := billingFixture(t)
+	l := New(s, opts...)
+
+	p, err := s.GetPlan(ctx, sub.PlanID)
+	if err != nil {
+		t.Fatalf("GetPlan: %v", err)
+	}
+	edit(p)
+	if err := s.UpdatePlan(ctx, p); err != nil {
+		t.Fatalf("UpdatePlan: %v", err)
 	}
 
-	got := invoice.ComputeOverageWith(strategy, tiers, 1500, 1000, "usd")
-	if called != 1 {
-		t.Errorf("the strategy was called %d times, want 1", called)
-	}
-	if !got.Equal(types.USD(3500)) {
-		t.Errorf("got %v, want $35.00 from the strategy rather than $15.00 from the built-in ladder", got)
+	return l, s, sub
+}
+
+func setFeatureMeta(key, value string) func(*plan.Plan) {
+	return func(p *plan.Plan) {
+		if p.Features[0].Metadata == nil {
+			p.Features[0].Metadata = map[string]string{}
+		}
+		p.Features[0].Metadata[key] = value
 	}
 }
 
-func TestComputeOverageWithFallsBackWhenNoStrategy(t *testing.T) {
-	tiers := []plan.PriceTier{
-		{FeatureKey: "api_calls", Type: plan.TierGraduated, UpTo: 0, UnitAmount: types.USD(3)},
+func overageAmount(t *testing.T, inv *invoice.Invoice) types.Money {
+	t.Helper()
+	over := lineItemsOfType(inv, invoice.LineItemOverage)
+	if len(over) == 0 {
+		return types.Zero("usd")
+	}
+	if len(over) != 1 {
+		t.Fatalf("got %d overage line items, want at most 1", len(over))
+	}
+	return over[0].Amount
+}
+
+func TestGenerateInvoiceUsesANamedUsageAggregator(t *testing.T) {
+	ctx := context.Background()
+	agg := &countingAggregator{total: 1500}
+	l, s, sub := hookFixture(t, setFeatureMeta("aggregator", "stub-agg"), agg)
+
+	// One event inside the billing period, one before it. The aggregator
+	// must see only the first.
+	ingest(t, s, sub, "api_calls", 1)
+	if err := s.IngestBatch(ctx, []*meter.UsageEvent{{
+		ID: id.NewUsageEventID(), TenantID: sub.TenantID, AppID: sub.AppID,
+		FeatureKey: "api_calls", Quantity: 1,
+		Timestamp: sub.CurrentPeriodStart.Add(-time.Hour),
+	}}); err != nil {
+		t.Fatalf("IngestBatch: %v", err)
 	}
 
-	got := invoice.ComputeOverageWith(nil, tiers, 1500, 1000, "usd")
-	if !got.Equal(types.USD(1500)) {
-		t.Errorf("got %v, want the built-in $15.00", got)
+	inv, err := l.GenerateInvoice(ctx, sub.ID)
+	if err != nil {
+		t.Fatalf("GenerateInvoice: %v", err)
+	}
+
+	// The aggregator reported 1500 against a 1000 allowance at 3c.
+	if got := overageAmount(t, inv); !got.Equal(types.USD(1500)) {
+		t.Errorf("got overage %v, want $15.00 priced from the aggregator's total", got)
+	}
+	if agg.seen != 1 {
+		t.Errorf("aggregator saw %d events, want 1: it must be bounded to the billing period", agg.seen)
+	}
+}
+
+func TestGenerateInvoiceFallsBackWhenTheAggregatorIsNotRegistered(t *testing.T) {
+	l, s, sub := hookFixture(t, setFeatureMeta("aggregator", "absent"))
+	ingest(t, s, sub, "api_calls", 1500)
+
+	inv, err := l.GenerateInvoice(context.Background(), sub.ID)
+	if err != nil {
+		t.Fatalf("GenerateInvoice: %v", err)
+	}
+	if got := overageAmount(t, inv); !got.Equal(types.USD(1500)) {
+		t.Errorf("got overage %v, want the store's $15.00", got)
+	}
+}
+
+func TestGenerateInvoiceUsesANamedPricingStrategy(t *testing.T) {
+	cases := []struct {
+		name string
+		edit func(*plan.Plan)
+	}{
+		{"named on the feature", setFeatureMeta("pricing_strategy", "stub-pricing")},
+		{"named on the plan", func(p *plan.Plan) {
+			p.Metadata = map[string]string{"pricing_strategy": "stub-pricing"}
+		}},
+	}
+
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			strat := &fixedStrategy{result: types.USD(12345)}
+			l, s, sub := hookFixture(t, c.edit, strat)
+			ingest(t, s, sub, "api_calls", 1500)
+
+			inv, err := l.GenerateInvoice(context.Background(), sub.ID)
+			if err != nil {
+				t.Fatalf("GenerateInvoice: %v", err)
+			}
+			if strat.calls != 1 {
+				t.Errorf("strategy called %d times, want 1", strat.calls)
+			}
+			if got := overageAmount(t, inv); !got.Equal(types.USD(12345)) {
+				t.Errorf("got overage %v, want the strategy's $123.45", got)
+			}
+		})
+	}
+}
+
+func TestGenerateInvoiceDoesNotCallAStrategyWithinTheAllowance(t *testing.T) {
+	strat := &fixedStrategy{result: types.USD(12345)}
+	l, s, sub := hookFixture(t, setFeatureMeta("pricing_strategy", "stub-pricing"), strat)
+	ingest(t, s, sub, "api_calls", 500)
+
+	inv, err := l.GenerateInvoice(context.Background(), sub.ID)
+	if err != nil {
+		t.Fatalf("GenerateInvoice: %v", err)
+	}
+	if strat.calls != 0 {
+		t.Errorf("strategy called %d times for usage inside the allowance, want 0", strat.calls)
+	}
+	if got := overageAmount(t, inv); !got.IsZero() {
+		t.Errorf("got overage %v, want none", got)
+	}
+}
+
+func TestGenerateInvoiceRejectsABadStrategyResult(t *testing.T) {
+	cases := []struct {
+		name   string
+		result interface{}
+	}{
+		{"wrong type", "one hundred dollars"},
+		{"wrong currency", types.EUR(100)},
+		{"negative", types.USD(-100)},
+	}
+
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			l, s, sub := hookFixture(t, setFeatureMeta("pricing_strategy", "stub-pricing"),
+				&fixedStrategy{result: c.result})
+			ingest(t, s, sub, "api_calls", 1500)
+
+			_, err := l.GenerateInvoice(context.Background(), sub.ID)
+			if err == nil {
+				t.Fatal("got nil error; a bad strategy result must fail generation")
+			}
+			if !strings.Contains(err.Error(), "stub-pricing") {
+				t.Errorf("error %q does not name the strategy", err.Error())
+			}
+		})
+	}
+}
+
+func TestGenerateInvoiceFallsBackWhenTheStrategyIsNotRegistered(t *testing.T) {
+	l, s, sub := hookFixture(t, setFeatureMeta("pricing_strategy", "absent"))
+	ingest(t, s, sub, "api_calls", 1500)
+
+	inv, err := l.GenerateInvoice(context.Background(), sub.ID)
+	if err != nil {
+		t.Fatalf("GenerateInvoice: %v", err)
+	}
+	if got := overageAmount(t, inv); !got.Equal(types.USD(1500)) {
+		t.Errorf("got overage %v, want the built-in $15.00", got)
 	}
 }
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+Add `"github.com/xraph/ledger/plugin"` to the test file's imports if it is not there.
+
+- [ ] **Step 2: Run the tests to verify they fail**
 
 Run: `cd /Users/rexraphael/Work/xraph/forgery/ledger && go test ./plugin/ . -v`
 
-Expected: FAIL to compile, `r.GetUsageAggregator undefined` and `invoice.ComputeOverageWith undefined`.
+Expected: FAIL to compile, `r.GetUsageAggregator undefined`. After adding only the
+registry method, the invoice tests should fail on behaviour: the named aggregator and
+strategy are ignored, so the aggregator test sees `seen == 0` and the strategy tests see
+`calls == 0` and $15.00 rather than $123.45.
 
-- [ ] **Step 3: Write minimal implementation**
+- [ ] **Step 3: Implement**
 
-Add to `plugin/registry.go`, beside `GetPricingStrategy`:
+Add to `plugin/registry.go`, beside `GetPricingStrategy`, matching its locking:
 
 ```go
 // GetUsageAggregator returns the aggregator registered under name, or nil.
@@ -2967,46 +3353,15 @@ func (r *Registry) GetUsageAggregator(name string) UsageAggregator {
 }
 ```
 
-Match the locking discipline `GetPricingStrategy` uses on the line above.
-
-Add to `invoice/pricing.go`:
-
-```go
-// ComputeOverageWith prices overage through a caller-supplied strategy,
-// falling back to the built-in tier models when strategy is nil.
-//
-// The strategy receives the billable quantity, not the raw usage: the
-// included allowance is subtracted first so a plugin cannot accidentally
-// bill for it.
-func ComputeOverageWith(
-	strategy func(tiers []plan.PriceTier, qty int64, currency string) types.Money,
-	tiers []plan.PriceTier,
-	usage, included int64,
-	currency string,
-) types.Money {
-	if strategy == nil {
-		return ComputeOverage(tiers, usage, included, currency)
-	}
-
-	billable := usage - included
-	if billable <= 0 {
-		return types.Zero(currency)
-	}
-
-	return strategy(SortTiers(tiers), billable, currency)
-}
-```
-
 Add to `ledger.go`:
 
 ```go
-// aggregateUsage totals a feature's usage for the current period, through a
-// plugin aggregator when the feature names one in its metadata under the
-// key "aggregator", and through the store otherwise.
-//
-// A named aggregator that is not registered falls back to the store rather
-// than erroring: a plan referring to a plugin that is not installed should
-// still bill, and billing nothing at all is the worse failure.
+// aggregateUsage totals a feature's usage for billing. A feature naming a
+// registered aggregator under metadata key "aggregator" is aggregated by the
+// plugin over the subscription's billing period; anything else goes through
+// the store. An unregistered name falls back to the store rather than
+// failing: a plan referring to a plugin that is not installed should still
+// bill.
 func (l *Ledger) aggregateUsage(ctx context.Context, sub *subscription.Subscription, pf plan.Feature) (int64, error) {
 	name := pf.Metadata["aggregator"]
 	if name == "" {
@@ -3015,11 +3370,15 @@ func (l *Ledger) aggregateUsage(ctx context.Context, sub *subscription.Subscript
 
 	agg := l.plugins.GetUsageAggregator(name)
 	if agg == nil {
-		l.logger.Warn("ledger: plan feature names an unregistered usage aggregator; falling back to the store")
+		l.logger.Warn("ledger: feature names an unregistered usage aggregator; using the store")
 		return l.store.Aggregate(ctx, sub.TenantID, sub.AppID, pf.Key, pf.Period)
 	}
 
-	events, err := l.store.QueryUsage(ctx, sub.TenantID, sub.AppID, meter.QueryOpts{FeatureKey: pf.Key})
+	events, err := l.store.QueryUsage(ctx, sub.TenantID, sub.AppID, meter.QueryOpts{
+		FeatureKey: pf.Key,
+		Start:      sub.CurrentPeriodStart,
+		End:        sub.CurrentPeriodEnd,
+	})
 	if err != nil {
 		return 0, fmt.Errorf("query usage for aggregator %q: %w", name, err)
 	}
@@ -3031,30 +3390,239 @@ func (l *Ledger) aggregateUsage(ctx context.Context, sub *subscription.Subscript
 
 	return agg.Aggregate(ctx, boxed)
 }
+
+// priceFeature prices one feature's billable usage. featureTiers must already
+// have passed invoice.ValidateTiers.
+//
+// A feature naming a registered pricing strategy under metadata key
+// "pricing_strategy", or failing that a plan naming one, is priced by the
+// plugin. Everything else uses the built-in tier models. The plugin is never
+// asked to price usage the allowance covers, and its answer must be a
+// non-negative Money in the plan's currency.
+func (l *Ledger) priceFeature(p *plan.Plan, pf plan.Feature, featureTiers []plan.PriceTier, usage, included int64) (types.Money, error) {
+	currency := strings.ToLower(p.Currency)
+
+	name := pf.Metadata["pricing_strategy"]
+	if name == "" {
+		name = p.Metadata["pricing_strategy"]
+	}
+	if name == "" {
+		return invoice.ComputeOverage(featureTiers, usage, included, currency), nil
+	}
+
+	strategy := l.plugins.GetPricingStrategy(name)
+	if strategy == nil {
+		l.logger.Warn("ledger: plan names an unregistered pricing strategy; using the built-in tiers")
+		return invoice.ComputeOverage(featureTiers, usage, included, currency), nil
+	}
+
+	if included < 0 || usage <= included {
+		return types.Zero(currency), nil
+	}
+
+	boxed := make([]interface{}, len(featureTiers))
+	for i := range featureTiers {
+		boxed[i] = featureTiers[i]
+	}
+
+	raw := strategy.Compute(boxed, usage, included, currency)
+	amount, ok := raw.(types.Money)
+	if !ok {
+		return types.Money{}, fmt.Errorf("pricing strategy %q returned %T, want types.Money", name, raw)
+	}
+	if amount.Currency != "" && !strings.EqualFold(amount.Currency, currency) {
+		return types.Money{}, fmt.Errorf("pricing strategy %q returned %s, want %s", name, amount.Currency, currency)
+	}
+	if amount.IsNegative() {
+		return types.Money{}, fmt.Errorf("pricing strategy %q returned a negative amount %v", name, amount)
+	}
+
+	return types.Money{Amount: amount.Amount, Currency: currency}, nil
+}
 ```
 
-Check `l.logger.Warn`'s signature against another call site in `ledger.go` and match it; the logger is `go-utils/log` and may want structured fields rather than a bare string.
+Check `l.logger.Warn`'s signature against an existing call in `ledger.go` and match it;
+`go-utils/log` may want structured fields rather than a bare message. Add `"strings"` to
+`ledger.go`'s imports if absent.
 
-In `GenerateInvoice`'s metered loop, replace the direct `l.store.Aggregate` call with:
+Route `GenerateInvoice` through both. In the metered loop:
 
 ```go
 		used, aggErr := l.aggregateUsage(ctx, sub, pf)
 ```
 
-- [ ] **Step 4: Run test to verify it passes**
+replacing the direct `l.store.Aggregate` call, and in BOTH the metered and seat loops
+replace `amount := invoice.ComputeOverage(featureTiers, <qty>, <included>, p.Currency)` with:
+
+```go
+		amount, priceErr := l.priceFeature(p, pf, featureTiers, <qty>, <included>)
+		if priceErr != nil {
+			return nil, fmt.Errorf("price feature %q: %w", pf.Key, priceErr)
+		}
+```
+
+keeping each loop's own quantity and allowance arguments.
+
+- [ ] **Step 4: Run tests to verify they pass**
 
 Run: `cd /Users/rexraphael/Work/xraph/forgery/ledger && go build ./... && go test ./... -v`
 
-Expected: PASS everywhere. The Task 9 invoice tests must still pass unchanged, since `aggregateUsage` with no metadata behaves exactly like the call it replaced.
+Expected: PASS everywhere. Every Task 9 invoice test must pass unchanged: with no
+metadata, both new functions behave exactly like the calls they replaced.
+
+Then prove the aggregator window is load-bearing: temporarily drop `Start` and `End` from
+the `QueryOpts` and confirm `TestGenerateInvoiceUsesANamedUsageAggregator` fails with
+`seen == 2`. Restore.
 
 - [ ] **Step 5: Commit**
 
 ```bash
 cd /Users/rexraphael/Work/xraph/forgery/ledger
 go build ./... && go test ./...
-git add plugin/registry.go plugin/registry_test.go invoice/pricing.go ledger.go invoice_generate_test.go
-git commit -m "feat(plugin): invoke usage aggregators and pricing strategies"
+git add plugin/registry.go plugin/registry_test.go ledger.go invoice_generate_test.go
+git commit -m "feat(ledger): invoke usage aggregators and pricing strategies when billing"
 ```
+
+---
+
+### Task 14: Overflow-safe money and half-open usage windows (after Task 10, before Task 11)
+
+Added during execution (ledger ruling R31). Two billing-correctness defects, both
+pre-existing, both made reachable or visible by Phase A.
+
+**A. Integer overflow produces nonsense invoices.** `invoice/pricing.go` multiplies a unit
+rate by a quantity and sums tiers in plain `int64`, and `GenerateInvoice` sums line items
+with `types.Money.Add`. A plugin aggregator returning `MaxInt64/2` produced an overage line
+of **-$46,116,860,184,273,909.07**, and the Total was then clamped to $0.00. Every overflow
+must become an error. A wrapped value must never become an invoice. This retires the
+overflow minors deferred from Task 1 (`Money.Percent`) and Tasks 2+3 (pricing).
+
+**B. Usage windows are closed at both ends on three backends and open at both on one.**
+`QueryUsage` on sqlite, postgres and mongo filters `timestamp >= Start AND timestamp <= End`.
+Memory filters strictly `After(Start) && Before(End)`. So on the database backends, an
+event stamped exactly at a billing-period boundary is billed in two consecutive invoices,
+and memory bills it in neither. Every backend moves to the half-open window `[Start, End)`.
+
+**Files:**
+- Modify: `types/money.go`, `types/money_test.go`
+- Modify: `invoice/pricing.go`, `invoice/pricing_test.go`
+- Modify: `ledger.go`, `invoice_generate_test.go`
+- Modify: `store/memory/store.go`, `store/sqlite/store.go`, `store/postgres/store.go`, `store/mongo/store.go`
+- Modify: `store/storetest/storetest.go`
+
+**Interfaces produced:**
+- `var types.ErrOverflow = errors.New("types: money arithmetic overflow")`
+- `func (m Money) CheckedAdd(other Money) (Money, error)`: `ErrOverflow` on int64 overflow, and an error (not a panic) on a currency mismatch.
+- `func (m Money) CheckedMultiply(qty int64) (Money, error)`
+- `func (m Money) CheckedPercent(pct int) (Money, error)`: same truncation as `Percent`, and `ErrOverflow` if `m.Amount * pct` overflows.
+- `invoice.ComputeOverage` changes to return `(types.Money, error)`, wrapping `types.ErrOverflow`. Every internal product and sum in `computeGraduated`, `computeVolume`, `computeFlat` and the differential is checked.
+
+Leave the existing panicking `Add`, `Subtract`, `Multiply` and `Percent` unchanged: other code uses them. Only the billing path moves to the checked forms.
+
+**Part A: rules.**
+1. Overflow detection is exact: for addition, check the sign of the result against the operands, or compare with `math.MaxInt64 - b`; for multiplication, `a != 0 && (a*b)/a != b`, or `math/bits`. No floats.
+2. `GenerateInvoice` uses the checked forms for every sum it builds (subtotal, discount, net, tax, total) and propagates `ComputeOverage`'s error. Every overflow error wraps `types.ErrOverflow` and names the stage or feature.
+3. `priceFeature` propagates the error from `ComputeOverage`.
+
+**Part A: tests.**
+- `types`: `CheckedAdd` of `USD(math.MaxInt64)` and `USD(1)` gives `ErrOverflow`; `MaxInt64 + 0` is fine; `USD(math.MinInt64)` plus `USD(-1)` gives `ErrOverflow`; a currency mismatch returns an error rather than panicking. `CheckedMultiply` at the boundary, both signs. `CheckedPercent(math.MaxInt64, 2)` gives `ErrOverflow`, and `CheckedPercent` agrees with `Percent` on every existing `TestMoneyPercent` row.
+- `invoice`: a graduated unbounded tier at 3c with usage `math.MaxInt64 / 2` gives an error wrapping `types.ErrOverflow`; a volume tier the same; a two-tier graduated ladder whose SUM overflows though each product does not gives an error. Update every existing test call to the new two-value return; no existing expected value changes.
+- `ledger_test`: a named aggregator returning `math.MaxInt64 / 2` makes `GenerateInvoice` return an error wrapping `types.ErrOverflow`, and no invoice is stored. A base price plus a seat charge whose sum overflows gives the same.
+
+**Part B: rules.**
+1. `QueryUsage` on all four backends: `timestamp >= Start` and `timestamp < End` (mongo `$gte` / `$lt`; memory `!ts.Before(Start) && ts.Before(End)`). A zero Start or End still means unbounded on that side.
+2. Memory's `ListCoupons` `Active` filter moves to the rule the database backends and `Ledger.ApplyCoupon` already use: valid on `[ValidFrom, ValidUntil]`, inclusive at both ends (`!now.Before(from) && !now.After(until)`). The instant cannot be tested without an injectable clock. Say so in a comment.
+3. Update the UsageAggregator doc comment written in Task 10 to state the half-open window.
+
+**Part B: tests.** A conformance subtest `QueryUsageWindowIsHalfOpen` in `Run`: using second-aligned timestamps (mongo stores milliseconds), ingest events at `Start - 1s`, exactly `Start`, `Start + 1s`, `End - 1s` and exactly `End`, then query `[Start, End)`. Expect exactly the three events at `Start`, `Start + 1s` and `End - 1s`, asserted by id. It must pass on every backend, including postgres and mongo when their env vars are set.
+
+**Verification:**
+- `go build ./... && go vet ./... && go test ./... -count=1`
+- `go test -race ./... -count=2`
+- Postgres: `LEDGER_TEST_POSTGRES_DSN="postgres://twinos:twinos@localhost:5432/ledger_test?sslmode=disable" go test ./store/... -count=1`
+- Mongo, if localhost:57017 is still up: only through a uniquely named scratch database you drop afterwards; it belongs to another session.
+- Prove A: replace one checked multiply with a plain one and confirm the overflow test fails. Prove B: put `<=` back on one database backend and confirm the conformance subtest fails there.
+- `git diff 7fe72a3..HEAD | grep '^+' | grep -c '—'` returns 0.
+
+**Commit:** stage the files above by name, message `fix(ledger): refuse overflowing money and bill usage windows half-open`. No Co-Authored-By trailer.
+
+---
+
+### Task 15: Normalise times on write (after Task 14, before Task 11)
+
+Added during execution (ledger ruling R33). A pre-existing defect that Task 14's review
+proved reachable from Ledger's own code.
+
+`Ledger.Meter` stamps `Timestamp: time.Now()` (`ledger.go:323`), and
+`Ledger.CreateSubscription` sets `CurrentPeriodStart` and `CurrentPeriodEnd` from
+`time.Now()` (`ledger.go:255-256`). A bare `time.Now()` carries the local zone and a
+monotonic clock reading. The sqlite store serialises it as, for example,
+`"2026-09-29 15:43:04.194044 -0500 CDT m=+0.017196459"`, and cannot parse that back. The
+`m=+` suffix is written even on a host whose zone is UTC. On sqlite, then:
+- every subscription created through `Ledger.CreateSubscription` fails `GetSubscription`
+  and `GenerateInvoice` with a scan error on `current_period_start`;
+- metered usage recorded through `Ledger.Meter` fails `QueryUsage`, so a plugin aggregator
+  cannot bill it;
+- rows stamped in a local zone compare as TEXT against UTC bounds, so an event within the
+  UTC offset of a boundary is placed in the wrong period, and silently dropped when it is
+  the only row.
+
+The conformance harness missed it because every fixture uses UTC. `types.NewEntity` already
+uses `time.Now().UTC()`, and `.UTC()` strips the monotonic reading, so `created_at` and
+`updated_at` are safe.
+
+**Files:**
+- Modify: `store/sqlite/models.go` (every `toXModel`)
+- Modify: `ledger.go` (the engine's own `time.Now()` calls)
+- Modify: `store/memory/store.go`, `store/sqlite/store.go`, `store/postgres/store.go`, `store/mongo/store.go` (Part B only)
+- Modify: `store/storetest/storetest.go`
+
+**Part A. Normalise at the sqlite boundary.** In every `toXModel` in `store/sqlite/models.go`,
+write each `time.Time` as `.UTC()` and each non-nil `*time.Time` as a pointer to its `.UTC()`
+value. A zero `time.Time` stays zero (`time.Time{}.UTC()` is still zero, but confirm the
+store's zero handling is unchanged). This covers every caller, including SDK code that
+calls the store directly. Also change the engine's own `time.Now()` calls in `ledger.go` that
+become stored values (`CreateSubscription`, `CancelSubscription`, `Meter`, and any other
+you find) to `time.Now().UTC()`, so memory, postgres and mongo hold the same
+representation. Leave `time.Now()` used only for elapsed-time measurement alone.
+
+**Part B. Inclusive period start in `Aggregate`.** Store `Aggregate` compares events with the
+computed period start using a strict `>` on memory, sqlite and postgres (check mongo). Move
+all four to `>=`, matching the half-open `[Start, End)` rule Task 14 set for `QueryUsage`.
+The instant cannot be targeted without an injectable clock, because the start is computed
+from `time.Now()`. Say so in a comment, and do not invent a clock.
+
+**Tests.** Conformance subtests in `Run`, on every backend:
+- `SubscriptionPeriodsRoundTripFromLocalTime`: create a subscription whose
+  `CurrentPeriodStart`, `CurrentPeriodEnd` and `CancelAt` are taken from `time.Now()`
+  converted `.In(time.FixedZone("CDT", -5*3600))`, KEEPING the monotonic reading (do NOT
+  call `.UTC()` or `.Round(0)` in the test). Read it back. Every field must be non-zero and
+  `.Equal` to the original to the backend's precision (truncate both sides to the
+  millisecond before comparing, since mongo stores milliseconds).
+- `UsageEventRoundTripsFromLocalTime`: ingest an event stamped the same way, then
+  `QueryUsage` with bounds `[t - 1h, t + 1h)` expressed in UTC, and expect exactly that
+  event by id.
+- `UsageEventNearABoundaryInALocalZone`: an event stamped at `Start + 30m` expressed in
+  UTC-5 must be returned by a query for `[Start, End)` whose bounds are in UTC. This is the
+  text-comparison case.
+
+Prove Part A: remove the `.UTC()` normalisation from sqlite's subscription mapping and
+confirm `SubscriptionPeriodsRoundTripFromLocalTime` fails on sqlite with the scan error;
+restore. Also confirm the new subtests FAIL on sqlite before Part A is written.
+
+**Rows already written.** Existing sqlite rows written in the broken form are not repaired
+here. Record in `MIGRATION.md` (Task 11) that a sqlite deployment which used
+`Ledger.CreateSubscription` or `Ledger.Meter` before this fix holds rows it cannot read, and
+that they need manual repair.
+
+**Verification:** `go build ./... && go vet ./... && go test ./... -count=1`;
+`go test -race ./... -count=2`; postgres once; mongo once through a uniquely named scratch
+database dropped afterwards (localhost:57017 belongs to another session); em-dash count on
+`git diff 7fe72a3..HEAD` stays 0.
+
+**Commit:** stage the files by name, message
+`fix(store): write times in UTC so sqlite can read back what Ledger stores`. No
+Co-Authored-By trailer.
 
 ---
 
@@ -3090,8 +3658,17 @@ Create `MIGRATION.md` at the ledger repository root with these sections:
   - Sub-cent unit pricing is not representable in `types.Money`. A plan that needs it needs a scaled money type, which is a change to every price in the system and a separate spec.
   - Store coverage is now real but uneven. Memory and SQLite run the conformance suite on every `go test ./...`. PostgreSQL and MongoDB run it only when `LEDGER_TEST_POSTGRES_DSN` or `LEDGER_TEST_MONGO_URI` names a server, and skip otherwise. Say so here, and say which of the two were actually exercised during this phase, because a skipped suite reads exactly like a passing one in `go test` output.
   - `InvoiceFormatter` is still registered and uncalled. It gains its caller in Phase B via the `invoices.export` intent.
+  - `store.Aggregate` sums usage from the start of the calendar period relative to now, not from the subscription's `CurrentPeriodStart`. A plugin aggregator is given the subscription's own billing period. The two agree for calendar-aligned subscriptions and disagree otherwise. Pre-existing behaviour across four backends; not changed in Phase A.
   - `provider.Provider.HandleWebhook(ctx, payload)` takes no signature parameter, and `Ledger.HandleWebhook` dispatches to the named provider without verifying anything. This is not a weak verification step, it is the absence of one. Nothing in Ledger signs or hashes today so there is no bug to fix here yet, and the cost lands entirely on whoever writes the first real payment provider. Record it because an interface shaped this way tends to stay this way: the first implementer verifies signatures locally inside its own `HandleWebhook` rather than changing a method every other provider has already implemented, and then the second one forgets to.
 - **Status per surface** — a table with one row per templ page and a column for migrated, dropped or blocked. Every row reads "blocked: no contract yet" at the end of Phase A, and the rows fill in as Phases B and C land.
+
+- [ ] **Step 2b: Fix the documented sqlite DSN**
+
+`docs/content/docs/stores/sqlite.mdx:18` shows `sqlitedriver.Open("ledger.db")` with no busy
+timeout. With that DSN, concurrent coupon redemptions return a raw `database is locked
+(SQLITE_BUSY)` instead of `ErrCouponExhausted`; Task 12's review reproduced it 10 of 10.
+Change the documented DSN to carry `?_pragma=busy_timeout(5000)` (the syntax the harness
+uses, verified against the modernc version in go.mod), and add one sentence saying why.
 
 - [ ] **Step 3: Check off Phase 8 in the implementation plan**
 
