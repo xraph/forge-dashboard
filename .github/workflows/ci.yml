@@ -1,49 +1,32 @@
 name: CI
 
 on:
+  # Branches only. A version tag runs this same check through release.yml,
+  # which waits on it before publishing anything.
   push:
+    branches: ['**']
   pull_request:
+  workflow_call:
 
 concurrency:
   group: ci-${{ github.ref }}
   cancel-in-progress: true
 
+permissions:
+  contents: read
+
 jobs:
   check:
     name: typecheck, lint, test, build
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-
-      # Pinned to the version in the root package.json "packageManager" field.
-      # Keep the two in step or the lockfile check below stops meaning anything.
-      - uses: pnpm/action-setup@v4
-        with:
-          version: 10.21.0
-
-      # Node 24. The toolchain here (Vite 8, ESLint 10, TypeScript 6) is
-      # already past what Node 20 was built for, and 24 is what the repo is
-      # developed on, so CI runs the same runtime rather than an older one
-      # that only the engines field still allows.
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 24
-          cache: pnpm
-
-      - run: pnpm install --frozen-lockfile
-
-      - run: pnpm typecheck
-
-      - run: pnpm lint
-
-      # Two packages at a time, not turbo's default of ten. Every package's
-      # vitest starts its own workers, and ten at once on a 4-vCPU runner ran
-      # chronicle tests that take a second or two locally past 20s.
-      - run: pnpm turbo test --concurrency=2
-
-      # example-next's proxy route needs a forge target to build, and nothing
-      # is listening in CI, so this only has to parse. turbo.json declares it
+    uses: xraph/workflows/.github/workflows/node-ci.yml@v1
+    with:
+      # test:ci is turbo test two packages at a time, not turbo's default of
+      # ten. Every package's vitest starts its own workers, and ten at once on
+      # a 4-vCPU runner pushed chronicle tests that take a second or two
+      # locally past 20s.
+      scripts: '["typecheck","lint","test:ci","build"]'
+      # example-next's proxy route needs a forge target to build. Nothing is
+      # listening in CI, so the URL only has to parse. turbo.json declares it
       # on the build task, or turbo would strip it before next build runs.
-      - run: pnpm build
-        env:
-          FORGE_DASHBOARD_URL: http://localhost:7901/dashboard
+      env-vars: |
+        FORGE_DASHBOARD_URL=http://localhost:7901/dashboard
