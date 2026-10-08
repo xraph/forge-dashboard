@@ -22,6 +22,10 @@
 // No raw key and no hash is ever stored, logged or returned by a read. Only
 // keys.create and keys.rotate answer a raw key, once, in their own response;
 // the state keeps just the hint (the last four characters of the raw key).
+// Both are registered `secret`, as keysmith registers them with forge's
+// SecretResponse, so the idempotency store keeps no copy either: a repeat of
+// either one under the same idempotency key answers CONFLICT and creates
+// nothing.
 //
 // The fixture's own stand-ins:
 //   - There is no principal in the fixture. FIXTURE_KEYSMITH_TENANT stands in
@@ -1930,9 +1934,12 @@ export function createKeysmithHandlers(FixtureError) {
       },
     },
 
-    // Answers a raw key, once (keys.rotate is the other).
+    // Answers a raw key, once (keys.rotate is the other). `secret` is the
+    // dispatcher's SecretResponse: server.mjs keeps a tombstone for the
+    // idempotency key, not this answer, and a repeat answers CONFLICT.
     "keys.create": {
       kind: "command",
+      secret: true,
       invalidates: ["keys.list", "keys.detail", "overview", "policies.detail"],
       handler: (params) => {
         const tenantId = tenant()
@@ -2012,9 +2019,10 @@ export function createKeysmithHandlers(FixtureError) {
       },
     },
 
-    // Answers a raw key, once.
+    // Answers a raw key, once. `secret` as on keys.create.
     "keys.rotate": {
       kind: "command",
+      secret: true,
       invalidates: ["keys.list", "keys.detail", "rotations.list", "overview"],
       handler: (params) => {
         const tenantId = tenant()

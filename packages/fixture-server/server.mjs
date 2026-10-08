@@ -1204,6 +1204,37 @@ function idempotencyStorePut(key, data, meta) {
   idempotencyStore.set(key, { data, meta, expiresAt: Date.now() + IDEMPOTENCY_TTL_MS })
 }
 
+/**
+ * forge v1.12.1's SecretResponse. An intent registered with `secret: true`
+ * answers a secret once (keysmith's keys.create and keys.rotate answer a raw
+ * key), so its response is never kept. A success leaves a tombstone with no
+ * body instead, and a repeat with the same key answers CONFLICT without
+ * running the handler, because running it again would mint a second secret.
+ * The message is the dispatcher's, word for word: clients match on it.
+ */
+const SECRET_NOT_KEPT =
+  "command already ran and its response held a secret that is not kept; send a new idempotency key to run it again"
+
+function idempotencyStoreTombstone(key) {
+  idempotencyStore.set(key, { tombstone: true, expiresAt: Date.now() + IDEMPOTENCY_TTL_MS })
+}
+
+/**
+ * forge v1.12.2's claim. A command holds its idempotency key while it runs,
+ * and a repeat under the same key in that time answers CONFLICT (retryable)
+ * without running. The Go dispatcher first waits up to 10 seconds for the
+ * holder to finish; the fixture answers at once.
+ *
+ * Every command here finishes in one tick, so nothing would ever be held.
+ * FIXTURE_COMMAND_HOLD_MS keeps each command's claim that long after its
+ * handler ran, before the answer goes out, so a retry can land inside it.
+ * After the hold a repeat gets what the store says: the cached answer, or for
+ * a secret intent the CONFLICT above.
+ */
+const idempotencyClaims = new Set()
+const STILL_RUNNING = "the same command is still running under this idempotency key; retry once it finishes"
+const COMMAND_HOLD_MS = Number(process.env.FIXTURE_COMMAND_HOLD_MS ?? 0)
+
 // ---------------------------------------------------------------------------
 // core-contract intent (one query)
 // ---------------------------------------------------------------------------
@@ -3035,7 +3066,15 @@ async function handleContractRequest(req, res) {
   let idemKey
   if (kind === "command" && idempotencyKey) {
     idemKey = idempotencyStoreKey(idempotencyKey, intent)
+    if (idempotencyClaims.has(idemKey)) {
+      return sendError(res, 409, "CONFLICT", STILL_RUNNING)
+    }
     const cached = idempotencyLookup(idemKey)
+    // A tombstone, or any entry at all for a secret intent, refuses: the
+    // Go dispatcher's order, so a tombstone never falls through to a run.
+    if (cached && (cached.tombstone || def.secret)) {
+      return sendError(res, 409, "CONFLICT", SECRET_NOT_KEPT)
+    }
     if (cached) {
       return sendJSON(res, 200, { ok: true, envelope: "v1", kind, data: cached.data, meta: cached.meta })
     }
@@ -3064,11 +3103,20 @@ async function handleContractRequest(req, res) {
   const meta = {}
   if (def.invalidates?.length) meta.invalidates = def.invalidates
 
+  // The handler ran in one tick, so nothing could reach the claim while it
+  // did. Only a hold leaves room for a repeat to find it.
+  if (idemKey && COMMAND_HOLD_MS > 0) {
+    idempotencyClaims.add(idemKey)
+    await new Promise((resolve) => setTimeout(resolve, COMMAND_HOLD_MS))
+    idempotencyClaims.delete(idemKey)
+  }
+
   // Only successful dispatches are cached: the handler above already
   // returned early on error (FixtureError or otherwise), so reaching here
   // means success. A failed command never poisons the key, and a retry of
-  // it runs fresh.
-  if (idemKey) idempotencyStorePut(idemKey, data, meta)
+  // it runs fresh. A secret intent keeps a tombstone, never its answer.
+  if (idemKey && def.secret) idempotencyStoreTombstone(idemKey)
+  else if (idemKey) idempotencyStorePut(idemKey, data, meta)
 
   return sendJSON(res, 200, { ok: true, envelope: "v1", kind, data, meta })
 }
@@ -3131,6 +3179,7 @@ function handleReset(res) {
   resetWeave()
   csrfTokens.clear()
   idempotencyStore.clear()
+  idempotencyClaims.clear()
   return sendJSON(res, 200, { ok: true })
 }
 

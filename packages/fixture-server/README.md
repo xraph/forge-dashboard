@@ -66,6 +66,7 @@ Env vars:
 | `FIXTURE_PORT` | `4310` | HTTP port |
 | `FIXTURE_BASE_PATH` | `/dashboard/api/dashboard/v1` | Contract mount point |
 | `FIXTURE_CSRF_TTL_MS` | `300000` (5 min) | How long a normally-issued token stays valid |
+| `FIXTURE_COMMAND_HOLD_MS` | `0` | How long every command keeps its idempotency key claimed after its handler ran, before it answers |
 
 ## What it imitates
 
@@ -123,6 +124,21 @@ error is never stored, so retrying a failed command runs fresh. A cache hit
 returns the stored `data`/`meta` verbatim without re-running the handler.
 TTL is 24h, hardcoded, held in an in-memory `Map` — no persistence, nothing
 beyond replay.
+
+Two intents answer a secret: keysmith's `keys.create` and `keys.rotate` hand
+back a raw key once. They're registered `secret: true`, which is forge
+v1.12.1's `SecretResponse`. Their answer is never cached. A success leaves a
+tombstone instead, and a repeat under the same key gets 409 `CONFLICT`,
+"command already ran and its response held a secret that is not kept; send a
+new idempotency key to run it again", without the handler running. You get no
+second key.
+
+A command also holds its key while it runs, as forge v1.12.2 does, and a
+repeat in that time gets 409 `CONFLICT`, "the same command is still running
+under this idempotency key; retry once it finishes". Every handler here
+finishes in one tick, so you'll only see it with `FIXTURE_COMMAND_HOLD_MS` set.
+The real dispatcher waits up to 10 seconds for the first one to finish before
+it answers that; the fixture answers at once.
 
 ## Intents served
 
