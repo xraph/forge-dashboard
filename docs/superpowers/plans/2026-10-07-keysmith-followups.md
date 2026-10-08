@@ -55,6 +55,19 @@ Today `dispatchInner` looks the key up, runs the handler with no claim held, the
 
 ### Task 5: keysmith adopts SecretResponse (keysmith), after a published tag
 
-- [ ] Bump `github.com/xraph/forge` to the published version, register `keys.create` and `keys.rotate` with `dispatcher.SecretResponse()`, and test that a replay answers CONFLICT and never returns a raw key.
-- [ ] MIGRATION.md says exactly what the published version fixes. If it is the v1.12.1 patch (public main plus b2dc5c71 only), a replay no longer returns a raw key, but two overlapping dispatches with one key can still both run and mint two keys until a release from main carries eb92b9bd and 903d90a2.
-- [ ] Decide whether the create and rotate dialogs keep one idempotency key per filled form, reset on any edit. Today every press of Create sends a fresh key, so neither the claim nor the tombstone protects a dashboard user whose response was lost. With a per-form key, a retry after a lost response answers CONFLICT ("already ran, secret not kept"), and the dialog must explain it: a key was created, revoke it from the list and create another. A TRANSPORT error on create also needs a next step ("a key may have been created; check the list before trying again").
+forge v1.12.1 is published (2026-10-07): public v1.12.0 plus b2dc5c71. It does not carry the claim fix (eb92b9bd, 903d90a2).
+
+- [ ] Bump `github.com/xraph/forge` from v1.10.0 to v1.12.1 (`go get`, `go mod tidy`; read the `go.mod`/`go.sum` diff and say what else moved). Register `keys.create` and `keys.rotate` with `dispatcher.SecretResponse()` in `extension/contract/contract.go`.
+- [ ] Test through a real dispatcher with an idempotency store: a second `keys.create` and a second `keys.rotate` with the same idempotency key and user answer CONFLICT, run the handler once (one key created, one rotation), and no stored entry or response body holds the raw key. A non-secret command still replays normally.
+- [ ] MIGRATION.md: the idempotency open finding becomes fixed for replays (v1.12.1, b2dc5c71): a replay answers CONFLICT and the raw key is never kept. A new open line: two overlapping dispatches with one key can still both run and mint two keys until a forge release from main carries eb92b9bd and 903d90a2. Breaking changes: keysmith now needs forge v1.12.1.
+- [ ] `go build ./... && go test ./...`, `make test-backends`, fresh-cache lint.
+
+### Task 6: the create and rotate dialogs keep one idempotency key per filled form (forge-dashboard)
+
+Ruling (controller, 2026-10-08): yes. Every press of Create or Rotate sends a fresh key today, so neither the forge claim nor the tombstone protects a dashboard user whose response was lost; a per-form key is the only way they do.
+
+- [ ] `create-key-dialog.tsx` and the rotate dialog mint one idempotency key when the form opens and pass it through `execute(payload, { idempotencyKey })`. Any edit to a field that changes the payload mints a new key. A successful reveal, closing the dialog, or a context clear ends the key.
+- [ ] A CONFLICT answer on create or rotate whose message says the command already ran shows one plain explanation instead of the raw error: a key was created (or rotated) but its secret is not shown again; revoke it from the list (or rotate again) and try again. It links to the key list.
+- [ ] A TRANSPORT error on create or rotate says a key may have been created (or rotated) and to check the list before trying again, and keeps the same idempotency key so a retry is safe.
+- [ ] The fixture models the v1.12.1 server: a repeated `keys.create`/`keys.rotate` with the same idempotency key and user answers CONFLICT with the dispatcher's message, and creates nothing.
+- [ ] Tests: same key across a retry after a TRANSPORT failure; a new key after an edit; CONFLICT copy; no raw key in the store or the DOM after a CONFLICT. `pnpm --filter` keysmith tests, typecheck, lint.
