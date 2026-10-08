@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest"
+import { ForgeMark } from "@forge-go/dashboard-kit/components/brand-marks"
 import { corePlugin } from "../src/index"
 
 describe("corePlugin", () => {
@@ -11,7 +12,8 @@ describe("corePlugin", () => {
   })
 
   it("keeps its switcher label", () => {
-    expect(corePlugin.label).toBe("System")
+    expect(corePlugin.label).toBe("Forge")
+    expect(corePlugin.icon).toMatchObject({ type: ForgeMark })
   })
 })
 
