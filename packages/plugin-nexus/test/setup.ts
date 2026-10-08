@@ -5,3 +5,14 @@ if (!window.PointerEvent) {
     configurable: true,
   })
 }
+if (!window.ResizeObserver) {
+  class ResizeObserverStub {
+    observe() {}
+    unobserve() {}
+    disconnect() {}
+  }
+  Object.defineProperty(window, "ResizeObserver", {
+    value: ResizeObserverStub,
+    configurable: true,
+  })
+}

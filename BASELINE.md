@@ -821,3 +821,29 @@ failures and retry, usage collection off, open HTTP access, and the key-to-histo
 link. Captures are local under `output/playwright/nexus-slice5/`. These fixture
 checks don't qualify a deployed gateway, dashboard authentication or durable
 idempotency storage.
+
+## Nexus write flows and charts, 2026-10-08
+
+After adding tenant forms, key commands and the two usage charts, the Vite bundle
+passed with `pnpm --filter @forge-go/dashboard-shell exec vite build --manifest`.
+The manifest's recursive static imports for `index.html` contain 27 entries and
+exclude both Nexus usage and every chart chunk. The lazy Nexus usage entry imports
+the shared chart, BarChart and XAxis chunks. No charting dependency was added.
+
+| Asset | Raw bytes | gzip bytes |
+|---|---:|---:|
+| Shell entry `index-BKHSKRpz.js` | 1,602,634 | 415,003 |
+| Nexus usage route `usage-vGwBJSTq.js` | 8,022 | 2,909 |
+| Shared chart chunk `chart-qQrjOSdm.js` | 313,576 | 92,334 |
+| Shell CSS `index-CAIXemX-.css` | 281,141 | 41,533 |
+
+These are whole-host sizes using Python gzip, with concurrent plugins installed.
+Spend bars start at zero and show height relative to the largest bucket. The peak,
+tooltip and table use exact decimal strings. Values outside the numeric chart
+range fall back to the table with an explicit explanation. A pending filter change
+retains the previous labelled selection at reduced opacity.
+
+All 54 Nexus React tests, package typecheck and lint passed after package formatting.
+The source import-graph regression confirms only Usage reaches chart modules; a
+separate source check rejects numeric decimal coercion outside chart adapters.
+Browser write and chart verification is recorded after the final interaction pass.

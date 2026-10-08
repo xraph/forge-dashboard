@@ -23,6 +23,9 @@ it("keeps the previous usage scope visible until both new reads resolve", async 
     target: { value: "day" },
   })
   expect(await screen.findByText(/Showing the previous selection/)).toBeTruthy()
+  expect(document.querySelector('[aria-busy="true"]')?.className).toContain(
+    "opacity-60"
+  )
   expect(screen.getByText("Spend by provider")).toBeTruthy()
   fireEvent.change(screen.getByRole("combobox", { name: "Period" }), {
     target: { value: "week" },

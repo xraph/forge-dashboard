@@ -19,6 +19,7 @@ import {
 } from "../components/read"
 import { TenantFilter, tenantParams } from "../components/tenant-filter"
 import { sharePercent } from "../money"
+import { UsageCharts } from "../charts/usage-charts"
 import type { Aggregate, Period, UsageSeries, UsageSummary } from "../types"
 
 function Aggregates({
@@ -140,43 +141,7 @@ function UsageData({
         <>
           <Section title="Spend and requests over time">
             {value.series.items.length ? (
-              <ResourceTable
-                density="compact"
-                rows={value.series.items}
-                rowKey={(r) => r.start ?? "unknown"}
-                emptyMessage="No usage buckets"
-                columns={[
-                  {
-                    id: "start",
-                    header: "Bucket start (UTC)",
-                    cell: (r) => r.start ?? "Unavailable",
-                  },
-                  {
-                    id: "spend",
-                    header: "Spend",
-                    align: "end",
-                    cell: (r) => <Money value={r.costUsd} />,
-                  },
-                  {
-                    id: "requests",
-                    header: "Requests",
-                    align: "end",
-                    cell: (r) => count(r.requests),
-                  },
-                  {
-                    id: "tokens",
-                    header: "Tokens",
-                    align: "end",
-                    cell: (r) => count(r.tokens),
-                  },
-                  {
-                    id: "unpriced",
-                    header: "Unpriced",
-                    align: "end",
-                    cell: (r) => count(r.unpriced),
-                  },
-                ]}
-              />
+              <UsageCharts items={value.series.items} />
             ) : (
               <Empty
                 title="No usage buckets"
@@ -274,7 +239,10 @@ export default function UsagePage() {
         </QueryBoundary>
       )}
       {current ? (
-        <div aria-busy={busy} className="space-y-3">
+        <div
+          aria-busy={busy}
+          className={`space-y-3 ${busy ? "opacity-60" : ""}`}
+        >
           {!ready && (
             <Notice>
               {error

@@ -25,6 +25,7 @@
     "@forge-go/dashboard-kit": "workspace:*",
     "@forge-go/dashboard-plugin": "workspace:*",
     "@testing-library/react": "^16.3.2",
+    "@types/node": "^24.13.3",
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "@vitejs/plugin-react": "^6",
