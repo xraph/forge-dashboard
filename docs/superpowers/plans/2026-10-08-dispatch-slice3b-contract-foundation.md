@@ -116,6 +116,11 @@ type errorRecorder struct { forge.Logger; calls int }
 func (l *errorRecorder) Error(string, ...forge.Field) { l.calls++ }
 
 func TestErrorMappingRedactsInternalAndLogsIntent(t *testing.T) {
+ conflict := stateConflict("completed")
+ encoded, marshalErr := json.Marshal(conflict)
+ if marshalErr != nil || !strings.Contains(string(encoded), `"details":{"state":"completed"}`) || !errors.Is(conflict, fc.ErrConflict) {
+  t.Fatalf("state conflict = %s, %v", encoded, marshalErr)
+ }
  logger := &errorRecorder{Logger: forge.NewNoopLogger()}
  deps := Deps{Logger: logger}
  internal := deps.mapError("jobs.list", errors.New("secret-database-password"))
@@ -361,6 +366,11 @@ git show --stat HEAD
 - [ ] Record the actual checks and commit. No manifest binding, UI or browser result is claimed by this foundation.
 
 ## Self-review
+
+Completed 2026-10-08 in Dispatch commit `10f4f90`. Missing-symbol tests failed
+before implementation. Focused race tests, full build/unit and fresh-cache ordinary
+lint passed. The final reviewer found no actionable introduced issues and approved
+the foundation. Domain bindings, transport and browser verification remain pending.
 
 Every introduced helper is defined here and exercised. No handler is registered before its implementation exists.
 The five review concerns have explicit test cases. Domain projections, manifest invalidation maps, transport,
