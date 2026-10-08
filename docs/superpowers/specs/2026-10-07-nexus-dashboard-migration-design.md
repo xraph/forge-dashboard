@@ -966,17 +966,17 @@ Slice 3 made the gateway say no. Keys are checked at the HTTP edge, tenants and 
 | Code | Status | Raised by |
 |---|---|---|
 | `unauthenticated` | 401 | the edge (no key, unknown key, malformed key), or the access stage for a named key that is unknown, revoked or expired |
-| `forbidden` | 403 | tenant not active, tenant unknown, key on another tenant, key without the scope, route scope at the edge |
-| `invalid_request` | 400 | `max_tokens` over the tenant cap, tenant and key ids that do not parse or disagree, a stream sent to `Engine.Complete` |
+| `forbidden` | 403 | tenant not active or unknown (at the edge for a keyed request, in the access stage for an in-process one), key on another tenant, key without the scope, route scope at the edge |
+| `invalid_request` | 400 | `max_tokens` over the tenant cap or negative, tenant and key ids that do not parse or disagree, a key id with no tenant id, a stream sent to `Engine.Complete` |
 | `rate_limited` | 429 | RPM, TPM, or `GlobalRateLimit` |
 | `quota_exceeded` | 429 | daily requests, or a stream cut at `MaxStreamDuration` or `MaxStreamTokens` |
 | `budget_exceeded` | 429 | monthly budget |
-| `unavailable` | 503 | tenant, key, daily count or monthly spend could not be read |
+| `unavailable` | 503 | tenant, key, daily count or monthly spend could not be read (the tenant read happens at the edge too) |
 | `content_blocked` | 400 | a guard block (recorded as `blocked`, not `refused`, see below) |
 
 Over HTTP the body is `{"error":{"message","type","code"}}`. A 429 with a known wait carries `Retry-After` in whole seconds, rounded up. A 401 carries `WWW-Authenticate: Bearer`. Every `/v1` and `/admin` response carries `X-Request-Id`, the same id as the usage record, and a client-supplied one is ignored. A 500 says only `internal error`; the cause goes to the gateway log. A stream error that is not a refusal says `upstream error` in-band, and a refusal in-band has `type: refused` and `code` set to the refusal code.
 
-Which refusals become usage rows matters for what the pages can show. A refusal inside the pipeline (access, quota, identity) writes a row with outcome `refused`, $0, under its code. A guard block is not a refusal: it is recorded as outcome `blocked`, with `BlockedBy` set and status 400. An input block costs $0, but an output block happens after the provider answered, so its row can carry cost (or `unknown` when the provider reported no tokens). Three things are not recorded at all: the edge 401, the route-scope 401 or 403 (`admin`, `models`), and the edge 503 `key check is unavailable`. They happen before the pipeline, with no tenant to charge, and recording them would let anyone write rows. So does a streaming request sent to `Engine.Complete`, which is refused `invalid_request` before the chain runs. The edge case is Ruling 3 below, and it contradicts the spec line "every refusal still writes a usage record". The gateway page cannot show a count of failed logins. If you want one, add an unattributed edge record with a rate cap, as a deliberate change.
+Which refusals become usage rows matters for what the pages can show. A refusal inside the pipeline (access, quota, identity) writes a row with outcome `refused`, $0, under its code. A guard block is not a refusal: it is recorded as outcome `blocked`, with `BlockedBy` set and status 400. An input block costs $0, but an output block happens after the provider answered, so its row can carry cost (or `unknown` when the provider reported no tokens). Four things are not recorded at all: the edge 401, the route-scope 401 or 403 (`admin`, `models`), the edge 403 for a key whose tenant is not active or no longer exists, and the edge 503 when the key or its tenant cannot be read. They happen before the pipeline, with no tenant to charge, and recording them would let anyone write rows. So does a streaming request sent to `Engine.Complete`, which is refused `invalid_request` before the chain runs. The edge case is Ruling 3 below, and it contradicts the spec line "every refusal still writes a usage record". The gateway page cannot show a count of failed logins. If you want one, add an unattributed edge record with a rate cap, as a deliberate change. Since the final-review fixes (Ruling 18), the same goes for a disabled or suspended tenant's keyed traffic: it is refused at the edge, so it no longer writes `refused` rows, and the tenant page cannot show how much of it there was.
 
 An unknown tenant is refused `forbidden` and recorded unattributed, because the Postgres foreign key would lose the row otherwise (M9, fixed).
 
@@ -986,9 +986,11 @@ A stream cut by a stream limit is recorded `error`, status 429, code `quota_exce
 
 `DailyRequests` counts every recorded request except `refused` ones. Without that, a tenant held at its RPM burns its daily quota on the refusals. `blocked` rows do count, and so do `cached` and `error` rows. `usage.Service.DailyRequests` is what the quota stage reads, and the templ "requests today" figure (`dashboard/data.go`) now leaves refusals out too. The contract's `requestsToday` should say "not counting refusals" in its label, and `overview.get` has the outcome counts if you want the refused ones beside it.
 
-The budget is soft: the request that crosses it completes, the next one gets `budget_exceeded`. Only a positive budget limits. A negative `MonthlyBudgetUSD` is ignored by enforcement, so a tenant saved with one runs unlimited and nothing says so. The store accepts it, so `tenants.create` and `tenants.update` must refuse a negative budget with `BAD_REQUEST`.
+The daily cap is hard (Ruling 17). Besides the store count, the quota stage charges each request to a UTC-day window in the limiter (`daily:<tenant>`) as its last check, and refuses when either says the day is full, so 50 requests sent at once to a 5-a-day tenant serve exactly 5. With the memory limiter that holds per replica; with Redis, across replicas.
 
-The limiter fails open and counts each failure in `LimiterErrors`. The store fails closed with 503. The budget hooks (`BudgetWarning` at 80%, `BudgetExceeded` at 100%) fire once per tenant per month per replica, and a request that jumps a tenant from under 80% straight over 100% fires `BudgetExceeded` only. TPM is charged when a response ends or a stream closes, so a request that crosses the line completes. Cache hits are never charged to TPM. Failed requests are not charged either, though RPM still counts them.
+The budget is soft, and softer than "the next one is refused". Nothing is reserved before a request runs, so every request admitted while the stored spend is under the budget is served: the overshoot can reach every request in flight times its cost. The review's probe served 100 parallel requests on a $0.01 budget and spent $0.8755. A stream's cost lands at `Close`, so a long session is invisible to the budget until it ends. A model with no price records no cost, so a budget never binds a tenant using only unpriced models. A failed insert adds nothing, and only `UsageInsertErrors` shows it. The docs tell operators to pair a budget with `RPM` and `MaxTokensPerReq`. Slice 4's tenant form should warn when a budget is set without RPM, and `usage.summary` should show the unpriced count beside the budget. Budget and daily are checked once, when a stream starts, and `MaxStreamDuration` counts from the first chunk, so a realtime session on a tenant without one runs unbounded. Only a positive budget limits. A negative `MonthlyBudgetUSD` is ignored by enforcement, so a tenant saved with one runs unlimited and nothing says so. The store accepts it, so `tenants.create` and `tenants.update` must refuse a negative budget with `BAD_REQUEST`.
+
+The limiter fails open and counts each failure in `LimiterErrors`. Each limiter call made before a request runs is bounded at 250ms, so a hung Redis costs at most that per check and counts as a failure. The store fails closed with 503. The budget hooks (`BudgetWarning` at 80%, `BudgetExceeded` at 100%) fire once per tenant per month per replica, and a request that jumps a tenant from under 80% straight over 100% fires `BudgetExceeded` only. TPM is charged when a response ends or a stream closes, so a request that crosses the line completes. Cache hits are never charged to TPM. Failed requests are not charged either, though RPM still counts them.
 
 `GlobalRateLimit` is enforced now, through the limiter under the key `global:rpm`, for every request including unattributed ones. It was stored and displayed before and never did anything. The memory limiter applies per replica; `WithLimiter(redislimit.New(client))` shares windows across replicas.
 
@@ -998,22 +1000,25 @@ request_id 5, tracing 10, usage 15, timeout 20, identity 30, access 40, quota 50
 
 ### What the contract can read for posture
 
-- `Gateway.Config().RequireAPIKey`. When it is false the dashboard says so loudest, and the copy must say what it opens: only the `/v1` routes (see Ruling 14).
+- `Gateway.Config().RequireAPIKey`. When it is false the dashboard says so loudest, and the copy must say what it opens: only the `/v1` routes (see Ruling 14). Either way the readout covers the HTTP `api` and `proxy` routes only (Ruling 21). A gRPC listener is anonymous unless the host installed `grpcsrv.KeyAuth`, and the gateway cannot see whether it did, so the posture copy says "HTTP api and proxy routes", not "the gateway".
 - `Gateway.Limiter().Kind()`, `"memory"` or `"redis"`. It is nil before `Initialize`; the handlers already answer `UNAVAILABLE` until Start.
 - `Gateway.LimiterErrors()`, requests let through because the limiter failed.
 - `Gateway.UsageInsertErrors()`, records that failed to store.
 
 Show the limiter kind next to the replica count, if the host knows it: `memory` with several replicas means each one counts on its own.
 
-Ruling 16: with `EnableUsage` false, no usage rows are written, so `DailyRequests` and `MonthlyBudgetUSD` can never trip while the quota stage still runs RPM, TPM and the token cap. The posture readout in `overview.get` (`usageEnabled`) should therefore show "usage off: daily and budget limits inert" instead of a plain "off", and the tenant quota form should say the same beside those two fields.
+Ruling 16: with `EnableUsage` false, no usage rows are written, so `DailyRequests` and `MonthlyBudgetUSD` can never trip while the quota stage still runs RPM, TPM and the token cap. The posture readout in `overview.get` (`usageEnabled`) should therefore show "usage off: daily and budget limits inert" instead of a plain "off", and the tenant quota form should say the same beside those two fields. `Initialize` also logs a warning when usage is off ("daily and monthly budget limits will not apply"), for operators who never open the dashboard.
 
 ### Keys
 
 - Keys have one shape: `nxs_` plus 64 lowercase hex. `key.Validate` returns `key.ErrNotFound` for anything else without a store call, so a malformed or non-UTF-8 value cannot reach Postgres (Ruling 13). A raw key is never logged, never in an error and never echoed except by `Create` and `Rotate`.
-- `key.Service.Get` derives expiry: an active key past `ExpiresAt` reads `expired`. `List` does the same. The sentinels are `key.ErrNotFound`, `key.ErrRevoked`, `key.ErrExpired` and `key.ErrInvalid` (not the spec's `ErrKeyNotFound` and friends, Ruling 2). Revoked and expired are reported only after the hash matches, so an unknown prefix and a wrong hash look the same to a caller.
+- `key.Service.Get` derives expiry: an active key past `ExpiresAt` reads `expired`. So do `Validate` and `key.Service.List(tenantID)`. The store's paged `key.Store.List(ListOptions{Status, Cursor})`, which `keys.list` (`status?`, `cursor?`) has to page through, does not: it compares the stored status, which never becomes `expired`. Used as it is, `status=expired` returns nothing, `status=active` includes expired keys, and the `overview.get` active-key count includes them too. Slice 4 must fix this before `keys.list` ships (Ruling 19): either add a paged `List` to `key.Service` that derives expiry, or push the derivation into each store's `List` and count queries (`active` means `status = 'active' AND (expires_at IS NULL OR expires_at > now)`; `expired` means the stored status is `expired`, or it is `active` with `expires_at <= now`), with conformance tests on all four backends. The contract's rule that every list filter is applied by the store at its index points at the second. The sentinels are `key.ErrNotFound`, `key.ErrRevoked`, `key.ErrExpired` and `key.ErrInvalid` (not the spec's `ErrKeyNotFound` and friends, Ruling 2). Revoked and expired are reported only after the hash matches, so an unknown prefix and a wrong hash look the same to a caller.
 - `FindByPrefix` returns every key with the prefix in any status. `TouchLastUsed` writes `LastUsedAt` with a single-column update, at most once a minute per key, so it can no longer write a revoked key back as active.
-- `Create` returns `key.ErrInvalid` for a missing name, a tenant id that does not parse or an `expiresAt` in the past, and wraps the store's not-found for a tenant that does not exist. `Rotate` on a key that is not active returns `ErrInvalid`.
+- `Create` returns `key.ErrInvalid` for a missing name, a tenant id that does not parse, an `expiresAt` in the past or a scope it does not know, and wraps the store's not-found for a tenant that does not exist. `Rotate` on a key that is not active returns `ErrInvalid`.
 - `Rotate` makes the new key, revokes the old one, and on a failed revoke revokes the new one too. If that rollback fails as well, the returned error names the replacement key id, which is still live and which nobody holds (Ruling 5). A failed rotation therefore emits `KeyCreated` and `KeyRevoked` for the same replacement. Revoking an already revoked key is a no-op and emits nothing.
+- The scopes are constants: `key.ScopeCompletions`, `key.ScopeEmbeddings`, `key.ScopeModels`, `key.ScopeAdmin`, with `key.KnownScope`. The contract's scope picker should offer exactly these four.
+- A key whose tenant is disabled, suspended or deleted is refused at the edge, 403, admin keys included (Ruling 18). `KeyAuthOptions.Tenants` does it; `auth.AuthenticateWithTenants` is the call, and `auth.Authenticate` still checks the key alone.
+- `tenant.Service.Create` returns `tenant.ErrInvalid` (new) for a missing name or slug.
 - Hooks now emitted: `KeyCreated`, `KeyRevoked`, `TenantCreated`, and `TenantDisabled` (when an active tenant becomes disabled or suspended). `BudgetWarning` and `BudgetExceeded` come from the quota stage.
 
 ### The first admin key
@@ -1040,8 +1045,20 @@ With keys required, no HTTP route can make the first admin key, because making o
 | 14 | Admin routes always need an authenticated key with the `admin` scope. Needs Rex's confirmation, below. |
 | 15 | A stream error that is not a refusal says `upstream error` in-band, with the cause logged. |
 | 16 | With `EnableUsage` false no rows are written, so the daily and budget limits never trip while the rest of the quota stage runs. Docs and the posture readout say so. |
+| 17 | The daily cap is a hard cap: a UTC-day limiter charge as the last check, refused at the larger of the store and limiter counts. The budget stays a soft store-of-record check, and the docs and this hand-off state its true bound. |
+| 18 | A key whose tenant is not active is refused at every edge (403, 503 when the tenant cannot be read), through `KeyAuthOptions.Tenants`, not only on `/admin`. |
+| 19 | I7 (`tenant.Config` is enforced nowhere) and I8 (the store's paged key `List` does not derive expiry) go to slice 4 as decisions, not fixes. I8 is in "Keys" above; I7 is Rex's call, below. |
+| 20 | Postgres and SQLite get a `(tenant_id, created_at)` usage index (migration 20261007000002). The short-lived spend cache goes on the pre-production list. |
+| 21 | `grpcsrv.KeyAuth` ships as a one-call interceptor, gRPC stays opt-in (`Register` unchanged), and the posture copy says "HTTP api and proxy routes". |
 
-Ruling 14 needs Rex's yes. The plan let `RequireScope` pass an unauthenticated request, which meant `require_api_key: false` also opened `/admin/*` to anyone, including key creation, so anyone could mint an admin key. We decided toward fail-closed: `RequireScope` refuses with 401 when `KeyAuth` has not run on the request, and `require_api_key: false` opens only `/v1`. The cost is that local work with an open gateway still needs one Go call to make an admin key before the admin API answers. If Rex wants the other behaviour, it is a change to `api/api.go` (the `adminKeys` wrapper and `RequireScope`) and to the HTTP API docs page.
+Ruling 14 needs Rex's yes. The plan let `RequireScope` pass an unauthenticated request, which meant `require_api_key: false` also opened `/admin/*` to anyone, including key creation, so anyone could mint an admin key. We decided toward fail-closed: `RequireScope` refuses with 401 when `KeyAuth` has not run on the request, and `require_api_key: false` opens only `/v1`. The cost is that local work with an open gateway still needs one Go call to make an admin key before the admin API answers. If Rex wants the other behaviour, it is a change to `api/api.go` (the `adminKeys` wrapper and `RequireScope`) and to the HTTP API docs page. The final review agreed with Ruling 14 and asked for two refinements: a bootstrap that does not need Go (on the pre-production list below), and tying it to tenant status, which Ruling 18 did.
+
+I7 needs Rex's decision too (Ruling 19). `tenant.Config` is read nowhere outside the stores and the templ dashboard: `AllowedModels`, `BlockedModels`, `DefaultModel`, `RoutingStrategy`, `GuardrailPolicy` and `CacheEnabled` do nothing. The templ dashboard edits them today, and slice 4's `tenants.update` would expose every config field, so an operator who blocks `o1` for a tenant would reasonably expect `o1` to be refused. It is a money control that does nothing. Two routes:
+
+- enforce `AllowedModels` and `BlockedModels` in the access stage as 403 `forbidden`, recorded, deciding whether to match the requested name or the alias target (alias resolution runs later, at 250), and add the `tenants.update` validation;
+- or leave the config fields out of the contract, or label them "stored, not enforced", and record the gap.
+
+Slice 4 should not start `tenants.update` until Rex picks one.
 
 Do not trust the message of commit 13ff919. It says `/admin` is open when `RequireAPIKey` is off. The code and its tests follow Ruling 14, and the admin API is closed. Nobody amended the commit, so the message stays wrong; this paragraph is the correction.
 
@@ -1049,11 +1066,11 @@ Two more edge behaviours the posture copy has to match. Any non-empty `Authoriza
 
 ### What the slice 4 contract must map
 
-- `key.ErrInvalid` to `BAD_REQUEST`. The key and templ handlers still answer every `Create` error as a 500 or raw text; the contract is where this gets fixed.
+- `key.ErrInvalid` and `tenant.ErrInvalid` to `BAD_REQUEST`. The HTTP admin handlers in `api/` now do this (400, 404, or a fixed 500 with the cause logged); the templ handlers in `dashboard/contributor.go` still answer every `Create` error as a 500 or raw text, and slice 7 retires them.
 - `tenant.ErrNotFound` (and the not-found wrapped by `key.Create` for an unknown tenant) to `NOT_FOUND`.
 - `key.ErrNotFound` to `NOT_FOUND`. `Rotate` on a revoked or expired key returns `key.ErrInvalid` (with the status in the message), so it is `BAD_REQUEST`; `key.ErrRevoked` and `key.ErrExpired` come from `Validate` only, which the contract does not call.
 - A negative `MonthlyBudgetUSD` to `BAD_REQUEST` on save, as above.
-- The admin handlers in `api/` still return raw `err.Error()` 500s. That is reachable only with an admin key, but the contract must not copy it. The contract's own rule stands: log the cause, answer `INTERNAL`.
+- The contract's own rule stands: log the cause, answer `INTERNAL`. The `api/` admin handlers follow it now, through `writeAdminError`.
 - The proxy answers an unknown model with `not_found_error` and the api with `not_found`. The contract does not call either, but the fixtures should not copy one into the other.
 
 ### Deferred, with the reason
@@ -1063,7 +1080,7 @@ Two more edge behaviours the posture copy has to match. Any non-empty `Authoriza
 - M8: the auto-discovered `WithDatabase` is still appended after `WithGatewayOption`s.
 - M11: inserts still get one goroutine each, unbounded during a store outage.
 - Vertex `statistics.token_count` is still not decoded.
-- gRPC authentication. Callers add an interceptor; `auth.Authenticate` is the building block. The keys check is shared, so the shape check and revoked and expired handling apply.
+- gRPC authentication by default. `grpcsrv.KeyAuth(gw.Keys(), gw.Tenants())` is a one-call stream interceptor running the same check as the HTTP edge, tenant status included, and the gRPC example installs it. `Register` still does not authenticate (Ruling 21), and the package doc says so. The posture consequence: `requireApiKey: true` says nothing about a gRPC listener, which is anonymous without the interceptor, every call unattributed, with only `GlobalRateLimit` applying.
 - WebSocket browser auth. Headers only, so a browser client needs a proxy that adds the key.
 
 What the slice 2 hand-off asked slice 3 to do and it did: N1 (usage reserves before `next`), M9, M10, wiring the stream `QuotaResolver` (a default resolver reads the tenant's stream limits), the retry-on-refusal gap. Still open from slice 2: a Terminal that calls `next` gets an empty response, a timed-out `Shutdown` leaves the flush waiter parked, an abandoned stream can record `ok`, and guard block rows still hardcode status 400 even though `guard.BlockedError` carries its own now.
@@ -1076,13 +1093,63 @@ Each of these was found in review, judged too small to hold a task, and is writt
 - Redis limiter: a charge of zero has no test for the TTL; the key TTL is the window plus one second from creation, so replica clock skew over about a second can reset a window; the unreachable-Redis test prints a dial failure to stderr.
 - Memory limiter: `RetryAfter` uses the stored window's end, so one key used with two window sizes sharing a start gets the first window's end (keys are per limit, so unlikely); the sweep clock is a package variable used as a test seam.
 - Quota stage: no test for the embedding TPM charge; the warned and exceeded maps are never pruned (one entry per tenant per replica); the `gw.usage != nil` guard before `NewQuota` is dead.
-- Access stage: scope names are string literals duplicated in `key/service_impl.go`; edge scopes trust the edge and do not re-check the key's tenant or status, by design. `pipeline.WithScopes` is exported, so a component between `KeyAuth` and `RequireScope` could grant scopes; keep that wiring trusted.
+- Access stage: edge scopes trust the edge and do not re-check the key's tenant or status, by design. `pipeline.WithScopes` is exported, so a component between `KeyAuth` and `RequireScope` could grant scopes; keep that wiring trusted.
 - Stream: with cumulative usage on several chunks, a cap tripped by a later chunk prices the earlier smaller usage; the duration watchdog goroutine lives until `Close` after a normal end; `Close` before a queued quota error is read emits `StreamCompleted`.
 - Usage: `Flush` leaves its waiter parked after a context timeout, so repeated timed-out `FlushUsage` calls accumulate goroutines; the SQL `DailyRequests` hard-codes `'refused'` while Mongo and memory use `usage.OutcomeRefused`; the recover and re-panic defer misses `runtime.Goexit`.
 - Retry and errors: no test that `RefusalError.Unwrap` reaches `Cause` through nested wraps; `ErrInvalidIdentity` is an exported mutable pointer; a refused `Execute` with `Stream: true` is refused before the chain, so it is not recorded; `guard.BlockedError.Reason` reaches the client verbatim, which exposes a third-party rule's text.
-- Edge: no test pins the api and proxy WebSocket `OnError` wiring; `WSOptions.OnError` overrides one the caller supplied; client-disconnect errors from `EncodeEvent` now log at error level; provider errors that carry upstream credentials reach the gateway log raw, so consider redaction in the logger; proxy CORS lacks `Access-Control-Expose-Headers: X-Request-Id`, so a browser page cannot read the request id; model-route 500s are untested because the fake `ListModels` never fails.
+- Edge: no test pins the api and proxy WebSocket `OnError` wiring; `WSOptions.OnError` overrides one the caller supplied; model-route 500s are untested because the fake `ListModels` never fails. Fixed in the final-review wave: client disconnects no longer log at error level (`httpstream.ClientGone`), Gemini sends its key in a header and `LogServerError` redacts credential query values, and the proxy exposes `X-Request-Id` to browsers.
+- Tenant service: `Delete` emits no event, so a hook consumer tracking tenant availability misses deletions (review M9). Consider `TenantDeleted`, or emitting `TenantDisabled`.
 - Docs: the errors page used to map `ErrBudgetExceeded` to 402 and `ErrTokenOverflow` to 413, and the HTTP API page listed `PUT` and a `/admin/usage/summary` route that do not exist. Both are corrected, and the errors page now lists the sentinels that really exist in `errors.go` (the old list named eight that were never defined). Of those, only `ErrProviderNotFound` is returned by any code (`Engine`, when it has no pipeline). Every other one, for example `ErrBudgetExceeded`, `ErrRateLimited`, `ErrUnauthorized`, `ErrQuotaExceeded` and `ErrContentBlocked`, is exported and unused, and the HTTP status comes from refusals, not from sentinels. Remove them in the v1 break or wire them, and note it in `MIGRATION.md`.
 - Task 1: no test for the panic path leaving `Pending()` at zero; the `usage.go` docs for the type, `pending`, `Pending()` and `Flush` still say "open streams and inserts" when requests with the provider count too; the gateway test leaves its `Complete` goroutine blocked if the negative check fails (needs a `t.Cleanup`).
 - Task 2: the builder's stream refusal message names `Engine.CompleteStream`, which means little to someone using `pipeline.Service` directly.
 - Task 4: `Revoke`'s full-row `Update` can overwrite a concurrent `TouchLastUsed` timestamp (a lost timestamp, nothing worse); `Rotate` reuses `old.ExpiresAt`, so rotating a key that expires within moments fails with `key.ErrInvalid` ("expires_at is in the past"), and the contract must map that to `BAD_REQUEST` with a message that says to create a new key; the events fake reads without its mutex in single-goroutine tests.
 - Task 5: `TestDailyRequestsLeaveOutRefusals` has no unattributed row for the empty-tenant ("every tenant") case.
+
+### What the final review changed
+
+The whole-slice review found no critical issue and nine important ones. The fixes landed on nexus main after 3928ba4, one commit per concern, under Rulings 17 to 21. What they change for slice 4 is written into the sections above. In short:
+
+- the daily cap is hard under concurrency, and the budget's real bound is stated (Ruling 17);
+- Postgres and SQLite index usage by `(tenant_id, created_at)` (Ruling 20);
+- a key whose tenant is not active is refused at every edge, admin keys included (Ruling 18);
+- Gemini sends its key in a header, the gateway log redacts credential query values, and gRPC errors are sanitized and carry real status codes;
+- `grpcsrv.KeyAuth` is the one-call gRPC interceptor, and the package says gRPC is anonymous without it (Ruling 21);
+- the admin handlers map their errors (400, 404, fixed 500), a client that hits stop is no longer logged as an error, and the proxy exposes `X-Request-Id` to browsers;
+- a key id without a tenant and a negative `max_tokens` are refused, each limiter check before a request is bounded at 250ms, unknown scopes are refused, and `Initialize` warns when usage is off;
+- the Identity & Auth page is rewritten, `auth.Provider`, `nexus.WithAuth`, `auth.NewNoop` and `auth/authsome` are deprecated, and the tenancy, store and HTTP API pages are corrected.
+
+I7 and I8 are not fixed; they are slice 4 decisions (Ruling 19, see "Keys" and the I7 paragraph above).
+
+### v1 breaking changes from slice 3
+
+These ship together in one v1 release. Nexus has no `MIGRATION.md` yet; open one before the tag and carry this table into it.
+
+| Change | Documented where | Safe? |
+|---|---|---|
+| `RequireAPIKey` defaults to true | configuration, http-api, forge-extension, getting-started | Yes. Fail-closed is right. |
+| `/admin` always needs a key with the `admin` scope | http-api, this hand-off | Yes (Ruling 14). |
+| `Engine.Complete` with `Stream: true` is refused `invalid_request` | the refusals table above | Yes. It used to leak a pending stream. |
+| `api.New` and `proxy.New` panic before `Initialize` | godoc | Mostly. Calling `New` before `Initialize` was legal, because handlers resolved the engine lazily. `NewEngine` returns nil on an `Initialize` error, so `proxy.New(nil)` is a nil dereference with no message. |
+| `key.Store.FindByPrefix` returns a slice, and `key.Store` gains `TouchLastUsed` | this hand-off, guides/custom-store | Compile-time break for custom stores, which is acceptable. |
+| `key.Service` gains `Get` | nowhere before this table | Compile-time break for `WithKeyService` implementers. |
+| `usage.Store.DailyRequests` must exclude `refused` rows | interface godoc, guides/custom-store | Silent semantic break: a custom store that keeps counting refusals compiles and lets RPM refusals burn the daily quota. |
+| `key.NewService` and `tenant.NewService` take options | godoc | Yes. Variadic, so source compatible. |
+| Any non-empty `Authorization` header is a 401 on an open gateway | http-api, identity | Yes, but an Authsome Bearer token now gets a 401 (see the deprecation row). |
+| `Builder.Build` returns an error (slice 2) | slice 2 hand-off | Yes. |
+| Examples | fixed (b609d72, and the gRPC example in the final-review wave) | Yes. |
+| A key whose tenant is disabled, suspended or deleted is refused 403 at the edge, and that traffic writes no usage rows | identity, http-api | Yes. It was the operator's kill switch and did not stop admin keys. |
+| `key.Create` refuses unknown scope names with `key.ErrInvalid` | identity, http-api | Mostly. A caller that stored a made-up scope now gets an error on create; keys already stored are not touched. |
+| `tenant.Service.Create` errors wrap `tenant.ErrInvalid`, and their text starts "nexus: invalid tenant input" | godoc | Yes, unless a caller matched the old strings. |
+| Admin HTTP errors: 400 and 404 where they were 500, and a fixed `internal error` 500 instead of raw text | http-api | Yes. |
+| A request naming a key id with no tenant id, and a negative `max_tokens`, are refused `invalid_request` | multi-tenancy | Yes. |
+| `grpcsrv.NewServer` and `Register` take options; gRPC errors carry mapped status codes and fixed text instead of raw error text | grpcsrv godoc | Source compatible. A client that parsed the raw error text sees "internal error" now. |
+| `auth.Provider`, `nexus.WithAuth`, `auth.NewNoop` and `auth/authsome` are deprecated and were never consulted | identity, godoc | Yes. Remove them in v1, or wire `auth.Provider` as an alternative validator in `KeyAuthOptions` (Rex's call). |
+| The exported error sentinels other than `ErrProviderNotFound` are unused | errors page | Remove or wire them in v1 (see "Docs" above). |
+
+### Before production load
+
+Not needed for slice 4, but needed before a busy gateway runs on this:
+
+- Cache the spend for a few seconds. Every request of a capped tenant still reads the month's spend and the day's count from the store, plus a key and a tenant lookup (two, now that the edge reads the tenant). The new index keeps that from scanning, but a per-replica cache of spend and count for one to five seconds, or running counters, would take the store off the hot path. The budget is soft already, so a cache changes nothing a client can see beyond the bound above (review I2).
+- Rate-limit the limiter's error log. During a Redis outage every limiter call logs at Error, up to four per request plus one per TPM charge. Log the first failure and then once a minute with a count. The Redis limiter also counts a cancelled client context as a limiter error, which inflates `LimiterErrors` (review M4).
+- Make the first admin key without Go. Today it can only be made from Go. Something like `nexus.WithBootstrapAdminKey(raw)`, or an environment variable the forge extension reads once and applies idempotently by hash, or a CLI subcommand, so an operator running the extension from config can get started (review, on Ruling 14).
