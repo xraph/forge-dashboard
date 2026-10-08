@@ -640,3 +640,21 @@ Expected: FAIL because the current preview or pruning omits later ties or remove
 - [ ] One fresh final reviewer checks the whole slice and the five focus cases.
 - [ ] Consequential findings get a failing regression and verified fix.
 - [ ] Record evidence in MIGRATION.md and this plan, then implement the workflow contract.
+
+## Execution result
+
+Both tasks are complete: `7af73d6` adds the shared preview/timeline comparator and
+`5011ffe` applies the boundary to all five stores. The persisted tie fixture failed
+on every backend before the fix. Each backend then passed all 10 tests/subtests
+under race with no skips, including the existing workflow conformance suite.
+
+Full build passes. The ordinary unit run reports 45 passing packages and 2,008
+passing tests/subtests, with no failures. The memory Trove driver range-read test
+skips because that driver has no range support; two packages contain no tests.
+Ordinary lint reports zero issues. Integration-tag store lint still reports only
+the pre-existing Redis test shadow at `store/redis/store_test.go:54`.
+
+The fresh final reviewer inspected `0759bbc..5011ffe` and the red/green logs, and
+approved without findings. No second review was needed. Concurrent module edits
+remain untouched by these commits. This establishes checkpoint-order behavior;
+workflow contract and browser parity are still pending.
