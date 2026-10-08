@@ -1,9 +1,10 @@
 import { definePlugin } from "@forge-go/dashboard-plugin"
-import { HouseIcon, LibraryIcon, WorkflowIcon } from "@forge-go/dashboard-kit/icons"
+import { FileTextIcon, HouseIcon, LibraryIcon, WorkflowIcon } from "@forge-go/dashboard-kit/icons"
 import { CollectionCreatePage } from "./pages/collection-create"
 import { CollectionDetailPage } from "./pages/collection-detail"
 import { CollectionEditPage } from "./pages/collection-edit"
 import { CollectionsPage } from "./pages/collections"
+import { DocumentsPage } from "./pages/documents"
 import { IngestPage } from "./pages/ingest"
 import { OverviewPage } from "./pages/overview"
 import { PipelinePage } from "./pages/pipeline"
@@ -23,6 +24,7 @@ export const weavePlugin = definePlugin({
   nav: [
     { label: "Overview", to: "/", priority: -10, icon: <HouseIcon />, group: "RAG" },
     { label: "Collections", to: "/collections", priority: 10, icon: <LibraryIcon />, group: "RAG" },
+    { label: "Documents", to: "/documents", priority: 20, icon: <FileTextIcon />, group: "RAG" },
     { label: "Pipeline", to: "/pipeline", priority: 40, icon: <WorkflowIcon />, group: "RAG" },
   ],
   routes: [
@@ -32,10 +34,11 @@ export const weavePlugin = definePlugin({
     { path: "/collections/:id", element: CollectionDetailPage },
     { path: "/collections/:id/edit", element: CollectionEditPage },
     { path: "/collections/:id/ingest", element: IngestPage },
+    { path: "/documents", element: DocumentsPage },
     { path: "/pipeline", element: PipelinePage },
   ],
 })
 
-export { CollectionCreatePage, CollectionDetailPage, CollectionEditPage, CollectionsPage, IngestPage, OverviewPage, PipelinePage }
+export { CollectionCreatePage, CollectionDetailPage, CollectionEditPage, CollectionsPage, DocumentsPage, IngestPage, OverviewPage, PipelinePage }
 
 export default weavePlugin

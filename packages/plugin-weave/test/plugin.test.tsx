@@ -66,4 +66,11 @@ describe("weavePlugin", () => {
   it("routes ingest under its collection", () => {
     expect(weavePlugin.routes.map((r) => r.path)).toContain("/collections/:id/ingest")
   })
+
+  it("puts Documents fourth in the RAG group and routes a document's page", () => {
+    const nav = weavePlugin.nav?.find((n) => n.label === "Documents")
+    expect(nav?.to).toBe("/documents")
+    expect(nav?.priority).toBe(20)
+    expect(weavePlugin.routes.map((r) => r.path)).toContain("/documents")
+  })
 })
