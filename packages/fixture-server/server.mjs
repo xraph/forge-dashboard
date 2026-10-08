@@ -3070,14 +3070,15 @@ async function handleContractRequest(req, res) {
     idemKey = idempotencyStoreKey(idempotencyKey, intent)
     if (idempotencyClaims.has(idemKey)) {
       // forge's transport sends every dispatch error as HTTP 500 with the
-      // envelope; the code and `retryable` carry the meaning, not the status.
-      return sendError(res, 500, "CONFLICT", STILL_RUNNING, undefined, true)
+      // envelope; the code, `retryable` and `details.reason` carry the
+      // meaning, not the status.
+      return sendError(res, 500, "CONFLICT", STILL_RUNNING, { reason: "idempotency.still_running" }, true)
     }
     const cached = idempotencyLookup(idemKey)
     // A tombstone, or any entry at all for a secret intent, refuses: the
     // Go dispatcher's order, so a tombstone never falls through to a run.
     if (cached && (cached.tombstone || def.secret)) {
-      return sendError(res, 500, "CONFLICT", SECRET_NOT_KEPT, undefined, false)
+      return sendError(res, 500, "CONFLICT", SECRET_NOT_KEPT, { reason: "idempotency.already_ran" }, false)
     }
     if (cached) {
       return sendJSON(res, 200, { ok: true, envelope: "v1", kind, data: cached.data, meta: cached.meta })

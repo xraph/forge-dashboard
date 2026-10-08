@@ -129,19 +129,29 @@ Two intents answer a secret: keysmith's `keys.create` and `keys.rotate` hand
 back a raw key once. They're registered `secret: true`, which is forge
 v1.12.1's `SecretResponse`. Their answer is never cached. A success leaves a
 tombstone instead, and a repeat under the same key gets `CONFLICT` (HTTP 500,
-`retryable: false`), "command already ran and its response held a secret that
-is not kept; send a new idempotency key to run it again", without the handler
-running. You get no second key.
+`retryable: false`, `details.reason: "idempotency.already_ran"`), "command
+already ran and its response held a secret that is not kept; send a new
+idempotency key to run it again", without the handler running. You get no
+second key.
 
 A command also holds its key while it runs, as forge v1.12.2 does, and a
-repeat in that time gets `CONFLICT` (HTTP 500, `retryable: true`), "the same
-command is still running under this idempotency key; retry once it finishes".
+repeat in that time gets `CONFLICT` (HTTP 500, `retryable: true`,
+`details.reason: "idempotency.still_running"`), "the same command is still
+running under this idempotency key; retry once it finishes".
 Every handler here finishes in one tick, so you'll only see it with
 `FIXTURE_COMMAND_HOLD_MS` set. The real dispatcher waits up to 10 seconds for
 the first one to finish before it answers that; the fixture answers at once.
 forge's transport sends every dispatch error as HTTP 500 with
-`{ok: false, error: {code, message, retryable}}`, so read the code and
-`retryable`, never the status.
+`{ok: false, error: {code, message, details, retryable}}`, so read the code,
+`retryable` and `details.reason`, never the status. The reason is the part
+you can match on. The messages are for people and can change.
+
+The reasons are forge's, from the release after v1.12.2. That release also
+names a third, `idempotency.claim_failed` (`UNAVAILABLE`, `retryable: true`),
+for a custom store that couldn't take the claim at all. The fixture's store
+always takes it, so you won't see that one here. v1.12.2 and earlier send no
+reason, which is why the keysmith dialogs still fall back to the code and the
+start of the message when `details.reason` is missing.
 
 ## Intents served
 

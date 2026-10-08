@@ -2772,7 +2772,12 @@ async function main() {
     }
     const keyTotal = async () => (await kq("keys.list", { limit: 1 })).body?.data?.total
     const rotationCount = async (keyId) => (await kq("rotations.list", { keyId, limit: 100 })).body?.data?.items?.length
-    const ranBefore = (r) => r.body?.error?.code === "CONFLICT" && String(r.body?.error?.message).startsWith("command already ran")
+    // The reason is what a client matches on; the message stays for forge
+    // v1.12.2 and earlier, which send none.
+    const ranBefore = (r) =>
+      r.body?.error?.code === "CONFLICT" &&
+      String(r.body?.error?.message).startsWith("command already ran") &&
+      r.body.error.details?.reason === "idempotency.already_ran"
 
     const createKey = `verify-create-${crypto.randomUUID()}`
     const createInput = { name: "Idempotency probe", environment: "test", prefix: "vk", scopes: ["reports:read"] }
@@ -2812,7 +2817,7 @@ async function main() {
       const overlap = await keyed("keys.create", holdInput, holdKey)
       check(
         "keys.create repeated while the first is held is CONFLICT still-running, HTTP 500, retryable",
-        overlap.status === 500 && overlap.body?.error?.code === "CONFLICT" && String(overlap.body.error.message).startsWith("the same command is still running") && overlap.body.error.retryable === true,
+        overlap.status === 500 && overlap.body?.error?.code === "CONFLICT" && String(overlap.body.error.message).startsWith("the same command is still running") && overlap.body.error.details?.reason === "idempotency.still_running" && overlap.body.error.retryable === true,
         JSON.stringify(overlap),
       )
       const settled = await firstSend
