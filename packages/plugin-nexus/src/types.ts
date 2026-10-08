@@ -118,6 +118,8 @@ export interface UsageSeries {
   items: SeriesPoint[]
 }
 export interface UsageRecord {
+  tenantName: string | null
+  keyPrefix: string | null
   id: string
   tenantId: string | null
   keyId: string | null

@@ -205,7 +205,7 @@ export function createNexusHandlers(FixtureError) {
       const from = timestamp(p.from), to = timestamp(p.to)
       if (from !== undefined && to !== undefined && to <= from) throw bad("to must be after from")
       const rows = usageEnabled() ? nexusState.records.filter(r => (!tenantId || r.tenantId === tenantId) && (!keyId || r.keyId === keyId) && (!provider || r.provider === provider) && (!model || r.model === model) && (!outcome || r.outcome === outcome) && (from === undefined || Date.parse(r.createdAt) >= from) && (to === undefined || Date.parse(r.createdAt) < to)) : []
-      return { usageEnabled: usageEnabled(), ...page(rows, p, "usage") }
+      return { usageEnabled: usageEnabled(), ...page(rows.map(r => ({ ...r, tenantName: nexusState.tenants.get(r.tenantId)?.name ?? null, keyPrefix: nexusState.keys.get(r.keyId)?.prefix ?? null })), p, "usage") }
     }),
     "overview.get": query(() => {
       const month = summary({ period: "month" })
@@ -226,7 +226,7 @@ export function createNexusHandlers(FixtureError) {
       nexusState.tenants.set(row.id, row)
       return projectTenant(row, false)
     }),
-    "tenants.update": command(["tenants.list", "tenants.get", "overview.get", "keys.list", "keys.get"], p => { const row = patchTenant(getTenant(p.id), p); nexusState.tenants.set(row.id, row); return projectTenant(row, false) }),
+    "tenants.update": command(["tenants.list", "tenants.get", "overview.get", "keys.list", "keys.get", "usage.records"], p => { const row = patchTenant(getTenant(p.id), p); nexusState.tenants.set(row.id, row); return projectTenant(row, false) }),
     "tenants.setStatus": command(["tenants.list", "tenants.get", "overview.get"], p => { choice(p.status, statuses, "tenant status"); const row = getTenant(p.id); row.status = p.status; row.updatedAt = new Date().toISOString(); return { ...projectTenant(row, false), updatedAt: null } }),
     "keys.create": command(["keys.list", "tenants.get", "overview.get"], p => createKey(p), true),
     "keys.rotate": command(["keys.list", "keys.get", "tenants.get"], p => {
