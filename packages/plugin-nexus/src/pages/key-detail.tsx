@@ -7,6 +7,8 @@ import { PageHeader } from "@forge-go/dashboard-kit/components/page-header"
 import { QueryBoundary } from "@forge-go/dashboard-kit/components/query-boundary"
 import { Timestamp } from "@forge-go/dashboard-kit/components/timestamp"
 import { KeyBadge } from "../badges"
+import { KeyActions } from "../components/key-actions"
+import { KeyScopes } from "../components/key-scopes"
 import { Empty, Facts, Refresh, Section } from "../components/read"
 import { tenantPath, validID } from "../format"
 import type { APIKey } from "../types"
@@ -39,7 +41,12 @@ export function KeyDetailPage({ params }: PluginPageProps) {
       <PageHeader
         title={query.data?.name ?? "API key"}
         description={params.id}
-        actions={<Refresh onClick={query.refetch} />}
+        actions={
+          <div className="flex items-center gap-1">
+            <Refresh onClick={query.refetch} />
+            <KeyActions key={params.id} apiKey={query.data} />
+          </div>
+        }
       />
       <QueryBoundary title="API key" query={query}>
         {(data) => (
@@ -58,7 +65,7 @@ export function KeyDetailPage({ params }: PluginPageProps) {
                     </PluginLink>
                   ),
                 },
-                { label: "Scopes", value: data.scopes.join(", ") },
+                { label: "Scopes", value: <KeyScopes scopes={data.scopes} /> },
                 {
                   label: "Created",
                   value: (
@@ -70,20 +77,18 @@ export function KeyDetailPage({ params }: PluginPageProps) {
                 },
                 {
                   label: "Expires",
-                  value: (
-                    <Timestamp
-                      value={data.expiresAt ?? undefined}
-                      label="expiry"
-                    />
+                  value: data.expiresAt ? (
+                    <Timestamp value={data.expiresAt} label="expiry" />
+                  ) : (
+                    "Never"
                   ),
                 },
                 {
                   label: "Last used",
-                  value: (
-                    <Timestamp
-                      value={data.lastUsedAt ?? undefined}
-                      label="last use"
-                    />
+                  value: data.lastUsedAt ? (
+                    <Timestamp value={data.lastUsedAt} label="last use" />
+                  ) : (
+                    "Never"
                   ),
                 },
               ]}

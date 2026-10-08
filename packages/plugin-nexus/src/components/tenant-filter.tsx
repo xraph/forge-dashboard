@@ -35,7 +35,11 @@ function TenantOptions({
     return (
       <div role="alert">
         {query.error.message}{" "}
-        <IconButton variant="outline" onClick={() => void query.refetch()} label="Retry tenants" />
+        <IconButton
+          variant="outline"
+          onClick={() => void query.refetch()}
+          label="Retry tenants"
+        />
       </div>
     )
   if (!query.data) return <p role="status">Loading tenants…</p>
@@ -67,7 +71,11 @@ function TenantOptions({
             choose={choose}
           />
         ) : (
-          <IconButton variant="outline" onClick={() => setMore(true)} label="Load more tenants" />
+          <IconButton
+            variant="outline"
+            onClick={() => setMore(true)}
+            label="Load more tenants"
+          />
         ))}
     </>
   )
@@ -76,8 +84,10 @@ function TenantOptions({
 export function TenantFilter({
   value,
   onChange,
+  required = false,
 }: {
   value?: string
+  required?: boolean
   onChange: (value: string | undefined) => void
 }) {
   const [open, setOpen] = useState(false)
@@ -88,7 +98,11 @@ export function TenantFilter({
     { enabled: value !== undefined }
   )
   const label =
-    value === undefined ? "All tenants" : (selected.data?.name ?? value)
+    value === undefined
+      ? required
+        ? "Choose tenant"
+        : "All tenants"
+      : (selected.data?.name ?? value)
   const choose = (tenant?: Tenant) => {
     onChange(tenant?.id)
     setOpen(false)
@@ -110,7 +124,16 @@ export function TenantFilter({
           onChange={(event) => setSearch(event.target.value)}
         />
         <div className="flex max-h-72 flex-col gap-1 overflow-y-auto">
-          <IconButton variant="ghost" onClick={() => choose()} label="All tenants" />
+          {!required && (
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              onClick={() => choose()}
+            >
+              All tenants
+            </Button>
+          )}
           {open && (
             <TenantOptions key={search} search={search} choose={choose} />
           )}

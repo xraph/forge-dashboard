@@ -64,7 +64,11 @@ function KeyOptions({
             choose={choose}
           />
         ) : (
-          <IconButton variant="outline" onClick={() => setMore(true)} label="Load more keys" />
+          <IconButton
+            variant="outline"
+            onClick={() => setMore(true)}
+            label="Load more keys"
+          />
         ))}
     </>
   )
@@ -100,7 +104,11 @@ export function KeyFilter({
       <PopoverContent align="start" className="gap-2">
         <PopoverTitle>API key</PopoverTitle>
         <div className="flex max-h-72 flex-col gap-1 overflow-y-auto">
-          <IconButton variant="ghost" onClick={() => choose()} label="All keys" />
+          <IconButton
+            variant="ghost"
+            onClick={() => choose()}
+            label="All keys"
+          />
           {open && (
             <KeyOptions key={tenantId} tenantId={tenantId} choose={choose} />
           )}

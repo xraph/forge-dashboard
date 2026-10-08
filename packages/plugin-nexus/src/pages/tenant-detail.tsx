@@ -1,3 +1,4 @@
+import { useState } from "react"
 import {
   PluginLink,
   useQuery,
@@ -8,6 +9,8 @@ import { QueryBoundary } from "@forge-go/dashboard-kit/components/query-boundary
 import { Timestamp } from "@forge-go/dashboard-kit/components/timestamp"
 import { IconButton } from "@forge-go/dashboard-kit/components/icon-button"
 import { PencilIcon } from "@forge-go/dashboard-kit/icons"
+import { Button } from "@forge-go/dashboard-kit/components/button"
+import { KeyDialog } from "../components/key-dialog"
 import { TenantBadge } from "../badges"
 import { KeyList } from "../components/key-list"
 import { TenantStatusActions } from "../components/tenant-status"
@@ -28,6 +31,7 @@ import { compareMoney, sharePercent } from "../money"
 import type { Tenant } from "../types"
 
 export function TenantDetailPage({ params }: PluginPageProps) {
+  const [creatingKey, setCreatingKey] = useState(false)
   const valid = validID(params.id, "tenant")
   const query = useQuery<Tenant>(
     "tenants.get",
@@ -81,6 +85,13 @@ export function TenantDetailPage({ params }: PluginPageProps) {
                 value={data.createdAt ?? undefined}
                 label="creation time"
               />
+              <span>
+                Updated{" "}
+                <Timestamp
+                  value={data.updatedAt ?? undefined}
+                  label="last update"
+                />
+              </span>
             </div>
             {!data.usageEnabled && <UsageOff />}
             <Metrics
@@ -271,12 +282,25 @@ export function TenantDetailPage({ params }: PluginPageProps) {
                 />
               )}
             </Section>
-            <Section title="API keys">
+            <Section
+              title="API keys"
+              action={
+                <Button size="sm" onClick={() => setCreatingKey(true)}>
+                  Create API key
+                </Button>
+              }
+            >
               <KeyList key={data.id} tenantId={data.id} />
             </Section>
           </>
         )}
       </QueryBoundary>
+      <KeyDialog
+        key={params.id}
+        open={creatingKey}
+        onOpenChange={setCreatingKey}
+        tenantId={params.id}
+      />
     </div>
   )
 }

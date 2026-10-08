@@ -22,9 +22,7 @@ export const yesNo = (value: boolean) => (value ? "Enabled" : "Disabled")
 export const rate = (value: number | null) =>
   value === null ? "Unavailable" : `${(value * 100).toFixed(1)}%`
 export function Refresh({ onClick }: { onClick: () => void }) {
-  return (
-    <IconButton variant="outline" onClick={onClick} label="Refresh" />
-  )
+  return <IconButton variant="outline" onClick={onClick} label="Refresh" />
 }
 export function Empty({
   title,

@@ -129,7 +129,11 @@ function UsageData({
           title="No requests in this period"
           body="Choose another tenant or period, or send a request through the gateway."
           action={
-            <IconButton variant="outline" onClick={refresh} label="Refresh usage" />
+            <IconButton
+              variant="outline"
+              onClick={refresh}
+              label="Refresh usage"
+            />
           }
         />
       ) : (

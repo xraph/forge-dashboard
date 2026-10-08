@@ -13,6 +13,7 @@ import type { APIKey, Page } from "../types"
 import { CursorPager, useCursorStack } from "./cursor-pager"
 import { Empty, Refresh } from "./read"
 import { tenantParams } from "./tenant-filter"
+import { KeyScopes } from "./key-scopes"
 
 export const keyColumns: Column<APIKey>[] = [
   {
@@ -32,7 +33,11 @@ export const keyColumns: Column<APIKey>[] = [
       <PluginLink to={tenantPath(k.tenantId)}>{k.tenantName}</PluginLink>
     ),
   },
-  { id: "scopes", header: "Scopes", cell: (k) => k.scopes.join(", ") },
+  {
+    id: "scopes",
+    header: "Scopes",
+    cell: (k) => <KeyScopes scopes={k.scopes} />,
+  },
   {
     id: "status",
     header: "Status",
@@ -41,14 +46,18 @@ export const keyColumns: Column<APIKey>[] = [
   {
     id: "expiry",
     header: "Expires",
-    cell: (k) => <Timestamp value={k.expiresAt ?? undefined} label="expiry" />,
+    cell: (k) =>
+      k.expiresAt ? <Timestamp value={k.expiresAt} label="expiry" /> : "Never",
   },
   {
     id: "used",
     header: "Last used",
-    cell: (k) => (
-      <Timestamp value={k.lastUsedAt ?? undefined} label="last use" />
-    ),
+    cell: (k) =>
+      k.lastUsedAt ? (
+        <Timestamp value={k.lastUsedAt} label="last use" />
+      ) : (
+        "Never"
+      ),
   },
 ]
 
@@ -93,7 +102,11 @@ export function KeyList({
               illustration={<KeyRoundIcon className="size-6" />}
               action={
                 onClear ? (
-                  <IconButton variant="outline" onClick={onClear} label="Clear filters" />
+                  <IconButton
+                    variant="outline"
+                    onClick={onClear}
+                    label="Clear filters"
+                  />
                 ) : (
                   <Refresh onClick={query.refetch} />
                 )

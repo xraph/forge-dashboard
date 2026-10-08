@@ -35,8 +35,18 @@ export function CursorPager({
     >
       <span>{shown} shown</span>
       <span className="flex gap-2">
-        <IconButton variant="outline" disabled={!canGoBack || busy} onClick={onPrevious} label="Previous page" />
-        <IconButton variant="outline" disabled={!nextCursor || busy} onClick={() => nextCursor && onNext(nextCursor)} label="Next page" />
+        <IconButton
+          variant="outline"
+          disabled={!canGoBack || busy}
+          onClick={onPrevious}
+          label="Previous page"
+        />
+        <IconButton
+          variant="outline"
+          disabled={!nextCursor || busy}
+          onClick={() => nextCursor && onNext(nextCursor)}
+          label="Next page"
+        />
       </span>
     </nav>
   )

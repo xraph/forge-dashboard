@@ -14,7 +14,9 @@ it("sends only the edited quota while preserving streaming and config fields", (
     id: tenant.id,
     quota: { rpm: 240 },
   })
-  const result = answer<Tenant>("tenants.update", { ...tenantPayload(draft, tenant) })
+  const result = answer<Tenant>("tenants.update", {
+    ...tenantPayload(draft, tenant),
+  })
   expect(result.quota.maxStreamTokens).toBe(tenant.quota.maxStreamTokens)
   expect(result.config).toEqual(tenant.config)
 })
