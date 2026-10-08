@@ -58,4 +58,8 @@ describe("weavePlugin", () => {
     expect(paths).toContain("/collections/new")
     expect(paths).toContain("/collections/:id/edit")
   })
+
+  it("routes a collection's own page", () => {
+    expect(weavePlugin.routes.map((r) => r.path)).toContain("/collections/:id")
+  })
 })
