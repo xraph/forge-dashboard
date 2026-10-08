@@ -899,3 +899,31 @@ func TestWorkflowTransportQueriesReplayAndInvalidations(t *testing.T){
 - [ ] One fresh final reviewer checks the complete slice and every review-focus item.
 - [ ] Fix consequential findings with observed red/green regressions, then run relevant suites. No second review.
 - [ ] Record commits, evidence, rulings and remaining browser/dependency limits in this plan and MIGRATION.md.
+
+## Execution result
+
+All four tasks are complete: Redis read propagation (`e85c1e1`), generation-aware
+replay (`0902d2d`), typed handlers (`59e5bd0`) and registration/transport checks
+(`3370432`). Missing methods and handlers, then unregistered HTTP intents, failed
+before their implementations. All 16 Redis outage/corruption cases also failed
+before read errors were propagated.
+
+The final reviewer found one P2: a Redis record under run A could contain another
+valid run ID, B. The regression reproduced five incorrect reads and a replay that
+claimed and pruned A. The fix checks key/entity identity in direct reads, legacy
+lists, cursor pages and counts. The regression then passed without mutation,
+execution or audit events. There was no second review.
+
+After the fix, 37 focused Redis workflow tests/subtests and 44 Redis list/identity
+tests/subtests pass under race with no skips. The shared workflow domain fixture
+passes on memory, SQLite, PostgreSQL, Redis and MongoDB. Full build passes; full
+unit results are 45 passing packages and 2,024 passing tests/subtests. The Trove
+memory driver's unsupported range-read test skips, and two packages have no tests.
+Full workflow/engine/extension race suites and ordinary lint pass. Integration-tag
+Redis lint retains only the pre-existing `store_test.go:54` shadow warning.
+
+Rulings from review: startup ResumeAll ownership and ordinary caller-owned starts
+retain their documented boundaries. Redis pruning is not transactional after the
+write phase begins, so an interrupted deletion may need another inspected recovery
+attempt. Browser and deployment qualification remain pending. Concurrent module
+edits were preserved and remain outside these commits.
