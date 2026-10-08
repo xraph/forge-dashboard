@@ -13,8 +13,18 @@ import {
 } from "@forge-go/dashboard-kit/components/query-boundary"
 import { ZeroState } from "@forge-go/dashboard-kit/components/zero-state"
 import { Button } from "@forge-go/dashboard-kit/components/button"
+import {
+  ArrowLeft,
+  ChevronRight,
+  ChevronsLeft,
+  FilterX,
+  Pencil,
+  RefreshCw,
+} from "@forge-go/dashboard-kit/icons"
 import { Input } from "@forge-go/dashboard-kit/components/input"
 import {
+  IconAction,
+  IconLink,
   CommandButton,
   Details,
   Fields,
@@ -126,9 +136,11 @@ function Toolbar({
         </label>
       ))}
       {Object.values(values).some(Boolean) && (
-        <Button variant="ghost" size="sm" onClick={() => setValues({})}>
-          Clear filters
-        </Button>
+        <IconAction
+          label="Clear filters"
+          icon={FilterX}
+          onClick={() => setValues({})}
+        />
       )}
     </div>
   )
@@ -162,9 +174,11 @@ export function ResourceList({
           title={resource.title}
           actions={
             <>
-              <Button size="sm" variant="outline" onClick={query.refetch}>
-                Refresh
-              </Button>
+              <IconAction
+                label="Refresh"
+                icon={RefreshCw}
+                onClick={query.refetch}
+              />
               {resource.create && (
                 <PluginLink to={`/${kind}/create`} className={linkClass}>
                   Create {resource.singular.toLowerCase()}
@@ -209,9 +223,11 @@ export function ResourceList({
                     Create {resource.singular.toLowerCase()}
                   </PluginLink>
                 ) : (
-                  <Button size="sm" variant="outline" onClick={query.refetch}>
-                    Refresh
-                  </Button>
+                  <IconAction
+                    label="Refresh"
+                    icon={RefreshCw}
+                    onClick={query.refetch}
+                  />
                 )
               }
               actions={
@@ -230,18 +246,18 @@ export function ResourceList({
               }
             />
             {record(data).next_cursor && (
-              <Button
-                size="sm"
-                variant="outline"
+              <IconAction
+                label="Next page"
+                icon={ChevronRight}
                 onClick={() => setCursor(text(record(data).next_cursor))}
-              >
-                Next page
-              </Button>
+              />
             )}
             {cursor && (
-              <Button size="sm" variant="ghost" onClick={() => setCursor("")}>
-                First page
-              </Button>
+              <IconAction
+                label="First page"
+                icon={ChevronsLeft}
+                onClick={() => setCursor("")}
+              />
             )}
           </>
         )}
@@ -272,9 +288,11 @@ function SectionContent({
     <div className="space-y-2">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <h2 className="text-sm font-medium">{section.label}</h2>
-        <Button size="sm" variant="ghost" onClick={query.refetch}>
-          Refresh {section.label.toLowerCase()}
-        </Button>
+        <IconAction
+          label={`Refresh ${section.label.toLowerCase()}`}
+          icon={RefreshCw}
+          onClick={query.refetch}
+        />
       </div>
       <QueryBoundary title={section.label} query={query}>
         {(data) =>
@@ -339,12 +357,16 @@ export function ResourceDetail({ kind, params }: PageProps & { kind: string }) {
         title={resource.singular}
         actions={
           <>
-            <PluginLink className={linkClass} to={`/${kind}`}>
-              All {resource.title.toLowerCase()}
-            </PluginLink>
-            <Button size="sm" variant="outline" onClick={query.refetch}>
-              Refresh
-            </Button>
+            <IconLink
+              label={`All ${resource.title.toLowerCase()}`}
+              to={`/${kind}`}
+              icon={ArrowLeft}
+            />
+            <IconAction
+              label="Refresh"
+              icon={RefreshCw}
+              onClick={query.refetch}
+            />
           </>
         }
       />
@@ -604,12 +626,11 @@ export function ResourceDetail({ kind, params }: PageProps & { kind: string }) {
                 </h2>
                 <div className="flex flex-wrap gap-1">
                   {resource.edit && (
-                    <PluginLink
-                      className={linkClass}
+                    <IconLink
+                      label={`Edit ${text(row.name) || resource.singular.toLowerCase()}`}
                       to={`/${kind}/${encodeURIComponent(id)}/edit`}
-                    >
-                      Edit
-                    </PluginLink>
+                      icon={Pencil}
+                    />
                   )}
                   {resource.actions?.map((action) => (
                     <CommandButton
@@ -802,9 +823,7 @@ export function ResourceEditor({ kind, params }: PageProps & { kind: string }) {
       <PageHeader
         title={`${edit ? "Edit" : "Create"} ${resources[kind].singular.toLowerCase()}`}
         actions={
-          <PluginLink className={linkClass} to={`/${kind}`}>
-            All {kind}
-          </PluginLink>
+          <IconLink label={`All ${kind}`} to={`/${kind}`} icon={ArrowLeft} />
         }
       />
       {edit ? (
@@ -959,9 +978,11 @@ export function HealthPage() {
         title="Health"
         description="Unknown means no passing evidence is available. Counts cover the current bounded instance sample."
         actions={
-          <Button variant="outline" size="sm" onClick={query.refetch}>
-            Refresh
-          </Button>
+          <IconAction
+            label="Refresh"
+            icon={RefreshCw}
+            onClick={query.refetch}
+          />
         }
       />
       <WorkloadHealthSummary />
@@ -1034,9 +1055,11 @@ export function LogPage({ kind }: { kind: "audit" | "events" }) {
             : "A bounded audit window. Use filters to narrow the records."
         }
         actions={
-          <Button size="sm" variant="outline" onClick={query.refetch}>
-            Refresh
-          </Button>
+          <IconAction
+            label="Refresh"
+            icon={RefreshCw}
+            onClick={query.refetch}
+          />
         }
       />
       <Toolbar

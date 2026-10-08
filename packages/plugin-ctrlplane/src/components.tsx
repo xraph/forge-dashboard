@@ -1,10 +1,39 @@
 import { lazy, Suspense, useState } from "react"
+import type { ComponentProps } from "react"
 import {
   PluginLink,
   useCommand,
   useNavigateTo,
 } from "@forge-go/dashboard-plugin"
-import { Button } from "@forge-go/dashboard-kit/components/button"
+import {
+  Button,
+  buttonVariants,
+} from "@forge-go/dashboard-kit/components/button"
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@forge-go/dashboard-kit/components/tooltip"
+import {
+  ArrowUpRight,
+  Check,
+  CircleStop,
+  LockKeyhole,
+  Pause,
+  Pencil,
+  Play,
+  Plus,
+  RefreshCw,
+  Rocket,
+  RotateCcw,
+  Scaling,
+  Settings2,
+  ShieldCheck,
+  Trash2,
+  UnlockKeyhole,
+} from "@forge-go/dashboard-kit/icons"
+import type { LucideIcon } from "@forge-go/dashboard-kit/icons"
 import { Badge } from "@forge-go/dashboard-kit/components/badge"
 import { Input } from "@forge-go/dashboard-kit/components/input"
 import { ConfirmDialog } from "@forge-go/dashboard-kit/components/confirm-dialog"
@@ -15,6 +44,111 @@ import { Timestamp } from "@forge-go/dashboard-kit/components/timestamp"
 import type { Action, Field, Row } from "./types"
 import { label, record, rows, text } from "./types"
 const JsonEditor = lazy(() => import("./json-editor"))
+
+export function IconAction({
+  label,
+  icon: Icon,
+  ...props
+}: Omit<ComponentProps<typeof Button>, "size" | "children"> & {
+  label: string
+  icon: LucideIcon
+}) {
+  return (
+    <TooltipProvider delay={250}>
+      <Tooltip>
+        <TooltipTrigger
+          render={
+            <Button
+              type="button"
+              size="icon-sm"
+              variant="ghost"
+              aria-label={label}
+              {...props}
+            />
+          }
+        >
+          <Icon aria-hidden="true" className="size-4" />
+        </TooltipTrigger>
+        <TooltipContent>{label}</TooltipContent>
+      </Tooltip>
+    </TooltipProvider>
+  )
+}
+export function IconLink({
+  label,
+  to,
+  icon: Icon,
+}: {
+  label: string
+  to: string
+  icon: LucideIcon
+}) {
+  return (
+    <TooltipProvider delay={250}>
+      <Tooltip>
+        <TooltipTrigger
+          render={
+            <PluginLink
+              to={to}
+              aria-label={label}
+              className={buttonVariants({ size: "icon-sm", variant: "ghost" })}
+            >
+              <Icon aria-hidden="true" className="size-4" />
+            </PluginLink>
+          }
+        />
+        <TooltipContent>{label}</TooltipContent>
+      </Tooltip>
+    </TooltipProvider>
+  )
+}
+function commandIcon(intent: string): LucideIcon {
+  const verb = intent.split(".").at(-1)
+  switch (verb) {
+    case "delete":
+    case "remove":
+    case "purge":
+      return Trash2
+    case "start":
+    case "resume":
+    case "run":
+      return Play
+    case "stop":
+    case "cancel":
+      return CircleStop
+    case "pause":
+      return Pause
+    case "restart":
+    case "retry":
+      return RefreshCw
+    case "rollback":
+      return RotateCcw
+    case "scale":
+      return Scaling
+    case "deploy":
+      return Rocket
+    case "suspend":
+      return LockKeyhole
+    case "unsuspend":
+      return UnlockKeyhole
+    case "update":
+      return Pencil
+    case "verify":
+      return Check
+    case "provisionCert":
+      return ShieldCheck
+    case "test":
+      return ShieldCheck
+    case "status":
+      return Settings2
+    case "create":
+    case "add":
+      return Plus
+    default:
+      return ArrowUpRight
+  }
+}
+
 export function JsonView({ value, title }: { value: unknown; title: string }) {
   return (
     <Suspense fallback={<p role="status">Loading {title} editor…</p>}>
@@ -205,14 +339,13 @@ export function StructuredServices({
                   />
                 </label>
               ))}
-            <Button
-              size="xs"
+            <IconAction
+              icon={Trash2}
+              label={`Remove service ${index + 1}`}
               variant="ghost"
               type="button"
               onClick={() => onChange(services.filter((_, i) => i !== index))}
-            >
-              Remove service {index + 1}
-            </Button>
+            />
           </div>
           <details>
             <summary className="cursor-pointer py-1 text-xs">
@@ -279,6 +412,7 @@ export function StructuredServices({
           ])
         }
       >
+        <Plus aria-hidden="true" />
         Add service
       </Button>
     </div>
@@ -534,9 +668,10 @@ export function CommandButton({
   }
   return (
     <>
-      <Button
-        size="xs"
-        variant={action.destructive ? "outline" : "secondary"}
+      <IconAction
+        label={title ? `${action.label} ${title}` : action.label}
+        icon={commandIcon(action.intent)}
+        variant={action.destructive ? "destructive" : "ghost"}
         onClick={() => {
           command.reset()
           setValidation("")
@@ -550,9 +685,7 @@ export function CommandButton({
           )
           setOpen(true)
         }}
-      >
-        {action.label}
-      </Button>
+      />
       {outcome !== undefined &&
         ["providers.test", "providers.purge", "health.run"].includes(
           action.intent
