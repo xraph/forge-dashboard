@@ -1,5 +1,7 @@
 import { definePlugin } from "@forge-go/dashboard-plugin"
 import { HouseIcon, LibraryIcon, WorkflowIcon } from "@forge-go/dashboard-kit/icons"
+import { CollectionCreatePage } from "./pages/collection-create"
+import { CollectionEditPage } from "./pages/collection-edit"
 import { CollectionsPage } from "./pages/collections"
 import { OverviewPage } from "./pages/overview"
 import { PipelinePage } from "./pages/pipeline"
@@ -24,10 +26,12 @@ export const weavePlugin = definePlugin({
   routes: [
     { path: "/", element: OverviewPage },
     { path: "/collections", element: CollectionsPage },
+    { path: "/collections/new", element: CollectionCreatePage },
+    { path: "/collections/:id/edit", element: CollectionEditPage },
     { path: "/pipeline", element: PipelinePage },
   ],
 })
 
-export { CollectionsPage, OverviewPage, PipelinePage }
+export { CollectionCreatePage, CollectionEditPage, CollectionsPage, OverviewPage, PipelinePage }
 
 export default weavePlugin

@@ -52,4 +52,10 @@ describe("weavePlugin", () => {
     expect(nav?.priority).toBe(10)
     expect(weavePlugin.routes.map((r) => r.path)).toContain("/collections")
   })
+
+  it("routes the collection forms", () => {
+    const paths = weavePlugin.routes.map((r) => r.path)
+    expect(paths).toContain("/collections/new")
+    expect(paths).toContain("/collections/:id/edit")
+  })
 })
