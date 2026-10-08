@@ -1089,13 +1089,12 @@ describe("CreateKeyDialog idempotency", () => {
     server.loseNextAnswer()
     await submitNamed()
     await screen.findByRole("alert")
+    // The dialog unlocks in an effect after the error renders. Its Close
+    // button comes back with it, and a Cancel before then is refused.
+    await screen.findByRole("button", { name: "Close" })
 
     fireEvent.click(screen.getByRole("button", { name: "Cancel" }))
-    // The close animation can outlast waitFor's default second on a loaded
-    // machine.
-    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull(), {
-      timeout: 5000,
-    })
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull())
     fireEvent.click(screen.getByRole("button", { name: "Open the dialog" }))
     await screen.findByRole("checkbox", { name: "billing:read" })
     await submitNamed()
@@ -1392,5 +1391,92 @@ describe("CreateKeyDialog picks across a failed list read", () => {
       )
     ).toBeTruthy()
     expect(screen.getAllByRole("checkbox")).toHaveLength(3)
+  })
+})
+
+describe("CreateKeyDialog picks across a context switch and a failed read", () => {
+  const FAILED = new ContractError(
+    "TRANSPORT",
+    "contract request failed with HTTP 502"
+  )
+
+  it("keeps the payload and the key under a narrowing policy when the policies read fails", async () => {
+    const server = listServer()
+    mount(server.client)
+    fireEvent.click(await screen.findByRole("checkbox", { name: "billing:read" }))
+    fireEvent.click(screen.getByRole("checkbox", { name: "billing:write" }))
+    // Narrow allows billing:read only, so billing:write stays ticked but unsent.
+    fill("Policy", "kpol_narrow")
+    server.loseNextAnswer()
+    await submitNamed()
+    expect((await screen.findByRole("alert")).textContent).toBe(LOST)
+    expect(server.sent[0].payload).toMatchObject({
+      policyId: "kpol_narrow",
+      scopes: ["billing:read"],
+    })
+
+    server.answerPolicies(FAILED)
+    await act(async () => queryStore.revalidate())
+    await waitFor(() => expect(createButton().disabled).toBe(false))
+    expect(screen.getAllByRole("checkbox")).toHaveLength(1)
+
+    fireEvent.click(createButton())
+    await waitFor(() => expect(screen.getByRole("alert").textContent).toBe(SPENT))
+    expect(server.sent[1].payload).toEqual(server.sent[0].payload)
+    expect(server.sent[1].idempotencyKey).toBe(server.sent[0].idempotencyKey)
+    expect(server.ran["keys.create"]).toBe(1)
+  })
+
+  it("takes the old context's picks off when the new context's scopes read fails", async () => {
+    const server = listServer()
+    mount(server.client)
+    fireEvent.click(await screen.findByRole("checkbox", { name: "billing:write" }))
+    fireEvent.click(screen.getByRole("checkbox", { name: "reports:read" }))
+    fill("Name", "Billing service")
+
+    server.answerScopes(FAILED)
+    act(() => queryStore.clear())
+    expect(
+      await screen.findByText(
+        "Some of your picks couldn't be checked after the switch and came off the form: billing:write and reports:read."
+      )
+    ).toBeTruthy()
+
+    fireEvent.click(createButton())
+    await screen.findByText("This is the only time Keysmith will show it.")
+    expect(server.sent).toHaveLength(1)
+    expect(server.sent[0].payload).toMatchObject({ scopes: [] })
+  })
+
+  it("shows no list from the old context when the new context's reads fail", async () => {
+    const server = listServer()
+    mount(server.client)
+    fireEvent.click(await screen.findByRole("checkbox", { name: "billing:write" }))
+    fill("Policy", "kpol_standard")
+
+    server.answerScopes(FAILED)
+    server.answerPolicies(FAILED)
+    act(() => queryStore.clear())
+    expect(
+      await screen.findByText(
+        "Scopes could not be loaded. You can still create the key and add scopes later."
+      )
+    ).toBeTruthy()
+    expect(
+      screen.getByText("Policies could not be loaded, so none can be chosen right now.")
+    ).toBeTruthy()
+    expect(screen.queryAllByRole("checkbox")).toHaveLength(0)
+    expect(
+      within(screen.getByLabelText("Policy"))
+        .getAllByRole("option")
+        .map((o) => o.textContent)
+    ).toEqual(["No policy"])
+    expect((screen.getByLabelText("Policy") as HTMLSelectElement).value).toBe("")
+    expect(screen.queryByText(/from the last time they loaded/)).toBeNull()
+    expect(
+      screen.getByText(
+        "Some of your picks couldn't be checked after the switch and came off the form: billing:write and the Standard policy."
+      )
+    ).toBeTruthy()
   })
 })

@@ -282,33 +282,69 @@ function CreateKeyForm({
   useEffect(() => {
     if (listsBlanked) attemptKey.end()
   }, [listsBlanked, attemptKey])
-  if (scopesWaiting && !scopes.error && heldScopes !== undefined) {
-    setHeldScopes(undefined)
+  // A blank list also means the picks were made in another context, so they
+  // are unchecked here until the list answers. The blank forgets the held list
+  // with it.
+  const [scopesUnchecked, setScopesUnchecked] = useState(false)
+  const [policiesUnchecked, setPoliciesUnchecked] = useState(false)
+  if (scopesWaiting && !scopes.error) {
+    if (heldScopes !== undefined) setHeldScopes(undefined)
+    if (!scopesUnchecked) setScopesUnchecked(true)
   }
-  if (policiesWaiting && !policies.error && heldPolicies !== undefined) {
-    setHeldPolicies(undefined)
+  if (policiesWaiting && !policies.error) {
+    if (heldPolicies !== undefined) setHeldPolicies(undefined)
+    if (!policiesUnchecked) setPoliciesUnchecked(true)
   }
 
   // Once they answer, a pick the new lists do not hold comes off the form,
   // and the form says which. Adjusted during render, so no commit ever
-  // offers Create with a pick that would be dropped without a word. Only an
-  // answer prunes: a failed read says nothing about the picks, so they stay,
-  // and so does the idempotency key that goes with them.
-  const goneScopes =
+  // offers Create with a pick that would be dropped without a word.
+  //
+  // A failed read says nothing about the picks. Ones made or confirmed in
+  // this context stay, and so does the idempotency key that goes with them.
+  // Ones carried over a context switch were never checked here, so they come
+  // off rather than go to the new tenant unseen. The key ended at the switch,
+  // so no retry depends on them.
+  const unlistedScopes =
     scopes.data === undefined
       ? []
       : picked.filter((n) => !scopes.data?.scopes?.some((s) => s.name === n))
-  const policyGone =
+  const uncheckedScopes =
+    scopes.data === undefined && scopes.error && scopesUnchecked ? picked : []
+  const policyUnlisted =
     policies.data !== undefined &&
     policyId !== "" &&
     !policies.data.policies?.some((p) => p.id === policyId)
+  const policyUnchecked =
+    policies.data === undefined &&
+    policies.error !== undefined &&
+    policiesUnchecked &&
+    policyId !== ""
+  const goneScopes = [...unlistedScopes, ...uncheckedScopes]
+  const policyGone = policyUnlisted || policyUnchecked
+  if (scopes.data !== undefined && scopesUnchecked) setScopesUnchecked(false)
+  if (policies.data !== undefined && policiesUnchecked) {
+    setPoliciesUnchecked(false)
+  }
   if (!revealed && !finished && (goneScopes.length > 0 || policyGone)) {
-    const names = [
-      ...goneScopes,
-      ...(policyGone ? [`the ${policyName} policy`] : []),
+    const policyLabel = `the ${policyName} policy`
+    const unlisted = [
+      ...unlistedScopes,
+      ...(policyUnlisted ? [policyLabel] : []),
+    ]
+    const unchecked = [
+      ...uncheckedScopes,
+      ...(policyUnchecked ? [policyLabel] : []),
     ]
     setDropped(
-      `Some of your picks are no longer listed and came off the form: ${joinNames(names)}.`
+      [
+        unlisted.length > 0 &&
+          `Some of your picks are no longer listed and came off the form: ${joinNames(unlisted)}.`,
+        unchecked.length > 0 &&
+          `Some of your picks couldn't be checked after the switch and came off the form: ${joinNames(unchecked)}.`,
+      ]
+        .filter(Boolean)
+        .join(" ")
     )
     if (goneScopes.length > 0) {
       setPicked(picked.filter((n) => !goneScopes.includes(n)))
@@ -342,11 +378,9 @@ function CreateKeyForm({
     if (invalid || pastDate) return
 
     // A scope ticked under one policy and not allowed by the next is left out.
-    // With no list at all (it never loaded in this context), the picks go as
-    // they are, and the server refuses a name it does not have.
-    const chosen = scopeList
-      ? visibleScopes.filter((s) => picked.includes(s.name)).map((s) => s.name)
-      : picked.filter((n) => !narrowed || allowed.includes(n))
+    const chosen = visibleScopes
+      .filter((s) => picked.includes(s.name))
+      .map((s) => s.name)
 
     const payload = {
       name: trimmed,
@@ -524,9 +558,7 @@ function CreateKeyForm({
             <FieldDescription>
               {policyList
                 ? "Policies could not be reloaded, so these are the ones from the last time they loaded."
-                : policyId !== ""
-                  ? `Policies could not be loaded, so the ${policyName} policy was not checked. The server refuses it if it no longer exists.`
-                  : "Policies could not be loaded, so none can be chosen right now."}
+                : "Policies could not be loaded, so none can be chosen right now."}
             </FieldDescription>
           )}
           {policy && (
@@ -586,9 +618,8 @@ function CreateKeyForm({
           <FieldLegend variant="label">Scopes</FieldLegend>
           {scopes.error && !scopeList ? (
             <FieldDescription>
-              {picked.length > 0
-                ? `Scopes could not be loaded, so your picks were not checked: ${joinNames(picked)}. The server refuses any that no longer exist.`
-                : "Scopes could not be loaded. You can still create the key and add scopes later."}
+              Scopes could not be loaded. You can still create the key and add
+              scopes later.
             </FieldDescription>
           ) : scopes.loading && !scopeList ? (
             <FieldDescription>Loading scopes…</FieldDescription>
