@@ -1,6 +1,6 @@
 # Dispatch Slice 4a: React foundation
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [x]`) syntax for tracking.
 
 **Goal:** Give every Dispatch page shared read freshness, cursor semantics and reliable confirmations before implementing the resource pages.
 
@@ -218,7 +218,7 @@ export function renderWithClient(children: ReactNode, client: ScopedClient) {
 
 **Files:** `packages/plugin-dispatch/test/badges.test.tsx`, `packages/plugin-dispatch/src/types.ts`, `packages/plugin-dispatch/src/badges.tsx`.
 
-- [ ] Add the tests below.
+- [x] Add the tests below.
 
 ### `test/badges.test.tsx`
 
@@ -239,8 +239,8 @@ it("keeps routine states quiet and distinguishes failure from heartbeat evidence
 })
 ```
 
-- [ ] Run `pnpm --filter @forge-go/dashboard-plugin-dispatch test -- test/badges.test.tsx`. Expected FAIL: the new behavior's module does not exist.
-- [ ] Implement the following.
+- [x] Run `pnpm --filter @forge-go/dashboard-plugin-dispatch test -- test/badges.test.tsx`. Expected FAIL: the new behavior's module does not exist.
+- [x] Implement the following.
 
 ### `src/types.ts`
 
@@ -279,14 +279,14 @@ export function HeartbeatBadge({ status }: { status: "unknown" | "recent" | "sil
 }
 ```
 
-- [ ] Run package format, lint, typecheck and the relevant tests. Expected PASS. Inspect the formatting diff.
-- [ ] Inspect branch and staged/concurrent scope. Commit owned paths: `feat(dispatch): add plugin foundation and state badges`.
+- [x] Run package format, lint, typecheck and the relevant tests. Expected PASS. Inspect the formatting diff.
+- [x] Inspect branch and staged/concurrent scope. Commit owned paths: `feat(dispatch): add plugin foundation and state badges`.
 
 ## Task 2: Retain read snapshots with explicit freshness
 
 **Files:** `packages/plugin-dispatch/test/read.test.tsx`, `packages/plugin-dispatch/src/read.tsx`.
 
-- [ ] Add the tests below.
+- [x] Add the tests below.
 
 ### `test/read.test.tsx`
 
@@ -360,8 +360,8 @@ it("polls only nonterminal snapshots and stops on hidden tabs", () => {
 })
 ```
 
-- [ ] Run `pnpm --filter @forge-go/dashboard-plugin-dispatch test -- test/read.test.tsx`. Expected FAIL: the new behavior's module does not exist.
-- [ ] Implement the following.
+- [x] Run `pnpm --filter @forge-go/dashboard-plugin-dispatch test -- test/read.test.tsx`. Expected FAIL: the new behavior's module does not exist.
+- [x] Implement the following.
 
 ### `src/read.tsx`
 
@@ -428,14 +428,14 @@ export function Read<T extends Snapshot>({title, query, intervalMs = null, child
 }
 ```
 
-- [ ] Run package format, lint, typecheck and the relevant tests. Expected PASS. Inspect the formatting diff.
-- [ ] Inspect branch and staged/concurrent scope. Commit owned paths: `feat(dispatch): retain stale reads with visible freshness`.
+- [x] Run package format, lint, typecheck and the relevant tests. Expected PASS. Inspect the formatting diff.
+- [x] Inspect branch and staged/concurrent scope. Commit owned paths: `feat(dispatch): retain stale reads with visible freshness`.
 
 ## Task 3: Add cursor navigation and confirmed actions
 
 **Files:** `packages/plugin-dispatch/test/cursor.test.tsx`, `packages/plugin-dispatch/test/action.test.tsx`, `packages/plugin-dispatch/src/cursor.tsx`, `packages/plugin-dispatch/src/action.tsx`, `packages/plugin-dispatch/src/index.ts`.
 
-- [ ] Add the tests below.
+- [x] Add the tests below.
 
 ### `test/cursor.test.tsx`
 
@@ -517,8 +517,8 @@ it("keeps failures inside the dialog and clears them when it is reopened", async
 })
 ```
 
-- [ ] Run `pnpm --filter @forge-go/dashboard-plugin-dispatch test -- test/cursor.test.tsx test/action.test.tsx`. Expected FAIL: the new behavior's module does not exist.
-- [ ] Implement the following.
+- [x] Run `pnpm --filter @forge-go/dashboard-plugin-dispatch test -- test/cursor.test.tsx test/action.test.tsx`. Expected FAIL: the new behavior's module does not exist.
+- [x] Implement the following.
 
 ### `src/cursor.tsx`
 
@@ -612,11 +612,25 @@ export { LiveStamp, Read, useDispatchQuery, useLive } from "./read"
 export type { Duration, JobState, Page, RunState, Snapshot } from "./types"
 ```
 
-- [ ] Run package format, lint, typecheck and the relevant tests. Expected PASS. Inspect the formatting diff.
-- [ ] Inspect branch and staged/concurrent scope. Commit owned paths: `feat(dispatch): add cursor navigation and confirmed actions`.
+- [x] Run package format, lint, typecheck and the relevant tests. Expected PASS. Inspect the formatting diff.
+- [x] Inspect branch and staged/concurrent scope. Commit owned paths: `feat(dispatch): add cursor navigation and confirmed actions`.
 
 ## Final verification
 
-- [ ] Run package format, lint, typecheck and all tests. Expected PASS.
-- [ ] Generate one complete review package, request one fresh read-only final review, and resolve consequential findings in one tested pass. No re-review.
-- [ ] Record exact commands, results, rulings and browser limitations. Commit and push verified work.
+- [x] Run package format, lint, typecheck and all tests. Expected PASS.
+- [x] Generate one complete review package, request one fresh read-only final review, and resolve consequential findings in one tested pass. No re-review.
+- [x] Record exact commands, results, rulings and browser limitations. Commit and push verified work.
+
+## Execution and review
+
+- Task 1: badge import failed before implementation, then the fixed semantic mapping passed. Package setup and the single new lockfile importer are committed in `60d523a`.
+- Task 2: read import failed before implementation. Seven read tests then passed, including transient recovery, stale status during retry, denied/missing reads, changed IDs and visible/nonterminal polling. Committed in `2baaae0`.
+- Task 3: cursor/action imports failed before implementation. Six behavior tests passed for continuation, filter reset, distinct empty states, pinned confirmations, duplicate prevention and in-dialog errors. Committed in `d3b627e`.
+- Ruling: use `pnpm --filter @forge-go/dashboard-plugin-dispatch exec vitest run <files>` for focused tests. The package script's extra `--` ran the whole package instead; all included tests passed.
+- Final review: one fresh read-only review found a P1 context-clear issue. The SDK intentionally emits a blank pending entry when the host discards identity/context data. The retained snapshot must not restore that entry.
+- Final fix: a same-client/key host-clear regression failed while the previous resource stayed visible. The wrapper now discards its snapshot for a blank pending entry; a subsequent transient failure cannot revive it. The regression and all 15 package tests pass. No second review.
+- Format equivalent: `pnpm --filter @forge-go/dashboard-plugin-dispatch format`.
+- Lint equivalent: `pnpm --filter @forge-go/dashboard-plugin-dispatch lint`.
+- Both commands, package typecheck and all four test files pass after the final code edit. The shared repository lint/format sweep remains with its existing coordinator.
+- No deferred minor findings. Arbitrary simultaneous clients sharing an SDK key remain an SDK/host lifecycle concern; the reachable host-clear path is covered here.
+- Full pages, host registration, fixtures, browser focus and desktop/narrow layout checks, real SQLite browser parity and templ retirement remain pending. This slice establishes shared components, not a finished dashboard.
