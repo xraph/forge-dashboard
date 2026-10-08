@@ -169,7 +169,13 @@ export function settingLabel(key: string) {
     .replaceAll("Uid", "UID")
     .replaceAll("Gid", "GID")
 }
-export function SettingValue({ value }: { value: unknown }): ReactNode {
+export function SettingValue({
+  value,
+  rawKeys = false,
+}: {
+  value: unknown
+  rawKeys?: boolean
+}): ReactNode {
   if (value == null) return <NoneCell label="configured value" />
   if (typeof value === "boolean") return value ? "Yes" : "No"
   if (typeof value === "number")
@@ -180,7 +186,7 @@ export function SettingValue({ value }: { value: unknown }): ReactNode {
       <ul className="flex flex-col gap-1">
         {value.map((item, index) => (
           <li key={index}>
-            <SettingValue value={item} />
+            <SettingValue value={item} rawKeys={rawKeys} />
           </li>
         ))}
       </ul>
@@ -193,8 +199,8 @@ export function SettingValue({ value }: { value: unknown }): ReactNode {
     return Object.keys(value).length ? (
       <Facts
         items={Object.entries(value).map(([key, item]) => [
-          settingLabel(key),
-          <SettingValue value={item} />,
+          rawKeys ? key : settingLabel(key),
+          <SettingValue value={item} rawKeys={rawKeys} />,
         ])}
       />
     ) : (

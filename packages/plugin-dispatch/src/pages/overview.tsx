@@ -81,7 +81,9 @@ export function OverviewPage() {
                   ],
                   [
                     "Leader",
-                    data.workers.leaderId ? (
+                    !data.workers.enabled ? (
+                      "Leadership unavailable"
+                    ) : data.workers.leaderId ? (
                       <ResourceLink kind="workers" id={data.workers.leaderId} />
                     ) : (
                       "No current leader"

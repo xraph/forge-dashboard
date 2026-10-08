@@ -23,6 +23,54 @@ import {
   workerDetail,
 } from "./operational-fixtures"
 
+it("preserves case-sensitive queue and resource identifiers", async () => {
+  renderWithClient(
+    <EnginePage />,
+    clientFor({
+      "engine.config": () => ({
+        ...config,
+        resources: {
+          ...config.resources,
+          defaults: { defaultCpu: 1 },
+          queues: {
+            emailBulk: { requestCpu: 2 },
+            EmailBulk: { RequestCpu: 3 },
+          },
+          advertisedWorkerCapacity: { workerCpu: 4 },
+        },
+      }),
+    })
+  )
+  for (const key of [
+    "defaultCpu",
+    "emailBulk",
+    "EmailBulk",
+    "requestCpu",
+    "RequestCpu",
+    "workerCpu",
+  ])
+    await screen.findByText(key)
+})
+
+it.each([false, true])(
+  "qualifies leadership when registry enabled is %s",
+  async (enabled) => {
+    renderWithClient(
+      <OverviewPage />,
+      clientFor({
+        "overview.summary": () => ({
+          ...overview,
+          workers: { ...overview.workers, enabled, leaderId: null },
+        }),
+      })
+    )
+    await screen.findByText(
+      enabled ? "No current leader" : "Leadership unavailable"
+    )
+    if (!enabled) expect(screen.queryByText("No current leader")).toBeNull()
+  }
+)
+
 it("preserves small configured rates and resource measurements", async () => {
   renderWithClient(
     <EnginePage />,

@@ -45,7 +45,34 @@ export function EnginePage() {
                 <SettingValue value={data.executors} />
               </Section>
               <Section title="Resources">
-                <SettingValue value={data.resources} />
+                <Facts
+                  items={[
+                    ["Enabled", data.resources.enabled ? "Yes" : "No"],
+                    [
+                      "Defaults",
+                      <SettingValue value={data.resources.defaults} rawKeys />,
+                    ],
+                    [
+                      "Queues",
+                      <SettingValue value={data.resources.queues} rawKeys />,
+                    ],
+                    [
+                      "Advertised worker capacity",
+                      <SettingValue
+                        value={data.resources.advertisedWorkerCapacity}
+                        rawKeys
+                      />,
+                    ],
+                    [
+                      "Custom keys",
+                      <SettingValue value={data.resources.customKeys} />,
+                    ],
+                    [
+                      "Estimator configured",
+                      data.resources.estimatorConfigured ? "Yes" : "No",
+                    ],
+                  ]}
+                />
               </Section>
               <Section title="Artifacts">
                 <SettingValue value={data.artifacts} />
