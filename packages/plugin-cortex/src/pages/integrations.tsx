@@ -1,3 +1,10 @@
+import { Plus, Reply, MailCheck } from "@forge-go/dashboard-kit/icons"
+import {
+  ChevronLeft,
+  ChevronRight,
+  Pencil,
+  Trash2,
+} from "@forge-go/dashboard-kit/icons"
 import { useState } from "react"
 import {
   PluginLink,
@@ -20,6 +27,7 @@ import { Timestamp } from "@forge-go/dashboard-kit/components/timestamp"
 import { ZeroState } from "@forge-go/dashboard-kit/components/zero-state"
 import {
   Back,
+  IconAction,
   Code,
   Reload,
   ScopeLine,
@@ -591,9 +599,11 @@ export function OverlaysPage({ agentId }: { agentId: string }) {
         description="Ordered patches and runtime adjustments at authorized scopes."
         actions={
           allowed ? (
-            <Button size="sm" onClick={() => setEdit(null)}>
-              New overlay
-            </Button>
+            <IconAction
+              label="New overlay"
+              icon={Plus}
+              onClick={() => setEdit(null)}
+            />
           ) : undefined
         }
       />
@@ -634,45 +644,37 @@ export function OverlaysPage({ agentId }: { agentId: string }) {
                 allowed
                   ? (r) => (
                       <>
-                        <Button
-                          size="xs"
-                          variant="ghost"
+                        <IconAction
+                          label="Edit"
+                          icon={Pencil}
                           onClick={() => setEdit(r)}
-                        >
-                          Edit
-                        </Button>
-                        <Button
-                          size="xs"
-                          variant="ghost"
+                        />
+                        <IconAction
+                          label="Delete"
+                          icon={Trash2}
                           onClick={() => {
                             cmd.reset()
                             setSelected(r)
                           }}
-                        >
-                          Delete
-                        </Button>
+                        />
                       </>
                     )
                   : undefined
               }
             />
             <div className="flex gap-2">
-              <Button
-                size="sm"
-                variant="outline"
+              <IconAction
+                label="Previous"
+                icon={ChevronLeft}
                 disabled={!page}
                 onClick={() => setPage(page - 1)}
-              >
-                Previous
-              </Button>
-              <Button
-                size="sm"
-                variant="outline"
+              />
+              <IconAction
+                label="Next"
+                icon={ChevronRight}
                 disabled={!data.has_more}
                 onClick={() => setPage(page + 1)}
-              >
-                Next
-              </Button>
+              />
             </div>
           </>
         )}
@@ -762,14 +764,12 @@ export function ConversationsPage({ id }: { id?: string }) {
                     </header>
                     <Code text={m.content} label="Message content" />
                     {m.reply_with && (
-                      <Button
-                        variant="ghost"
-                        size="xs"
+                      <IconAction
+                        label={`Reply to ${m.reply_with}`}
+                        icon={Reply}
                         className="w-fit"
                         onClick={() => setReply(m.reply_with!)}
-                      >
-                        Reply to {m.reply_with}
-                      </Button>
+                      />
                     )}
                   </article>
                 ))
@@ -824,22 +824,18 @@ export function ConversationsPage({ id }: { id?: string }) {
                 ]}
               />
               <div className="flex gap-2">
-                <Button
-                  size="sm"
-                  variant="outline"
+                <IconAction
+                  label="Previous"
+                  icon={ChevronLeft}
                   disabled={!page}
                   onClick={() => setPage(page - 1)}
-                >
-                  Previous
-                </Button>
-                <Button
-                  size="sm"
-                  variant="outline"
+                />
+                <IconAction
+                  label="Next"
+                  icon={ChevronRight}
                   disabled={!data.has_more}
                   onClick={() => setPage(page + 1)}
-                >
-                  Next
-                </Button>
+                />
               </div>
             </>
           )}
@@ -888,16 +884,14 @@ export function ConversationsPage({ id }: { id?: string }) {
           >
             Send message
           </Button>
-          <Button
-            variant="outline"
-            size="sm"
+          <IconAction
+            label="Read and mark inbox"
+            icon={MailCheck}
             disabled={
               !manage || !runtime.data?.a2a || !receiver || inbox.loading
             }
             onClick={() => inbox.execute({ id: receiver })}
-          >
-            Read and mark inbox
-          </Button>
+          />
         </div>
         {inbox.data && (
           <Value value={inbox.data.items} label="Inbox (latest 100)" />

@@ -9,7 +9,13 @@ import {
 } from "@forge-go/dashboard-kit/components/native-select"
 import { QueryBoundary } from "@forge-go/dashboard-kit/components/query-boundary"
 import { ZeroState } from "@forge-go/dashboard-kit/components/zero-state"
-import { Code } from "./components"
+import { Code, IconAction } from "./components"
+import {
+  Plus,
+  Trash2,
+  ChevronLeft,
+  ChevronRight,
+} from "@forge-go/dashboard-kit/icons"
 import { initialFields, type Field } from "./schema"
 import type { Entity, Page, Resource } from "./types"
 export type Draft = Record<string, unknown>
@@ -99,22 +105,18 @@ function Reference({
             <div className="flex items-center gap-2 text-xs text-muted-foreground">
               <span>{data.total} available</span>
               {page > 0 && (
-                <Button
-                  size="xs"
-                  variant="ghost"
+                <IconAction
+                  label="Previous choices"
+                  icon={ChevronLeft}
                   onClick={() => setPage(page - 1)}
-                >
-                  Previous choices
-                </Button>
+                />
               )}
               {(page + 1) * 20 < data.total && (
-                <Button
-                  size="xs"
-                  variant="ghost"
+                <IconAction
+                  label="More choices"
+                  icon={ChevronRight}
                   onClick={() => setPage(page + 1)}
-                >
-                  More choices
-                </Button>
+                />
               )}
             </div>
           </>
@@ -283,15 +285,13 @@ function MapField({
               })
             }
           />
-          <Button
-            variant="ghost"
-            size="xs"
+          <IconAction
+            label={`Remove ${key}`}
+            icon={Trash2}
             onClick={() =>
               onChange(Object.fromEntries(entries.filter(([k]) => k !== key)))
             }
-          >
-            Remove {key}
-          </Button>
+          />
         </div>
       ))}
       <div className="flex flex-wrap gap-2">
@@ -301,17 +301,15 @@ function MapField({
           value={name}
           onChange={(e) => setName(e.target.value)}
         />
-        <Button
-          variant="outline"
-          size="sm"
+        <IconAction
+          label="Add dimension"
+          icon={Plus}
           disabled={!name.trim() || Object.hasOwn(value ?? {}, name)}
           onClick={() => {
             onChange({ ...(value as Draft), [name]: 0 })
             setName("")
           }}
-        >
-          Add dimension
-        </Button>
+        />
       </div>
     </div>
   )
@@ -348,9 +346,9 @@ function FieldContent({
           {field.required ? " *" : ""}
         </Label>
         {kind === "array" && (
-          <Button
-            variant="outline"
-            size="xs"
+          <IconAction
+            label={`Add ${field.label.toLowerCase()}`}
+            icon={Plus}
             onClick={() =>
               onChange([
                 ...(Array.isArray(value) ? value : []),
@@ -359,9 +357,7 @@ function FieldContent({
                   : (field.item?.default ?? ""),
               ])
             }
-          >
-            Add {field.label.toLowerCase()}
-          </Button>
+          />
         )}
       </div>
       {field.help && (
@@ -383,16 +379,14 @@ function FieldContent({
                   <span className="text-xs text-muted-foreground">
                     {field.label} {index + 1}
                   </span>
-                  <Button
-                    variant="ghost"
-                    size="xs"
+                  <IconAction
+                    label={`Remove ${field.label.toLowerCase()} ${index + 1}`}
+                    icon={Trash2}
                     onClick={() => {
                       onValidity(path, true)
                       onChange(value.filter((_, i) => i !== index))
                     }}
-                  >
-                    Remove {field.label.toLowerCase()} {index + 1}
-                  </Button>
+                  />
                 </div>
                 <FieldControl
                   field={field.item!}

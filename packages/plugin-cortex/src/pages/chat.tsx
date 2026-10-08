@@ -1,3 +1,5 @@
+import { Columns2, X, Eye, CircleStop } from "@forge-go/dashboard-kit/icons"
+import { ChevronLeft, ChevronRight } from "@forge-go/dashboard-kit/icons"
 import { useEffect, useState } from "react"
 import {
   ContractError,
@@ -20,7 +22,14 @@ import {
   QueryBoundary,
 } from "@forge-go/dashboard-kit/components/query-boundary"
 import { ZeroState } from "@forge-go/dashboard-kit/components/zero-state"
-import { Code, ScopeLine, State, useAccess, Value } from "../components"
+import {
+  IconAction,
+  Code,
+  ScopeLine,
+  State,
+  useAccess,
+  Value,
+} from "../components"
 import { FormFields, type Draft } from "../form"
 import { schemas } from "../schema"
 import { AgentPicker } from "./operations"
@@ -116,17 +125,15 @@ function LiveRun({
             }
           />
           {!done && (
-            <Button
-              size="xs"
-              variant="outline"
+            <IconAction
+              label={stopping ? "Stopping…" : "Stop"}
+              icon={CircleStop}
               disabled={cancel.loading || stopping}
               onClick={async () => {
                 if ((await cancel.execute({ id })) !== undefined)
                   setStopping(true)
               }}
-            >
-              {stopping ? "Stopping…" : "Stop"}
-            </Button>
+            />
           )}
         </div>
       </header>
@@ -254,22 +261,18 @@ function SessionSelector({
           </NativeSelect>
           {data.total > 25 && (
             <>
-              <Button
-                size="xs"
-                variant="ghost"
+              <IconAction
+                label="Previous sessions"
+                icon={ChevronLeft}
                 disabled={!page}
                 onClick={() => setPage(page - 1)}
-              >
-                Previous sessions
-              </Button>
-              <Button
-                size="xs"
-                variant="ghost"
+              />
+              <IconAction
+                label="More sessions"
+                icon={ChevronRight}
                 disabled={(page + 1) * 25 >= data.total}
                 onClick={() => setPage(page + 1)}
-              >
-                More sessions
-              </Button>
+              />
             </>
           )}
         </div>
@@ -404,14 +407,14 @@ function ChatPane({
               }
             />
           </fieldset>
-          <Button
-            size="sm"
-            variant="outline"
+          <IconAction
+            label={
+              preview ? "Close prompt preview" : "Preview assembled prompt"
+            }
+            icon={preview ? X : Eye}
             className="mt-3"
             onClick={() => setPreview((v) => !v)}
-          >
-            {preview ? "Close prompt preview" : "Preview assembled prompt"}
-          </Button>
+          />
           {preview && (
             <div className="mt-3">
               <QueryBoundary
@@ -609,14 +612,12 @@ export function ChatPage({
         }
         actions={
           playground ? (
-            <Button
-              variant="outline"
-              size="sm"
+            <IconAction
+              label={compare ? "Close comparison" : "Compare sessions"}
+              icon={compare ? X : Columns2}
               disabled={leftActive || rightActive}
               onClick={() => setCompare((v) => !v)}
-            >
-              {compare ? "Close comparison" : "Compare sessions"}
-            </Button>
+            />
           ) : (
             <PluginLink
               to={agent ? `/playground/${agent}` : "/playground"}

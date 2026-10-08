@@ -1,3 +1,6 @@
+import { CircleStop } from "@forge-go/dashboard-kit/icons"
+import { Pencil, Eraser, Trash2 } from "@forge-go/dashboard-kit/icons"
+import { ChevronLeft, ChevronRight } from "@forge-go/dashboard-kit/icons"
 import { useState } from "react"
 import {
   PluginLink,
@@ -32,6 +35,7 @@ import { ZeroState } from "@forge-go/dashboard-kit/components/zero-state"
 import {
   AuditDates,
   Back,
+  IconAction,
   Code,
   Reload,
   ScopeLine,
@@ -270,16 +274,14 @@ export function RunPage({ id }: { id: string }) {
                   <State value={data.run.state} />
                   {allowed &&
                     ["running", "paused"].includes(data.run.state) && (
-                      <Button
-                        variant="outline"
-                        size="sm"
+                      <IconAction
+                        label="Cancel run"
+                        icon={CircleStop}
                         onClick={() => {
                           cmd.reset()
                           setOpen(true)
                         }}
-                      >
-                        Cancel run
-                      </Button>
+                      />
                     )}
                 </>
               }
@@ -603,22 +605,18 @@ export function AgentPicker({
             </NativeSelect>
             {data.total > 25 && (
               <div className="flex gap-2">
-                <Button
-                  size="xs"
-                  variant="outline"
+                <IconAction
+                  label="Previous agents"
+                  icon={ChevronLeft}
                   disabled={!page}
                   onClick={() => setPage(page - 1)}
-                >
-                  Previous agents
-                </Button>
-                <Button
-                  size="xs"
-                  variant="outline"
+                />
+                <IconAction
+                  label="More agents"
+                  icon={ChevronRight}
                   disabled={(page + 1) * 25 >= data.total}
                   onClick={() => setPage(page + 1)}
-                >
-                  More agents
-                </Button>
+                />
               </div>
             )}
           </>
@@ -762,10 +760,22 @@ export function SessionPage({ id }: { id: string }) {
                       "clear",
                       ...(data.session.is_default ? [] : ["delete"]),
                     ].map((action) => (
-                      <Button
+                      <IconAction
+                        label={
+                          action === "rename"
+                            ? "Rename"
+                            : action === "clear"
+                              ? "Clear memory"
+                              : "Delete session"
+                        }
+                        icon={
+                          action === "rename"
+                            ? Pencil
+                            : action === "clear"
+                              ? Eraser
+                              : Trash2
+                        }
                         key={action}
-                        size="sm"
-                        variant="outline"
                         onClick={() => {
                           clear.reset()
                           del.reset()
@@ -773,13 +783,7 @@ export function SessionPage({ id }: { id: string }) {
                           setTitle(data.session.title)
                           setMode(action as typeof mode)
                         }}
-                      >
-                        {action === "rename"
-                          ? "Rename"
-                          : action === "clear"
-                            ? "Clear memory"
-                            : "Delete session"}
-                      </Button>
+                      />
                     ))}
                   </>
                 ) : undefined

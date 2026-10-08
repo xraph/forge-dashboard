@@ -1,10 +1,81 @@
-import { lazy, Suspense } from "react"
+import { lazy, Suspense, type ComponentProps } from "react"
 import { PluginLink, useQuery } from "@forge-go/dashboard-plugin"
 import { Badge } from "@forge-go/dashboard-kit/components/badge"
-import { Button } from "@forge-go/dashboard-kit/components/button"
+import {
+  Button,
+  buttonVariants,
+} from "@forge-go/dashboard-kit/components/button"
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@forge-go/dashboard-kit/components/tooltip"
+import {
+  ArrowLeft,
+  RefreshCw,
+  type LucideIcon,
+} from "@forge-go/dashboard-kit/icons"
 import { NoneCell } from "@forge-go/dashboard-kit/components/none-cell"
 import { Timestamp } from "@forge-go/dashboard-kit/components/timestamp"
 import type { Runtime, Scope } from "./types"
+export function IconAction({
+  label,
+  icon: Icon,
+  ...props
+}: Omit<ComponentProps<typeof Button>, "size" | "children"> & {
+  label: string
+  icon: LucideIcon
+}) {
+  return (
+    <TooltipProvider delay={250}>
+      <Tooltip>
+        <TooltipTrigger
+          render={
+            <Button
+              type="button"
+              size="icon-sm"
+              variant="ghost"
+              aria-label={label}
+              {...props}
+            />
+          }
+        >
+          <Icon aria-hidden="true" className="size-4" />
+        </TooltipTrigger>
+        <TooltipContent>{label}</TooltipContent>
+      </Tooltip>
+    </TooltipProvider>
+  )
+}
+export function IconLink({
+  label,
+  to,
+  icon: Icon,
+}: {
+  label: string
+  to: string
+  icon: LucideIcon
+}) {
+  return (
+    <TooltipProvider delay={250}>
+      <Tooltip>
+        <TooltipTrigger
+          render={
+            <PluginLink
+              to={to}
+              aria-label={label}
+              className={buttonVariants({ size: "icon-sm", variant: "ghost" })}
+            >
+              <Icon aria-hidden="true" className="size-4" />
+            </PluginLink>
+          }
+        />
+        <TooltipContent>{label}</TooltipContent>
+      </Tooltip>
+    </TooltipProvider>
+  )
+}
 export const CodeEditor = lazy(() => import("./editor"))
 export function Code({
   text,
@@ -120,18 +191,10 @@ export function AuditDates({
   )
 }
 export function Back({ to, label }: { to: string; label: string }) {
-  return (
-    <PluginLink to={to} className="w-fit text-sm underline underline-offset-4">
-      Back to {label}
-    </PluginLink>
-  )
+  return <IconLink to={to} label={`Back to ${label}`} icon={ArrowLeft} />
 }
 export function Reload({ onClick }: { onClick: () => void }) {
-  return (
-    <Button variant="outline" size="sm" onClick={onClick}>
-      Refresh
-    </Button>
-  )
+  return <IconAction label="Refresh" icon={RefreshCw} onClick={onClick} />
 }
 export function useAccess(permission: string) {
   const q = useQuery<Runtime & { permissions: Record<string, boolean> }>(

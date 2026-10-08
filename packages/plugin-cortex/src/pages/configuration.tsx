@@ -1,3 +1,12 @@
+import {
+  MessageSquare,
+  Columns2,
+  MessagesSquare,
+  ListOrdered,
+  Wrench,
+  Layers,
+} from "@forge-go/dashboard-kit/icons"
+import { Copy, Eye, Pencil, Plus, Trash2 } from "@forge-go/dashboard-kit/icons"
 import { useState } from "react"
 import {
   PluginLink,
@@ -26,6 +35,8 @@ import {
 import { Timestamp } from "@forge-go/dashboard-kit/components/timestamp"
 import { ZeroState } from "@forge-go/dashboard-kit/components/zero-state"
 import {
+  IconAction,
+  IconLink,
   AuditDates,
   Back,
   Code,
@@ -141,12 +152,11 @@ export function ConfigList({ resource }: { resource: Resource }) {
           <>
             <Reload onClick={q.refetch} />
             {allowed && (
-              <PluginLink
+              <IconLink
                 to={`/${resource}/new`}
-                className={buttonVariants({ size: "sm" })}
-              >
-                New {spec.singular.toLowerCase()}
-              </PluginLink>
+                label={`New ${spec.singular.toLowerCase()}`}
+                icon={Plus}
+              />
             )}
           </>
         }
@@ -207,22 +217,22 @@ export function ConfigList({ resource }: { resource: Resource }) {
             }
             rowActions={(r) => (
               <>
-                <PluginLink to={`/${resource}/${r.id}`}>View</PluginLink>
+                <IconLink to={`/${resource}/${r.id}`} label="View" icon={Eye} />
                 {allowed && (
                   <>
-                    <PluginLink to={`/${resource}/${r.id}/edit`}>
-                      Edit
-                    </PluginLink>
-                    <Button
-                      variant="ghost"
-                      size="xs"
+                    <IconLink
+                      to={`/${resource}/${r.id}/edit`}
+                      label="Edit"
+                      icon={Pencil}
+                    />
+                    <IconAction
+                      label="Delete"
+                      icon={Trash2}
                       onClick={() => {
                         del.reset()
                         setSelected(r)
                       }}
-                    >
-                      Delete
-                    </Button>
+                    />
                   </>
                 )}
               </>
@@ -350,17 +360,15 @@ function Clone({ resource, row }: { resource: Resource; row: ConfigRecord }) {
     navigate = useNavigateTo()
   return (
     <>
-      <Button
-        size="sm"
-        variant="outline"
+      <IconAction
+        label="Clone"
+        icon={Copy}
         onClick={() => {
           cmd.reset()
           setName(`${row.name}-copy`)
           setOpen(true)
         }}
-      >
-        Clone
-      </Button>
+      />
       <ConfirmDialog
         open={open}
         onOpenChange={setOpen}
@@ -400,16 +408,14 @@ function DeleteConfiguration({
     navigate = useNavigateTo()
   return (
     <>
-      <Button
-        size="sm"
-        variant="outline"
+      <IconAction
+        label="Delete"
+        icon={Trash2}
         onClick={() => {
           command.reset()
           setOpen(true)
         }}
-      >
-        Delete
-      </Button>
+      />
       <ConfirmDialog
         open={open}
         onOpenChange={setOpen}
@@ -447,13 +453,37 @@ function AgentActivity({ agent }: { agent: Agent }) {
     <div className="flex flex-col gap-3">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <h2 className="text-sm font-medium">Execution</h2>
-        <div className="flex flex-wrap gap-3 text-sm">
-          <PluginLink to={`/chat/${agent.id}`}>Chat</PluginLink>
-          <PluginLink to={`/playground/${agent.id}`}>Playground</PluginLink>
-          <PluginLink to={`/sessions/agent/${agent.id}`}>Sessions</PluginLink>
-          <PluginLink to={`/runs/agent/${agent.id}`}>All runs</PluginLink>
-          <PluginLink to={`/tools/${agent.id}`}>Authorized tools</PluginLink>
-          <PluginLink to={`/overlays/${agent.id}`}>Prompt overlays</PluginLink>
+        <div className="flex flex-wrap gap-1">
+          <IconLink
+            to={`/chat/${agent.id}`}
+            label="Chat"
+            icon={MessageSquare}
+          />
+          <IconLink
+            to={`/playground/${agent.id}`}
+            label="Playground"
+            icon={Columns2}
+          />
+          <IconLink
+            to={`/sessions/agent/${agent.id}`}
+            label="Sessions"
+            icon={MessagesSquare}
+          />
+          <IconLink
+            to={`/runs/agent/${agent.id}`}
+            label="All runs"
+            icon={ListOrdered}
+          />
+          <IconLink
+            to={`/tools/${agent.id}`}
+            label="Authorized tools"
+            icon={Wrench}
+          />
+          <IconLink
+            to={`/overlays/${agent.id}`}
+            label="Prompt overlays"
+            icon={Layers}
+          />
         </div>
       </div>
       <QueryBoundary
@@ -554,12 +584,11 @@ export function ConfigDetail({
                       {["agents", "personas"].includes(resource) && (
                         <Clone resource={resource} row={row} />
                       )}
-                      <PluginLink
+                      <IconLink
                         to={`/${resource}/${id}/edit`}
-                        className={buttonVariants({ size: "sm" })}
-                      >
-                        Edit {spec.singular.toLowerCase()}
-                      </PluginLink>
+                        label={`Edit ${spec.singular.toLowerCase()}`}
+                        icon={Pencil}
+                      />
                       <DeleteConfiguration resource={resource} row={row} />
                     </>
                   )}
