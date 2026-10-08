@@ -1,4 +1,4 @@
-import { useState, type ComponentProps, type ReactNode } from "react"
+import { useState, type ReactNode } from "react"
 import {
   PluginLink,
   useQuery,
@@ -12,51 +12,14 @@ import {
   RefreshCw,
   type LucideIcon,
 } from "@forge-go/dashboard-kit/icons"
-import {
-  Tooltip,
-  TooltipTrigger,
-  TooltipContent,
-  TooltipProvider,
-} from "@forge-go/dashboard-kit/components/tooltip"
+import { IconButton as IconAction } from "@forge-go/dashboard-kit/components/icon-button"
+export { IconAction }
 import { Badge } from "@forge-go/dashboard-kit/components/badge"
-import {
-  Button,
-  buttonVariants,
-} from "@forge-go/dashboard-kit/components/button"
 import { NoneCell } from "@forge-go/dashboard-kit/components/none-cell"
 import { Timestamp } from "@forge-go/dashboard-kit/components/timestamp"
 import { TagList } from "@forge-go/dashboard-kit/components/tag-list"
 import { ZeroState } from "@forge-go/dashboard-kit/components/zero-state"
 import { label, singular, type Capabilities, type Page } from "../types"
-export function IconAction({
-  label,
-  icon: Icon,
-  ...props
-}: Omit<ComponentProps<typeof Button>, "size" | "children"> & {
-  label: string
-  icon: LucideIcon
-}) {
-  return (
-    <TooltipProvider delay={250}>
-      <Tooltip>
-        <TooltipTrigger
-          render={
-            <Button
-              type="button"
-              size="icon-sm"
-              variant="ghost"
-              aria-label={label}
-              {...props}
-            />
-          }
-        >
-          <Icon className="size-4" aria-hidden="true" />
-        </TooltipTrigger>
-        <TooltipContent>{label}</TooltipContent>
-      </Tooltip>
-    </TooltipProvider>
-  )
-}
 export function IconLink({
   label,
   to,
@@ -67,22 +30,15 @@ export function IconLink({
   icon?: LucideIcon
 }) {
   return (
-    <TooltipProvider delay={250}>
-      <Tooltip>
-        <TooltipTrigger
-          render={
-            <PluginLink
-              to={to}
-              aria-label={label}
-              className={buttonVariants({ size: "icon-sm", variant: "ghost" })}
-            >
-              <Icon className="size-4" aria-hidden="true" />
-            </PluginLink>
-          }
-        />
-        <TooltipContent>{label}</TooltipContent>
-      </Tooltip>
-    </TooltipProvider>
+    <IconAction
+      label={label}
+      icon={Icon}
+      render={
+        <PluginLink to={to}>
+          <Icon aria-hidden="true" className="size-4" />
+        </PluginLink>
+      }
+    />
   )
 }
 export function CoverageNotice() {

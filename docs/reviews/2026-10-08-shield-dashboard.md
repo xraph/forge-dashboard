@@ -16,7 +16,7 @@ recorded decisions and example reports do not establish protection or compliance
 - Scan and report review preserve historical fields. PII reads return metadata,
   never ciphertext or decrypted content. Retention uses a fixed five-minute
   preview, at most 100 IDs, a fixed cutoff and synchronous audit records.
-- Contextual actions use 32px icon buttons with shared tooltips and accessible
+- Contextual actions use the shared kit IconButton, 32px controls with tooltips and accessible
   names. Keyboard focus shows tooltips. Save and confirmation actions retain text.
 - Runtime settings are read-only. The old 95-file templ dashboard is retired after
   a sibling source audit found no external consumers. The inventory remains in
@@ -102,3 +102,15 @@ third-party templ plugin was qualified by this migration.
   tables denser. Existing theme colors and focus treatments are retained.
 - Legacy code was preserved until runtime and browser parity were verified.
   Unowned workspace failures are reported separately from passing Shield checks.
+
+## Shared icon control follow-up
+
+Shield now delegates its icon actions to the kit's IconButton from `140209c`.
+Navigation keeps a thin PluginLink adapter with an explicit icon child, because
+PluginLink requires children and an empty child suppresses the rendered glyph.
+All 18 Shield tests, TypeScript and ESLint pass. Browser review confirms the
+New instinct link contains its icon and shows a tooltip on keyboard focus.
+The development shell was restarted after the concurrent Nexus dependency
+update left Vite's resolution cache stale; the Shield page recovered.
+
+![Shared icon control](assets/shield/instincts-shared-icons.jpg)
