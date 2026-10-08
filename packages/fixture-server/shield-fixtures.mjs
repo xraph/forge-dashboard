@@ -40,7 +40,10 @@ export function createShieldHandlers(FixtureError) {
   define("profiles.references", "query", i => references(i.collection, i.name))
   define("policies.assignments", "query", i => { get("policies", i.id); return { tenant_id: scope.tenant_id, assigned: assignments.has(i.id) } })
   for (const op of ["assign", "unassign"]) define(`policies.${op}`, "command", i => { get("policies", i.id); op === "assign" ? assignments.add(i.id) : assignments.delete(i.id); return { assigned: op === "assign" } })
-  define("pii.stats", "query", i => list("pii", i))
+  define("pii.stats", "query", i => {
+    const by_type = {}; for (const token of state.pii) by_type[token.pii_type] = (by_type[token.pii_type] ?? 0) + 1
+    return { ...list("pii", i), by_type, distinct_types: Object.keys(by_type).length }
+  })
   define("pii.byScan", "query", i => { get("scans", i.id); return list("pii", i) })
   define("pii.retentionPreview", "command", () => {
     const cutoff = now(), ids = state.pii.filter(r => r.expires_at < cutoff).map(r => r.id)
@@ -49,7 +52,8 @@ export function createShieldHandlers(FixtureError) {
   })
   for (const name of ["pii.purge", "pii.deleteTokens", "pii.deleteTenant"]) define(name, "command", i => {
     const p = previews.get(i.preview_id)
-    if (!p || p.expires_at < now() || !p.token_ids.length) error(400, "BAD_REQUEST", "A current nonempty retention preview is required")
+    if (!p || p.expires_at < now()) error(409, "CONFLICT", "Retention preview expired; review a new preview")
+    if (!p.token_ids.length) error(400, "BAD_REQUEST", "A nonempty retention preview is required")
     const before = state.pii.length
     state.pii = state.pii.filter(r => !p.token_ids.includes(r.id) || r.expires_at >= p.cutoff)
     return { affected: before - state.pii.length }
@@ -66,6 +70,7 @@ export function createShieldHandlers(FixtureError) {
     })
     define(`${kind}.update`, "command", i => {
       const row = get(kind, i.id)
+      if (i.expected_updated_at && i.expected_updated_at !== row.updated_at) error(409,"CONFLICT","This configuration changed after you opened it. Reload before saving.")
       if (i.row?.name && i.row.name !== row.name) error(409, "CONFLICT", "Name is immutable")
       for (const key of ["id", "app_id", "tenant_id", "scope_key", "scope_level", "created_at"]) if (key in (i.row ?? {}) && i.row[key] !== row[key]) error(409, "CONFLICT", "Scope and identity are immutable")
       Object.assign(row, clone(i.row), { updated_at: now() }); return clone(row)

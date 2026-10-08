@@ -8,10 +8,7 @@ import {
   type ContractError,
   type PluginPageProps,
 } from "@forge-go/dashboard-plugin"
-import {
-  Button,
-  buttonVariants,
-} from "@forge-go/dashboard-kit/components/button"
+import { Button } from "@forge-go/dashboard-kit/components/button"
 import { Input } from "@forge-go/dashboard-kit/components/input"
 import { Label } from "@forge-go/dashboard-kit/components/label"
 import {
@@ -25,7 +22,8 @@ import {
 } from "@forge-go/dashboard-kit/components/query-boundary"
 import { Textarea } from "@forge-go/dashboard-kit/components/textarea"
 import { ZeroState } from "@forge-go/dashboard-kit/components/zero-state"
-import { CoverageNotice } from "../components/common"
+import { Plus, Trash2 } from "@forge-go/dashboard-kit/icons"
+import { CoverageNotice, IconAction, IconLink } from "../components/common"
 import JsonEditor from "../components/json-editor"
 import {
   label,
@@ -231,37 +229,54 @@ function StructuredArray({
               fieldPath={`${fieldPath}.${keys[index]}.${child.key}`}
             />
           ))}
-          <Button
-            type="button"
-            size="sm"
-            variant="ghost"
+          <IconAction
+            label={`Remove ${field.key} ${index + 1}`}
+            icon={Trash2}
             className="w-fit"
-            aria-label={`Remove ${field.key} ${index + 1}`}
             onClick={() => {
               for (const child of field.fields ?? [])
                 onValidity(`${fieldPath}.${keys[index]}.${child.key}`)
               setKeys(keys.filter((_, i) => i !== index))
               onChange(items.filter((_, i) => i !== index))
             }}
-          >
-            Remove
-          </Button>
+          />
         </div>
       ))}
-      <Button
-        type="button"
-        size="sm"
-        variant="outline"
+      <IconAction
+        label={`Add ${singular(field.label)}`}
+        icon={Plus}
         disabled={items.length >= (field.max_items ?? 64)}
         className="w-fit"
         onClick={() => {
           setKeys([...keys, `${id}-${nextKey.current++}`])
           onChange([...items, defaults(field.fields ?? [])])
         }}
-      >
-        Add {singular(field.label)}
-      </Button>
+      />
     </fieldset>
+  )
+}
+function TagsField({
+  id,
+  value,
+  onChange,
+}: {
+  id: string
+  value: string[]
+  onChange: (value: unknown) => void
+}) {
+  const [text, setText] = useState(() => value.join("\n"))
+  return (
+    <Textarea
+      id={id}
+      rows={2}
+      maxLength={65536}
+      value={text}
+      placeholder="One entry per line"
+      onChange={(event) => {
+        setText(event.target.value)
+        onChange(event.target.value.split("\n").filter(Boolean))
+      }}
+    />
   )
 }
 function FieldControl({
@@ -307,27 +322,20 @@ function FieldControl({
                 onChange(items.map((old, i) => (i === index ? v : old)))
               }
             />
-            <Button
-              type="button"
-              size="sm"
-              variant="ghost"
-              aria-label={`Remove ${field.key} ${index + 1}`}
+            <IconAction
+              label={`Remove ${field.key} ${index + 1}`}
+              icon={Trash2}
               onClick={() => onChange(items.filter((_, i) => i !== index))}
-            >
-              Remove
-            </Button>
+            />
           </div>
         ))}
-        <Button
-          type="button"
-          size="sm"
-          variant="outline"
+        <IconAction
+          label={`Add ${singular(field.label)}`}
+          icon={Plus}
           className="w-fit"
           disabled={items.length >= (field.max_items ?? 64)}
           onClick={() => onChange([...items, ""])}
-        >
-          Add {singular(field.label)}
-        </Button>
+        />
       </fieldset>
     )
   let control
@@ -387,21 +395,16 @@ function FieldControl({
         fieldPath={fieldPath}
       />
     )
-  else if (field.type === "textarea" || field.type === "tags")
+  else if (field.type === "tags")
+    control = <TagsField id={id} value={items} onChange={onChange} />
+  else if (field.type === "textarea")
     control = (
       <Textarea
         id={id}
         rows={2}
-        maxLength={field.type === "tags" ? 65536 : 4096}
-        value={field.type === "tags" ? items.join("\n") : String(value ?? "")}
-        onChange={(e) =>
-          onChange(
-            field.type === "tags"
-              ? e.target.value.split("\n").filter(Boolean)
-              : e.target.value
-          )
-        }
-        placeholder={field.type === "tags" ? "One entry per line" : undefined}
+        maxLength={4096}
+        value={String(value ?? "")}
+        onChange={(event) => onChange(event.target.value)}
       />
     )
   else
@@ -470,9 +473,10 @@ export function EditorForm({
   initial?: Row
   pending: boolean
   error?: ContractError
-  onSubmit: (row: Record<string, unknown>) => Promise<void>
+  onSubmit: (row: Record<string, unknown>, revision?: string) => Promise<void>
 }) {
   const schema = capabilities.schemas[collection] ?? []
+  const [baseline] = useState(initial)
   const [draft, setDraft] = useState<Record<string, unknown>>(() => {
     const row = initial ?? {
       ...defaults(schema),
@@ -512,7 +516,17 @@ export function EditorForm({
     if (busy.current || pending || Object.keys(invalid).length) return
     busy.current = true
     try {
-      await onSubmit(draft)
+      await onSubmit(
+        baseline
+          ? Object.fromEntries(
+              Object.entries(draft).filter(
+                ([key, value]) =>
+                  JSON.stringify(value) !== JSON.stringify(baseline[key])
+              )
+            )
+          : draft,
+        baseline?.updated_at
+      )
     } finally {
       busy.current = false
     }
@@ -610,12 +624,7 @@ export function EditorForm({
         <span className="mr-auto text-xs text-muted-foreground">
           Saving stores configuration. Evaluation remains unavailable.
         </span>
-        <PluginLink
-          to={path(collection, initial?.id)}
-          className={buttonVariants({ variant: "ghost", size: "sm" })}
-        >
-          Cancel
-        </PluginLink>
+        <IconLink to={path(collection, initial?.id)} label="Cancel" />
         <Button
           type="submit"
           size="sm"
@@ -656,8 +665,11 @@ export default function EditorPage({
         initial={row}
         pending={command.loading}
         error={command.error}
-        onSubmit={async (fields) => {
-          const payload = { ...(id ? { id } : {}), row: fields }
+        onSubmit={async (fields, revision) => {
+          const payload = {
+            ...(id ? { id, expected_updated_at: revision } : {}),
+            row: fields,
+          }
           const serialized = JSON.stringify(payload)
           if (attempt.current?.payload !== serialized)
             attempt.current = { payload: serialized, key: crypto.randomUUID() }

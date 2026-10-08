@@ -1,9 +1,23 @@
-import type { ReactNode } from "react"
+import { useState, type ComponentProps, type ReactNode } from "react"
 import {
   PluginLink,
   useQuery,
   type QueryState,
 } from "@forge-go/dashboard-plugin"
+import {
+  ArrowLeft,
+  ChevronLeft,
+  ChevronRight,
+  Plus,
+  RefreshCw,
+  type LucideIcon,
+} from "@forge-go/dashboard-kit/icons"
+import {
+  Tooltip,
+  TooltipTrigger,
+  TooltipContent,
+  TooltipProvider,
+} from "@forge-go/dashboard-kit/components/tooltip"
 import { Badge } from "@forge-go/dashboard-kit/components/badge"
 import {
   Button,
@@ -14,6 +28,63 @@ import { Timestamp } from "@forge-go/dashboard-kit/components/timestamp"
 import { TagList } from "@forge-go/dashboard-kit/components/tag-list"
 import { ZeroState } from "@forge-go/dashboard-kit/components/zero-state"
 import { label, singular, type Capabilities, type Page } from "../types"
+export function IconAction({
+  label,
+  icon: Icon,
+  ...props
+}: Omit<ComponentProps<typeof Button>, "size" | "children"> & {
+  label: string
+  icon: LucideIcon
+}) {
+  return (
+    <TooltipProvider delay={250}>
+      <Tooltip>
+        <TooltipTrigger
+          render={
+            <Button
+              type="button"
+              size="icon-sm"
+              variant="ghost"
+              aria-label={label}
+              {...props}
+            />
+          }
+        >
+          <Icon className="size-4" aria-hidden="true" />
+        </TooltipTrigger>
+        <TooltipContent>{label}</TooltipContent>
+      </Tooltip>
+    </TooltipProvider>
+  )
+}
+export function IconLink({
+  label,
+  to,
+  icon: Icon = ArrowLeft,
+}: {
+  label: string
+  to: string
+  icon?: LucideIcon
+}) {
+  return (
+    <TooltipProvider delay={250}>
+      <Tooltip>
+        <TooltipTrigger
+          render={
+            <PluginLink
+              to={to}
+              aria-label={label}
+              className={buttonVariants({ size: "icon-sm", variant: "ghost" })}
+            >
+              <Icon className="size-4" aria-hidden="true" />
+            </PluginLink>
+          }
+        />
+        <TooltipContent>{label}</TooltipContent>
+      </Tooltip>
+    </TooltipProvider>
+  )
+}
 export function CoverageNotice() {
   const caps = useQuery<Capabilities>("capabilities")
   return (
@@ -54,15 +125,18 @@ export function Empty({
 }
 export function NewLink({ collection }: { collection: string }) {
   return (
-    <PluginLink
+    <IconLink
       to={`/${collection}/new`}
-      className={buttonVariants({ size: "sm" })}
-    >
-      New {singular(collection)}
-    </PluginLink>
+      label={`New ${singular(collection)}`}
+      icon={Plus}
+    />
   )
 }
 export function RefreshStatus({ query }: { query: QueryState<Page> }) {
+  const [lastSuccess, setLastSuccess] = useState(query.data?.refreshed_at)
+  if (query.data?.refreshed_at && query.data.refreshed_at !== lastSuccess)
+    setLastSuccess(query.data.refreshed_at)
+
   return (
     <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-muted-foreground">
       <span>
@@ -71,21 +145,19 @@ export function RefreshStatus({ query }: { query: QueryState<Page> }) {
           : query.error
             ? "Refresh failed. Retry to load current records."
             : "Refreshes every 10 seconds while visible."}{" "}
-        {query.data?.refreshed_at && (
+        {lastSuccess && (
           <>
             Last successful refresh:{" "}
-            <Timestamp label="refresh" value={query.data.refreshed_at} />
+            <Timestamp label="refresh" value={lastSuccess} />
           </>
         )}
       </span>
-      <Button
-        variant="ghost"
-        size="sm"
+      <IconAction
+        label="Refresh"
+        icon={RefreshCw}
         onClick={query.refetch}
         disabled={query.loading}
-      >
-        Refresh
-      </Button>
+      />
     </div>
   )
 }
@@ -104,22 +176,18 @@ export function Pager({
           : `${page.offset + 1}–${page.offset + page.items.length} of ${page.total}`}
       </span>
       <div className="flex gap-2">
-        <Button
-          variant="outline"
-          size="sm"
+        <IconAction
+          label="Previous"
+          icon={ChevronLeft}
           disabled={page.offset === 0}
           onClick={() => onChange(Math.max(0, page.offset - page.limit))}
-        >
-          Previous
-        </Button>
-        <Button
-          variant="outline"
-          size="sm"
+        />
+        <IconAction
+          label="Next"
+          icon={ChevronRight}
           disabled={!page.has_more}
           onClick={() => onChange(page.offset + page.limit)}
-        >
-          Next
-        </Button>
+        />
       </div>
     </div>
   )

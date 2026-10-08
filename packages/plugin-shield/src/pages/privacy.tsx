@@ -1,6 +1,6 @@
 import { useRef, useState } from "react"
 import { useCommand, usePoll, useQuery } from "@forge-go/dashboard-plugin"
-import { Button } from "@forge-go/dashboard-kit/components/button"
+import { ListChecks } from "@forge-go/dashboard-kit/icons"
 import { ConfirmDialog } from "@forge-go/dashboard-kit/components/confirm-dialog"
 import { PageHeader } from "@forge-go/dashboard-kit/components/page-header"
 import {
@@ -11,15 +11,16 @@ import { ResourceTable } from "@forge-go/dashboard-kit/components/resource-table
 import { Timestamp } from "@forge-go/dashboard-kit/components/timestamp"
 import {
   CoverageNotice,
+  IconAction,
   Empty,
   Pager,
   RefreshStatus,
 } from "../components/common"
-import type { Capabilities, Page, Preview } from "../types"
+import type { Capabilities, PrivacyPageData, Preview } from "../types"
 export function PrivacyPage() {
   const caps = useQuery<Capabilities>("capabilities")
   const [offset, setOffset] = useState(0)
-  const q = useQuery<Page>("pii.stats", { limit: 25, offset })
+  const q = useQuery<PrivacyPageData>("pii.stats", { limit: 25, offset })
   usePoll(q.refetch)
   const previewCommand = useCommand<Preview>("pii.retentionPreview")
   const purge = useCommand<{ affected: number }>("pii.purge")
@@ -63,14 +64,12 @@ export function PrivacyPage() {
         description="Metadata for the authorized tenant. Encrypted and decrypted values are never returned."
         actions={
           caps.data?.can_manage_privacy ? (
-            <Button
-              size="sm"
-              variant="outline"
+            <IconAction
+              label="Review expired tokens"
+              icon={ListChecks}
               disabled={previewCommand.loading}
               onClick={() => void review()}
-            >
-              Review expired tokens
-            </Button>
+            />
           ) : undefined
         }
       />
@@ -93,6 +92,24 @@ export function PrivacyPage() {
       <QueryBoundary title="PII metadata" query={q} keepPreviousData>
         {(page) => (
           <>
+            {page.by_type && (
+              <div
+                className="flex flex-wrap items-center gap-x-4 gap-y-1 rounded-md border px-3 py-2 text-xs"
+                aria-label="PII type totals"
+              >
+                <span className="font-medium">
+                  {page.total} tokens · {page.distinct_types} types
+                </span>
+                {Object.entries(page.by_type)
+                  .sort(([a], [b]) => a.localeCompare(b))
+                  .map(([type, count]) => (
+                    <span key={type}>
+                      <span className="text-muted-foreground">{type}</span>{" "}
+                      {count}
+                    </span>
+                  ))}
+              </div>
+            )}
             {page.items.length ? (
               <ResourceTable
                 emptyMessage="No records in this scope."

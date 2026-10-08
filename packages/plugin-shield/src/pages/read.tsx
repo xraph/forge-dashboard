@@ -9,9 +9,14 @@ import {
   type PluginPageProps,
 } from "@forge-go/dashboard-plugin"
 import {
-  Button,
-  buttonVariants,
-} from "@forge-go/dashboard-kit/components/button"
+  Pencil,
+  Power,
+  PowerOff,
+  Trash2,
+  Link2,
+  Unlink2,
+  SlidersHorizontal,
+} from "@forge-go/dashboard-kit/icons"
 import { ConfirmDialog } from "@forge-go/dashboard-kit/components/confirm-dialog"
 import { FilterBar } from "@forge-go/dashboard-kit/components/filter-bar"
 import { PageHeader } from "@forge-go/dashboard-kit/components/page-header"
@@ -26,6 +31,8 @@ import {
 import { Timestamp } from "@forge-go/dashboard-kit/components/timestamp"
 import {
   CoverageNotice,
+  IconAction,
+  IconLink,
   Empty,
   NewLink,
   Pager,
@@ -306,12 +313,11 @@ export function OverviewPage() {
         title="Shield"
         description="Safety configuration and stored record review."
         actions={
-          <PluginLink
+          <IconLink
             to="/profiles"
-            className={buttonVariants({ size: "sm", variant: "outline" })}
-          >
-            Manage profiles
-          </PluginLink>
+            label="Manage profiles"
+            icon={SlidersHorizontal}
+          />
         }
       />
       <CoverageNotice />
@@ -398,15 +404,14 @@ function DetailActions({
   }
   return caps.can_manage ? (
     <>
-      <PluginLink
+      <IconLink
         to={`${path(collection, row.id)}/edit`}
-        className={buttonVariants({ size: "sm", variant: "outline" })}
-      >
-        Edit
-      </PluginLink>
-      <Button
-        size="sm"
-        variant="outline"
+        label="Edit"
+        icon={Pencil}
+      />
+      <IconAction
+        label={row.enabled ? "Disable" : "Enable"}
+        icon={row.enabled ? PowerOff : Power}
         disabled={toggle.loading}
         onClick={async () => {
           if (busy.current) return
@@ -417,19 +422,16 @@ function DetailActions({
             busy.current = false
           }
         }}
-      >
-        {row.enabled ? "Disable" : "Enable"}
-      </Button>
-      <Button
-        size="sm"
+      />
+      <IconAction
+        label="Delete"
+        icon={Trash2}
         variant="destructive"
         onClick={() => {
           remove.reset()
           setOpen(true)
         }}
-      >
-        Delete
-      </Button>
+      />
       <CommandAlert error={toggle.error} title="Could not change status" />
       <ConfirmDialog
         open={open}
@@ -465,16 +467,14 @@ function Assignments({ id, caps }: { id: string; caps: Capabilities }) {
               {a.assigned ? "Assigned" : "Not assigned"}
             </span>
             {caps.can_manage && (
-              <Button
-                size="sm"
-                variant="outline"
+              <IconAction
+                label={a.assigned ? "Unassign" : "Assign to this tenant"}
+                icon={a.assigned ? Unlink2 : Link2}
                 disabled={assign.loading || unassign.loading}
                 onClick={() =>
                   void (a.assigned ? unassign : assign).execute({ id })
                 }
-              >
-                {a.assigned ? "Unassign" : "Assign to this tenant"}
-              </Button>
+              />
             )}
             <span className="text-xs text-muted-foreground">
               Assignment is stored; enforcement is unavailable.
@@ -628,12 +628,7 @@ export function DetailPage({
         }
         actions={
           <>
-            <PluginLink
-              to={path(collection)}
-              className={buttonVariants({ size: "sm", variant: "ghost" })}
-            >
-              Back to {collection}
-            </PluginLink>
+            <IconLink to={path(collection)} label={`Back to ${collection}`} />
             {editable && q.data && caps.data && (
               <DetailActions
                 collection={collection}

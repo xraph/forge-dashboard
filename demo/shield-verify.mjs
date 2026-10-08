@@ -24,6 +24,9 @@ for (const kind of Object.keys(caps.schemas)) {
   const changed=await call(`${kind}.update`,"command",{id:made.id,row:{description:"HTTP persistence review",...(kind==="instincts"?{strategies:[]}:{}),...(kind==="judgments"?{threshold:0}:{})}})
   if(kind==="instincts")assert.deepEqual(changed.strategies,[])
   if(kind==="judgments")assert.equal(changed.threshold,0)
+  await call(`${kind}.update`,"command",{id:made.id,expected_updated_at:made.updated_at,row:{description:"stale tab"}},undefined,"CONFLICT")
+  const current=await call(`${kind}.detail`,"query",{id:made.id})
+  await call(`${kind}.update`,"command",{id:made.id,expected_updated_at:current.updated_at,row:{description:"fresh tab"}})
   assert.equal((await call(`${kind}.setEnabled`,"command",{id:made.id,enabled:true})).enabled,true)
   await call(`${kind}.update`,"command",{id:made.id,row:{name:"illegal-rename"}},undefined,"CONFLICT")
   if(kind==="policies")for(const op of ["assign","unassign"]){await call(`policies.${op}`,"command",{id:made.id});assert.equal((await call("policies.assignments","query",{id:made.id})).assigned,op==="assign")}
@@ -33,7 +36,8 @@ for (const kind of Object.keys(caps.schemas)) {
 for(const kind of ["scans","compliance"]){const p=await call(`${kind}.list`);for(const row of p.items)await call(`${kind}.detail`,"query",{id:row.id})}
 await call("scans.list","query",{direction:"output"})
 const pii=await call("pii.stats");assert.ok(!JSON.stringify(pii).includes("encrypted_value"));assert.ok(!JSON.stringify(pii).includes("decrypted_value"))
+assert.equal(pii.total,Object.values(pii.by_type).reduce((a,b)=>a+b,0));assert.equal(pii.distinct_types,Object.keys(pii.by_type).length)
 const scan=(await call("scans.list")).items[0];await call("pii.byScan","query",{id:scan.id})
 const preview=await call("pii.retentionPreview","command",{});assert.ok(preview.id)
-await call("pii.purge","command",{preview_id:"invalid-preview"},undefined,"BAD_REQUEST")
+await call("pii.purge","command",{preview_id:"invalid-preview"},undefined,"CONFLICT")
 console.log(`Real Shield HTTP: ${calls.length} requests passed, eight CRUD workflows, replay, assignments, records and metadata-only privacy. Retention deletion remains covered by isolated backend tests.`)

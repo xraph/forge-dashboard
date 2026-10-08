@@ -25,6 +25,10 @@ export interface Page {
   has_more: boolean
   refreshed_at?: string
 }
+export interface PrivacyPageData extends Page {
+  by_type: Record<string, number>
+  distinct_types: number
+}
 export interface Field {
   key: string
   label: string

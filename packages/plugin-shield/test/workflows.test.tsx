@@ -177,3 +177,79 @@ it("keeps the reviewed selection and stable key when retention fails", async () 
   expect(opts[0]).toEqual(opts[1])
   expect(screen.getByText("token-one")).toBeTruthy()
 })
+
+it("retains the last successful refresh time after a failed refresh", async () => {
+  let failed = false
+  const inner = stubClient({
+    capabilities: caps,
+    "instincts.list": { ...page, refreshed_at: "2026-10-08T12:00:00Z" },
+  })
+  const client = {
+    ...inner,
+    query: async (intent: string, params?: Record<string, unknown>) => {
+      if (intent === "instincts.list" && failed)
+        throw new ContractError("INTERNAL", "Connection lost")
+      return inner.query(intent, params)
+    },
+  } as ScopedClient
+  renderPage((p) => <CollectionPage {...p} collection="instincts" />, client)
+  await screen.findByText(/Last successful refresh:/)
+  failed = true
+  fireEvent.click(screen.getByRole("button", { name: "Refresh" }))
+  await screen.findByText(/Connection lost/)
+  expect(screen.getByText(/Last successful refresh:/)).toBeTruthy()
+})
+
+it("sends the editor's original revision with its changed fields", async () => {
+  const { client, sent } = recordingCommandClient(
+    {
+      capabilities: caps,
+      "boundaries.detail": {
+        id: "guard",
+        name: "guard",
+        enabled: true,
+        description: "before",
+        updated_at: "2026-10-08T12:00:00Z",
+      },
+    },
+    { "boundaries.update": { id: "guard" } }
+  )
+  renderPage((p) => <EditorPage {...p} collection="boundaries" />, client, {
+    id: "guard",
+  })
+  fireEvent.change(await screen.findByLabelText("Description"), {
+    target: { value: "after" },
+  })
+  fireEvent.click(screen.getByRole("button", { name: "Save configuration" }))
+  await waitFor(() => expect(sent).toHaveLength(1))
+  expect(sent[0].payload).toEqual({
+    id: "guard",
+    expected_updated_at: "2026-10-08T12:00:00Z",
+    row: { description: "after" },
+  })
+})
+it("shows tenant-wide PII totals even on a metadata page", async () => {
+  renderPage(
+    PrivacyPage,
+    stubClient({
+      capabilities: caps,
+      "pii.stats": {
+        ...page,
+        items: [
+          {
+            id: "token",
+            pii_type: "email",
+            placeholder: "[EMAIL]",
+            scan_id: "scan",
+          },
+        ],
+        total: 31,
+        has_more: true,
+        by_type: { email: 28, phone: 3 },
+        distinct_types: 2,
+      },
+    })
+  )
+  expect(await screen.findByText("31 tokens · 2 types")).toBeTruthy()
+  expect(screen.getByText("phone")).toBeTruthy()
+})

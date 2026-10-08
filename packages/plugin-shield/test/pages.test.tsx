@@ -175,3 +175,62 @@ it("prevents overlapping structured form submissions", async () => {
   expect(sent).toHaveLength(1)
   release?.()
 })
+
+it("preserves a trailing newline while entering a multiline list", () => {
+  const sent: unknown[] = []
+  renderPage(
+    () => (
+      <EditorForm
+        collection="boundaries"
+        capabilities={{
+          ...caps,
+          schemas: {
+            boundaries: [{ key: "patterns", label: "Patterns", type: "tags" }],
+          },
+        }}
+        pending={false}
+        onSubmit={async (row) => {
+          sent.push(row)
+        }}
+      />
+    ),
+    stubClient({})
+  )
+  const input = screen.getByLabelText("Patterns") as HTMLTextAreaElement
+  fireEvent.change(input, { target: { value: "first\n" } })
+  expect(input.value).toBe("first\n")
+  fireEvent.change(input, { target: { value: "first\nsecond\n" } })
+  fireEvent.change(screen.getByLabelText("Name *"), {
+    target: { value: "guard" },
+  })
+  fireEvent.click(screen.getByRole("button", { name: "Create configuration" }))
+  expect(sent[0]).toMatchObject({ patterns: ["first", "second"] })
+})
+it("submits only edited fields so unrelated newer settings survive", () => {
+  const sent: unknown[] = []
+  renderPage(
+    () => (
+      <EditorForm
+        collection="instincts"
+        capabilities={caps}
+        initial={{
+          id: "guard",
+          name: "guard",
+          description: "before",
+          enabled: true,
+          strategies: [{ name: "classifier", weight: 0 }],
+        }}
+        pending={false}
+        onSubmit={async (row) => {
+          sent.push(row)
+        }}
+      />
+    ),
+    stubClient({})
+  )
+  fireEvent.change(screen.getByLabelText("Description"), {
+    target: { value: "after" },
+  })
+  fireEvent.click(screen.getByRole("button", { name: "Save configuration" }))
+  expect(sent).toEqual([{ description: "after" }])
+})
