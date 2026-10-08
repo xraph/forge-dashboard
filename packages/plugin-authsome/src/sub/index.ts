@@ -5,6 +5,7 @@ import { waitlistSubPlugin } from "./waitlist"
 import { consentSubPlugin } from "./consent"
 import { subscriptionSubPlugin } from "./subscription"
 import { passwordSubPlugin } from "./password"
+import { notificationSubPlugin } from "./notification"
 import { settingsOnlySubPlugins } from "./settings-only"
 
 export {
@@ -14,6 +15,7 @@ export {
   consentSubPlugin,
   subscriptionSubPlugin,
   passwordSubPlugin,
+  notificationSubPlugin,
   settingsOnlySubPlugins,
 }
 
@@ -32,5 +34,6 @@ export const authsomeSubPlugins: ForgeSubPlugin[] = [
   consentSubPlugin,
   subscriptionSubPlugin,
   passwordSubPlugin,
+  notificationSubPlugin,
   ...settingsOnlySubPlugins,
 ]
