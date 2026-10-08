@@ -6,6 +6,7 @@ export interface PageHeaderProps {
   description?: string
   /** Buttons for this page as a whole. Row actions belong in the table. */
   actions?: ReactNode
+  density?: "compact" | "comfortable"
   className?: string
 }
 
@@ -21,22 +22,40 @@ export function PageHeader({
   description,
   actions,
   className,
+  density = "compact",
 }: PageHeaderProps) {
   return (
     <div
       data-slot="page-header"
       className={cn(
         "flex flex-wrap items-start justify-between gap-2",
-        className,
+        className
       )}
     >
       <div className="flex flex-col gap-1">
-        <h1 className="text-lg font-medium">{title}</h1>
+        <h1
+          className={
+            density === "compact"
+              ? "text-base font-semibold tracking-tight"
+              : "text-lg font-medium"
+          }
+        >
+          {title}
+        </h1>
         {description && (
-          <p className="text-sm text-muted-foreground">{description}</p>
+          <p
+            className={cn(
+              "text-muted-foreground",
+              density === "compact" ? "text-xs" : "text-sm"
+            )}
+          >
+            {description}
+          </p>
         )}
       </div>
-      {actions && <div className="flex items-center gap-2">{actions}</div>}
+      {actions && (
+        <div className="flex flex-wrap items-center gap-1.5">{actions}</div>
+      )}
     </div>
   )
 }
