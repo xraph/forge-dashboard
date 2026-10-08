@@ -55,12 +55,12 @@ export function DetailLayout({ main, aside, className }: DetailLayoutProps) {
   return (
     <div
       className={cn(
-        "grid grid-cols-1 gap-4 @3xl/main:grid-cols-[2fr_1fr]",
+        "grid min-w-0 grid-cols-1 gap-6 @3xl/main:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]",
         className
       )}
     >
-      <div className="flex flex-col gap-4">{main}</div>
-      {aside && <aside className="flex flex-col gap-4">{aside}</aside>}
+      <div className="flex min-w-0 flex-col gap-6">{main}</div>
+      {aside && <aside className="flex min-w-0 flex-col gap-6">{aside}</aside>}
     </div>
   )
 }

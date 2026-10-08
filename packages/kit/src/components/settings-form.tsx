@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react"
+import { useId, useMemo, useState } from "react"
 import { cn } from "@forge-go/dashboard-kit/lib/utils"
 import { Badge } from "@forge-go/dashboard-kit/components/badge"
 import { Button } from "@forge-go/dashboard-kit/components/button"
@@ -40,6 +40,7 @@ export interface SettingsFormProps {
   saving?: boolean
   emptyMessage?: string
   className?: string
+  layout?: "stack" | "rows"
 }
 
 function toFormValue(field: SettingFieldDescriptor): string | boolean {
@@ -72,6 +73,7 @@ export function SettingsForm({
   saving = false,
   emptyMessage = "This namespace has no settings.",
   className,
+  layout = "stack",
 }: SettingsFormProps) {
   const initial = useMemo(() => {
     const out: Record<string, string | boolean> = {}
@@ -133,11 +135,19 @@ export function SettingsForm({
   }
 
   return (
-    <div className={cn("flex flex-col gap-6", className)}>
+    <div
+      data-layout={layout}
+      className={cn("group/settings flex min-w-0 flex-col gap-6", className)}
+    >
       {sections.map(([section, sectionFields]) => (
-        <section key={section ?? ""} className="flex flex-col gap-4">
+        <section
+          key={section ?? ""}
+          className="flex flex-col gap-4 group-data-[layout=rows]/settings:gap-0 group-data-[layout=rows]/settings:overflow-hidden group-data-[layout=rows]/settings:rounded-md group-data-[layout=rows]/settings:border group-data-[layout=rows]/settings:bg-card"
+        >
           {section !== undefined && (
-            <h2 className="text-sm font-medium">{section}</h2>
+            <h2 className="text-sm font-medium group-data-[layout=rows]/settings:border-b group-data-[layout=rows]/settings:bg-muted/30 group-data-[layout=rows]/settings:px-5 group-data-[layout=rows]/settings:py-4">
+              {section}
+            </h2>
           )}
           {sectionFields.map((field) => (
             <Field
@@ -186,78 +196,87 @@ function Field({
   onChange: (value: string | boolean) => void
 }) {
   const disabled = Boolean(field.enforced || field.readOnly)
-  const controlId = `setting-${field.key}`
+  const instanceId = useId()
+  const controlId = `setting-${instanceId}-${field.key}`
 
   return (
-    <div className={cn("flex flex-col gap-1.5", disabled && "opacity-70")}>
-      <div className="flex items-center gap-2">
-        <Label
-          htmlFor={field.type === "boolean" ? undefined : controlId}
-          id={field.type === "boolean" ? `${controlId}-label` : undefined}
-        >
-          {field.label}
-        </Label>
-        {field.enforced && <Badge variant="secondary">enforced</Badge>}
-        {field.readOnly && !field.enforced && (
-          <Badge variant="outline">read only</Badge>
+    <div
+      className={cn(
+        "flex min-w-0 flex-col gap-1.5 group-data-[layout=rows]/settings:gap-4 group-data-[layout=rows]/settings:border-b group-data-[layout=rows]/settings:p-5 group-data-[layout=rows]/settings:last:border-0 group-data-[layout=rows]/settings:@2xl/main:grid group-data-[layout=rows]/settings:@2xl/main:grid-cols-2",
+        disabled && "opacity-70"
+      )}
+    >
+      <div className="space-y-1.5">
+        <div className="flex items-center gap-2">
+          <Label
+            htmlFor={field.type === "boolean" ? undefined : controlId}
+            id={field.type === "boolean" ? `${controlId}-label` : undefined}
+          >
+            {field.label}
+          </Label>
+          {field.enforced && <Badge variant="secondary">enforced</Badge>}
+          {field.readOnly && !field.enforced && (
+            <Badge variant="outline">read only</Badge>
+          )}
+        </div>
+
+        {field.description && (
+          <p className="text-xs text-muted-foreground">{field.description}</p>
         )}
       </div>
+      <div className="min-w-0 space-y-2">
+        {field.type === "boolean" ? (
+          <Switch
+            id={controlId}
+            aria-labelledby={`${controlId}-label`}
+            checked={Boolean(value)}
+            disabled={disabled}
+            onCheckedChange={(checked: boolean) => onChange(checked)}
+          />
+        ) : field.type === "select" ? (
+          <NativeSelect
+            id={controlId}
+            value={String(value)}
+            disabled={disabled}
+            onChange={(event) => onChange(event.target.value)}
+          >
+            {(field.options ?? []).map((option) => (
+              <NativeSelectOption key={option.value} value={option.value}>
+                {option.label}
+              </NativeSelectOption>
+            ))}
+          </NativeSelect>
+        ) : (
+          <Input
+            id={controlId}
+            type={
+              field.type === "number"
+                ? "number"
+                : field.type === "secret"
+                  ? "password"
+                  : "text"
+            }
+            value={String(value)}
+            disabled={disabled}
+            required={field.required}
+            min={field.min}
+            max={field.max}
+            placeholder={field.placeholder}
+            aria-invalid={invalid || undefined}
+            onChange={(event) => onChange(event.target.value)}
+          />
+        )}
 
-      {field.description && (
-        <p className="text-xs text-muted-foreground">{field.description}</p>
-      )}
+        {invalid && (
+          <p role="alert" className="text-xs text-destructive">
+            Enter a number, or press Reset to restore the current value.
+          </p>
+        )}
 
-      {field.type === "boolean" ? (
-        <Switch
-          id={controlId}
-          aria-labelledby={`${controlId}-label`}
-          checked={Boolean(value)}
-          disabled={disabled}
-          onCheckedChange={(checked: boolean) => onChange(checked)}
-        />
-      ) : field.type === "select" ? (
-        <NativeSelect
-          id={controlId}
-          value={String(value)}
-          disabled={disabled}
-          onChange={(event) => onChange(event.target.value)}
-        >
-          {(field.options ?? []).map((option) => (
-            <NativeSelectOption key={option.value} value={option.value}>
-              {option.label}
-            </NativeSelectOption>
-          ))}
-        </NativeSelect>
-      ) : (
-        <Input
-          id={controlId}
-          type={
-            field.type === "number"
-              ? "number"
-              : field.type === "secret"
-                ? "password"
-                : "text"
-          }
-          value={String(value)}
-          disabled={disabled}
-          required={field.required}
-          min={field.min}
-          max={field.max}
-          placeholder={field.placeholder}
-          aria-invalid={invalid || undefined}
-          onChange={(event) => onChange(event.target.value)}
-        />
-      )}
-
-      {invalid && (
-        <p role="alert" className="text-xs text-destructive">
-          Enter a number, or press Reset to restore the current value.
-        </p>
-      )}
-
-      {field.helpText && (
-        <p className="text-xs text-muted-foreground">{field.helpText}</p>
-      )}
+        {field.helpText && (
+          <p className="text-xs text-muted-foreground">{field.helpText}</p>
+        )}
+      </div>
     </div>
   )
 }

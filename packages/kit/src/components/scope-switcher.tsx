@@ -64,7 +64,7 @@ function ScopeGlyph({
     <span
       data-slot="scope-glyph"
       aria-hidden="true"
-      className={`grid size-6 shrink-0 place-items-center rounded-md [&>svg]:size-3.5 ${className ?? "bg-primary text-primary-foreground"}`}
+      className={`grid size-8 shrink-0 place-items-center rounded-md [&>svg]:size-5 ${className ?? "bg-primary text-primary-foreground"}`}
     >
       {icon}
     </span>

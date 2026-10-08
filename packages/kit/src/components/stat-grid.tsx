@@ -42,7 +42,12 @@ export function Stat({ label, value, hint, tone = "default" }: StatItem) {
     <Card size="sm" data-tone={tone} className={TONE_CARD[tone]}>
       <CardHeader>
         <CardDescription>{label}</CardDescription>
-        <CardTitle className={cn("text-2xl tabular-nums", TONE_VALUE[tone])}>
+        <CardTitle
+          className={cn(
+            "font-mono text-[1.7rem] tracking-tight tabular-nums group-data-[size=sm]/card:text-[1.7rem]",
+            TONE_VALUE[tone]
+          )}
+        >
           {value}
         </CardTitle>
         {hint && <CardDescription className="text-xs">{hint}</CardDescription>}
@@ -68,7 +73,7 @@ export function StatGrid({ items, className }: StatGridProps) {
   return (
     <div
       className={cn(
-        "grid grid-cols-1 gap-4 @xl/main:grid-cols-2 @5xl/main:grid-cols-4",
+        "grid grid-cols-1 gap-4 @xl/main:grid-cols-2 @3xl/main:grid-cols-4",
         className
       )}
     >

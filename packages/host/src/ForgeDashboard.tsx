@@ -13,6 +13,8 @@ import type { AuthScreens } from "./auth/routes"
 export interface ForgeDashboardProps {
   /** Passed straight to ForgeDashboardProvider, which memoizes on identity. */
   config: DashboardConfigInput
+  /** Handed to PluginHost, which renders it in the site header's actions slot. */
+  headerActions?: ReactNode
   /**
    * Every plugin this host mounts. Whichever carries `root: true` claims "/";
    * the rest mount under their own "/@namespace". Array order is the
@@ -47,6 +49,7 @@ export function ForgeDashboard({
   basename,
   fetchImpl,
   authScreens,
+  headerActions,
 }: ForgeDashboardProps): ReactNode {
   return (
     <ForgeDashboardProvider config={config}>
@@ -54,6 +57,7 @@ export function ForgeDashboard({
         <BrowserRouter basename={basename}>
           <SessionProvider fetchImpl={fetchImpl}>
             <PluginHost
+              headerActions={headerActions}
               authScreens={authScreens}
               basename={basename}
               fetchImpl={fetchImpl}

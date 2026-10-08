@@ -1,13 +1,5 @@
 import type { ReactNode } from "react"
-import { cn } from "@forge-go/dashboard-kit/lib/utils"
-import {
-  Empty,
-  EmptyContent,
-  EmptyDescription,
-  EmptyHeader,
-  EmptyMedia,
-  EmptyTitle,
-} from "@forge-go/dashboard-kit/components/empty"
+import { ZeroState } from "@forge-go/dashboard-kit/components/zero-state"
 
 export interface EmptyStateProps {
   /** What is missing, as a sentence. "No users yet." */
@@ -35,13 +27,12 @@ export function EmptyState({
   className,
 }: EmptyStateProps) {
   return (
-    <Empty role="status" className={cn("border", className)}>
-      <EmptyHeader>
-        {icon && <EmptyMedia variant="icon">{icon}</EmptyMedia>}
-        <EmptyTitle>{title}</EmptyTitle>
-        {description && <EmptyDescription>{description}</EmptyDescription>}
-      </EmptyHeader>
-      {action && <EmptyContent>{action}</EmptyContent>}
-    </Empty>
+    <ZeroState
+      title={title}
+      body={description}
+      illustration={icon}
+      action={action}
+      className={className}
+    />
   )
 }

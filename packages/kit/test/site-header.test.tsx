@@ -31,6 +31,9 @@ describe("SiteHeader", () => {
 
   it("renders the title it is given", () => {
     renderHeader("Rooms")
-    expect(screen.getByRole("heading", { name: "Rooms" })).toBeTruthy()
+    expect(
+      screen.getByRole("navigation", { name: "Breadcrumb" }).textContent
+    ).toBe("Rooms")
+    expect(screen.queryByRole("heading")).toBeNull()
   })
 })
