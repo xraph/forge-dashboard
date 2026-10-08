@@ -5935,6 +5935,7 @@ Body, for example: the span map scales to the last chunk's end rather than the r
 **Interfaces:**
 - Consumes: `Chunk`, `ChunkDetail`, `Collection`, `ListOutput` (types); `useSearchParam`, `useSetSearchParams`, `chunkPath`, `documentPath`, `collectionPath`, `pageOf`, `offsetFor`, `PAGE_SIZE`, `Id`, `IdLink`, `MetadataList`, `formatCount`, `isRealTime`, `plural` (Task 1).
 - Produces: `ChunksPage`, `ChunkDetailPage`.
+- Also consumes `useCollectionOptions(selected, emptyLabel): { options; note: string | null; loading: boolean; error: boolean }` from `src/collection-options.ts`, which Task 9's review fix added. It reads `collections.list`, labels a selected ID it can't list, and says when the list failed or is capped at 100.
 
 - [ ] **Step 1: Write the failing tests**
 
@@ -6138,7 +6139,8 @@ import { IdLink } from "../components/id"
 import { formatCount, plural } from "../format"
 import { chunkPath, documentPath, useSearchParam, useSetSearchParams } from "../links"
 import { PAGE_SIZE, offsetFor, pageOf } from "../paging"
-import type { Chunk, Collection, ListOutput } from "../types"
+import { useCollectionOptions } from "../collection-options"
+import type { Chunk, ListOutput } from "../types"
 
 const columns: Column<Chunk>[] = [
   { id: "id", header: "Chunk", cell: (c) => <IdLink to={chunkPath(c.id)} value={c.id} label={`Open chunk ${c.id}`} /> },
@@ -6165,15 +6167,8 @@ export const ChunksPage: ComponentType<PluginPageProps> = () => {
   const collectionId = useSearchParam("collection_id")
   const setParams = useSetSearchParams("/chunks")
   const [offset, setOffset] = useState(0)
-  const collections = useQuery<ListOutput<Collection>>("collections.list", { limit: 100 })
+  const picker = useCollectionOptions(collectionId, "Pick a collection")
   const chunks = useQuery<ListOutput<Chunk>>("chunks.list", { collection_id: collectionId, limit: PAGE_SIZE, offset }, { enabled: collectionId !== "" })
-
-  const known = collections.data?.items ?? []
-  const options = [
-    { label: "Pick a collection", value: "" },
-    ...known.map((c) => ({ label: c.name, value: c.id })),
-    ...(collectionId !== "" && !known.some((c) => c.id === collectionId) ? [{ label: collectionId, value: collectionId }] : []),
-  ]
 
   return (
     <section className="flex flex-col gap-4">
@@ -6184,7 +6179,7 @@ export const ChunksPage: ComponentType<PluginPageProps> = () => {
             id: "collection",
             label: "Collection",
             value: collectionId,
-            options,
+            options: picker.options,
             onChange: (v) => {
               setOffset(0)
               setParams({ collection_id: v })
@@ -6192,6 +6187,11 @@ export const ChunksPage: ComponentType<PluginPageProps> = () => {
           },
         ]}
       />
+      {picker.note ? (
+        <p className={picker.error ? "text-xs text-destructive" : "text-xs text-muted-foreground"} role={picker.error ? "alert" : "status"}>
+          {picker.note}
+        </p>
+      ) : null}
       {collectionId === "" ? (
         <EmptyState title="Pick a collection" description="Chunks are listed one collection at a time, because a listing across every collection is a scan nobody needs." />
       ) : (
@@ -6690,6 +6690,7 @@ Body, for example: the rules the retrieval page leans on live here and are teste
 **Interfaces:**
 - Consumes: everything in `src/retrieval/model.ts` (Task 12); `scoreHeader(kind, vectorScore?)`, `retrieverSentence` (Task 4; MMR and similarity scores are labelled by the vector store's score kind, so pass `components?.vector_store.score`); `MetadataList`, `Id`, `TenantFilter`, `withTenant`, `chunkPath`, `documentPath`, `formatScore`, `formatMs`, `formatCount`, `plural`, `isRealTime`, `utf8Length` (Task 1); types `RunOutput`, `AssembledContext`, `Hit`, `ComponentsOutput`, `Collection`, `ListOutput`.
 - Produces: `RetrievalPage`; `useWide()`; `RankingTable`, `Inspector`, `ContextView`.
+- Also consumes `useCollectionOptions(selected, emptyLabel)` from `src/collection-options.ts` (added by Task 9's review fix) for the Collection picker. Tests that look for the "support-articles" option still work, because the hook lists each collection by name.
 
 The page someone opens when an answer was bad. The spec's "Retrieval" section is the design and this task builds exactly it: a form, a one-paragraph summary, three tabs (Ranking, Context sent to the model, Left out), an inspector beside the ranking on wide screens and in a sheet on narrow ones, and three kinds of empty. Read that section and the slice 1 hand-off's "Behaviours that differ from the plan" before you start.
 
@@ -7397,7 +7398,8 @@ import { emptiness, emptinessCopy, noReorderingCopy } from "../retrieval/model"
 import { RankingTable, SourceCell } from "../retrieval/ranking-table"
 import { retrieverSentence, scoreHeader } from "../score"
 import { withTenant } from "../tenant"
-import type { AssembledContext, Collection, ComponentsOutput, Hit, ListOutput, RunOutput } from "../types"
+import { useCollectionOptions } from "../collection-options"
+import type { AssembledContext, ComponentsOutput, Hit, RunOutput } from "../types"
 import { useWide } from "../use-wide"
 
 const QUERY_CAP = 8192
@@ -7439,12 +7441,12 @@ function scoreOrZero(raw: string): number {
 
 export const RetrievalPage: ComponentType<PluginPageProps> = () => {
   const report = useQuery<ComponentsOutput>("system.components", {})
-  const collections = useQuery<ListOutput<Collection>>("collections.list", { limit: 100 })
   const run = useCommand<RunOutput>("retrieval.run")
   const wide = useWide()
 
   const [query, setQuery] = useState("")
   const [collectionId, setCollectionId] = useState("")
+  const picker = useCollectionOptions(collectionId, "All collections")
   const [tenant, setTenant] = useState<string | null>(null)
   const [topK, setTopK] = useState("")
   const [minScore, setMinScore] = useState("")
@@ -7505,13 +7507,17 @@ export const RetrievalPage: ComponentType<PluginPageProps> = () => {
           <div className="flex flex-col gap-1">
             <Label htmlFor="retrieval-collection">Collection</Label>
             <NativeSelect id="retrieval-collection" value={collectionId} onChange={(e) => setCollectionId(e.target.value)}>
-              <NativeSelectOption value="">All collections</NativeSelectOption>
-              {(collections.data?.items ?? []).map((c) => (
-                <NativeSelectOption key={c.id} value={c.id}>
-                  {c.name}
+              {picker.options.map((o) => (
+                <NativeSelectOption key={o.value} value={o.value}>
+                  {o.label}
                 </NativeSelectOption>
               ))}
             </NativeSelect>
+            {picker.note ? (
+              <p className={picker.error ? "text-xs text-destructive" : "text-xs text-muted-foreground"} role={picker.error ? "alert" : "status"}>
+                {picker.note}
+              </p>
+            ) : null}
           </div>
           <TenantFilter value={tenant} onChange={setTenant} />
           <div className="flex flex-col gap-1">
