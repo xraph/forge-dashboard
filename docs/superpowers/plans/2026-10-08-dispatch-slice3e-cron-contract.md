@@ -10,6 +10,19 @@
 
 **Spec:** ../specs/2026-10-07-dispatch-dashboard-migration-design.md
 
+## Execution result
+
+Implemented in `aaa8636` and `7e49bb1`. Missing factories and unregistered intents
+were observed failing before implementation. Direct memory/SQLite tests cover
+stored state, payload and queue preservation, future enable times, invalid
+schedules, redacted read failure and a DST transition. Both queries and all four
+commands pass through the real HTTP transport with expected invalidations.
+
+Extension race tests, full build/unit tests and ordinary lint pass. The first
+full lint attempt encountered another process's lock; serial mode passed. The
+independent reviewer approved without findings and reran focused tests in
+readonly module mode. Live scheduler/browser qualification remains pending.
+
 ## Global constraints
 
 - Main primary checkouts only. Preserve concurrent edits, especially module files. Focused local commits, no branches, worktrees or push.
