@@ -1,8 +1,10 @@
 import { useEffect, useId, useRef, useState } from "react"
 import type { FormEvent } from "react"
 import {
+  queryStore,
   useCommand,
   useNavigateTo,
+  usePluginClient,
   useQuery,
 } from "@forge-go/dashboard-plugin"
 import { Button } from "@forge-go/dashboard-kit/components/button"
@@ -34,6 +36,13 @@ import {
   RadioGroupItem,
 } from "@forge-go/dashboard-kit/components/radio-group"
 import { Textarea } from "@forge-go/dashboard-kit/components/textarea"
+import {
+  alreadyRan,
+  claimFailed,
+  lostAnswer,
+  stillRunning,
+  useAttemptKey,
+} from "../attempt"
 import { ENVIRONMENTS, formatDuration, keyPath } from "../format"
 import type {
   Environment,
@@ -41,6 +50,7 @@ import type {
   PoliciesList,
   ScopesList,
 } from "../types"
+import { KeyListLink } from "./key-list-link"
 import { OneTimeKey } from "./one-time-key"
 
 const MAX_NAME_LENGTH = 200
@@ -55,6 +65,15 @@ const EXPIRY_IN_PAST = "Choose today or a later date."
 // The most each picker asks for, and what its "first N" lines say.
 const PICKER_LIMIT = 200
 const PICKER_PARAMS = { limit: PICKER_LIMIT }
+// What keys.create invalidates when it succeeds. A lost or unrepeatable
+// answer carried no invalidation, yet a key may exist, so the form asks for
+// the same reloads itself.
+const CREATE_INVALIDATES = [
+  "keys.list",
+  "keys.detail",
+  "overview",
+  "policies.detail",
+]
 
 function pad(n: number): string {
   return String(n).padStart(2, "0")
@@ -161,7 +180,9 @@ function CreateKeyForm({
     error: useId(),
   }
   const navigate = useNavigateTo()
+  const client = usePluginClient()
   const create = useCommand<KeyWithSecret>("keys.create")
+  const attemptKey = useAttemptKey()
   const policies = useQuery<PoliciesList>("policies.list", PICKER_PARAMS)
   const scopes = useQuery<ScopesList>("scopes.list", PICKER_PARAMS)
 
@@ -201,6 +222,19 @@ function CreateKeyForm({
   }, [locked, onLockedChange])
   useEffect(() => () => onLockedChange(false), [onLockedChange])
 
+  // An answer the server will not repeat ends the key: pressing Create again
+  // after reading why is a new command. Either way the list may have a key it
+  // does not show yet.
+  const spent = alreadyRan(create.error)
+  const lost = lostAnswer(create.error)
+  // Neither is an answer about the command itself, so the key stays.
+  const running = stillRunning(create.error)
+  const unclaimed = claimFailed(create.error)
+  useEffect(() => {
+    if (spent) attemptKey.end()
+    if (spent || lost) queryStore.invalidate(client.extension, CREATE_INVALIDATES)
+  }, [spent, lost, attemptKey, client.extension])
+
   const message = problem ?? create.error?.message
   const nameInvalid = message === NAME_REQUIRED || message === NAME_TOO_LONG
   const prefixInvalid = message === PREFIX_INVALID
@@ -224,6 +258,12 @@ function CreateKeyForm({
   const scopesWaiting = scopes.loading && !scopes.data
   const policiesWaiting = policies.loading && !policies.data
   const listsWaiting = scopesWaiting || policiesWaiting
+
+  // The lists blank only on a context switch (and before their first answer).
+  // The same form in another tenant is another command, so it gets a new key.
+  useEffect(() => {
+    if (listsWaiting) attemptKey.end()
+  }, [listsWaiting, attemptKey])
 
   // Once they answer, a pick the new lists do not hold comes off the form,
   // and the form says which. Adjusted during render, so no commit ever
@@ -279,18 +319,22 @@ function CreateKeyForm({
       .filter((s) => picked.includes(s.name))
       .map((s) => s.name)
 
+    const payload = {
+      name: trimmed,
+      ...(description.trim() !== "" && { description: description.trim() }),
+      environment,
+      prefix,
+      ...(policyId !== "" && { policyId }),
+      // A date input has no time: the end of that day where the operator is.
+      ...(expiry !== "" && { expiresAt: endOfLocalDay(expiry).toISOString() }),
+      scopes: chosen,
+    }
+
     sending.current = true
     let result: KeyWithSecret | undefined
     try {
-      result = await create.execute({
-        name: trimmed,
-        ...(description.trim() !== "" && { description: description.trim() }),
-        environment,
-        prefix,
-        ...(policyId !== "" && { policyId }),
-        // A date input has no time: the end of that day where the operator is.
-        ...(expiry !== "" && { expiresAt: endOfLocalDay(expiry).toISOString() }),
-        scopes: chosen,
+      result = await create.execute(payload, {
+        idempotencyKey: attemptKey.keyFor(payload),
       })
     } finally {
       sending.current = false
@@ -299,6 +343,7 @@ function CreateKeyForm({
     // Copy first, then drop the hook's own copy of the answer.
     setRevealed(result)
     create.reset()
+    attemptKey.end()
   }
 
   function changePolicy(id: string) {
@@ -557,7 +602,26 @@ function CreateKeyForm({
 
       {message && (
         <p id={ids.error} role="alert" className="text-sm text-destructive">
-          {message}
+          {problem === null && spent ? (
+            <>
+              Your key was created, but its secret can&apos;t be shown again.
+              Revoke it from the <KeyListLink onFollow={onClose} />, then
+              create it again.
+            </>
+          ) : problem === null && lost ? (
+            <>
+              The server&apos;s answer didn&apos;t arrive, so your key may have
+              been created. Check the <KeyListLink onFollow={onClose} /> before
+              you try again. Pressing Create key again without changing
+              anything won&apos;t make a second one.
+            </>
+          ) : problem === null && running ? (
+            "Your earlier attempt is still finishing, so try again in a moment."
+          ) : problem === null && unclaimed ? (
+            "The server couldn't take this just now. Try again in a moment."
+          ) : (
+            message
+          )}
         </p>
       )}
 

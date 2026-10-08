@@ -6,7 +6,11 @@ import {
   PluginProvider,
   queryStore,
 } from "@forge-go/dashboard-plugin"
-import type { PluginPageProps, ScopedClient } from "@forge-go/dashboard-plugin"
+import type {
+  CommandOptions,
+  PluginPageProps,
+  ScopedClient,
+} from "@forge-go/dashboard-plugin"
 import { FakeHost } from "./fake-host"
 import type { Navigated } from "./fake-host"
 
@@ -69,6 +73,86 @@ export function recordingCommandClient(
       command: (intent: string, payload?: unknown) => {
         sent.push({ intent, payload })
         return inner.command(intent, payload)
+      },
+    } as ScopedClient,
+  }
+}
+
+/** What forge v1.12.1's dispatcher answers to a replayed secret command. */
+export const ALREADY_RAN_MESSAGE =
+  "command already ran and its response held a secret that is not kept; send a new idempotency key to run it again"
+
+/** What forge v1.12.2's dispatcher answers to a repeat while the first runs. */
+export const STILL_RUNNING_MESSAGE =
+  "the same command is still running under this idempotency key; retry once it finishes"
+
+/**
+ * Stands in for the dispatcher in front of a command whose answer holds a raw
+ * key. It remembers every idempotency key it ran each intent under, and a
+ * repeat answers CONFLICT without running anything, as forge v1.12.1 does.
+ * `loseNextAnswer` makes the next command run and then lose its answer on the
+ * way back, which reaches the page as TRANSPORT. `holdNextRun` keeps the next
+ * command's claim on its key until `finishRuns`, as forge v1.12.2 does while
+ * a command runs, so a repeat in between answers CONFLICT, still running.
+ */
+export function secretCommandClient(
+  answers: Record<string, unknown>,
+  commands: Record<string, unknown>,
+): {
+  client: ScopedClient
+  sent: { intent: string; payload: unknown; idempotencyKey?: string }[]
+  /** How many times each intent actually ran. */
+  ran: Record<string, number>
+  loseNextAnswer: () => void
+  holdNextRun: () => void
+  finishRuns: () => void
+} {
+  const sent: { intent: string; payload: unknown; idempotencyKey?: string }[] = []
+  const ran: Record<string, number> = {}
+  const seen = new Set<string>()
+  let lose = 0
+  let hold = false
+  const claimed = new Set<string>()
+  const inner = stubClient(answers, commands)
+  return {
+    sent,
+    ran,
+    loseNextAnswer: () => {
+      lose += 1
+    },
+    holdNextRun: () => {
+      hold = true
+    },
+    finishRuns: () => {
+      for (const k of claimed) seen.add(k)
+      claimed.clear()
+    },
+    client: {
+      extension: inner.extension,
+      query: inner.query,
+      command: async (intent: string, payload?: unknown, opts?: CommandOptions) => {
+        const key = opts?.idempotencyKey
+        sent.push({ intent, payload, idempotencyKey: key })
+        const at = `${key}:${intent}`
+        if (key !== undefined && claimed.has(at)) {
+          throw new ContractError("CONFLICT", STILL_RUNNING_MESSAGE)
+        }
+        if (key !== undefined && seen.has(at)) {
+          throw new ContractError("CONFLICT", ALREADY_RAN_MESSAGE)
+        }
+        const answer = await inner.command(intent, payload)
+        ran[intent] = (ran[intent] ?? 0) + 1
+        if (key !== undefined && hold) {
+          hold = false
+          claimed.add(at)
+        } else if (key !== undefined) {
+          seen.add(at)
+        }
+        if (lose > 0) {
+          lose -= 1
+          throw new ContractError("TRANSPORT", "contract request failed with HTTP 502")
+        }
+        return answer
       },
     } as ScopedClient,
   }

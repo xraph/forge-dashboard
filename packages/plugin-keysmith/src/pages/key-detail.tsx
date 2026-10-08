@@ -210,6 +210,7 @@ function KeyDetailBody({ id }: { id: string }) {
             summary={latest.key}
             policy={latest.policy}
             onRotated={resetReactivate}
+            contextCleared={detail.data === undefined && detail.loading}
           />
           <EndGraceDialog
             open={ending}

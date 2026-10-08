@@ -1310,6 +1310,48 @@ describe("KeyDetailPage rotate through the refetch", () => {
     expect(host.sent.map((s) => s.intent)).toEqual(["keys.rotate"])
   })
 
+  it("rotates under a new idempotency key once a context switch blanks the page", async () => {
+    const host = hostLikeClient(detail({ previousKeys: [] }), {
+      "keys.rotate": [
+        { error: new ContractError("TRANSPORT", "contract request failed with HTTP 502") },
+        {
+          answer: ROTATED,
+          invalidates: ["keys.list", "keys.detail", "rotations.list", "overview"],
+          next: AFTER,
+        },
+      ],
+    })
+    const keys: (string | undefined)[] = []
+    const client = {
+      ...host.client,
+      command: (intent: string, payload?: unknown, opts?: { idempotencyKey?: string }) => {
+        keys.push(opts?.idempotencyKey)
+        return host.client.command(intent, payload)
+      },
+    } as ScopedClient
+    renderPage(KeyDetailPage, client, { id: "akey_billing" })
+    await screen.findByRole("heading", { level: 1, name: "Billing service" })
+
+    fireEvent.click(screen.getByRole("button", { name: "Rotate key" }))
+    const form = await screen.findByRole("dialog", { name: "Rotate key" })
+    fireEvent.click(within(form).getByRole("button", { name: "Rotate key" }))
+    await within(form).findByRole("alert")
+    host.releaseReads()
+
+    act(() => queryStore.clear())
+    await screen.findByRole("status", { name: "Loading Key", hidden: true })
+    host.releaseReads()
+    await waitFor(() =>
+      expect(screen.queryByRole("status", { name: "Loading Key", hidden: true })).toBeNull(),
+    )
+
+    fireEvent.click(within(form).getByRole("button", { name: "Rotate key" }))
+    await screen.findByRole("dialog", { name: "Save your new key" })
+    expect(keys).toHaveLength(2)
+    expect(keys[0]).toBeTruthy()
+    expect(keys[1]).not.toBe(keys[0])
+  })
+
   it("keeps the new key on screen when the refetch after the rotation fails", async () => {
     const host = hostLikeClient(
       detail({ previousKeys: [] }),

@@ -24,7 +24,7 @@ import type {
   PoliciesList,
   ScopesList,
 } from "../src/types"
-import { recordingCommandClient } from "./harness"
+import { recordingCommandClient, secretCommandClient } from "./harness"
 
 // Obviously fake. A realistic-looking key never goes in a test.
 const RAW_KEY = `sk_test_${"0123456789abcdef".repeat(2)}a3f8`
@@ -903,5 +903,288 @@ describe("CreateKeyDialog reveal", () => {
     await dialog()
     fireEvent.keyDown(document.body, { key: "Escape" })
     await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull())
+  })
+})
+
+/** Every record in the query store, serialised. See the Done test above. */
+function storeText(): string {
+  const records = (queryStore as unknown as { records: Map<string, unknown> })
+    .records
+  return JSON.stringify([...records.values()])
+}
+
+function secretServer() {
+  return secretCommandClient(
+    { "policies.list": POLICIES, "scopes.list": SCOPES },
+    { "keys.create": WITH_SECRET }
+  )
+}
+
+const LOST =
+  "The server's answer didn't arrive, so your key may have been created. Check the key list before you try again. Pressing Create key again without changing anything won't make a second one."
+const SPENT =
+  "Your key was created, but its secret can't be shown again. Revoke it from the key list, then create it again."
+
+describe("CreateKeyDialog idempotency", () => {
+  it("sends the same key again after the answer was lost, so the retry cannot make a second key", async () => {
+    const server = secretServer()
+    mount(server.client)
+    await screen.findByRole("checkbox", { name: "billing:read" })
+    server.loseNextAnswer()
+    await submitNamed()
+
+    const alert = await screen.findByRole("alert")
+    expect(alert.textContent).toBe(LOST)
+    expect(
+      within(alert).getByRole("link", { name: "key list" }).getAttribute("href")
+    ).toBe("/keys")
+    expect((screen.getByLabelText("Name") as HTMLInputElement).value).toBe(
+      "Billing service"
+    )
+
+    // The first one did run. Pressing again is the same command, and the
+    // server says so rather than minting another key.
+    fireEvent.click(createButton())
+    await waitFor(() => expect(server.sent).toHaveLength(2))
+    expect(server.sent[0].idempotencyKey).toBeTruthy()
+    expect(server.sent[1].idempotencyKey).toBe(server.sent[0].idempotencyKey)
+    expect(server.ran["keys.create"]).toBe(1)
+    await waitFor(() => expect(screen.getByRole("alert").textContent).toBe(SPENT))
+  })
+
+  it("counts a fetch that failed outright as a lost answer", async () => {
+    const base = secretServer()
+    const client = {
+      extension: base.client.extension,
+      query: base.client.query,
+      command: async () => {
+        throw new TypeError("Failed to fetch")
+      },
+    } as ScopedClient
+    mount(client)
+    await screen.findByRole("checkbox", { name: "billing:read" })
+    await submitNamed()
+    expect((await screen.findByRole("alert")).textContent).toBe(LOST)
+  })
+
+  it("mints a new key once an edit changes what would be sent", async () => {
+    const server = secretServer()
+    mount(server.client)
+    await screen.findByRole("checkbox", { name: "billing:read" })
+    server.loseNextAnswer()
+    await submitNamed("Billing service")
+    await screen.findByRole("alert")
+
+    fill("Name", "Billing worker")
+    fireEvent.click(createButton())
+    await screen.findByText("This is the only time Keysmith will show it.")
+    expect(server.sent).toHaveLength(2)
+    expect(server.sent[1].idempotencyKey).not.toBe(server.sent[0].idempotencyKey)
+    expect(server.ran["keys.create"]).toBe(2)
+  })
+
+  it("keeps the key when an edit is put back the way it was sent", async () => {
+    const server = secretServer()
+    mount(server.client)
+    await screen.findByRole("checkbox", { name: "billing:read" })
+    server.loseNextAnswer()
+    await submitNamed("Billing service")
+    await screen.findByRole("alert")
+
+    fill("Name", "Billing worker")
+    fill("Name", "Billing service")
+    fireEvent.click(createButton())
+    await waitFor(() => expect(screen.getByRole("alert").textContent).toBe(SPENT))
+    expect(server.sent[1].idempotencyKey).toBe(server.sent[0].idempotencyKey)
+  })
+
+  it("explains a create that already ran, with no raw key in the page or the store", async () => {
+    const server = secretServer()
+    mount(server.client)
+    await screen.findByRole("checkbox", { name: "billing:read" })
+    server.loseNextAnswer()
+    await submitNamed()
+    await screen.findByRole("alert")
+    fireEvent.click(createButton())
+
+    await waitFor(() => expect(screen.getByRole("alert").textContent).toBe(SPENT))
+    const alert = screen.getByRole("alert")
+    expect(alert.textContent).not.toContain("CONFLICT")
+    expect(alert.textContent).not.toContain("idempotency")
+    expect(
+      within(alert).getByRole("link", { name: "key list" }).getAttribute("href")
+    ).toBe("/keys")
+    expect(document.body.textContent).not.toContain(RAW_KEY)
+    expect(storeText()).not.toContain(RAW_KEY)
+    expect(createButton().disabled).toBe(false)
+  })
+
+  it("starts a new command after the server said the old one already ran", async () => {
+    const server = secretServer()
+    mount(server.client)
+    await screen.findByRole("checkbox", { name: "billing:read" })
+    server.loseNextAnswer()
+    await submitNamed()
+    await screen.findByRole("alert")
+    fireEvent.click(createButton())
+    await waitFor(() => expect(screen.getByRole("alert").textContent).toBe(SPENT))
+
+    // Read, revoked, and now asked for on purpose.
+    fireEvent.click(createButton())
+    await screen.findByText("This is the only time Keysmith will show it.")
+    expect(server.sent).toHaveLength(3)
+    expect(server.sent[2].idempotencyKey).not.toBe(server.sent[0].idempotencyKey)
+    expect(server.ran["keys.create"]).toBe(2)
+  })
+
+  it("shows keysmith's own CONFLICT as it is, and keeps the key", async () => {
+    const base = secretServer()
+    const keys: (string | undefined)[] = []
+    const client = {
+      extension: base.client.extension,
+      query: base.client.query,
+      command: async (
+        _intent: string,
+        _payload?: unknown,
+        opts?: { idempotencyKey?: string }
+      ) => {
+        keys.push(opts?.idempotencyKey)
+        throw new ContractError(
+          "CONFLICT",
+          "this key changed while you were acting on it. Reload and try again."
+        )
+      },
+    } as ScopedClient
+    mount(client)
+    await screen.findByRole("checkbox", { name: "billing:read" })
+    await submitNamed()
+    expect((await screen.findByRole("alert")).textContent).toBe(
+      "this key changed while you were acting on it. Reload and try again."
+    )
+    fireEvent.click(createButton())
+    await waitFor(() => expect(keys).toHaveLength(2))
+    expect(keys[1]).toBe(keys[0])
+  })
+
+  it("mints a new key after a context switch", async () => {
+    const server = secretServer()
+    mount(server.client)
+    await screen.findByRole("checkbox", { name: "billing:read" })
+    server.loseNextAnswer()
+    await submitNamed()
+    await screen.findByRole("alert")
+
+    // The same form in another tenant is another command.
+    act(() => queryStore.clear())
+    await waitFor(() => expect(createButton().disabled).toBe(false))
+    fireEvent.click(createButton())
+    await screen.findByText("This is the only time Keysmith will show it.")
+    expect(server.sent[1].idempotencyKey).not.toBe(server.sent[0].idempotencyKey)
+  })
+
+  it("mints a new key once the dialog is closed and opened again", async () => {
+    const server = secretServer()
+    mount(server.client)
+    await screen.findByRole("checkbox", { name: "billing:read" })
+    server.loseNextAnswer()
+    await submitNamed()
+    await screen.findByRole("alert")
+
+    fireEvent.click(screen.getByRole("button", { name: "Cancel" }))
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull())
+    fireEvent.click(screen.getByRole("button", { name: "Open the dialog" }))
+    await screen.findByRole("checkbox", { name: "billing:read" })
+    await submitNamed()
+    await screen.findByText("This is the only time Keysmith will show it.")
+    expect(server.sent[1].idempotencyKey).not.toBe(server.sent[0].idempotencyKey)
+  })
+
+  it("mints a new key for the next key after a reveal", async () => {
+    const server = secretServer()
+    mount(server.client)
+    await screen.findByRole("checkbox", { name: "billing:read" })
+    await submitNamed()
+    await screen.findByText("This is the only time Keysmith will show it.")
+    fireEvent.click(screen.getByRole("checkbox"))
+    fireEvent.click(screen.getByRole("button", { name: "Done" }))
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull())
+
+    fireEvent.click(screen.getByRole("button", { name: "Open the dialog" }))
+    await screen.findByRole("checkbox", { name: "billing:read" })
+    await submitNamed()
+    await screen.findByText("This is the only time Keysmith will show it.")
+    expect(server.sent[1].idempotencyKey).not.toBe(server.sent[0].idempotencyKey)
+    expect(server.ran["keys.create"]).toBe(2)
+  })
+
+  it("closes the dialog when the key list link is followed", async () => {
+    const server = secretServer()
+    mount(server.client)
+    await screen.findByRole("checkbox", { name: "billing:read" })
+    server.loseNextAnswer()
+    await submitNamed()
+    const alert = await screen.findByRole("alert")
+    // The stand-in Link is a bare anchor, and jsdom cannot navigate.
+    document.addEventListener("click", (e) => e.preventDefault(), { once: true })
+    fireEvent.click(within(alert).getByRole("link", { name: "key list" }))
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull())
+  })
+
+  it("keeps the key while the first create is still running, then says it already ran", async () => {
+    const server = secretServer()
+    mount(server.client)
+    await screen.findByRole("checkbox", { name: "billing:read" })
+    server.holdNextRun()
+    server.loseNextAnswer()
+    await submitNamed()
+    expect((await screen.findByRole("alert")).textContent).toBe(LOST)
+
+    // The first send is still out on the server.
+    fireEvent.click(createButton())
+    await waitFor(() =>
+      expect(screen.getByRole("alert").textContent).toBe(
+        "Your earlier attempt is still finishing, so try again in a moment."
+      )
+    )
+    server.finishRuns()
+    fireEvent.click(createButton())
+    await waitFor(() => expect(screen.getByRole("alert").textContent).toBe(SPENT))
+    expect(server.sent.map((s) => s.idempotencyKey)).toEqual([
+      server.sent[0].idempotencyKey,
+      server.sent[0].idempotencyKey,
+      server.sent[0].idempotencyKey,
+    ])
+    expect(server.ran["keys.create"]).toBe(1)
+    expect(document.body.textContent).not.toContain(RAW_KEY)
+  })
+
+  it("keeps the key when the server could not claim it, and says to try again", async () => {
+    const base = secretServer()
+    const keys: (string | undefined)[] = []
+    const client = {
+      extension: base.client.extension,
+      query: base.client.query,
+      command: async (
+        intent: string,
+        payload?: unknown,
+        opts?: { idempotencyKey?: string }
+      ) => {
+        keys.push(opts?.idempotencyKey)
+        if (keys.length === 1) {
+          throw new ContractError("UNAVAILABLE", "could not claim the idempotency key")
+        }
+        return base.client.command(intent, payload, opts)
+      },
+    } as ScopedClient
+    mount(client)
+    await screen.findByRole("checkbox", { name: "billing:read" })
+    await submitNamed()
+    expect((await screen.findByRole("alert")).textContent).toBe(
+      "The server couldn't take this just now. Try again in a moment."
+    )
+    fireEvent.click(createButton())
+    await screen.findByText("This is the only time Keysmith will show it.")
+    expect(keys).toHaveLength(2)
+    expect(keys[1]).toBe(keys[0])
   })
 })

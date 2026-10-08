@@ -1,6 +1,10 @@
 import { useEffect, useId, useRef, useState } from "react"
 import type { FormEvent } from "react"
-import { useCommand } from "@forge-go/dashboard-plugin"
+import {
+  queryStore,
+  useCommand,
+  usePluginClient,
+} from "@forge-go/dashboard-plugin"
 import { Button } from "@forge-go/dashboard-kit/components/button"
 import {
   Dialog,
@@ -28,6 +32,13 @@ import {
   RadioGroup,
   RadioGroupItem,
 } from "@forge-go/dashboard-kit/components/radio-group"
+import {
+  alreadyRan,
+  claimFailed,
+  lostAnswer,
+  stillRunning,
+  useAttemptKey,
+} from "../attempt"
 import { maskedKey } from "../format"
 import type {
   KeyRotated,
@@ -35,6 +46,7 @@ import type {
   PolicyRef,
   RotationReason,
 } from "../types"
+import { KeyListLink } from "./key-list-link"
 import { RotateKeyReveal } from "./rotate-key-reveal"
 import type { Rotation } from "./rotate-key-reveal"
 
@@ -43,6 +55,15 @@ const MAX_GRACE_SECONDS = 7776000
 const GRACE_INVALID = "Grace must be between 0 hours and 90 days."
 const DEFAULT_GRACE_HOURS = 24
 const COMPROMISE_WARNING = "The current key stops working the moment you rotate."
+// What keys.rotate invalidates when it succeeds. A lost or unrepeatable answer
+// carried no invalidation, yet the key may have rotated, so the form asks for
+// the same reloads itself.
+const ROTATE_INVALIDATES = [
+  "keys.list",
+  "keys.detail",
+  "rotations.list",
+  "overview",
+]
 
 type Unit = "hours" | "days"
 const UNIT_SECONDS: Record<Unit, number> = { hours: 3600, days: 86400 }
@@ -100,6 +121,11 @@ export interface RotateKeyDialogProps {
   policy: PolicyRef | null
   /** Runs once the rotation succeeded, as the new key is revealed. */
   onRotated?: () => void
+  /**
+   * The page's data was blanked by a context switch. The same form in another
+   * tenant is another command, so the form forgets its idempotency key.
+   */
+  contextCleared?: boolean
 }
 
 /**
@@ -121,6 +147,7 @@ export function RotateKeyDialog({
   summary,
   policy,
   onRotated,
+  contextCleared = false,
 }: RotateKeyDialogProps) {
   const [locked, setLocked] = useState(false)
 
@@ -146,6 +173,7 @@ export function RotateKeyDialog({
           onClose={() => onOpenChange(false)}
           onLockedChange={setLocked}
           onRotated={onRotated}
+          contextCleared={contextCleared}
         />
       </DialogContent>
     </Dialog>
@@ -158,19 +186,23 @@ function RotateKeyForm({
   onClose,
   onLockedChange,
   onRotated,
+  contextCleared,
 }: {
   summary: KeySummary
   policy: PolicyRef | null
   onClose: () => void
   onLockedChange: (locked: boolean) => void
   onRotated?: () => void
+  contextCleared: boolean
 }) {
   const ids = {
     grace: useId(),
     graceNote: useId(),
     error: useId(),
   }
+  const client = usePluginClient()
   const rotate = useCommand<KeyRotated>("keys.rotate")
+  const attemptKey = useAttemptKey()
   const preset = presetGrace(policy)
 
   const [reason, setReason] = useState<RotationReason>("manual")
@@ -206,6 +238,23 @@ function RotateKeyForm({
   const graceSeconds =
     mode === "preset" ? preset.seconds : parseGrace(shown.value, shown.unit)
   const warnsImmediate = graceSeconds === 0
+
+  // An answer the server will not repeat ends the key: pressing Rotate again
+  // after reading why is a new command. Either way the page may be showing
+  // the key as it was before a rotation that did happen.
+  const spent = alreadyRan(rotate.error)
+  const lost = lostAnswer(rotate.error)
+  // Neither is an answer about the command itself, so the key stays.
+  const running = stillRunning(rotate.error)
+  const unclaimed = claimFailed(rotate.error)
+  useEffect(() => {
+    if (spent) attemptKey.end()
+    if (spent || lost) queryStore.invalidate(client.extension, ROTATE_INVALIDATES)
+  }, [spent, lost, attemptKey, client.extension])
+
+  useEffect(() => {
+    if (contextCleared) attemptKey.end()
+  }, [contextCleared, attemptKey])
 
   const message = problem ?? rotate.error?.message
   const graceInvalid = problem === GRACE_INVALID
@@ -244,15 +293,19 @@ function RotateKeyForm({
     // null means omitted, and the server's own default is never zero.
     const openedWindow = graceSeconds !== 0
 
+    const payload = {
+      id: summary.id,
+      reason,
+      // Omitted, not 24 hours, when the field is the untouched default:
+      // the server then applies its own, whatever it is by then.
+      ...(graceSeconds !== null && { graceSeconds }),
+    }
+
     sending.current = true
     let result: KeyRotated | undefined
     try {
-      result = await rotate.execute({
-        id: summary.id,
-        reason,
-        // Omitted, not 24 hours, when the field is the untouched default:
-        // the server then applies its own, whatever it is by then.
-        ...(graceSeconds !== null && { graceSeconds }),
+      result = await rotate.execute(payload, {
+        idempotencyKey: attemptKey.keyFor(payload),
       })
     } finally {
       sending.current = false
@@ -261,6 +314,7 @@ function RotateKeyForm({
     // Copy first, then drop the hook's own copy of the answer.
     setRevealed({ result, previousHint, urgent, openedWindow })
     rotate.reset()
+    attemptKey.end()
     onRotated?.()
   }
 
@@ -348,7 +402,26 @@ function RotateKeyForm({
 
       {message && (
         <p id={ids.error} role="alert" className="text-sm text-destructive">
-          {message}
+          {problem === null && spent ? (
+            <>
+              This key was rotated, but the new secret can&apos;t be shown
+              again. Rotate it again to get one you can save, or go back to
+              the <KeyListLink onFollow={onClose} />.
+            </>
+          ) : problem === null && lost ? (
+            <>
+              The server&apos;s answer didn&apos;t arrive, so this key may have
+              been rotated. Check the <KeyListLink onFollow={onClose} /> before
+              you try again. Pressing Rotate key again without changing
+              anything won&apos;t rotate it twice.
+            </>
+          ) : problem === null && running ? (
+            "Your earlier attempt is still finishing, so try again in a moment."
+          ) : problem === null && unclaimed ? (
+            "The server couldn't take this just now. Try again in a moment."
+          ) : (
+            message
+          )}
         </p>
       )}
 

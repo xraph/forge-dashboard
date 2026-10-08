@@ -22,7 +22,11 @@ import type {
   PolicyRef,
   PreviousKey,
 } from "../src/types"
-import { failingClient, recordingCommandClient } from "./harness"
+import {
+  failingClient,
+  recordingCommandClient,
+  secretCommandClient,
+} from "./harness"
 
 // Obviously fake. A realistic-looking key never goes in a test.
 const RAW_KEY = `sk_live_${"fedcba9876543210".repeat(2)}b7d2`
@@ -705,5 +709,191 @@ describe("RotateKeyDialog End now", () => {
     fireEvent.click(screen.getByRole("button", { name: "End now" }))
     const again = await screen.findByRole("alertdialog")
     expect(within(again).queryByRole("alert")).toBeNull()
+  })
+})
+
+function storeText(): string {
+  const records = (queryStore as unknown as { records: Map<string, unknown> })
+    .records
+  return JSON.stringify([...records.values()])
+}
+
+function secretServer() {
+  return secretCommandClient({}, { "keys.rotate": rotated([THIS_WINDOW]) })
+}
+
+/** The page's side of a context switch, under the test's control. */
+function SwitchingHost() {
+  const [open, setOpen] = useState(true)
+  const [cleared, setCleared] = useState(false)
+  return (
+    <>
+      <button type="button" onClick={() => setCleared((c) => !c)}>
+        Switch context
+      </button>
+      <RotateKeyDialog
+        open={open}
+        onOpenChange={setOpen}
+        summary={KEY}
+        policy={NO_POLICY_GRACE}
+        contextCleared={cleared}
+      />
+    </>
+  )
+}
+
+const LOST =
+  "The server's answer didn't arrive, so this key may have been rotated. Check the key list before you try again. Pressing Rotate key again without changing anything won't rotate it twice."
+const SPENT =
+  "This key was rotated, but the new secret can't be shown again. Rotate it again to get one you can save, or go back to the key list."
+
+describe("RotateKeyDialog idempotency", () => {
+  it("sends the same key again after the answer was lost, so the retry cannot rotate twice", async () => {
+    const server = secretServer()
+    mount(server.client)
+    await dialog()
+    server.loseNextAnswer()
+    fireEvent.click(rotateButton())
+
+    const alert = await screen.findByRole("alert")
+    expect(alert.textContent).toBe(LOST)
+    expect(
+      within(alert).getByRole("link", { name: "key list" }).getAttribute("href")
+    ).toBe("/keys")
+
+    fireEvent.click(rotateButton())
+    await waitFor(() => expect(server.sent).toHaveLength(2))
+    expect(server.sent[0].idempotencyKey).toBeTruthy()
+    expect(server.sent[1].idempotencyKey).toBe(server.sent[0].idempotencyKey)
+    expect(server.ran["keys.rotate"]).toBe(1)
+    await waitFor(() => expect(screen.getByRole("alert").textContent).toBe(SPENT))
+  })
+
+  it("mints a new key once an edit changes what would be sent", async () => {
+    const server = secretServer()
+    mount(server.client)
+    await dialog()
+    server.loseNextAnswer()
+    fireEvent.click(rotateButton())
+    await screen.findByRole("alert")
+
+    fireEvent.click(screen.getByRole("radio", { name: "Policy change" }))
+    fireEvent.click(rotateButton())
+    await screen.findByText("This is the only time Keysmith will show it.")
+    expect(server.sent[1].idempotencyKey).not.toBe(server.sent[0].idempotencyKey)
+    expect(server.ran["keys.rotate"]).toBe(2)
+  })
+
+  it("explains a rotation that already ran, with no raw key in the page or the store", async () => {
+    const server = secretServer()
+    mount(server.client)
+    await dialog()
+    server.loseNextAnswer()
+    fireEvent.click(rotateButton())
+    await screen.findByRole("alert")
+    fireEvent.click(rotateButton())
+
+    await waitFor(() => expect(screen.getByRole("alert").textContent).toBe(SPENT))
+    expect(document.body.textContent).not.toContain(RAW_KEY)
+    expect(storeText()).not.toContain(RAW_KEY)
+
+    // Rotating again is a new command, asked for on purpose.
+    fireEvent.click(rotateButton())
+    await screen.findByText("This is the only time Keysmith will show it.")
+    expect(server.sent).toHaveLength(3)
+    expect(server.sent[2].idempotencyKey).not.toBe(server.sent[0].idempotencyKey)
+    expect(server.ran["keys.rotate"]).toBe(2)
+  })
+
+  it("shows keysmith's own CONFLICT as it is", async () => {
+    mount(
+      failingClient(
+        new ContractError(
+          "CONFLICT",
+          "this key changed while you were acting on it. Reload and try again."
+        )
+      )
+    )
+    await dialog()
+    fireEvent.click(rotateButton())
+    expect((await screen.findByRole("alert")).textContent).toBe(
+      "this key changed while you were acting on it. Reload and try again."
+    )
+  })
+
+  it("mints a new key after a context switch", async () => {
+    const server = secretServer()
+    render(
+      <PluginProvider client={server.client}>
+        <SwitchingHost />
+      </PluginProvider>
+    )
+    await dialog()
+    server.loseNextAnswer()
+    fireEvent.click(rotateButton())
+    await screen.findByRole("alert")
+
+    fireEvent.click(screen.getByRole("button", { name: "Switch context", hidden: true }))
+    fireEvent.click(rotateButton())
+    await screen.findByText("This is the only time Keysmith will show it.")
+    expect(server.sent[1].idempotencyKey).not.toBe(server.sent[0].idempotencyKey)
+  })
+
+  it("keeps the key while the first rotation is still running, then says it already ran", async () => {
+    const server = secretServer()
+    mount(server.client)
+    await dialog()
+    server.holdNextRun()
+    server.loseNextAnswer()
+    fireEvent.click(rotateButton())
+    expect((await screen.findByRole("alert")).textContent).toBe(LOST)
+
+    // The first send is still out on the server.
+    fireEvent.click(rotateButton())
+    await waitFor(() =>
+      expect(screen.getByRole("alert").textContent).toBe(
+        "Your earlier attempt is still finishing, so try again in a moment."
+      )
+    )
+    server.finishRuns()
+    fireEvent.click(rotateButton())
+    await waitFor(() => expect(screen.getByRole("alert").textContent).toBe(SPENT))
+    expect(server.sent.map((s) => s.idempotencyKey)).toEqual([
+      server.sent[0].idempotencyKey,
+      server.sent[0].idempotencyKey,
+      server.sent[0].idempotencyKey,
+    ])
+    expect(server.ran["keys.rotate"]).toBe(1)
+    expect(document.body.textContent).not.toContain(RAW_KEY)
+  })
+
+  it("keeps the key when the server could not claim it, and says to try again", async () => {
+    const base = secretServer()
+    const keys: (string | undefined)[] = []
+    const client = {
+      extension: base.client.extension,
+      query: base.client.query,
+      command: async (
+        intent: string,
+        payload?: unknown,
+        opts?: { idempotencyKey?: string }
+      ) => {
+        keys.push(opts?.idempotencyKey)
+        if (keys.length === 1) {
+          throw new ContractError("UNAVAILABLE", "could not claim the idempotency key")
+        }
+        return base.client.command(intent, payload, opts)
+      },
+    } as ScopedClient
+    mount(client)
+    await dialog()
+    fireEvent.click(rotateButton())
+    expect((await screen.findByRole("alert")).textContent).toBe(
+      "The server couldn't take this just now. Try again in a moment."
+    )
+    fireEvent.click(rotateButton())
+    await screen.findByText("This is the only time Keysmith will show it.")
+    expect(keys).toHaveLength(2)
+    expect(keys[1]).toBe(keys[0])
   })
 })
