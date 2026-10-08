@@ -414,8 +414,9 @@ function RotateKeyForm({
             <>
               The server&apos;s answer didn&apos;t arrive, so this key may have
               been rotated. Check the <KeyListLink onFollow={onClose} /> before
-              you try again. Pressing Rotate key again without changing
-              anything won&apos;t rotate it twice.
+              you try again. If it hasn&apos;t been rotated, pressing Rotate
+              key again from this form, with nothing changed, is the safest
+              retry.
             </>
           ) : problem === null && running ? (
             "Your earlier attempt is still finishing, so try again in a moment."

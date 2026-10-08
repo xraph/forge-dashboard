@@ -743,12 +743,12 @@ function SwitchingHost() {
 }
 
 const LOST =
-  "The server's answer didn't arrive, so this key may have been rotated. Check the key list before you try again. Pressing Rotate key again without changing anything won't rotate it twice."
+  "The server's answer didn't arrive, so this key may have been rotated. Check the key list before you try again. If it hasn't been rotated, pressing Rotate key again from this form, with nothing changed, is the safest retry."
 const SPENT =
   "This key was rotated, but the new secret can't be shown again. Rotate it again to get one you can save, or go back to the key list."
 
 describe("RotateKeyDialog idempotency", () => {
-  it("sends the same key again after the answer was lost, so the retry cannot rotate twice", async () => {
+  it("sends the same key again after the answer was lost, so the server can recognise the retry", async () => {
     const server = secretServer()
     mount(server.client)
     await dialog()

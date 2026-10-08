@@ -688,8 +688,8 @@ function CreateKeyForm({
             <>
               The server&apos;s answer didn&apos;t arrive, so your key may have
               been created. Check the <KeyListLink onFollow={onClose} /> before
-              you try again. Pressing Create key again without changing
-              anything won&apos;t make a second one.
+              you try again. If it isn&apos;t there, pressing Create key again
+              from this form, with nothing changed, is the safest retry.
             </>
           ) : problem === null && running ? (
             "Your earlier attempt is still finishing, so try again in a moment."

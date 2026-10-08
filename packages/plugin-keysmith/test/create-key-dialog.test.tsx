@@ -921,12 +921,12 @@ function secretServer() {
 }
 
 const LOST =
-  "The server's answer didn't arrive, so your key may have been created. Check the key list before you try again. Pressing Create key again without changing anything won't make a second one."
+  "The server's answer didn't arrive, so your key may have been created. Check the key list before you try again. If it isn't there, pressing Create key again from this form, with nothing changed, is the safest retry."
 const SPENT =
   "Your key was created, but its secret can't be shown again. Revoke it from the key list, then create it again."
 
 describe("CreateKeyDialog idempotency", () => {
-  it("sends the same key again after the answer was lost, so the retry cannot make a second key", async () => {
+  it("sends the same key again after the answer was lost, so the server can recognise the retry", async () => {
     const server = secretServer()
     mount(server.client)
     await screen.findByRole("checkbox", { name: "billing:read" })
