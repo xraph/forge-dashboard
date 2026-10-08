@@ -18,6 +18,7 @@ import keysmithPlugin from "@forge-go/dashboard-plugin-keysmith"
 import chroniclePlugin from "@forge-go/dashboard-plugin-chronicle"
 import sentinelPlugin from "@forge-go/dashboard-plugin-sentinel"
 import heraldPlugin from "@forge-go/dashboard-plugin-herald"
+import nexusPlugin from "@forge-go/dashboard-plugin-nexus"
 
 // The Go handler injects window.__FORGE_DASHBOARD__ before this bundle loads,
 // so the shell works on any BasePath. `pnpm dev` has no such handler, hence
@@ -48,6 +49,7 @@ const plugins = [
   bastionPlugin,
   sentinelPlugin,
   heraldPlugin,
+  nexusPlugin,
 ]
 
 // The twenty-four authsome sub-plugins: six carrying data of their own, and

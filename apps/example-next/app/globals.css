@@ -20,3 +20,4 @@
 @source "../../../packages/plugin-authsome/src/**/*.{ts,tsx}";
 @source "../../../packages/plugin-trove/src/**/*.{ts,tsx}";
 @source "../../../packages/plugin-sentinel/src/**/*.{ts,tsx}";
+@source "../../../packages/plugin-nexus/src/**/*.{ts,tsx}";

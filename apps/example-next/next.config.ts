@@ -10,6 +10,7 @@ const config: NextConfig = {
     "@forge-go/dashboard-plugin",
     "@forge-go/dashboard-plugin-authsome",
     "@forge-go/dashboard-plugin-core",
+    "@forge-go/dashboard-plugin-nexus",
     "@forge-go/dashboard-plugin-streaming",
     "@forge-go/dashboard-runtime",
   ],

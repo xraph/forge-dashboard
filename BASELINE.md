@@ -787,3 +787,37 @@ concurrent errors in `src/design-preview/DashboardPreview.tsx` at lines 878/885.
 The final entry is `index-Cvp7epr0.js`. Its static import closure contains 30
 chunks; Shield's `editor-DqURcWUZ.js` and the shared CodeMirror
 `dist-DTPZDTh4.js` are outside that closure and are not modulepreloaded.
+
+## Nexus read pages, 2026-10-08
+
+Measured with Node 24.16.0, pnpm 10.21.0 and Vite 8.2.2:
+
+```sh
+pnpm --filter @forge-go/dashboard-shell exec vite build --outDir /tmp/nexus-slice5-dist
+```
+
+| Asset | Raw bytes | gzip bytes |
+|---|---:|---:|
+| Shell entry `index-C1ICKXkW.js` | 1,589,011 | 410,832 |
+| Nexus usage route `usage-S_XpNnBT.js` | 4,587 | 1,768 |
+| Shared chart chunk `chart-B8nb_26p.js` | 313,613 | 92,373 |
+| Shell CSS `index-CZ77grf8.css` | 280,726 | 41,508 |
+
+These are whole-host measurements with the other plugins installed. They don't
+isolate Nexus's contribution to the entry. gzip sizes use Python's gzip module.
+Nexus's usage route is lazy; at this slice it contains tables and doesn't import
+the chart chunk. Slice 6 adds charts and must measure the resulting split again.
+
+The production bundle succeeded. The combined shell build was blocked by two
+concurrent design-preview type errors in `DashboardPreview.tsx`: an unsupported
+`scopes` prop and an implicitly typed callback parameter. The Next example's
+production build passed with `FORGE_DASHBOARD_URL` set; its admin route was 196 kB
+and 299 kB on first load. Nexus package typecheck, lint and tests passed.
+
+All ten Nexus read routes were checked at 1440 by 1000 and 390 by 844. No page
+overflow was found; wide tables scroll within their containers. The browser pass
+also covered delayed gateway loading, a filtered-empty tenant list, model query
+failures and retry, usage collection off, open HTTP access, and the key-to-history
+link. Captures are local under `output/playwright/nexus-slice5/`. These fixture
+checks don't qualify a deployed gateway, dashboard authentication or durable
+idempotency storage.

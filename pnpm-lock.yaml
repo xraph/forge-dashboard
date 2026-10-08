@@ -41,6 +41,9 @@ importers:
       '@forge-go/dashboard-plugin-core':
         specifier: workspace:*
         version: link:../../packages/plugin-core
+      '@forge-go/dashboard-plugin-nexus':
+        specifier: workspace:*
+        version: link:../../packages/plugin-nexus
       '@forge-go/dashboard-plugin-sentinel':
         specifier: workspace:*
         version: link:../../packages/plugin-sentinel
@@ -196,6 +199,9 @@ importers:
       '@forge-go/dashboard-plugin-ledger':
         specifier: workspace:*
         version: link:../../packages/plugin-ledger
+      '@forge-go/dashboard-plugin-nexus':
+        specifier: workspace:*
+        version: link:../../packages/plugin-nexus
       '@forge-go/dashboard-plugin-relay':
         specifier: workspace:*
         version: link:../../packages/plugin-relay

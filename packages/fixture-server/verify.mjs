@@ -23,6 +23,7 @@
 import { SENTINEL_INPUT, verifySentinel } from "./sentinel-verify.mjs"
 import { HERALD_INPUT, verifyHerald } from "./herald-verify.mjs"
 import { WEAVE_INPUT, verifyWeave } from "./weave-verify.mjs"
+import { NEXUS_INPUT, verifyNexus } from "./nexus-verify.mjs"
 
 const base = (process.argv[2] ?? "http://localhost:8099") + "/dashboard/api/dashboard/v1"
 
@@ -306,6 +307,7 @@ const INPUT = {
   ...SENTINEL_INPUT,
   ...HERALD_INPUT,
   ...WEAVE_INPUT,
+  ...NEXUS_INPUT,
 }
 
 /**
@@ -2833,6 +2835,7 @@ async function main() {
   await verifySentinel({ dispatch, getCSRF, failures })
   await verifyHerald({ dispatch, getCSRF, failures })
   await verifyWeave({ dispatch, getCSRF, failures, base })
+  await verifyNexus({ dispatch, getCSRF, failures, base })
 
   console.log(`\nFinal: ${passed + (failures.length === 0 ? 0 : 0)} handler calls verified, ${failures.length} total failures (including spot checks).`)
 

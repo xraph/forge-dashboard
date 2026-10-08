@@ -10,7 +10,7 @@ import type { Capabilities, Model, Providers } from "../types"
 
 function CapabilitiesCell({ value }: { value: Capabilities }) {
   return (
-    <div className="flex max-w-72 flex-wrap gap-1">
+    <div className="flex min-w-56 max-w-72 flex-wrap gap-1">
       {Object.entries(value)
         .filter(([, on]) => on)
         .map(([name]) => (

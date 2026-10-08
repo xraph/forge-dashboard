@@ -28,6 +28,7 @@
 //   - relay               (packages/plugin-relay)            14 queries, 12 commands
 //                          mirrors relay/extension/contract; endpoints here,
 //                          the rest in relay-fixtures.mjs
+//   - nexus               (packages/plugin-nexus)            12 queries, 6 commands
 //   - bastion             (packages/plugin-bastion)          9 queries
 //   - sentinel            (packages/plugin-sentinel)         18 queries, 14 commands
 //                          mirrors sentinel/extension/contract; see
@@ -48,6 +49,7 @@ import { createKeysmithHandlers, resetKeysmith } from "./keysmith-fixtures.mjs"
 import { createSentinelHandlers, resetSentinel } from "./sentinel-fixtures.mjs"
 import { createHeraldHandlers, resetHerald } from "./herald-fixtures.mjs"
 import { createWeaveHandlers, resetWeave } from "./weave-fixtures.mjs"
+import { createNexusHandlers, resetNexus } from "./nexus-fixtures.mjs"
 import { createShieldHandlers, resetShield } from "./shield-fixtures.mjs"
 
 // ---------------------------------------------------------------------------
@@ -2889,6 +2891,7 @@ const CONTRIBUTORS = [
   { name: "herald", envPrefix: "HERALD", handlers: createHeraldHandlers(FixtureError) },
   { name: "shield", envPrefix: "SHIELD", handlers: createShieldHandlers(FixtureError) },
   { name: "weave", envPrefix: "WEAVE", handlers: createWeaveHandlers(FixtureError) },
+  { name: "nexus", envPrefix: "NEXUS", handlers: createNexusHandlers(FixtureError) },
   ...SETTINGS_ONLY_EXTENSIONS.map((extension) => ({
     name: extension,
     envPrefix: extension.toUpperCase(),
@@ -3184,6 +3187,7 @@ function handleReset(res) {
   resetSentinel()
   resetHerald()
   resetWeave()
+  resetNexus()
   resetShield()
   csrfTokens.clear()
   idempotencyStore.clear()

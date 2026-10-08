@@ -14,6 +14,7 @@
     "@forge-go/dashboard-plugin": "workspace:*",
     "@forge-go/dashboard-plugin-authsome": "workspace:*",
     "@forge-go/dashboard-plugin-core": "workspace:*",
+    "@forge-go/dashboard-plugin-nexus": "workspace:*",
     "@forge-go/dashboard-plugin-sentinel": "workspace:*",
     "@forge-go/dashboard-plugin-streaming": "workspace:*",
     "@forge-go/dashboard-plugin-trove": "workspace:*",
