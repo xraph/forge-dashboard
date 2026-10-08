@@ -10,6 +10,25 @@
 
 **Spec:** ../specs/2026-10-07-dispatch-dashboard-migration-design.md
 
+## Execution result
+
+Implemented in `3cf33e1`, `145bf4f` and `25ffc41`. Memory, SQLite, PostgreSQL 16,
+Redis 7 and MongoDB 7 passed the domain/action suite under race with no backend
+skips. All queries and commands are exercised through HTTP, including partial
+replay invalidations. Ordinary and integration-scoped lint passed.
+
+Final review found that interrupted Redis purge lost its committed count and
+invalidations. It also identified missing operator events after interrupted bulk
+replay. Both were reproduced by regression tests and fixed in `edb7da1`: the
+engine retains purge counts and emits committed partial progress; the contract
+returns interrupted purge data with a safe failure and invalidations. Focused
+race tests, the repeated durable-backend suite, full build/unit tests and ordinary
+lint passed after the fix. The review was followed by this verified fix pass.
+
+The established cursor order remains descending ID. The UI must present partial
+results explicitly and use a fresh idempotency key for a new operator retry.
+Module files remain concurrent work. React/browser verification is still pending.
+
 ## Global constraints
 
 - Work on main in the primary checkouts. Preserve concurrent module and dashboard edits. Exact-path local commits only; no push, branch or worktree.
