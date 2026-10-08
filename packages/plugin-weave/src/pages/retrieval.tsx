@@ -345,7 +345,15 @@ export const RetrievalPage: ComponentType<PluginPageProps> = () => {
                 key={shown.run.context.context}
                 hits={result.hits}
                 context={shown.context}
-                onContext={(next) => setShown({ ...shown, context: next })}
+                disabled={run.loading}
+                onContext={(next) => {
+                  // This closure belongs to the render Re-assemble was clicked
+                  // in. If a newer run has landed since, the answer is stale.
+                  const forRun = shown.run
+                  setShown((s) =>
+                    s && s.run === forRun ? { ...s, context: next } : s
+                  )
+                }}
                 onMarker={(index) => {
                   setSelected(index)
                   setTab("ranking")
@@ -359,7 +367,13 @@ export const RetrievalPage: ComponentType<PluginPageProps> = () => {
                   Strong vector matches inside the scanned window that the
                   retriever didn't return. Their scores are vector scores.
                 </p>
-                {result.left_out.length === 0 ? (
+                {result.hits.length === 0 ? (
+                  // Go answers left_out [] and reordered false whenever there
+                  // are no final hits, so "no reordering" would be untrue here.
+                  <p className="text-sm">
+                    The retriever returned nothing, so nothing was left out.
+                  </p>
+                ) : result.left_out.length === 0 ? (
                   <p className="text-sm">
                     {noReorderingCopy(result, components) ??
                       "Nothing above the retriever's weakest hit was left out."}

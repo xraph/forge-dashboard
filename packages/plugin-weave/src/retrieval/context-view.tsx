@@ -9,18 +9,32 @@ import type { AssembledContext, Hit } from "../types"
 import { assembleHitsFrom, contextParts, hitForMarker } from "./model"
 
 /**
+ * Why the context holds nothing. Only a hit with text can be over budget: the
+ * engine skips a hit with no chunk before the budget is counted.
+ */
+function nothingAssembled(hits: Hit[]): string {
+  if (hits.length === 0) return "No hits came back, so nothing was assembled."
+  if (hits.every((h) => h.chunk === null))
+    return "None of the hits had a chunk, so nothing was assembled."
+  return "Nothing fit in the budget, so a model would get only the template's header."
+}
+
+/**
  * The assembled text exactly as built, read-only. Each [n] marker is a button
  * back to its hit. Re-assemble sends the run's own hits with a new budget,
- * so it embeds nothing and reads no store.
+ * so it embeds nothing and reads no store. `disabled` holds Re-assemble back
+ * while a new run is in flight, since its answer would belong to the old one.
  */
 export function ContextView({
   hits,
   context,
   onContext,
   onMarker,
+  disabled = false,
 }: {
   hits: Hit[]
   context: AssembledContext
+  disabled?: boolean
   onContext: (next: AssembledContext) => void
   onMarker: (hitIndex: number) => void
 }) {
@@ -59,7 +73,7 @@ export function ContextView({
         <Button
           type="button"
           variant="outline"
-          disabled={assemble.loading || Number.isNaN(parsed)}
+          disabled={disabled || assemble.loading || Number.isNaN(parsed)}
           onClick={() => void reassemble()}
         >
           {assemble.loading ? "Re-assembling…" : "Re-assemble"}
@@ -74,8 +88,7 @@ export function ContextView({
       <CommandAlert title="Could not re-assemble" error={assemble.error} />
       {context.included.length === 0 ? (
         <p className="text-sm text-muted-foreground">
-          Nothing fit in the budget, so a model would get only the template's
-          header.
+          {nothingAssembled(hits)}
         </p>
       ) : (
         <pre className="rounded-md border p-3 text-sm whitespace-pre-wrap">

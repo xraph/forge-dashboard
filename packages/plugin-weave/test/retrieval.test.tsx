@@ -1,9 +1,9 @@
 import { afterEach, describe, expect, it } from "vitest"
-import { fireEvent, screen, waitFor, within } from "@testing-library/react"
+import { act, fireEvent, screen, waitFor, within } from "@testing-library/react"
 import { ContractError } from "@forge-go/dashboard-plugin"
 import { RetrievalPage } from "../src/pages/retrieval"
 import { pendingClient, renderPage, scriptedClient } from "./harness"
-import type { RunOutput } from "../src/types"
+import type { AssembledContext, RunOutput } from "../src/types"
 
 const ZERO = "0001-01-01T00:00:00Z"
 const COL = "col_01k70000000000000000000001"
@@ -544,6 +544,222 @@ describe("RetrievalPage", () => {
     await ask()
     const button = await screen.findByRole("button", { name: "Running…" })
     expect((button as HTMLButtonElement).disabled).toBe(true)
+  })
+
+  it("keeps the over-budget note at full contrast on a dimmed row", async () => {
+    const { client } = scriptedClient(queries(), { "retrieval.run": RUN })
+    renderPage(RetrievalPage, client)
+    await ask()
+    await screen.findByText(/hits in/)
+    const dimmed = row(5)
+    expect(dimmed.className).not.toMatch(/opacity-/)
+    const note = within(dimmed).getByText("retrieved, over budget")
+    expect(note.className).toContain("text-foreground")
+    for (
+      let el: HTMLElement | null = note;
+      el && el !== dimmed.parentElement;
+      el = el.parentElement
+    ) {
+      expect(el.className).not.toMatch(/opacity-/)
+    }
+  })
+
+  it("keeps the new run when a re-assemble from the old one lands late", async () => {
+    let release: (c: AssembledContext) => void = () => {}
+    const late = new Promise<AssembledContext>((resolve) => {
+      release = resolve
+    })
+    const second: RunOutput = {
+      result: {
+        ...RUN.result,
+        hits: [
+          {
+            chunk: chunk(
+              "chk_01k70000000000000000000200",
+              DOC_B,
+              9,
+              "Store credit never expires."
+            ),
+            score: 0.9,
+            hydrated: true,
+            rank: 1,
+            vector_rank: 1,
+            vector_score: 0.9,
+          },
+        ],
+        left_out: [],
+      },
+      context: {
+        ...RUN.context,
+        context: "Relevant context:\n\n[1] Store credit never expires.",
+        total_tokens: 7,
+        included: [0],
+        first_excluded: -1,
+      },
+    }
+    let calls = 0
+    const { client } = scriptedClient(queries(), {
+      "retrieval.run": () => (calls++ === 0 ? RUN : second),
+      "retrieval.assemble": () => late,
+    })
+    renderPage(RetrievalPage, client)
+    await ask()
+    fireEvent.click(
+      await screen.findByRole("tab", { name: "Context sent to the model" })
+    )
+    fireEvent.click(await screen.findByRole("button", { name: "Re-assemble" }))
+    await ask("does store credit expire")
+    await screen.findByText(/^1 hit in/)
+    await act(async () => {
+      release({ ...RUN.context, total_tokens: 1 })
+      await late
+    })
+    expect(screen.getByText(/^1 hit in/)).toBeTruthy()
+    expect(screen.getByText("Store credit never expires.")).toBeTruthy()
+    expect(screen.queryByText(/each parcel is refunded on its own/)).toBeNull()
+  })
+
+  it("disables Re-assemble while a new run is in flight", async () => {
+    let calls = 0
+    const { client } = scriptedClient(queries(), {
+      "retrieval.run": () => (calls++ === 0 ? RUN : new Promise(() => {})),
+      "retrieval.assemble": RUN.context,
+    })
+    renderPage(RetrievalPage, client)
+    await ask()
+    fireEvent.click(
+      await screen.findByRole("tab", { name: "Context sent to the model" })
+    )
+    expect(
+      (
+        (await screen.findByRole("button", {
+          name: "Re-assemble",
+        })) as HTMLButtonElement
+      ).disabled
+    ).toBe(false)
+    await ask("a second question")
+    await screen.findByRole("button", { name: "Running…" })
+    expect(
+      (screen.getByRole("button", { name: "Re-assemble" }) as HTMLButtonElement)
+        .disabled
+    ).toBe(true)
+  })
+
+  it("says nothing was assembled when no hits came back", async () => {
+    const none = {
+      ...RUN,
+      result: {
+        ...RUN.result,
+        hits: [],
+        left_out: [],
+        vector_matches: 0,
+        best_vector_score: 0,
+      },
+      context: {
+        ...RUN.context,
+        context: "Relevant context:\n\n",
+        included: [],
+        first_excluded: -1,
+        total_tokens: 0,
+      },
+    }
+    const { client } = scriptedClient(queries(), { "retrieval.run": none })
+    renderPage(RetrievalPage, client)
+    await ask()
+    fireEvent.click(
+      await screen.findByRole("tab", { name: "Context sent to the model" })
+    )
+    expect(
+      await screen.findByText("No hits came back, so nothing was assembled.")
+    ).toBeTruthy()
+    expect(screen.queryByText(/Nothing fit in the budget/)).toBeNull()
+  })
+
+  it("says nothing was assembled when no hit had a chunk", async () => {
+    const chunkless = {
+      ...RUN,
+      result: {
+        ...RUN.result,
+        hits: [
+          {
+            chunk: null,
+            score: 0.7,
+            hydrated: false,
+            rank: 1,
+            vector_rank: 0,
+            vector_score: 0,
+          },
+        ],
+        left_out: [],
+      },
+      context: {
+        ...RUN.context,
+        context: "Relevant context:\n\n",
+        included: [],
+        first_excluded: 0,
+        total_tokens: 0,
+      },
+    }
+    const { client } = scriptedClient(queries(), { "retrieval.run": chunkless })
+    renderPage(RetrievalPage, client)
+    await ask()
+    fireEvent.click(
+      await screen.findByRole("tab", { name: "Context sent to the model" })
+    )
+    expect(
+      await screen.findByText(
+        "None of the hits had a chunk, so nothing was assembled."
+      )
+    ).toBeTruthy()
+  })
+
+  it("blames the budget only when hits with text didn't fit", async () => {
+    const overrun = {
+      ...RUN,
+      context: {
+        ...RUN.context,
+        context: "Relevant context:\n\n",
+        included: [],
+        first_excluded: 0,
+        total_tokens: 0,
+        max_tokens: 1,
+      },
+    }
+    const { client } = scriptedClient(queries(), { "retrieval.run": overrun })
+    renderPage(RetrievalPage, client)
+    await ask()
+    fireEvent.click(
+      await screen.findByRole("tab", { name: "Context sent to the model" })
+    )
+    expect(
+      await screen.findByText(
+        "Nothing fit in the budget, so a model would get only the template's header."
+      )
+    ).toBeTruthy()
+  })
+
+  it("says nothing was left out when the retriever returned nothing", async () => {
+    const none = {
+      ...RUN,
+      result: { ...RUN.result, hits: [], left_out: [], reordered: false },
+      context: {
+        ...RUN.context,
+        context: "Relevant context:\n\n",
+        included: [],
+        first_excluded: -1,
+        total_tokens: 0,
+      },
+    }
+    const { client } = scriptedClient(queries(), { "retrieval.run": none })
+    renderPage(RetrievalPage, client)
+    await ask()
+    fireEvent.click(await screen.findByRole("tab", { name: /Left out/ }))
+    expect(
+      await screen.findByText(
+        "The retriever returned nothing, so nothing was left out."
+      )
+    ).toBeTruthy()
+    expect(screen.queryByText(/No reordering/)).toBeNull()
   })
 
   it("refuses a query over 8 KiB before sending it", async () => {
