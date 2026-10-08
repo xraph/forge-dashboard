@@ -496,7 +496,7 @@ to render.
 | `gateway.get` | query | | stages, strategy, guards with caveats, cache kind and stats, aliases, transforms, limiter kind | |
 | `settings.get` | query | | effective extension config | |
 | `tenants.create` | command | `name`, `slug`, `quota?`, `config?`, `metadata?` | tenant | `tenants.list`, `overview.get` |
-| `tenants.update` | command | `id`, then every name, quota and config field as its own optional pointer | tenant | `tenants.list`, `tenants.get`, `overview.get` |
+| `tenants.update` | command | `id`, then every name, quota and config field as its own optional pointer | tenant | `tenants.list`, `tenants.get`, `overview.get`, `keys.list`, `keys.get` |
 | `tenants.setStatus` | command | `id`, `status` | tenant | `tenants.list`, `tenants.get`, `overview.get` |
 | `keys.create` | command | `tenantId`, `name`, `scopes`, `expiresAt?` | `{key, rawKey}` | `keys.list`, `tenants.get`, `overview.get` |
 | `keys.rotate` | command | `id` | `{key, rawKey, revokedKeyId}` | `keys.list`, `keys.get`, `tenants.get` |
@@ -725,7 +725,7 @@ Seven slices, each its own plan in `docs/superpowers/plans/`, each landing on
 1. Exact money and the store harness (nexus).
 2. Pipeline and wiring (nexus).
 3. Enforcement (nexus).
-4. The contract (nexus, forge `v1.10.0`).
+4. The contract (nexus, Forge `v1.12.3`, requested on 2026-10-08).
 5. Plugin read surfaces and fixtures (forge-dashboard).
 6. Plugin write flows and usage charts (forge-dashboard, plus any contract
    gaps in nexus).
@@ -1202,3 +1202,59 @@ index with `CONCURRENTLY` before upgrading, outside a transaction; the
 migration's `IF NOT EXISTS` then skips it. SQLite time normalization remains
 in `Store.Migrate`, so external migration orchestrators must also call it.
 Stop old writers before migration to avoid reintroducing legacy time strings.
+
+
+## What slice 4 found that slice 5 must know
+
+The Go contract is implemented on Forge v1.12.3, as requested on 2026-10-08.
+It registers all 18 intents after the extension starts. Key create and rotate
+use `dispatcher.SecretResponse()` now; there is no remaining dependency gate
+for those commands. The disconnected contributor, manifest and data helpers
+remain as build-ignored migration reference. Templ pages are still present.
+
+The contract's README documents the wire values and inspection limits. Use the
+DTOs in `extension/contract` when building fixtures; timestamps are nullable
+UTC strings and money stays a decimal string or null. Query filters work in
+`params`, the shape the shared React client sends. Explicit null tenant scope
+is refused, including when usage collection is disabled.
+
+Tenant updates now also invalidate `keys.list` and `keys.get`: their projections
+contain the tenant name. The final review caught that dependency, which was
+missing from this spec's original table. The transport regression verifies a
+rename refreshes both key views.
+
+SQLite exposed a clock bug the fixed-time store fixtures had missed. Service
+writes carried Go's monotonic suffix, so a successfully created tenant or key
+could not be read. The SQLite models now write normalized UTC text and accept
+the legacy encodings, including last-used timestamps. Unique tenant slugs also
+have the same typed conflict on memory, SQLite, Postgres and Mongo.
+
+Forge v1.12.3 keeps only a tombstone for a successful secret command with an
+idempotency key. Actual transport tests verified CSRF, invalidations, replay
+conflicts and one successful key creation across 12 simultaneous retries. The
+transport reports dispatcher errors with HTTP 500 even when the contract code
+is `CONFLICT`; read the envelope's code and `details.reason`. The shared React
+client already does that. Installed-host authorization and distributed durable
+idempotency remain deployment checks, not evidence established by these tests.
+
+Catalog queries read the registered providers directly because the existing
+model service silently skips provider catalog failures. A failed catalog read
+now fails the query. Nothing pings provider health. Traffic counts traverse all
+pages in the last 15 minutes. Custom cache kinds remain unknown, completion and
+stream backends are separate, and untracked size and bytes remain null.
+
+Verification before the final review fix: root race suite with Postgres, Mongo
+and Redis variables, memory and SQLite coverage, all 37 nested modules with
+standalone vet and tests, build, and lint. The final review independently ran
+contract, extension, SQLite and store conformance race tests. Its only important
+finding was the rename invalidation dependency, with a red-to-green transport
+test added. The root race suite and contract lint passed after that fix.
+
+One minor finding remains: scope lookup failures are sanitized before the outer
+logger sees them, so those logs lose the original store cause. Responses remain
+sanitized and fail closed. Broader service transactionality for simultaneous
+tenant edits or key rotations using different idempotency keys was not changed.
+
+React pages, complete fixtures, write dialogs, chart verification, desktop and
+narrow browser checks, and the separate templ retirement are still outstanding.
+This slice completes the Go contract, not the migration.
