@@ -62,4 +62,8 @@ describe("weavePlugin", () => {
   it("routes a collection's own page", () => {
     expect(weavePlugin.routes.map((r) => r.path)).toContain("/collections/:id")
   })
+
+  it("routes ingest under its collection", () => {
+    expect(weavePlugin.routes.map((r) => r.path)).toContain("/collections/:id/ingest")
+  })
 })

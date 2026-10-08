@@ -4,6 +4,7 @@ import { CollectionCreatePage } from "./pages/collection-create"
 import { CollectionDetailPage } from "./pages/collection-detail"
 import { CollectionEditPage } from "./pages/collection-edit"
 import { CollectionsPage } from "./pages/collections"
+import { IngestPage } from "./pages/ingest"
 import { OverviewPage } from "./pages/overview"
 import { PipelinePage } from "./pages/pipeline"
 
@@ -30,10 +31,11 @@ export const weavePlugin = definePlugin({
     { path: "/collections/new", element: CollectionCreatePage },
     { path: "/collections/:id", element: CollectionDetailPage },
     { path: "/collections/:id/edit", element: CollectionEditPage },
+    { path: "/collections/:id/ingest", element: IngestPage },
     { path: "/pipeline", element: PipelinePage },
   ],
 })
 
-export { CollectionCreatePage, CollectionDetailPage, CollectionEditPage, CollectionsPage, OverviewPage, PipelinePage }
+export { CollectionCreatePage, CollectionDetailPage, CollectionEditPage, CollectionsPage, IngestPage, OverviewPage, PipelinePage }
 
 export default weavePlugin
