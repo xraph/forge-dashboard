@@ -2749,6 +2749,82 @@ async function main() {
     }
   }
 
+  // keysmith: keys.create and keys.rotate answer a raw key once. Repeating
+  // either under the same idempotency key must answer CONFLICT "command
+  // already ran" (HTTP 500, retryable false, forge's transport) and run
+  // nothing: no second key, no second rotation. A token fetched fresh, because
+  // earlier spot checks expire every token the server holds.
+  {
+    const kcsrf = await getCSRF()
+    const check = (name, ok, detail) => {
+      console.log(`  keysmith ${name}: ${ok}`)
+      if (!ok) failures.push({ key: `spot-check::keysmith ${name}`, reason: typeof detail === "string" ? detail : JSON.stringify(detail) })
+    }
+    const kq = (intent, input = {}) => dispatch("keysmith", intent, "query", input, kcsrf)
+    // dispatch() mints a fresh key per call; this one sends the key it is given.
+    const keyed = async (intent, input, idempotencyKey) => {
+      const res = await fetch(base, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ envelope: "v1", kind: "command", contributor: "keysmith", intent, payload: input, csrf: kcsrf, idempotencyKey }),
+      })
+      return { status: res.status, body: await res.json() }
+    }
+    const keyTotal = async () => (await kq("keys.list", { limit: 1 })).body?.data?.total
+    const rotationCount = async (keyId) => (await kq("rotations.list", { keyId, limit: 100 })).body?.data?.items?.length
+    const ranBefore = (r) => r.body?.error?.code === "CONFLICT" && String(r.body?.error?.message).startsWith("command already ran")
+
+    const createKey = `verify-create-${crypto.randomUUID()}`
+    const createInput = { name: "Idempotency probe", environment: "test", prefix: "vk", scopes: ["reports:read"] }
+    const totalBefore = await keyTotal()
+    const made = await keyed("keys.create", createInput, createKey)
+    const madeId = made.body?.data?.key?.id
+    check("keys.create answers its key once", made.status === 200 && made.body?.ok === true && typeof made.body.data.rawKey === "string" && Boolean(madeId), JSON.stringify(made.body))
+    const totalAfterFirst = await keyTotal()
+    check("keys.create added exactly one key", totalAfterFirst === totalBefore + 1, `${totalBefore} then ${totalAfterFirst}`)
+    const madeAgain = await keyed("keys.create", createInput, createKey)
+    check("keys.create repeated under the same key is CONFLICT already-ran, HTTP 500, not retryable", ranBefore(madeAgain) && madeAgain.status === 500 && madeAgain.body.error.retryable === false && madeAgain.body.data === undefined, JSON.stringify(madeAgain))
+    check("keys.create repeat ran nothing: the key count is unchanged", (await keyTotal()) === totalAfterFirst, `${totalAfterFirst} then ${await keyTotal()}`)
+
+    const rotateKey = `verify-rotate-${crypto.randomUUID()}`
+    const rotateInput = { id: madeId, reason: "manual" }
+    const rotationsBefore = await rotationCount(madeId)
+    const rotated = await keyed("keys.rotate", rotateInput, rotateKey)
+    check("keys.rotate answers its key once", rotated.status === 200 && rotated.body?.ok === true && typeof rotated.body.data.rawKey === "string", JSON.stringify(rotated.body))
+    const rotationsAfterFirst = await rotationCount(madeId)
+    check("keys.rotate added exactly one rotation", rotationsAfterFirst === rotationsBefore + 1, `${rotationsBefore} then ${rotationsAfterFirst}`)
+    const rotatedAgain = await keyed("keys.rotate", rotateInput, rotateKey)
+    check("keys.rotate repeated under the same key is CONFLICT already-ran, HTTP 500, not retryable", ranBefore(rotatedAgain) && rotatedAgain.status === 500 && rotatedAgain.body.error.retryable === false && rotatedAgain.body.data === undefined, JSON.stringify(rotatedAgain))
+    check("keys.rotate repeat ran nothing: the rotation count is unchanged", (await rotationCount(madeId)) === rotationsAfterFirst, `${rotationsAfterFirst} then ${await rotationCount(madeId)}`)
+
+    // Still-running needs the server started with FIXTURE_COMMAND_HOLD_MS, which
+    // holds every command's claim after it ran. This script cannot set the
+    // server's environment, so it runs the overlap only when told the hold
+    // (the same variable, set for both processes), and otherwise says it skipped.
+    const holdMs = Number(process.env.FIXTURE_COMMAND_HOLD_MS ?? 0)
+    if (holdMs >= 300) {
+      const holdKey = `verify-hold-${crypto.randomUUID()}`
+      const holdInput = { ...createInput, name: "Overlap probe" }
+      const holdTotalBefore = await keyTotal()
+      const firstSend = keyed("keys.create", holdInput, holdKey)
+      // The first send ran its handler in one tick and now sits in the hold.
+      await new Promise((resolve) => setTimeout(resolve, Math.min(100, holdMs / 3)))
+      const overlap = await keyed("keys.create", holdInput, holdKey)
+      check(
+        "keys.create repeated while the first is held is CONFLICT still-running, HTTP 500, retryable",
+        overlap.status === 500 && overlap.body?.error?.code === "CONFLICT" && String(overlap.body.error.message).startsWith("the same command is still running") && overlap.body.error.retryable === true,
+        JSON.stringify(overlap),
+      )
+      const settled = await firstSend
+      check("the held keys.create still answers its key", settled.status === 200 && typeof settled.body?.data?.rawKey === "string", JSON.stringify(settled.body))
+      check("the overlapping repeat ran nothing: one more key", (await keyTotal()) === holdTotalBefore + 1, `${holdTotalBefore} then ${await keyTotal()}`)
+      const afterHold = await keyed("keys.create", holdInput, holdKey)
+      check("after the hold a repeat is CONFLICT already-ran", ranBefore(afterHold) && afterHold.body.error.retryable === false, JSON.stringify(afterHold))
+    } else {
+      console.log("  keysmith still-running overlap: skipped (start the server and this script with FIXTURE_COMMAND_HOLD_MS=400 to run it)")
+    }
+  }
+
   await verifySentinel({ dispatch, getCSRF, failures })
   await verifyHerald({ dispatch, getCSRF, failures })
   await verifyWeave({ dispatch, getCSRF, failures, base })
