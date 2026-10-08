@@ -239,7 +239,21 @@ function CreateKeyForm({
   const nameInvalid = message === NAME_REQUIRED || message === NAME_TOO_LONG
   const prefixInvalid = message === PREFIX_INVALID
 
-  const policy = policies.data?.policies?.find((p) => p.id === policyId)
+  // What each list last answered, shown while a later read of it fails. The
+  // store drops a list's rows when a read fails, and a form that lost them
+  // would lose its picks with them. A context switch forgets these (below).
+  const [heldPolicies, setHeldPolicies] = useState<PoliciesList>()
+  const [heldScopes, setHeldScopes] = useState<ScopesList>()
+  if (policies.data !== undefined && policies.data !== heldPolicies) {
+    setHeldPolicies(policies.data)
+  }
+  if (scopes.data !== undefined && scopes.data !== heldScopes) {
+    setHeldScopes(scopes.data)
+  }
+  const policyList = policies.data ?? (policies.error ? heldPolicies : undefined)
+  const scopeList = scopes.data ?? (scopes.error ? heldScopes : undefined)
+
+  const policy = policyList?.policies?.find((p) => p.id === policyId)
   const allowed = policy?.allowedScopes ?? []
   const narrowed = allowed.length > 0
   const minDate = dateValue(new Date(openedAt))
@@ -247,7 +261,7 @@ function CreateKeyForm({
     policy?.maxKeyLifetimeSeconds != null
       ? lastDateWithin(openedAt, policy.maxKeyLifetimeSeconds)
       : undefined
-  const visibleScopes = (scopes.data?.scopes ?? []).filter(
+  const visibleScopes = (scopeList?.scopes ?? []).filter(
     (s) => !narrowed || allowed.includes(s.name)
   )
 
@@ -268,17 +282,26 @@ function CreateKeyForm({
   useEffect(() => {
     if (listsBlanked) attemptKey.end()
   }, [listsBlanked, attemptKey])
+  if (scopesWaiting && !scopes.error && heldScopes !== undefined) {
+    setHeldScopes(undefined)
+  }
+  if (policiesWaiting && !policies.error && heldPolicies !== undefined) {
+    setHeldPolicies(undefined)
+  }
 
   // Once they answer, a pick the new lists do not hold comes off the form,
   // and the form says which. Adjusted during render, so no commit ever
-  // offers Create with a pick that would be dropped without a word.
-  const goneScopes = scopesWaiting
-    ? []
-    : picked.filter((n) => !scopes.data?.scopes?.some((s) => s.name === n))
+  // offers Create with a pick that would be dropped without a word. Only an
+  // answer prunes: a failed read says nothing about the picks, so they stay,
+  // and so does the idempotency key that goes with them.
+  const goneScopes =
+    scopes.data === undefined
+      ? []
+      : picked.filter((n) => !scopes.data?.scopes?.some((s) => s.name === n))
   const policyGone =
-    !policiesWaiting &&
+    policies.data !== undefined &&
     policyId !== "" &&
-    !policies.data?.policies?.some((p) => p.id === policyId)
+    !policies.data.policies?.some((p) => p.id === policyId)
   if (!revealed && !finished && (goneScopes.length > 0 || policyGone)) {
     const names = [
       ...goneScopes,
@@ -319,9 +342,11 @@ function CreateKeyForm({
     if (invalid || pastDate) return
 
     // A scope ticked under one policy and not allowed by the next is left out.
-    const chosen = visibleScopes
-      .filter((s) => picked.includes(s.name))
-      .map((s) => s.name)
+    // With no list at all (it never loaded in this context), the picks go as
+    // they are, and the server refuses a name it does not have.
+    const chosen = scopeList
+      ? visibleScopes.filter((s) => picked.includes(s.name)).map((s) => s.name)
+      : picked.filter((n) => !narrowed || allowed.includes(n))
 
     const payload = {
       name: trimmed,
@@ -357,7 +382,7 @@ function CreateKeyForm({
 
   function changePolicy(id: string) {
     setPolicyId(id)
-    const next = policies.data?.policies?.find((p) => p.id === id)
+    const next = policyList?.policies?.find((p) => p.id === id)
     setPolicyName(next?.name ?? "")
     setDropped(null)
     const max =
@@ -484,20 +509,24 @@ function CreateKeyForm({
             onChange={(e) => changePolicy(e.target.value)}
           >
             <NativeSelectOption value="">No policy</NativeSelectOption>
-            {(policies.data?.policies ?? []).map((p) => (
+            {(policyList?.policies ?? []).map((p) => (
               <NativeSelectOption key={p.id} value={p.id}>
                 {p.name}
               </NativeSelectOption>
             ))}
           </NativeSelect>
-          {policies.data?.hasMore && (
+          {policyList?.hasMore && (
             <FieldDescription>
               {`Only the first ${PICKER_LIMIT} policies are listed.`}
             </FieldDescription>
           )}
           {policies.error && (
             <FieldDescription>
-              Policies could not be loaded, so none can be chosen right now.
+              {policyList
+                ? "Policies could not be reloaded, so these are the ones from the last time they loaded."
+                : policyId !== ""
+                  ? `Policies could not be loaded, so the ${policyName} policy was not checked. The server refuses it if it no longer exists.`
+                  : "Policies could not be loaded, so none can be chosen right now."}
             </FieldDescription>
           )}
           {policy && (
@@ -555,17 +584,18 @@ function CreateKeyForm({
 
         <FieldSet>
           <FieldLegend variant="label">Scopes</FieldLegend>
-          {scopes.error ? (
+          {scopes.error && !scopeList ? (
             <FieldDescription>
-              Scopes could not be loaded. You can still create the key and add
-              scopes later.
+              {picked.length > 0
+                ? `Scopes could not be loaded, so your picks were not checked: ${joinNames(picked)}. The server refuses any that no longer exist.`
+                : "Scopes could not be loaded. You can still create the key and add scopes later."}
             </FieldDescription>
-          ) : scopes.loading && !scopes.data ? (
+          ) : scopes.loading && !scopeList ? (
             <FieldDescription>Loading scopes…</FieldDescription>
           ) : visibleScopes.length === 0 ? (
             <FieldDescription>
               {narrowed
-                ? scopes.data?.hasMore
+                ? scopeList?.hasMore
                   ? `None of the first ${PICKER_LIMIT} scopes are allowed by this policy.`
                   : "This policy allows none of the scopes that exist."
                 : "No scopes exist in this tenant yet."}
@@ -595,7 +625,13 @@ function CreateKeyForm({
               Only the scopes this policy allows are listed.
             </FieldDescription>
           )}
-          {scopes.data?.hasMore && (
+          {scopes.error && scopeList && (
+            <FieldDescription>
+              Scopes could not be reloaded, so these are the ones from the last
+              time they loaded.
+            </FieldDescription>
+          )}
+          {scopeList?.hasMore && (
             <FieldDescription>
               {`Only the first ${PICKER_LIMIT} scopes are listed. You can add others from the key's page after it is created.`}
             </FieldDescription>

@@ -1091,7 +1091,11 @@ describe("CreateKeyDialog idempotency", () => {
     await screen.findByRole("alert")
 
     fireEvent.click(screen.getByRole("button", { name: "Cancel" }))
-    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull())
+    // The close animation can outlast waitFor's default second on a loaded
+    // machine.
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull(), {
+      timeout: 5000,
+    })
     fireEvent.click(screen.getByRole("button", { name: "Open the dialog" }))
     await screen.findByRole("checkbox", { name: "billing:read" })
     await submitNamed()
@@ -1196,6 +1200,7 @@ describe("CreateKeyDialog idempotency", () => {
 function listServer() {
   const server = secretServer()
   let scopes: ScopesList | Error = SCOPES
+  let policies: PoliciesList | Error = POLICIES
   const client = {
     extension: server.client.extension,
     command: server.client.command,
@@ -1203,6 +1208,10 @@ function listServer() {
       if (intent === "scopes.list") {
         if (scopes instanceof Error) throw scopes
         return scopes
+      }
+      if (intent === "policies.list") {
+        if (policies instanceof Error) throw policies
+        return policies
       }
       return server.client.query(intent, params)
     },
@@ -1212,6 +1221,9 @@ function listServer() {
     client,
     answerScopes(next: ScopesList | Error) {
       scopes = next
+    },
+    answerPolicies(next: PoliciesList | Error) {
+      policies = next
     },
   }
 }
@@ -1319,5 +1331,66 @@ describe("CreateKeyDialog idempotency across list reloads", () => {
     }
     await act(async () => {})
     expect(screen.getByRole("dialog")).toBeTruthy()
+  })
+})
+
+describe("CreateKeyDialog picks across a failed list read", () => {
+  const FAILED = new ContractError(
+    "TRANSPORT",
+    "contract request failed with HTTP 502"
+  )
+
+  for (const list of ["scopes", "policies"] as const) {
+    it(`keeps the picks and the key when the ${list} read fails after a lost answer`, async () => {
+      const server = listServer()
+      mount(server.client)
+      fireEvent.click(await screen.findByRole("checkbox", { name: "billing:write" }))
+      fireEvent.click(screen.getByRole("checkbox", { name: "reports:read" }))
+      fill("Policy", "kpol_standard")
+      server.loseNextAnswer()
+      await submitNamed()
+      expect((await screen.findByRole("alert")).textContent).toBe(LOST)
+
+      if (list === "scopes") server.answerScopes(FAILED)
+      else server.answerPolicies(FAILED)
+      await act(async () => queryStore.revalidate())
+      await waitFor(() => expect(createButton().disabled).toBe(false))
+
+      // Nothing came off the form: a failed read says nothing about the picks.
+      expect(screen.queryByText(/no longer listed/)).toBeNull()
+      expect((screen.getByLabelText("Policy") as HTMLSelectElement).value).toBe(
+        "kpol_standard"
+      )
+      expect(
+        screen.getByRole("checkbox", { name: "billing:write" }).getAttribute("aria-checked")
+      ).toBe("true")
+
+      fireEvent.click(createButton())
+      await waitFor(() => expect(screen.getByRole("alert").textContent).toBe(SPENT))
+      expect(server.sent).toHaveLength(2)
+      expect(server.sent[1].payload).toEqual(server.sent[0].payload)
+      expect(server.sent[1].idempotencyKey).toBe(server.sent[0].idempotencyKey)
+      expect(server.ran["keys.create"]).toBe(1)
+    })
+  }
+
+  it("says which list could not be reloaded, and that it shows the last answer", async () => {
+    const server = listServer()
+    mount(server.client)
+    await screen.findByRole("checkbox", { name: "billing:write" })
+    server.answerScopes(FAILED)
+    server.answerPolicies(FAILED)
+    await act(async () => queryStore.revalidate())
+    expect(
+      await screen.findByText(
+        "Scopes could not be reloaded, so these are the ones from the last time they loaded."
+      )
+    ).toBeTruthy()
+    expect(
+      screen.getByText(
+        "Policies could not be reloaded, so these are the ones from the last time they loaded."
+      )
+    ).toBeTruthy()
+    expect(screen.getAllByRole("checkbox")).toHaveLength(3)
   })
 })
