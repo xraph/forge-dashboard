@@ -6686,7 +6686,7 @@ Body, for example: the rules the retrieval page leans on live here and are teste
 - Test: `packages/plugin-weave/test/retrieval.test.tsx`, `test/plugin.test.tsx` (one new `it`)
 
 **Interfaces:**
-- Consumes: everything in `src/retrieval/model.ts` (Task 12); `scoreHeader`, `retrieverSentence` (Task 4); `MetadataList`, `Id`, `TenantFilter`, `withTenant`, `chunkPath`, `documentPath`, `formatScore`, `formatMs`, `formatCount`, `plural`, `isRealTime`, `utf8Length` (Task 1); types `RunOutput`, `AssembledContext`, `Hit`, `ComponentsOutput`, `Collection`, `ListOutput`.
+- Consumes: everything in `src/retrieval/model.ts` (Task 12); `scoreHeader(kind, vectorScore?)`, `retrieverSentence` (Task 4; MMR and similarity scores are labelled by the vector store's score kind, so pass `components?.vector_store.score`); `MetadataList`, `Id`, `TenantFilter`, `withTenant`, `chunkPath`, `documentPath`, `formatScore`, `formatMs`, `formatCount`, `plural`, `isRealTime`, `utf8Length` (Task 1); types `RunOutput`, `AssembledContext`, `Hit`, `ComponentsOutput`, `Collection`, `ListOutput`.
 - Produces: `RetrievalPage`; `useWide()`; `RankingTable`, `Inspector`, `ContextView`.
 
 The page someone opens when an answer was bad. The spec's "Retrieval" section is the design and this task builds exactly it: a form, a one-paragraph summary, three tabs (Ranking, Context sent to the model, Left out), an inspector beside the ranking on wide screens and in a sheet on narrow ones, and three kinds of empty. Read that section and the slice 1 hand-off's "Behaviours that differ from the plan" before you start.
@@ -7563,7 +7563,7 @@ export const RetrievalPage: ComponentType<PluginPageProps> = () => {
                   <RankingTable
                     hits={result.hits}
                     context={shown.context}
-                    scoreLabel={scoreHeader(result.score)}
+                    scoreLabel={scoreHeader(result.score, components?.vector_store.score)}
                     selected={selected}
                     onSelect={setSelected}
                   />
