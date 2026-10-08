@@ -6,8 +6,11 @@ import {
 import { PageHeader } from "@forge-go/dashboard-kit/components/page-header"
 import { QueryBoundary } from "@forge-go/dashboard-kit/components/query-boundary"
 import { Timestamp } from "@forge-go/dashboard-kit/components/timestamp"
+import { IconButton } from "@forge-go/dashboard-kit/components/icon-button"
+import { PencilIcon } from "@forge-go/dashboard-kit/icons"
 import { TenantBadge } from "../badges"
 import { KeyList } from "../components/key-list"
+import { TenantStatusActions } from "../components/tenant-status"
 import { Money } from "../components/money"
 import {
   count,
@@ -52,7 +55,21 @@ export function TenantDetailPage({ params }: PluginPageProps) {
       <PageHeader
         title={query.data?.name ?? "Tenant"}
         description={params.id}
-        actions={<Refresh onClick={query.refetch} />}
+        actions={
+          <div className="flex flex-wrap items-center gap-1">
+            <Refresh onClick={query.refetch} />
+            {query.data && (
+              <>
+                <IconButton
+                  label="Edit tenant"
+                  icon={PencilIcon}
+                  render={<PluginLink to={`/tenants/${query.data.id}/edit`} />}
+                />
+                <TenantStatusActions key={query.data.id} tenant={query.data} />
+              </>
+            )}
+          </div>
+        }
       />
       <QueryBoundary title="Tenant" query={query}>
         {(data) => (
@@ -118,6 +135,25 @@ export function TenantDetailPage({ params }: PluginPageProps) {
                 </div>
               )}
             <Section title="Request limits">
+              {data.requestsToday !== null && data.quota.dailyRequests > 0 && (
+                <div className="space-y-1 text-xs">
+                  <span>
+                    {count(data.requestsToday)} of{" "}
+                    {count(data.quota.dailyRequests)} daily requests
+                  </span>
+                  <div
+                    aria-hidden="true"
+                    className="h-1.5 overflow-hidden rounded-full bg-muted"
+                  >
+                    <div
+                      className="h-full bg-primary"
+                      style={{
+                        width: `${sharePercent(String(data.requestsToday), String(data.quota.dailyRequests))}%`,
+                      }}
+                    />
+                  </div>
+                </div>
+              )}
               <Facts
                 items={[
                   {
@@ -143,6 +179,11 @@ export function TenantDetailPage({ params }: PluginPageProps) {
                 ]}
               />
             </Section>
+            <Notice>
+              RPM and TPM use your configured limiter. Memory limits apply per
+              replica.{" "}
+              <PluginLink to="/gateway">Inspect gateway enforcement</PluginLink>
+            </Notice>
             <Notice>
               Monthly budgets are soft limits. In-flight requests, unpriced
               calls and records that fail to store can exceed the budget.

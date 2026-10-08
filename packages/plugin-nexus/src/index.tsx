@@ -15,6 +15,7 @@ import { GatewayPage } from "./pages/gateway"
 import { ModelsPage } from "./pages/models"
 import { TenantsPage } from "./pages/tenants"
 import { TenantDetailPage } from "./pages/tenant-detail"
+import { TenantCreatePage, TenantEditPage } from "./pages/tenant-form"
 import { KeysPage } from "./pages/keys"
 import { KeyDetailPage } from "./pages/key-detail"
 import { RecordsPage } from "./pages/records"
@@ -84,7 +85,9 @@ export const nexusPlugin = definePlugin({
     { path: "/gateway", element: GatewayPage },
     { path: "/models", element: ModelsPage },
     { path: "/tenants", element: TenantsPage },
+    { path: "/tenants/new", element: TenantCreatePage },
     { path: "/tenants/:id", element: TenantDetailPage },
+    { path: "/tenants/:id/edit", element: TenantEditPage },
     { path: "/keys", element: KeysPage },
     { path: "/keys/:id", element: KeyDetailPage },
     { path: "/usage", element: UsagePage },

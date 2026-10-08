@@ -5,6 +5,7 @@ import { PageHeader } from "@forge-go/dashboard-kit/components/page-header"
 import { QueryBoundary } from "@forge-go/dashboard-kit/components/query-boundary"
 import { ResourceTable } from "@forge-go/dashboard-kit/components/resource-table"
 import { Input } from "@forge-go/dashboard-kit/components/input"
+import { Button } from "@forge-go/dashboard-kit/components/button"
 import { NativeSelect } from "@forge-go/dashboard-kit/components/native-select"
 import { Timestamp } from "@forge-go/dashboard-kit/components/timestamp"
 import { UsersIcon } from "@forge-go/dashboard-kit/icons"
@@ -103,7 +104,11 @@ function TenantRows({
               }
               illustration={<UsersIcon className="size-6" />}
               action={
-                <IconButton variant="outline" onClick={search || status ? clear : query.refetch} label={search || status ? "Clear filters" : "Refresh tenants"} />
+                <IconButton
+                  variant="outline"
+                  onClick={search || status ? clear : query.refetch}
+                  label={search || status ? "Clear filters" : "Refresh tenants"}
+                />
               }
             />
           )}
@@ -131,6 +136,11 @@ export function TenantsPage() {
     <div className="space-y-3">
       <PageHeader
         title="Tenants"
+        actions={
+          <Button size="sm" render={<PluginLink to="/tenants/new" />}>
+            Create tenant
+          </Button>
+        }
         description="Customer limits and exact monthly spend."
       />
       <div className="flex flex-wrap items-center gap-2">
