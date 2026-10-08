@@ -102,12 +102,15 @@ export function tenantPayload(
   draft: TenantDraft,
   original?: Tenant
 ): TenantCreate | TenantUpdate {
+  const initial = original ? tenantDraft(original) : undefined
+  const nameChanged = !initial || draft.name !== initial.name
   const name = draft.name.trim(),
     slug = draft.slug.trim()
-  if (!name) throw new Error("Name is required.")
+  if (nameChanged && !name) throw new Error("Name is required.")
   if (!original && !slug) throw new Error("Slug is required.")
   const quota: Partial<Quota> = {}
   for (const key of Object.keys(quotaLabels) as (keyof Quota)[]) {
+    if (initial && same(draft.quota[key], initial.quota[key])) continue
     const entry = draft.quota[key],
       value = entry.value.trim()
     if (key === "monthlyBudgetUsd") {
@@ -135,39 +138,32 @@ export function tenantPayload(
       if (!original || limit !== original.quota[key]) quota[key] = limit
     }
   }
-  const config: TenantConfigWrite = {
-    allowedModels: models(draft.config.allowedModels),
-    blockedModels: models(draft.config.blockedModels),
-    defaultModel: draft.config.defaultModel.trim(),
-    routingStrategy: draft.config.routingStrategy,
-    guardrailPolicy: draft.config.guardrailPolicy,
-    cacheEnabled:
+  const configPatch: Partial<TenantConfigWrite> = {}
+  const conversions = {
+    allowedModels: () => models(draft.config.allowedModels),
+    blockedModels: () => models(draft.config.blockedModels),
+    defaultModel: () => draft.config.defaultModel.trim(),
+    routingStrategy: () => draft.config.routingStrategy,
+    guardrailPolicy: () => draft.config.guardrailPolicy,
+    cacheEnabled: () =>
       draft.config.cacheEnabled === "inherit"
         ? null
         : draft.config.cacheEnabled === "enabled",
-    metadata: metadata(draft.config.metadata, "Configuration metadata"),
+    metadata: () => metadata(draft.config.metadata, "Configuration metadata"),
   }
-  const configPatch = Object.fromEntries(
-    Object.entries(config).filter(
-      ([key, value]) =>
-        !original ||
-        !same(
-          value,
-          key === "metadata"
-            ? (original.config.metadata ?? {})
-            : original.config[key as keyof TenantConfigWrite]
-        )
-    )
-  )
-  const tags = metadata(draft.metadata, "Tenant metadata")
+  for (const key of Object.keys(conversions) as (keyof typeof conversions)[]) {
+    if (initial && same(draft.config[key], initial.config[key])) continue
+    Object.assign(configPatch, { [key]: conversions[key]() })
+  }
+  const metadataChanged = !initial || !same(draft.metadata, initial.metadata)
   return {
     ...(original
-      ? { id: original.id, ...(name !== original.name ? { name } : {}) }
+      ? { id: original.id, ...(nameChanged ? { name } : {}) }
       : { name, slug }),
     ...(Object.keys(quota).length ? { quota } : {}),
     ...(Object.keys(configPatch).length ? { config: configPatch } : {}),
-    ...(!original || !same(tags, original.metadata ?? {})
-      ? { metadata: tags }
+    ...(metadataChanged
+      ? { metadata: metadata(draft.metadata, "Tenant metadata") }
       : {}),
   }
 }

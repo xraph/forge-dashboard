@@ -24,7 +24,74 @@ const result = (): SecretKeyResult => ({
   key: key(),
   rawKey: "test-only-unusable-secret",
 })
-afterEach(() => vi.restoreAllMocks())
+afterEach(() => {
+  vi.restoreAllMocks()
+  vi.unstubAllGlobals()
+})
+it.each(["pending", "uncertain", "revealed"])(
+  "protects navigation in the %s state",
+  async (state) => {
+    const navigation = new EventTarget()
+    vi.stubGlobal("navigation", navigation)
+    const { client } = commandClient({
+      "keys.create": () => {
+        if (state === "pending") return new Promise(() => {})
+        if (state === "uncertain")
+          throw new ContractError("TRANSPORT", "Connection lost")
+        return result()
+      },
+    })
+    renderWithClient(
+      <KeyDialog open onOpenChange={() => {}} tenantId={tenantId} />,
+      client
+    )
+    fireEvent.change(screen.getByRole("textbox", { name: "Key name" }), {
+      target: { value: "Protected" },
+    })
+    fireEvent.click(screen.getByRole("button", { name: "Create key" }))
+    if (state === "uncertain")
+      await screen.findByRole("button", { name: "Retry same request" })
+    if (state === "revealed")
+      await waitFor(() =>
+        expect(document.querySelector("[data-key-done]")).not.toBeNull()
+      )
+    const event = new Event("navigate", { cancelable: true })
+    navigation.dispatchEvent(event)
+    expect(event.defaultPrevented).toBe(true)
+    if (state === "revealed") {
+      fireEvent.click(document.querySelector("[data-key-stored]")!)
+      fireEvent.click(document.querySelector("[data-key-done]")!)
+      const after = new Event("navigate", { cancelable: true })
+      navigation.dispatchEvent(after)
+      expect(after.defaultPrevented).toBe(false)
+    }
+  }
+)
+it("restores indexed Back before the router observes it without the Navigation API", async () => {
+  vi.stubGlobal("navigation", undefined)
+  window.history.replaceState({ idx: 2 }, "", "/keys")
+  const router = vi.fn()
+  window.addEventListener("popstate", router)
+  const go = vi.spyOn(window.history, "go").mockImplementation(() => {})
+  const view = renderWithClient(
+    <KeyDialog open onOpenChange={() => {}} tenantId={tenantId} />,
+    commandClient({ "keys.create": result }).client
+  )
+  fireEvent.change(screen.getByRole("textbox", { name: "Key name" }), {
+    target: { value: "Protected" },
+  })
+  fireEvent.click(screen.getByRole("button", { name: "Create key" }))
+  await waitFor(() =>
+    expect(document.querySelector("[data-key-done]")).not.toBeNull()
+  )
+  window.dispatchEvent(new PopStateEvent("popstate", { state: { idx: 1 } }))
+  expect(router).not.toHaveBeenCalled()
+  expect(go).toHaveBeenCalledWith(1)
+  window.dispatchEvent(new PopStateEvent("popstate", { state: { idx: 2 } }))
+  expect(router).not.toHaveBeenCalled()
+  view.unmount()
+  window.removeEventListener("popstate", router)
+})
 it("keeps the rotation reveal mounted while its detail refetches as revoked", async () => {
   const { client, commands } = commandClient({
     "keys.rotate": (payload) => ({

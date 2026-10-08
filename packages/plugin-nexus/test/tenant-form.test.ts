@@ -58,6 +58,27 @@ it("omits unchanged fields and never submits an immutable slug on edit", () => {
   draft.slug = "ignored"
   expect(tenantPayload(draft, tenant)).toEqual({ id: tenant.id })
 })
+it("leaves untouched stored strings, model IDs and metadata byte-for-byte alone", () => {
+  const tenant = existing()
+  tenant.name = " Customer "
+  tenant.config.allowedModels = [
+    "model,with-comma",
+    " duplicate ",
+    " duplicate ",
+  ]
+  tenant.config.blockedModels = ["model\nwith-newline"]
+  tenant.config.defaultModel = " model "
+  tenant.config.metadata = { " region ": "west", region: "east", "": "legacy" }
+  tenant.metadata = { " owner ": "team", owner: "other", " ": "legacy" }
+  tenant.quota.maxStreamDurationMs = 9_223_372_036_855
+  const draft = tenantDraft(tenant)
+  expect(tenantPayload(draft, tenant)).toEqual({ id: tenant.id })
+  draft.quota.rpm = { unlimited: false, value: "240" }
+  expect(tenantPayload(draft, tenant)).toEqual({
+    id: tenant.id,
+    quota: { rpm: 240 },
+  })
+})
 it("validates integer limits, duration bounds, budget syntax and metadata keys", () => {
   const tenant = existing()
   for (const value of ["-1", "1.5", "1e3", "9007199254740992", ""]) {

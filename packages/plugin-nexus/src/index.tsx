@@ -110,3 +110,4 @@ export {
 export { Money } from "./components/money"
 export { KeyBadge, TenantBadge, OutcomeBadge } from "./badges"
 export type * from "./types"
+import "./use-key-navigation-guard"

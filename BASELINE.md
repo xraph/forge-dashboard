@@ -875,3 +875,16 @@ unrelated preview's unsupported `scopes` prop and implicit callback `id` type.
 Browser console findings were missing unrelated contributors, favicon 404 and
 the deliberately injected revoke 503. These checks don't qualify installed
 permissions, provider credentials or a deployment's durable idempotency store.
+
+The Slice 6 review fix pass passed all 66 Nexus tests, package formatting, lint
+and typecheck. An untouched model list or metadata map is now omitted before
+normalization or validation. Tenant drafts survive transient refresh failure and
+retry; denied, missing and cleared contexts discard them.
+
+Browser Back was checked while a key command was pending, uncertain and revealed,
+including repeated Back. Both the Navigation API path and a run with that API
+unavailable preserved the dialog and retry identity. Back worked after storage
+acknowledgement. The fallback listener loads with the plugin before BrowserRouter;
+window popstate listeners do not gain priority from capture mode. A browser
+refresh failure and retry also preserved the tenant draft. Evidence is in
+`output/playwright/nexus-slice6/review-regressions-result.txt`; screenshots mask keys.

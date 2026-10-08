@@ -1,13 +1,81 @@
 import { act, fireEvent, screen, waitFor, within } from "@testing-library/react"
 import { expect, it } from "vitest"
-import { ContractError } from "@forge-go/dashboard-plugin"
+import { ContractError, queryStore } from "@forge-go/dashboard-plugin"
+import { TenantEditPage } from "../src/pages/tenant-form"
 import { TenantEditor } from "../src/components/tenant-editor"
 import { TenantStatusActions } from "../src/components/tenant-status"
 import type { Tenant } from "../src/types"
-import { answer, commandClient } from "./fixtures"
+import { answer, commandClient, fixtureClient } from "./fixtures"
 import { renderWithClient } from "./harness"
 const tenant = () =>
   answer<Tenant>("tenants.get", { id: "tenant_00000000000000000000000001" })
+it("retains the mounted editor and draft through background failure and retry", async () => {
+  let offline = false
+  const { client } = fixtureClient({
+    "tenants.get": () => {
+      if (offline) throw new ContractError("UNAVAILABLE", "Read unavailable")
+      return tenant()
+    },
+  })
+  renderWithClient(<TenantEditPage params={{ id: tenant().id }} />, client)
+  const input = await screen.findByRole("textbox", { name: "Name" })
+  fireEvent.change(input, { target: { value: "Unsaved name" } })
+  offline = true
+  act(() => queryStore.invalidate("nexus", ["tenants.get"]))
+  await screen.findByText(/Read unavailable/)
+  expect(screen.getByRole("textbox", { name: "Name" })).toBe(input)
+  expect((input as HTMLInputElement).value).toBe("Unsaved name")
+  offline = false
+  fireEvent.click(screen.getByRole("button", { name: "Retry" }))
+  await waitFor(() => expect(screen.queryByText(/Read unavailable/)).toBeNull())
+  expect(screen.getByRole("textbox", { name: "Name" })).toBe(input)
+  expect((input as HTMLInputElement).value).toBe("Unsaved name")
+})
+it.each([
+  ["PERMISSION_DENIED", "Read denied"],
+  ["UNAUTHENTICATED", "Read denied"],
+  ["NOT_FOUND", "Read denied"],
+  ["TRANSPORT", "Request failed with HTTP 401"],
+  ["TRANSPORT", "Request failed with HTTP 403"],
+])("drops the editor after %s: %s", async (code, message) => {
+  let denied = false
+  const { client } = fixtureClient({
+    "tenants.get": () => {
+      if (denied) throw new ContractError(code, message)
+      return tenant()
+    },
+  })
+  renderWithClient(<TenantEditPage params={{ id: tenant().id }} />, client)
+  await screen.findByRole("textbox", { name: "Name" })
+  denied = true
+  act(() => queryStore.invalidate("nexus", ["tenants.get"]))
+  await waitFor(() =>
+    expect(screen.queryByRole("textbox", { name: "Name" })).toBeNull()
+  )
+})
+it("discards the draft when the host clears the query context", async () => {
+  let resolve!: (value: Tenant) => void
+  let cleared = false
+  const { client } = fixtureClient({
+    "tenants.get": () =>
+      cleared
+        ? new Promise<Tenant>((r) => {
+            resolve = r
+          })
+        : tenant(),
+  })
+  renderWithClient(<TenantEditPage params={{ id: tenant().id }} />, client)
+  fireEvent.change(await screen.findByRole("textbox", { name: "Name" }), {
+    target: { value: "Old context" },
+  })
+  cleared = true
+  act(() => queryStore.clear())
+  expect(screen.queryByRole("textbox", { name: "Name" })).toBeNull()
+  await act(async () => resolve(tenant()))
+  expect(
+    (screen.getByRole("textbox", { name: "Name" }) as HTMLInputElement).value
+  ).toBe(tenant().name)
+})
 it("submits only dirty tenant fields and disables a no-op save", async () => {
   const original = tenant(),
     { client, commands } = commandClient()

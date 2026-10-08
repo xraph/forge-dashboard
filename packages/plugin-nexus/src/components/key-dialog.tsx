@@ -29,6 +29,7 @@ import type { APIKey, SecretKeyResult } from "../types"
 import { OneTimeKey } from "./one-time-key"
 import { TenantFilter } from "./tenant-filter"
 import { Notice } from "./read"
+import { useKeyNavigationGuard } from "../use-key-navigation-guard"
 
 export function KeyDialog({
   open,
@@ -108,6 +109,11 @@ function KeyForm({
   const uncertain = outcome === "unknown" || outcome === "running"
   const spent = outcome === "spent"
   const locked = command.loading || !!revealed || uncertain || spent
+  const releaseNavigation = useKeyNavigationGuard(locked)
+  const done = () => {
+    releaseNavigation()
+    onDone()
+  }
   useLayoutEffect(() => {
     onLock(locked)
   }, [locked, onLock])
@@ -120,15 +126,6 @@ function KeyForm({
         "overview.get",
       ])
   }, [uncertain, spent, client.extension])
-  useEffect(() => {
-    if (!locked) return
-    const warn = (event: BeforeUnloadEvent) => {
-      event.preventDefault()
-      event.returnValue = ""
-    }
-    window.addEventListener("beforeunload", warn)
-    return () => window.removeEventListener("beforeunload", warn)
-  }, [locked])
   async function submit() {
     if (sending.current || spent || revealed) return
     if (!uncertain) {
@@ -202,7 +199,7 @@ function KeyForm({
           result={revealed}
           onDone={() => {
             setRevealed(undefined)
-            onDone()
+            done()
           }}
         />
       </>
@@ -235,7 +232,8 @@ function KeyForm({
             type="button"
             nativeButton={false}
             render={<PluginLink to="/keys" />}
-            onClick={onDone}
+            data-key-exit
+            onClick={done}
           >
             Close and review keys
           </Button>

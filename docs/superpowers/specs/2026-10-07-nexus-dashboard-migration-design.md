@@ -1319,7 +1319,12 @@ still blocked by the concurrent design preview's two type errors. Full fixture
 verification retains 49 Shield failures and no Nexus failures. BASELINE records
 bundle sizes, browser artifacts and the exact qualification limits.
 
-The final Slice 6 review is pending. Once its gate is clear, use the inventory in
-Nexus's `MIGRATION.md` to retire the disconnected templ directory and tidy modules.
+The Slice 6 review found three Important issues, now fixed in one regression pass:
+SPA Back protection, normalization of untouched values, and draft retention after
+a transient query error. All 66 tests, format, lint and typecheck pass. Browser
+checks cover pending, uncertain and revealed Back, the older-browser fallback,
+repeated Back, acknowledgement and offline tenant refresh/retry. The gate is clear.
+Use the inventory in Nexus's `MIGRATION.md` to retire the disconnected templ directory
+and tidy modules.
 Forge is already v1.12.3. Keep deployed authentication, provider credentials and
 durable shared idempotency explicitly unqualified by these local fixture checks.
