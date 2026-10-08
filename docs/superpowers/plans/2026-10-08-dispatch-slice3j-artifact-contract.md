@@ -1,6 +1,6 @@
 # Dispatch Slice 3j: artifact contract implementation plan
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [x]`) syntax for tracking.
 
 **Goal:** Inspect retained artifact metadata, follow job links and request fresh download URLs from the configured artifact service.
 
@@ -12,13 +12,13 @@
 
 ## Constraints and rulings
 
-- Primary main checkouts only; preserve concurrent module and dashboard changes. Commit owned paths after checks, with no push.
+- Primary main checkouts only; preserve concurrent module and dashboard changes. Commit owned paths after checks. The user's October 8 update authorizes pushing verified work.
 - The artifact service is optional. Disabled is explicit and differs from enabled with an empty list.
 - RecordReader is optional for custom artifact stores. Existing Store and GetArtifact signatures remain unchanged. A configured custom store missing paging or metadata inspection returns UNAVAILABLE, not a healthy empty response.
 - All five built-in stores implement RecordReader. Direct metadata reads include soft deletion; serving reads and downloads still reject deleted records.
 - Artifact pages, details and links use service.Store(). The owning job is verified in the engine store before reading links from the artifact store.
 - Redis direct and paged reads validate record identity against the requested key. Missing index members remain skippable; corruption must not become another artifact.
-- Trove implements Presigner even when its current driver cannot sign. The new optional PresignSupport reports the current driver capability without generating a URL.
+- Trove implements Presigner even when its current driver cannot sign. The new optional PresignSupport reports capability for each artifact reference without generating a URL.
 - Backend names must match the artifact's stored backend before a download is offered. No default-backend substitution.
 - Expiry metadata describes the artifact lifecycle. GetArtifact's existing live-record rules remain authoritative; the dashboard does not add a new lifecycle expiry policy.
 - Each presign call requests a five-minute URL and records a conservative expiry from the call start. URLs must be absolute HTTP or HTTPS without userinfo. Signing failures use the shared safe error mapping.
@@ -42,7 +42,7 @@
 
 **Files:** `extension/contract/artifact_record_test.go`, `extension/contract/artifact_record_integration_test.go`, `artifact/trove/presign_test.go`, `store/redis/artifact_identity_test.go`, `artifact/inspection.go`, `store/memory/artifact_record.go`, `store/sqlite/artifact_record.go`, `store/postgres/artifact_record.go`, `store/mongo/artifact_record.go`, `store/redis/artifact_record.go`, `artifact/trove/backend.go`, `store/redis/artifact.go`, `store/redis/list.go`. Paths are relative to /Users/rexraphael/Work/xraph/forgery/dispatch.
 
-- [ ] Add these tests:
+- [x] Add these tests:
 
 `extension/contract/artifact_record_test.go`
 
@@ -152,9 +152,9 @@ func TestArtifactReadsRejectMismatchedIdentity(t *testing.T){
 }
 ```
 
-- [ ] Run the relevant test commands before implementation. Expected FAIL: record inspection and driver capability are missing; Redis returns mismatched records.
+- [x] Run the relevant test commands before implementation. Expected FAIL: record inspection and driver capability are missing; Redis returns mismatched records.
 
-- [ ] Implement the following:
+- [x] Implement the following:
 
 `artifact/inspection.go`
 
@@ -339,15 +339,15 @@ func validateArtifactIdentity(a *artifact.Artifact,keyID string)error{
 +		match:  opts.Match,
 ```
 
-- [ ] Format owned Go files with goimports and run these commands individually, preserving every exit status: `go test -race ./extension/contract -run TestArtifactRecordReads -count=1; go test -race ./artifact/trove -run TestTroveReportsCurrentPresignCapability -count=1; go test -race -tags=integration ./extension/contract -run TestArtifactRecordReadsOtherBackends -count=1 -v; go test -race -tags=integration ./store/redis -run TestArtifactReadsRejectMismatchedIdentity -count=1 -v`. Expected PASS; inspect any skips.
-- [ ] Run affected ordinary lint and integration contract lint. The known integration Redis store_test.go:54 shadow is not owned by this slice.
-- [ ] Inspect branch, staged scope and concurrent changes. Stage only owned paths and commit: `feat(artifact): expose retained metadata and signing capability`.
+- [x] Format owned Go files with goimports and run these commands individually, preserving every exit status: `go test -race ./extension/contract -run TestArtifactRecordReads -count=1; go test -race ./artifact/trove -run TestTroveReportsCurrentPresignCapability -count=1; go test -race -tags=integration ./extension/contract -run TestArtifactRecordReadsOtherBackends -count=1 -v; go test -race -tags=integration ./store/redis -run TestArtifactReadsRejectMismatchedIdentity -count=1 -v`. Expected PASS; inspect any skips.
+- [x] Run affected ordinary lint and integration contract lint. The known integration Redis store_test.go:54 shadow is not owned by this slice.
+- [x] Inspect branch, staged scope and concurrent changes. Stage only owned paths and commit: `feat(artifact): expose retained metadata and signing capability`.
 
 ## Task 2: Serve artifact metadata, job links and bounded downloads
 
 **Files:** `extension/contract/artifacts_test.go`, `extension/contract/artifacts_errors_test.go`, `extension/contract/artifacts.go`. Paths are relative to /Users/rexraphael/Work/xraph/forgery/dispatch.
 
-- [ ] Add these tests:
+- [x] Add these tests:
 
 `extension/contract/artifacts_test.go`
 
@@ -568,9 +568,9 @@ func TestArtifactReadsPropagateFailureAndIncompletePages(t *testing.T){
 }
 ```
 
-- [ ] Run the relevant test commands before implementation. Expected FAIL: artifact handlers do not exist.
+- [x] Run the relevant test commands before implementation. Expected FAIL: artifact handlers do not exist.
 
-- [ ] Implement the following:
+- [x] Implement the following:
 
 `extension/contract/artifacts.go`
 
@@ -682,15 +682,15 @@ func artifactsPresignHandler(deps Deps)func(context.Context,IDInput,fc.Principal
 }
 ```
 
-- [ ] Format owned Go files with goimports and run these commands individually, preserving every exit status: `go test -race ./extension/contract -run 'TestArtifactDomainMemoryAndSQLite|TestArtifactContract|TestArtifactPresign|TestArtifactDisabled|TestArtifactReadsPropagate' -count=1`. Expected PASS; inspect any skips.
-- [ ] Run affected ordinary lint and integration contract lint. The known integration Redis store_test.go:54 shadow is not owned by this slice.
-- [ ] Inspect branch, staged scope and concurrent changes. Stage only owned paths and commit: `feat(contract): expose artifact inspection and downloads`.
+- [x] Format owned Go files with goimports and run these commands individually, preserving every exit status: `go test -race ./extension/contract -run 'TestArtifactDomainMemoryAndSQLite|TestArtifactContract|TestArtifactPresign|TestArtifactDisabled|TestArtifactReadsPropagate' -count=1`. Expected PASS; inspect any skips.
+- [x] Run affected ordinary lint and integration contract lint. The known integration Redis store_test.go:54 shadow is not owned by this slice.
+- [x] Inspect branch, staged scope and concurrent changes. Stage only owned paths and commit: `feat(contract): expose artifact inspection and downloads`.
 
 ## Task 3: Register the artifact queries and verify transport and durable stores
 
 **Files:** `extension/contract/artifacts_integration_test.go`, `extension/contract/artifacts_transport_test.go`, `extension/contract/contract.go`, `extension/contract/manifest.yaml`. Paths are relative to /Users/rexraphael/Work/xraph/forgery/dispatch.
 
-- [ ] Add these tests:
+- [x] Add these tests:
 
 `extension/contract/artifacts_integration_test.go`
 
@@ -757,9 +757,9 @@ func TestArtifactTransportQueriesAndUncachedDownloads(t *testing.T){
 }
 ```
 
-- [ ] Run the relevant test commands before implementation. Expected FAIL: artifact intents are not registered.
+- [x] Run the relevant test commands before implementation. Expected FAIL: artifact intents are not registered.
 
-- [ ] Implement the following:
+- [x] Implement the following:
 
 Add these bindings and matching read intents:
 
@@ -777,14 +777,27 @@ query("artifacts.presign", artifactsPresignHandler(deps)),
   - { name: artifacts.presign, kind: query, version: 1, capability: read }
 ```
 
-- [ ] Format owned Go files with goimports and run these commands individually, preserving every exit status: `go test -race ./extension/contract -count=1; go test -race -tags=integration ./extension/contract -run TestArtifactDomainOtherBackends -count=1 -v`. Expected PASS; inspect any skips.
-- [ ] Run affected ordinary lint and integration contract lint. The known integration Redis store_test.go:54 shadow is not owned by this slice.
-- [ ] Inspect branch, staged scope and concurrent changes. Stage only owned paths and commit: `feat(contract): register artifact queries`.
+- [x] Format owned Go files with goimports and run these commands individually, preserving every exit status: `go test -race ./extension/contract -count=1; go test -race -tags=integration ./extension/contract -run TestArtifactDomainOtherBackends -count=1 -v`. Expected PASS; inspect any skips.
+- [x] Run affected ordinary lint and integration contract lint. The known integration Redis store_test.go:54 shadow is not owned by this slice.
+- [x] Inspect branch, staged scope and concurrent changes. Stage only owned paths and commit: `feat(contract): register artifact queries`.
 
 ## Final verification and review
 
-- [ ] Run go build ./..., go test ./..., go test -race ./engine ./extension/... and full ordinary lint with --allow-serial-runners.
-- [ ] Generate one complete review package and request one fresh read-only gpt-6-astra final review. No implementation delegation or nested agents.
-- [ ] Resolve consequential findings in one regression-tested pass without a second review.
-- [ ] Record implementation, test results and remaining browser/dependency/retirement gates in this plan, its ledger and MIGRATION.md.
+- [x] Run go build ./..., go test ./..., go test -race ./engine ./extension/... and full ordinary lint with --allow-serial-runners.
+- [x] Generate one complete review package and request one fresh read-only gpt-6-astra final review. No implementation delegation or nested agents.
+- [x] Resolve consequential findings in one regression-tested pass without a second review.
+- [x] Record implementation, test results and remaining browser/dependency/retirement gates in this plan, its ledger and MIGRATION.md.
 
+## Execution and final review
+
+- Task 1: native regressions failed before the optional reader and signing support existed. Memory, SQLite, PostgreSQL, MongoDB and Redis record reads then passed under race. Redis direct and paged identity regressions failed before validation and passed afterward. Committed in `935bb1c`.
+- Task 2: artifact handlers passed domain, outage, disabled-capability, separate-store, empty-incomplete-page and signing tests. Committed in `081cb92`.
+- Task 3: the four artifact intents passed HTTP registration and repeated fresh-URL tests, including no-store headers on handler failures. Committed in `b47c958`.
+- Final review: one fresh read-only review identified a P2 Trove routing mismatch. We treated it as consequential because a signed URL could point to a different object at the same bucket/key.
+- Final fix: `TestTrovePresignUsesReadRoute` failed for both signing drivers, only the routed driver signing, only the default driver signing, and default-bucket resolution. All four pass after resolving the same route as a read. Contract list, detail and download tests also verify per-record availability. Committed in `fda4783`. No second review.
+- Ruling: `SupportsPresign` takes the artifact reference, and the global page-level signing flag was removed. Routes can have different capabilities. Consumers use each row's `downloadAvailable`. The planned code above records the original implementation; the checked-in code includes this review correction.
+- Ruling: the new global lint rule supersedes the earlier no-push and unrelated-lint boundaries. The Redis test shadow is fixed, and Makefile lint commands wait for the shared linter lock. Committed in `0844707`.
+- `make f` and `make l` pass. Affected Redis and contract integration-tag lint reports zero issues. Redis artifact checks pass under race: 20 tests/subtests, no skips. The PostgreSQL, Redis and MongoDB artifact domains pass under race, no skips.
+- Dependency verification: a temporary alternate module file reproduced the committed baseline without changing the concurrent upgrades. It needed Trove v1.7.0 for routing and the telemetry indirect dependencies required by the existing dashboard registration test. Only those requirements/checksums were staged; the concurrent Forge/Grove/Relay/telemetry upgrade remains unstaged.
+- The resulting committed dependency baseline passes `go build ./...`, all 45 test packages (2,080 tests/subtests), engine/extension/Trove race checks and `make l`. One existing unsupported Trove range-read test skips; two packages have no tests. Earlier MongoDB container-startup skips passed on serial retry.
+- Backend migration status is updated in `8ef70d4`. React pages, browser downloads, real SQLite browser parity and templ retirement remain pending. No browser or production-object-store qualification is claimed.
