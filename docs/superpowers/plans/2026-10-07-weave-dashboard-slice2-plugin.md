@@ -6347,7 +6347,7 @@ Body, for example: chunks are listed one collection at a time in reading order, 
   - `assembleHitsFrom(hits: Hit[]): AssembleHit[]`
   - `type Emptiness = { kind: "no-vectors" } | { kind: "all-filtered"; matches: number; best: number; minScore: number } | { kind: "none-returned"; matches: number }`; `emptiness(result: CompareResult, minScore: number): Emptiness | null`; `emptinessCopy(e: Emptiness): string`
   - `noReorderingCopy(result: CompareResult, components: Components | undefined): string | null`
-  - `CONTEXT_SEPARATOR`; `type ContextPart = { kind: "text"; text: string } | { kind: "marker"; n: number }`; `contextParts(context: string): ContextPart[]`; `hitForMarker(context: AssembledContext, n: number): number`
+  - `CONTEXT_HEADER`, `CONTEXT_SEPARATOR`; `type ContextPart = { kind: "text"; text: string } | { kind: "marker"; n: number }`; `contextParts(context: string): ContextPart[]`; `hitForMarker(context: AssembledContext, n: number): number`
 
 These are pure, so every rule the page depends on is tested here without rendering anything.
 
@@ -6483,9 +6483,10 @@ describe("noReorderingCopy", () => {
 })
 
 describe("contextParts", () => {
-  it("splits Weave's context into markers and text", () => {
-    const parts = contextParts("[1] Refunds take 14 days.\n\n---\n\n[2] Express arrives tomorrow.")
+  it("splits Weave's context into its header, markers and text", () => {
+    const parts = contextParts("Relevant context:\n\n[1] Refunds take 14 days.\n\n---\n\n[2] Express arrives tomorrow.")
     expect(parts).toEqual([
+      { kind: "text", text: "Relevant context:\n\n" },
       { kind: "marker", n: 1 },
       { kind: "text", text: "Refunds take 14 days." },
       { kind: "text", text: "\n\n---\n\n" },
@@ -6498,7 +6499,8 @@ describe("contextParts", () => {
     expect(contextParts("[1] See note [3] below.")).toEqual([{ kind: "marker", n: 1 }, { kind: "text", text: "See note [3] below." }])
   })
 
-  it("has no parts for an empty context", () => {
+  it("keeps the header alone when nothing fit, and has no parts for an empty string", () => {
+    expect(contextParts("Relevant context:\n\n")).toEqual([{ kind: "text", text: "Relevant context:\n\n" }])
     expect(contextParts("")).toEqual([])
   })
 })
@@ -6615,19 +6617,31 @@ export function noReorderingCopy(result: CompareResult, components: Components |
   return "No reordering for this query: it came back in vector order. The next query may not."
 }
 
-/** Weave's default template joins "[n] content" blocks with this. */
+/**
+ * Weave's default template (assembler/template.go) writes this header first,
+ * every time, even when nothing fit, then joins "[n] content" blocks with the
+ * separator. The header's bytes are not in total_tokens.
+ */
+export const CONTEXT_HEADER = "Relevant context:\n\n"
 export const CONTEXT_SEPARATOR = "\n\n---\n\n"
 
 export type ContextPart = { kind: "text"; text: string } | { kind: "marker"; n: number }
 
 /**
  * The assembled context as text and markers. A marker is "[n] " at the start
- * of a block, never a "[n]" inside a chunk's own text.
+ * of a block, never a "[n]" inside a chunk's own text. The default header is
+ * its own text part, so the first block's marker is still found.
  */
 export function contextParts(context: string): ContextPart[] {
   if (context === "") return []
   const out: ContextPart[] = []
-  context.split(CONTEXT_SEPARATOR).forEach((block, i) => {
+  let body = context
+  if (body.startsWith(CONTEXT_HEADER)) {
+    out.push({ kind: "text", text: CONTEXT_HEADER })
+    body = body.slice(CONTEXT_HEADER.length)
+    if (body === "") return out
+  }
+  body.split(CONTEXT_SEPARATOR).forEach((block, i) => {
     if (i > 0) out.push({ kind: "text", text: CONTEXT_SEPARATOR })
     const m = /^\[(\d+)\] /.exec(block)
     if (m) {
@@ -6731,7 +6745,7 @@ const RUN: RunOutput = {
   },
   context: {
     context:
-      "[1] Refunds are issued within 14 days of the return reaching our warehouse.\n\n---\n\n[2] If the order shipped in more than one parcel, each parcel is refunded on its own.\n\n---\n\n[3] Gift card refunds are paid as store credit within 14 days.",
+      "Relevant context:\n\n[1] Refunds are issued within 14 days of the return reaching our warehouse.\n\n---\n\n[2] If the order shipped in more than one parcel, each parcel is refunded on its own.\n\n---\n\n[3] Gift card refunds are paid as store credit within 14 days.",
     total_tokens: 3980,
     max_tokens: 4096,
     included: [0, 1, 2],
@@ -6889,7 +6903,7 @@ describe("RetrievalPage", () => {
   })
 
   it("re-assembles with the run's hits, null content included, and a new budget", async () => {
-    const smaller = { ...RUN.context, context: "[1] Refunds are issued within 14 days of the return reaching our warehouse.", total_tokens: 1800, max_tokens: 2000, included: [0], first_excluded: 1 }
+    const smaller = { ...RUN.context, context: "Relevant context:\n\n[1] Refunds are issued within 14 days of the return reaching our warehouse.", total_tokens: 1800, max_tokens: 2000, included: [0], first_excluded: 1 }
     const { client, sent } = scriptedClient(queries(), { "retrieval.run": RUN, "retrieval.assemble": smaller })
     renderPage(RetrievalPage, client)
     await ask()
@@ -6933,7 +6947,7 @@ describe("RetrievalPage", () => {
   })
 
   it("says vector search found nothing", async () => {
-    const none = { ...RUN, result: { ...RUN.result, hits: [], left_out: [], vector_matches: 0, best_vector_score: 0 }, context: { ...RUN.context, context: "", included: [], first_excluded: -1, total_tokens: 0 } }
+    const none = { ...RUN, result: { ...RUN.result, hits: [], left_out: [], vector_matches: 0, best_vector_score: 0 }, context: { ...RUN.context, context: "Relevant context:\n\n", included: [], first_excluded: -1, total_tokens: 0 } }
     const { client } = scriptedClient(queries(), { "retrieval.run": none })
     renderPage(RetrievalPage, client)
     await ask()
@@ -6941,7 +6955,7 @@ describe("RetrievalPage", () => {
   })
 
   it("blames the min score when it removed every match", async () => {
-    const none = { ...RUN, result: { ...RUN.result, hits: [], left_out: [] }, context: { ...RUN.context, context: "", included: [], first_excluded: -1, total_tokens: 0 } }
+    const none = { ...RUN, result: { ...RUN.result, hits: [], left_out: [] }, context: { ...RUN.context, context: "Relevant context:\n\n", included: [], first_excluded: -1, total_tokens: 0 } }
     const { client } = scriptedClient(queries(), { "retrieval.run": none })
     renderPage(RetrievalPage, client)
     fireEvent.change(await screen.findByLabelText("Min score"), { target: { value: "0.9" } })
@@ -7323,8 +7337,8 @@ export function ContextView({
         </span>
       </div>
       <CommandAlert title="Could not re-assemble" error={assemble.error} />
-      {context.context === "" ? (
-        <p className="text-sm text-muted-foreground">Nothing fit in the budget, so the context is empty.</p>
+      {context.included.length === 0 ? (
+        <p className="text-sm text-muted-foreground">Nothing fit in the budget, so a model would get only the template's header.</p>
       ) : (
         <pre className="whitespace-pre-wrap rounded-md border p-3 text-sm">
           {contextParts(context.context).map((part, i) =>
