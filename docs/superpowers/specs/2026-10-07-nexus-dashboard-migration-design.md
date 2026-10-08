@@ -1,7 +1,7 @@
 # Nexus dashboard: templ to React shell
 
-Status: design approved in conversation on 2026-10-07, awaiting review of this
-written spec.
+Status: written design approved on 2026-10-07. Slices 1 to 3 and the Slice 3
+follow-ups are implemented. Slice 4, the Go dashboard contract, is next.
 
 Two repositories, both worked on `main`, no worktrees:
 
@@ -1007,7 +1007,7 @@ request_id 5, tracing 10, usage 15, timeout 20, identity 30, access 40, quota 50
 
 Show the limiter kind next to the replica count, if the host knows it: `memory` with several replicas means each one counts on its own.
 
-Ruling 16: with `EnableUsage` false, no usage rows are written, so `DailyRequests` and `MonthlyBudgetUSD` can never trip while the quota stage still runs RPM, TPM and the token cap. The posture readout in `overview.get` (`usageEnabled`) should therefore show "usage off: daily and budget limits inert" instead of a plain "off", and the tenant quota form should say the same beside those two fields. `Initialize` also logs a warning when usage is off ("daily and monthly budget limits will not apply"), for operators who never open the dashboard.
+Ruling 16, corrected by the follow-ups: with `EnableUsage` false, no usage rows are written, so the monthly budget cannot apply. The daily cap still applies through the limiter, alongside RPM, TPM and token caps. The posture readout should say "usage off: the monthly budget is inert". Memory windows reset on restart and apply per replica; Redis shares them. `Initialize` logs the corrected warning too.
 
 ### Keys
 
@@ -1118,7 +1118,7 @@ The whole-slice review found no critical issue and nine important ones. The fixe
 - a key id without a tenant and a negative `max_tokens` are refused, each limiter check before a request is bounded at 250ms, unknown scopes are refused, and `Initialize` warns when usage is off;
 - the Identity & Auth page is rewritten, `auth.Provider`, `nexus.WithAuth`, `auth.NewNoop` and `auth/authsome` are deprecated, and the tenancy, store and HTTP API pages are corrected.
 
-I7 and I8 are not fixed; they are slice 4 decisions (Ruling 19, see "Keys" and the I7 paragraph above).
+I7 and I8 were resolved in the 2026-10-08 follow-ups below. The earlier decision paragraphs record the review history; they no longer block Slice 4.
 
 ### v1 breaking changes from slice 3
 
@@ -1153,3 +1153,52 @@ Not needed for slice 4, but needed before a busy gateway runs on this:
 - Cache the spend for a few seconds. Every request of a capped tenant still reads the month's spend and the day's count from the store, plus a key and a tenant lookup (two, now that the edge reads the tenant). The new index keeps that from scanning, but a per-replica cache of spend and count for one to five seconds, or running counters, would take the store off the hot path. The budget is soft already, so a cache changes nothing a client can see beyond the bound above (review I2).
 - Rate-limit the limiter's error log. During a Redis outage every limiter call logs at Error, up to four per request plus one per TPM charge. Log the first failure and then once a minute with a count. The Redis limiter also counts a cancelled client context as a limiter error, which inflates `LimiterErrors` (review M4).
 - Make the first admin key without Go. Today it can only be made from Go. Something like `nexus.WithBootstrapAdminKey(raw)`, or an environment variable the forge extension reads once and applies idempotently by hash, or a CLI subcommand, so an operator running the extension from config can get started (review, on Ruling 14).
+
+## Slice 3 follow-ups, verified on 2026-10-08
+
+The takeover checked Nexus `main` at `43b8a2d`. Slices 1 to 3 were already
+implemented, despite the older chat handoff saying Slice 1 had not started.
+The remaining follow-up work was documentation and verification.
+
+Rex confirmed Ruling 14 on 2026-10-08 and asked for the long-term fixes.
+Admin routes always require an admin key. The extension now accepts
+`bootstrap_admin_key`, falling back to `NEXUS_BOOTSTRAP_ADMIN_KEY`, and applies
+it after migration. Only its hash is stored. A revoked key stays revoked;
+the key hash is unique in every store, and `Ensure` re-reads after a concurrent
+insert. An existing inactive operator tenant fails startup. Use random key
+material, as shown in the HTTP API guide.
+
+I7 is implemented. `DefaultModel` fills an omitted model; `model_policy` at
+priority 260 checks both the requested name and the chosen alias target;
+blocks win over allows. `CacheEnabled: false` bypasses cache reads and writes,
+including stream replay. `RoutingStrategy` and `GuardrailPolicy` remain
+stored, not enforced. The contract must describe those two fields that way.
+
+I8 is implemented in all four stores. `key.Service.ListPage` and `Count`
+derive expiry through store filters using the service clock. Use these for
+`keys.list` and the active-key count; do not bind the store's `Now` field
+from client input.
+
+The tenant service now refuses deletion when keys or usage history exist,
+with `tenant.ErrInUse`. The HTTP API maps it to 409. The contract still has no
+tenant-delete command. Disable a tenant to stop traffic and keep its history.
+
+The stream lifecycle now protects its accumulator and watchdog state during
+concurrent `Next` and `Close`. This verifies the wrapper's state, not the
+concurrency safety of every provider stream. The independent final review
+found no important introduced defect and noted a pre-existing OpenAI stream
+`done` race outside this change's scope. It also noted that extension config
+serialization can include the bootstrap value, so dashboard settings must
+use an explicit safe projection rather than serialize extension config.
+
+Fresh verification passed: root `go test -race ./...` with Postgres on 55632,
+Mongo on 57632 and Redis on 56479; standalone `GOWORK=off go vet ./...` and
+`go test ./...` in all 37 nested modules; fresh-cache lint with zero issues.
+The existing test containers were reused. Browser verification has not begun.
+
+Upgrade with a maintenance window. The composite usage index migration builds
+while blocking writes on a large table. On Postgres you can create the exact
+index with `CONCURRENTLY` before upgrading, outside a transaction; the
+migration's `IF NOT EXISTS` then skips it. SQLite time normalization remains
+in `Store.Migrate`, so external migration orchestrators must also call it.
+Stop old writers before migration to avoid reintroducing legacy time strings.
