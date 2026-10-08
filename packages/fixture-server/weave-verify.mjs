@@ -120,6 +120,13 @@ export async function verifyWeave({ dispatch, getCSRF, failures, base }) {
   const echoed = result.hits.map((h) => ({ chunk_id: h.chunk?.id ?? "", content: h.chunk ? h.chunk.content : null, score: h.score }))
   const again = await c("retrieval.assemble", { hits: echoed, max_tokens: 60 })
   check("re-assembling the same hits gives the same context", data(again)?.context === context?.context && JSON.stringify(data(again)?.included) === JSON.stringify(context?.included), data(again))
+  check("a run's context starts with the template header", context?.context.startsWith("Relevant context:\n\n"), context)
+  const noneIn = await c("retrieval.assemble", { hits: [{ chunk_id: "", content: null, score: 0.5 }, { chunk_id: "", content: null, score: 0.4 }] })
+  check(
+    "assembling hits that all lack content answers the bare header",
+    data(noneIn)?.context === "Relevant context:\n\n" && data(noneIn)?.included.length === 0 && data(noneIn)?.first_excluded === 0,
+    data(noneIn),
+  )
   check("an empty query is BAD_REQUEST", code(await c("retrieval.run", { query: "  " })) === "BAD_REQUEST")
   check("51 hits is BAD_REQUEST", code(await c("retrieval.assemble", { hits: Array.from({ length: 51 }, () => ({ chunk_id: "", content: "x", score: 0 })) })) === "BAD_REQUEST")
 

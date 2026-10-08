@@ -20,9 +20,10 @@
 //   their offsets, so a gap is a real thing to meet.
 // - Ingesting content that contains FIXTURE_FAIL_EMBED answers state failed
 //   with an embedder error, so the failed path can be walked.
-// - Token counts are bytes/4 and the assembler joins "[n] content" with
-//   "\n\n---\n\n", as Weave's default template does, without counting the
-//   template's own bytes.
+// - Token counts are bytes/4. The assembled context starts with the default
+//   template's "Relevant context:" header (even when nothing fits), then
+//   joins "[n] content" blocks with "\n\n---\n\n". total_tokens counts the
+//   chunk content only, not the template's own bytes.
 //
 // Switches, read on every call so a running server can be flipped:
 //   FIXTURE_WEAVE_EMBEDDER   "none" takes the embedder away: retrieval,
@@ -405,7 +406,7 @@ export function createWeaveHandlers(FixtureError) {
         break
       }
     }
-    return { context: parts.join("\n\n---\n\n"), total_tokens: total, max_tokens: maxTokens, included, first_excluded: firstExcluded, token_counter: "chars/4" }
+    return { context: "Relevant context:\n\n" + parts.join("\n\n---\n\n"), total_tokens: total, max_tokens: maxTokens, included, first_excluded: firstExcluded, token_counter: "chars/4" }
   }
 
   function getCollection(input) {
