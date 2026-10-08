@@ -16,7 +16,7 @@ import type { ContractEnvelopeRequest } from "@forge-go/dashboard-plugin"
 import { CommandButton, payloadFor, initialValues } from "../src/components"
 import { ResourceList, ResourceDetail } from "../src/pages"
 import plugin from "../src/index"
-import { resources, routeFields } from "../src/resources"
+import { resources, routeFields, deployFields } from "../src/resources"
 
 beforeEach(() => queryStore.clear())
 afterEach(cleanup)
@@ -96,6 +96,46 @@ describe("Ctrlplane workflows", () => {
       type: "helm",
       helm: { chart: "orders", values: { workers: 3 } },
     })
+  })
+  it("projects deployment overrides onto supported fields and strategy names", () => {
+    const values = initialValues(deployFields, {
+      services: [
+        {
+          name: "api",
+          image: "api:2",
+          role: "main",
+          resources: { cpu_millis: 500 },
+          env: { MODE: "prod" },
+        },
+      ],
+    })
+    expect(payloadFor(deployFields, values).services).toEqual([
+      { name: "api", image: "api:2", env: { MODE: "prod" } },
+    ])
+    expect(
+      deployFields.find((field) => field.key === "strategy")?.options
+    ).toContain("blue-green")
+    values.services = [
+      { name: "api", image: "api:2", resources: { cpu_millis: 1000 } },
+    ]
+    expect(() => payloadFor(deployFields, values)).toThrow(
+      "Deployments support"
+    )
+  })
+  it("resets an empty filtered selection from the empty state", async () => {
+    mount(<ResourceList kind="workloads" />, (req) =>
+      success({
+        items: req.params?.state ? [] : [{ id: "wkl_demo", name: "Orders" }],
+      })
+    )
+    await screen.findByText("Orders")
+    fireEvent.change(screen.getByLabelText("Filter state"), {
+      target: { value: "missing" },
+    })
+    await screen.findByText("No workloads found.")
+    fireEvent.click(screen.getByRole("button", { name: "Reset selection" }))
+    await screen.findByText("Orders")
+    expect(screen.getByLabelText("Filter state")).toHaveProperty("value", "")
   })
   it("rejects broken JSON drafts and preserves upstream TLS defaults", () => {
     expect(() =>

@@ -17,6 +17,7 @@ export interface Field {
     | "services"
     | "select"
     | "group"
+  deploy?: boolean
   required?: boolean
   children?: Field[]
   options?: string[]

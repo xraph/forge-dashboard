@@ -39,12 +39,14 @@ export function DataTable({
   title,
   kind,
   actions,
+  emptyAction,
 }: {
   value: unknown
   columns: string[]
   title: string
   kind?: string
   actions?: (row: Row) => React.ReactNode
+  emptyAction?: React.ReactNode
 }) {
   const items = rows(value)
   const meta = record(value)
@@ -88,9 +90,11 @@ export function DataTable({
         caption={`${items.length} ${title.toLowerCase()} in this result`}
         emptyMessage={`No ${title.toLowerCase()}${incomplete ? " in this window" : " found"}.`}
         emptyAction={
-          <PluginLink to="/workloads" className={linkClass}>
-            Browse workloads
-          </PluginLink>
+          emptyAction ?? (
+            <PluginLink to="/workloads" className={linkClass}>
+              Browse workloads
+            </PluginLink>
+          )
         }
         rowActions={actions}
       />
@@ -187,6 +191,28 @@ export function ResourceList({
               columns={resource.columns}
               title={resource.title}
               kind={kind}
+              emptyAction={
+                Object.values(filters).some(Boolean) || cursor ? (
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => {
+                      setFilters({})
+                      setCursor("")
+                    }}
+                  >
+                    Reset selection
+                  </Button>
+                ) : resource.create ? (
+                  <PluginLink to={`/${kind}/create`} className={linkClass}>
+                    Create {resource.singular.toLowerCase()}
+                  </PluginLink>
+                ) : (
+                  <Button size="sm" variant="outline" onClick={query.refetch}>
+                    Refresh
+                  </Button>
+                )
+              }
               actions={
                 kind === "workloads"
                   ? (row) => (
@@ -544,15 +570,16 @@ export function ResourceDetail({ kind, params }: PageProps & { kind: string }) {
                   "last_error",
                   "updated_at",
                 ],
-                actions: (bootstrap) => (
-                  <CommandButton
-                    action={{
-                      intent: "bootstrap.retry",
-                      label: "Retry failed bootstrap",
-                    }}
-                    target={{ id: bootstrap.id }}
-                  />
-                ),
+                actions: (bootstrap) =>
+                  bootstrap.state === "failed" ? (
+                    <CommandButton
+                      action={{
+                        intent: "bootstrap.retry",
+                        label: "Retry failed bootstrap",
+                      }}
+                      target={{ id: bootstrap.id }}
+                    />
+                  ) : null,
               }
             )
           if (kind === "tenants")
@@ -672,6 +699,18 @@ export function ResourceDetail({ kind, params }: PageProps & { kind: string }) {
                                   </details>
                                 )}
                                 title="Services"
+                              />
+                            ) : key === "endpoints" ? (
+                              <DataTable
+                                value={value}
+                                title="Endpoints"
+                                columns={[
+                                  "service_name",
+                                  "url",
+                                  "port",
+                                  "protocol",
+                                  "public",
+                                ]}
                               />
                             ) : (
                               <JsonView value={value} title={label(key)} />

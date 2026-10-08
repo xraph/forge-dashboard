@@ -27,6 +27,8 @@ pnpm install
 FORGE_DASHBOARD_BACKEND=http://localhost:8097 pnpm --filter @forge-go/dashboard-shell dev --host 127.0.0.1 --port 5177
 ```
 
+For an isolated review while other plugins are being edited, add `--config vite.ctrlplane.config.ts` to the Vite command. That configuration loads only Ctrlplane into the same host and keeps the normal backend proxy.
+
 Open `http://127.0.0.1:5177/@ctrlplane`. You get two isolated tenants, multi-service templates, workloads, replicas, health results, networking, secret metadata and a failed bootstrap record. Badger saves the records under your temporary directory at `forge-dashboard-ctrlplane`. Set `DEMO_CTRLPLANE_PATH` to choose a different directory. Startup preserves saved workload and template edits.
 
 The development identity is fixed by server configuration. `DEMO_CTRLPLANE_ROLE` accepts `admin` (default), `tenant`, `reader` or `denied`. Restart the Go server to change it. Headers and command payloads cannot elevate that identity. The server binds to loopback and enables the dashboard's CSRF and idempotency checks.

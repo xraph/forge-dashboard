@@ -16,7 +16,7 @@ const strategy: Field = {
   key: "strategy",
   label: "Strategy",
   type: "select",
-  options: ["rolling", "recreate", "blue_green", "canary"],
+  options: ["rolling", "recreate", "blue-green", "canary"],
 }
 const json = (key: string, title: string): Field => ({
   key,
@@ -93,7 +93,11 @@ export const resources: Record<string, Resource> = {
       {
         ...action("workloads", "deploy", "Deploy"),
         nested: true,
-        fields: [services, strategy, { key: "notes", label: "Notes" }],
+        fields: [
+          { ...services, deploy: true },
+          strategy,
+          { key: "notes", label: "Notes" },
+        ],
       },
       remove("workloads"),
     ],
@@ -367,7 +371,7 @@ resources.datacenters.edit = resources.datacenters.create?.filter(
   (field) => !["provider_name", "region"].includes(field.key)
 )
 export const deployFields: Field[] = [
-  services,
+  { ...services, deploy: true },
   strategy,
   { key: "commit_sha", label: "Commit SHA" },
   { key: "notes", label: "Notes" },

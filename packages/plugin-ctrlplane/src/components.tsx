@@ -65,7 +65,10 @@ export function Value({ name, value }: { name: string; value: unknown }) {
       </span>
     )
   }
-  if (name.endsWith("_at") || name === "last_run" || name === "timestamp")
+  if (
+    name.endsWith("_at") ||
+    ["last_run", "last_checked", "timestamp", "cert_expiry"].includes(name)
+  )
     return <Timestamp value={text(value)} label={label(name)} />
   if (name === "state" || name === "status") return <State value={value} />
   if (typeof value === "boolean") return <span>{value ? "Yes" : "No"}</span>
@@ -129,9 +132,11 @@ export function Details({ row, fields }: { row: Row; fields: string[] }) {
 export function StructuredServices({
   value,
   onChange,
+  deploy = false,
 }: {
   value: unknown
   onChange: (value: Row[]) => void
+  deploy?: boolean
 }) {
   const services = rows(value)
   function patch(index: number, key: string, value: unknown) {
@@ -165,35 +170,38 @@ export function StructuredServices({
               value={text(service.image)}
               onChange={(e) => patch(index, "image", e.target.value)}
             />
-            <select
-              aria-label={`Service ${index + 1} role`}
-              className="h-9 rounded-md border bg-background px-2 text-sm"
-              value={text(service.role) || "main"}
-              onChange={(e) => patch(index, "role", e.target.value)}
-            >
-              {["main", "sidecar", "init"].map((role) => (
-                <option key={role}>{role}</option>
-              ))}
-            </select>
+            {!deploy && (
+              <select
+                aria-label={`Service ${index + 1} role`}
+                className="h-9 rounded-md border bg-background px-2 text-sm"
+                value={text(service.role) || "main"}
+                onChange={(e) => patch(index, "role", e.target.value)}
+              >
+                {["main", "sidecar", "init"].map((role) => (
+                  <option key={role}>{role}</option>
+                ))}
+              </select>
+            )}
           </div>
           <div className="flex flex-wrap items-center gap-2">
-            {["cpu_millis", "memory_mb"].map((key) => (
-              <label key={key} className="flex items-center gap-2 text-xs">
-                {label(key)}
-                <Input
-                  className="w-24"
-                  type="number"
-                  min={0}
-                  value={text(record(service.resources)[key])}
-                  onChange={(e) =>
-                    patch(index, "resources", {
-                      ...record(service.resources),
-                      [key]: Number(e.target.value),
-                    })
-                  }
-                />
-              </label>
-            ))}
+            {!deploy &&
+              ["cpu_millis", "memory_mb"].map((key) => (
+                <label key={key} className="flex items-center gap-2 text-xs">
+                  {label(key)}
+                  <Input
+                    className="w-24"
+                    type="number"
+                    min={0}
+                    value={text(record(service.resources)[key])}
+                    onChange={(e) =>
+                      patch(index, "resources", {
+                        ...record(service.resources),
+                        [key]: Number(e.target.value),
+                      })
+                    }
+                  />
+                </label>
+              ))}
             <Button
               size="sm"
               variant="ghost"
@@ -205,7 +213,9 @@ export function StructuredServices({
           </div>
           <details>
             <summary className="cursor-pointer text-xs">
-              Environment, ports, secrets and config files
+              {deploy
+                ? "Environment and health check"
+                : "Environment, ports, secrets and config files"}
             </summary>
             <div className="mt-2">
               <JsonField
@@ -258,7 +268,9 @@ export function StructuredServices({
             ...services,
             {
               name: services.length ? `service-${services.length + 1}` : "main",
-              role: services.length ? "sidecar" : "main",
+              ...(!deploy
+                ? { role: services.length ? "sidecar" : "main" }
+                : {}),
               image: "",
             },
           ])
@@ -339,6 +351,7 @@ export function Fields({
             />
           ) : field.type === "services" ? (
             <StructuredServices
+              deploy={field.deploy}
               value={values[field.key]}
               onChange={(value) => setValues({ ...values, [field.key]: value })}
             />
@@ -397,26 +410,42 @@ export function Fields({
     </div>
   )
 }
+const deployServiceKeys = ["name", "image", "env", "health_check"]
 export function initialValues(fields: Field[], row: Row = {}): Row {
   return Object.fromEntries(
-    fields.map((field) => [
-      field.key,
-      field.type === "group"
-        ? initialValues(field.children ?? [], record(row[field.key]))
-        : field.type === "json"
-          ? row[field.key] === undefined
-            ? ""
-            : JSON.stringify(row[field.key], null, 2)
-          : (row[field.key] ??
-            field.value ??
-            (field.type === "checkbox"
-              ? false
-              : field.type === "services"
-                ? [{ name: "main", role: "main", image: "" }]
+    fields.map((field) => {
+      let value = row[field.key] ?? field.value
+      if (field.type === "services") {
+        value ??= [{ name: "main", role: "main", image: "" }]
+        return [
+          field.key,
+          rows(value).map((service) =>
+            field.deploy
+              ? Object.fromEntries(
+                  Object.entries(service).filter(([key]) =>
+                    deployServiceKeys.includes(key)
+                  )
+                )
+              : service
+          ),
+        ]
+      }
+      return [
+        field.key,
+        field.type === "group"
+          ? initialValues(field.children ?? [], record(value))
+          : field.type === "json"
+            ? value === undefined
+              ? ""
+              : JSON.stringify(value, null, 2)
+            : (value ??
+              (field.type === "checkbox"
+                ? false
                 : field.type === "select"
                   ? field.options?.[0]
                   : "")),
-    ])
+      ]
+    })
   )
 }
 export function payloadFor(fields: Field[], values: Row): Row {
@@ -439,6 +468,15 @@ export function payloadFor(fields: Field[], values: Row): Row {
     } else if (field.type === "services") {
       payload[field.key] = rows(value).map((service) => {
         if (service.__error) throw new Error(text(service.__error))
+        if (
+          field.deploy &&
+          Object.keys(service).some(
+            (key) => !key.startsWith("__") && !deployServiceKeys.includes(key)
+          )
+        )
+          throw new Error(
+            "Deployments support name, image, env and health_check only."
+          )
         return Object.fromEntries(
           Object.entries(service).filter(([key]) => !key.startsWith("__"))
         )
