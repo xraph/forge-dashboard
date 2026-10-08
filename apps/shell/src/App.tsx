@@ -1,5 +1,6 @@
 import { ForgeDashboard } from "@forge-go/dashboard-host"
 import { configFromWindow } from "@forge-go/dashboard-runtime"
+import ctrlplanePlugin from "@forge-go/dashboard-plugin-ctrlplane"
 import corePlugin from "@forge-go/dashboard-plugin-core"
 import authsomePlugin, {
   authsomeSubPlugins,
@@ -30,6 +31,7 @@ const config = { basePath: injected.basePath ?? "/dashboard", ...injected }
 // their own namespaces. Array order is the cross-plugin nav order.
 const plugins = [
   corePlugin,
+  ctrlplanePlugin,
   streamingPlugin,
   authsomePlugin,
   wardenPlugin,

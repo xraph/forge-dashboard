@@ -29,18 +29,19 @@ func main() {
 	app := forge.New(
 		forge.WithAppName("forge-dashboard-demo"),
 		forge.WithAppVersion("0.1.0"),
-		forge.WithHTTPAddress(":"+port),
+		forge.WithHTTPAddress("127.0.0.1:"+port),
 	)
 
 	dashExt := dashboard.NewExtension(
-		dashboard.WithTitle("Forge Dashboard Demo"),
 		dashboard.WithBasePath("/dashboard"),
-		dashboard.WithRealtime(true),
-		// The demo's whole point is to be easy to curl and to click through
-		// without a CSRF/idempotency handshake getting in the way first.
-		// Real deployments should leave this at its default (true).
-		dashboard.WithContractSecurity(false),
+		// Commands exercise the same CSRF and idempotency handshake as a
+		// deployed dashboard, including refresh after an expired token.
+		dashboard.WithContractSecurity(true),
 	)
+	if err := registerCtrlplaneDemo(app, dashExt.(*dashboard.Extension)); err != nil {
+		log.Fatalf("register ctrlplane demo: %v", err)
+	}
+
 	if err := app.RegisterExtension(dashExt); err != nil {
 		log.Fatalf("register dashboard extension: %v", err)
 	}

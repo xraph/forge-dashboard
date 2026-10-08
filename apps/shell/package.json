@@ -21,6 +21,7 @@
     "@forge-go/dashboard-plugin-bastion": "workspace:*",
     "@forge-go/dashboard-plugin-chronicle": "workspace:*",
     "@forge-go/dashboard-plugin-core": "workspace:*",
+    "@forge-go/dashboard-plugin-ctrlplane": "workspace:*",
     "@forge-go/dashboard-plugin-herald": "workspace:*",
     "@forge-go/dashboard-plugin-keysmith": "workspace:*",
     "@forge-go/dashboard-plugin-ledger": "workspace:*",
