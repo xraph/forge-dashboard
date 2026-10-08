@@ -259,11 +259,15 @@ function CreateKeyForm({
   const policiesWaiting = policies.loading && !policies.data
   const listsWaiting = scopesWaiting || policiesWaiting
 
-  // The lists blank only on a context switch (and before their first answer).
+  // A context switch blanks a list to loading with neither data nor an error.
   // The same form in another tenant is another command, so it gets a new key.
+  // A re-read after a failed read is loading with no data as well, but keeps
+  // the error: that is the same tenant, and the key stays.
+  const listsBlanked =
+    (scopesWaiting && !scopes.error) || (policiesWaiting && !policies.error)
   useEffect(() => {
-    if (listsWaiting) attemptKey.end()
-  }, [listsWaiting, attemptKey])
+    if (listsBlanked) attemptKey.end()
+  }, [listsBlanked, attemptKey])
 
   // Once they answer, a pick the new lists do not hold comes off the form,
   // and the form says which. Adjusted during render, so no commit ever
@@ -334,7 +338,12 @@ function CreateKeyForm({
     let result: KeyWithSecret | undefined
     try {
       result = await create.execute(payload, {
-        idempotencyKey: attemptKey.keyFor(payload),
+        // Keyed on the scopes sorted: they follow the list's order, and a
+        // reload that only reorders the list is still the same form.
+        idempotencyKey: attemptKey.keyFor({
+          ...payload,
+          scopes: [...chosen].sort(),
+        }),
       })
     } finally {
       sending.current = false

@@ -1188,3 +1188,136 @@ describe("CreateKeyDialog idempotency", () => {
     expect(keys[1]).toBe(keys[0])
   })
 })
+
+/**
+ * The secret server's commands, with lists the test can fail or reorder
+ * before the next read.
+ */
+function listServer() {
+  const server = secretServer()
+  let scopes: ScopesList | Error = SCOPES
+  const client = {
+    extension: server.client.extension,
+    command: server.client.command,
+    query: async (intent: string, params?: Record<string, unknown>) => {
+      if (intent === "scopes.list") {
+        if (scopes instanceof Error) throw scopes
+        return scopes
+      }
+      return server.client.query(intent, params)
+    },
+  } as ScopedClient
+  return {
+    ...server,
+    client,
+    answerScopes(next: ScopesList | Error) {
+      scopes = next
+    },
+  }
+}
+
+describe("CreateKeyDialog idempotency across list reloads", () => {
+  it("keeps the key when a failed scopes read is read again", async () => {
+    const server = listServer()
+    mount(server.client)
+    await screen.findByRole("checkbox", { name: "billing:read" })
+    server.loseNextAnswer()
+    await submitNamed()
+    expect((await screen.findByRole("alert")).textContent).toBe(LOST)
+
+    // The tab comes back and the scopes read fails, which drops its data.
+    server.answerScopes(
+      new ContractError("TRANSPORT", "contract request failed with HTTP 502")
+    )
+    await act(async () => queryStore.revalidate())
+    // Again: loading with no data, but with the error beside it. That is not
+    // a context switch.
+    server.answerScopes(SCOPES)
+    await act(async () => queryStore.revalidate())
+    await waitFor(() => expect(createButton().disabled).toBe(false))
+
+    fireEvent.click(createButton())
+    await waitFor(() => expect(screen.getByRole("alert").textContent).toBe(SPENT))
+    expect(server.sent[1].idempotencyKey).toBe(server.sent[0].idempotencyKey)
+    expect(server.ran["keys.create"]).toBe(1)
+  })
+
+  it("keeps the key when the scopes come back in another order", async () => {
+    const server = listServer()
+    mount(server.client)
+    fireEvent.click(await screen.findByRole("checkbox", { name: "billing:read" }))
+    fireEvent.click(screen.getByRole("checkbox", { name: "reports:read" }))
+    server.loseNextAnswer()
+    await submitNamed()
+    await screen.findByRole("alert")
+
+    server.answerScopes({ ...SCOPES, scopes: [...SCOPES.scopes].reverse() })
+    await act(async () => queryStore.revalidate())
+    await waitFor(() =>
+      expect(
+        screen.getAllByRole("checkbox").map((c) => c.closest("label")?.textContent)
+      ).toEqual(["reports:read", "billing:write", "billing:read"])
+    )
+
+    fireEvent.click(createButton())
+    await waitFor(() => expect(screen.getByRole("alert").textContent).toBe(SPENT))
+    expect(server.sent[1].idempotencyKey).toBe(server.sent[0].idempotencyKey)
+  })
+
+  it("reads a bare 401 or 403 as a refusal, not a lost answer, and keeps the key", async () => {
+    for (const status of [401, 403]) {
+      const base = secretServer()
+      const keys: (string | undefined)[] = []
+      const client = {
+        extension: base.client.extension,
+        query: base.client.query,
+        command: async (
+          _intent: string,
+          _payload?: unknown,
+          opts?: { idempotencyKey?: string }
+        ) => {
+          keys.push(opts?.idempotencyKey)
+          throw new ContractError(
+            "TRANSPORT",
+            `contract request failed with HTTP ${status}`
+          )
+        },
+      } as ScopedClient
+      mount(client)
+      await screen.findByRole("checkbox", { name: "billing:read" })
+      await submitNamed()
+      expect((await screen.findByRole("alert")).textContent).toBe(
+        `contract request failed with HTTP ${status}`
+      )
+      fireEvent.click(createButton())
+      await waitFor(() => expect(keys).toHaveLength(2))
+      expect(keys[1]).toBe(keys[0])
+      cleanup()
+      queryStore.clear()
+    }
+  })
+
+  it("leaves the dialog open on a modifier-click of the key list link", async () => {
+    const server = secretServer()
+    mount(server.client)
+    await screen.findByRole("checkbox", { name: "billing:read" })
+    server.loseNextAnswer()
+    await submitNamed()
+    const link = within(await screen.findByRole("alert")).getByRole("link", {
+      name: "key list",
+    })
+    // The stand-in Link is a bare anchor, and jsdom cannot navigate.
+    const stop = (e: Event) => e.preventDefault()
+    document.addEventListener("click", stop)
+    try {
+      fireEvent.click(link, { metaKey: true })
+      fireEvent.click(link, { ctrlKey: true })
+      fireEvent.click(link, { shiftKey: true })
+      fireEvent.click(link, { button: 1 })
+    } finally {
+      document.removeEventListener("click", stop)
+    }
+    await act(async () => {})
+    expect(screen.getByRole("dialog")).toBeTruthy()
+  })
+})

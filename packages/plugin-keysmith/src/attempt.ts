@@ -108,14 +108,20 @@ export function claimFailed(error: ContractError | undefined): boolean {
   )
 }
 
+// A bare 401 or 403 (no envelope, from the auth middleware) reaches the page
+// as TRANSPORT with this ending. The command was refused, not lost.
+const BARE_REFUSAL = /HTTP 40[13]$/
+
 /**
  * The answer never arrived, so nobody knows whether the command ran. A network
  * failure reaches `useCommand` as a plain Error with no code, and anything the
- * client could not read as an envelope is TRANSPORT.
+ * client could not read as an envelope is TRANSPORT, except a bare refusal.
  */
 export function lostAnswer(error: ContractError | undefined): boolean {
+  if (error === undefined) return false
+  if (error.code === undefined) return true
   return (
-    error !== undefined &&
-    (error.code === undefined || error.code === "TRANSPORT")
+    error.code === "TRANSPORT" &&
+    !(typeof error.message === "string" && BARE_REFUSAL.test(error.message))
   )
 }

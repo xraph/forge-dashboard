@@ -1352,6 +1352,58 @@ describe("KeyDetailPage rotate through the refetch", () => {
     expect(keys[1]).not.toBe(keys[0])
   })
 
+  it("keeps the idempotency key when a failed read of the key is read again", async () => {
+    const lost = () => ({
+      error: new ContractError("TRANSPORT", "contract request failed with HTTP 502"),
+    })
+    const host = hostLikeClient(
+      detail({ previousKeys: [] }),
+      {
+        "keys.rotate": [
+          lost(),
+          lost(),
+          {
+            answer: ROTATED,
+            invalidates: ["keys.list", "keys.detail", "rotations.list", "overview"],
+            next: AFTER,
+          },
+        ],
+      },
+      { refetchError: new ContractError("TRANSPORT", "contract request failed with HTTP 502") },
+    )
+    const keys: (string | undefined)[] = []
+    const client = {
+      ...host.client,
+      command: (intent: string, payload?: unknown, opts?: { idempotencyKey?: string }) => {
+        keys.push(opts?.idempotencyKey)
+        return host.client.command(intent, payload)
+      },
+    } as ScopedClient
+    renderPage(KeyDetailPage, client, { id: "akey_billing" })
+    await screen.findByRole("heading", { level: 1, name: "Billing service" })
+
+    fireEvent.click(screen.getByRole("button", { name: "Rotate key" }))
+    const form = await screen.findByRole("dialog", { name: "Rotate key" })
+    fireEvent.click(within(form).getByRole("button", { name: "Rotate key" }))
+    await within(form).findByRole("alert")
+    // The reload the lost answer asked for fails too, and drops the page's data.
+    await act(async () => host.releaseReads())
+
+    // A second lost answer reloads the key again: loading, with no data, but
+    // with the last read's error beside it. That is not a context switch.
+    fireEvent.click(within(form).getByRole("button", { name: "Rotate key" }))
+    await waitFor(() => expect(keys).toHaveLength(2))
+    await act(async () => {})
+    await act(async () => host.releaseReads())
+
+    fireEvent.click(within(form).getByRole("button", { name: "Rotate key" }))
+    await screen.findByRole("dialog", { name: "Save your new key" })
+    expect(keys).toHaveLength(3)
+    expect(keys[0]).toBeTruthy()
+    expect(keys[1]).toBe(keys[0])
+    expect(keys[2]).toBe(keys[0])
+  })
+
   it("keeps the new key on screen when the refetch after the rotation fails", async () => {
     const host = hostLikeClient(
       detail({ previousKeys: [] }),

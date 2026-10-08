@@ -122,7 +122,9 @@ export interface RotateKeyDialogProps {
   /** Runs once the rotation succeeded, as the new key is revealed. */
   onRotated?: () => void
   /**
-   * The page's data was blanked by a context switch. The same form in another
+   * The page's data was blanked by a context switch: loading, with neither
+   * data nor an error. A re-read after a failed read is loading with no data
+   * too, but keeps the error, and is not one. The same form in another
    * tenant is another command, so the form forgets its idempotency key.
    */
   contextCleared?: boolean
