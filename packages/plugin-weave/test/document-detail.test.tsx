@@ -91,12 +91,23 @@ describe("DocumentDetailPage", () => {
     expect(screen.queryByText(/dead/i)).toBeNull()
   })
 
-  it("draws each chunk as a byte range linked to the chunk, and names the gap", async () => {
+  it("draws each chunk as a byte range for the mouse and names the gap", async () => {
     const { client } = scriptedClient(queries())
     renderWithNavigate(DocumentDetailPage, client, { id: DOC })
-    const map = await screen.findByRole("img", { name: /3 chunks over 448 B/ })
-    expect(within(map).getByRole("link", { name: "Chunk 1, bytes 160 to 352" }).getAttribute("href")).toBe("/chunks/chk_01k70000000000000000000111")
+    expect(await screen.findByText("3 chunks over 448 B")).toBeTruthy()
+    const segment = screen.getByTitle("Chunk 1, bytes 160 to 352")
+    const bar = segment.parentElement as HTMLElement
+    expect(bar.getAttribute("aria-hidden")).toBe("true")
+    expect(bar.getAttribute("role")).toBeNull()
+    expect(within(bar).queryAllByRole("link", { hidden: true })).toEqual([])
     expect(screen.getByText("Bytes 352 to 368 are in no chunk.")).toBeTruthy()
+  })
+
+  it("opens a chunk when you click its segment", async () => {
+    const { client } = scriptedClient(queries())
+    const { navigate } = renderWithNavigate(DocumentDetailPage, client, { id: DOC })
+    fireEvent.click(await screen.findByTitle("Chunk 1, bytes 160 to 352"))
+    expect(navigate).toHaveBeenCalledWith("/chunks/chk_01k70000000000000000000111")
   })
 
   it("says the raw input and the chunk offsets don't share a scale when a loader changed the text", async () => {
@@ -117,6 +128,14 @@ describe("DocumentDetailPage", () => {
     expect(await screen.findByText("Standard shipping takes three to five working days.")).toBeTruthy()
     const mark = await screen.findByTitle("Overlaps the previous chunk")
     expect(mark.textContent).toBe("ABCDEFGHIJKLMNOPQRSTUVWXYZ012345")
+  })
+
+  it("does not mark a fallback chunk that starts at 0 as overlapping", async () => {
+    const spans = { ...SPANS, spans: [{ ...SPANS.spans[0], start_offset: 50, end_offset: 100 }, { ...SPANS.spans[1], start_offset: 0, end_offset: 100 }, SPANS.spans[2]] }
+    const { client } = scriptedClient(queries({ "documents.spans": spans }))
+    renderWithNavigate(DocumentDetailPage, client, { id: DOC })
+    expect(await screen.findByText(/ABCDEFGHIJKLMNOPQRSTUVWXYZ012345 and express/)).toBeTruthy()
+    expect(screen.queryByTitle("Overlaps the previous chunk")).toBeNull()
   })
 
   it("deletes after confirming, then leaves for the documents list", async () => {

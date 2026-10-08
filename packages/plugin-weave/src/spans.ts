@@ -23,6 +23,17 @@ export interface SpanLayout {
 }
 
 /**
+ * Bytes `span` shares with the chunk before it. Clamped to the chunk's own
+ * length, and 0 for a chunk that starts before its predecessor starts: that is
+ * a fallback offset (the recursive chunker answers start 0, end len when it
+ * can't place a chunk), not a real overlap.
+ */
+function overlapWith(prev: Span | undefined, span: Span): number {
+  if (!prev || span.start_offset < prev.start_offset) return 0
+  return Math.max(0, Math.min(prev.end_offset, span.end_offset) - span.start_offset)
+}
+
+/**
  * Chunks as byte ranges along a bar scaled to the largest end_offset, not to
  * content_length: content_length is the raw input, and once a loader has
  * changed the text the offsets are on a different scale.
@@ -37,7 +48,7 @@ export function layoutSpans(spans: Span[]): SpanLayout {
       span,
       left: (span.start_offset / scale) * 100,
       width: (Math.max(0, span.end_offset - span.start_offset) / scale) * 100,
-      overlap: prev ? Math.max(0, prev.end_offset - span.start_offset) : 0,
+      overlap: overlapWith(prev, span),
     }
   })
   const gaps: Gap[] = []

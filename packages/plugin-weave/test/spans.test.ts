@@ -15,6 +15,16 @@ describe("layoutSpans", () => {
     expect(layout.segments.map((s) => s.overlap)).toEqual([0, 20, 0])
   })
 
+  it("never reports more overlap than the chunk is long", () => {
+    const layout = layoutSpans([span(0, 0, 100), span(1, 20, 50)])
+    expect(layout.segments.map((s) => s.overlap)).toEqual([0, 30])
+  })
+
+  it("counts a chunk that starts before its predecessor as a fallback offset, not an overlap", () => {
+    const layout = layoutSpans([span(0, 50, 100), span(1, 0, 40)])
+    expect(layout.segments.map((s) => s.overlap)).toEqual([0, 0])
+  })
+
   it("finds the bytes no chunk covers, including a leading gap", () => {
     const layout = layoutSpans([span(0, 10, 100), span(1, 120, 200)])
     expect(layout.gaps).toEqual([{ start: 0, end: 10 }, { start: 100, end: 120 }])

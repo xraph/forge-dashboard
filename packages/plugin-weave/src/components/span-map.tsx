@@ -1,4 +1,4 @@
-import { PluginLink } from "@forge-go/dashboard-plugin"
+import { useNavigateTo } from "@forge-go/dashboard-plugin"
 import { formatBytes, formatCount, plural } from "../format"
 import { chunkPath } from "../links"
 import { layoutSpans } from "../spans"
@@ -9,30 +9,24 @@ import type { SpansOutput } from "../types"
  * shaded, and bytes no chunk covers are marked and listed.
  */
 export function SpanMap({ spans }: { spans: SpansOutput }) {
+  const navigateTo = useNavigateTo()
   if (spans.total === 0) return <p className="text-sm text-muted-foreground">This document has no chunks.</p>
   const layout = layoutSpans(spans.spans)
   const loaderChanged = spans.content_length !== layout.scale
 
   return (
     <figure className="flex flex-col gap-2">
-      <div
-        role="img"
-        aria-label={`${plural(spans.spans.length, "chunk", "chunks")} over ${formatBytes(layout.scale)}`}
-        className="relative h-8 w-full overflow-hidden rounded bg-muted"
-      >
+      {/* A picture for the mouse. Keyboard and screen-reader users read the
+          chunks, with a link each, in the reader below. */}
+      <div aria-hidden="true" className="relative h-8 w-full overflow-hidden rounded bg-muted">
         {layout.segments.map((s, i) => (
-          // PluginLink takes a className and no style, so a positioned span
-          // carries the geometry and the link fills it.
-          <span key={s.span.id} className="absolute top-1 h-6" style={{ left: `${s.left}%`, width: `${s.width}%` }}>
-            <PluginLink
-              to={chunkPath(s.span.id)}
-              className={`block h-full w-full border-x border-background ${i % 2 === 0 ? "bg-primary/60" : "bg-primary/35"}`}
-            >
-              <span className="sr-only">
-                Chunk {s.span.index}, bytes {s.span.start_offset} to {s.span.end_offset}
-              </span>
-            </PluginLink>
-          </span>
+          <span
+            key={s.span.id}
+            title={`Chunk ${s.span.index}, bytes ${s.span.start_offset} to ${s.span.end_offset}`}
+            onClick={() => navigateTo(chunkPath(s.span.id))}
+            className={`absolute top-1 h-6 cursor-pointer border-x border-background ${i % 2 === 0 ? "bg-primary/60" : "bg-primary/35"}`}
+            style={{ left: `${s.left}%`, width: `${s.width}%` }}
+          />
         ))}
         {layout.segments
           .filter((s) => s.overlap > 0)
@@ -53,6 +47,9 @@ export function SpanMap({ spans }: { spans: SpansOutput }) {
           />
         ))}
       </div>
+      <p className="sr-only">
+        {plural(spans.spans.length, "chunk", "chunks")} over {formatBytes(layout.scale)}
+      </p>
       <figcaption className="text-xs text-muted-foreground">
         Offsets are byte offsets into the text after loading and trimming, and the semantic and code chunkers only approximate them. The
         bar runs to the last chunk's end, byte {formatCount(layout.scale)}. Shaded parts overlap the chunk before.{" "}
