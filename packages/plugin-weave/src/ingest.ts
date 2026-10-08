@@ -22,11 +22,16 @@ export function sourceTypeFor(fileName: string): string {
   return TYPES[ext] ?? "text/plain"
 }
 
+/** Spare bytes kept under the transport limit, so an envelope field added later doesn't reopen the gap. */
+export const ENVELOPE_HEADROOM = 512
+
 /**
- * The size of the envelope the transport will refuse past 1 MiB, close
- * enough to decide on: the same fields the client sends, a 64 character CSRF
- * token and a UUID idempotency key. JSON escaping is what makes this larger
- * than the content: each quote, backslash and newline takes two bytes.
+ * The size of the envelope the transport will refuse past its limit. This
+ * mirrors, field for field and in order, what packages/plugin/src/client.ts
+ * sends for a command: the empty context, a 75 character CSRF token (Forge's
+ * 64 hex characters, a ".", and a 10 digit timestamp) and a UUID idempotency
+ * key. JSON escaping is what makes this larger than the content: each quote,
+ * backslash and newline takes two bytes.
  */
 export function requestBytes(payload: unknown): number {
   return utf8Length(
@@ -36,23 +41,38 @@ export function requestBytes(payload: unknown): number {
       contributor: "weave",
       intent: "documents.ingest",
       payload,
-      csrf: "x".repeat(64),
+      context: {},
+      csrf: "x".repeat(75),
       idempotencyKey: "00000000-0000-0000-0000-000000000000",
     }),
   )
 }
 
-/** Why this content can't be sent, naming the limit it hit, or null. */
-export function sizeProblem(content: string, payload: unknown): string | null {
+export interface SizeProblem {
+  /** content: Weave's own cap, which nobody can raise. envelope: the dashboard's default request limit, which an operator can. */
+  kind: "content" | "envelope"
+  message: string
+}
+
+/** Why this content can't be sent, or might not be, naming the limit it hit; null when it fits. */
+export function sizeProblem(content: string, payload: unknown): SizeProblem | null {
   const size = utf8Length(content)
   if (size > CONTENT_CAP) {
-    return `Weave ingests up to 1 MiB of text (${formatBytes(CONTENT_CAP)}). This is ${formatBytes(size)}.`
+    return { kind: "content", message: `Weave ingests up to 1 MiB of text (${formatBytes(CONTENT_CAP)}). This is ${formatBytes(size)}.` }
   }
   const request = requestBytes(payload)
-  if (request > ENVELOPE_CAP) {
-    return `This is under Weave's 1 MiB cap, but the request would be ${formatBytes(request)} once JSON-encoded, which is over the dashboard's 1 MiB request limit. Your operator can raise contract_max_body_bytes in the dashboard's config; about 3 MiB covers files near Weave's cap.`
+  if (request + ENVELOPE_HEADROOM > ENVELOPE_CAP) {
+    return {
+      kind: "envelope",
+      message: `The encoded request would be about ${formatBytes(request)}, over the dashboard's default 1 MiB request limit. Unless your operator raised contract_max_body_bytes, the server will refuse it.`,
+    }
   }
   return null
+}
+
+/** Said under a command error when the transport's body limit refused the request. */
+export function isBodyLimitError(error: { code: string; message: string } | null | undefined): boolean {
+  return error?.code === "BAD_REQUEST" && error.message.startsWith("request body exceeds")
 }
 
 /** A picked file's text. Blob.text where the browser has it, FileReader where it doesn't. */

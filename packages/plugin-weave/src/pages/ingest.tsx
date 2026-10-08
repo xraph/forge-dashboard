@@ -14,7 +14,7 @@ import { Textarea } from "@forge-go/dashboard-kit/components/textarea"
 import { MetadataEditor, metadataOf } from "../components/metadata-editor"
 import type { MetadataRow } from "../components/metadata-editor"
 import { formatBytes, plural, utf8Length } from "../format"
-import { readText, sizeProblem, sourceTypeFor } from "../ingest"
+import { isBodyLimitError, readText, sizeProblem, sourceTypeFor } from "../ingest"
 import { collectionPath, documentPath, documentsHref } from "../links"
 import type { CollectionDetail, ComponentsOutput, IngestOutput } from "../types"
 
@@ -44,7 +44,9 @@ export const IngestPage: ComponentType<PluginPageProps> = ({ params }) => {
     metadata: "metadata" in meta ? meta.metadata : {},
   }
   const problem = content === "" ? null : sizeProblem(content, payload)
-  const canSubmit = !ingest.loading && content.trim() !== "" && problem === null && "metadata" in meta
+  // Only Weave's own cap is final. The transport's limit is the default one,
+  // which an operator can have raised, so past it the choice is yours.
+  const canSubmit = !ingest.loading && content.trim() !== "" && problem?.kind !== "content" && "metadata" in meta
 
   async function pick(file: File | undefined) {
     if (!file) return
@@ -68,6 +70,7 @@ export const IngestPage: ComponentType<PluginPageProps> = ({ params }) => {
   }
 
   const conflict = ingest.error?.code === "CONFLICT"
+  const bodyLimit = isBodyLimitError(ingest.error)
 
   return (
     <section className="flex flex-col gap-4">
@@ -109,6 +112,11 @@ export const IngestPage: ComponentType<PluginPageProps> = ({ params }) => {
       ) : null}
 
       <CommandAlert title="Could not ingest" error={ingest.error} />
+      {bodyLimit ? (
+        <p className="text-sm">
+          The dashboard's request limit refused this. An operator can raise contract_max_body_bytes in the dashboard's config; about 3 MiB covers files near Weave's 1 MiB cap.
+        </p>
+      ) : null}
       {conflict ? (
         <div className="flex gap-4 text-sm">
           <PluginLink to={documentsHref({ collection_id: id, state: "failed" })} className="underline">
@@ -132,7 +140,7 @@ export const IngestPage: ComponentType<PluginPageProps> = ({ params }) => {
           <p className="text-xs text-muted-foreground">
             <span className="font-mono">{formatBytes(utf8Length(content))}</span> of 1 MiB.
           </p>
-          {problem ? <p role="alert" className="text-sm text-destructive">{problem}</p> : null}
+          {problem ? <p role="alert" className="text-sm text-destructive">{problem.message}</p> : null}
         </div>
         <div className="grid grid-cols-2 gap-4">
           <div className="flex flex-col gap-1.5">
@@ -165,7 +173,7 @@ export const IngestPage: ComponentType<PluginPageProps> = ({ params }) => {
         </div>
         <div>
           <Button type="submit" disabled={!canSubmit}>
-            {ingest.loading ? "Ingesting…" : "Ingest"}
+            {ingest.loading ? "Ingesting…" : problem?.kind === "envelope" ? "Send anyway" : "Ingest"}
           </Button>
         </div>
       </form>

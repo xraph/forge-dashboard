@@ -95,13 +95,47 @@ describe("IngestPage", () => {
     expect(screen.getByRole("link", { name: "Processing documents in this collection" }).getAttribute("href")).toBe(`/@weave/documents?collection_id=${ID}&state=processing`)
   })
 
-  it("refuses content whose encoded request is over the transport limit, before sending", async () => {
+  it("warns that the encoded request is over the default transport limit, and sends only when asked", async () => {
     const { client, sent } = scriptedClient(queries(), { "documents.ingest": { document_id: DOC, state: "ready", chunk_count: 1 } })
     renderPage(IngestPage, client, { id: ID })
     await paste("a\n".repeat(400_000))
     expect(screen.getByText(/contract_max_body_bytes/)).toBeTruthy()
+    expect(screen.queryByRole("button", { name: "Ingest" })).toBeNull()
+    const button = screen.getByRole("button", { name: "Send anyway" }) as HTMLButtonElement
+    expect(button.disabled).toBe(false)
+    expect(sent).toEqual([])
+    fireEvent.click(button)
+    await waitFor(() => expect(sent).toHaveLength(1))
+    expect(sent[0].intent).toBe("documents.ingest")
+  })
+
+  it("refuses content over Weave's own cap, before sending", async () => {
+    const { client, sent } = scriptedClient(queries(), { "documents.ingest": { document_id: DOC, state: "ready", chunk_count: 1 } })
+    renderPage(IngestPage, client, { id: ID })
+    await paste("a".repeat(1024 * 1024 + 1))
+    expect(screen.getByText(/Weave ingests up to 1 MiB of text/)).toBeTruthy()
     expect((screen.getByRole("button", { name: "Ingest" }) as HTMLButtonElement).disabled).toBe(true)
     expect(sent).toEqual([])
+  })
+
+  it("explains the transport's own refusal and where the limit lives", async () => {
+    const { client } = scriptedClient(queries(), {
+      "documents.ingest": new ContractError("BAD_REQUEST", "request body exceeds 1048576 bytes"),
+    })
+    renderPage(IngestPage, client, { id: ID })
+    await paste("Text.")
+    fireEvent.click(screen.getByRole("button", { name: "Ingest" }))
+    expect(await screen.findByText("request body exceeds 1048576 bytes")).toBeTruthy()
+    expect(screen.getByText(/The dashboard's request limit refused this/)).toBeTruthy()
+  })
+
+  it("does not blame the request limit for other bad requests", async () => {
+    const { client } = scriptedClient(queries(), { "documents.ingest": new ContractError("BAD_REQUEST", "title is too long") })
+    renderPage(IngestPage, client, { id: ID })
+    await paste("Text.")
+    fireEvent.click(screen.getByRole("button", { name: "Ingest" }))
+    expect(await screen.findByText("title is too long")).toBeTruthy()
+    expect(screen.queryByText(/The dashboard's request limit refused this/)).toBeNull()
   })
 
   it("waits for content before it can ingest", async () => {
