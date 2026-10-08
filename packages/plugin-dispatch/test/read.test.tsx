@@ -1,6 +1,10 @@
 import { afterEach, expect, it, vi } from "vitest"
 import { act, fireEvent, render, screen, waitFor } from "@testing-library/react"
-import { ContractError, PluginProvider } from "@forge-go/dashboard-plugin"
+import {
+  ContractError,
+  PluginProvider,
+  queryStore,
+} from "@forge-go/dashboard-plugin"
 import type { QueryState } from "@forge-go/dashboard-plugin"
 import { Read, useDispatchQuery } from "../src/read"
 import { clientFor, renderWithClient } from "./harness"
@@ -15,6 +19,29 @@ function Probe({ id }: { id: string }) {
   )
 }
 afterEach(() => vi.useRealTimers())
+it("discards retained data when the host clears identity or context caches", async () => {
+  let calls = 0
+  let reject!: (error: Error) => void
+  const client = clientFor({
+    "jobs.get": () => {
+      calls++
+      if (calls === 1) return snapshot
+      return new Promise((_resolve, rejectRead) => {
+        reject = rejectRead
+      })
+    },
+  })
+  renderWithClient(<Probe id="a" />, client)
+  await screen.findByText("first job")
+  act(() => queryStore.clear())
+  expect(screen.queryByText("first job")).toBeNull()
+  expect(screen.getByRole("status", { name: "Loading Job" })).toBeTruthy()
+  await act(async () =>
+    reject(new ContractError("UNAVAILABLE", "Store unavailable"))
+  )
+  expect(screen.queryByText("first job")).toBeNull()
+  expect(screen.getByRole("alert").textContent).toContain("UNAVAILABLE")
+})
 it("keeps the stale warning visible while a failed refresh is retried", async () => {
   let calls = 0
   let finish!: (value: typeof snapshot) => void

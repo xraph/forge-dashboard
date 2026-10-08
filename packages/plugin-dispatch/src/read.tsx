@@ -34,7 +34,11 @@ export function useDispatchQuery<T>(
     data?: T
   }>({ client, key })
   const same = previous.client === client && previous.key === key
-  const retain = !query.error || transientCodes.has(query.error.code)
+  // Ordinary refreshes keep data or the last error. A blank pending entry
+  // means the host discarded this context, so the local snapshot must go too.
+  const cleared = query.loading && query.data === undefined && !query.error
+  const retain =
+    !cleared && (!query.error || transientCodes.has(query.error.code))
   const data = retain
     ? (query.data ?? (same ? previous.data : undefined))
     : undefined
