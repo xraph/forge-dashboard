@@ -37,4 +37,12 @@ describe("weavePlugin", () => {
     expect(overview?.group).toBe("RAG")
     expect(weavePlugin.routes.map((r) => r.path)).toContain("/")
   })
+
+  it("puts Pipeline last in the RAG group", () => {
+    const pipeline = weavePlugin.nav?.find((n) => n.label === "Pipeline")
+    expect(pipeline?.to).toBe("/pipeline")
+    expect(pipeline?.group).toBe("RAG")
+    expect(pipeline?.priority).toBe(40)
+    expect(weavePlugin.routes.map((r) => r.path)).toContain("/pipeline")
+  })
 })
