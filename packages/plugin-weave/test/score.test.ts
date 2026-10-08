@@ -61,3 +61,37 @@ describe("isReorderingRetriever", () => {
     expect(isReorderingRetriever(components({ kind: "mmr", configured: true }))).toBe(true)
   })
 })
+
+describe("scores that pass the vector store's own score through", () => {
+  function onStore(retriever: Components["retriever"], score: Components["vector_store"]["score"]): Components {
+    const c = components(retriever)
+    return { ...c, vector_store: { ...c.vector_store, score } }
+  }
+
+  it("names an MMR header and meaning for the store's score", () => {
+    expect(scoreHeader("mmr_relevance", "vector_similarity")).toBe("Similarity")
+    expect(scoreHeader("mmr_relevance", "cosine")).toBe("Cosine")
+    expect(scoreHeader("mmr_relevance")).toBe("Cosine")
+    expect(scoreHeader("mmr_relevance", "unknown")).toBe("Score")
+    expect(scoreMeaning("mmr_relevance", "vector_similarity")).toMatch(/store's own similarity.*The order is MMR/)
+    expect(scoreMeaning("mmr_relevance")).toMatch(/^Cosine similarity.*The order is MMR/)
+  })
+
+  it("does not say cosine for a similarity or MMR retriever on a vector_similarity store", () => {
+    const similarity = retrieverSentence(onStore({ kind: "similarity", configured: true }, "vector_similarity"))
+    const mmr = retrieverSentence(onStore({ kind: "mmr", params: { lambda: "0.70" }, configured: true }, "vector_similarity"))
+    expect(similarity).toBe("Similarity retriever. Scores are the vector store's own similarity, in vector order.")
+    expect(mmr).toBe("MMR retriever (λ 0.70). Scores are the vector store's own similarity, and the order is MMR.")
+    expect(similarity).not.toMatch(/cosine/i)
+    expect(mmr).not.toMatch(/cosine/i)
+  })
+
+  it("says a store's score Weave can't name, and keeps cosine wording for a cosine store", () => {
+    expect(retrieverSentence(onStore({ kind: "similarity", configured: true }, "unknown"))).toBe(
+      "Similarity retriever. Scores are of a kind Weave can't name, in vector order.",
+    )
+    expect(retrieverSentence(onStore({ kind: "similarity", configured: true }, "cosine"))).toBe(
+      "Similarity retriever. Scores are cosine similarity, in vector order.",
+    )
+  })
+})

@@ -9,7 +9,7 @@ import { ResourceTable, type Column } from "@forge-go/dashboard-kit/components/r
 import { TagList } from "@forge-go/dashboard-kit/components/tag-list"
 import { formatCount, plural } from "../format"
 import { retrieverSentence, scoreMeaning } from "../score"
-import type { Components, ComponentsOutput, ExtensionInfo, PipelineComponent } from "../types"
+import type { Components, ComponentsOutput, ExtensionInfo, PipelineComponent, ScoreKind } from "../types"
 
 interface StageRow {
   key: string
@@ -43,30 +43,33 @@ function paramsOf(c: PipelineComponent): string[] {
   return out
 }
 
-const stageColumns: Column<StageRow>[] = [
-  { id: "stage", header: "Stage", className: "font-medium", cell: (s) => s.label },
-  {
-    id: "kind",
-    header: "Kind",
-    cell: (s) =>
-      s.component.configured && s.component.kind !== "" ? (
-        <span className="font-mono text-xs">{s.component.kind}</span>
-      ) : (
-        <span className="text-sm text-muted-foreground">{s.absent}</span>
-      ),
-  },
-  { id: "params", header: "Parameters", cell: (s) => <TagList values={paramsOf(s.component)} label="parameters" /> },
-  {
-    id: "score",
-    header: "Score",
-    cell: (s) => (s.component.score ? <span className="text-sm">{scoreMeaning(s.component.score)}</span> : <NoneCell label="score" />),
-  },
-  {
-    id: "type",
-    header: "Go type",
-    cell: (s) => (s.component.type ? <span className="font-mono text-xs">{s.component.type}</span> : <NoneCell label="type" />),
-  },
-]
+/** The score column needs the store's score, which a passed-through score (MMR) is read in. */
+function stageColumns(vectorScore: ScoreKind | undefined): Column<StageRow>[] {
+  return [
+    { id: "stage", header: "Stage", className: "font-medium", cell: (s) => s.label },
+    {
+      id: "kind",
+      header: "Kind",
+      cell: (s) =>
+        s.component.configured && s.component.kind !== "" ? (
+          <span className="font-mono text-xs">{s.component.kind}</span>
+        ) : (
+          <span className="text-sm text-muted-foreground">{s.absent}</span>
+        ),
+    },
+    { id: "params", header: "Parameters", cell: (s) => <TagList values={paramsOf(s.component)} label="parameters" /> },
+    {
+      id: "score",
+      header: "Score",
+      cell: (s) => (s.component.score ? <span className="text-sm">{scoreMeaning(s.component.score, vectorScore)}</span> : <NoneCell label="score" />),
+    },
+    {
+      id: "type",
+      header: "Go type",
+      cell: (s) => (s.component.type ? <span className="font-mono text-xs">{s.component.type}</span> : <NoneCell label="type" />),
+    },
+  ]
+}
 
 const extensionColumns: Column<ExtensionInfo>[] = [
   { id: "name", header: "Extension", className: "font-medium", cell: (x) => x.name },
@@ -86,7 +89,7 @@ export const PipelinePage: ComponentType<PluginPageProps> = () => {
               <h2 className="text-sm font-medium">Stages</h2>
               <p className="text-sm text-muted-foreground">{retrieverSentence(data.components)}</p>
               <ResourceTable<StageRow>
-                columns={stageColumns}
+                columns={stageColumns(data.components.vector_store.score)}
                 rows={stagesOf(data.components)}
                 rowKey={(s) => s.key}
                 caption="5 stages"
@@ -141,6 +144,8 @@ export const PipelinePage: ComponentType<PluginPageProps> = () => {
                 <li>One embedder and one chunker serve every collection. A collection's model, dimensions and strategy are written down when it is made and never used.</li>
                 <li>Reindex re-embeds the chunks a collection already has with the current embedder. It never re-chunks.</li>
                 <li>Weave keeps a hash and a length of each source, never the source text.</li>
+                <li>The retrieve API's strategy parameter does nothing: Weave runs the one retriever it was configured with.</li>
+                <li>Weave ships no migration for the pgvector table, weave_vectors, so a pgvector deployment has to create it itself.</li>
               </ul>
             </section>
 

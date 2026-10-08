@@ -73,6 +73,31 @@ describe("PipelinePage", () => {
     expect(screen.getAllByText(/never read back/).length).toBeGreaterThan(0)
   })
 
+  it("says the retrieve strategy parameter does nothing and that weave_vectors has no migration", async () => {
+    renderPage(PipelinePage, stubClient({ "system.components": output() }))
+    expect(await screen.findByText("The retrieve API's strategy parameter does nothing: Weave runs the one retriever it was configured with.")).toBeTruthy()
+    expect(screen.getByText("Weave ships no migration for the pgvector table, weave_vectors, so a pgvector deployment has to create it itself.")).toBeTruthy()
+  })
+
+  it("reads an MMR retriever's score in the vector store's own kind", async () => {
+    const base = output()
+    renderPage(
+      PipelinePage,
+      stubClient({
+        "system.components": output({
+          components: {
+            ...base.components,
+            retriever: { kind: "mmr", params: { lambda: "0.70" }, score: "mmr_relevance", configured: true },
+          },
+        }),
+      }),
+    )
+    await screen.findByText("Loader")
+    const retriever = rowWith("Retriever")
+    expect(within(retriever).getByText(/vector store's own similarity score.*The order is MMR/)).toBeTruthy()
+    expect(within(retriever).queryByText(/Cosine/)).toBeNull()
+  })
+
   it("lists extensions with their hooks, and none for an extension with none", async () => {
     renderPage(PipelinePage, stubClient({ "system.components": output() }))
     expect(await screen.findByText("2 extensions")).toBeTruthy()
