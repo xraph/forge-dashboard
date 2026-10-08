@@ -1222,7 +1222,8 @@ function idempotencyStoreTombstone(key) {
 /**
  * forge v1.12.2's claim. A command holds its idempotency key while it runs,
  * and a repeat under the same key in that time answers CONFLICT (retryable)
- * without running. The Go dispatcher first waits up to 10 seconds for the
+ * without running. Like every dispatch error it goes out as HTTP 500 with the
+ * envelope, `retryable: true` here and `false` on the secret replay below. The Go dispatcher first waits up to 10 seconds for the
  * holder to finish; the fixture answers at once.
  *
  * Every command here finishes in one tick, so nothing would ever be held.
@@ -2965,9 +2966,10 @@ function sendJSON(res, status, obj) {
  * error:{code,message,details?}}. details is omitted when empty, as the real
  * server's omitempty does.
  */
-function sendError(res, status, code, message, details) {
+function sendError(res, status, code, message, details, retryable) {
   const error = { code, message }
   if (details && Object.keys(details).length > 0) error.details = details
+  if (typeof retryable === "boolean") error.retryable = retryable
   sendJSON(res, status, { ok: false, envelope: "v1", error })
 }
 
@@ -3067,13 +3069,15 @@ async function handleContractRequest(req, res) {
   if (kind === "command" && idempotencyKey) {
     idemKey = idempotencyStoreKey(idempotencyKey, intent)
     if (idempotencyClaims.has(idemKey)) {
-      return sendError(res, 409, "CONFLICT", STILL_RUNNING)
+      // forge's transport sends every dispatch error as HTTP 500 with the
+      // envelope; the code and `retryable` carry the meaning, not the status.
+      return sendError(res, 500, "CONFLICT", STILL_RUNNING, undefined, true)
     }
     const cached = idempotencyLookup(idemKey)
     // A tombstone, or any entry at all for a secret intent, refuses: the
     // Go dispatcher's order, so a tombstone never falls through to a run.
     if (cached && (cached.tombstone || def.secret)) {
-      return sendError(res, 409, "CONFLICT", SECRET_NOT_KEPT)
+      return sendError(res, 500, "CONFLICT", SECRET_NOT_KEPT, undefined, false)
     }
     if (cached) {
       return sendJSON(res, 200, { ok: true, envelope: "v1", kind, data: cached.data, meta: cached.meta })
