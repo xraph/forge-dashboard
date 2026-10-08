@@ -138,9 +138,7 @@ describe("AuthUsersPage", () => {
     // support ticket, without navigating to the detail route.
     expect(screen.getByText("usr_1")).toBeDefined()
     expect(screen.getByText("usr_2")).toBeDefined()
-    expect(screen.getByText("ada@example.com").className).toContain(
-      "font-medium"
-    )
+    expect(screen.getByText("Ada Lovelace").className).toContain("font-medium")
     // The count must show up even though this result fits on a single page,
     // where `CursorPager` itself renders nothing at all.
     expect(screen.getByText("2 of 2")).toBeDefined()
@@ -174,7 +172,9 @@ describe("AuthUsersPage", () => {
       </PluginProvider>
     )
 
-    const detailsLink = await screen.findByRole("link", { name: "Details" })
+    const detailsLink = await screen.findByRole("link", {
+      name: "Ada Lovelace",
+    })
     expect(detailsLink.getAttribute("data-router")).toBe("yes")
     expect(detailsLink.getAttribute("href")).toBe("/users/usr_1")
   })
@@ -344,7 +344,7 @@ describe("AuthUsersPage row actions", () => {
       expect(screen.getByText("ada@example.com")).toBeTruthy()
     )
 
-    fireEvent.click(screen.getByRole("button", { name: "Ban ada@example.com" }))
+    await chooseAction("ada@example.com", "Ban")
     fireEvent.change(screen.getByLabelText("Reason"), {
       target: { value: "spam" },
     })
@@ -369,7 +369,7 @@ describe("AuthUsersPage row actions", () => {
       expect(screen.getByText("ada@example.com")).toBeTruthy()
     )
 
-    fireEvent.click(screen.getByRole("button", { name: "Ban ada@example.com" }))
+    await chooseAction("ada@example.com", "Ban")
     fireEvent.change(screen.getByLabelText("Reason"), {
       target: { value: "spam" },
     })
@@ -388,17 +388,25 @@ describe("AuthUsersPage row actions", () => {
       expect(screen.getByText("ada@example.com")).toBeTruthy()
     )
 
+    fireEvent.click(
+      screen.getByRole("button", { name: "Actions for ada@example.com" })
+    )
     expect(
-      screen.getByRole("button", { name: "Ban ada@example.com" })
+      await screen.findByRole("menuitem", { name: "Ban ada@example.com" })
     ).toBeTruthy()
     expect(
-      screen.queryByRole("button", { name: "Unban ada@example.com" })
+      screen.queryByRole("menuitem", { name: "Unban ada@example.com" })
     ).toBeNull()
+    fireEvent.keyDown(screen.getByRole("menu"), { key: "Escape" })
+    await waitFor(() => expect(screen.queryByRole("menu")).toBeNull())
+    fireEvent.click(
+      screen.getByRole("button", { name: "Actions for grace@example.com" })
+    )
     expect(
-      screen.getByRole("button", { name: "Unban grace@example.com" })
+      await screen.findByRole("menuitem", { name: "Unban grace@example.com" })
     ).toBeTruthy()
     expect(
-      screen.queryByRole("button", { name: "Ban grace@example.com" })
+      screen.queryByRole("menuitem", { name: "Ban grace@example.com" })
     ).toBeNull()
   })
 
@@ -416,13 +424,11 @@ describe("AuthUsersPage row actions", () => {
     // twice in her row (Email column and Name column).
     await waitFor(() =>
       expect(
-        screen.getByRole("button", { name: "Unban grace@example.com" })
+        screen.getByRole("button", { name: "Actions for grace@example.com" })
       ).toBeTruthy()
     )
 
-    fireEvent.click(
-      screen.getByRole("button", { name: "Unban grace@example.com" })
-    )
+    await chooseAction("grace@example.com", "Unban")
 
     await waitFor(() => expect(sent).toHaveLength(1))
     expect(sent[0]).toEqual({ intent: "users.unban", payload: { id: "u2" } })
@@ -439,7 +445,7 @@ describe("AuthUsersPage row actions", () => {
       expect(screen.getByText("ada@example.com")).toBeTruthy()
     )
 
-    fireEvent.click(screen.getByRole("button", { name: "Ban ada@example.com" }))
+    await chooseAction("ada@example.com", "Ban")
     fireEvent.change(screen.getByLabelText("Reason"), {
       target: { value: "spam" },
     })
@@ -466,9 +472,7 @@ describe("AuthUsersPage row actions", () => {
       expect(screen.getByText("ada@example.com")).toBeTruthy()
     )
 
-    fireEvent.click(
-      screen.getByRole("button", { name: "Delete ada@example.com" })
-    )
+    await chooseAction("ada@example.com", "Delete")
     expect(screen.getByText(/Delete ada@example.com\?/)).toBeTruthy()
     expect(sent).toHaveLength(0)
 
@@ -492,9 +496,7 @@ describe("AuthUsersPage row actions", () => {
       expect(screen.getByText("ada@example.com")).toBeTruthy()
     )
 
-    fireEvent.click(
-      screen.getByRole("button", { name: "Delete ada@example.com" })
-    )
+    await chooseAction("ada@example.com", "Delete")
     fireEvent.click(screen.getByRole("button", { name: "Delete" }))
 
     // No `{ hidden: true }` here either, for the same reason as the ban
@@ -524,7 +526,7 @@ describe("AuthUsersPage row actions", () => {
       expect(screen.getByText("ada@example.com")).toBeTruthy()
     )
 
-    fireEvent.click(screen.getByRole("button", { name: "Ban ada@example.com" }))
+    await chooseAction("ada@example.com", "Ban")
     fireEvent.change(screen.getByLabelText("Reason"), {
       target: { value: "spam" },
     })
@@ -574,9 +576,7 @@ describe("AuthUsersPage stale command state across rows", () => {
     )
 
     // Delete ada, let it fail, see the reason.
-    fireEvent.click(
-      screen.getByRole("button", { name: "Delete ada@example.com" })
-    )
+    await chooseAction("ada@example.com", "Delete")
     fireEvent.click(screen.getByRole("button", { name: "Delete" }))
     const failure = await screen.findByRole("alert")
     expect(failure.textContent).toContain("cannot delete the last owner")
@@ -584,9 +584,7 @@ describe("AuthUsersPage stale command state across rows", () => {
     // Back out, then open the same dialog pointed at grace instead.
     fireEvent.click(screen.getByRole("button", { name: "Cancel" }))
     await waitFor(() => expect(screen.queryByRole("alertdialog")).toBeNull())
-    fireEvent.click(
-      screen.getByRole("button", { name: "Delete grace@example.com" })
-    )
+    await chooseAction("grace@example.com", "Delete")
 
     // Grace has not been touched. Ada's failure must not show up here.
     expect(screen.getByText(/Delete grace@example.com\?/)).toBeTruthy()
@@ -610,7 +608,7 @@ describe("AuthUsersPage stale command state across rows", () => {
     )
 
     // Ban ada with a reason and an expiry, let it fail.
-    fireEvent.click(screen.getByRole("button", { name: "Ban ada@example.com" }))
+    await chooseAction("ada@example.com", "Ban")
     fireEvent.change(screen.getByLabelText("Reason"), {
       target: { value: "spam from ada" },
     })
@@ -624,9 +622,7 @@ describe("AuthUsersPage stale command state across rows", () => {
     // Back out, then open the ban dialog on grace instead.
     fireEvent.click(screen.getByRole("button", { name: "Cancel" }))
     await waitFor(() => expect(screen.queryByRole("alertdialog")).toBeNull())
-    fireEvent.click(
-      screen.getByRole("button", { name: "Ban grace@example.com" })
-    )
+    await chooseAction("grace@example.com", "Ban")
 
     // Ada's failure, and what was typed for ada, must not follow into grace's
     // confirmation - an operator confirming this would otherwise be banning
@@ -639,3 +635,10 @@ describe("AuthUsersPage stale command state across rows", () => {
     ).toBe("")
   })
 })
+
+async function chooseAction(email: string, action: string) {
+  fireEvent.click(screen.getByRole("button", { name: `Actions for ${email}` }))
+  fireEvent.click(
+    await screen.findByRole("menuitem", { name: `${action} ${email}` })
+  )
+}

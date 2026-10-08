@@ -1,81 +1,97 @@
-import { useQuery } from "@forge-go/dashboard-plugin"
-import { Badge } from "@forge-go/dashboard-kit/components/badge"
+import { useState } from "react"
+import { PluginLink, useQuery } from "@forge-go/dashboard-plugin"
+import { Input } from "@forge-go/dashboard-kit/components/input"
+import { NoneCell } from "@forge-go/dashboard-kit/components/none-cell"
 import { PageHeader } from "@forge-go/dashboard-kit/components/page-header"
 import { QueryBoundary } from "@forge-go/dashboard-kit/components/query-boundary"
-import {
-  ResourceTable,
-  type Column,
-} from "@forge-go/dashboard-kit/components/resource-table"
-import type { FeatureToggle, FeatureTogglesResponse } from "./features"
+import { ResourceTable, type Column } from "../components/presentation"
 
-const columns: Column<FeatureToggle>[] = [
+interface InstalledPlugin {
+  name: string
+  settingCount: number
+}
+
+interface PluginsListResponse {
+  plugins: InstalledPlugin[]
+}
+
+const columns: Column<InstalledPlugin>[] = [
   {
-    id: "label",
-    header: "Feature",
-    cell: (t) => t.label,
-    className: "font-medium",
-  },
-  {
-    id: "key",
-    header: "Key",
-    cell: (t) => t.key,
-    className: "font-mono text-xs",
-  },
-  {
-    id: "enabled",
-    header: "Status",
-    cell: (t) => (
-      <Badge variant={t.enabled ? "outline" : "secondary"}>
-        {t.enabled ? "on" : "off"}
-      </Badge>
+    id: "name",
+    header: "Extension",
+    cell: (plugin) => (
+      <span className="inline-flex flex-wrap items-center gap-x-2">
+        <span className="font-mono text-xs font-medium">{plugin.name}</span>
+        <span className="text-xs text-muted-foreground sm:hidden">
+          {plugin.settingCount} settings
+        </span>
+      </span>
     ),
+  },
+  {
+    id: "settings",
+    header: "Registered settings",
+    cell: (plugin) => plugin.settingCount,
+    className: "hidden sm:table-cell",
+  },
+  {
+    id: "configure",
+    header: "Configure",
+    cell: (plugin) =>
+      plugin.settingCount > 0 ? (
+        <PluginLink
+          to={`/settings/${plugin.name}`}
+          aria-label={`Open ${plugin.name} settings`}
+          className="text-sm font-medium hover:underline"
+        >
+          Settings
+        </PluginLink>
+      ) : (
+        <NoneCell label="settings" />
+      ),
   },
 ]
 
-/**
- * The page this plan cannot finish, and says so.
- *
- * The legacy templ dashboard listed all twenty-five installed authsome
- * plugins with their status. There is no intent that enumerates installed
- * plugins: the closest this contract offers is `auth.featureToggles`, which
- * covers nine sign-in features and nothing else. `geoip`, `scim`,
- * `riskengine` and the rest have no toggle at all, so there is nothing here
- * for a row about any of them to read.
- *
- * Rendering the nine and staying silent about the other sixteen would answer
- * "where did the rest of my plugins go" with nothing, which is exactly the
- * failure this package refuses to repeat for a disabled feature toggle. So
- * this page carries a visible, readable note instead of a code comment: a
- * `role="status"` element an operator actually encounters on screen, not
- * prose only another developer will ever see.
- */
 export function AuthPluginsPage() {
-  const query = useQuery<FeatureTogglesResponse>("auth.featureToggles")
+  const query = useQuery<PluginsListResponse>("plugins.list")
+  const [filter, setFilter] = useState("")
 
   return (
     <section className="flex flex-col gap-4">
-      <PageHeader title="Plugins" />
-
-      <p
-        role="status"
-        className="rounded-md border px-3 py-2 text-sm text-muted-foreground"
-      >
-        These are the sign-in features this app can turn on, not the full list
-        of installed plugins. The contract has no intent that enumerates
-        installed plugins, so the rest are not shown here. See the retirement
-        notes.
-      </p>
-
-      <QueryBoundary title="Plugins" query={query} skeletonRows={4}>
+      <PageHeader
+        title="Extensions"
+        description="Authsome plugins registered on this server and their configurable settings."
+        actions={
+          <Input
+            aria-label="Filter extensions"
+            placeholder="Filter extensions..."
+            value={filter}
+            onChange={(event) => setFilter(event.target.value)}
+            className="w-56 max-w-full"
+          />
+        }
+      />
+      <QueryBoundary title="Extensions" query={query} skeletonRows={6}>
         {(data) => {
-          const toggles = data.toggles ?? []
+          const plugins = data.plugins ?? []
+          const filtered = plugins.filter((plugin) =>
+            plugin.name.toLowerCase().includes(filter.trim().toLowerCase())
+          )
           return (
-            <ResourceTable<FeatureToggle>
+            <ResourceTable<InstalledPlugin>
               columns={columns}
-              rows={toggles}
-              rowKey={(t) => t.key}
-              caption={`${toggles.length} ${toggles.length === 1 ? "feature" : "features"}`}
-              emptyMessage="No feature toggles reported."
+              rows={filtered}
+              rowKey={(plugin) => plugin.name}
+              caption={
+                filter
+                  ? `${filtered.length} of ${plugins.length} extensions`
+                  : `${plugins.length} ${plugins.length === 1 ? "extension" : "extensions"}`
+              }
+              emptyMessage={
+                filter
+                  ? "No extensions match this filter."
+                  : "No Authsome extensions registered."
+              }
             />
           )
         }}

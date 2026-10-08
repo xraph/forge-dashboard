@@ -1,7 +1,7 @@
 import { defineSubPlugin, useQuery } from "@forge-go/dashboard-plugin"
 import type { PluginPageProps } from "@forge-go/dashboard-plugin"
 import { Badge } from "@forge-go/dashboard-kit/components/badge"
-import { DescriptionList } from "@forge-go/dashboard-kit/components/detail-layout"
+import { DescriptionList } from "../components/presentation"
 import { QueryBoundary } from "@forge-go/dashboard-kit/components/query-boundary"
 import { SETTINGS_INTENTS, settingsPanelFor } from "./settings-panel"
 
@@ -19,7 +19,7 @@ export interface PasswordPolicy {
  * identical panel: two mounts, two identical `settings.namespace` reads, and
  * nothing on screen to say why.
  */
-const PasswordSettingsPanel = settingsPanelFor("password")
+const PasswordSettingsPanel = settingsPanelFor("password", "Password")
 
 /**
  * The policy summary above the settings that set it.
@@ -89,7 +89,12 @@ export const passwordSubPlugin = defineSubPlugin({
   host: "authsome",
   label: "Password",
   nav: [
-    { label: "Password", to: "/auth/password", group: "Auth", priority: 0 },
+    {
+      label: "Password",
+      to: "/auth/password",
+      group: "Authentication",
+      priority: 0,
+    },
   ],
   routes: [{ path: "/auth/password", element: PasswordPolicyPage }],
   // Its own policy read needs nothing from the host. The panel below it does.

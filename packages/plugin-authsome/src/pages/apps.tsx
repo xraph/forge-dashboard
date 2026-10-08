@@ -1,3 +1,4 @@
+import { PageLink } from "../components/presentation"
 import { useState } from "react"
 import { PluginLink, useCommand, useQuery } from "@forge-go/dashboard-plugin"
 import { Badge } from "@forge-go/dashboard-kit/components/badge"
@@ -8,10 +9,7 @@ import {
   CommandAlert,
   QueryBoundary,
 } from "@forge-go/dashboard-kit/components/query-boundary"
-import {
-  ResourceTable,
-  type Column,
-} from "@forge-go/dashboard-kit/components/resource-table"
+import { ResourceTable, type Column } from "../components/presentation"
 import { formatTimestamp } from "@forge-go/dashboard-kit/lib/format"
 import type { AckResponse } from "./users"
 
@@ -85,13 +83,11 @@ export function AuthAppsPage() {
     <section className="flex flex-col gap-4">
       <PageHeader
         title="Apps"
+        description="Applications connected to your authentication service."
         actions={
-          <PluginLink
-            to="/apps/create"
-            className="text-sm underline underline-offset-4"
-          >
+          <PageLink to="/apps/create" primary>
             New app
-          </PluginLink>
+          </PageLink>
         }
       />
 

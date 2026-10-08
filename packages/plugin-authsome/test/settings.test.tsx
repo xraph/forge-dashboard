@@ -1,7 +1,13 @@
 import { describe, expect, it } from "vitest"
-import { fireEvent, screen, waitFor } from "@testing-library/react"
-import { ContractError } from "@forge-go/dashboard-plugin"
+import { fireEvent, render, screen, waitFor } from "@testing-library/react"
+import {
+  PluginProvider,
+  SubPluginProvider,
+  defineSubPlugin,
+  ContractError,
+} from "@forge-go/dashboard-plugin"
 import { flattenCategories, toDescriptors } from "../src/settings-fields"
+import { settingsPanelFor, SETTINGS_INTENTS } from "../src/sub/settings-panel"
 import { AuthSettingsPage } from "../src/pages/settings"
 import { AuthSettingsNamespacePage } from "../src/pages/settings-namespace"
 import { recordingCommandClient, renderPage, stubClient } from "./harness"
@@ -155,7 +161,9 @@ describe("AuthSettingsPage", () => {
   it("lists namespaces and links each one to its own page", async () => {
     const { client } = stubClient({ "settings.namespaces": namespacesAnswer })
     renderPage(AuthSettingsPage, client)
-    await waitFor(() => expect(screen.getByText("Password")).toBeTruthy())
+    await waitFor(() =>
+      expect(screen.getByRole("link", { name: "Password" })).toBeTruthy()
+    )
 
     const link = screen.getByRole("link", { name: "Password" })
     expect(link.getAttribute("href")).toBe("/settings/password")
@@ -170,7 +178,9 @@ describe("AuthSettingsPage", () => {
       },
     })
     renderPage(AuthSettingsPage, client)
-    await waitFor(() => expect(screen.getByText("session")).toBeTruthy())
+    await waitFor(() =>
+      expect(screen.getByRole("link", { name: "session" })).toBeTruthy()
+    )
     expect(screen.getByLabelText("no description")).toBeTruthy()
   })
 })
@@ -442,5 +452,116 @@ describe("AuthSettingsNamespacePage", () => {
       intent: "settings.update",
       payload: { key: "require_special", value: true, scope: "app" },
     })
+  })
+})
+
+describe("settings discovered from the backend", () => {
+  it("opens a namespace with no registered UI contribution", async () => {
+    let namespaceParams: unknown
+    const { client, intents } = stubClient({
+      "settings.namespaces": {
+        namespaces: [
+          {
+            name: "sharedsignals",
+            displayName: "Shared Signals",
+            settingCount: 1,
+          },
+        ],
+      },
+      "settings.namespace": (params?: unknown) => {
+        namespaceParams = params
+        return {
+          namespace: "sharedsignals",
+          displayName: "Shared Signals",
+          scope: "app",
+          categories: [
+            {
+              name: "Shared Signals",
+              settings: [
+                {
+                  ...base,
+                  key: "sharedsignals.signal_ttl_hours",
+                  displayName: "Signal TTL (hours)",
+                  type: "int",
+                  effectiveValue: 24,
+                },
+              ],
+            },
+          ],
+        }
+      },
+    })
+    renderPage(AuthSettingsPage, client)
+    expect(
+      await screen.findByRole("tab", { name: "Shared Signals" })
+    ).toBeTruthy()
+    expect(
+      (
+        (await screen.findByRole("spinbutton", {
+          name: "Signal TTL (hours)",
+        })) as HTMLInputElement
+      ).value
+    ).toBe("24")
+    expect(intents).toContain("settings.namespace")
+    expect(namespaceParams).toEqual({
+      namespace: "sharedsignals",
+      scope: "app",
+    })
+  })
+})
+
+describe("plugin settings navigation", () => {
+  it("loads only visited editors, preserves drafts, and saves through the host client", async () => {
+    const host = recordingCommandClient(
+      {
+        "settings.namespaces": { namespaces: [] },
+        "settings.namespace": namespaceAnswer,
+      },
+      { "settings.update": { ok: true } }
+    )
+    const own = stubClient({})
+    const entries = ["alpha", "beta"].map((name) => ({
+      subPlugin: defineSubPlugin({
+        extension: name,
+        host: "authsome",
+        hostIntents: [...SETTINGS_INTENTS],
+        contributions: {
+          "settings.tabs": [
+            { id: name, label: name, render: settingsPanelFor(name) },
+          ],
+        },
+      }),
+      client: own.client,
+      hostClient: host.client,
+    }))
+    render(
+      <PluginProvider client={host.client}>
+        <SubPluginProvider entries={entries}>
+          <AuthSettingsPage />
+        </SubPluginProvider>
+      </PluginProvider>
+    )
+    const minimum = await screen.findByLabelText("Minimum length")
+    expect(screen.getAllByLabelText("Minimum length")).toHaveLength(1)
+    fireEvent.change(minimum, { target: { value: "18" } })
+    fireEvent.click(screen.getByRole("tab", { name: "beta" }))
+    await waitFor(() =>
+      expect(screen.getAllByLabelText("Minimum length")).toHaveLength(2)
+    )
+    fireEvent.click(screen.getByRole("tab", { name: "alpha" }))
+    expect(
+      (
+        screen.getByRole("spinbutton", {
+          name: "Minimum length",
+        }) as HTMLInputElement
+      ).value
+    ).toBe("18")
+    fireEvent.click(screen.getByRole("button", { name: "Save changes" }))
+    await waitFor(() => expect(host.sent).toHaveLength(1))
+    expect(host.sent[0]).toEqual({
+      intent: "settings.update",
+      payload: { key: "min_length", value: 18, scope: "app" },
+    })
+    expect(own.intents).toHaveLength(0)
   })
 })

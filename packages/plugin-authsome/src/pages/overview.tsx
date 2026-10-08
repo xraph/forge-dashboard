@@ -1,3 +1,4 @@
+import { Panel, PageLink, Identity } from "../components/presentation"
 import {
   PluginLink,
   PluginSlot,
@@ -6,10 +7,7 @@ import {
 } from "@forge-go/dashboard-plugin"
 import { PageHeader } from "@forge-go/dashboard-kit/components/page-header"
 import { QueryBoundary } from "@forge-go/dashboard-kit/components/query-boundary"
-import {
-  ResourceTable,
-  type Column,
-} from "@forge-go/dashboard-kit/components/resource-table"
+import { ResourceTable, type Column } from "../components/presentation"
 import { StatGrid } from "@forge-go/dashboard-kit/components/stat-grid"
 import { formatTimestamp } from "@forge-go/dashboard-kit/lib/format"
 import { displayName, type UserSummary } from "./users"
@@ -29,12 +27,12 @@ export interface RecentSignups {
 
 const columns: Column<UserSummary>[] = [
   {
-    id: "email",
-    header: "Email",
-    cell: (u) => u.email,
-    className: "font-medium",
+    id: "user",
+    header: "User",
+    cell: (u) => (
+      <Identity name={displayName(u)} email={u.email} to={`/users/${u.id}`} />
+    ),
   },
-  { id: "name", header: "Name", cell: (u) => displayName(u) },
   {
     id: "createdAt",
     header: "Created",
@@ -63,7 +61,10 @@ export function AuthOverviewPage() {
 
   return (
     <section className="flex flex-col gap-4">
-      <PageHeader title="Overview" />
+      <PageHeader
+        title="Overview"
+        description="Accounts and authentication activity in the current scope."
+      />
 
       <QueryBoundary title="Overview" query={stats} skeletonRows={1}>
         {(data) => (
@@ -78,28 +79,34 @@ export function AuthOverviewPage() {
         )}
       </QueryBoundary>
 
-      <QueryBoundary title="Recent signups" query={recent} skeletonRows={5}>
-        {(data) => {
-          const users = data.users ?? []
-          return (
-            <ResourceTable<UserSummary>
-              columns={columns}
-              rows={users}
-              rowKey={(u) => u.id}
-              caption={`${users.length} shown`}
-              emptyMessage="No signups yet."
-              rowActions={(user) => (
-                <PluginLink
-                  to={`/users/${user.id}`}
-                  className="text-sm underline underline-offset-4"
-                >
-                  Details
-                </PluginLink>
-              )}
-            />
-          )
-        }}
-      </QueryBoundary>
+      <Panel
+        title="Recent signups"
+        description="The latest accounts created in this scope."
+        actions={<PageLink to="/users">View users</PageLink>}
+      >
+        <QueryBoundary title="Recent signups" query={recent} skeletonRows={5}>
+          {(data) => {
+            const users = data.users ?? []
+            return (
+              <ResourceTable<UserSummary>
+                columns={columns}
+                rows={users}
+                rowKey={(u) => u.id}
+                caption={`${users.length} shown`}
+                emptyMessage="No signups yet."
+                rowActions={(user) => (
+                  <PluginLink
+                    to={`/users/${user.id}`}
+                    className="text-sm underline underline-offset-4"
+                  >
+                    Details
+                  </PluginLink>
+                )}
+              />
+            )
+          }}
+        </QueryBoundary>
+      </Panel>
 
       {widgetCount > 0 && (
         <div className="flex flex-col gap-4">

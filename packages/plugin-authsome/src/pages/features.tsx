@@ -1,3 +1,6 @@
+import { Badge } from "@forge-go/dashboard-kit/components/badge"
+import { EmptyState } from "@forge-go/dashboard-kit/components/empty-state"
+import { Panel } from "../components/presentation"
 import { useState } from "react"
 import { useCommand, useQuery } from "@forge-go/dashboard-plugin"
 import { Label } from "@forge-go/dashboard-kit/components/label"
@@ -80,39 +83,60 @@ export function AuthFeaturesPage() {
         {(data) => {
           const toggles = data.toggles ?? []
           return (
-            <ul className="flex flex-col gap-2">
-              {toggles.map((row) => (
-                <li
-                  key={row.key}
-                  className="flex items-start justify-between gap-4 rounded-md border p-3"
-                >
-                  <div className="flex flex-col gap-0.5">
-                    <Label id={`feature-${row.key}-label`}>{row.label}</Label>
-                    {row.available ? (
-                      row.description && (
+            <Panel
+              title="Sign-in methods"
+              description={`${toggles.filter((row) => row.enabled).length} enabled · ${toggles.length} reported`}
+            >
+              <ul className="divide-y">
+                {toggles.length === 0 && (
+                  <li>
+                    <EmptyState title="No authentication features reported." />
+                  </li>
+                )}
+                {toggles.map((row) => (
+                  <li
+                    key={row.key}
+                    className="flex items-center justify-between gap-6 py-5 first:pt-0 last:pb-0"
+                  >
+                    <div className="flex min-w-0 flex-col gap-2">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <Label id={`feature-${row.key}-label`}>
+                          {row.label}
+                        </Label>
+                        <Badge variant="outline">
+                          {!row.available
+                            ? "Unavailable"
+                            : row.enabled
+                              ? "Enabled"
+                              : "Disabled"}
+                        </Badge>
+                      </div>
+                      {row.available ? (
+                        row.description && (
+                          <p className="text-sm text-muted-foreground">
+                            {row.description}
+                          </p>
+                        )
+                      ) : (
                         <p className="text-sm text-muted-foreground">
-                          {row.description}
+                          Not available
+                          {row.description ? `: ${row.description}` : "."}
                         </p>
-                      )
-                    ) : (
-                      <p className="text-sm text-muted-foreground">
-                        Not available
-                        {row.description ? `: ${row.description}` : "."}
-                      </p>
-                    )}
-                  </div>
-                  <Switch
-                    id={`feature-${row.key}`}
-                    aria-labelledby={`feature-${row.key}-label`}
-                    checked={row.enabled}
-                    disabled={!row.available || toggle.loading}
-                    onCheckedChange={(checked) =>
-                      void handleToggle(row, checked)
-                    }
-                  />
-                </li>
-              ))}
-            </ul>
+                      )}
+                    </div>
+                    <Switch
+                      id={`feature-${row.key}`}
+                      aria-labelledby={`feature-${row.key}-label`}
+                      checked={row.enabled}
+                      disabled={!row.available || toggle.loading}
+                      onCheckedChange={(checked) =>
+                        void handleToggle(row, checked)
+                      }
+                    />
+                  </li>
+                ))}
+              </ul>
+            </Panel>
           )
         }}
       </QueryBoundary>

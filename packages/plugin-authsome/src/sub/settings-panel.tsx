@@ -1,3 +1,4 @@
+import { PageHeader } from "@forge-go/dashboard-kit/components/page-header"
 import type { ComponentType } from "react"
 import { useHostCommand, useHostQuery } from "@forge-go/dashboard-plugin"
 import type { PluginPageProps } from "@forge-go/dashboard-plugin"
@@ -5,7 +6,7 @@ import {
   QueryBoundary,
   CommandAlert,
 } from "@forge-go/dashboard-kit/components/query-boundary"
-import { SettingsForm } from "@forge-go/dashboard-kit/components/settings-form"
+import { SettingsForm } from "../components/presentation"
 import { flattenCategories, toDescriptors } from "../settings-fields"
 import type { SettingsNamespaceResponse } from "../settings-fields"
 
@@ -40,9 +41,10 @@ export const SETTINGS_INTENTS = [
  * but it has to declare the prop to be usable where every other page is.
  */
 export function settingsPanelFor(
-  namespace: string
+  namespace: string,
+  label = namespace
 ): ComponentType<PluginPageProps> {
-  function SettingsPanel() {
+  function SettingsPanel({ params }: PluginPageProps) {
     const query = useHostQuery<SettingsNamespaceResponse>(
       "settings.namespace",
       {
@@ -63,7 +65,13 @@ export function settingsPanelFor(
     }
 
     return (
-      <>
+      <section className="flex min-w-0 flex-col gap-6">
+        {params !== undefined && (
+          <PageHeader
+            title={label}
+            description="Configure this plugin for the selected application."
+          />
+        )}
         <CommandAlert title="Could not save" error={update.error} />
         <QueryBoundary title={namespace} query={query}>
           {(data) => {
@@ -81,7 +89,7 @@ export function settingsPanelFor(
             )
           }}
         </QueryBoundary>
-      </>
+      </section>
     )
   }
 

@@ -39,6 +39,7 @@ export function useCursorStack(): {
 export interface CursorPagerProps {
   /** How many rows are on screen right now. */
   shown: number
+  hideCount?: boolean
   /** The whole result set, when the server bothered to count it. */
   total?: number
   /** The cursor for the next page, or absent when this is the last one. */
@@ -60,6 +61,7 @@ export interface CursorPagerProps {
  */
 export function CursorPager({
   shown,
+  hideCount = false,
   total,
   nextCursor,
   onNext,
@@ -74,7 +76,8 @@ export function CursorPager({
       className="flex items-center justify-between gap-2 text-sm text-muted-foreground"
     >
       <span>
-        {total === undefined ? `${shown} shown` : `${shown} of ${total}`}
+        {!hideCount &&
+          (total === undefined ? `${shown} shown` : `${shown} of ${total}`)}
       </span>
       <span className="flex gap-2">
         <IconButton

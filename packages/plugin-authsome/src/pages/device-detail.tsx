@@ -5,7 +5,7 @@ import { Badge } from "@forge-go/dashboard-kit/components/badge"
 import { Button } from "@forge-go/dashboard-kit/components/button"
 import { ConfirmDialog } from "@forge-go/dashboard-kit/components/confirm-dialog"
 import { PageHeader } from "@forge-go/dashboard-kit/components/page-header"
-import { DescriptionList } from "@forge-go/dashboard-kit/components/detail-layout"
+import { DescriptionList } from "../components/presentation"
 import { NoneCell } from "@forge-go/dashboard-kit/components/none-cell"
 import {
   CommandAlert,

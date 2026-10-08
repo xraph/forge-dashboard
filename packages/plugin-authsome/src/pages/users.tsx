@@ -1,3 +1,10 @@
+import { Identity, PageLink } from "../components/presentation"
+import {
+  DropdownMenu,
+  DropdownMenuTrigger,
+  DropdownMenuContent,
+  DropdownMenuItem,
+} from "@forge-go/dashboard-kit/components/dropdown-menu"
 import { useEffect, useState } from "react"
 import { PluginLink, useCommand, useQuery } from "@forge-go/dashboard-plugin"
 import { Badge } from "@forge-go/dashboard-kit/components/badge"
@@ -11,10 +18,7 @@ import {
   CommandAlert,
   QueryBoundary,
 } from "@forge-go/dashboard-kit/components/query-boundary"
-import {
-  ResourceTable,
-  type Column,
-} from "@forge-go/dashboard-kit/components/resource-table"
+import { ResourceTable, type Column } from "../components/presentation"
 import { formatTimestamp } from "@forge-go/dashboard-kit/lib/format"
 import { CursorPager, useCursorStack } from "../components/cursor-pager"
 
@@ -57,6 +61,7 @@ export function AuthUsersPage() {
   const [searchInput, setSearchInput] = useState("")
   const [search, setSearch] = useState("")
   const page = useCursorStack()
+  const resetPage = page.reset
   const [banning, setBanning] = useState<UserSummary | null>(null)
   const [banReason, setBanReason] = useState("")
   const [banExpiry, setBanExpiry] = useState("")
@@ -71,10 +76,10 @@ export function AuthUsersPage() {
       setSearch(searchInput)
       // A cursor points into the previous result set. Carrying it across a
       // new search returns page two of the old answer.
-      page.reset()
+      resetPage()
     }, 300)
     return () => clearTimeout(timer)
-  }, [searchInput, search, page.reset])
+  }, [searchInput, search, resetPage])
 
   // `email` and `cursor` are left undefined rather than sent empty. The store
   // keys an undefined value the same as an absent one, and the server reads an
@@ -111,21 +116,21 @@ export function AuthUsersPage() {
 
   const columns: Column<UserSummary>[] = [
     {
-      id: "email",
-      header: "Email",
-      cell: (u) => u.email,
-      className: "font-medium",
+      id: "user",
+      header: "User",
+      cell: (u) => (
+        <Identity name={displayName(u)} email={u.email} to={`/users/${u.id}`} />
+      ),
     },
-    { id: "name", header: "Name", cell: (u) => displayName(u) },
     {
       id: "id",
-      header: "ID",
-      cell: (u) => u.id,
-      className: "font-mono text-xs",
+      header: "User ID",
+      cell: (u) => <span title={u.id}>{u.id}</span>,
+      className: "max-w-40 truncate font-mono text-xs text-muted-foreground",
     },
     {
       id: "emailVerified",
-      header: "Verified",
+      header: "Email",
       cell: (u) => (
         <Badge variant={u.emailVerified ? "outline" : "secondary"}>
           {u.emailVerified ? "verified" : "unverified"}
@@ -152,13 +157,11 @@ export function AuthUsersPage() {
     <section className="flex flex-col gap-4">
       <PageHeader
         title="Users"
+        description="Manage accounts, verification, and access to your application."
         actions={
-          <PluginLink
-            to="/users/create"
-            className="underline underline-offset-4"
-          >
+          <PageLink to="/users/create" primary>
             New user
-          </PluginLink>
+          </PageLink>
         }
       />
 
@@ -203,58 +206,67 @@ export function AuthUsersPage() {
                   search ? `No users match “${search}”.` : "No users yet."
                 }
                 rowActions={(user) => (
-                  <>
-                    <PluginLink
-                      to={`/users/${user.id}`}
-                      className="text-sm underline underline-offset-4"
+                  <DropdownMenu>
+                    <DropdownMenuTrigger
+                      render={
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          aria-label={`Actions for ${user.email}`}
+                        />
+                      }
                     >
-                      Details
-                    </PluginLink>
-                    {user.banned ? (
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        aria-label={`Unban ${user.email}`}
-                        disabled={unban.loading}
-                        onClick={() => void unban.execute({ id: user.id })}
+                      <span aria-hidden="true" className="text-lg leading-none">
+                        ⋯
+                      </span>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end" className="w-44">
+                      <DropdownMenuItem
+                        render={
+                          <PluginLink to={`/users/${user.id}`}>
+                            Details
+                          </PluginLink>
+                        }
                       >
-                        Unban
-                      </Button>
-                    ) : (
-                      <Button
+                        Details
+                      </DropdownMenuItem>
+                      {user.banned ? (
+                        <DropdownMenuItem
+                          disabled={unban.loading}
+                          aria-label={`Unban ${user.email}`}
+                          onClick={() => void unban.execute({ id: user.id })}
+                        >
+                          Unban user
+                        </DropdownMenuItem>
+                      ) : (
+                        <DropdownMenuItem
+                          aria-label={`Ban ${user.email}`}
+                          onClick={() => {
+                            ban.reset()
+                            setBanReason("")
+                            setBanExpiry("")
+                            setBanning(user)
+                          }}
+                        >
+                          Ban user
+                        </DropdownMenuItem>
+                      )}
+                      <DropdownMenuItem
                         variant="destructive"
-                        size="sm"
-                        aria-label={`Ban ${user.email}`}
+                        aria-label={`Delete ${user.email}`}
                         onClick={() => {
-                          // Opening the dialog is the moment that matters, not
-                          // closing it: the operator is about to read whatever
-                          // is on screen for THIS row, so any leftover error
-                          // or reason/expiry text from the last row this
-                          // dialog was pointed at has to go now.
-                          ban.reset()
-                          setBanReason("")
-                          setBanExpiry("")
-                          setBanning(user)
+                          remove.reset()
+                          setDeleting(user)
                         }}
                       >
-                        Ban
-                      </Button>
-                    )}
-                    <Button
-                      variant="destructive"
-                      size="sm"
-                      aria-label={`Delete ${user.email}`}
-                      onClick={() => {
-                        remove.reset()
-                        setDeleting(user)
-                      }}
-                    >
-                      Delete
-                    </Button>
-                  </>
+                        Delete user
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
                 )}
               />
               <CursorPager
+                hideCount
                 shown={users.length}
                 total={data.total}
                 // A zero-row page still carrying a `nextCursor` must not

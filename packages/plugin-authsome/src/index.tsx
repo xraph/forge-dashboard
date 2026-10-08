@@ -1,4 +1,5 @@
 import { definePlugin } from "@forge-go/dashboard-plugin"
+import { AuthsomeMark } from "@forge-go/dashboard-kit/components/brand-marks"
 import type { ContextDimension } from "@forge-go/dashboard-plugin"
 import {
   AppWindowIcon,
@@ -9,7 +10,6 @@ import {
   LayersIcon,
   PuzzleIcon,
   SettingsIcon,
-  ShieldIcon,
   SmartphoneIcon,
   ToggleLeftIcon,
   UserCogIcon,
@@ -229,7 +229,7 @@ export const authsomePlugin = definePlugin({
   extension: "authsome",
   namespace: "authsome",
   label: "Authsome",
-  icon: <ShieldIcon />,
+  icon: <AuthsomeMark />,
   auth: {
     intents: {
       config: "auth.config",

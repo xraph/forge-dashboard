@@ -115,22 +115,32 @@ describe("AuthFeaturesPage", () => {
 })
 
 describe("AuthPluginsPage", () => {
-  it("carries a visible, readable note explaining why only the sign-in features are listed", async () => {
-    const { client } = stubClient(toggles)
+  it("lists registered plugins, including those without dashboard contributors", async () => {
+    const { client, intents } = stubClient({
+      "plugins.list": {
+        plugins: [
+          { name: "mfa", settingCount: 4 },
+          { name: "sharedsignals", settingCount: 5 },
+          { name: "passkey", settingCount: 0 },
+        ],
+      },
+    })
     renderPage(AuthPluginsPage, client)
-
-    const note = await screen.findByRole("status")
-    expect(note.textContent).toContain("not the full list of installed plugins")
-    expect(note.textContent).toContain(
-      "The contract has no intent that enumerates installed plugins"
-    )
-  })
-
-  it("still lists the nine feature rows read-only", async () => {
-    const { client } = stubClient(toggles)
-    renderPage(AuthPluginsPage, client)
-    await waitFor(() => expect(screen.getByText("Passwordless")).toBeTruthy())
-    expect(screen.getByText("MFA")).toBeTruthy()
+    await waitFor(() => expect(screen.getByText("sharedsignals")).toBeTruthy())
+    expect(screen.getByText("mfa")).toBeTruthy()
+    expect(screen.getByText("passkey")).toBeTruthy()
+    expect(
+      screen.getAllByRole("link", { name: /Open .* settings/ })
+    ).toHaveLength(2)
+    expect(intents).toContain("plugins.list")
     expect(screen.queryByRole("switch")).toBeNull()
+
+    fireEvent.change(
+      screen.getByRole("textbox", { name: "Filter extensions" }),
+      { target: { value: "shared" } }
+    )
+    expect(screen.getByText("sharedsignals")).toBeTruthy()
+    expect(screen.queryByText("passkey")).toBeNull()
+    expect(screen.getByText("1 of 3 extensions")).toBeTruthy()
   })
 })

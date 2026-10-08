@@ -1,3 +1,4 @@
+import { PageLink } from "../components/presentation"
 import { useCommand, useQuery } from "@forge-go/dashboard-plugin"
 import type { PluginPageProps } from "@forge-go/dashboard-plugin"
 import { PageHeader } from "@forge-go/dashboard-kit/components/page-header"
@@ -5,7 +6,7 @@ import {
   CommandAlert,
   QueryBoundary,
 } from "@forge-go/dashboard-kit/components/query-boundary"
-import { SettingsForm } from "@forge-go/dashboard-kit/components/settings-form"
+import { SettingsForm } from "../components/presentation"
 import { flattenCategories, toDescriptors } from "../settings-fields"
 import type { SettingsNamespaceResponse } from "../settings-fields"
 import type { AckResponse } from "./users"
@@ -22,7 +23,13 @@ export function AuthSettingsNamespacePage({ params }: PluginPageProps) {
   return <SettingsNamespaceBody namespace={namespace} />
 }
 
-function SettingsNamespaceBody({ namespace }: { namespace: string }) {
+export function SettingsNamespaceBody({
+  namespace,
+  embedded = false,
+}: {
+  namespace: string
+  embedded?: boolean
+}) {
   const query = useQuery<SettingsNamespaceResponse>("settings.namespace", {
     namespace,
     scope: "app",
@@ -57,7 +64,13 @@ function SettingsNamespaceBody({ namespace }: { namespace: string }) {
 
           return (
             <>
-              <PageHeader title={data.displayName || namespace} />
+              {!embedded && (
+                <PageHeader
+                  title={data.displayName || namespace}
+                  description="Application settings and inherited policy values."
+                  actions={<PageLink to="/settings">All settings</PageLink>}
+                />
+              )}
               <CommandAlert error={update.error} title="Could not save" />
               <SettingsForm
                 // Remount when the data changes, per the kit consumer notes:

@@ -3,10 +3,7 @@ import { Badge } from "@forge-go/dashboard-kit/components/badge"
 import { NoneCell } from "@forge-go/dashboard-kit/components/none-cell"
 import { PageHeader } from "@forge-go/dashboard-kit/components/page-header"
 import { QueryBoundary } from "@forge-go/dashboard-kit/components/query-boundary"
-import {
-  ResourceTable,
-  type Column,
-} from "@forge-go/dashboard-kit/components/resource-table"
+import { ResourceTable, type Column } from "../components/presentation"
 
 /**
  * `/signup-forms/dynamic`: a read-only view of `auth.dynamicConfig`.

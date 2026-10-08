@@ -1,3 +1,4 @@
+import { Panel, PageLink } from "../components/presentation"
 import { useState } from "react"
 import { PluginLink, useCommand } from "@forge-go/dashboard-plugin"
 import { Button } from "@forge-go/dashboard-kit/components/button"
@@ -36,55 +37,64 @@ export function AuthAppCreatePage() {
   }
 
   return (
-    <section className="flex max-w-xl flex-col gap-4">
+    <section className="flex min-w-0 flex-col gap-6">
       <PageHeader
         title="New app"
         description="Its own users, sessions and environments, isolated from every other app."
       />
-      <CommandAlert error={create.error} title="Could not create the app" />
-      {created !== null && (
-        <p role="status" className="rounded-md border px-3 py-2 text-sm">
-          App created.{" "}
-          {created && (
-            <PluginLink
-              to={`/apps/${created}`}
-              className="underline underline-offset-4"
-            >
-              Open it
-            </PluginLink>
+      <Panel title="Application details" className="max-w-3xl">
+        <div className="flex flex-col gap-5">
+          <CommandAlert error={create.error} title="Could not create the app" />
+          {created !== null && (
+            <p role="status" className="rounded-md border px-3 py-2 text-sm">
+              App created.{" "}
+              {created && (
+                <PluginLink
+                  to={`/apps/${created}`}
+                  className="underline underline-offset-4"
+                >
+                  Open it
+                </PluginLink>
+              )}
+            </p>
           )}
-        </p>
-      )}
-      <div className="flex flex-col gap-1.5">
-        <Label htmlFor="new-app-name">Name</Label>
-        <Input
-          id="new-app-name"
-          value={name}
-          onChange={(e) => setName(e.target.value)}
-        />
-      </div>
-      <div className="flex flex-col gap-1.5">
-        <Label htmlFor="new-app-slug">Slug</Label>
-        <Input
-          id="new-app-slug"
-          value={slug}
-          onChange={(e) => setSlug(e.target.value)}
-        />
-      </div>
-      <div className="flex flex-col gap-1.5">
-        <Label htmlFor="new-app-logo">Logo</Label>
-        <Input
-          id="new-app-logo"
-          value={logo}
-          onChange={(e) => setLogo(e.target.value)}
-        />
-      </div>
-      <Button
-        onClick={() => void submit()}
-        disabled={create.loading || name.trim() === "" || slug.trim() === ""}
-      >
-        {create.loading ? "Creating…" : "Create app"}
-      </Button>
+          <div className="flex flex-col gap-1.5">
+            <Label htmlFor="new-app-name">Name</Label>
+            <Input
+              id="new-app-name"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+            />
+          </div>
+          <div className="flex flex-col gap-1.5">
+            <Label htmlFor="new-app-slug">Slug</Label>
+            <Input
+              id="new-app-slug"
+              value={slug}
+              onChange={(e) => setSlug(e.target.value)}
+            />
+          </div>
+          <div className="flex flex-col gap-1.5">
+            <Label htmlFor="new-app-logo">Logo</Label>
+            <Input
+              id="new-app-logo"
+              value={logo}
+              onChange={(e) => setLogo(e.target.value)}
+            />
+          </div>
+          <div className="flex items-center gap-2 border-t pt-5">
+            <Button
+              onClick={() => void submit()}
+              disabled={
+                create.loading || name.trim() === "" || slug.trim() === ""
+              }
+            >
+              {create.loading ? "Creating…" : "Create app"}
+            </Button>
+            <PageLink to="/apps">Cancel</PageLink>
+          </div>
+        </div>
+      </Panel>
     </section>
   )
 }

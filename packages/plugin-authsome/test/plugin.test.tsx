@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest"
 import { screen } from "@testing-library/react"
+import { AuthsomeMark } from "@forge-go/dashboard-kit/components/brand-marks"
 import { resolvePluginState } from "@forge-go/dashboard-plugin"
 import type { Capabilities } from "@forge-go/dashboard-plugin"
 import authsomePlugin, { authsomePlugin as named } from "../src/index"
@@ -24,6 +25,10 @@ function capabilities(
 }
 
 describe("authsomePlugin", () => {
+  it("uses the Authsome name and mark in the scope switcher", () => {
+    expect(authsomePlugin.label).toBe("Authsome")
+    expect(authsomePlugin.icon).toMatchObject({ type: AuthsomeMark })
+  })
   it("is the default export as well as a named one", () => {
     expect(authsomePlugin).toBe(named)
   })
@@ -148,6 +153,9 @@ describe("authsomePlugin", () => {
       "auth.featureToggles": {
         toggles: [{ key: "mfa", label: "MFA", enabled: true, available: true }],
       },
+      "plugins.list": {
+        plugins: [{ name: "mfa", settingCount: 4 }],
+      },
       "roles.list": {
         roles: [
           {
@@ -231,7 +239,7 @@ describe("authsomePlugin", () => {
       "/environments": "Production",
       "/environments/:id": "No environment selected.",
       "/features": "MFA",
-      "/plugins": "MFA",
+      "/plugins": "mfa",
       "/roles": "Admin",
       "/roles/:id": "No role selected.",
       "/sessions": "ses_1",
@@ -250,8 +258,12 @@ describe("authsomePlugin", () => {
     for (const route of authsomePlugin.routes) {
       const { client } = stubClient(queries)
       const { unmount } = renderPage(route.element, client)
+      const found =
+        route.path === "/settings"
+          ? await screen.findByRole("link", { name: expected[route.path] })
+          : await screen.findByText(expected[route.path])
       expect(
-        await screen.findByText(expected[route.path]),
+        found,
         `route "${route.path}" did not render the expected text`
       ).toBeDefined()
       unmount()

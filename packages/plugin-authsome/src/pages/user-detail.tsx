@@ -1,3 +1,4 @@
+import { Panel, PageLink } from "../components/presentation"
 import { useState } from "react"
 import {
   PluginSlot,
@@ -12,19 +13,13 @@ import { Input } from "@forge-go/dashboard-kit/components/input"
 import { Label } from "@forge-go/dashboard-kit/components/label"
 import { Switch } from "@forge-go/dashboard-kit/components/switch"
 import { PageHeader } from "@forge-go/dashboard-kit/components/page-header"
-import {
-  DescriptionList,
-  DetailLayout,
-} from "@forge-go/dashboard-kit/components/detail-layout"
+import { DescriptionList, DetailLayout } from "../components/presentation"
 import { NoneCell } from "@forge-go/dashboard-kit/components/none-cell"
 import {
   CommandAlert,
   QueryBoundary,
 } from "@forge-go/dashboard-kit/components/query-boundary"
-import {
-  ResourceTable,
-  type Column,
-} from "@forge-go/dashboard-kit/components/resource-table"
+import { ResourceTable, type Column } from "../components/presentation"
 import { Timestamp } from "@forge-go/dashboard-kit/components/timestamp"
 import { formatTimestamp } from "@forge-go/dashboard-kit/lib/format"
 import { displayName, type AckResponse, type UserSummary } from "./users"
@@ -180,7 +175,7 @@ function EditUser({ user }: { user: UserDetail }) {
   const dirty = Object.keys(changed).length > 1
 
   return (
-    <div className="flex flex-col gap-3 rounded-md border p-4">
+    <div className="flex flex-col gap-4 rounded-md border bg-card p-5">
       <h2 className="text-sm font-medium">Edit</h2>
       <CommandAlert error={update.error} title="Could not save" />
       <div className="flex flex-col gap-1.5">
@@ -255,7 +250,11 @@ function UserDetailBody({ userId }: { userId: string }) {
       <QueryBoundary title="User" query={query} skeletonRows={3}>
         {(user) => (
           <>
-            <PageHeader title={displayName(user)} description={user.email} />
+            <PageHeader
+              title={displayName(user)}
+              description={user.email}
+              actions={<PageLink to="/users">All users</PageLink>}
+            />
             <DetailLayout
               main={
                 <>
@@ -322,8 +321,12 @@ function UserDetailBody({ userId }: { userId: string }) {
                       },
                     ]}
                   />
-                  <UserSessions userId={userId} />
-                  <UserDevices userId={userId} />
+                  <Panel title="Sessions">
+                    <UserSessions userId={userId} />
+                  </Panel>
+                  <Panel title="Devices">
+                    <UserDevices userId={userId} />
+                  </Panel>
                   {/*
                     Where the MFA, consent and social sub-plugins put their
                     per-user panels. The heading is conditional because

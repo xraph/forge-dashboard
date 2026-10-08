@@ -29,15 +29,15 @@ function capabilities(names: string[]): Capabilities {
   }
 }
 
-describe("the eighteen settings-only sub-plugins", () => {
-  it("declares all eighteen, with unique routes and unique extensions", () => {
-    expect(settingsOnlySubPlugins).toHaveLength(18)
+describe("the seventeen settings-only sub-plugins", () => {
+  it("declares all seventeen, with unique routes and unique extensions", () => {
+    expect(settingsOnlySubPlugins).toHaveLength(17)
     const routes = settingsOnlySubPlugins.flatMap((s) =>
       s.routes.map((r) => r.path)
     )
     expect(new Set(routes).size).toBe(routes.length)
     const extensions = settingsOnlySubPlugins.map((s) => s.extension)
-    expect(new Set(extensions).size).toBe(18)
+    expect(new Set(extensions).size).toBe(17)
   })
 
   it("mounts every one inside authsome, and never inside itself", () => {

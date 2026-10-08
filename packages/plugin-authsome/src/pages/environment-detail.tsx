@@ -9,10 +9,7 @@ import { Label } from "@forge-go/dashboard-kit/components/label"
 import { NoneCell } from "@forge-go/dashboard-kit/components/none-cell"
 import { Textarea } from "@forge-go/dashboard-kit/components/textarea"
 import { PageHeader } from "@forge-go/dashboard-kit/components/page-header"
-import {
-  DescriptionList,
-  DetailLayout,
-} from "@forge-go/dashboard-kit/components/detail-layout"
+import { DescriptionList, DetailLayout } from "../components/presentation"
 import {
   CommandAlert,
   QueryBoundary,

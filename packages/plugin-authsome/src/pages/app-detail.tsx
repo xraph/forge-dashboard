@@ -8,10 +8,7 @@ import { Input } from "@forge-go/dashboard-kit/components/input"
 import { Label } from "@forge-go/dashboard-kit/components/label"
 import { NoneCell } from "@forge-go/dashboard-kit/components/none-cell"
 import { PageHeader } from "@forge-go/dashboard-kit/components/page-header"
-import {
-  DescriptionList,
-  DetailLayout,
-} from "@forge-go/dashboard-kit/components/detail-layout"
+import { DescriptionList, DetailLayout } from "../components/presentation"
 import {
   CommandAlert,
   QueryBoundary,
@@ -55,7 +52,8 @@ function PublishableKey({ value }: { value: string }) {
 
   async function copy() {
     try {
-      await navigator.clipboard?.writeText(value)
+      if (!navigator.clipboard) return
+      await navigator.clipboard.writeText(value)
       setCopied(true)
       setTimeout(() => setCopied(false), 1500)
     } catch {
@@ -64,8 +62,10 @@ function PublishableKey({ value }: { value: string }) {
   }
 
   return (
-    <span className="flex items-center gap-2">
-      <span className="font-mono text-xs">{value}</span>
+    <span className="flex flex-wrap items-center gap-3">
+      <code className="min-w-0 rounded border bg-muted/40 px-3 py-2 text-xs break-all">
+        {value}
+      </code>
       <Button
         variant="outline"
         size="xs"

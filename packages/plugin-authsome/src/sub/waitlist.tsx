@@ -16,10 +16,7 @@ import {
   CommandAlert,
   QueryBoundary,
 } from "@forge-go/dashboard-kit/components/query-boundary"
-import {
-  ResourceTable,
-  type Column,
-} from "@forge-go/dashboard-kit/components/resource-table"
+import { ResourceTable, type Column } from "../components/presentation"
 import { StatGrid } from "@forge-go/dashboard-kit/components/stat-grid"
 import { formatTimestamp } from "@forge-go/dashboard-kit/lib/format"
 import { CursorPager, useCursorStack } from "../components/cursor-pager"

@@ -1,6 +1,19 @@
 import { defineSubPlugin } from "@forge-go/dashboard-plugin"
 import type { ForgeSubPlugin } from "@forge-go/dashboard-plugin"
+import {
+  FingerprintIcon,
+  MapPinIcon,
+  NetworkIcon,
+  ShieldAlertIcon,
+} from "@forge-go/dashboard-kit/icons"
 import { SETTINGS_INTENTS, settingsPanelFor } from "./settings-panel"
+
+const NAV_CLUSTERS = {
+  detection: { label: "Threat detection", icon: <ShieldAlertIcon /> },
+  location: { label: "Location security", icon: <MapPinIcon /> },
+  passwordless: { label: "Passwordless", icon: <FingerprintIcon /> },
+  federation: { label: "Federation", icon: <NetworkIcon /> },
+} as const
 
 interface SettingsOnlyRow {
   /** The Go contributor name. Decides whether any of this renders. */
@@ -13,6 +26,7 @@ interface SettingsOnlyRow {
   priority: number
   /** Short label for the settings tab, where the full name does not fit. */
   tab: string
+  cluster?: keyof typeof NAV_CLUSTERS
 }
 
 /**
@@ -32,6 +46,7 @@ export const SETTINGS_ONLY: SettingsOnlyRow[] = [
     group: "Security",
     priority: 0,
     tab: "Risk",
+    cluster: "detection",
   },
   {
     extension: "anomaly",
@@ -41,6 +56,7 @@ export const SETTINGS_ONLY: SettingsOnlyRow[] = [
     group: "Security",
     priority: 1,
     tab: "Anomaly",
+    cluster: "detection",
   },
   {
     extension: "geoip",
@@ -50,6 +66,7 @@ export const SETTINGS_ONLY: SettingsOnlyRow[] = [
     group: "Security",
     priority: 2,
     tab: "Geo IP",
+    cluster: "location",
   },
   {
     extension: "geofence",
@@ -59,6 +76,7 @@ export const SETTINGS_ONLY: SettingsOnlyRow[] = [
     group: "Security",
     priority: 3,
     tab: "Geofencing",
+    cluster: "location",
   },
   {
     extension: "impossibletravel",
@@ -68,6 +86,7 @@ export const SETTINGS_ONLY: SettingsOnlyRow[] = [
     group: "Security",
     priority: 4,
     tab: "Impossible Travel",
+    cluster: "detection",
   },
   {
     extension: "ipreputation",
@@ -77,6 +96,7 @@ export const SETTINGS_ONLY: SettingsOnlyRow[] = [
     group: "Security",
     priority: 5,
     tab: "IP Reputation",
+    cluster: "detection",
   },
   {
     extension: "vpndetect",
@@ -86,6 +106,7 @@ export const SETTINGS_ONLY: SettingsOnlyRow[] = [
     group: "Security",
     priority: 6,
     tab: "VPN",
+    cluster: "detection",
   },
   {
     extension: "deviceverify",
@@ -101,7 +122,7 @@ export const SETTINGS_ONLY: SettingsOnlyRow[] = [
     namespace: "email",
     label: "Email",
     route: "/auth/email",
-    group: "Auth",
+    group: "Authentication",
     priority: 1,
     tab: "Email",
   },
@@ -110,7 +131,7 @@ export const SETTINGS_ONLY: SettingsOnlyRow[] = [
     namespace: "phone",
     label: "Phone",
     route: "/auth/phone",
-    group: "Auth",
+    group: "Authentication",
     priority: 2,
     tab: "Phone",
   },
@@ -119,16 +140,17 @@ export const SETTINGS_ONLY: SettingsOnlyRow[] = [
     namespace: "magiclink",
     label: "Magic Link",
     route: "/auth/magiclink",
-    group: "Auth",
+    group: "Authentication",
     priority: 3,
     tab: "Magic Link",
+    cluster: "passwordless",
   },
   {
     extension: "mfa",
     namespace: "mfa",
     label: "MFA",
     route: "/auth/mfa",
-    group: "Auth",
+    group: "Authentication",
     priority: 4,
     tab: "MFA",
   },
@@ -137,27 +159,30 @@ export const SETTINGS_ONLY: SettingsOnlyRow[] = [
     namespace: "passkey",
     label: "Passkey",
     route: "/auth/passkeys",
-    group: "Auth",
+    group: "Authentication",
     priority: 5,
     tab: "Passkeys",
+    cluster: "passwordless",
   },
   {
     extension: "social",
     namespace: "social",
     label: "Social",
     route: "/auth/social",
-    group: "Auth",
+    group: "Authentication",
     priority: 6,
     tab: "Social",
+    cluster: "federation",
   },
   {
     extension: "oauth2provider",
     namespace: "oauth2provider",
     label: "OAuth2 Provider",
     route: "/auth/oauth2",
-    group: "Auth",
+    group: "Authentication",
     priority: 7,
     tab: "OAuth2",
+    cluster: "federation",
   },
   {
     extension: "scim",
@@ -177,15 +202,6 @@ export const SETTINGS_ONLY: SettingsOnlyRow[] = [
     priority: 1,
     tab: "SSO",
   },
-  {
-    extension: "notification",
-    namespace: "notification",
-    label: "Notification",
-    route: "/notifications",
-    group: "Configuration",
-    priority: 3,
-    tab: "Notifications",
-  },
 ]
 
 /**
@@ -199,7 +215,7 @@ export const SETTINGS_ONLY: SettingsOnlyRow[] = [
  */
 export const settingsOnlySubPlugins: ForgeSubPlugin[] = SETTINGS_ONLY.map(
   (row) => {
-    const Panel = settingsPanelFor(row.namespace)
+    const Panel = settingsPanelFor(row.namespace, row.label)
     return defineSubPlugin({
       extension: row.extension,
       host: "authsome",
@@ -210,6 +226,7 @@ export const settingsOnlySubPlugins: ForgeSubPlugin[] = SETTINGS_ONLY.map(
           to: row.route,
           group: row.group,
           priority: row.priority,
+          cluster: row.cluster ? NAV_CLUSTERS[row.cluster] : undefined,
         },
       ],
       routes: [{ path: row.route, element: Panel }],
