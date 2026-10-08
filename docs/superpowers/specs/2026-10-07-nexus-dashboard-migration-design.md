@@ -1291,3 +1291,35 @@ such as February 30 by normalization, while Go rejects them. This does not chang
 the production parser. Installed-host authorization and durable distributed
 idempotency remain deployment checks. The original `dataviz` skill is unavailable;
 Slice 6 records the replacement chart guidance before implementing charts.
+
+## What slice 6 found that slice 7 must know
+
+Tenant forms now preserve untouched nested settings, express no-limit values and
+show stored-but-unenforced routing and guard configuration. Key creation and
+rotation hold their request identity through uncertain outcomes, keep the reveal
+mounted during read invalidation and clear the command hook's secret result.
+Revocation and status errors stay in their confirmation dialogs.
+
+Usage imports two column charts lazily. Geometry is approximate; the peak, tooltip
+and table preserve exact money strings. Unrenderable ranges show the exact table.
+Previous labelled usage remains visible at reduced opacity during filter reads.
+
+Verification passed 54 Nexus tests, typecheck and lint, eight fixture tests,
+18 HTTP intents and 12 spot checks. All 12 routes were rendered at desktop and
+narrow widths. Browser writes covered tenant create/edit/status, global and tenant
+key creation, immediate rotation/revocation, guarded reveals, copy fallback and
+in-dialog retry. Charts passed tooltip/table, delayed scope, empty and collection-off
+checks. The updated timestamp and explicit Never values close the legacy parity
+items identified in the inventory.
+
+Workspace typecheck passed all 27 packages. The repeated test run passed 25 of 26
+packages; the host's eight untracked setup-screen failures remain unrelated. The
+Next production build and shell Vite bundle passed. The shell's combined build is
+still blocked by the concurrent design preview's two type errors. Full fixture
+verification retains 49 Shield failures and no Nexus failures. BASELINE records
+bundle sizes, browser artifacts and the exact qualification limits.
+
+The final Slice 6 review is pending. Once its gate is clear, use the inventory in
+Nexus's `MIGRATION.md` to retire the disconnected templ directory and tidy modules.
+Forge is already v1.12.3. Keep deployed authentication, provider credentials and
+durable shared idempotency explicitly unqualified by these local fixture checks.

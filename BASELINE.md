@@ -847,3 +847,31 @@ All 54 Nexus React tests, package typecheck and lint passed after package format
 The source import-graph regression confirms only Usage reaches chart modules; a
 separate source check rejects numeric decimal coercion outside chart adapters.
 Browser write and chart verification is recorded after the final interaction pass.
+
+Browser verification used fresh fixture state on ports 8198/5198, plus the
+collection-off fixture on 8197/5197. All 12 routes rendered at 1440 by 1000 and
+390 by 844 without page overflow. Wide tables retain their own scroll area.
+Tenant create/edit and all status transitions persisted. Global and tenant key
+creation, immediate rotation and revocation updated subsequent reads. Both reveal
+flows resisted Escape/backdrop dismissal, guarded unload and required storage
+acknowledgement. A clipboard failure selected the key for manual copying; masked
+screenshots keep fixture secrets out of artifacts. A forced revoke failure stayed
+inside its dialog and succeeded on retry. Exact tooltip/table values, delayed
+scope retention, empty usage and collection-off states were checked in-browser.
+Captures and safe boolean results are in `output/playwright/nexus-slice6/`.
+
+The full workspace typecheck passed 27 packages. The repeated workspace test run
+passed 25 of 26 packages, including all 54 Nexus tests; eight failures remain in
+an unrelated untracked host `setup-screen.test.tsx`. The first full run exposed a
+one-second lazy-import assertion timeout under concurrent load; its wait now
+allows ten seconds while retaining the same route assertions. Composed Nexus
+link actions now declare their non-button element to Base UI.
+
+All 18 Nexus HTTP intents and 12 spot checks passed. The full fixture verifier
+passed 419 calls and retained 49 Shield failures, with no Nexus failures. The
+Next production build passed (admin route 210 kB, first load 312 kB). The shell
+Vite bundle passed; its combined TypeScript/build command remains blocked by the
+unrelated preview's unsupported `scopes` prop and implicit callback `id` type.
+Browser console findings were missing unrelated contributors, favicon 404 and
+the deliberately injected revoke 503. These checks don't qualify installed
+permissions, provider credentials or a deployment's durable idempotency store.
