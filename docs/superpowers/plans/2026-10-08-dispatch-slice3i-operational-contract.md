@@ -10,6 +10,33 @@
 
 **Spec:** ../specs/2026-10-07-dispatch-dashboard-migration-design.md
 
+## Execution result
+
+Completed tasks 1-3 natively and committed through backend 982899e. All eight
+intents are registered. Handler and engine tests preserve declared/effective
+settings, nullable remote values, detached data and private configuration.
+Workers, queues and overview pass on memory, SQLite, PostgreSQL 16, Redis 7 and
+MongoDB 7 under race, with no skips. All eight HTTP queries pass.
+
+The SQLite prerequisite first failed on scalar scanning, then on lease expiry.
+Its model reads and parsed timestamps repaired those failures. The final fresh
+review found P1 concurrent leadership: the existing partial index is not unique.
+The regression observed five successful claims and five leader rows. A conditional
+database claim plus the existing bounded busy retry now produces one winner and
+one leader row for 24 simultaneous contenders, both with no leader and after an
+expired lease. Ambiguous legacy leader rows return an error. This was the one
+review fix pass; no second review was requested.
+
+Final build and unit checks pass: 45 packages, 2058 tests/subtests, the known Trove
+memory range skip and two packages without tests. Full engine/extension/SQLite
+race checks pass. Ordinary full lint before the review fix, affected SQLite lint
+after the fix, and integration contract lint pass. The earlier clean contract
+race and real container results remain valid; the review fix changed only SQLite.
+
+Artifacts, the React plugin, stateful fixtures, real browser verification, a
+committed dependency baseline and templ retirement remain pending. This slice
+does not establish fleet health, remote resource visibility or browser parity.
+
 ## Constraints and rulings
 
 - Work on main in the primary checkouts. Preserve concurrent module and dashboard changes. Commit owned paths after relevant checks; do not push.
@@ -827,9 +854,26 @@ query("overview.summary", overviewSummaryHandler(deps)),
 
 ## Final verification and review
 
+### Execution addition: SQLite leadership scan
+
+The first operational test failed while acquiring a SQLite leader: Grove rejects
+a scalar string destination. Add store/sqlite/leadership_test.go to cover first
+claim, repeat claim, active competition and replacement after expiry. Replace the
+scalar ID projection in AcquireLeadership with the same full workerModel scan
+already used by PostgreSQL. Preserve the existing claim and expiry behavior.
+Run the new regression under race, then the operational contract test. Commit
+this prerequisite separately; include it in the final slice review.
+
+The same test then exposed expiry comparisons between RFC 3339 worker lease
+text and Grove's different bound-time format. Read the unique leader row as a
+model and compare parsed instants in Go. Clear an expired lease only if its
+observed expiry is unchanged, so a concurrent renewal is preserved. GetLeader
+must return nil for an expired lease and report malformed expiry as an error.
+No timestamp schema or existing writer format changes are needed.
+
+
 - [ ] Run go build ./..., go test ./..., go test -race ./engine ./extension/... and ordinary golangci-lint with --allow-serial-runners.
 - [ ] Run integration-tag lint for extension/contract; this slice must introduce no findings.
 - [ ] Generate one final review package and ask one fresh read-only gpt-6-astra reviewer to inspect this plan and the complete slice diff. No implementation delegation or nested agents.
 - [ ] Fix consequential findings in one tested pass, without a second review loop.
 - [ ] Record results and remaining browser, artifact, dependency-baseline and templ retirement gates in this plan, its ledger and backend MIGRATION.md.
-
