@@ -5757,7 +5757,9 @@ export const DocumentDetailPage: ComponentType<PluginPageProps> = ({ params }) =
   }
 
   return (
-    <QueryBoundary title="Document" query={document} skeletonRows={8}>
+    // keepPreviousData: the delete dialog lives inside, and a refetch (a tab
+    // regaining focus) must not swap in the skeleton and unmount it.
+    <QueryBoundary title="Document" query={document} skeletonRows={8} keepPreviousData>
       {(d) => (
         <section className="flex flex-col gap-6">
           <PageHeader
